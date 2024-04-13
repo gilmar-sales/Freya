@@ -94,6 +94,6 @@ endif()
 
 file(COPY Shaders DESTINATION ${CMAKE_BINARY_DIR})
 
-add_subdirectory(Thirdparty/SDL)
-add_subdirectory(Thirdparty/glm)
-add_subdirectory(Thirdparty/assimp)
+add_subdirectory(ThirdParty/SDL)
+add_subdirectory(ThirdParty/glm)
+add_subdirectory(ThirdParty/assimp)
