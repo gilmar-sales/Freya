@@ -8,6 +8,11 @@
 #include "RenderPass.hpp"
 #include "Surface.hpp"
 #include "SwapChain.hpp"
+#include "Factories/MeshPoolFactory.hpp"
+
+#include <glm/ext/matrix_clip_space.hpp>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/glm.hpp>
 
 namespace FREYA_NAMESPACE
 {
@@ -45,10 +50,7 @@ namespace FREYA_NAMESPACE
             mRenderFinishedSemaphores(renderFinishedSemaphores),
             mInFlightFences(inFlightFences), mVSync(vSync), mSamples(samples), mCurrentFrameIndex(0)
         {
-            mMeshPool =
-                std::make_shared<MeshPool>(mDevice, mPhysicalDevice, mCommandPool);
-
-            InitMeshes();
+            mMeshPool = std::make_shared<MeshPool>(mDevice, mPhysicalDevice, mCommandPool);
         }
 
         ~Renderer();
@@ -57,7 +59,7 @@ namespace FREYA_NAMESPACE
 
         void BeginFrame();
 
-        void Draw();
+        void Draw(const unsigned& meshId);
 
         void EndFrame();
 
@@ -65,9 +67,13 @@ namespace FREYA_NAMESPACE
         void SetVSync(bool vSync);
         void SetSamples(vk::SampleCountFlagBits samples);
 
+
+        void ClearProjection();
         void UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer);
 
         std::shared_ptr<MeshPool> GetMeshPool() { return mMeshPool; }
+
+        std::shared_ptr<MeshPoolFactory> GetMeshPoolFactory();
 
       private:
         std::shared_ptr<Instance>       mInstance;

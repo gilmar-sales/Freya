@@ -2,24 +2,27 @@
 
 #include "Core/Renderer.hpp"
 
+#include "Builders/InstanceBuilder.hpp"
+
 #include <SDL_video.h>
+
 
 namespace FREYA_NAMESPACE
 {
-    class Instance;
+    class InstanceBuilder;
 
     class RendererBuilder
     {
       public:
         RendererBuilder()
-            : mInstance(nullptr), mWindow(nullptr), mWidth(1280), mHeight(720),
+            : mInstanceBuilder(InstanceBuilder()), mWindow(nullptr), mWidth(1280), mHeight(720),
               mVSync(true), mFrameCount(4), mSamples(vk::SampleCountFlagBits::e1)
         {
         }
 
-        RendererBuilder &SetInstance(std::shared_ptr<Instance> instance)
+        RendererBuilder &WithInstance(std::function<void(InstanceBuilder&)> instanceBuilderFunc)
         {
-            mInstance = instance;
+            instanceBuilderFunc(mInstanceBuilder);
             return *this;
         }
 
@@ -62,7 +65,7 @@ namespace FREYA_NAMESPACE
         std::shared_ptr<Renderer> Build();
 
       private:
-        std::shared_ptr<Instance> mInstance;
+        InstanceBuilder mInstanceBuilder;
 
         SDL_Window *mWindow;
         std::uint32_t mWidth;
