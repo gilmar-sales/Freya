@@ -269,9 +269,4 @@ namespace FREYA_NAMESPACE
         mDevice->Get().waitIdle();
     }
 
-    void Renderer::Draw(const unsigned& meshId)
-    {
-        mMeshPool->Draw(meshId);
-    }
-
 } // namespace FREYA_NAMESPACE

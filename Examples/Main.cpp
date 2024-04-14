@@ -19,7 +19,7 @@ class MainApp : public fra::AbstractApplication
 
         for (const auto& mesh : red_ship_meshes)
         {
-            mRenderer->Draw(mesh);
+            mMeshPool->Draw(mesh);
         }
     }
 

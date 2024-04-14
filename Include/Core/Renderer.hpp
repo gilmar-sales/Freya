@@ -50,7 +50,6 @@ namespace FREYA_NAMESPACE
             mRenderFinishedSemaphores(renderFinishedSemaphores),
             mInFlightFences(inFlightFences), mVSync(vSync), mSamples(samples), mCurrentFrameIndex(0)
         {
-            mMeshPool = std::make_shared<MeshPool>(mDevice, mPhysicalDevice, mCommandPool);
         }
 
         ~Renderer();
@@ -58,8 +57,6 @@ namespace FREYA_NAMESPACE
         void InitMeshes();
 
         void BeginFrame();
-
-        void Draw(const unsigned& meshId);
 
         void EndFrame();
 
@@ -71,8 +68,6 @@ namespace FREYA_NAMESPACE
         void ClearProjection();
         void UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer);
 
-        std::shared_ptr<MeshPool> GetMeshPool() { return mMeshPool; }
-
         std::shared_ptr<MeshPoolFactory> GetMeshPoolFactory();
 
       private:
@@ -83,7 +78,6 @@ namespace FREYA_NAMESPACE
         std::shared_ptr<SwapChain>      mSwapChain;
         std::shared_ptr<RenderPass>     mRenderPass;
         std::shared_ptr<CommandPool>    mCommandPool;
-        std::shared_ptr<MeshPool>       mMeshPool;
 
         std::vector<vk::Semaphore> mImageAvailableSemaphores;
         std::vector<vk::Semaphore> mRenderFinishedSemaphores;

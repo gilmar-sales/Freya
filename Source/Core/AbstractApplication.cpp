@@ -8,12 +8,12 @@ namespace FREYA_NAMESPACE
 
         while(mWindow->isRunning())
         {
-        mRenderer->BeginFrame();
+            mRenderer->BeginFrame();
 
-        mWindow->Update();
-        Update();
+            mWindow->Update();
+            Update();
 
-        mRenderer->EndFrame();
+            mRenderer->EndFrame();
         }
     }
 } // namespace FREYA_NAMESPACE
