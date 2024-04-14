@@ -5,6 +5,8 @@
 #include <mutex>
 #include <vector>
 
+#include "Asset/Mesh.hpp"
+
 namespace FREYA_NAMESPACE
 {
     class MeshSet

@@ -1,8 +1,7 @@
 #pragma once
 
-#include "Asset/Mesh.hpp"
 #include "Asset/Vertex.hpp"
-#include "Containers/SparseSet.hpp"
+#include "Containers/MeshSet.hpp"
 #include "Core/Buffer.hpp"
 #include "Core/CommandPool.hpp"
 #include "Core/Device.hpp"
