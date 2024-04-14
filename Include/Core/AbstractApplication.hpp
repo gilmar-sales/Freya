@@ -11,11 +11,12 @@ namespace FREYA_NAMESPACE
         virtual void Startup() = 0;
         virtual void Update() = 0;
 
-        void Run ();
+        void Run();
     
       protected:
         friend class ApplicationBuilder;
 
+        float mDeltaTime;
         std::shared_ptr<Window> mWindow;
         std::shared_ptr<Renderer> mRenderer;
     };

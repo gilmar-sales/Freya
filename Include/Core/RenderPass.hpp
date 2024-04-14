@@ -37,6 +37,7 @@ namespace FREYA_NAMESPACE
         ~RenderPass();
 
         void UpdateProjection(ProjectionUniformBuffer& buffer, std::uint32_t frameIndex);
+        void UpdateModel(glm::mat4 model, std::uint32_t frameIndex);
 
         void BindDescriptorSet(std::shared_ptr<CommandPool> commandPool,
                                std::uint32_t                frameIndex);

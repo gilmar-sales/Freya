@@ -25,7 +25,8 @@ namespace FREYA_NAMESPACE
 
         void Update();
 
-        bool isRunning() { return mRunning; }
+        bool IsRunning() { return mRunning; }
+        float GetDeltaTime() { return mDeltaTime; }
 
       private:
         friend class ApplicationBuilder;
@@ -36,6 +37,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t             mHeight;
         bool                      mVSync;
         bool                      mRunning;
+        float                     mDeltaTime;
     };
 
 } // namespace FREYA_NAMESPACE

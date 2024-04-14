@@ -107,7 +107,7 @@ namespace FREYA_NAMESPACE
                 .Build();
     }
 
-    void Renderer::ClearProjection()
+    void Renderer::ClearProjections()
     {
         auto extent = mSurface->QueryExtent();
 
@@ -132,14 +132,22 @@ namespace FREYA_NAMESPACE
             };
 
 
-            projectionUniformBuffer.projection[1][1] *= -1;
-            
-            UpdateProjection(projectionUniformBuffer);
+        projectionUniformBuffer.projection[1][1] *= -1;
+
+        for(auto frameIndex = 0; frameIndex < mImageAvailableSemaphores.size(); frameIndex++)
+        {
+            mRenderPass->UpdateProjection(projectionUniformBuffer, frameIndex);
+        }
     }
 
     void Renderer::UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer)
     {
         mRenderPass->UpdateProjection(projectionUniformBuffer, mCurrentFrameIndex);
+    }
+
+    void Renderer::UpdateModel(glm::mat4& model)
+    {
+        mRenderPass->UpdateModel(model, mCurrentFrameIndex);
     }
 
     std::shared_ptr<MeshPoolFactory> Renderer::GetMeshPoolFactory()

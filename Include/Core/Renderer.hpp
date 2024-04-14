@@ -54,8 +54,6 @@ namespace FREYA_NAMESPACE
 
         ~Renderer();
 
-        void InitMeshes();
-
         void BeginFrame();
 
         void EndFrame();
@@ -64,9 +62,9 @@ namespace FREYA_NAMESPACE
         void SetVSync(bool vSync);
         void SetSamples(vk::SampleCountFlagBits samples);
 
-
-        void ClearProjection();
+        void ClearProjections();
         void UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer);
+        void UpdateModel(glm::mat4& model);
 
         std::shared_ptr<MeshPoolFactory> GetMeshPoolFactory();
 
@@ -90,9 +88,7 @@ namespace FREYA_NAMESPACE
 
         std::shared_ptr<Buffer> mVertexBuffer;
         std::shared_ptr<Buffer> mIndexBuffer;
-
-        std::vector<std::uint32_t> mModelMeshes;
-        std::uint32_t              mCurrentFrameIndex;
+        std::uint32_t           mCurrentFrameIndex;
     };
 
 } // namespace FREYA_NAMESPACE

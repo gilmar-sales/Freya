@@ -6,7 +6,7 @@ namespace FREYA_NAMESPACE
     {
         Startup();
 
-        while(mWindow->isRunning())
+        while(mWindow->IsRunning())
         {
             mRenderer->BeginFrame();
 

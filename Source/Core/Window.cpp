@@ -26,9 +26,9 @@ namespace FREYA_NAMESPACE
 
         auto currentCount = SDL_GetPerformanceCounter();
 
-        auto deltaTime = (double) (currentCount - previousCounter) /
+        mDeltaTime = (double) (currentCount - previousCounter) /
                             (double) SDL_GetPerformanceFrequency();
-        secondTime += deltaTime;
+        secondTime += mDeltaTime;
         previousCounter = currentCount;
 
         if (secondTime >= 1.0f)
@@ -153,38 +153,13 @@ namespace FREYA_NAMESPACE
                     }
                     break;
                 case SDL_EVENT_MOUSE_MOTION:
-                    cameraRotation.y += event.motion.xrel * 10.0f * deltaTime;
-                    cameraRotation.x -= event.motion.yrel * 10.0f * deltaTime;
+                    cameraRotation.y += event.motion.xrel * 10.0f * mDeltaTime;
+                    cameraRotation.x -= event.motion.yrel * 10.0f * mDeltaTime;
                     break;
                 default:
                     break;
             }
         }
-
-        static float objectRot = deltaTime * 360.0f;
-
-        auto cameraMovement =
-            (cameraRight * cameraVelocity.x) + (cameraForward * cameraVelocity.y);
-
-        cameraPosition += cameraMovement * ((float) deltaTime * 3.0f);
-        objectRot += deltaTime;
-        auto projectionUniformBuffer = ProjectionUniformBuffer {
-            .model = glm::rotate(glm::mat4(1.0f),
-                                    glm::radians(objectRot),
-                                    glm::vec3(0.0f, 1.0f, 0.0f)),
-            .view =
-                glm::lookAt(cameraPosition, cameraPosition + cameraForward, cameraUp),
-            .projection = glm::perspective(glm::radians(45.0f),
-                                            mWidth / (float) mHeight,
-                                            0.001f,
-                                            1000.0f)
-        };
-        projectionUniformBuffer.projection[1][1] *= -1;
-        //mRenderer->UpdateProjection(projectionUniformBuffer);
-
-        //mRenderer->BeginFrame();
-
-        //mRenderer->EndFrame();
 
         frames++;
     }
