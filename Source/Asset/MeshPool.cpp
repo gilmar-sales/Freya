@@ -139,8 +139,6 @@ namespace FREYA_NAMESPACE
             return meshes;
         }
 
-        auto directory = path.substr(0, path.find_last_of('/'));
-
         processNode(meshes, scene->mRootNode, scene);
 
         return meshes;

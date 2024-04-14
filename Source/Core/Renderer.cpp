@@ -8,8 +8,6 @@
 #include "Core/Buffer.hpp"
 #include "Core/CommandPool.hpp"
 #include <Core/UniformBuffer.hpp>
-#include <glm/ext/matrix_clip_space.hpp>
-#include <glm/ext/matrix_transform.hpp>
 
 namespace FREYA_NAMESPACE
 {
@@ -109,9 +107,52 @@ namespace FREYA_NAMESPACE
                 .Build();
     }
 
+    void Renderer::ClearProjections()
+    {
+        auto extent = mSurface->QueryExtent();
+
+        auto cameraPosition = glm::vec3(0.0f, 0.0f, -10.0f);
+        auto cameraMatrix = glm::mat4(1.0f);
+        auto cameraForward =
+            glm::vec3(glm::vec4(0.0f, 0.0f, 1.0f, 0.0) * cameraMatrix);
+        auto cameraRight =
+            glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), cameraForward));
+        auto cameraUp = glm::normalize(glm::cross(cameraForward, cameraRight));
+
+        auto projectionUniformBuffer = fra::ProjectionUniformBuffer {
+            .model = glm::rotate(glm::mat4(1.0f),
+                                    glm::radians(0.0f),
+                                    glm::vec3(0.0f, 1.0f, 0.0f)),
+            .view =
+                glm::lookAt(cameraPosition, cameraPosition + cameraForward, cameraUp),
+            .projection = glm::perspective(glm::radians(45.0f),
+                                            extent.width / (float) extent.height,
+                                            0.001f,
+                                            1000.0f)
+            };
+
+
+        projectionUniformBuffer.projection[1][1] *= -1;
+
+        for(auto frameIndex = 0; frameIndex < mImageAvailableSemaphores.size(); frameIndex++)
+        {
+            mRenderPass->UpdateProjection(projectionUniformBuffer, frameIndex);
+        }
+    }
+
     void Renderer::UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer)
     {
         mRenderPass->UpdateProjection(projectionUniformBuffer, mCurrentFrameIndex);
+    }
+
+    void Renderer::UpdateModel(glm::mat4& model)
+    {
+        mRenderPass->UpdateModel(model, mCurrentFrameIndex);
+    }
+
+    std::shared_ptr<MeshPoolFactory> Renderer::GetMeshPoolFactory()
+    {
+        return std::make_shared<MeshPoolFactory>(mDevice, mPhysicalDevice, mCommandPool);
     }
 
     void Renderer::BeginFrame()
@@ -175,6 +216,8 @@ namespace FREYA_NAMESPACE
             vk::Rect2D().setOffset({ 0, 0 }).setExtent(mSwapChain->GetExtent());
 
         commandBuffer.setScissor(0, 1, &scissor);
+
+        mRenderPass->BindDescriptorSet(mCommandPool, mCurrentFrameIndex);
     }
 
     void Renderer::EndFrame()
@@ -234,38 +277,6 @@ namespace FREYA_NAMESPACE
 
         mCurrentFrameIndex = (mCurrentFrameIndex + 1) % mImageAvailableSemaphores.size();
         mDevice->Get().waitIdle();
-    }
-
-    void Renderer::Draw()
-    {
-
-        auto projectionUniformBuffer = ProjectionUniformBuffer {
-            .model = glm::rotate(glm::mat4(1.0),
-                                 glm::radians(90.0f),
-                                 glm::vec3(0.0f, 0.0f, 1.0f)),
-            .view  = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
-                                 glm::vec3(0.0f, 0.0f, 0.0f),
-                                 glm::vec3(0.0f, 0.0f, 1.0f)),
-            .projection =
-                glm::perspective(glm::radians(45.0f), 1000 / (float) 600, 0.1f, 10.0f)
-        };
-
-        mRenderPass->BindDescriptorSet(mCommandPool, mCurrentFrameIndex);
-
-        for (auto& mesh : mModelMeshes)
-        {
-            mMeshPool->Draw(mesh);
-        }
-    }
-
-    void Renderer::InitMeshes()
-    {
-#ifdef _WIN32
-        mModelMeshes = mMeshPool->CreateMeshFromFile("D:/Models/civic.obj");
-#else
-        mModelMeshes =
-            mMeshPool->CreateMeshFromFile("/run/media/gilmar/Gilmar/Models/civic.obj");
-#endif
     }
 
 } // namespace FREYA_NAMESPACE

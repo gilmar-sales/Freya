@@ -14,26 +14,30 @@ namespace FREYA_NAMESPACE
                std::string   title,
                std::uint32_t width,
                std::uint32_t height,
-               bool          vSync,
-               std::shared_ptr<Renderer>
-                   renderer) :
+               bool          vSync) :
             mWindow(window),
             mTitle(title), mWidth(width), mHeight(height),
-            mVSync(vSync), mRenderer(renderer)
+            mVSync(vSync), mRunning(true)
         {
         }
 
         ~Window();
 
-        void Run();
+        void Update();
+
+        bool IsRunning() { return mRunning; }
+        float GetDeltaTime() { return mDeltaTime; }
 
       private:
+        friend class ApplicationBuilder;
+
         SDL_Window*               mWindow;
         std::string               mTitle;
         std::uint32_t             mWidth;
         std::uint32_t             mHeight;
         bool                      mVSync;
-        std::shared_ptr<Renderer> mRenderer;
+        bool                      mRunning;
+        float                     mDeltaTime;
     };
 
 } // namespace FREYA_NAMESPACE

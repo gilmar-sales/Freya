@@ -11,18 +11,21 @@ file(GLOB_RECURSE Asset_SRCS Source/Asset/**.cpp Include/Asset/**.hpp)
 file(GLOB_RECURSE Builders_SRCS Source/Builders/**.cpp Include/Builders/**.hpp)
 file(GLOB_RECURSE Core_SRCS Source/Core/**.cpp Include/Core/**.hpp)
 file(GLOB_RECURSE Containers_SRCS Include/Containers/**.hpp)
+file(GLOB_RECURSE Factories_SRCS Source/Factories/**.cpp Include/Factories/**.hpp)
 file(GLOB_RECURSE Shaders_SRCS Shaders/**.vert Shaders/**.frag)
 
 SOURCE_GROUP(Asset FILES ${Asset_SRCS})
 SOURCE_GROUP(Builders FILES ${Builders_SRCS})
 SOURCE_GROUP(Core FILES ${Core_SRCS})
 SOURCE_GROUP(Containers FILES ${Containers_SRCS})
+SOURCE_GROUP(Factories FILES ${Factories_SRCS})
 SOURCE_GROUP(Shaders FILES ${Shaders_SRCS})
 
 add_library(Freya 
 ${Asset_SRCS}
 ${Builders_SRCS}
 ${Core_SRCS}
+${Factories_SRCS}
 ${Shaders_SRCS}
 )
 
@@ -30,6 +33,7 @@ add_library(Freya-static STATIC
 ${Asset_SRCS}
 ${Builders_SRCS}
 ${Core_SRCS}
+${Factories_SRCS}
 ${Shaders_SRCS}
 )
 
@@ -84,7 +88,7 @@ add_executable(Main Examples/Main.cpp)
 
 target_compile_features(Main PUBLIC cxx_std_23)
 
-target_link_libraries(Main Freya) 
+target_link_libraries(Main Freya-static) 
 
 if(MSVC)
   target_compile_options(Main PUBLIC "/ZI" "/MP")

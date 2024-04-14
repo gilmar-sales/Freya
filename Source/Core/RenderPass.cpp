@@ -54,6 +54,28 @@ namespace FREYA_NAMESPACE
         mDevice->Get().updateDescriptorSets(1, &descriptorWriter, 0, nullptr);
     }
 
+    void RenderPass::UpdateModel(glm::mat4 model, std::uint32_t frameIndex)
+    {
+        mUniformBuffers[frameIndex]->Copy(&model, sizeof(model));
+
+        auto bufferInfo =
+            vk::DescriptorBufferInfo()
+                .setBuffer(mUniformBuffers[frameIndex]->Get())
+                .setOffset(0)
+                .setRange(sizeof(ProjectionUniformBuffer));
+
+        auto descriptorWriter =
+            vk::WriteDescriptorSet()
+                .setDstSet(mDescriptorSets[frameIndex])
+                .setDstBinding(0)
+                .setDstArrayElement(0)
+                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                .setDescriptorCount(1)
+                .setBufferInfo(bufferInfo);
+
+        mDevice->Get().updateDescriptorSets(1, &descriptorWriter, 0, nullptr);
+    }
+
     void RenderPass::BindDescriptorSet(std::shared_ptr<CommandPool> commandPool,
                                        std::uint32_t                frameIndex)
     {

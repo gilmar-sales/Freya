@@ -12,10 +12,14 @@ namespace FREYA_NAMESPACE
 
     std::shared_ptr<Renderer> RendererBuilder::Build()
     {
-        auto physicalDevice = PhysicalDeviceBuilder().SetInstance(mInstance).Build();
+        auto instance = mInstanceBuilder.Build();
+
+        assert(instance && "Failed to create fra::Instance");
+        
+        auto physicalDevice = PhysicalDeviceBuilder().SetInstance(instance).Build();
 
         auto surface = SurfaceBuilder()
-                           .SetInstance(mInstance)
+                           .SetInstance(instance)
                            .SetPhysicalDevice(physicalDevice)
                            .SetWindow(mWindow)
                            .Build();
@@ -23,7 +27,7 @@ namespace FREYA_NAMESPACE
         mFrameCount = surface->QueryFrameCountSupport(mFrameCount);
 
         auto device = DeviceBuilder()
-                          .SetInstance(mInstance)
+                          .SetInstance(instance)
                           .SetPhysicalDevice(physicalDevice)
                           .SetSurface(surface)
                           .Build();
@@ -39,7 +43,7 @@ namespace FREYA_NAMESPACE
                               .Build();
 
         auto swapChain = SwapChainBuilder()
-                             .SetInstance(mInstance)
+                             .SetInstance(instance)
                              .SetPhysicalDevice(physicalDevice)
                              .SetDevice(device)
                              .SetSurface(surface)
@@ -76,7 +80,7 @@ namespace FREYA_NAMESPACE
                    "Failed to create synchronization objects for a frame");
         }
 
-        return std::make_shared<Renderer>(mInstance,
+        return std::make_shared<Renderer>(instance,
                                           surface,
                                           physicalDevice,
                                           device,
