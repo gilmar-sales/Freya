@@ -25,6 +25,7 @@ namespace FREYA_NAMESPACE
         case fra::BufferUsage::Staging:
             bufferInfo.setUsage(vk::BufferUsageFlagBits::eTransferSrc);
             break;
+        case fra::BufferUsage::Instance:
         case fra::BufferUsage::Vertex:
             bufferInfo.setUsage(vk::BufferUsageFlagBits::eVertexBuffer |
                                 vk::BufferUsageFlagBits::eTransferDst);

@@ -25,7 +25,18 @@ namespace FREYA_NAMESPACE
 
         void Update();
 
+        std::uint32_t GetWidth() { return mWidth; }
+        std::uint32_t GetHeight() { return mHeight; }
+        
+        void Resize(std::uint32_t width, std::uint32_t height)
+        {
+          mWidth = width;
+          mHeight = height;
+        }
+
         bool IsRunning() { return mRunning; }
+        void Close() { mRunning = false; }
+
         float GetDeltaTime() { return mDeltaTime; }
 
       private:

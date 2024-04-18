@@ -22,46 +22,47 @@ namespace FREYA_NAMESPACE
         }
 
         ApplicationBuilder& WithWindow(std::function<void(WindowBuilder&)> windowBuilderFunc);
+        ApplicationBuilder& WithRenderer(std::function<void(RendererBuilder&)> rendererBuilderFunc);
 
         template<typename T>
             requires IsApplication<T>
         std::shared_ptr<T> Build()
-        
-    {
-        auto app = std::make_shared<T>();
+        {
+            auto app = std::make_shared<T>();
 
-        auto window = mWindowBuilder.Build();
+            auto window = mWindowBuilder.Build();
 
-        auto renderer = RendererBuilder()
-                            .WithInstance([](InstanceBuilder& instanceBuilder)
-                            {
-                                uint32_t extensionCount;
-                                SDL_Vulkan_GetInstanceExtensions(&extensionCount, nullptr);
-
-                                const char **extensionNames = new const char *[extensionCount];
-                                SDL_Vulkan_GetInstanceExtensions(&extensionCount, extensionNames);
-                                
-                                instanceBuilder.AddValidationLayers();
-
-                                for (auto i = 0; i < extensionCount; i++)
+            auto renderer = mRendererBuilder
+                                .WithInstance([](InstanceBuilder& instanceBuilder)
                                 {
-                                    instanceBuilder.AddExtension(extensionNames[i]);
-                                }
-                            })
-                            .SetWindow(window->mWindow)
-                            .SetWidth(window->mWidth)
-                            .SetHeight(window->mHeight)
-                            .SetVSync(window->mVSync)
-                            .Build();
+                                    uint32_t extensionCount;
+                                    SDL_Vulkan_GetInstanceExtensions(&extensionCount, nullptr);
 
-        ((AbstractApplication*)app.get())->mWindow = window;
-        ((AbstractApplication*)app.get())->mRenderer = renderer;
+                                    const char **extensionNames = new const char *[extensionCount];
+                                    SDL_Vulkan_GetInstanceExtensions(&extensionCount, extensionNames);
+                                    
+                                    instanceBuilder.AddValidationLayers();
 
-        return app;
-    }
+                                    for (auto i = 0; i < extensionCount; i++)
+                                    {
+                                        instanceBuilder.AddExtension(extensionNames[i]);
+                                    }
+                                })
+                                .SetWindow(window->mWindow)
+                                .SetWidth(window->mWidth)
+                                .SetHeight(window->mHeight)
+                                .SetVSync(window->mVSync)
+                                .Build();
+
+            ((AbstractApplication*)app.get())->mWindow = window;
+            ((AbstractApplication*)app.get())->mRenderer = renderer;
+
+            return app;
+        }
 
         protected:
             WindowBuilder mWindowBuilder;
+            RendererBuilder mRendererBuilder;
     };
 
 } // namespace FREYA_NAMESPACE

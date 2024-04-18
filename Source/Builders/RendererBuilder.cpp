@@ -91,7 +91,8 @@ namespace FREYA_NAMESPACE
                                           renderFinishedSemaphores,
                                           inFlightFences,
                                           mVSync,
-                                          mSamples);
+                                          mSamples,
+                                          mClearColor);
     }
 
 } // namespace FREYA_NAMESPACE

@@ -16,7 +16,7 @@ namespace FREYA_NAMESPACE
       public:
         RendererBuilder()
             : mInstanceBuilder(InstanceBuilder()), mWindow(nullptr), mWidth(1280), mHeight(720),
-              mVSync(true), mFrameCount(4), mSamples(vk::SampleCountFlagBits::e1)
+              mVSync(true), mFrameCount(4), mSamples(vk::SampleCountFlagBits::e1), mClearColor({0.2f, 0.4f, 0.6f, 1.0f})
         {
         }
 
@@ -62,6 +62,12 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        RendererBuilder &SetClearColor(vk::ClearColorValue clearColor)
+        {
+            mClearColor = clearColor;
+            return *this;
+        }
+
         std::shared_ptr<Renderer> Build();
 
       private:
@@ -74,6 +80,7 @@ namespace FREYA_NAMESPACE
 
         std::uint32_t mFrameCount;
         vk::SampleCountFlagBits mSamples;
+        vk::ClearColorValue mClearColor;
     };
 
 } // namespace FREYA_NAMESPACE

@@ -142,10 +142,8 @@ namespace FREYA_NAMESPACE
 
         auto vertexInputInfo =
             vk::PipelineVertexInputStateCreateInfo()
-                .setVertexBindingDescriptionCount(1)
-                .setVertexAttributeDescriptionCount(vertexAttributesDescription.size())
-                .setPVertexBindingDescriptions(&vertexBindingDescription)
-                .setPVertexAttributeDescriptions(vertexAttributesDescription.data());
+                .setVertexBindingDescriptions(vertexBindingDescription)
+                .setVertexAttributeDescriptions(vertexAttributesDescription);
 
         auto inputAssembly = vk::PipelineInputAssemblyStateCreateInfo()
                                  .setTopology(vk::PrimitiveTopology::eTriangleList)
@@ -161,7 +159,7 @@ namespace FREYA_NAMESPACE
                 .setPolygonMode(vk::PolygonMode::eFill)
                 .setLineWidth(1.0f)
                 .setCullMode(vk::CullModeFlagBits::eBack)
-                .setFrontFace(vk::FrontFace::eCounterClockwise)
+                .setFrontFace(vk::FrontFace::eClockwise)
                 .setDepthBiasEnable(false);
 
         auto colorBlendAttachment =
@@ -222,7 +220,8 @@ namespace FREYA_NAMESPACE
         auto descriptorSets =
             mDevice->Get().allocateDescriptorSets(descriptorSetAllocInfo);
 
-        auto pipelineLayoutInfo = vk::PipelineLayoutCreateInfo().setSetLayouts(layouts);
+        auto pipelineLayoutInfo = vk::PipelineLayoutCreateInfo()
+            .setSetLayouts(layouts);
 
         auto uniformBuffers = std::vector<std::shared_ptr<Buffer>>();
 

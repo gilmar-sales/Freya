@@ -22,6 +22,8 @@ namespace FREYA_NAMESPACE
                  std::shared_ptr<CommandPool> commandPool);
 
         void Draw(std::uint32_t meshId);
+        void DrawInstanced(std::uint32_t meshId, size_t instanceCount);
+
         std::uint32_t CreateMesh(std::vector<Vertex> vertices,
                                  std::vector<uint16_t> indices);
         std::vector<std::uint32_t> CreateMeshFromFile(const std::string path);

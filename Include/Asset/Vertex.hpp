@@ -9,10 +9,9 @@ namespace FREYA_NAMESPACE
         glm::vec3 position;
         glm::vec3 color;
 
-        static vk::VertexInputBindingDescription GetBindingDescription();
+        static std::vector<vk::VertexInputBindingDescription> GetBindingDescription();
 
-        static std::array<vk::VertexInputAttributeDescription, 2>
-            GetAttributesDescription();
+        static std::vector<vk::VertexInputAttributeDescription> GetAttributesDescription();
     };
 
 } // namespace FREYA_NAMESPACE
