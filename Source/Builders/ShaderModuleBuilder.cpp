@@ -2,8 +2,6 @@
 
 #include "Core/Device.hpp"
 
-#include <print>
-
 namespace FREYA_NAMESPACE
 {
     std::shared_ptr<ShaderModule> ShaderModuleBuilder::Build()
