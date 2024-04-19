@@ -24,8 +24,6 @@ namespace FREYA_NAMESPACE
     {
         std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
-        std::print("Failed to open file: {} - {}\n", filename, file.exceptions());
-        
         assert(file.is_open() && "Failed to open file");
 
         size_t fileSize = (size_t) file.tellg();
