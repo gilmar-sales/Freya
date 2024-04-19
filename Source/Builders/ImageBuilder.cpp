@@ -99,7 +99,7 @@ namespace FREYA_NAMESPACE
                 mFormat = getDepthFormat();
                 break;
             case ImageUsage::Texture:
-                vk::Format::eR8G8B8A8Srgb;
+                mFormat = vk::Format::eR8G8B8A8Srgb;
                 break;
             case ImageUsage::Sampling:
                 mFormat = mDevice->GetSurface()->QuerySurfaceFormat().format;

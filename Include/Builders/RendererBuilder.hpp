@@ -16,7 +16,7 @@ namespace FREYA_NAMESPACE
       public:
         RendererBuilder()
             : mInstanceBuilder(InstanceBuilder()), mWindow(nullptr), mWidth(1280), mHeight(720),
-              mVSync(true), mFrameCount(4), mSamples(vk::SampleCountFlagBits::e1), mClearColor({0.2f, 0.4f, 0.6f, 1.0f})
+              mVSync(true), mFrameCount(4), mSamples(vk::SampleCountFlagBits::e1), mClearColor(vk::ClearColorValue{0.2f, 0.4f, 0.6f, 1.0f})
         {
         }
 

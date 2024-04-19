@@ -37,6 +37,8 @@ namespace FREYA_NAMESPACE
         case BufferUsage::Uniform:
             bufferInfo.setUsage(vk::BufferUsageFlagBits::eUniformBuffer);
             break;
+        default:
+            break;
         }
 
         if (queueFamilyIndices.isUnique())
