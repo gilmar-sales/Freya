@@ -2,6 +2,8 @@
 
 #include "Core/Device.hpp"
 
+#include <print>
+
 namespace FREYA_NAMESPACE
 {
     std::shared_ptr<ShaderModule> ShaderModuleBuilder::Build()
@@ -22,7 +24,9 @@ namespace FREYA_NAMESPACE
     {
         std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
-        assert(file.is_open() && "Failed to open file.");
+        std::print("Failed to open file: {} - {}\n", filename, file.exceptions());
+        
+        assert(file.is_open() && "Failed to open file");
 
         size_t fileSize = (size_t) file.tellg();
         std::vector<char> buffer(fileSize);

@@ -11,7 +11,8 @@ namespace FREYA_NAMESPACE
         Vertex,
         Index,
         TexCoord,
-        Uniform
+        Uniform,
+        Instance
     };
 
     class Buffer

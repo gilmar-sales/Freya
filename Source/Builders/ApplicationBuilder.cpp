@@ -8,4 +8,11 @@ namespace FREYA_NAMESPACE
 
         return *this;
     }
+
+    ApplicationBuilder& ApplicationBuilder::WithRenderer(std::function<void(RendererBuilder&)> rendererBuilderFunc)
+    {
+        rendererBuilderFunc(mRendererBuilder);
+
+        return *this;
+    }
 } // namespace FREYA_NAMESPACE

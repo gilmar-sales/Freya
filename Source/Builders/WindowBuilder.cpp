@@ -1,8 +1,5 @@
 #include "Builders/WindowBuilder.hpp"
 
-#include "Builders/InstanceBuilder.hpp"
-#include "Builders/RendererBuilder.hpp"
-
 namespace FREYA_NAMESPACE
 {
 

@@ -107,6 +107,12 @@ namespace FREYA_NAMESPACE
                 .Build();
     }
 
+    void Renderer::SetDrawDistance(float drawDistance)
+    {
+        mDrawDistance = drawDistance;
+        ClearProjections();
+    }
+
     void Renderer::ClearProjections()
     {
         auto extent = mSurface->QueryExtent();
@@ -120,17 +126,13 @@ namespace FREYA_NAMESPACE
         auto cameraUp = glm::normalize(glm::cross(cameraForward, cameraRight));
 
         auto projectionUniformBuffer = fra::ProjectionUniformBuffer {
-            .model = glm::rotate(glm::mat4(1.0f),
-                                    glm::radians(0.0f),
-                                    glm::vec3(0.0f, 1.0f, 0.0f)),
             .view =
                 glm::lookAt(cameraPosition, cameraPosition + cameraForward, cameraUp),
             .projection = glm::perspective(glm::radians(45.0f),
                                             extent.width / (float) extent.height,
                                             0.001f,
-                                            1000.0f)
+                                            mDrawDistance)
             };
-
 
         projectionUniformBuffer.projection[1][1] *= -1;
 
@@ -147,12 +149,22 @@ namespace FREYA_NAMESPACE
 
     void Renderer::UpdateModel(glm::mat4& model)
     {
-        mRenderPass->UpdateModel(model, mCurrentFrameIndex);
+        mCommandPool->GetCommandBuffer().pushConstants(mRenderPass->GetPipelineLayout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(model), &model);
     }
 
     std::shared_ptr<MeshPoolFactory> Renderer::GetMeshPoolFactory()
     {
         return std::make_shared<MeshPoolFactory>(mDevice, mPhysicalDevice, mCommandPool);
+    }
+
+    BufferBuilder Renderer::GetBufferBuilder()
+    {
+        return BufferBuilder(mDevice);
+    }
+
+    void Renderer::BindBuffer(std::shared_ptr<Buffer> buffer)
+    {
+        buffer->Bind(mCommandPool);
     }
 
     void Renderer::BeginFrame()
@@ -185,7 +197,7 @@ namespace FREYA_NAMESPACE
 
         commandBuffer.begin(beginInfo);
 
-        auto clearValues = { vk::ClearValue().setColor({ 0.2f, 0.4f, 0.6f, 1.0f }),
+        auto clearValues = { vk::ClearValue().setColor(mClearColor),
                              vk::ClearValue().setDepthStencil({ 1.0f, 0 }) };
 
         auto renderPassInfo =

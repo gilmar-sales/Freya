@@ -43,6 +43,29 @@ namespace FREYA_NAMESPACE
         }
     }
 
+    void MeshPool::DrawInstanced(std::uint32_t meshId, size_t instanceCount)
+    {
+        if (mMeshes.contains(meshId))
+        {
+            auto& mesh = mMeshes[meshId];
+
+            auto& vertexBuffer = mVertexBuffers[mesh.vertexBufferIndex];
+            auto  vertexOffset = vk::DeviceSize(mesh.vertexBufferOffset);
+
+            mCommandPool->GetCommandBuffer()
+                .bindVertexBuffers(0, 1, &vertexBuffer->Get(), &vertexOffset);
+
+            auto& indexBuffer = mIndexBuffers[mesh.indexBufferIndex];
+            auto  indexOffset = vk::DeviceSize(mesh.indexBufferOffset);
+            mCommandPool->GetCommandBuffer().bindIndexBuffer(
+                indexBuffer->Get(),
+                indexOffset,
+                vk::IndexType::eUint16);
+
+            mCommandPool->GetCommandBuffer().drawIndexed(mesh.indexCount, instanceCount, 0, 0, 0);
+        }
+    }
+
     std::uint32_t MeshPool::CreateMesh(
         std::vector<Vertex> vertices, std::vector<uint16_t> indices)
     {
