@@ -118,7 +118,7 @@ namespace FREYA_NAMESPACE
         auto extent = mSurface->QueryExtent();
 
         auto cameraPosition = glm::vec3(0.0f, 0.0f, -10.0f);
-        auto cameraMatrix = glm::mat4(1.0f);
+        auto cameraMatrix   = glm::mat4(1.0f);
         auto cameraForward =
             glm::vec3(glm::vec4(0.0f, 0.0f, 1.0f, 0.0) * cameraMatrix);
         auto cameraRight =
@@ -128,15 +128,15 @@ namespace FREYA_NAMESPACE
         auto projectionUniformBuffer = fra::ProjectionUniformBuffer {
             .view =
                 glm::lookAt(cameraPosition, cameraPosition + cameraForward, cameraUp),
-            .projection = glm::perspective(glm::radians(45.0f),
-                                            extent.width / (float) extent.height,
-                                            0.001f,
-                                            mDrawDistance)
-            };
+            .projection = glm::perspectiveFov(glm::radians(45.0f),
+                                              (float) extent.width, (float) extent.height,
+                                              0.01f,
+                                              mDrawDistance)
+        };
 
         projectionUniformBuffer.projection[1][1] *= -1;
 
-        for(auto frameIndex = 0; frameIndex < mImageAvailableSemaphores.size(); frameIndex++)
+        for (auto frameIndex = 0; frameIndex < mImageAvailableSemaphores.size(); frameIndex++)
         {
             mRenderPass->UpdateProjection(projectionUniformBuffer, frameIndex);
         }

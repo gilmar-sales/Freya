@@ -15,7 +15,7 @@ namespace FREYA_NAMESPACE
         auto instance = mInstanceBuilder.Build();
 
         assert(instance && "Failed to create fra::Instance");
-        
+
         auto physicalDevice = PhysicalDeviceBuilder().SetInstance(instance).Build();
 
         auto surface = SurfaceBuilder()
@@ -92,7 +92,8 @@ namespace FREYA_NAMESPACE
                                           inFlightFences,
                                           mVSync,
                                           mSamples,
-                                          mClearColor);
+                                          mClearColor,
+                                          mDrawDistance);
     }
 
 } // namespace FREYA_NAMESPACE

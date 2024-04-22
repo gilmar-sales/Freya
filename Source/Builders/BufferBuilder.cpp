@@ -22,30 +22,31 @@ namespace FREYA_NAMESPACE
 
         switch (mUsage)
         {
-        case fra::BufferUsage::Staging:
-            bufferInfo.setUsage(vk::BufferUsageFlagBits::eTransferSrc);
-            break;
-        case fra::BufferUsage::Instance:
-        case fra::BufferUsage::Vertex:
-            bufferInfo.setUsage(vk::BufferUsageFlagBits::eVertexBuffer |
-                                vk::BufferUsageFlagBits::eTransferDst);
-            break;
-        case fra::BufferUsage::Index:
-            bufferInfo.setUsage(vk::BufferUsageFlagBits::eIndexBuffer |
-                                vk::BufferUsageFlagBits::eTransferDst);
-            break;
-        case BufferUsage::Uniform:
-            bufferInfo.setUsage(vk::BufferUsageFlagBits::eUniformBuffer);
-            break;
-        default:
-            break;
+            case fra::BufferUsage::Staging:
+                bufferInfo.setUsage(vk::BufferUsageFlagBits::eTransferSrc);
+                break;
+            case fra::BufferUsage::Instance:
+            case fra::BufferUsage::Vertex:
+                bufferInfo.setUsage(vk::BufferUsageFlagBits::eVertexBuffer |
+                                    vk::BufferUsageFlagBits::eTransferDst);
+                break;
+            case fra::BufferUsage::Index:
+                bufferInfo.setUsage(vk::BufferUsageFlagBits::eIndexBuffer |
+                                    vk::BufferUsageFlagBits::eTransferDst);
+                break;
+            case BufferUsage::Uniform:
+                bufferInfo.setUsage(vk::BufferUsageFlagBits::eUniformBuffer);
+                break;
+            default:
+                break;
         }
 
         if (queueFamilyIndices.isUnique())
         {
             std::array<std::uint32_t, 2> queues = {
                 queueFamilyIndices.graphicsFamily.value(),
-                queueFamilyIndices.transferFamily.value()};
+                queueFamilyIndices.transferFamily.value()
+            };
 
             bufferInfo.setSharingMode(vk::SharingMode::eConcurrent)
                 .setQueueFamilyIndexCount(2)
@@ -58,14 +59,35 @@ namespace FREYA_NAMESPACE
 
         auto memoryRequirements = mDevice->Get().getBufferMemoryRequirements(buffer);
 
+        auto memoryProperties = vk::MemoryPropertyFlags {};
+
+        switch (mUsage)
+        {
+            case BufferUsage::Staging:
+                memoryProperties =
+                    vk::MemoryPropertyFlagBits::eHostVisible |
+                    vk::MemoryPropertyFlagBits::eHostCoherent;
+                break;
+            case BufferUsage::Vertex:
+            case BufferUsage::Index:
+            case BufferUsage::Uniform:
+            case BufferUsage::Instance:
+                memoryProperties =
+                    vk::MemoryPropertyFlagBits::eHostVisible |
+                    vk::MemoryPropertyFlagBits::eDeviceLocal;
+                break;
+            default:
+                break;
+        }
+
+        auto memoryTypeIndex = mDevice->GetPhysicalDevice()->QueryCompatibleMemoryType(
+            memoryRequirements.memoryTypeBits,
+            memoryProperties);
+
         auto allocInfo =
             vk::MemoryAllocateInfo()
                 .setAllocationSize(memoryRequirements.size)
-                .setMemoryTypeIndex(
-                    mDevice->GetPhysicalDevice()->QueryCompatibleMemoryType(
-                        memoryRequirements.memoryTypeBits,
-                        vk::MemoryPropertyFlagBits::eHostVisible |
-                            vk::MemoryPropertyFlagBits::eHostCoherent));
+                .setMemoryTypeIndex(memoryTypeIndex);
 
         auto memory = mDevice->Get().allocateMemory(allocInfo);
 
@@ -75,8 +97,8 @@ namespace FREYA_NAMESPACE
 
         if (mData != nullptr)
         {
-            void *data =
-                mDevice->Get().mapMemory(memory, 0, mSize, vk::MemoryMapFlagBits{});
+            void* data =
+                mDevice->Get().mapMemory(memory, 0, mSize, vk::MemoryMapFlagBits {});
 
             memcpy(data, mData, mSize);
 

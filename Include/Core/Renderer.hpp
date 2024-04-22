@@ -3,17 +3,17 @@
 #include "Asset/MeshPool.hpp"
 #include "CommandPool.hpp"
 #include "Device.hpp"
+#include "Factories/MeshPoolFactory.hpp"
 #include "Instance.hpp"
 #include "PhysicalDevice.hpp"
 #include "RenderPass.hpp"
 #include "Surface.hpp"
 #include "SwapChain.hpp"
-#include "Factories/MeshPoolFactory.hpp"
 
+#include <Builders/BufferBuilder.hpp>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/glm.hpp>
-#include <Builders/BufferBuilder.hpp>
 
 namespace FREYA_NAMESPACE
 {
@@ -43,15 +43,16 @@ namespace FREYA_NAMESPACE
                                          inFlightFences,
                  bool                    vSync,
                  vk::SampleCountFlagBits samples,
-                 vk::ClearColorValue clearColor) :
+                 vk::ClearColorValue clearColor, float drawDistance) :
             mInstance(instance),
             mSurface(surface), mPhysicalDevice(physicalDevice),
             mDevice(device), mSwapChain(swapChain), mRenderPass(renderPass),
             mCommandPool(commandPool),
             mImageAvailableSemaphores(imageAvailableSemaphores),
             mRenderFinishedSemaphores(renderFinishedSemaphores),
-            mInFlightFences(inFlightFences), mVSync(vSync), mSamples(samples), mClearColor(clearColor), mDrawDistance(1000.0f), mCurrentFrameIndex(0)
+            mInFlightFences(inFlightFences), mVSync(vSync), mSamples(samples), mClearColor(clearColor), mDrawDistance(drawDistance), mCurrentFrameIndex(0)
         {
+            ClearProjections();
         }
 
         ~Renderer();
@@ -60,10 +61,12 @@ namespace FREYA_NAMESPACE
 
         void EndFrame();
 
-        void RebuildSwapChain();
-        bool GetVSync() { return mVSync; }
-        void SetVSync(bool vSync);
-        void SetSamples(vk::SampleCountFlagBits samples);
+        void                    RebuildSwapChain();
+        bool                    GetVSync() { return mVSync; }
+        void                    SetVSync(bool vSync);
+        void                    SetSamples(vk::SampleCountFlagBits samples);
+        vk::SampleCountFlagBits GetSamples() { return mSamples; }
+        float                   GetDrawDistance() { return mDrawDistance; }
 
         void SetDrawDistance(float drawDistance);
         void ClearProjections();
@@ -71,7 +74,7 @@ namespace FREYA_NAMESPACE
         void UpdateModel(glm::mat4& model);
 
         std::shared_ptr<MeshPoolFactory> GetMeshPoolFactory();
-        BufferBuilder GetBufferBuilder();
+        BufferBuilder                    GetBufferBuilder();
 
         void BindBuffer(std::shared_ptr<Buffer> buffer);
 
@@ -89,8 +92,8 @@ namespace FREYA_NAMESPACE
         std::vector<vk::Fence>     mInFlightFences;
 
         vk::SampleCountFlagBits mSamples;
-        vk::ClearColorValue mClearColor;
-        float mDrawDistance;
+        vk::ClearColorValue     mClearColor;
+        float                   mDrawDistance;
 
         vk::ResultValue<std::uint32_t> mImageIndexResult = { vk::Result::eSuccess, 0 };
         bool                           mVSync;

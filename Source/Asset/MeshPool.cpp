@@ -43,7 +43,7 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void MeshPool::DrawInstanced(std::uint32_t meshId, size_t instanceCount)
+    void MeshPool::DrawInstanced(std::uint32_t meshId, size_t instanceCount, size_t firstInstance)
     {
         if (mMeshes.contains(meshId))
         {
@@ -62,7 +62,7 @@ namespace FREYA_NAMESPACE
                 indexOffset,
                 vk::IndexType::eUint16);
 
-            mCommandPool->GetCommandBuffer().drawIndexed(mesh.indexCount, instanceCount, 0, 0, 0);
+            mCommandPool->GetCommandBuffer().drawIndexed(mesh.indexCount, instanceCount, 0, 0, firstInstance);
         }
     }
 
