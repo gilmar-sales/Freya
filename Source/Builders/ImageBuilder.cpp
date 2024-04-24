@@ -43,8 +43,15 @@ namespace FREYA_NAMESPACE
         auto image = mDevice->Get().createImage(imageInfo);
 
         auto imageRequirements = mDevice->Get().getImageMemoryRequirements(image);
+
+        auto memoryTypeIndex = mDevice->GetPhysicalDevice()->QueryCompatibleMemoryType(
+            imageRequirements.memoryTypeBits,
+            vk::MemoryPropertyFlagBits::eDeviceLocal);
+
         auto imageMemoryInfo =
-            vk::MemoryAllocateInfo().setAllocationSize(imageRequirements.size);
+            vk::MemoryAllocateInfo()
+                .setAllocationSize(imageRequirements.size)
+                .setMemoryTypeIndex(memoryTypeIndex);
 
         auto imageMemory = mDevice->Get().allocateMemory(imageMemoryInfo);
 

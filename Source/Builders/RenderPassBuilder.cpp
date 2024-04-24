@@ -46,14 +46,17 @@ namespace FREYA_NAMESPACE
                 .setFormat(getDepthFormat())
                 .setSamples(mSamples)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
-                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
-                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setStoreOp(vk::AttachmentStoreOp::eStore)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eLoad)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eStore)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
-                .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+                .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+                .setFlags(vk::AttachmentDescriptionFlagBits::eMayAlias);
 
-        auto depthAttachmentRef = vk::AttachmentReference().setAttachment(1).setLayout(
-            vk::ImageLayout::eDepthStencilAttachmentOptimal);
+        auto depthAttachmentRef =
+            vk::AttachmentReference()
+                .setAttachment(1)
+                .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
         auto colorAttachmentResolve =
             vk::AttachmentDescription()
@@ -154,12 +157,12 @@ namespace FREYA_NAMESPACE
 
         auto rasterizer =
             vk::PipelineRasterizationStateCreateInfo()
-                .setDepthClampEnable(false)
+                .setDepthClampEnable(true)
                 .setRasterizerDiscardEnable(false)
                 .setPolygonMode(vk::PolygonMode::eFill)
-                .setLineWidth(1.0f)
                 .setCullMode(vk::CullModeFlagBits::eBack)
                 .setFrontFace(vk::FrontFace::eClockwise)
+                .setLineWidth(1.0f)
                 .setDepthBiasEnable(false);
 
         auto colorBlendAttachment =
@@ -221,7 +224,7 @@ namespace FREYA_NAMESPACE
             mDevice->Get().allocateDescriptorSets(descriptorSetAllocInfo);
 
         auto pipelineLayoutInfo = vk::PipelineLayoutCreateInfo()
-            .setSetLayouts(layouts);
+                                      .setSetLayouts(layouts);
 
         auto uniformBuffers = std::vector<std::shared_ptr<Buffer>>();
 
@@ -257,12 +260,25 @@ namespace FREYA_NAMESPACE
 
         assert(pipelineLayout && "Failed to create pipeline layout.");
 
+        auto stencilOpState        = vk::StencilOpState();
+        stencilOpState.failOp      = vk::StencilOp::eKeep;
+        stencilOpState.passOp      = vk::StencilOp::eKeep;
+        stencilOpState.compareOp   = vk::CompareOp::eAlways;
+        stencilOpState.depthFailOp = vk::StencilOp::eKeep;
+
         auto depthStencilInfo =
             vk::PipelineDepthStencilStateCreateInfo()
                 .setDepthTestEnable(true)
                 .setDepthWriteEnable(true)
+                .setStencilTestEnable(false)
+                .setDepthBoundsTestEnable(false)
                 .setDepthCompareOp(vk::CompareOp::eLess)
-                .setStencilTestEnable(false);
+                .setBack(stencilOpState)
+                .setFront(stencilOpState)
+                .setMinDepthBounds(0.0f)
+                .setMaxDepthBounds(1.0f)
+                .setFront({})
+                .setBack({});
 
         auto multisamplingInfo =
             vk::PipelineMultisampleStateCreateInfo()

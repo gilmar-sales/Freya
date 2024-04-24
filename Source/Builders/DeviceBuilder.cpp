@@ -18,6 +18,7 @@ namespace FREYA_NAMESPACE
         auto indices = findQueueFamilies(mPhysicalDevice->Get());
 
         std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
+
         std::set<uint32_t> uniqueQueueFamilies = {
             indices.graphicsFamily.value(),
             indices.presentFamily.value(),
@@ -35,7 +36,8 @@ namespace FREYA_NAMESPACE
             queueCreateInfos.push_back(queueCreateInfo);
         }
 
-        vk::PhysicalDeviceFeatures deviceFeatures{};
+        vk::PhysicalDeviceFeatures deviceFeatures {};
+        deviceFeatures.depthClamp = true;
 
         auto createInfo =
             vk::DeviceCreateInfo()
@@ -59,7 +61,7 @@ namespace FREYA_NAMESPACE
         assert(device && "Could not create logical device.");
 
         auto graphicsQueue = device.getQueue(indices.graphicsFamily.value(), 0);
-        auto presentQueue = device.getQueue(indices.presentFamily.value(), 0);
+        auto presentQueue  = device.getQueue(indices.presentFamily.value(), 0);
         auto transferQueue = device.getQueue(indices.transferFamily.value(), 0);
 
         return std::make_shared<Device>(
@@ -79,7 +81,7 @@ namespace FREYA_NAMESPACE
         auto queueFamilies = device.getQueueFamilyProperties();
 
         int i = 0;
-        for (const auto &queueFamily : queueFamilies)
+        for (const auto& queueFamily : queueFamilies)
         {
             if (queueFamily.queueFlags & vk::QueueFlagBits::eGraphics)
             {

@@ -130,7 +130,7 @@ namespace FREYA_NAMESPACE
                 glm::lookAt(cameraPosition, cameraPosition + cameraForward, cameraUp),
             .projection = glm::perspectiveFov(glm::radians(45.0f),
                                               (float) extent.width, (float) extent.height,
-                                              0.01f,
+                                              0.1f,
                                               mDrawDistance)
         };
 
@@ -219,8 +219,8 @@ namespace FREYA_NAMESPACE
                 .setY(0)
                 .setWidth(mSwapChain->GetExtent().width)
                 .setHeight(mSwapChain->GetExtent().height)
-                .setMinDepth(0)
-                .setMaxDepth(1);
+                .setMinDepth(0.0f)
+                .setMaxDepth(1.0f);
 
         commandBuffer.setViewport(0, 1, &viewport);
 
