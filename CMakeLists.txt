@@ -21,6 +21,7 @@ SOURCE_GROUP(Containers FILES ${Containers_SRCS})
 SOURCE_GROUP(Factories FILES ${Factories_SRCS})
 SOURCE_GROUP(Shaders FILES ${Shaders_SRCS})
 
+if (BUILD_SHARED_LIBS)
 add_library(Freya 
 ${Asset_SRCS}
 ${Builders_SRCS}
@@ -29,30 +30,15 @@ ${Factories_SRCS}
 ${Shaders_SRCS}
 )
 
-add_library(Freya-static STATIC
-${Asset_SRCS}
-${Builders_SRCS}
-${Core_SRCS}
-${Factories_SRCS}
-${Shaders_SRCS}
-)
 
 if(MSVC)
   target_compile_options(Freya PUBLIC "/ZI" "/MP")
   target_link_options(Freya PUBLIC "/INCREMENTAL")
-
-  target_compile_options(Freya-static  PUBLIC "/ZI" "/MP")
-  target_link_options(Freya-static  PUBLIC "/INCREMENTAL")
 endif()
 
 target_compile_features(Freya PUBLIC cxx_std_23)
-target_compile_features(Freya-static  PUBLIC cxx_std_23)
-
 target_include_directories(Freya PUBLIC Include ${Vulkan_INCLUDE_DIRS})
-target_include_directories(Freya-static  PUBLIC Include ${Vulkan_INCLUDE_DIRS})
-
 target_link_libraries(Freya SDL3-shared glm assimp ${Vulkan_LIBRARIES})
-target_link_libraries(Freya-static  SDL3-static glm assimp ${Vulkan_LIBRARIES})
 
 target_precompile_headers(Freya  PUBLIC
     <memory>
@@ -68,6 +54,27 @@ target_precompile_headers(Freya  PUBLIC
     <vulkan/vulkan.hpp>
     Include/Macro.hpp
 )
+
+endif(BUILD_SHARED_LIBS)
+
+add_library(Freya-static STATIC
+${Asset_SRCS}
+${Builders_SRCS}
+${Core_SRCS}
+${Factories_SRCS}
+${Shaders_SRCS}
+)
+
+if(MSVC)
+  target_compile_options(Freya-static  PUBLIC "/ZI" "/MP")
+  target_link_options(Freya-static  PUBLIC "/INCREMENTAL")
+endif()
+
+target_compile_features(Freya-static  PUBLIC cxx_std_23)
+
+target_include_directories(Freya-static  PUBLIC Include ${Vulkan_INCLUDE_DIRS})
+
+target_link_libraries(Freya-static  SDL3-static glm assimp ${Vulkan_LIBRARIES})
 
 target_precompile_headers(Freya-static  PUBLIC
     <memory>
@@ -97,6 +104,11 @@ endif()
 
 
 file(COPY Shaders DESTINATION ${CMAKE_BINARY_DIR})
+
+set(BUILD_ASSIMP_TESTS OFF CACHE BOOL "Disable assimp tests build")
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build Shared Library")
+set(SDL_STATIC OFF CACHE BOOL "Build Shared Library")
+set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "Disable assimp warnings as errors")
 
 add_subdirectory(ThirdParty/SDL)
 add_subdirectory(ThirdParty/glm)
