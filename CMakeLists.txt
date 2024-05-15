@@ -39,6 +39,7 @@ endif()
 target_compile_features(Freya PUBLIC cxx_std_23)
 target_include_directories(Freya PUBLIC Include ${Vulkan_INCLUDE_DIRS})
 target_link_libraries(Freya SDL3-shared glm assimp ${Vulkan_LIBRARIES})
+target_link_libraries(Freya-static SDL3-static glm assimp ${Vulkan_LIBRARIES})
 
 target_precompile_headers(Freya  PUBLIC
     <memory>

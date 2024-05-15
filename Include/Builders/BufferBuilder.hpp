@@ -9,12 +9,12 @@ namespace FREYA_NAMESPACE
     class BufferBuilder
     {
       public:
-        BufferBuilder(std::shared_ptr<Device> device)
-            : mDevice(device), mData(nullptr), mSize(0), mUsage(BufferUsage::Staging)
+        explicit BufferBuilder(std::shared_ptr<Device> device) :
+            mDevice(device)
         {
         }
 
-        BufferBuilder &SetSize(std::uint32_t size)
+        BufferBuilder& SetSize(std::uint64_t size)
         {
             mSize = size;
 
@@ -22,14 +22,14 @@ namespace FREYA_NAMESPACE
         }
 
         template <typename T>
-        BufferBuilder &SetData(T *data)
+        BufferBuilder& SetData(T* data)
         {
-            mData = (void *) data;
+            mData = (void*) data;
 
             return *this;
         }
 
-        BufferBuilder &SetUsage(BufferUsage usage)
+        BufferBuilder& SetUsage(BufferUsage usage)
         {
             mUsage = usage;
             return *this;
@@ -39,9 +39,10 @@ namespace FREYA_NAMESPACE
 
       private:
         std::shared_ptr<Device> mDevice;
-        std::uint32_t mSize;
-        void *mData;
-        BufferUsage mUsage;
+
+        std::uint64_t mSize  = 0;
+        void*         mData  = nullptr;
+        BufferUsage   mUsage = BufferUsage::Staging;
     };
 
 } // namespace FREYA_NAMESPACE
