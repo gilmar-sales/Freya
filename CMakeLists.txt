@@ -38,8 +38,7 @@ endif()
 
 target_compile_features(Freya PUBLIC cxx_std_23)
 target_include_directories(Freya PUBLIC Include ${Vulkan_INCLUDE_DIRS})
-target_link_libraries(Freya SDL3-shared glm assimp ${Vulkan_LIBRARIES})
-target_link_libraries(Freya-static SDL3-static glm assimp ${Vulkan_LIBRARIES})
+target_link_libraries(Freya SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES})
 
 target_precompile_headers(Freya  PUBLIC
     <memory>
@@ -50,9 +49,9 @@ target_precompile_headers(Freya  PUBLIC
     <set>
     <iostream>
     <fstream>
+    <vulkan/vulkan.hpp>
     <SDL3/SDL.h>
     <SDL3/SDL_vulkan.h>
-    <vulkan/vulkan.hpp>
     Include/Macro.hpp
 )
 
@@ -75,7 +74,7 @@ target_compile_features(Freya-static  PUBLIC cxx_std_23)
 
 target_include_directories(Freya-static  PUBLIC Include ${Vulkan_INCLUDE_DIRS})
 
-target_link_libraries(Freya-static  SDL3-static glm assimp ${Vulkan_LIBRARIES})
+target_link_libraries(Freya-static  SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES})
 
 target_precompile_headers(Freya-static  PUBLIC
     <memory>
@@ -86,9 +85,9 @@ target_precompile_headers(Freya-static  PUBLIC
     <set>
     <iostream>
     <fstream>
+    <vulkan/vulkan.hpp>
     <SDL3/SDL.h>
     <SDL3/SDL_vulkan.h>
-    <vulkan/vulkan.hpp>
     Include/Macro.hpp
 )
 
@@ -108,7 +107,6 @@ file(COPY Shaders DESTINATION ${CMAKE_BINARY_DIR})
 
 set(BUILD_ASSIMP_TESTS OFF CACHE BOOL "Disable assimp tests build")
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build Shared Library")
-set(SDL_STATIC OFF CACHE BOOL "Build Shared Library")
 set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "Disable assimp warnings as errors")
 
 add_subdirectory(ThirdParty/SDL)
