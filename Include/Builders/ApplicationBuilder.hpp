@@ -1,30 +1,28 @@
 #pragma once
 
-#include "Core/AbstractApplication.hpp"
-#include "Builders/WindowBuilder.hpp"
 #include "Builders/RendererBuilder.hpp"
+#include "Builders/WindowBuilder.hpp"
+#include "Core/AbstractApplication.hpp"
 
 namespace FREYA_NAMESPACE
 {
     class WindowBuilder;
-    
-    template<typename T>
-    concept IsApplication = std::is_base_of_v<AbstractApplication, T>; 
+
+    template <typename T>
+    concept IsApplication = std::is_base_of_v<AbstractApplication, T>;
 
     class ApplicationBuilder
     {
-        public:
-
-        ApplicationBuilder():
-        mWindowBuilder(WindowBuilder())
+      public:
+        ApplicationBuilder() :
+            mWindowBuilder(WindowBuilder())
         {
-
         }
 
         ApplicationBuilder& WithWindow(std::function<void(WindowBuilder&)> windowBuilderFunc);
         ApplicationBuilder& WithRenderer(std::function<void(RendererBuilder&)> rendererBuilderFunc);
 
-        template<typename T>
+        template <typename T>
             requires IsApplication<T>
         std::shared_ptr<T> Build()
         {
@@ -33,14 +31,10 @@ namespace FREYA_NAMESPACE
             auto window = mWindowBuilder.Build();
 
             auto renderer = mRendererBuilder
-                                .WithInstance([](InstanceBuilder& instanceBuilder)
-                                {
+                                .WithInstance([](InstanceBuilder& instanceBuilder) {
                                     uint32_t extensionCount;
-                                    SDL_Vulkan_GetInstanceExtensions(&extensionCount, nullptr);
+                                    auto     extensionNames = SDL_Vulkan_GetInstanceExtensions(&extensionCount);
 
-                                    const char **extensionNames = new const char *[extensionCount];
-                                    SDL_Vulkan_GetInstanceExtensions(&extensionCount, extensionNames);
-                                    
                                     instanceBuilder.AddValidationLayers();
 
                                     for (auto i = 0; i < extensionCount; i++)
@@ -54,15 +48,15 @@ namespace FREYA_NAMESPACE
                                 .SetVSync(window->mVSync)
                                 .Build();
 
-            ((AbstractApplication*)app.get())->mWindow = window;
-            ((AbstractApplication*)app.get())->mRenderer = renderer;
+            ((AbstractApplication*) app.get())->mWindow   = window;
+            ((AbstractApplication*) app.get())->mRenderer = renderer;
 
             return app;
         }
 
-        protected:
-            WindowBuilder mWindowBuilder;
-            RendererBuilder mRendererBuilder;
+      protected:
+        WindowBuilder   mWindowBuilder;
+        RendererBuilder mRendererBuilder;
     };
 
 } // namespace FREYA_NAMESPACE
