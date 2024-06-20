@@ -70,8 +70,10 @@ namespace FREYA_NAMESPACE
 
         void SetDrawDistance(float drawDistance);
         void ClearProjections();
-        void UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer);
-        void UpdateModel(glm::mat4& model);
+
+        const ProjectionUniformBuffer& GetCurrentProjection() { return mCurrentProjection; }
+        void                           UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer);
+        void                           UpdateModel(glm::mat4& model);
 
         std::shared_ptr<MeshPoolFactory> GetMeshPoolFactory();
         BufferBuilder                    GetBufferBuilder();
@@ -101,6 +103,8 @@ namespace FREYA_NAMESPACE
         std::shared_ptr<Buffer> mVertexBuffer;
         std::shared_ptr<Buffer> mIndexBuffer;
         std::uint32_t           mCurrentFrameIndex;
+
+        ProjectionUniformBuffer mCurrentProjection;
     };
 
 } // namespace FREYA_NAMESPACE

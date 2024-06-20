@@ -140,11 +140,14 @@ namespace FREYA_NAMESPACE
         {
             mRenderPass->UpdateProjection(projectionUniformBuffer, frameIndex);
         }
+
+        mCurrentProjection = projectionUniformBuffer;
     }
 
     void Renderer::UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer)
     {
         mRenderPass->UpdateProjection(projectionUniformBuffer, mCurrentFrameIndex);
+        mCurrentProjection = projectionUniformBuffer;
     }
 
     void Renderer::UpdateModel(glm::mat4& model)
