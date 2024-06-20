@@ -105,7 +105,9 @@ endif()
 
 file(COPY Shaders DESTINATION ${CMAKE_BINARY_DIR})
 
-set(BUILD_ASSIMP_TESTS OFF CACHE BOOL "Disable assimp tests build")
+set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "Disable assimp tests build")
+set(SDL_TEST OFF CACHE BOOL "Disable SDL2 tests build")
+set(SDL_TEST_LIBRARY OFF CACHE BOOL "Disable SDL3 tests build")
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build Shared Library")
 set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "Disable assimp warnings as errors")
 
