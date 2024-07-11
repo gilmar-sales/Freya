@@ -8,7 +8,8 @@ namespace FREYA_NAMESPACE
     class AbstractApplication
     {
       public:
-        virtual void Run() = 0;
+        virtual ~AbstractApplication() = default;
+        virtual void Run()             = 0;
 
       protected:
         friend class ApplicationBuilder;
