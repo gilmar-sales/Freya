@@ -48,8 +48,12 @@ namespace FREYA_NAMESPACE
                                 .SetVSync(window->mVSync)
                                 .Build();
 
-            ((AbstractApplication*) app.get())->mWindow   = window;
-            ((AbstractApplication*) app.get())->mRenderer = renderer;
+            auto eventManager = std::make_shared<EventManager>();
+
+            ((AbstractApplication*) app.get())->mWindow       = window;
+            ((AbstractApplication*) app.get())->mRenderer     = renderer;
+            ((AbstractApplication*) app.get())->mEventManager = eventManager;
+            window->mEventManager                             = eventManager;
 
             return app;
         }

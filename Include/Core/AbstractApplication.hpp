@@ -2,6 +2,7 @@
 
 #include "Core/Renderer.hpp"
 #include "Core/Window.hpp"
+#include "Events/EventManager.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -20,16 +21,17 @@ namespace FREYA_NAMESPACE
 
             while (mWindow->IsRunning())
             {
-                Update();
                 mWindow->Update();
+                Update();
             }
         };
 
       protected:
         friend class ApplicationBuilder;
 
-        float                     mDeltaTime;
-        std::shared_ptr<Window>   mWindow;
-        std::shared_ptr<Renderer> mRenderer;
+        float                         mDeltaTime;
+        std::shared_ptr<Window>       mWindow;
+        std::shared_ptr<Renderer>     mRenderer;
+        std::shared_ptr<EventManager> mEventManager;
     };
 } // namespace FREYA_NAMESPACE

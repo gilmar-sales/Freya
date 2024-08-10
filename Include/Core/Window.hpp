@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Renderer.hpp"
+#include "Events/EventManager.hpp"
 
 #include <SDL3/SDL.h>
 
@@ -27,11 +28,11 @@ namespace FREYA_NAMESPACE
 
         std::uint32_t GetWidth() { return mWidth; }
         std::uint32_t GetHeight() { return mHeight; }
-        
+
         void Resize(std::uint32_t width, std::uint32_t height)
         {
-          mWidth = width;
-          mHeight = height;
+            mWidth  = width;
+            mHeight = height;
         }
 
         bool IsRunning() { return mRunning; }
@@ -42,13 +43,14 @@ namespace FREYA_NAMESPACE
       private:
         friend class ApplicationBuilder;
 
-        SDL_Window*               mWindow;
-        std::string               mTitle;
-        std::uint32_t             mWidth;
-        std::uint32_t             mHeight;
-        bool                      mVSync;
-        bool                      mRunning;
-        float                     mDeltaTime;
+        Ref<EventManager> mEventManager;
+        SDL_Window*       mWindow;
+        std::string       mTitle;
+        std::uint32_t     mWidth;
+        std::uint32_t     mHeight;
+        bool              mVSync;
+        bool              mRunning;
+        float             mDeltaTime;
     };
 
 } // namespace FREYA_NAMESPACE

@@ -1,6 +1,9 @@
+#include <iostream>
+
 #include "Builders/ApplicationBuilder.hpp"
 #include "Builders/WindowBuilder.hpp"
 #include <Core/UniformBuffer.hpp>
+#include <Events/Keyboard/KeyPressedEvent.hpp>
 
 class MainApp : public fra::AbstractApplication
 {
@@ -13,6 +16,10 @@ class MainApp : public fra::AbstractApplication
 
         red_ship_meshes = mMeshPool->CreateMeshFromFile("C:/Models/cartoon_spaceship_red.obj");
         mModelMatrix    = glm::mat4(1);
+
+        mEventManager->Subscribe<fra::KeyPressedEvent>([](fra::KeyPressedEvent event) {
+            std::cout << ("Key pressed\n");
+        });
     }
 
     void Update() override

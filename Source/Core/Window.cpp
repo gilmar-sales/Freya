@@ -9,6 +9,9 @@
 
 #include <sstream>
 
+#include "Events/Keyboard/KeyPressedEvent.hpp"
+#include "Events/Keyboard/KeyReleasedEvent.hpp"
+
 namespace FREYA_NAMESPACE
 {
     Window::~Window()
@@ -27,9 +30,38 @@ namespace FREYA_NAMESPACE
         auto currentCount = SDL_GetPerformanceCounter();
 
         mDeltaTime = (double) (currentCount - previousCounter) /
-                            (double) SDL_GetPerformanceFrequency();
+                     (double) SDL_GetPerformanceFrequency();
         secondTime += mDeltaTime;
         previousCounter = currentCount;
+
+        SDL_Event event;
+
+        while (SDL_PollEvent(&event))
+        {
+            switch (event.type)
+            {
+                case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+                    mRunning = false;
+                    break;
+
+                case SDL_EVENT_KEY_DOWN: {
+                    auto keyEvent = KeyPressedEvent {};
+                    keyEvent.key  = (Key) event.key.scancode;
+                    mEventManager->Send(keyEvent);
+                    break;
+                }
+
+                case SDL_EVENT_KEY_UP: {
+                    auto keyEvent = KeyReleasedEvent {};
+                    keyEvent.key  = (Key) event.key.scancode;
+                    mEventManager->Send(keyEvent);
+                    break;
+                }
+
+                default:
+                    break;
+            }
+        };
 
         if (secondTime >= 1.0f)
         {
