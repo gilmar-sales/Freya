@@ -5,7 +5,7 @@
 class MainApp : public fra::AbstractApplication
 {
   public:
-    void Startup()
+    void StartUp() override
     {
         mRenderer->ClearProjections();
 
@@ -15,20 +15,31 @@ class MainApp : public fra::AbstractApplication
         mModelMatrix    = glm::mat4(1);
     }
 
-    void Run() override
+    void Update() override
     {
-        Startup();
-
         mCurrentTime += mWindow->GetDeltaTime();
         mModelMatrix = glm::translate(mModelMatrix, glm::vec3(0.0, glm::cos(mCurrentTime), 0.0) * mWindow->GetDeltaTime());
         mModelMatrix = glm::rotate(mModelMatrix, glm::radians(15.0f * mWindow->GetDeltaTime()), glm::vec3(0.0, 1.0, 0.0));
 
-        mRenderer->UpdateModel(mModelMatrix);
+        mRenderer->BeginFrame();
+
+        mWindow->Update();
+
+        auto mInstanceMatrixBuffers =
+            mRenderer->GetBufferBuilder()
+                .SetData(&mModelMatrix[0][0])
+                .SetSize(sizeof(glm::mat4))
+                .SetUsage(fra::BufferUsage::Instance)
+                .Build();
+
+        mRenderer->BindBuffer(mInstanceMatrixBuffers);
 
         for (const auto& mesh : red_ship_meshes)
         {
             mMeshPool->Draw(mesh);
         }
+
+        mRenderer->EndFrame();
     }
 
   private:
@@ -44,9 +55,12 @@ int main(int argc, const char** argv)
                    .WithWindow([](fra::WindowBuilder& windowBuilder) {
                        windowBuilder
                            .SetTitle("Space")
-                           .SetWidth(1024)
-                           .SetHeight(600)
-                           .SetVSync(true);
+                           .SetWidth(1920)
+                           .SetHeight(1080)
+                           .SetVSync(false);
+                   })
+                   .WithRenderer([](fra::RendererBuilder& rendererBuilder) {
+                       rendererBuilder.SetSamples(vk::SampleCountFlagBits::e8);
                    })
                    .Build<MainApp>();
 

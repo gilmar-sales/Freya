@@ -9,7 +9,21 @@ namespace FREYA_NAMESPACE
     {
       public:
         virtual ~AbstractApplication() = default;
-        virtual void Run()             = 0;
+
+        virtual void StartUp() {};
+
+        virtual void Update() = 0;
+
+        virtual void Run()
+        {
+            StartUp();
+
+            while (mWindow->IsRunning())
+            {
+                Update();
+                mWindow->Update();
+            }
+        };
 
       protected:
         friend class ApplicationBuilder;
