@@ -36,8 +36,8 @@ namespace FREYA_NAMESPACE
             queueCreateInfos.push_back(queueCreateInfo);
         }
 
-        auto deviceFeatures = vk::PhysicalDeviceFeatures();
-        // deviceFeatures.depthClamp = true;
+        auto deviceFeatures = vk::PhysicalDeviceFeatures()
+                                  .setDepthClamp(true);
 
         auto createInfo =
             vk::DeviceCreateInfo()

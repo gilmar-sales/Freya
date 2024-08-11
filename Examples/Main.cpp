@@ -11,7 +11,7 @@ class MainApp : public fra::AbstractApplication
 
         mMeshPool = mRenderer->GetMeshPoolFactory()->CreateMeshPool();
 
-        red_ship_meshes = mMeshPool->CreateMeshFromFile("D:/Models/x-wing (low-poly).glb");
+        red_ship_meshes = mMeshPool->CreateMeshFromFile("D:/Models/x-wing.obj");
         mModelMatrix    = glm::mat4(1);
 
         mEventManager->Subscribe<fra::KeyPressedEvent>([](fra::KeyPressedEvent event) {

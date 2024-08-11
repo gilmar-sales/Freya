@@ -44,9 +44,12 @@ namespace FREYA_NAMESPACE
                       deviceProperties.limits.framebufferDepthSampleCounts;
 
         auto samples = std::vector<vk::SampleCountFlagBits> {
-            vk::SampleCountFlagBits::e64, vk::SampleCountFlagBits::e32,
-            vk::SampleCountFlagBits::e16, vk::SampleCountFlagBits::e8,
-            vk::SampleCountFlagBits::e4,  vk::SampleCountFlagBits::e2,
+            vk::SampleCountFlagBits::e64,
+            vk::SampleCountFlagBits::e32,
+            vk::SampleCountFlagBits::e16,
+            vk::SampleCountFlagBits::e8,
+            vk::SampleCountFlagBits::e4,
+            vk::SampleCountFlagBits::e2,
         };
 
         for (auto& sample : samples)
@@ -71,4 +74,27 @@ namespace FREYA_NAMESPACE
         return vk::SampleCountFlagBits::e1;
     }
 
+    vk::Format PhysicalDevice::GetDepthFormat()
+    {
+        auto candidates = std::vector<vk::Format> {
+            vk::Format::eD32SfloatS8Uint,
+            vk::Format::eD32Sfloat,
+            vk::Format::eD24UnormS8Uint,
+            vk::Format::eD16UnormS8Uint,
+            vk::Format::eD16Unorm,
+        };
+
+        auto depthFeature = vk::FormatFeatureFlagBits::eDepthStencilAttachment;
+        for (auto& format : candidates)
+        {
+            auto props = mPhysicalDevice.getFormatProperties(format);
+
+            if ((props.optimalTilingFeatures & depthFeature) == depthFeature)
+            {
+                return format;
+            }
+        }
+
+        return vk::Format::eD32Sfloat;
+    }
 } // namespace FREYA_NAMESPACE

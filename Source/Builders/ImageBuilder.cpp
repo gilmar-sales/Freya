@@ -103,7 +103,7 @@ namespace FREYA_NAMESPACE
                 mFormat = mDevice->GetSurface()->QuerySurfaceFormat().format;
                 break;
             case ImageUsage::Depth:
-                mFormat = getDepthFormat();
+                mFormat = mDevice->GetPhysicalDevice()->GetDepthFormat();
                 break;
             case ImageUsage::Texture:
                 mFormat = vk::Format::eR8G8B8A8Srgb;
@@ -113,26 +113,6 @@ namespace FREYA_NAMESPACE
                 break;
             default:
                 break;
-        }
-
-        return vk::Format();
-    }
-
-    vk::Format ImageBuilder::getDepthFormat()
-    {
-        auto candidates = std::vector<vk::Format> { vk::Format::eD32Sfloat,
-                                                    vk::Format::eD32SfloatS8Uint,
-                                                    vk::Format::eD24UnormS8Uint };
-
-        auto depthFeature = vk::FormatFeatureFlagBits::eDepthStencilAttachment;
-        for (auto& format : candidates)
-        {
-            auto props = mDevice->GetPhysicalDevice()->Get().getFormatProperties(format);
-
-            if ((props.optimalTilingFeatures & depthFeature) == depthFeature)
-            {
-                return format;
-            }
         }
 
         return vk::Format();

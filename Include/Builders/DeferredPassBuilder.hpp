@@ -36,9 +36,6 @@ namespace FREYA_NAMESPACE
 
         Ref<DeferredPass> Build();
 
-      protected:
-        vk::Format getDepthFormat();
-
       private:
         Ref<Device>  mDevice;
         Ref<Surface> mSurface;

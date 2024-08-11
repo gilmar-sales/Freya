@@ -44,7 +44,7 @@ namespace FREYA_NAMESPACE
 
         auto depthAttachment =
             vk::AttachmentDescription()
-                .setFormat(getDepthFormat())
+                .setFormat(mPhysicalDevice->GetDepthFormat())
                 .setSamples(mSamples)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStoreOp(vk::AttachmentStoreOp::eStore)
@@ -323,9 +323,13 @@ namespace FREYA_NAMESPACE
 
     vk::Format RenderPassBuilder::getDepthFormat()
     {
-        auto candidates = std::vector<vk::Format> { vk::Format::eD32Sfloat,
-                                                    vk::Format::eD32SfloatS8Uint,
-                                                    vk::Format::eD24UnormS8Uint };
+        auto candidates = std::vector<vk::Format> {
+            vk::Format::eD32SfloatS8Uint,
+            vk::Format::eD32Sfloat,
+            vk::Format::eD24UnormS8Uint,
+            vk::Format::eD16UnormS8Uint,
+            vk::Format::eD16Unorm,
+        };
 
         auto depthFeature = vk::FormatFeatureFlagBits::eDepthStencilAttachment;
         for (auto& format : candidates)

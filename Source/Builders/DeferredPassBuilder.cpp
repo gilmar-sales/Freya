@@ -19,7 +19,7 @@ namespace FREYA_NAMESPACE
                 .setFinalLayout(vk::ImageLayout::ePresentSrcKHR),
             // Depth buffer
             vk::AttachmentDescription()
-                .setFormat(getDepthFormat())
+                .setFormat(mDevice->GetPhysicalDevice()->GetDepthFormat())
                 .setSamples(mSamples)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStoreOp(vk::AttachmentStoreOp::eDontCare)
@@ -160,25 +160,5 @@ namespace FREYA_NAMESPACE
         auto renderPass = mDevice->Get().createRenderPass(renderPassCreateInfo);
 
         return std::make_shared<DeferredPass>();
-    }
-
-    vk::Format DeferredPassBuilder::getDepthFormat()
-    {
-        auto candidates = std::vector<vk::Format>{vk::Format::eD32Sfloat,
-                                                  vk::Format::eD32SfloatS8Uint,
-                                                  vk::Format::eD24UnormS8Uint};
-
-        auto depthFeature = vk::FormatFeatureFlagBits::eDepthStencilAttachment;
-        for (auto &format : candidates)
-        {
-            auto props = mDevice->GetPhysicalDevice()->Get().getFormatProperties(format);
-
-            if ((props.optimalTilingFeatures & depthFeature) == depthFeature)
-            {
-                return format;
-            }
-        }
-
-        return vk::Format::eD32Sfloat;
     }
 } // namespace FREYA_NAMESPACE
