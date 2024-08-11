@@ -153,8 +153,15 @@ namespace FREYA_NAMESPACE
         Assimp::Importer import;
         const aiScene*   scene = import.ReadFile(
             path,
-            aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_ImproveCacheLocality |
-                aiProcess_FixInfacingNormals | aiProcess_JoinIdenticalVertices);
+            aiProcess_CalcTangentSpace |
+                aiProcess_Triangulate |
+                aiProcess_SortByPType |
+                aiProcess_GenNormals |
+                aiProcess_GenUVCoords |
+                aiProcess_OptimizeMeshes |
+                aiProcess_JoinIdenticalVertices |
+                aiProcess_GlobalScale |
+                aiProcess_ValidateDataStructure);
 
         if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
         {

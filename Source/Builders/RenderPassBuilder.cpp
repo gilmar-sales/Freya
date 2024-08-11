@@ -48,10 +48,13 @@ namespace FREYA_NAMESPACE
                 .setSamples(mSamples)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStoreOp(vk::AttachmentStoreOp::eStore)
-                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
                 .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+        if (mSamples != vk::SampleCountFlagBits::e1)
+            depthAttachment.setFinalLayout(vk::ImageLayout::eDepthAttachmentStencilReadOnlyOptimal);
 
         std::println("Depth Format: {}", vk::to_string(depthAttachment.format));
 
@@ -91,13 +94,10 @@ namespace FREYA_NAMESPACE
             vk::SubpassDependency()
                 .setSrcSubpass(~0u)
                 .setDstSubpass(0)
-                .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput |
-                                 vk::PipelineStageFlagBits::eEarlyFragmentTests)
+                .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
                 .setSrcAccessMask(vk::AccessFlagBits::eNone)
-                .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput |
-                                 vk::PipelineStageFlagBits::eEarlyFragmentTests)
-                .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite |
-                                  vk::AccessFlagBits::eDepthStencilAttachmentWrite);
+                .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
 
         auto attachments =
             mSamples != vk::SampleCountFlagBits::e1
@@ -172,15 +172,18 @@ namespace FREYA_NAMESPACE
                 .setColorWriteMask(
                     vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
                     vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
-                .setBlendEnable(false);
+                .setBlendEnable(true)
+                .setSrcColorBlendFactor(vk::BlendFactor::eSrcAlpha)
+                .setDstColorBlendFactor(vk::BlendFactor::eOneMinusSrcAlpha)
+                .setColorBlendOp(vk::BlendOp::eAdd)
+                .setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
+                .setDstAlphaBlendFactor(vk::BlendFactor::eZero)
+                .setAlphaBlendOp(vk::BlendOp::eAdd);
 
         auto colorBlending =
             vk::PipelineColorBlendStateCreateInfo()
-                .setLogicOpEnable(false)
-                .setLogicOp(vk::LogicOp::eCopy)
                 .setAttachmentCount(1)
-                .setPAttachments(&colorBlendAttachment)
-                .setBlendConstants({ 0, 0, 0, 0 });
+                .setPAttachments(&colorBlendAttachment);
 
         std::vector<vk::DynamicState> dynamicStates = {
             vk::DynamicState::eViewport, vk::DynamicState::eScissor
@@ -265,8 +268,7 @@ namespace FREYA_NAMESPACE
         auto stencilOpState = vk::StencilOpState()
                                   .setFailOp(vk::StencilOp::eKeep)
                                   .setPassOp(vk::StencilOp::eKeep)
-                                  .setCompareOp(vk::CompareOp::eAlways)
-                                  .setDepthFailOp(vk::StencilOp::eKeep);
+                                  .setCompareOp(vk::CompareOp::eAlways);
 
         auto depthStencilInfo =
             vk::PipelineDepthStencilStateCreateInfo()

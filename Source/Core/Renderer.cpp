@@ -208,7 +208,8 @@ namespace FREYA_NAMESPACE
         commandBuffer.begin(beginInfo);
 
         auto clearValues = { vk::ClearValue().setColor(mClearColor),
-                             vk::ClearValue().setDepthStencil({ 1.0f, 0 }) };
+                             vk::ClearValue().setDepthStencil(vk::ClearDepthStencilValue()
+                                                                  .setDepth(1.0f)) };
 
         auto renderPassInfo =
             vk::RenderPassBeginInfo()
