@@ -28,7 +28,9 @@ namespace FREYA_NAMESPACE
         {
             auto app = std::make_shared<T>();
 
-            auto window = mWindowBuilder.Build();
+            auto eventManager = std::make_shared<EventManager>();
+
+            auto window = mWindowBuilder.SetEventManager(eventManager).Build();
 
             auto renderer = mRendererBuilder
                                 .WithInstance([](InstanceBuilder& instanceBuilder) {
@@ -46,14 +48,12 @@ namespace FREYA_NAMESPACE
                                 .SetWidth(window->mWidth)
                                 .SetHeight(window->mHeight)
                                 .SetVSync(window->mVSync)
+                                .SetEventManager(eventManager)
                                 .Build();
-
-            auto eventManager = std::make_shared<EventManager>();
 
             ((AbstractApplication*) app.get())->mWindow       = window;
             ((AbstractApplication*) app.get())->mRenderer     = renderer;
             ((AbstractApplication*) app.get())->mEventManager = eventManager;
-            window->mEventManager                             = eventManager;
 
             return app;
         }

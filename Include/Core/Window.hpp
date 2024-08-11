@@ -15,11 +15,19 @@ namespace FREYA_NAMESPACE
                std::string   title,
                std::uint32_t width,
                std::uint32_t height,
-               bool          vSync) :
+               bool          vSync,
+               Ref<EventManager>
+                   eventManager) :
             mWindow(window),
             mTitle(title), mWidth(width), mHeight(height),
-            mVSync(vSync), mRunning(true)
+            mVSync(vSync), mRunning(true), mEventManager(eventManager)
         {
+            mEventManager->Subscribe<WindowResizeEvent>([this](WindowResizeEvent event) {
+                if (!event.handled)
+                {
+                    Resize(event.width, event.height);
+                }
+            });
         }
 
         ~Window();

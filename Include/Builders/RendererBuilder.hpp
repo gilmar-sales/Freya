@@ -66,6 +66,7 @@ namespace FREYA_NAMESPACE
             mClearColor = clearColor;
             return *this;
         }
+
         RendererBuilder& SetDrawDistance(float drawDistance)
         {
 
@@ -75,6 +76,16 @@ namespace FREYA_NAMESPACE
         std::shared_ptr<Renderer> Build();
 
       private:
+        friend class ApplicationBuilder;
+
+        RendererBuilder& SetEventManager(Ref<EventManager> eventManager)
+        {
+            mEventManager = eventManager;
+            return *this;
+        };
+
+        Ref<EventManager> mEventManager;
+
         InstanceBuilder mInstanceBuilder;
 
         SDL_Window*   mWindow;

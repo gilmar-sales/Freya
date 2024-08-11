@@ -31,26 +31,36 @@ namespace FREYA_NAMESPACE
         secondTime += mDeltaTime;
         previousCounter = currentCount;
 
-        SDL_Event event;
+        SDL_Event sdlEvent;
 
-        while (SDL_PollEvent(&event))
+        while (SDL_PollEvent(&sdlEvent))
         {
-            switch (event.type)
+            switch (sdlEvent.type)
             {
-                case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+                case SDL_EVENT_WINDOW_CLOSE_REQUESTED: {
+
                     mRunning = false;
                     break;
+                }
+
+                case SDL_EVENT_WINDOW_RESIZED: {
+                    auto resizeEvent   = WindowResizeEvent {};
+                    resizeEvent.width  = sdlEvent.window.data1;
+                    resizeEvent.height = sdlEvent.window.data2;
+                    mEventManager->Send(resizeEvent);
+                    break;
+                }
 
                 case SDL_EVENT_KEY_DOWN: {
                     auto keyEvent = KeyPressedEvent {};
-                    keyEvent.key  = (KeyCode) event.key.scancode;
+                    keyEvent.key  = (KeyCode) sdlEvent.key.scancode;
                     mEventManager->Send(keyEvent);
                     break;
                 }
 
                 case SDL_EVENT_KEY_UP: {
                     auto keyEvent = KeyReleasedEvent {};
-                    keyEvent.key  = (KeyCode) event.key.scancode;
+                    keyEvent.key  = (KeyCode) sdlEvent.key.scancode;
                     mEventManager->Send(keyEvent);
                     break;
                 }

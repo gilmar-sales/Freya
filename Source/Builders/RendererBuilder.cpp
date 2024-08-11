@@ -93,7 +93,8 @@ namespace FREYA_NAMESPACE
                                           mVSync,
                                           mSamples,
                                           mClearColor,
-                                          mDrawDistance);
+                                          mDrawDistance,
+                                          mEventManager);
     }
 
 } // namespace FREYA_NAMESPACE

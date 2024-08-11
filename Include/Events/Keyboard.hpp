@@ -11,7 +11,7 @@ namespace FREYA_NAMESPACE
         KeyCode key;
     };
 
-    struct KeyPressedEvent : public KeyboardEvent
+    struct KeyPressedEvent : KeyboardEvent
     {
     };
 

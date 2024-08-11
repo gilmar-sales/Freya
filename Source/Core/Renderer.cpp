@@ -178,6 +178,13 @@ namespace FREYA_NAMESPACE
                                          UINT64_MAX) != vk::Result::eSuccess)
             throw new std::runtime_error("failed to wait for fences!");
 
+        if (mResizeEvent.has_value())
+        {
+            RebuildSwapChain();
+
+            mResizeEvent.reset();
+        }
+
         auto swapChainFrame =
             mSwapChain->GetNextFrame(mImageAvailableSemaphores[mCurrentFrameIndex]);
 

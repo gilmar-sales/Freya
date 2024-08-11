@@ -3,6 +3,7 @@
 #include "Asset/MeshPool.hpp"
 #include "CommandPool.hpp"
 #include "Device.hpp"
+#include "Events/EventManager.hpp"
 #include "Factories/MeshPoolFactory.hpp"
 #include "Instance.hpp"
 #include "PhysicalDevice.hpp"
@@ -22,18 +23,18 @@ namespace FREYA_NAMESPACE
     class Renderer
     {
       public:
-        Renderer(std::shared_ptr<Instance> instance,
-                 std::shared_ptr<Surface>
+        Renderer(Ref<Instance> instance,
+                 Ref<Surface>
                      surface,
-                 std::shared_ptr<PhysicalDevice>
+                 Ref<PhysicalDevice>
                      physicalDevice,
-                 std::shared_ptr<Device>
+                 Ref<Device>
                      device,
-                 std::shared_ptr<SwapChain>
+                 Ref<SwapChain>
                      swapChain,
-                 std::shared_ptr<RenderPass>
+                 Ref<RenderPass>
                      renderPass,
-                 std::shared_ptr<CommandPool>
+                 Ref<CommandPool>
                      commandPool,
                  std::vector<vk::Semaphore>
                      imageAvailableSemaphores,
@@ -43,16 +44,24 @@ namespace FREYA_NAMESPACE
                                          inFlightFences,
                  bool                    vSync,
                  vk::SampleCountFlagBits samples,
-                 vk::ClearColorValue clearColor, float drawDistance) :
+                 vk::ClearColorValue clearColor, float drawDistance,
+                 Ref<EventManager> eventManager) :
             mInstance(instance),
             mSurface(surface), mPhysicalDevice(physicalDevice),
             mDevice(device), mSwapChain(swapChain), mRenderPass(renderPass),
             mCommandPool(commandPool),
             mImageAvailableSemaphores(imageAvailableSemaphores),
             mRenderFinishedSemaphores(renderFinishedSemaphores),
-            mInFlightFences(inFlightFences), mVSync(vSync), mSamples(samples), mClearColor(clearColor), mDrawDistance(drawDistance), mCurrentFrameIndex(0)
+            mInFlightFences(inFlightFences), mVSync(vSync), mSamples(samples), mClearColor(clearColor), mDrawDistance(drawDistance), mCurrentFrameIndex(0), mEventManager(eventManager)
         {
             ClearProjections();
+
+            mEventManager->Subscribe<WindowResizeEvent>([this](WindowResizeEvent event) {
+                if (!event.handled)
+                {
+                    mResizeEvent = event;
+                }
+            });
         }
 
         ~Renderer();
@@ -75,19 +84,20 @@ namespace FREYA_NAMESPACE
         void                           UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer);
         void                           UpdateModel(glm::mat4& model);
 
-        std::shared_ptr<MeshPoolFactory> GetMeshPoolFactory();
-        BufferBuilder                    GetBufferBuilder();
+        Ref<MeshPoolFactory> GetMeshPoolFactory();
+        BufferBuilder        GetBufferBuilder();
 
-        void BindBuffer(std::shared_ptr<Buffer> buffer);
+        void BindBuffer(Ref<Buffer> buffer);
 
       private:
-        std::shared_ptr<Instance>       mInstance;
-        std::shared_ptr<Surface>        mSurface;
-        std::shared_ptr<PhysicalDevice> mPhysicalDevice;
-        std::shared_ptr<Device>         mDevice;
-        std::shared_ptr<SwapChain>      mSwapChain;
-        std::shared_ptr<RenderPass>     mRenderPass;
-        std::shared_ptr<CommandPool>    mCommandPool;
+        Ref<Instance>       mInstance;
+        Ref<Surface>        mSurface;
+        Ref<PhysicalDevice> mPhysicalDevice;
+        Ref<Device>         mDevice;
+        Ref<SwapChain>      mSwapChain;
+        Ref<RenderPass>     mRenderPass;
+        Ref<CommandPool>    mCommandPool;
+        Ref<EventManager>   mEventManager;
 
         std::vector<vk::Semaphore> mImageAvailableSemaphores;
         std::vector<vk::Semaphore> mRenderFinishedSemaphores;
@@ -100,9 +110,11 @@ namespace FREYA_NAMESPACE
         vk::ResultValue<std::uint32_t> mImageIndexResult = { vk::Result::eSuccess, 0 };
         bool                           mVSync;
 
-        std::shared_ptr<Buffer> mVertexBuffer;
-        std::shared_ptr<Buffer> mIndexBuffer;
-        std::uint32_t           mCurrentFrameIndex;
+        Ref<Buffer> mVertexBuffer;
+        Ref<Buffer> mIndexBuffer;
+
+        std::optional<WindowResizeEvent> mResizeEvent;
+        std::uint32_t                    mCurrentFrameIndex;
 
         ProjectionUniformBuffer mCurrentProjection;
     };
