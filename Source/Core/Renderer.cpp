@@ -134,6 +134,8 @@ namespace FREYA_NAMESPACE
                                               mDrawDistance)
         };
 
+        projectionUniformBuffer.projection[1][1] *= -1.f;
+
         for (auto frameIndex = 0; frameIndex < mImageAvailableSemaphores.size(); frameIndex++)
         {
             mRenderPass->UpdateProjection(projectionUniformBuffer, frameIndex);
