@@ -9,9 +9,6 @@
 
 #include <sstream>
 
-#include "Events/Keyboard/KeyPressedEvent.hpp"
-#include "Events/Keyboard/KeyReleasedEvent.hpp"
-
 namespace FREYA_NAMESPACE
 {
     Window::~Window()
@@ -46,14 +43,14 @@ namespace FREYA_NAMESPACE
 
                 case SDL_EVENT_KEY_DOWN: {
                     auto keyEvent = KeyPressedEvent {};
-                    keyEvent.key  = (Key) event.key.scancode;
+                    keyEvent.key  = (KeyCode) event.key.scancode;
                     mEventManager->Send(keyEvent);
                     break;
                 }
 
                 case SDL_EVENT_KEY_UP: {
                     auto keyEvent = KeyReleasedEvent {};
-                    keyEvent.key  = (Key) event.key.scancode;
+                    keyEvent.key  = (KeyCode) event.key.scancode;
                     mEventManager->Send(keyEvent);
                     break;
                 }

@@ -1,10 +1,9 @@
 #pragma once
 
-#include "Events/Event.hpp"
-
 namespace FREYA_NAMESPACE
 {
-    enum class Key
+
+    enum class KeyCode
     {
         UNKNOWN = 0,
 
@@ -344,8 +343,4 @@ namespace FREYA_NAMESPACE
                                      for array bounds */
     };
 
-    struct KeyboardEvent : Event
-    {
-        Key key;
-    };
-}; // namespace FREYA_NAMESPACE
+} // namespace FREYA_NAMESPACE

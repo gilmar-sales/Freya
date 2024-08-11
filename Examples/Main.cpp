@@ -1,9 +1,6 @@
 #include <iostream>
 
-#include "Builders/ApplicationBuilder.hpp"
-#include "Builders/WindowBuilder.hpp"
-#include <Core/UniformBuffer.hpp>
-#include <Events/Keyboard/KeyPressedEvent.hpp>
+#include <Builders/ApplicationBuilder.hpp>
 
 class MainApp : public fra::AbstractApplication
 {
@@ -14,11 +11,15 @@ class MainApp : public fra::AbstractApplication
 
         mMeshPool = mRenderer->GetMeshPoolFactory()->CreateMeshPool();
 
-        red_ship_meshes = mMeshPool->CreateMeshFromFile("C:/Models/cartoon_spaceship_red.obj");
+        red_ship_meshes = mMeshPool->CreateMeshFromFile("D:/Models/civic.fbx");
         mModelMatrix    = glm::mat4(1);
 
         mEventManager->Subscribe<fra::KeyPressedEvent>([](fra::KeyPressedEvent event) {
             std::cout << ("Key pressed\n");
+        });
+
+        mEventManager->Subscribe<fra::KeyReleasedEvent>([](fra::KeyReleasedEvent event) {
+            std::cout << ("Key released\n");
         });
     }
 

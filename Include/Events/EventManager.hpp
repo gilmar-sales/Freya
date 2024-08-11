@@ -2,7 +2,7 @@
 
 #include <unordered_map>
 
-#include "Event.hpp"
+#include "Events.hpp"
 #include "Publisher.hpp"
 
 namespace FREYA_NAMESPACE
