@@ -22,7 +22,6 @@ namespace FREYA_NAMESPACE
     std::shared_ptr<RenderPass> RenderPassBuilder::Build()
     {
         auto format = mSurface->QuerySurfaceFormat().format;
-        std::cout << "Color attachment format: " << vk::to_string(format) << "\n";
 
         auto colorAttachment =
             vk::AttachmentDescription()
@@ -34,6 +33,8 @@ namespace FREYA_NAMESPACE
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
                 .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+
+        std::println("Color Format: {}", vk::to_string(colorAttachment.format));
 
         if (mSamples != vk::SampleCountFlagBits::e1)
             colorAttachment.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
@@ -47,11 +48,12 @@ namespace FREYA_NAMESPACE
                 .setSamples(mSamples)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStoreOp(vk::AttachmentStoreOp::eStore)
-                .setStencilLoadOp(vk::AttachmentLoadOp::eLoad)
-                .setStencilStoreOp(vk::AttachmentStoreOp::eStore)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
-                .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
-                .setFlags(vk::AttachmentDescriptionFlagBits::eMayAlias);
+                .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+        std::println("Depth Format: {}", vk::to_string(depthAttachment.format));
 
         auto depthAttachmentRef =
             vk::AttachmentReference()
@@ -270,15 +272,13 @@ namespace FREYA_NAMESPACE
             vk::PipelineDepthStencilStateCreateInfo()
                 .setDepthTestEnable(true)
                 .setDepthWriteEnable(true)
-                .setStencilTestEnable(false)
-                .setDepthBoundsTestEnable(false)
                 .setDepthCompareOp(vk::CompareOp::eLess)
-                .setBack(stencilOpState)
-                .setFront(stencilOpState)
+                .setDepthBoundsTestEnable(false)
                 .setMinDepthBounds(0.0f)
                 .setMaxDepthBounds(1.0f)
-                .setFront({})
-                .setBack({});
+                .setStencilTestEnable(false)
+                .setBack(stencilOpState)
+                .setFront(stencilOpState);
 
         auto multisamplingInfo =
             vk::PipelineMultisampleStateCreateInfo()

@@ -50,6 +50,7 @@ namespace FREYA_NAMESPACE
 
       private:
         friend class ApplicationBuilder;
+        void pollEvents();
 
         Ref<EventManager> mEventManager;
         SDL_Window*       mWindow;

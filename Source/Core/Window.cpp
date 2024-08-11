@@ -31,6 +31,23 @@ namespace FREYA_NAMESPACE
         secondTime += mDeltaTime;
         previousCounter = currentCount;
 
+        pollEvents();
+
+        if (secondTime >= 1.0f)
+        {
+            secondTime       = 0;
+            auto titleStream = std::stringstream();
+
+            titleStream << mTitle << " - " << frames << " FPS";
+            frames = 0;
+            SDL_SetWindowTitle(mWindow, titleStream.str().c_str());
+        }
+
+        frames++;
+    }
+
+    void Window::pollEvents()
+    {
         SDL_Event sdlEvent;
 
         while (SDL_PollEvent(&sdlEvent))
@@ -69,18 +86,6 @@ namespace FREYA_NAMESPACE
                     break;
             }
         };
-
-        if (secondTime >= 1.0f)
-        {
-            secondTime       = 0;
-            auto titleStream = std::stringstream();
-
-            titleStream << mTitle << " - " << frames << " FPS";
-            frames = 0;
-            SDL_SetWindowTitle(mWindow, titleStream.str().c_str());
-        }
-
-        frames++;
     }
 
 } // namespace FREYA_NAMESPACE

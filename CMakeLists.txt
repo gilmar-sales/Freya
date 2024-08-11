@@ -38,7 +38,7 @@ endif()
 
 target_compile_features(Freya PUBLIC cxx_std_23)
 target_include_directories(Freya PUBLIC Include ${Vulkan_INCLUDE_DIRS})
-target_link_libraries(Freya SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES})
+target_link_libraries(Freya SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES} )
 
 target_precompile_headers(Freya  PUBLIC
     <memory>
@@ -47,7 +47,7 @@ target_precompile_headers(Freya  PUBLIC
     <string>
     <vector>
     <set>
-    <iostream>
+    <print>
     <fstream>
     <vulkan/vulkan.hpp>
     <SDL3/SDL.h>
@@ -55,6 +55,9 @@ target_precompile_headers(Freya  PUBLIC
     Include/Macro.hpp
 )
 
+if (MINGW)
+target_link_libraries(Freya stdc++exp)
+endif(MINGW)
 endif(BUILD_SHARED_LIBS)
 
 add_library(Freya-static STATIC
@@ -76,6 +79,10 @@ target_include_directories(Freya-static  PUBLIC Include ${Vulkan_INCLUDE_DIRS})
 
 target_link_libraries(Freya-static  SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES})
 
+if (MINGW)
+target_link_libraries(Freya-static stdc++exp)
+endif(MINGW)
+
 target_precompile_headers(Freya-static  PUBLIC
     <memory>
     <limits>
@@ -83,7 +90,7 @@ target_precompile_headers(Freya-static  PUBLIC
     <string>
     <vector>
     <set>
-    <iostream>
+    <print>
     <fstream>
     <vulkan/vulkan.hpp>
     <SDL3/SDL.h>
@@ -91,11 +98,12 @@ target_precompile_headers(Freya-static  PUBLIC
     Include/Macro.hpp
 )
 
+
 add_executable(Main Examples/Main.cpp)
 
 target_compile_features(Main PUBLIC cxx_std_23)
 
-target_link_libraries(Main Freya-static) 
+target_link_libraries(Main Freya-static ) 
 
 if(MSVC)
   target_compile_options(Main PUBLIC "/ZI" "/MP")

@@ -3,23 +3,23 @@
 namespace FREYA_NAMESPACE
 {
     static VKAPI_ATTR VkBool32 VKAPI_CALL
-        DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-                      VkDebugUtilsMessageTypeFlagsEXT messageType,
-                      const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-                      void *pUserData)
+    DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
+                  VkDebugUtilsMessageTypeFlagsEXT             messageType,
+                  const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+                  void*                                       pUserData)
     {
-        std::cerr << "Validation layer: " << pCallbackData->pMessage << std::endl;
+        std::println("Vulkan Validation Layer Error: {}", pCallbackData->pMessage);
 
         return VK_FALSE;
     };
 
-    InstanceBuilder &InstanceBuilder::SetApplicationName(std::string_view name)
+    InstanceBuilder& InstanceBuilder::SetApplicationName(std::string_view name)
     {
         mApplicationName = name;
         return *this;
     }
 
-    InstanceBuilder &InstanceBuilder::SetApplicationVersion(std::uint32_t major,
+    InstanceBuilder& InstanceBuilder::SetApplicationVersion(std::uint32_t major,
                                                             std::uint32_t minor,
                                                             std::uint32_t patch)
     {
@@ -27,7 +27,7 @@ namespace FREYA_NAMESPACE
         return *this;
     }
 
-    InstanceBuilder &InstanceBuilder::SetVulkanVersion(std::uint32_t major,
+    InstanceBuilder& InstanceBuilder::SetVulkanVersion(std::uint32_t major,
                                                        std::uint32_t minor,
                                                        std::uint32_t patch)
     {
@@ -35,7 +35,7 @@ namespace FREYA_NAMESPACE
         return *this;
     }
 
-    InstanceBuilder &InstanceBuilder::AddValidationLayers()
+    InstanceBuilder& InstanceBuilder::AddValidationLayers()
     {
         if constexpr (enableValidationLayers)
         {
@@ -47,7 +47,7 @@ namespace FREYA_NAMESPACE
         return *this;
     }
 
-    InstanceBuilder &InstanceBuilder::AddLayer(const char *layer)
+    InstanceBuilder& InstanceBuilder::AddLayer(const char* layer)
     {
         assert(checkLayerSupport(layer) && layer && "not supported.");
 
@@ -55,7 +55,7 @@ namespace FREYA_NAMESPACE
         return *this;
     }
 
-    InstanceBuilder &InstanceBuilder::AddLayers(std::vector<const char *> layers)
+    InstanceBuilder& InstanceBuilder::AddLayers(std::vector<const char*> layers)
     {
         for (auto layer : layers)
         {
@@ -65,7 +65,7 @@ namespace FREYA_NAMESPACE
         return *this;
     }
 
-    InstanceBuilder &InstanceBuilder::AddExtension(const char *extension)
+    InstanceBuilder& InstanceBuilder::AddExtension(const char* extension)
     {
         mExtensions.push_back(extension);
 
@@ -92,7 +92,7 @@ namespace FREYA_NAMESPACE
         auto instance = vk::createInstance(createInfo);
         assert(instance && "Could not create Vulkan instance.");
 
-        auto isValidationLayer = [](const char *layer) {
+        auto isValidationLayer = [](const char* layer) {
             return layer == ValidationLayer;
         };
 
@@ -102,7 +102,7 @@ namespace FREYA_NAMESPACE
             mLayers.end())
         {
             auto createInfo =
-                vk::DebugUtilsMessengerCreateInfoEXT{}
+                vk::DebugUtilsMessengerCreateInfoEXT {}
                     .setMessageSeverity(
                         vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
                         vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
@@ -121,7 +121,7 @@ namespace FREYA_NAMESPACE
                    "Failed to get vkCreateDebugUtilsMessengerEXT function");
 
             func((VkInstance) instance,
-                 (VkDebugUtilsMessengerCreateInfoEXT *) &createInfo,
+                 (VkDebugUtilsMessengerCreateInfoEXT*) &createInfo,
                  nullptr,
                  &nativeDebugMessenger);
 
@@ -133,13 +133,13 @@ namespace FREYA_NAMESPACE
         return std::make_shared<Instance>(instance, debugMessenger);
     }
 
-    bool InstanceBuilder::checkLayerSupport(const char *layer)
+    bool InstanceBuilder::checkLayerSupport(const char* layer)
     {
         static auto availableLayers = vk::enumerateInstanceLayerProperties();
 
         bool layerFound = false;
 
-        for (const auto &layerProperties : availableLayers)
+        for (const auto& layerProperties : availableLayers)
         {
             if (std::strcmp(layer, layerProperties.layerName) == 0)
             {

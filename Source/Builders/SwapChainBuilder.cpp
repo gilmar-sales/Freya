@@ -9,20 +9,22 @@
 
 #include <vulkan/vulkan_to_string.hpp>
 
+#include <print>
+
 namespace FREYA_NAMESPACE
 {
 
     std::shared_ptr<SwapChain> SwapChainBuilder::Build()
     {
         auto surfaceFormat = mSurface->QuerySurfaceFormat();
-        auto presentMode = choosePresentMode();
-        auto extent = mSurface->QueryExtent();
+        auto presentMode   = choosePresentMode();
+        auto extent        = mSurface->QueryExtent();
 
-        std::cout << "Frame count: " << mFrameCount << "\n";
-        std::cout << "Sample count: " << vk::to_string(mSamples) << "\n";
-        std::cout << "Surface format: " << vk::to_string(surfaceFormat.format) << "\n";
-        std::cout << "Present Mode:" << vk::to_string(presentMode) << "\n";
-        std::cout << "Extent:" << extent.width << ", " << extent.height << "\n";
+        std::println("Frame Count: {}", mFrameCount);
+        std::println("Sample Count: {}", vk::to_string(mSamples));
+        std::println("Surface Format: {}", vk::to_string(surfaceFormat.format));
+        std::println("Present Mode: {}", vk::to_string(presentMode));
+        std::println("Extent: {}, {}", extent.width, extent.height);
 
         auto supportDetails = mPhysicalDevice->QuerySwapChainSupport(mSurface->Get());
 
@@ -48,14 +50,14 @@ namespace FREYA_NAMESPACE
         {
             std::uint32_t queueFamilyIndices[] = {
                 mDevice->GetQueueFamilyIndices().graphicsFamily.value(),
-                mDevice->GetQueueFamilyIndices().presentFamily.value()};
+                mDevice->GetQueueFamilyIndices().presentFamily.value()
+            };
 
             createInfo.setImageSharingMode(vk::SharingMode::eConcurrent)
                 .setQueueFamilyIndices(queueFamilyIndices);
         }
 
-        std::cout << "Sharing mode:" << vk::to_string(createInfo.imageSharingMode)
-                  << "\n";
+        std::println("Sharing Mode: {}", vk::to_string(createInfo.imageSharingMode));
 
         auto swapChain = mDevice->Get().createSwapchainKHR(createInfo);
 
@@ -107,11 +109,12 @@ namespace FREYA_NAMESPACE
 
             auto attachments =
                 mSamples != vk::SampleCountFlagBits::e1
-                    ? std::vector<vk::ImageView>{sampleImage->GetImageView(),
-                                                 depthImage->GetImageView(),
-                                                 frames[index].imageView}
-                    : std::vector<vk::ImageView>{
-                          frames[index].imageView, depthImage->GetImageView()};
+                    ? std::vector<vk::ImageView> { sampleImage->GetImageView(),
+                                                   depthImage->GetImageView(),
+                                                   frames[index].imageView }
+                    : std::vector<vk::ImageView> {
+                          frames[index].imageView, depthImage->GetImageView()
+                      };
 
             auto framebufferInfo =
                 vk::FramebufferCreateInfo()
@@ -127,7 +130,13 @@ namespace FREYA_NAMESPACE
         }
 
         return std::make_shared<SwapChain>(
-            mDevice, mInstance, mSurface, swapChain, frames, depthImage, sampleImage);
+            mDevice,
+            mInstance,
+            mSurface,
+            swapChain,
+            frames,
+            depthImage,
+            sampleImage);
     }
 
     vk::PresentModeKHR SwapChainBuilder::choosePresentMode()
@@ -138,21 +147,22 @@ namespace FREYA_NAMESPACE
         auto presentModesByPriotiry =
             mVSync
                 ? std::vector<
-                      vk::PresentModeKHR>{vk::PresentModeKHR::eFifo,
-                                          vk::PresentModeKHR::eMailbox,
-                                          vk::PresentModeKHR::eImmediate,
-                                          vk::PresentModeKHR::eFifoRelaxed,
-                                          vk::PresentModeKHR::eSharedContinuousRefresh,
-                                          vk::PresentModeKHR::eSharedDemandRefresh}
-                : std::vector<vk::PresentModeKHR>{
+                      vk::PresentModeKHR> { vk::PresentModeKHR::eFifo,
+                                            vk::PresentModeKHR::eMailbox,
+                                            vk::PresentModeKHR::eImmediate,
+                                            vk::PresentModeKHR::eFifoRelaxed,
+                                            vk::PresentModeKHR::eSharedContinuousRefresh,
+                                            vk::PresentModeKHR::eSharedDemandRefresh }
+                : std::vector<vk::PresentModeKHR> {
                       vk::PresentModeKHR::eMailbox,
                       vk::PresentModeKHR::eImmediate,
                       vk::PresentModeKHR::eFifoRelaxed,
                       vk::PresentModeKHR::eFifo,
                       vk::PresentModeKHR::eSharedContinuousRefresh,
-                      vk::PresentModeKHR::eSharedDemandRefresh};
+                      vk::PresentModeKHR::eSharedDemandRefresh
+                  };
 
-        for (const auto &presentMode : presentModesByPriotiry)
+        for (const auto& presentMode : presentModesByPriotiry)
         {
             if (std::find(presentModes.begin(), presentModes.end(), presentMode) !=
                 presentModes.end())

@@ -4,45 +4,44 @@
 #include "Core/Device.hpp"
 #include "Core/Surface.hpp"
 
-
 namespace FREYA_NAMESPACE
 {
 
     class DeferredPassBuilder
     {
       public:
-        DeferredPassBuilder &SetDevice(std::shared_ptr<Device> device)
+        DeferredPassBuilder& SetDevice(Ref<Device> device)
         {
             mDevice = device;
             return *this;
         }
 
-        DeferredPassBuilder &SetSurface(std::shared_ptr<Surface> surface)
+        DeferredPassBuilder& SetSurface(Ref<Surface> surface)
         {
             mSurface = surface;
             return *this;
         }
 
-        DeferredPassBuilder &SetSamples(vk::SampleCountFlagBits samples)
+        DeferredPassBuilder& SetSamples(vk::SampleCountFlagBits samples)
         {
             mSamples = samples;
             return *this;
         }
 
-        DeferredPassBuilder &SetFrameCount(std::uint32_t frameCount)
+        DeferredPassBuilder& SetFrameCount(std::uint32_t frameCount)
         {
             mFrameCount = frameCount;
             return *this;
         }
 
-        std::shared_ptr<DeferredPass> Build();
+        Ref<DeferredPass> Build();
 
       protected:
         vk::Format getDepthFormat();
 
       private:
-        std::shared_ptr<Device> mDevice;
-        std::shared_ptr<Surface> mSurface;
+        Ref<Device>  mDevice;
+        Ref<Surface> mSurface;
 
         vk::SampleCountFlagBits mSamples;
 
