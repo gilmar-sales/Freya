@@ -5,17 +5,13 @@
 
 namespace FREYA_NAMESPACE
 {
-
-    struct KeyboardEvent : Event
+    struct KeyPressedEvent : Event
     {
         KeyCode key;
     };
 
-    struct KeyPressedEvent : KeyboardEvent
+    struct KeyReleasedEvent : Event
     {
-    };
-
-    struct KeyReleasedEvent : KeyboardEvent
-    {
+        KeyCode key;
     };
 } // namespace FREYA_NAMESPACE

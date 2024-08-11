@@ -56,32 +56,62 @@ namespace FREYA_NAMESPACE
             {
                 case SDL_EVENT_WINDOW_CLOSE_REQUESTED: {
 
-                    mRunning = false;
+                    Close();
                     break;
                 }
 
+                case SDL_EVENT_WINDOW_MINIMIZED: {
+                    while (sdlEvent.type != SDL_EVENT_WINDOW_RESTORED)
+                    {
+                        SDL_WaitEvent(&sdlEvent);
+                    }
+                }
+
                 case SDL_EVENT_WINDOW_RESIZED: {
-                    auto resizeEvent   = WindowResizeEvent {};
-                    resizeEvent.width  = sdlEvent.window.data1;
-                    resizeEvent.height = sdlEvent.window.data2;
+                    auto resizeEvent = WindowResizeEvent {
+                        .width  = sdlEvent.window.data1,
+                        .height = sdlEvent.window.data2
+                    };
                     mEventManager->Send(resizeEvent);
                     break;
                 }
 
                 case SDL_EVENT_KEY_DOWN: {
-                    auto keyEvent = KeyPressedEvent {};
-                    keyEvent.key  = (KeyCode) sdlEvent.key.scancode;
+                    auto keyEvent = KeyPressedEvent { .key = (KeyCode) sdlEvent.key.scancode };
                     mEventManager->Send(keyEvent);
                     break;
                 }
 
                 case SDL_EVENT_KEY_UP: {
-                    auto keyEvent = KeyReleasedEvent {};
-                    keyEvent.key  = (KeyCode) sdlEvent.key.scancode;
+                    auto keyEvent = KeyReleasedEvent { .key = (KeyCode) sdlEvent.key.scancode };
                     mEventManager->Send(keyEvent);
                     break;
                 }
 
+                case SDL_EVENT_MOUSE_MOTION: {
+                    auto mouseEvent = MouseMoveEvent { .x      = sdlEvent.motion.x,
+                                                       .y      = sdlEvent.motion.y,
+                                                       .deltaX = sdlEvent.motion.xrel,
+                                                       .deltaY = sdlEvent.motion.yrel };
+                    mEventManager->Send(mouseEvent);
+                    break;
+                }
+
+                case SDL_EVENT_MOUSE_BUTTON_DOWN: {
+                    auto mouseEvent = MouseButtonPressedEvent {
+                        .button = (MouseButton) sdlEvent.button.button
+                    };
+                    mEventManager->Send(mouseEvent);
+                    break;
+                }
+
+                case SDL_EVENT_MOUSE_BUTTON_UP: {
+                    auto mouseEvent = MouseButtonReleasedEvent {
+                        .button = (MouseButton) sdlEvent.button.button
+                    };
+                    mEventManager->Send(mouseEvent);
+                    break;
+                }
                 default:
                     break;
             }

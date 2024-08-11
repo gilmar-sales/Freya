@@ -4,17 +4,13 @@
 
 namespace FREYA_NAMESPACE
 {
-    struct WindowEvent : Event
+    struct WindowCloseEvent : Event
     {
     };
 
-    struct WindowCloseEvent : WindowEvent
+    struct WindowResizeEvent : Event
     {
-    };
-
-    struct WindowResizeEvent : WindowEvent
-    {
-        unsigned width;
-        unsigned height;
+        std::int32_t width;
+        std::int32_t height;
     };
 }; // namespace FREYA_NAMESPACE
