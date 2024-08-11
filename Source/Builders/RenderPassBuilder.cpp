@@ -260,11 +260,11 @@ namespace FREYA_NAMESPACE
 
         assert(pipelineLayout && "Failed to create pipeline layout.");
 
-        auto stencilOpState        = vk::StencilOpState();
-        stencilOpState.failOp      = vk::StencilOp::eKeep;
-        stencilOpState.passOp      = vk::StencilOp::eKeep;
-        stencilOpState.compareOp   = vk::CompareOp::eAlways;
-        stencilOpState.depthFailOp = vk::StencilOp::eKeep;
+        auto stencilOpState = vk::StencilOpState()
+                                  .setFailOp(vk::StencilOp::eKeep)
+                                  .setPassOp(vk::StencilOp::eKeep)
+                                  .setCompareOp(vk::CompareOp::eAlways)
+                                  .setDepthFailOp(vk::StencilOp::eKeep);
 
         auto depthStencilInfo =
             vk::PipelineDepthStencilStateCreateInfo()
