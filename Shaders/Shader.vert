@@ -3,6 +3,7 @@
 layout(binding = 0) uniform ProjectionUniformBuffer {
     mat4 view;
     mat4 proj;
+    vec3 lightDirection;
 } pub;
 
 layout(location = 0) in vec3 inPosition;
@@ -12,7 +13,6 @@ layout(location = 3) in mat4 inModel;
 
 layout(location = 0) out vec3 fragColor;
 
-const vec3 DIRETION_TO_LIGHT = normalize(vec3(1.0, 3.0, -1.0));
 const float AMBIENT_LIGHT = 0.03;
 
 void main() {
@@ -20,7 +20,7 @@ void main() {
     
     vec3 normalWorldSpace = normalize(mat3(inModel)*inNormal);
 
-    float lightIntensity = AMBIENT_LIGHT + max(dot(inNormal, DIRETION_TO_LIGHT), 0);
+    float lightIntensity = AMBIENT_LIGHT + max(dot(inNormal, pub.lightDirection), 0);
     
     fragColor = lightIntensity * inColor;
 }

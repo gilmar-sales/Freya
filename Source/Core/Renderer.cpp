@@ -128,10 +128,11 @@ namespace FREYA_NAMESPACE
         auto projectionUniformBuffer = fra::ProjectionUniformBuffer {
             .view =
                 glm::lookAt(cameraPosition, cameraPosition + cameraForward, cameraUp),
-            .projection = glm::perspectiveFov(glm::radians(45.0f),
-                                              (float) extent.width, (float) extent.height,
-                                              0.1f,
-                                              mDrawDistance)
+            .projection     = glm::perspectiveFov(glm::radians(45.0f),
+                                                  (float) extent.width, (float) extent.height,
+                                                  0.1f,
+                                                  mDrawDistance),
+            .lightDirection = glm::normalize(glm::vec3(0.0f, 3.0f, 0.0f))
         };
 
         projectionUniformBuffer.projection[1][1] *= -1.f;

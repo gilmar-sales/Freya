@@ -9,6 +9,7 @@ namespace FREYA_NAMESPACE
     {
         alignas(16) glm::mat4 view;
         alignas(16) glm::mat4 projection;
+        alignas(16) glm::vec3 lightDirection;
     };
 
 } // namespace FREYA_NAMESPACE
