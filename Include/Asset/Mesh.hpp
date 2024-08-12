@@ -1,11 +1,7 @@
 #pragma once
 
-#include "Core/CommandPool.hpp"
-
 namespace FREYA_NAMESPACE
 {
-    class CommandPool;
-
     struct Mesh
     {
         operator std::uint32_t() { return id; }

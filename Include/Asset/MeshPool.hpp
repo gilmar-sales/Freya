@@ -13,7 +13,6 @@
 
 namespace FREYA_NAMESPACE
 {
-
     class MeshPool
     {
       public:
