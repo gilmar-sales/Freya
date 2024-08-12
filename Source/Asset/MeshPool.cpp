@@ -236,7 +236,8 @@ namespace FREYA_NAMESPACE
 
         for (auto i = 0; i < mesh->mNumVertices; i++)
         {
-            auto& aVertex = mesh->mVertices[i];
+            const auto& aVertex = mesh->mVertices[i];
+            const auto& aNormal = mesh->mNormals[i];
 
             auto material = scene->mMaterials[mesh->mMaterialIndex];
 
@@ -244,7 +245,8 @@ namespace FREYA_NAMESPACE
             material->Get(AI_MATKEY_COLOR_DIFFUSE, aColor);
 
             auto vertex = Vertex { .position = glm::vec3(aVertex.x, aVertex.y, aVertex.z),
-                                   .color    = glm::vec3(aColor.r, aColor.g, aColor.b) };
+                                   .color    = glm::vec3(aColor.r, aColor.g, aColor.b),
+                                   .normal   = glm::vec3(aNormal.x, aNormal.y, aNormal.z) };
 
             // process vertex positions, normals and texture coordinates
             vertices.push_back(vertex);

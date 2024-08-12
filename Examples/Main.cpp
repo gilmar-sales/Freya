@@ -11,15 +11,27 @@ class MainApp : public fra::AbstractApplication
 
         mMeshPool = mRenderer->GetMeshPoolFactory()->CreateMeshPool();
 
-        red_ship_meshes = mMeshPool->CreateMeshFromFile("D:/Models/x-wing.obj");
+        red_ship_meshes = mMeshPool->CreateMeshFromFile("D:/Models/Civic.obj");
         mModelMatrix    = glm::mat4(1);
 
         mEventManager->Subscribe<fra::KeyPressedEvent>([](fra::KeyPressedEvent event) {
-            std::cout << ("Key pressed\n");
+            std::println("Key pressed");
         });
 
         mEventManager->Subscribe<fra::KeyReleasedEvent>([](fra::KeyReleasedEvent event) {
-            std::cout << ("Key released\n");
+            std::println("Key released");
+        });
+
+        // mEventManager->Subscribe<fra::MouseMoveEvent>([](fra::MouseMoveEvent event) {
+        //     std::println("Mouse position: {}, {}", event.x, event.y);
+        //     std::println("Mouse delta: {}, {}", event.deltaX, event.deltaY);
+        // });
+
+        mEventManager->Subscribe<fra::MouseButtonPressedEvent>([](fra::MouseButtonPressedEvent event) {
+            std::println("Mouse button pressed: {}", (int) event.button);
+        });
+        mEventManager->Subscribe<fra::MouseButtonReleasedEvent>([](fra::MouseButtonReleasedEvent event) {
+            std::println("Mouse button released: {}", (int) event.button);
         });
     }
 
