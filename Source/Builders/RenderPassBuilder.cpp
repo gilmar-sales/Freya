@@ -207,7 +207,7 @@ namespace FREYA_NAMESPACE
                 .setBinding(0)
                 .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                 .setDescriptorCount(1)
-                .setStageFlags(vk::ShaderStageFlagBits::eVertex)
+                .setStageFlags(vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr);
 
         auto descriptorSetCreateInfo =
