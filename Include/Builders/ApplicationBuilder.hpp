@@ -24,7 +24,7 @@ namespace FREYA_NAMESPACE
 
         template <typename T>
             requires IsApplication<T>
-        std::shared_ptr<T> Build()
+        Ref<T> Build()
         {
             auto app = std::make_shared<T>();
 

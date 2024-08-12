@@ -5,6 +5,7 @@
 #include "Device.hpp"
 #include "Events/EventManager.hpp"
 #include "Factories/MeshPoolFactory.hpp"
+#include "Factories/TexturePoolFactory.hpp"
 #include "Instance.hpp"
 #include "PhysicalDevice.hpp"
 #include "RenderPass.hpp"
@@ -84,8 +85,9 @@ namespace FREYA_NAMESPACE
         void                           UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer);
         void                           UpdateModel(glm::mat4& model);
 
-        Ref<MeshPoolFactory> GetMeshPoolFactory();
-        BufferBuilder        GetBufferBuilder();
+        Ref<MeshPoolFactory>    GetMeshPoolFactory();
+        Ref<TexturePoolFactory> GetTexturePoolFactory();
+        BufferBuilder           GetBufferBuilder();
 
         void BindBuffer(Ref<Buffer> buffer);
 

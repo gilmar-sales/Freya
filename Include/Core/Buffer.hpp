@@ -12,7 +12,8 @@ namespace FREYA_NAMESPACE
         Index,
         TexCoord,
         Uniform,
-        Instance
+        Instance,
+        Image
     };
 
     class Buffer
@@ -34,6 +35,8 @@ namespace FREYA_NAMESPACE
         void Bind(std::shared_ptr<CommandPool> commandPool);
 
         vk::Buffer& Get() { return mBuffer; }
+
+        vk::DeviceMemory& GetMemory() { return mMemory; }
 
         const std::uint32_t& GetSize() { return mSize; }
 

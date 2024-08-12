@@ -6,7 +6,7 @@ layout(binding = 0) uniform ProjectionUniformBuffer {
     vec4 ambientLight;
 } pub;
 
-layout(binding = 1) uniform sampler2D texSampler;
+// layout(binding = 1) uniform sampler2D texSampler;
 
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec3 fragPosition;
@@ -19,5 +19,5 @@ void main()
 {
     float lightIntensity = pub.ambientLight.w + max(dot(normalize(fragNormal), pub.ambientLight.xyz), 0);
     
-    outColor = vec4(lightIntensity * fragColor + texture(texSampler, fragTexCoord).xyz, 1.0);
+    outColor = vec4(lightIntensity * fragColor /*+ texture(texSampler, fragTexCoord).xyz*/, 1.0);
 }

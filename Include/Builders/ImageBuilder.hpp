@@ -3,6 +3,8 @@
 #include "Core/Device.hpp"
 #include "Core/Image.hpp"
 
+#include "CommandPoolBuilder.hpp"
+
 namespace FREYA_NAMESPACE
 {
     enum class ImageUsage
@@ -16,10 +18,10 @@ namespace FREYA_NAMESPACE
     class ImageBuilder
     {
       public:
-        ImageBuilder(std::shared_ptr<Device> device) :
+        ImageBuilder(Ref<Device> device) :
             mDevice(device), mUsage(ImageUsage::Texture),
             mFormat(vk::Format::eUndefined), mSamples(vk::SampleCountFlagBits::e1),
-            mWidth(1024), mHeight(1024)
+            mWidth(1024), mHeight(1024), mData(nullptr)
         {
         }
 
@@ -53,13 +55,26 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        std::shared_ptr<Image> Build();
+        ImageBuilder& SetChannels(std::uint32_t channels)
+        {
+            mChannels = channels;
+            return *this;
+        }
+
+        ImageBuilder& SetData(void* data)
+        {
+            mData = data;
+            return *this;
+        }
+
+        Ref<Image> Build();
 
       protected:
         vk::Format chooseFormat();
+        void       transitionLayout(Ref<fra::CommandPool> commandPool, vk::Image image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
 
       private:
-        std::shared_ptr<Device> mDevice;
+        Ref<Device> mDevice;
 
         ImageUsage mUsage;
 
@@ -67,6 +82,8 @@ namespace FREYA_NAMESPACE
         vk::SampleCountFlagBits mSamples;
         std::uint32_t           mWidth;
         std::uint32_t           mHeight;
+        std::uint32_t           mChannels;
+        void*                   mData;
     };
 
 } // namespace FREYA_NAMESPACE

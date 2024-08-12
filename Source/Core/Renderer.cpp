@@ -161,6 +161,11 @@ namespace FREYA_NAMESPACE
         return std::make_shared<MeshPoolFactory>(mDevice, mPhysicalDevice, mCommandPool);
     }
 
+    std::shared_ptr<TexturePoolFactory> Renderer::GetTexturePoolFactory()
+    {
+        return std::make_shared<TexturePoolFactory>(mDevice, mCommandPool);
+    }
+
     BufferBuilder Renderer::GetBufferBuilder()
     {
         return BufferBuilder(mDevice);

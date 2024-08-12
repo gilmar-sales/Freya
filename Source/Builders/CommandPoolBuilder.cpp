@@ -7,7 +7,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    std::shared_ptr<CommandPool> CommandPoolBuilder::Build()
+    Ref<CommandPool> CommandPoolBuilder::Build()
     {
         auto queueFamilyIndices = mDevice->GetQueueFamilyIndices();
 
@@ -23,7 +23,7 @@ namespace FREYA_NAMESPACE
         auto allocInfo = vk::CommandBufferAllocateInfo()
                              .setCommandPool(commandPool)
                              .setLevel(vk::CommandBufferLevel::ePrimary)
-                             .setCommandBufferCount(mSwapChain->GetFrames().size());
+                             .setCommandBufferCount(mCount);
 
         auto commandBuffers = mDevice->Get().allocateCommandBuffers(allocInfo);
 

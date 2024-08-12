@@ -236,8 +236,9 @@ namespace FREYA_NAMESPACE
 
         for (auto i = 0; i < mesh->mNumVertices; i++)
         {
-            const auto& aVertex = mesh->mVertices[i];
-            const auto& aNormal = mesh->mNormals[i];
+            const auto& aVertex    = mesh->mVertices[i];
+            const auto& aNormal    = mesh->mNormals[i];
+            const auto& aTextCoord = mesh->mTextureCoords[0][i];
 
             auto material = scene->mMaterials[mesh->mMaterialIndex];
 
@@ -246,7 +247,8 @@ namespace FREYA_NAMESPACE
 
             auto vertex = Vertex { .position = glm::vec3(aVertex.x, aVertex.y, aVertex.z),
                                    .color    = glm::vec3(aColor.r, aColor.g, aColor.b),
-                                   .normal   = glm::vec3(aNormal.x, aNormal.y, aNormal.z) };
+                                   .normal   = glm::vec3(aNormal.x, aNormal.y, aNormal.z),
+                                   .texCoord = glm::vec2(aTextCoord.x, aTextCoord.y) };
 
             // process vertex positions, normals and texture coordinates
             vertices.push_back(vertex);

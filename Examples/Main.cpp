@@ -9,10 +9,13 @@ class MainApp : public fra::AbstractApplication
     {
         mRenderer->ClearProjections();
 
-        mMeshPool = mRenderer->GetMeshPoolFactory()->CreateMeshPool();
+        mMeshPool    = mRenderer->GetMeshPoolFactory()->CreateMeshPool();
+        mTexturePool = mRenderer->GetTexturePoolFactory()->CreateTexturePool();
 
         red_ship_meshes = mMeshPool->CreateMeshFromFile("D:/Models/Civic.obj");
         mModelMatrix    = glm::mat4(1);
+
+        auto texture = mTexturePool->CreateTextureFromFile("./Shaders/papel-parede.jpg");
 
         mEventManager->Subscribe<fra::KeyPressedEvent>([](fra::KeyPressedEvent event) {
             std::println("Key pressed");
@@ -63,10 +66,11 @@ class MainApp : public fra::AbstractApplication
     }
 
   private:
-    std::vector<unsigned>          red_ship_meshes;
-    std::shared_ptr<fra::MeshPool> mMeshPool;
-    glm::mat4                      mModelMatrix;
-    float                          mCurrentTime;
+    std::vector<unsigned>             red_ship_meshes;
+    std::shared_ptr<fra::TexturePool> mTexturePool;
+    std::shared_ptr<fra::MeshPool>    mMeshPool;
+    glm::mat4                         mModelMatrix;
+    float                             mCurrentTime;
 };
 
 int main(int argc, const char** argv)
