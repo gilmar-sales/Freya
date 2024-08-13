@@ -13,11 +13,10 @@ namespace FREYA_NAMESPACE
       public:
         using TextureSet = SparseSet<Texture>;
 
-        TexturePool(Ref<Device> device,
-                    Ref<CommandPool>
-                        commandPool);
+        TexturePool(const Ref<Device>& device,
+                    const Ref<CommandPool>& commandPool);
 
-        std::uint32_t CreateTextureFromFile(std::string path);
+        std::uint32_t CreateTextureFromFile(std::string path) const;
 
       private:
         Ref<Device>      mDevice;

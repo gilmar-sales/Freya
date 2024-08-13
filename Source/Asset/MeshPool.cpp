@@ -6,13 +6,13 @@ namespace FREYA_NAMESPACE
     constexpr auto MinVertexBufferSize = 1'048'576;
     constexpr auto MinIndexBufferSize  = 2'097'152;
 
-    MeshPool::MeshPool(Ref<Device> device,
-                       Ref<PhysicalDevice>
-                           physicalDevice,
-                       Ref<CommandPool>
-                           commandPool) :
+    MeshPool::MeshPool(const Ref<Device>&         device,
+                       const Ref<PhysicalDevice>& physicalDevice,
+                       const Ref<CommandPool>&    commandPool) :
         mDevice(device),
-        mPhysicalDevice(physicalDevice), mCommandPool(commandPool), mMeshes(4096)
+        mPhysicalDevice(physicalDevice),
+        mCommandPool(commandPool),
+        mMeshes(4096)
     {
         mVertexBuffers.reserve(1024);
         mIndexBuffers.reserve(1024);
@@ -20,20 +20,20 @@ namespace FREYA_NAMESPACE
         createVertexBuffer(MinVertexBufferSize);
     }
 
-    void MeshPool::Draw(std::uint32_t meshId)
+    void MeshPool::Draw(const std::uint32_t meshId)
     {
         if (mMeshes.contains(meshId))
         {
-            auto& mesh = mMeshes[meshId];
+            const auto& mesh = mMeshes[meshId];
 
-            auto& vertexBuffer = mVertexBuffers[mesh.vertexBufferIndex];
-            auto  vertexOffset = vk::DeviceSize(mesh.vertexBufferOffset);
+            const auto& vertexBuffer = mVertexBuffers[mesh.vertexBufferIndex];
+            const auto  vertexOffset = static_cast<vk::DeviceSize>(mesh.vertexBufferOffset);
 
             mCommandPool->GetCommandBuffer()
                 .bindVertexBuffers(0, 1, &vertexBuffer->Get(), &vertexOffset);
 
-            auto& indexBuffer = mIndexBuffers[mesh.indexBufferIndex];
-            auto  indexOffset = vk::DeviceSize(mesh.indexBufferOffset);
+            const auto& indexBuffer = mIndexBuffers[mesh.indexBufferIndex];
+            const auto  indexOffset = static_cast<vk::DeviceSize>(mesh.indexBufferOffset);
             mCommandPool->GetCommandBuffer().bindIndexBuffer(
                 indexBuffer->Get(),
                 indexOffset,
@@ -49,14 +49,15 @@ namespace FREYA_NAMESPACE
         {
             auto& mesh = mMeshes[meshId];
 
-            auto& vertexBuffer = mVertexBuffers[mesh.vertexBufferIndex];
-            auto  vertexOffset = vk::DeviceSize(mesh.vertexBufferOffset);
+            const auto& vertexBuffer = mVertexBuffers[mesh.vertexBufferIndex];
+            const auto  vertexOffset = static_cast<vk::DeviceSize>(mesh.vertexBufferOffset);
 
             mCommandPool->GetCommandBuffer()
                 .bindVertexBuffers(0, 1, &vertexBuffer->Get(), &vertexOffset);
 
-            auto& indexBuffer = mIndexBuffers[mesh.indexBufferIndex];
-            auto  indexOffset = vk::DeviceSize(mesh.indexBufferOffset);
+            const auto& indexBuffer = mIndexBuffers[mesh.indexBufferIndex];
+            const auto  indexOffset = static_cast<vk::DeviceSize>(mesh.indexBufferOffset);
+
             mCommandPool->GetCommandBuffer().bindIndexBuffer(
                 indexBuffer->Get(),
                 indexOffset,
@@ -135,8 +136,8 @@ namespace FREYA_NAMESPACE
                            .vertexBufferOffset = vertexBufferOffset,
                            .indexBufferIndex   = indexBufferIndex,
                            .indexBufferOffset  = indexBufferOffset,
-                           .indexCount         = (std::uint32_t) indices.size(),
-                           .id                 = (std::uint32_t) mMeshes.size() };
+                           .indexCount         = static_cast<std::uint32_t>(indices.size()),
+                           .id                 = static_cast<std::uint32_t>(mMeshes.size()) };
 
         mMeshes.insert(mesh);
 
@@ -146,7 +147,7 @@ namespace FREYA_NAMESPACE
         return mesh.id;
     }
 
-    std::vector<std::uint32_t> MeshPool::CreateMeshFromFile(const std::string path)
+    std::vector<std::uint32_t> MeshPool::CreateMeshFromFile(const std::string& path)
     {
         auto meshes = std::vector<std::uint32_t>();
 
@@ -174,7 +175,7 @@ namespace FREYA_NAMESPACE
         return meshes;
     }
 
-    std::uint32_t MeshPool::createVertexBuffer(std::uint32_t size)
+    std::uint32_t MeshPool::createVertexBuffer(const std::uint32_t size)
     {
         auto vertexBuffer =
             BufferBuilder(mDevice)
@@ -188,7 +189,7 @@ namespace FREYA_NAMESPACE
         return mVertexBuffers.size() - 1;
     }
 
-    std::uint32_t MeshPool::queryVertexBuffer(std::uint32_t size)
+    std::uint32_t MeshPool::queryVertexBuffer(const std::uint32_t size)
     {
         for (auto index = 0; index < mVertexBuffers.size(); index++)
         {
@@ -202,7 +203,7 @@ namespace FREYA_NAMESPACE
             size > MinVertexBufferSize ? size : MinVertexBufferSize);
     }
 
-    std::uint32_t MeshPool::createIndexBuffer(std::uint32_t size)
+    std::uint32_t MeshPool::createIndexBuffer(const std::uint32_t size)
     {
         auto indexBuffer =
             BufferBuilder(mDevice)
@@ -216,7 +217,7 @@ namespace FREYA_NAMESPACE
         return mIndexBuffers.size() - 1;
     }
 
-    std::uint32_t MeshPool::queryIndexBuffer(std::uint32_t size)
+    std::uint32_t MeshPool::queryIndexBuffer(const std::uint32_t size)
     {
         for (auto index = 0; index < mIndexBuffers.size(); index++)
         {
@@ -229,7 +230,7 @@ namespace FREYA_NAMESPACE
         return createIndexBuffer(size > MinIndexBufferSize ? size : MinIndexBufferSize);
     }
 
-    std::uint32_t MeshPool::processMesh(aiMesh* mesh, const aiScene* scene)
+    std::uint32_t MeshPool::processMesh(const aiMesh* mesh, const aiScene* scene)
     {
         std::vector<Vertex>        vertices;
         std::vector<std::uint16_t> indices;
@@ -268,7 +269,7 @@ namespace FREYA_NAMESPACE
     }
 
     void MeshPool::processNode(std::vector<std::uint32_t>& meshes,
-                               aiNode*                     node,
+                               const aiNode*               node,
                                const aiScene*              scene)
     {
         // process all the node's meshes (if any)
@@ -276,7 +277,7 @@ namespace FREYA_NAMESPACE
         {
             for (unsigned int i = 0; i < node->mNumMeshes; i++)
             {
-                aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+                const aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
                 meshes.push_back(processMesh(mesh, scene));
             }
         }

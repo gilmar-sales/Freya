@@ -4,12 +4,12 @@
 
 namespace FREYA_NAMESPACE
 {
-    Ref<ShaderModule> ShaderModuleBuilder::Build()
+    Ref<ShaderModule> ShaderModuleBuilder::Build() const
     {
-        auto code       = readFile(mFilePath);
-        auto createInfo = vk::ShaderModuleCreateInfo()
-                              .setCodeSize(code.size())
-                              .setPCode(reinterpret_cast<const uint32_t*>(code.data()));
+        const auto code       = readFile(mFilePath);
+        const auto createInfo = vk::ShaderModuleCreateInfo()
+                                    .setCodeSize(code.size())
+                                    .setPCode(reinterpret_cast<const uint32_t*>(code.data()));
 
         auto shaderModule = mDevice->Get().createShaderModule(createInfo);
 
@@ -24,7 +24,7 @@ namespace FREYA_NAMESPACE
 
         assert(file.is_open() && "Failed to open file");
 
-        size_t            fileSize = (size_t) file.tellg();
+        const auto        fileSize = file.tellg();
         std::vector<char> buffer(fileSize);
 
         file.seekg(0);

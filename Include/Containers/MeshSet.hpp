@@ -69,7 +69,7 @@ namespace FREYA_NAMESPACE
             sorted = true;
         }
 
-        Mesh& operator[](const int index) { return dense[index]; };
+        Mesh& operator[](const std::uint32_t index) { return dense[index]; };
 
         [[nodiscard]] size_t size() const { return dense.size(); }
 

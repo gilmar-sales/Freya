@@ -19,8 +19,8 @@ namespace FREYA_NAMESPACE
         {
         }
 
-        ApplicationBuilder& WithWindow(std::function<void(WindowBuilder&)> windowBuilderFunc);
-        ApplicationBuilder& WithRenderer(std::function<void(RendererBuilder&)> rendererBuilderFunc);
+        ApplicationBuilder& WithWindow(const std::function<void(WindowBuilder&)>& windowBuilderFunc);
+        ApplicationBuilder& WithRenderer(const std::function<void(RendererBuilder&)>& rendererBuilderFunc);
 
         template <typename T>
             requires IsApplication<T>

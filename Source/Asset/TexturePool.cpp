@@ -6,17 +6,17 @@
 
 namespace FREYA_NAMESPACE
 {
-    TexturePool::TexturePool(Ref<Device> device, Ref<CommandPool> commandPool) :
+    TexturePool::TexturePool(const Ref<Device>& device, const Ref<CommandPool>& commandPool) :
         mDevice(device),
         mCommandPool(commandPool)
     {
         mImageBuffers.reserve(1024);
     }
 
-    std::uint32_t TexturePool::CreateTextureFromFile(std::string path)
+    std::uint32_t TexturePool::CreateTextureFromFile(std::string path) const
     {
-        int  width, height, channels;
-        auto imageData = stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+        int        width, height, channels;
+        const auto imageData = stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
 
         if (!imageData)
         {

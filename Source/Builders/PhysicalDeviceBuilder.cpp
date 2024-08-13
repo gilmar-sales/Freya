@@ -5,7 +5,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    Ref<PhysicalDevice> PhysicalDeviceBuilder::Build()
+    Ref<PhysicalDevice> PhysicalDeviceBuilder::Build() const
     {
         assert(mInstance != nullptr && mInstance->Get() &&
                "Could not create fra::PhysicalDevice with an invalid fra::Instance");
@@ -14,15 +14,14 @@ namespace FREYA_NAMESPACE
 
         vk::PhysicalDevice physicalDevice;
 
-        for (auto deviceType : mPhysicalDeviceTypePriorities)
+        for (const auto deviceType : mPhysicalDeviceTypePriorities)
         {
             bool found = false;
 
-            for (auto &item : physicalDevices)
+            for (auto& item : physicalDevices)
             {
-                auto properties = item.getProperties();
 
-                if (deviceType == properties.deviceType)
+                if (const auto properties = item.getProperties(); deviceType == properties.deviceType)
                 {
                     physicalDevice = item;
                     found          = true;
@@ -30,7 +29,8 @@ namespace FREYA_NAMESPACE
                 }
             }
 
-            if (found) break;
+            if (found)
+                break;
         }
 
         assert(physicalDevice && "Could not select physical device.");

@@ -24,7 +24,7 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        Ref<PhysicalDevice> Build();
+        Ref<PhysicalDevice> Build() const;
 
       private:
         Ref<Instance>                       mInstance;

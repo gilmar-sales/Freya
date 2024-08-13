@@ -21,7 +21,7 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        Ref<ShaderModule> Build();
+        Ref<ShaderModule> Build() const;
 
       protected:
         static std::vector<char> readFile(const std::string& filename);

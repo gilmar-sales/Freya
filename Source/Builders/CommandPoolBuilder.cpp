@@ -11,7 +11,7 @@ namespace FREYA_NAMESPACE
     {
         auto queueFamilyIndices = mDevice->GetQueueFamilyIndices();
 
-        auto commandPoolCreateInfo =
+        const auto commandPoolCreateInfo =
             vk::CommandPoolCreateInfo()
                 .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
                 .setQueueFamilyIndex(queueFamilyIndices.graphicsFamily.value());
@@ -20,10 +20,10 @@ namespace FREYA_NAMESPACE
 
         assert(commandPool && "Failed to create command pool");
 
-        auto allocInfo = vk::CommandBufferAllocateInfo()
-                             .setCommandPool(commandPool)
-                             .setLevel(vk::CommandBufferLevel::ePrimary)
-                             .setCommandBufferCount(mCount);
+        const auto allocInfo = vk::CommandBufferAllocateInfo()
+                                   .setCommandPool(commandPool)
+                                   .setLevel(vk::CommandBufferLevel::ePrimary)
+                                   .setCommandBufferCount(mCount);
 
         auto commandBuffers = mDevice->Get().allocateCommandBuffers(allocInfo);
 

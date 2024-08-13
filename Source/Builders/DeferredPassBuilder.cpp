@@ -3,9 +3,9 @@
 namespace FREYA_NAMESPACE
 {
 
-    Ref<DeferredPass> DeferredPassBuilder::Build()
+    Ref<DeferredPass> DeferredPassBuilder::Build() const
     {
-        auto surfaceFormat = mSurface->QuerySurfaceFormat().format;
+        const auto surfaceFormat = mSurface->QuerySurfaceFormat().format;
 
         auto attachments = {
             // Back buffer

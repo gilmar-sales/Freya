@@ -9,7 +9,7 @@ namespace FREYA_NAMESPACE
 
         SDL_Vulkan_LoadLibrary(nullptr);
 
-        auto windowFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
+        constexpr auto windowFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
 
         SDL_Window* window =
             SDL_CreateWindow(mTitle.c_str(), mWidth, mHeight, windowFlags);

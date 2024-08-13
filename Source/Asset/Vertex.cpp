@@ -6,7 +6,7 @@ namespace FREYA_NAMESPACE
     std::vector<vk::VertexInputBindingDescription> Vertex::GetBindingDescription()
     {
         static auto bindingDescription =
-            std::vector<vk::VertexInputBindingDescription> {
+            std::vector {
                 vk::VertexInputBindingDescription()
                     .setBinding(0)
                     .setStride(sizeof(Vertex))
@@ -23,7 +23,7 @@ namespace FREYA_NAMESPACE
     std::vector<vk::VertexInputAttributeDescription> Vertex::GetAttributesDescription()
     {
         static auto attributesDescription =
-            std::vector<vk::VertexInputAttributeDescription> {
+            std::vector {
                 vk::VertexInputAttributeDescription()
                     .setBinding(0)
                     .setLocation(0)

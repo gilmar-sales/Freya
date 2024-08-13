@@ -8,20 +8,21 @@ namespace FREYA_NAMESPACE
                   const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
                   void*                                       pUserData)
     {
+        // to_string(static_cast<vk::DebugUtilsMessageSeverityFlagsEXT>(messageSeverity));
         std::println("Vulkan Validation Layer Error: {}", pCallbackData->pMessage);
 
         return VK_FALSE;
     };
 
-    InstanceBuilder& InstanceBuilder::SetApplicationName(std::string_view name)
+    InstanceBuilder& InstanceBuilder::SetApplicationName(const std::string_view name)
     {
         mApplicationName = name;
         return *this;
     }
 
-    InstanceBuilder& InstanceBuilder::SetApplicationVersion(std::uint32_t major,
-                                                            std::uint32_t minor,
-                                                            std::uint32_t patch)
+    InstanceBuilder& InstanceBuilder::SetApplicationVersion(const std::uint32_t major,
+                                                            const std::uint32_t minor,
+                                                            const std::uint32_t patch)
     {
         mApplicationVersion = VK_MAKE_VERSION(major, minor, patch);
         return *this;

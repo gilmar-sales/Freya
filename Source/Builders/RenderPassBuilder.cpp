@@ -10,9 +10,8 @@
 #include "Core/Surface.hpp"
 #include "Core/UniformBuffer.hpp"
 
-#include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
-#include <vulkan/vulkan.h>
+
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_enums.hpp>
 

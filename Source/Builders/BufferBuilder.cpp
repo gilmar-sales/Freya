@@ -11,7 +11,7 @@ namespace FREYA_NAMESPACE
     {
         assert(mDevice.get() && "Cannot create fra::Buffer with an invalid fra::Device");
 
-        auto queueFamilyIndices = mDevice->GetQueueFamilyIndices();
+        const auto queueFamilyIndices = mDevice->GetQueueFamilyIndices();
 
         auto bufferInfo =
             vk::BufferCreateInfo()
