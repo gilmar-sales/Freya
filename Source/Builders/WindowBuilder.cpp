@@ -12,7 +12,7 @@ namespace FREYA_NAMESPACE
         constexpr auto windowFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
 
         SDL_Window* window =
-            SDL_CreateWindow(mTitle.c_str(), mWidth, mHeight, windowFlags);
+            SDL_CreateWindow(mTitle.c_str(), static_cast<int>(mWidth), static_cast<int>(mHeight), windowFlags);
 
         assert(window != nullptr && "Failed to create SDL3 Window");
 

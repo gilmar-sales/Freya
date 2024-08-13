@@ -168,12 +168,12 @@ namespace FREYA_NAMESPACE
         return MakeRef<TexturePoolFactory>(mDevice, mCommandPool);
     }
 
-    BufferBuilder Renderer::GetBufferBuilder()
+    BufferBuilder Renderer::GetBufferBuilder() const
     {
         return BufferBuilder(mDevice);
     }
 
-    void Renderer::BindBuffer(Ref<Buffer> buffer)
+    void Renderer::BindBuffer(const Ref<Buffer>& buffer) const
     {
         buffer->Bind(mCommandPool);
     }
@@ -184,7 +184,7 @@ namespace FREYA_NAMESPACE
                                          &mInFlightFences[mCurrentFrameIndex],
                                          true,
                                          UINT64_MAX) != vk::Result::eSuccess)
-            throw new std::runtime_error("failed to wait for fences!");
+            throw std::runtime_error("failed to wait for fences!");
 
         if (mResizeEvent.has_value())
         {
@@ -232,18 +232,18 @@ namespace FREYA_NAMESPACE
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                                    mRenderPass->GetGraphicsPipeline());
 
-        auto viewport =
+        const auto viewport =
             vk::Viewport()
                 .setX(0)
                 .setY(0)
-                .setWidth(mSwapChain->GetExtent().width)
-                .setHeight(mSwapChain->GetExtent().height)
+                .setWidth(static_cast<float>(mSwapChain->GetExtent().width))
+                .setHeight(static_cast<float>(mSwapChain->GetExtent().height))
                 .setMinDepth(0.0f)
                 .setMaxDepth(1.0f);
 
         commandBuffer.setViewport(0, 1, &viewport);
 
-        auto scissor =
+        const auto scissor =
             vk::Rect2D().setOffset({ 0, 0 }).setExtent(mSwapChain->GetExtent());
 
         commandBuffer.setScissor(0, 1, &scissor);

@@ -32,8 +32,8 @@ namespace FREYA_NAMESPACE
             mIndex = index;
         }
 
-        vk::CommandBuffer CreateCommandBuffer();
-        void              FreeCommandBuffer(vk::CommandBuffer);
+        vk::CommandBuffer CreateCommandBuffer() const;
+        void              FreeCommandBuffer(vk::CommandBuffer) const;
 
       private:
         Ref<Device> mDevice;

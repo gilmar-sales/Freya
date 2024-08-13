@@ -7,9 +7,9 @@ namespace FREYA_NAMESPACE
         mInstance->Get().destroySurfaceKHR(mSurface);
     }
 
-    vk::SurfaceFormatKHR Surface::QuerySurfaceFormat()
+    vk::SurfaceFormatKHR Surface::QuerySurfaceFormat() const
     {
-        auto supportDetails = mPhysicalDevice->QuerySwapChainSupport(mSurface);
+        const auto supportDetails = mPhysicalDevice->QuerySwapChainSupport(mSurface);
 
         for (const auto& availableFormat : supportDetails.formats)
         {
@@ -23,24 +23,24 @@ namespace FREYA_NAMESPACE
         return supportDetails.formats[0];
     }
 
-    vk::Extent2D Surface::QueryExtent()
+    vk::Extent2D Surface::QueryExtent() const
     {
-        auto capabilities = mPhysicalDevice->Get().getSurfaceCapabilitiesKHR(mSurface);
+        const auto capabilities = mPhysicalDevice->Get().getSurfaceCapabilitiesKHR(mSurface);
+
         if (capabilities.currentExtent.width != std::numeric_limits<std::uint32_t>::max())
         {
             return capabilities.currentExtent;
         }
-        else
-        {
-            auto actualExtent = vk::Extent2D()
-                                    .setWidth(capabilities.maxImageExtent.width)
-                                    .setHeight(capabilities.maxImageExtent.height);
 
-            return actualExtent;
-        }
+        const auto actualExtent =
+            vk::Extent2D()
+                .setWidth(capabilities.maxImageExtent.width)
+                .setHeight(capabilities.maxImageExtent.height);
+
+        return actualExtent;
     }
 
-    std::uint32_t Surface::QueryFrameCountSupport(std::uint32_t desired)
+    std::uint32_t Surface::QueryFrameCountSupport(std::uint32_t desired) const
     {
         if (desired < mCapabilities.minImageCount)
         {

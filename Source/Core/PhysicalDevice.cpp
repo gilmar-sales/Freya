@@ -4,7 +4,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    SwapChainSupportDetails PhysicalDevice::QuerySwapChainSupport(vk::SurfaceKHR surface)
+    SwapChainSupportDetails PhysicalDevice::QuerySwapChainSupport(const vk::SurfaceKHR surface) const
     {
         auto details = SwapChainSupportDetails {
             .capabilities = mPhysicalDevice.getSurfaceCapabilitiesKHR(surface),
@@ -16,9 +16,9 @@ namespace FREYA_NAMESPACE
     }
 
     std::uint32_t PhysicalDevice::QueryCompatibleMemoryType(
-        std::uint32_t typeFilter, vk::MemoryPropertyFlags properties)
+        const std::uint32_t typeFilter, const vk::MemoryPropertyFlags properties) const
     {
-        auto memoryProperties = mPhysicalDevice.getMemoryProperties();
+        const auto memoryProperties = mPhysicalDevice.getMemoryProperties();
 
         for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; i++)
         {
@@ -36,14 +36,14 @@ namespace FREYA_NAMESPACE
     }
 
     vk::SampleCountFlagBits PhysicalDevice::QuerySamplesSupport(
-        vk::SampleCountFlagBits desired)
+        const vk::SampleCountFlagBits desired) const
     {
-        auto deviceProperties = mPhysicalDevice.getProperties();
+        const auto deviceProperties = mPhysicalDevice.getProperties();
 
-        auto counts = deviceProperties.limits.framebufferColorSampleCounts &
-                      deviceProperties.limits.framebufferDepthSampleCounts;
+        const auto counts = deviceProperties.limits.framebufferColorSampleCounts &
+                            deviceProperties.limits.framebufferDepthSampleCounts;
 
-        auto samples = std::vector<vk::SampleCountFlagBits> {
+        const auto samples = std::vector<vk::SampleCountFlagBits> {
             vk::SampleCountFlagBits::e64,
             vk::SampleCountFlagBits::e32,
             vk::SampleCountFlagBits::e16,
@@ -74,9 +74,9 @@ namespace FREYA_NAMESPACE
         return vk::SampleCountFlagBits::e1;
     }
 
-    vk::Format PhysicalDevice::GetDepthFormat()
+    vk::Format PhysicalDevice::GetDepthFormat() const
     {
-        auto candidates = std::vector<vk::Format> {
+        const auto candidates = std::vector<vk::Format> {
             vk::Format::eD32SfloatS8Uint,
             vk::Format::eD32Sfloat,
             vk::Format::eD24UnormS8Uint,
@@ -84,12 +84,11 @@ namespace FREYA_NAMESPACE
             vk::Format::eD16Unorm,
         };
 
-        auto depthFeature = vk::FormatFeatureFlagBits::eDepthStencilAttachment;
+        constexpr auto depthFeature = vk::FormatFeatureFlagBits::eDepthStencilAttachment;
         for (auto& format : candidates)
         {
-            auto props = mPhysicalDevice.getFormatProperties(format);
 
-            if ((props.optimalTilingFeatures & depthFeature) == depthFeature)
+            if (auto props = mPhysicalDevice.getFormatProperties(format); (props.optimalTilingFeatures & depthFeature) == depthFeature)
             {
                 return format;
             }

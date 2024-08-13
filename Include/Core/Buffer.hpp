@@ -10,7 +10,6 @@ namespace FREYA_NAMESPACE
         Staging,
         Vertex,
         Index,
-        TexCoord,
         Uniform,
         Instance,
         Image
@@ -31,7 +30,7 @@ namespace FREYA_NAMESPACE
 
         ~Buffer();
 
-        void Bind(Ref<CommandPool> commandPool);
+        void Bind(const Ref<CommandPool>& commandPool) const;
 
         vk::Buffer& Get() { return mBuffer; }
 

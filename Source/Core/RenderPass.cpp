@@ -20,7 +20,7 @@ namespace FREYA_NAMESPACE
             uniformBuffer.reset();
         }
 
-        for (auto& descriptorSetLayout : mDescriptorSetLayouts)
+        for (const auto& descriptorSetLayout : mDescriptorSetLayouts)
         {
             mDevice->Get().destroyDescriptorSetLayout(descriptorSetLayout);
         }
@@ -32,7 +32,7 @@ namespace FREYA_NAMESPACE
     }
 
     void RenderPass::UpdateProjection(ProjectionUniformBuffer& buffer,
-                                      std::uint32_t            frameIndex)
+                                      const std::uint32_t      frameIndex) const
     {
         mUniformBuffers[frameIndex]->Copy(&buffer, sizeof(ProjectionUniformBuffer));
 
@@ -42,7 +42,7 @@ namespace FREYA_NAMESPACE
                 .setOffset(0)
                 .setRange(sizeof(ProjectionUniformBuffer));
 
-        auto descriptorWriter =
+        const auto descriptorWriter =
             vk::WriteDescriptorSet()
                 .setDstSet(mDescriptorSets[frameIndex])
                 .setDstBinding(0)
@@ -54,13 +54,13 @@ namespace FREYA_NAMESPACE
         mDevice->Get().updateDescriptorSets(1, &descriptorWriter, 0, nullptr);
     }
 
-    void RenderPass::UpdateModel(glm::mat4 model, std::uint32_t frameIndex)
+    void RenderPass::UpdateModel(glm::mat4 model, const std::uint32_t frameIndex) const
     {
         mUniformBuffers[frameIndex]->Copy(&model, sizeof(model));
     }
 
-    void RenderPass::BindDescriptorSet(Ref<CommandPool> commandPool,
-                                       std::uint32_t                frameIndex)
+    void RenderPass::BindDescriptorSet(const Ref<CommandPool>& commandPool,
+                                       const std::uint32_t     frameIndex) const
     {
         commandPool->GetCommandBuffer().bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,

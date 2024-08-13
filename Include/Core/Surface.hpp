@@ -21,9 +21,9 @@ namespace FREYA_NAMESPACE
 
         vk::SurfaceKHR& Get() { return mSurface; }
 
-        vk::SurfaceFormatKHR QuerySurfaceFormat();
-        vk::Extent2D         QueryExtent();
-        std::uint32_t        QueryFrameCountSupport(std::uint32_t desired);
+        vk::SurfaceFormatKHR QuerySurfaceFormat() const;
+        vk::Extent2D         QueryExtent() const;
+        std::uint32_t        QueryFrameCountSupport(std::uint32_t desired) const;
 
       private:
         Ref<Instance>       mInstance;

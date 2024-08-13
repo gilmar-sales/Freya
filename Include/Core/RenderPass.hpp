@@ -32,11 +32,11 @@ namespace FREYA_NAMESPACE
 
         ~RenderPass();
 
-        void UpdateProjection(ProjectionUniformBuffer& buffer, std::uint32_t frameIndex);
-        void UpdateModel(glm::mat4 model, std::uint32_t frameIndex);
+        void UpdateProjection(ProjectionUniformBuffer& buffer, std::uint32_t frameIndex) const;
+        void UpdateModel(glm::mat4 model, std::uint32_t frameIndex) const;
 
-        void BindDescriptorSet(Ref<CommandPool> commandPool,
-                               std::uint32_t    frameIndex);
+        void BindDescriptorSet(const Ref<CommandPool>& commandPool,
+                               std::uint32_t    frameIndex) const;
 
         vk::RenderPass&     Get() { return mRenderPass; }
         vk::PipelineLayout& GetPipelineLayout() { return mPipelineLayout; }

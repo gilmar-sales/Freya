@@ -82,9 +82,9 @@ namespace FREYA_NAMESPACE
 
         Ref<MeshPoolFactory>    GetMeshPoolFactory();
         Ref<TexturePoolFactory> GetTexturePoolFactory();
-        BufferBuilder           GetBufferBuilder();
+        BufferBuilder           GetBufferBuilder() const;
 
-        void BindBuffer(Ref<Buffer> buffer);
+        void BindBuffer(const Ref<Buffer>& buffer) const;
 
       private:
         Ref<Instance>       mInstance;

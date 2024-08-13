@@ -12,9 +12,9 @@ namespace FREYA_NAMESPACE
         mDevice->Get().freeMemory(mMemory);
     }
 
-    void Buffer::Bind(Ref<CommandPool> commandPool)
+    void Buffer::Bind(const Ref<CommandPool>& commandPool) const
     {
-        vk::DeviceSize offsets[] = { 0 };
+        constexpr vk::DeviceSize offsets[] = { 0 };
         switch (mUsage)
         {
             case fra::BufferUsage::Vertex:
@@ -28,8 +28,6 @@ namespace FREYA_NAMESPACE
             case fra::BufferUsage::Instance: {
                 commandPool->GetCommandBuffer().bindVertexBuffers(1, 1, &mBuffer, offsets);
             }
-            case BufferUsage::TexCoord:
-                break;
             default:
                 break;
         }

@@ -10,17 +10,17 @@ namespace FREYA_NAMESPACE
         mDevice->Get().destroyCommandPool(mCommandPool);
     }
 
-    vk::CommandBuffer CommandPool::CreateCommandBuffer()
+    vk::CommandBuffer CommandPool::CreateCommandBuffer() const
     {
-        auto allocInfo = vk::CommandBufferAllocateInfo()
-                             .setLevel(vk::CommandBufferLevel::ePrimary)
-                             .setCommandPool(mCommandPool)
-                             .setCommandBufferCount(1);
+        const auto allocInfo = vk::CommandBufferAllocateInfo()
+                                   .setLevel(vk::CommandBufferLevel::ePrimary)
+                                   .setCommandPool(mCommandPool)
+                                   .setCommandBufferCount(1);
 
         return mDevice->Get().allocateCommandBuffers(allocInfo)[0];
     }
 
-    void CommandPool::FreeCommandBuffer(vk::CommandBuffer commandBuffer)
+    void CommandPool::FreeCommandBuffer(const vk::CommandBuffer commandBuffer) const
     {
         mDevice->Get().freeCommandBuffers(mCommandPool, 1, &commandBuffer);
     }
