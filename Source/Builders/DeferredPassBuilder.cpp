@@ -2,6 +2,7 @@
 
 namespace FREYA_NAMESPACE
 {
+
     Ref<DeferredPass> DeferredPassBuilder::Build()
     {
         auto surfaceFormat = mSurface->QuerySurfaceFormat().format;

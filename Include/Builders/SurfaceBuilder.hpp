@@ -10,19 +10,25 @@ namespace FREYA_NAMESPACE
     class SurfaceBuilder
     {
       public:
-        SurfaceBuilder &SetWindow(SDL_Window *window)
+        SurfaceBuilder() :
+            mWindow(nullptr),
+            mImageCount(0),
+            mWidth(800),
+            mHeight(600) {}
+
+        SurfaceBuilder& SetWindow(SDL_Window* window)
         {
             mWindow = window;
             return *this;
         }
 
-        SurfaceBuilder &SetInstance(Ref<Instance> instance)
+        SurfaceBuilder& SetInstance(const Ref<Instance>& instance)
         {
             mInstance = instance;
             return *this;
         }
 
-        SurfaceBuilder &SetPhysicalDevice(Ref<PhysicalDevice> physicalDevice)
+        SurfaceBuilder& SetPhysicalDevice(const Ref<PhysicalDevice>& physicalDevice)
         {
             mPhysicalDevice = physicalDevice;
             return *this;
@@ -31,8 +37,8 @@ namespace FREYA_NAMESPACE
         Ref<Surface> Build();
 
       private:
-        SDL_Window *mWindow;
-        Ref<Instance> mInstance;
+        SDL_Window*         mWindow;
+        Ref<Instance>       mInstance;
         Ref<PhysicalDevice> mPhysicalDevice;
 
         std::uint32_t mImageCount;

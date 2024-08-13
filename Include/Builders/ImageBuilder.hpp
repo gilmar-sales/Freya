@@ -18,44 +18,44 @@ namespace FREYA_NAMESPACE
     class ImageBuilder
     {
       public:
-        ImageBuilder(Ref<Device> device) :
+        explicit ImageBuilder(const Ref<Device>& device) :
             mDevice(device), mUsage(ImageUsage::Texture),
             mFormat(vk::Format::eUndefined), mSamples(vk::SampleCountFlagBits::e1),
-            mWidth(1024), mHeight(1024), mData(nullptr)
+            mWidth(1024), mHeight(1024), mChannels(0), mData(nullptr)
         {
         }
 
-        ImageBuilder& SetUsage(ImageUsage usage)
+        ImageBuilder& SetUsage(const ImageUsage usage)
         {
             mUsage = usage;
             return *this;
         }
 
-        ImageBuilder& SetFormat(vk::Format format)
+        ImageBuilder& SetFormat(const vk::Format format)
         {
             mFormat = format;
             return *this;
         }
 
-        ImageBuilder& SetSamples(vk::SampleCountFlagBits samples)
+        ImageBuilder& SetSamples(const vk::SampleCountFlagBits samples)
         {
             mSamples = samples;
             return *this;
         }
 
-        ImageBuilder& SetWidth(std::uint32_t width)
+        ImageBuilder& SetWidth(const std::uint32_t width)
         {
             mWidth = width;
             return *this;
         }
 
-        ImageBuilder& SetHeight(std::uint32_t height)
+        ImageBuilder& SetHeight(const std::uint32_t height)
         {
             mHeight = height;
             return *this;
         }
 
-        ImageBuilder& SetChannels(std::uint32_t channels)
+        ImageBuilder& SetChannels(const std::uint32_t channels)
         {
             mChannels = channels;
             return *this;
@@ -71,7 +71,7 @@ namespace FREYA_NAMESPACE
 
       protected:
         vk::Format chooseFormat();
-        void       transitionLayout(Ref<fra::CommandPool> commandPool, vk::Image image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
+        void       transitionLayout(Ref<CommandPool> commandPool, vk::Image image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
 
       private:
         Ref<Device> mDevice;

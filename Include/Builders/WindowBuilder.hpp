@@ -9,27 +9,27 @@ namespace FREYA_NAMESPACE
     {
       public:
         WindowBuilder() :
-            mTitle("Freya Window"), mWidth(800), mHeight(600) {}
+            mTitle("Freya Window"), mWidth(800), mHeight(600), mVSync(false) {}
 
-        WindowBuilder& SetTitle(std::string title)
+        WindowBuilder& SetTitle(const std::string& title)
         {
             mTitle = title;
             return *this;
         }
 
-        WindowBuilder& SetWidth(std::uint32_t width)
+        WindowBuilder& SetWidth(const std::uint32_t width)
         {
             mWidth = width;
             return *this;
         }
 
-        WindowBuilder& SetHeight(std::uint32_t height)
+        WindowBuilder& SetHeight(const std::uint32_t height)
         {
             mHeight = height;
             return *this;
         }
 
-        WindowBuilder& SetVSync(bool vSync)
+        WindowBuilder& SetVSync(const bool vSync)
         {
             mVSync = vSync;
             return *this;
@@ -40,7 +40,7 @@ namespace FREYA_NAMESPACE
       private:
         friend class ApplicationBuilder;
 
-        WindowBuilder& SetEventManager(Ref<EventManager> eventManager)
+        WindowBuilder& SetEventManager(const Ref<EventManager>& eventManager)
         {
             mEventManager = eventManager;
             return *this;

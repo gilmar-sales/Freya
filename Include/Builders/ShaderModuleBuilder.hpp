@@ -9,13 +9,13 @@ namespace FREYA_NAMESPACE
     class ShaderModuleBuilder
     {
       public:
-        ShaderModuleBuilder& SetDevice(Ref<Device> device)
+        ShaderModuleBuilder& SetDevice(const Ref<Device>& device)
         {
             mDevice = device;
             return *this;
         }
 
-        ShaderModuleBuilder& SetFilePath(std::string filePath)
+        ShaderModuleBuilder& SetFilePath(const std::string& filePath)
         {
             mFilePath = filePath;
             return *this;
@@ -28,6 +28,6 @@ namespace FREYA_NAMESPACE
 
       private:
         Ref<Device> mDevice;
-        std::string             mFilePath;
+        std::string mFilePath;
     };
 } // namespace FREYA_NAMESPACE

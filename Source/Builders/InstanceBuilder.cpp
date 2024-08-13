@@ -27,11 +27,20 @@ namespace FREYA_NAMESPACE
         return *this;
     }
 
-    InstanceBuilder& InstanceBuilder::SetVulkanVersion(std::uint32_t major,
-                                                       std::uint32_t minor,
-                                                       std::uint32_t patch)
+    InstanceBuilder& InstanceBuilder::SetVulkanVersion(const std::uint32_t major,
+                                                       const std::uint32_t minor,
+                                                       const std::uint32_t patch)
     {
         mVulkanVersion = VK_MAKE_VERSION(major, minor, patch);
+        return *this;
+    }
+
+    InstanceBuilder& InstanceBuilder::SetAPIVersion(const std::uint32_t major,
+                                                    const std::uint32_t minor,
+                                                    const std::uint32_t patch)
+    {
+        mAPIVersion = VK_MAKE_API_VERSION(0, major, minor, patch);
+
         return *this;
     }
 
@@ -55,9 +64,9 @@ namespace FREYA_NAMESPACE
         return *this;
     }
 
-    InstanceBuilder& InstanceBuilder::AddLayers(std::vector<const char*> layers)
+    InstanceBuilder& InstanceBuilder::AddLayers(const std::vector<const char*>& layers)
     {
-        for (auto layer : layers)
+        for (const auto layer : layers)
         {
             AddLayer(layer);
         }
@@ -72,6 +81,16 @@ namespace FREYA_NAMESPACE
         return *this;
     }
 
+    InstanceBuilder& InstanceBuilder::AddExtensions(const std::vector<const char*>& extesions)
+    {
+        for (const auto extension : extesions)
+        {
+            AddLayer(extension);
+        }
+
+        return *this;
+    }
+
     Ref<Instance> InstanceBuilder::Build()
     {
         auto appInfo = vk::ApplicationInfo()
@@ -81,15 +100,15 @@ namespace FREYA_NAMESPACE
                            .setEngineVersion(mVulkanVersion)
                            .setApiVersion(mAPIVersion);
 
-        auto createInfo = vk::InstanceCreateInfo().setPApplicationInfo(&appInfo);
+        auto instanceCreateInfo = vk::InstanceCreateInfo().setPApplicationInfo(&appInfo);
 
-        createInfo.setEnabledLayerCount(mLayers.size());
-        createInfo.setPpEnabledLayerNames(mLayers.data());
+        instanceCreateInfo.setEnabledLayerCount(mLayers.size());
+        instanceCreateInfo.setPpEnabledLayerNames(mLayers.data());
 
-        createInfo.enabledExtensionCount   = mExtensions.size();
-        createInfo.ppEnabledExtensionNames = mExtensions.data();
+        instanceCreateInfo.enabledExtensionCount   = mExtensions.size();
+        instanceCreateInfo.ppEnabledExtensionNames = mExtensions.data();
 
-        auto instance = vk::createInstance(createInfo);
+        auto instance = vk::createInstance(instanceCreateInfo);
         assert(instance && "Could not create Vulkan instance.");
 
         auto isValidationLayer = [](const char* layer) {
@@ -101,8 +120,8 @@ namespace FREYA_NAMESPACE
         if (std::find_if(mLayers.begin(), mLayers.end(), isValidationLayer) !=
             mLayers.end())
         {
-            auto createInfo =
-                vk::DebugUtilsMessengerCreateInfoEXT {}
+            auto debugUtilsCreateInfo =
+                vk::DebugUtilsMessengerCreateInfoEXT()
                     .setMessageSeverity(
                         vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
                         vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
@@ -114,14 +133,14 @@ namespace FREYA_NAMESPACE
 
             VkDebugUtilsMessengerEXT nativeDebugMessenger;
 
-            auto func = (PFN_vkCreateDebugUtilsMessengerEXT) instance.getProcAddr(
-                "vkCreateDebugUtilsMessengerEXT");
+            const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(instance.getProcAddr(
+                "vkCreateDebugUtilsMessengerEXT"));
 
             assert(func != nullptr &&
                    "Failed to get vkCreateDebugUtilsMessengerEXT function");
 
-            func((VkInstance) instance,
-                 (VkDebugUtilsMessengerCreateInfoEXT*) &createInfo,
+            func(static_cast<VkInstance>(instance),
+                 reinterpret_cast<VkDebugUtilsMessengerCreateInfoEXT*>(&debugUtilsCreateInfo),
                  nullptr,
                  &nativeDebugMessenger);
 

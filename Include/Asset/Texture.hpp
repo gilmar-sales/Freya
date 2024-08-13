@@ -4,7 +4,7 @@ namespace FREYA_NAMESPACE
 {
     struct Texture
     {
-        operator std::uint32_t() { return id; }
+        operator std::uint32_t() const { return id; }
 
         std::uint32_t imageBufferIndex;
 

@@ -10,7 +10,10 @@ namespace FREYA_NAMESPACE
     class CommandPoolBuilder
     {
       public:
-        CommandPoolBuilder& SetDevice(Ref<Device> device)
+        explicit CommandPoolBuilder() :
+            mCount(0) {}
+
+        CommandPoolBuilder& SetDevice(const Ref<Device>& device)
         {
             mDevice = device;
             return *this;

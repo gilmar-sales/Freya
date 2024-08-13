@@ -11,32 +11,36 @@ namespace FREYA_NAMESPACE
     class RenderPassBuilder
     {
       public:
-        RenderPassBuilder &SetDevice(Ref<Device> device)
+        RenderPassBuilder() :
+            mSamples(vk::SampleCountFlagBits::e1),
+            mFrameCount(0) {}
+
+        RenderPassBuilder& SetDevice(const Ref<Device>& device)
         {
             mDevice = device;
             return *this;
         }
 
-        RenderPassBuilder &SetPhysicalDevice(
-            Ref<PhysicalDevice> physicalDevice)
+        RenderPassBuilder& SetPhysicalDevice(
+            const Ref<PhysicalDevice>& physicalDevice)
         {
             mPhysicalDevice = physicalDevice;
             return *this;
         }
 
-        RenderPassBuilder &SetSurface(Ref<Surface> surface)
+        RenderPassBuilder& SetSurface(const Ref<Surface>& surface)
         {
             mSurface = surface;
             return *this;
         }
 
-        RenderPassBuilder &SetSamples(vk::SampleCountFlagBits samples)
+        RenderPassBuilder& SetSamples(const vk::SampleCountFlagBits samples)
         {
             mSamples = samples;
             return *this;
         }
 
-        RenderPassBuilder &SetFrameCount(std::uint32_t frameCount)
+        RenderPassBuilder& SetFrameCount(const std::uint32_t frameCount)
         {
             mFrameCount = frameCount;
             return *this;
@@ -48,9 +52,9 @@ namespace FREYA_NAMESPACE
         vk::Format getDepthFormat();
 
       private:
-        Ref<Device> mDevice;
+        Ref<Device>         mDevice;
         Ref<PhysicalDevice> mPhysicalDevice;
-        Ref<Surface> mSurface;
+        Ref<Surface>        mSurface;
 
         vk::SampleCountFlagBits mSamples;
 
