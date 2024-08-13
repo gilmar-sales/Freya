@@ -25,8 +25,7 @@ namespace FREYA_NAMESPACE
                 commandPool->GetCommandBuffer().bindIndexBuffer(mBuffer, 0,
                                                                 vk::IndexType::eUint16);
                 break;
-            case fra::BufferUsage::Instance:
-            {
+            case fra::BufferUsage::Instance: {
                 commandPool->GetCommandBuffer().bindVertexBuffers(1, 1, &mBuffer, offsets);
             }
             case BufferUsage::TexCoord:
@@ -36,7 +35,7 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void Buffer::Copy(void* data, std::uint32_t size, std::uint32_t offset)
+    void Buffer::Copy(void* data, std::uint64_t size, std::uint64_t offset)
     {
         if (mSize >= size && data != nullptr)
         {

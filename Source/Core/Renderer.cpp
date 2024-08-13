@@ -4,10 +4,12 @@
 #include "Builders/RenderPassBuilder.hpp"
 #include "Builders/SwapChainBuilder.hpp"
 
-#include "Asset/Vertex.hpp"
 #include "Core/Buffer.hpp"
 #include "Core/CommandPool.hpp"
 #include <Core/UniformBuffer.hpp>
+
+#include <glm/ext/matrix_clip_space.hpp>
+#include <glm/ext/matrix_transform.hpp>
 
 namespace FREYA_NAMESPACE
 {

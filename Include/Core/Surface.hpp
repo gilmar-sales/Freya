@@ -8,10 +8,9 @@ namespace FREYA_NAMESPACE
     class Surface
     {
       public:
-        Surface(Ref<Instance> instance,
-                Ref<PhysicalDevice>
-                               physicalDevice,
-                vk::SurfaceKHR surface) :
+        Surface(const Ref<Instance>&       instance,
+                const Ref<PhysicalDevice>& physicalDevice,
+                const vk::SurfaceKHR       surface) :
             mInstance(instance),
             mPhysicalDevice(physicalDevice), mSurface(surface)
         {

@@ -19,14 +19,13 @@ namespace FREYA_NAMESPACE
     class Buffer
     {
       public:
-        Buffer(Ref<Device> device,
-               BufferUsage             usage,
-               std::uint32_t           size,
-               vk::Buffer              buffer,
-               vk::DeviceMemory        memory) :
-            mDevice(device),
-            mUsage(usage), mBuffer(buffer), mMemory(memory),
-            mSize(size)
+        Buffer(const Ref<Device>&     device,
+               const BufferUsage      usage,
+               const std::uint64_t    size,
+               const vk::Buffer       buffer,
+               const vk::DeviceMemory memory) :
+            mDevice(device), mBuffer(buffer), mMemory(memory),
+            mUsage(usage), mSize(size)
         {
         }
 
@@ -38,9 +37,9 @@ namespace FREYA_NAMESPACE
 
         vk::DeviceMemory& GetMemory() { return mMemory; }
 
-        const std::uint32_t& GetSize() { return mSize; }
+        [[nodiscard]] const std::uint64_t& GetSize() const { return mSize; }
 
-        void Copy(void* data, std::uint32_t size, std::uint32_t offset = 0);
+        void Copy(void* data, std::uint64_t size, std::uint64_t offset = 0);
 
       private:
         Ref<Device> mDevice;
@@ -48,7 +47,7 @@ namespace FREYA_NAMESPACE
         vk::Buffer       mBuffer;
         vk::DeviceMemory mMemory;
         BufferUsage      mUsage;
-        std::uint32_t    mSize;
+        std::uint64_t    mSize;
     };
 
 } // namespace FREYA_NAMESPACE

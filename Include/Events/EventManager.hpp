@@ -34,7 +34,7 @@ namespace FREYA_NAMESPACE
                 mPublishers[GetEventId<T>()] = new Publisher<T>();
             }
 
-            return (Publisher<T>*) mPublishers[GetEventId<T>()];
+            return static_cast<Publisher<T>*>(mPublishers[GetEventId<T>()]);
         }
 
         std::unordered_map<EventId, IPublisher*> mPublishers;

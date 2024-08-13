@@ -12,12 +12,12 @@ namespace FREYA_NAMESPACE
     class PhysicalDevice
     {
       public:
-        PhysicalDevice(vk::PhysicalDevice physicalDevice) :
+        explicit PhysicalDevice(const vk::PhysicalDevice physicalDevice) :
             mPhysicalDevice(physicalDevice)
         {
         }
 
-        operator bool() { return mPhysicalDevice; }
+        operator bool() const { return mPhysicalDevice; }
 
         vk::PhysicalDevice&     Get() { return mPhysicalDevice; }
         SwapChainSupportDetails QuerySwapChainSupport(vk::SurfaceKHR surface);

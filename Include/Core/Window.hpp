@@ -11,16 +11,15 @@ namespace FREYA_NAMESPACE
     class Window
     {
       public:
-        Window(SDL_Window*   window,
-               std::string   title,
-               std::uint32_t width,
-               std::uint32_t height,
-               bool          vSync,
-               Ref<EventManager>
-                   eventManager) :
-            mWindow(window),
-            mTitle(title), mWidth(width), mHeight(height),
-            mVSync(vSync), mRunning(true), mEventManager(eventManager)
+        Window(SDL_Window*              window,
+               const std::string&       title,
+               const std::uint32_t      width,
+               const std::uint32_t      height,
+               const bool               vSync,
+               const Ref<EventManager>& eventManager) :
+            mEventManager(eventManager),
+            mWindow(window), mTitle(title), mWidth(width),
+            mHeight(height), mVSync(vSync), mRunning(true)
         {
             mEventManager->Subscribe<WindowResizeEvent>([this](WindowResizeEvent event) {
                 if (!event.handled)
@@ -34,19 +33,19 @@ namespace FREYA_NAMESPACE
 
         void Update();
 
-        std::uint32_t GetWidth() { return mWidth; }
-        std::uint32_t GetHeight() { return mHeight; }
+        [[nodiscard]] std::uint32_t GetWidth() const { return mWidth; }
+        [[nodiscard]] std::uint32_t GetHeight() const { return mHeight; }
 
-        void Resize(std::uint32_t width, std::uint32_t height)
+        void Resize(const std::uint32_t width, const std::uint32_t height)
         {
             mWidth  = width;
             mHeight = height;
         }
 
-        bool IsRunning() { return mRunning; }
-        void Close() { mRunning = false; }
+        [[nodiscard]] bool IsRunning() const { return mRunning; }
+        void               Close() { mRunning = false; }
 
-        float GetDeltaTime() { return mDeltaTime; }
+        [[nodiscard]] float GetDeltaTime() const { return mDeltaTime; }
 
       private:
         friend class ApplicationBuilder;

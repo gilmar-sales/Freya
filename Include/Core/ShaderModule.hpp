@@ -6,7 +6,7 @@ namespace FREYA_NAMESPACE
     class ShaderModule
     {
       public:
-        ShaderModule(vk::ShaderModule shaderModule) :
+        ShaderModule(const vk::ShaderModule shaderModule) :
             mShaderModule(shaderModule) {}
 
         vk::ShaderModule& Get() { return mShaderModule; }

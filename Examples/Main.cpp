@@ -2,6 +2,8 @@
 
 #include <Builders/ApplicationBuilder.hpp>
 
+#include <glm/ext/matrix_transform.hpp>
+
 class MainApp : public fra::AbstractApplication
 {
   public:

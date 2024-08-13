@@ -7,23 +7,23 @@ namespace FREYA_NAMESPACE
     class Instance
     {
       public:
-        Instance(vk::Instance instance, vk::DebugUtilsMessengerEXT debugMessenger)
-            : mInstance(instance), mDebugMessenger(debugMessenger)
+        Instance(const vk::Instance instance, const vk::DebugUtilsMessengerEXT debugMessenger) :
+            mDebugMessenger(debugMessenger), mInstance(instance)
         {
         }
 
         ~Instance();
 
-        operator bool() { return mInstance; }
+        operator bool() const { return mInstance; }
 
-        vk::Instance &Get() { return mInstance; }
-        vk::DebugUtilsMessengerEXT &GetDebugMessender() { return mDebugMessenger; }
+        vk::Instance&               Get() { return mInstance; }
+        vk::DebugUtilsMessengerEXT& GetDebugMessender() { return mDebugMessenger; }
 
         vk::Result destroyDebugUtilsMessengerEXT();
 
       private:
         vk::DebugUtilsMessengerEXT mDebugMessenger;
-        vk::Instance mInstance;
+        vk::Instance               mInstance;
     };
 
 } // namespace FREYA_NAMESPACE
