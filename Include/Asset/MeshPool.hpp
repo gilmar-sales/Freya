@@ -16,10 +16,10 @@ namespace FREYA_NAMESPACE
     class MeshPool
     {
       public:
-        MeshPool(std::shared_ptr<Device> device,
-                 std::shared_ptr<PhysicalDevice>
+        MeshPool(Ref<Device> device,
+                 Ref<PhysicalDevice>
                      physicalDevice,
-                 std::shared_ptr<CommandPool>
+                 Ref<CommandPool>
                      commandPool);
 
         void Draw(std::uint32_t meshId);
@@ -43,14 +43,14 @@ namespace FREYA_NAMESPACE
                                   const aiScene*              scene);
 
       private:
-        std::shared_ptr<Device>         mDevice;
-        std::shared_ptr<PhysicalDevice> mPhysicalDevice;
-        std::shared_ptr<CommandPool>    mCommandPool;
+        Ref<Device>         mDevice;
+        Ref<PhysicalDevice> mPhysicalDevice;
+        Ref<CommandPool>    mCommandPool;
 
-        std::vector<std::shared_ptr<Buffer>> mVertexBuffers;
+        std::vector<Ref<Buffer>> mVertexBuffers;
         std::vector<std::uint32_t>           mVertexBuffersOffsets;
 
-        std::vector<std::shared_ptr<Buffer>> mIndexBuffers;
+        std::vector<Ref<Buffer>> mIndexBuffers;
         std::vector<std::uint32_t>           mIndexBuffersOffsets;
         MeshSet                              mMeshes;
     };

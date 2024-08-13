@@ -28,8 +28,8 @@ namespace FREYA_NAMESPACE
     class Device
     {
       public:
-        Device(std::shared_ptr<PhysicalDevice> physicalDevice,
-               std::shared_ptr<Surface> surface,
+        Device(Ref<PhysicalDevice> physicalDevice,
+               Ref<Surface> surface,
                vk::Device device,
                vk::Queue graphicsQueue,
                vk::Queue presentQueue,
@@ -51,14 +51,14 @@ namespace FREYA_NAMESPACE
         vk::Queue &GetPresentQueue() { return mPresentQueue; }
         vk::Queue &GetTransferQueue() { return mTransferQueue; }
 
-        std::shared_ptr<Surface> GetSurface() { return mSurface; }
-        std::shared_ptr<PhysicalDevice> GetPhysicalDevice() { return mPhysicalDevice; }
+        Ref<Surface> GetSurface() { return mSurface; }
+        Ref<PhysicalDevice> GetPhysicalDevice() { return mPhysicalDevice; }
 
         QueueFamilyIndices &GetQueueFamilyIndices() { return mQueueFamilyIndices; }
 
       private:
-        std::shared_ptr<PhysicalDevice> mPhysicalDevice;
-        std::shared_ptr<Surface> mSurface;
+        Ref<PhysicalDevice> mPhysicalDevice;
+        Ref<Surface> mSurface;
 
         QueueFamilyIndices mQueueFamilyIndices;
 

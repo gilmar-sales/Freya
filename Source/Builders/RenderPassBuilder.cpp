@@ -19,7 +19,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    std::shared_ptr<RenderPass> RenderPassBuilder::Build()
+    Ref<RenderPass> RenderPassBuilder::Build()
     {
         auto format = mSurface->QuerySurfaceFormat().format;
 
@@ -231,7 +231,7 @@ namespace FREYA_NAMESPACE
         auto pipelineLayoutInfo = vk::PipelineLayoutCreateInfo()
                                       .setSetLayouts(layouts);
 
-        auto uniformBuffers = std::vector<std::shared_ptr<Buffer>>();
+        auto uniformBuffers = std::vector<Ref<Buffer>>();
 
         for (auto i = 0; i < mFrameCount; i++)
         {

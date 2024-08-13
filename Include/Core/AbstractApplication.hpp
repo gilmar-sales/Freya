@@ -30,8 +30,8 @@ namespace FREYA_NAMESPACE
         friend class ApplicationBuilder;
 
         float                         mDeltaTime;
-        std::shared_ptr<Window>       mWindow;
-        std::shared_ptr<Renderer>     mRenderer;
-        std::shared_ptr<EventManager> mEventManager;
+        Ref<Window>       mWindow;
+        Ref<Renderer>     mRenderer;
+        Ref<EventManager> mEventManager;
     };
 } // namespace FREYA_NAMESPACE

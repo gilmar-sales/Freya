@@ -8,8 +8,8 @@ namespace FREYA_NAMESPACE
     class Surface
     {
       public:
-        Surface(std::shared_ptr<Instance> instance,
-                std::shared_ptr<PhysicalDevice>
+        Surface(Ref<Instance> instance,
+                Ref<PhysicalDevice>
                                physicalDevice,
                 vk::SurfaceKHR surface) :
             mInstance(instance),
@@ -27,8 +27,8 @@ namespace FREYA_NAMESPACE
         std::uint32_t        QueryFrameCountSupport(std::uint32_t desired);
 
       private:
-        std::shared_ptr<Instance>       mInstance;
-        std::shared_ptr<PhysicalDevice> mPhysicalDevice;
+        Ref<Instance>       mInstance;
+        Ref<PhysicalDevice> mPhysicalDevice;
 
         vk::SurfaceCapabilitiesKHR mCapabilities;
         vk::SurfaceKHR             mSurface;

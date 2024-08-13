@@ -12,7 +12,7 @@ namespace FREYA_NAMESPACE
         mDevice->Get().freeMemory(mMemory);
     }
 
-    void Buffer::Bind(std::shared_ptr<CommandPool> commandPool)
+    void Buffer::Bind(Ref<CommandPool> commandPool)
     {
         vk::DeviceSize offsets[] = { 0 };
         switch (mUsage)

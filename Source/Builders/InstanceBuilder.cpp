@@ -72,7 +72,7 @@ namespace FREYA_NAMESPACE
         return *this;
     }
 
-    std::shared_ptr<Instance> InstanceBuilder::Build()
+    Ref<Instance> InstanceBuilder::Build()
     {
         auto appInfo = vk::ApplicationInfo()
                            .setPApplicationName(mApplicationName.c_str())

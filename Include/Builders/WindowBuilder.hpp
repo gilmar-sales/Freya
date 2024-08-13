@@ -35,7 +35,7 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        std::shared_ptr<Window> Build();
+        Ref<Window> Build();
 
       private:
         friend class ApplicationBuilder;

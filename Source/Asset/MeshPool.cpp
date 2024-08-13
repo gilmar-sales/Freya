@@ -6,10 +6,10 @@ namespace FREYA_NAMESPACE
     constexpr auto MinVertexBufferSize = 1'048'576;
     constexpr auto MinIndexBufferSize  = 2'097'152;
 
-    MeshPool::MeshPool(std::shared_ptr<Device> device,
-                       std::shared_ptr<PhysicalDevice>
+    MeshPool::MeshPool(Ref<Device> device,
+                       Ref<PhysicalDevice>
                            physicalDevice,
-                       std::shared_ptr<CommandPool>
+                       Ref<CommandPool>
                            commandPool) :
         mDevice(device),
         mPhysicalDevice(physicalDevice), mCommandPool(commandPool), mMeshes(4096)

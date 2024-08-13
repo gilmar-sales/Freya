@@ -20,33 +20,33 @@ namespace FREYA_NAMESPACE
 
         ~DeviceBuilder() = default;
 
-        DeviceBuilder &SetInstance(std::shared_ptr<Instance> instance)
+        DeviceBuilder &SetInstance(Ref<Instance> instance)
         {
             mInstance = instance;
             return *this;
         }
 
-        DeviceBuilder &SetPhysicalDevice(std::shared_ptr<PhysicalDevice> physicalDevice)
+        DeviceBuilder &SetPhysicalDevice(Ref<PhysicalDevice> physicalDevice)
         {
             mPhysicalDevice = physicalDevice;
             return *this;
         }
 
-        DeviceBuilder &SetSurface(std::shared_ptr<Surface> surface)
+        DeviceBuilder &SetSurface(Ref<Surface> surface)
         {
             mSurface = surface;
             return *this;
         }
 
-        std::shared_ptr<Device> Build();
+        Ref<Device> Build();
 
       protected:
         QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device);
 
       private:
-        std::shared_ptr<Instance> mInstance;
-        std::shared_ptr<PhysicalDevice> mPhysicalDevice;
-        std::shared_ptr<Surface> mSurface;
+        Ref<Instance> mInstance;
+        Ref<PhysicalDevice> mPhysicalDevice;
+        Ref<Surface> mSurface;
         std::vector<const char *> mDeviceExtensions;
     };
 

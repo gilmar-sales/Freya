@@ -7,7 +7,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    std::shared_ptr<Buffer> BufferBuilder::Build()
+    Ref<Buffer> BufferBuilder::Build()
     {
         assert(mDevice.get() && "Cannot create fra::Buffer with an invalid fra::Device");
 

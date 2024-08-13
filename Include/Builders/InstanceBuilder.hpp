@@ -40,7 +40,7 @@ namespace FREYA_NAMESPACE
         InstanceBuilder &AddExtension(const char *extension);
         InstanceBuilder &AddExtensions(std::vector<const char *> extesions);
 
-        std::shared_ptr<Instance> Build();
+        Ref<Instance> Build();
 
       protected:
         bool checkLayerSupport(const char *layer);

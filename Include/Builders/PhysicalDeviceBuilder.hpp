@@ -18,16 +18,16 @@ namespace FREYA_NAMESPACE
         {
         }
 
-        PhysicalDeviceBuilder &SetInstance(std::shared_ptr<Instance> instance)
+        PhysicalDeviceBuilder &SetInstance(Ref<Instance> instance)
         {
             mInstance = instance;
             return *this;
         }
 
-        std::shared_ptr<PhysicalDevice> Build();
+        Ref<PhysicalDevice> Build();
 
       private:
-        std::shared_ptr<Instance> mInstance;
+        Ref<Instance> mInstance;
         std::vector<vk::PhysicalDeviceType> mPhysicalDeviceTypePriorities;
     };
 } // namespace FREYA_NAMESPACE

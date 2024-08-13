@@ -3,7 +3,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    std::shared_ptr<Window> WindowBuilder::Build()
+    Ref<Window> WindowBuilder::Build()
     {
         assert(SDL_Init(SDL_INIT_VIDEO) == 0 && "Failed to initialize SDL3");
 

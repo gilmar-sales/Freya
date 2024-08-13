@@ -73,7 +73,7 @@ namespace FREYA_NAMESPACE
             mDrawDistance = drawDistance;
             return *this;
         }
-        std::shared_ptr<Renderer> Build();
+        Ref<Renderer> Build();
 
       private:
         friend class ApplicationBuilder;

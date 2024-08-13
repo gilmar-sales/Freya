@@ -14,7 +14,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    std::shared_ptr<SwapChain> SwapChainBuilder::Build()
+    Ref<SwapChain> SwapChainBuilder::Build()
     {
         auto surfaceFormat = mSurface->QuerySurfaceFormat();
         auto presentMode   = choosePresentMode();

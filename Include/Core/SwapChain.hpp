@@ -19,17 +19,17 @@ namespace FREYA_NAMESPACE
     class SwapChain
     {
       public:
-        SwapChain(std::shared_ptr<Device> device,
-                  std::shared_ptr<Instance>
+        SwapChain(Ref<Device> device,
+                  Ref<Instance>
                       instance,
-                  std::shared_ptr<Surface>
+                  Ref<Surface>
                                    surface,
                   vk::SwapchainKHR swapChain,
                   std::vector<SwapChainFrame>
                       frames,
-                  std::shared_ptr<Image>
+                  Ref<Image>
                       depthImage,
-                  std::shared_ptr<Image>
+                  Ref<Image>
                       sampleImage) :
             mDevice(device),
             mInstance(instance), mSurface(surface),
@@ -42,7 +42,7 @@ namespace FREYA_NAMESPACE
         ~SwapChain();
 
         const vk::SwapchainKHR&            Get() { return mSwapChain; }
-        const std::shared_ptr<Surface>&    GetSurface() { return mSurface; }
+        const Ref<Surface>&    GetSurface() { return mSurface; }
         const std::vector<SwapChainFrame>& GetFrames() { return mFrames; }
 
         const SwapChainFrame& GetNextFrame(vk::Semaphore semaphore);
@@ -50,17 +50,17 @@ namespace FREYA_NAMESPACE
         const vk::Extent2D&   GetExtent() { return mExtent; }
 
       private:
-        std::shared_ptr<Device>   mDevice;
-        std::shared_ptr<Instance> mInstance;
-        std::shared_ptr<Surface>  mSurface;
+        Ref<Device>   mDevice;
+        Ref<Instance> mInstance;
+        Ref<Surface>  mSurface;
 
         vk::SwapchainKHR            mSwapChain;
         vk::Extent2D                mExtent;
         std::vector<SwapChainFrame> mFrames;
         std::uint32_t               mCurrentFrameIndex;
 
-        std::shared_ptr<Image> mDepthImage;
-        std::shared_ptr<Image> mSampleImage;
+        Ref<Image> mDepthImage;
+        Ref<Image> mSampleImage;
     };
 
 } // namespace FREYA_NAMESPACE

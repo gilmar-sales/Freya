@@ -4,7 +4,7 @@
 
 namespace FREYA_NAMESPACE
 {
-    std::shared_ptr<ShaderModule> ShaderModuleBuilder::Build()
+    Ref<ShaderModule> ShaderModuleBuilder::Build()
     {
         auto code       = readFile(mFilePath);
         auto createInfo = vk::ShaderModuleCreateInfo()

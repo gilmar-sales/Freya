@@ -19,7 +19,7 @@ namespace FREYA_NAMESPACE
     class Buffer
     {
       public:
-        Buffer(std::shared_ptr<Device> device,
+        Buffer(Ref<Device> device,
                BufferUsage             usage,
                std::uint32_t           size,
                vk::Buffer              buffer,
@@ -32,7 +32,7 @@ namespace FREYA_NAMESPACE
 
         ~Buffer();
 
-        void Bind(std::shared_ptr<CommandPool> commandPool);
+        void Bind(Ref<CommandPool> commandPool);
 
         vk::Buffer& Get() { return mBuffer; }
 
@@ -43,7 +43,7 @@ namespace FREYA_NAMESPACE
         void Copy(void* data, std::uint32_t size, std::uint32_t offset = 0);
 
       private:
-        std::shared_ptr<Device> mDevice;
+        Ref<Device> mDevice;
 
         vk::Buffer       mBuffer;
         vk::DeviceMemory mMemory;

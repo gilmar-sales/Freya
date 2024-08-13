@@ -9,7 +9,7 @@ namespace FREYA_NAMESPACE
     class BufferBuilder
     {
       public:
-        explicit BufferBuilder(std::shared_ptr<Device> device) :
+        explicit BufferBuilder(Ref<Device> device) :
             mDevice(device)
         {
         }
@@ -35,10 +35,10 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        std::shared_ptr<Buffer> Build();
+        Ref<Buffer> Build();
 
       private:
-        std::shared_ptr<Device> mDevice;
+        Ref<Device> mDevice;
 
         std::uint64_t mSize  = 0;
         void*         mData  = nullptr;

@@ -2,7 +2,7 @@
 
 namespace FREYA_NAMESPACE
 {
-    std::shared_ptr<DeferredPass> DeferredPassBuilder::Build()
+    Ref<DeferredPass> DeferredPassBuilder::Build()
     {
         auto surfaceFormat = mSurface->QuerySurfaceFormat().format;
 

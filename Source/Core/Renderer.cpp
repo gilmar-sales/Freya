@@ -156,12 +156,12 @@ namespace FREYA_NAMESPACE
         mCommandPool->GetCommandBuffer().pushConstants(mRenderPass->GetPipelineLayout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(model), &model);
     }
 
-    std::shared_ptr<MeshPoolFactory> Renderer::GetMeshPoolFactory()
+    Ref<MeshPoolFactory> Renderer::GetMeshPoolFactory()
     {
         return std::make_shared<MeshPoolFactory>(mDevice, mPhysicalDevice, mCommandPool);
     }
 
-    std::shared_ptr<TexturePoolFactory> Renderer::GetTexturePoolFactory()
+    Ref<TexturePoolFactory> Renderer::GetTexturePoolFactory()
     {
         return std::make_shared<TexturePoolFactory>(mDevice, mCommandPool);
     }
@@ -171,7 +171,7 @@ namespace FREYA_NAMESPACE
         return BufferBuilder(mDevice);
     }
 
-    void Renderer::BindBuffer(std::shared_ptr<Buffer> buffer)
+    void Renderer::BindBuffer(Ref<Buffer> buffer)
     {
         buffer->Bind(mCommandPool);
     }

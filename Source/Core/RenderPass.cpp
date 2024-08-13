@@ -59,7 +59,7 @@ namespace FREYA_NAMESPACE
         mUniformBuffers[frameIndex]->Copy(&model, sizeof(model));
     }
 
-    void RenderPass::BindDescriptorSet(std::shared_ptr<CommandPool> commandPool,
+    void RenderPass::BindDescriptorSet(Ref<CommandPool> commandPool,
                                        std::uint32_t                frameIndex)
     {
         commandPool->GetCommandBuffer().bindDescriptorSets(

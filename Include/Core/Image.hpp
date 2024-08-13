@@ -8,7 +8,7 @@ namespace FREYA_NAMESPACE
     class Image
     {
       public:
-        Image(std::shared_ptr<Device> device,
+        Image(Ref<Device> device,
               vk::Image image,
               vk::ImageView imageView,
               vk::DeviceMemory memory,
@@ -26,7 +26,7 @@ namespace FREYA_NAMESPACE
         vk::Format &GetFormat() { return mFormat; }
 
       private:
-        std::shared_ptr<Device> mDevice;
+        Ref<Device> mDevice;
 
         vk::Image mImage;
         vk::ImageView mImageView;

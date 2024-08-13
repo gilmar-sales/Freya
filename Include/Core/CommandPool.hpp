@@ -10,7 +10,7 @@ namespace FREYA_NAMESPACE
     class CommandPool
     {
       public:
-        CommandPool(std::shared_ptr<Device> device,
+        CommandPool(Ref<Device> device,
                     vk::CommandPool commandPool,
                     std::vector<vk::CommandBuffer> commandBuffers)
             : mDevice(device), mCommandPool(commandPool), mCommandBuffers(commandBuffers),
@@ -36,7 +36,7 @@ namespace FREYA_NAMESPACE
         void FreeCommandBuffer(vk::CommandBuffer);
 
       private:
-        std::shared_ptr<Device> mDevice;
+        Ref<Device> mDevice;
 
         vk::CommandPool mCommandPool;
         std::vector<vk::CommandBuffer> mCommandBuffers;

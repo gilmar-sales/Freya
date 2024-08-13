@@ -20,38 +20,38 @@ namespace FREYA_NAMESPACE
         {
         }
 
-        SwapChainBuilder &SetInstance(std::shared_ptr<Instance> instance)
+        SwapChainBuilder &SetInstance(Ref<Instance> instance)
         {
             mInstance = instance;
             return *this;
         }
 
-        SwapChainBuilder &SetPhysicalDevice(std::shared_ptr<Instance> instance)
+        SwapChainBuilder &SetPhysicalDevice(Ref<Instance> instance)
         {
             mInstance = instance;
             return *this;
         }
 
         SwapChainBuilder &SetPhysicalDevice(
-            std::shared_ptr<PhysicalDevice> physicalDevice)
+            Ref<PhysicalDevice> physicalDevice)
         {
             mPhysicalDevice = physicalDevice;
             return *this;
         }
 
-        SwapChainBuilder &SetDevice(std::shared_ptr<Device> device)
+        SwapChainBuilder &SetDevice(Ref<Device> device)
         {
             mDevice = device;
             return *this;
         }
 
-        SwapChainBuilder &SetSurface(std::shared_ptr<Surface> &surface)
+        SwapChainBuilder &SetSurface(Ref<Surface> &surface)
         {
             mSurface = surface;
             return *this;
         }
 
-        SwapChainBuilder &SetRenderPass(std::shared_ptr<RenderPass> &renderPass)
+        SwapChainBuilder &SetRenderPass(Ref<RenderPass> &renderPass)
         {
             mRenderPass = renderPass;
             return *this;
@@ -85,17 +85,17 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        std::shared_ptr<SwapChain> Build();
+        Ref<SwapChain> Build();
 
       protected:
         vk::PresentModeKHR choosePresentMode();
 
       private:
-        std::shared_ptr<Instance> mInstance;
-        std::shared_ptr<PhysicalDevice> mPhysicalDevice;
-        std::shared_ptr<Device> mDevice;
-        std::shared_ptr<Surface> mSurface;
-        std::shared_ptr<RenderPass> mRenderPass;
+        Ref<Instance> mInstance;
+        Ref<PhysicalDevice> mPhysicalDevice;
+        Ref<Device> mDevice;
+        Ref<Surface> mSurface;
+        Ref<RenderPass> mRenderPass;
 
         vk::SampleCountFlagBits mSamples;
 

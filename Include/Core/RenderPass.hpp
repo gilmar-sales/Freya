@@ -12,13 +12,13 @@ namespace FREYA_NAMESPACE
     class RenderPass
     {
       public:
-        RenderPass(std::shared_ptr<Device> device,
-                   std::shared_ptr<Surface>
+        RenderPass(Ref<Device> device,
+                   Ref<Surface>
                                       surface,
                    vk::RenderPass     renderPass,
                    vk::PipelineLayout pipelineLayout,
                    vk::Pipeline       graphicsPipeline,
-                   std::vector<std::shared_ptr<Buffer>>
+                   std::vector<Ref<Buffer>>
                        uniformBuffers,
                    std::vector<vk::DescriptorSetLayout>
                        descriptorSetLayouts,
@@ -39,7 +39,7 @@ namespace FREYA_NAMESPACE
         void UpdateProjection(ProjectionUniformBuffer& buffer, std::uint32_t frameIndex);
         void UpdateModel(glm::mat4 model, std::uint32_t frameIndex);
 
-        void BindDescriptorSet(std::shared_ptr<CommandPool> commandPool,
+        void BindDescriptorSet(Ref<CommandPool> commandPool,
                                std::uint32_t                frameIndex);
 
         vk::RenderPass&     Get() { return mRenderPass; }
@@ -47,14 +47,14 @@ namespace FREYA_NAMESPACE
         vk::Pipeline&       GetGraphicsPipeline() { return mGraphicsPipeline; }
 
       private:
-        std::shared_ptr<Device>  mDevice;
-        std::shared_ptr<Surface> mSurface;
+        Ref<Device>  mDevice;
+        Ref<Surface> mSurface;
 
         vk::RenderPass     mRenderPass;
         vk::PipelineLayout mPipelineLayout;
         vk::Pipeline       mGraphicsPipeline;
 
-        std::vector<std::shared_ptr<Buffer>> mUniformBuffers;
+        std::vector<Ref<Buffer>> mUniformBuffers;
         std::vector<vk::DescriptorSetLayout> mDescriptorSetLayouts;
         std::vector<vk::DescriptorSet>       mDescriptorSets;
         vk::DescriptorPool                   mDescriptorPool;

@@ -5,7 +5,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    std::shared_ptr<PhysicalDevice> PhysicalDeviceBuilder::Build()
+    Ref<PhysicalDevice> PhysicalDeviceBuilder::Build()
     {
         assert(mInstance != nullptr && mInstance->Get() &&
                "Could not create fra::PhysicalDevice with an invalid fra::Instance");

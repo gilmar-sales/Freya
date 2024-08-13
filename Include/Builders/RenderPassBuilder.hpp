@@ -11,20 +11,20 @@ namespace FREYA_NAMESPACE
     class RenderPassBuilder
     {
       public:
-        RenderPassBuilder &SetDevice(std::shared_ptr<Device> device)
+        RenderPassBuilder &SetDevice(Ref<Device> device)
         {
             mDevice = device;
             return *this;
         }
 
         RenderPassBuilder &SetPhysicalDevice(
-            std::shared_ptr<PhysicalDevice> physicalDevice)
+            Ref<PhysicalDevice> physicalDevice)
         {
             mPhysicalDevice = physicalDevice;
             return *this;
         }
 
-        RenderPassBuilder &SetSurface(std::shared_ptr<Surface> surface)
+        RenderPassBuilder &SetSurface(Ref<Surface> surface)
         {
             mSurface = surface;
             return *this;
@@ -42,15 +42,15 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        std::shared_ptr<RenderPass> Build();
+        Ref<RenderPass> Build();
 
       protected:
         vk::Format getDepthFormat();
 
       private:
-        std::shared_ptr<Device> mDevice;
-        std::shared_ptr<PhysicalDevice> mPhysicalDevice;
-        std::shared_ptr<Surface> mSurface;
+        Ref<Device> mDevice;
+        Ref<PhysicalDevice> mPhysicalDevice;
+        Ref<Surface> mSurface;
 
         vk::SampleCountFlagBits mSamples;
 

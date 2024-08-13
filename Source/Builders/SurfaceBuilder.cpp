@@ -7,7 +7,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    std::shared_ptr<Surface> SurfaceBuilder::Build()
+    Ref<Surface> SurfaceBuilder::Build()
     {
         assert(mInstance.get() &&
                "Could not create fra::Surface with an invalid fra::Instance");
