@@ -118,7 +118,7 @@ namespace FREYA_NAMESPACE
 
         vk::DebugUtilsMessengerEXT debugMessenger;
 
-        if (std::find_if(mLayers.begin(), mLayers.end(), isValidationLayer) !=
+        if (std::ranges::find_if(mLayers.begin(), mLayers.end(), isValidationLayer) !=
             mLayers.end())
         {
             auto debugUtilsCreateInfo =

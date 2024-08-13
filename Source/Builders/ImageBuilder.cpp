@@ -166,9 +166,9 @@ namespace FREYA_NAMESPACE
         return vk::Format();
     }
 
-    void ImageBuilder::transitionLayout(Ref<fra::CommandPool> commandPool, vk::Image image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout)
+    void ImageBuilder::transitionLayout(const Ref<CommandPool>& commandPool, const vk::Image image, const vk::ImageLayout oldLayout, const vk::ImageLayout newLayout) const
     {
-        auto commandBuffer = commandPool->CreateCommandBuffer();
+        const auto commandBuffer = commandPool->CreateCommandBuffer();
 
         commandBuffer.begin(vk::CommandBufferBeginInfo().setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
 
@@ -212,7 +212,7 @@ namespace FREYA_NAMESPACE
 
         commandBuffer.end();
 
-        auto submitInfo =
+        const auto submitInfo =
             vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(&commandBuffer);
 
         mDevice->GetTransferQueue().submit(submitInfo);

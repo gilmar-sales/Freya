@@ -71,7 +71,7 @@ namespace FREYA_NAMESPACE
 
       protected:
         vk::Format chooseFormat();
-        void       transitionLayout(Ref<CommandPool> commandPool, vk::Image image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
+        void       transitionLayout(const Ref<CommandPool>& commandPool, vk::Image image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout) const;
 
       private:
         Ref<Device> mDevice;

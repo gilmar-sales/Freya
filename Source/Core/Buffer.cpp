@@ -17,15 +17,15 @@ namespace FREYA_NAMESPACE
         constexpr vk::DeviceSize offsets[] = { 0 };
         switch (mUsage)
         {
-            case fra::BufferUsage::Vertex:
+            case BufferUsage::Vertex:
                 commandPool->GetCommandBuffer().bindVertexBuffers(0, 1, &mBuffer,
                                                                   offsets);
                 break;
-            case fra::BufferUsage::Index:
+            case BufferUsage::Index:
                 commandPool->GetCommandBuffer().bindIndexBuffer(mBuffer, 0,
                                                                 vk::IndexType::eUint16);
                 break;
-            case fra::BufferUsage::Instance: {
+            case BufferUsage::Instance: {
                 commandPool->GetCommandBuffer().bindVertexBuffers(1, 1, &mBuffer, offsets);
             }
             default:

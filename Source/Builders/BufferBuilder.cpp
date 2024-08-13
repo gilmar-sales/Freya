@@ -22,15 +22,15 @@ namespace FREYA_NAMESPACE
 
         switch (mUsage)
         {
-            case fra::BufferUsage::Staging:
+            case BufferUsage::Staging:
                 bufferInfo.setUsage(vk::BufferUsageFlagBits::eTransferSrc);
                 break;
-            case fra::BufferUsage::Instance:
-            case fra::BufferUsage::Vertex:
+            case BufferUsage::Instance:
+            case BufferUsage::Vertex:
                 bufferInfo.setUsage(vk::BufferUsageFlagBits::eVertexBuffer |
                                     vk::BufferUsageFlagBits::eTransferDst);
                 break;
-            case fra::BufferUsage::Index:
+            case BufferUsage::Index:
                 bufferInfo.setUsage(vk::BufferUsageFlagBits::eIndexBuffer |
                                     vk::BufferUsageFlagBits::eTransferDst);
                 break;
@@ -43,7 +43,7 @@ namespace FREYA_NAMESPACE
 
         if (queueFamilyIndices.isUnique())
         {
-            std::array<std::uint32_t, 2> queues = {
+            const std::array queues = {
                 queueFamilyIndices.graphicsFamily.value(),
                 queueFamilyIndices.transferFamily.value()
             };
@@ -57,7 +57,7 @@ namespace FREYA_NAMESPACE
 
         assert(buffer && "Failed to create vk::Buffer.");
 
-        auto memoryRequirements = mDevice->Get().getBufferMemoryRequirements(buffer);
+        const auto memoryRequirements = mDevice->Get().getBufferMemoryRequirements(buffer);
 
         auto memoryProperties = vk::MemoryPropertyFlags {};
 
@@ -80,11 +80,11 @@ namespace FREYA_NAMESPACE
                 break;
         }
 
-        auto memoryTypeIndex = mDevice->GetPhysicalDevice()->QueryCompatibleMemoryType(
+        const auto memoryTypeIndex = mDevice->GetPhysicalDevice()->QueryCompatibleMemoryType(
             memoryRequirements.memoryTypeBits,
             memoryProperties);
 
-        auto allocInfo =
+        const auto allocInfo =
             vk::MemoryAllocateInfo()
                 .setAllocationSize(memoryRequirements.size)
                 .setMemoryTypeIndex(memoryTypeIndex);

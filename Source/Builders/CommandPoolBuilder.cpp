@@ -9,7 +9,7 @@ namespace FREYA_NAMESPACE
 
     Ref<CommandPool> CommandPoolBuilder::Build()
     {
-        auto queueFamilyIndices = mDevice->GetQueueFamilyIndices();
+        const auto queueFamilyIndices = mDevice->GetQueueFamilyIndices();
 
         const auto commandPoolCreateInfo =
             vk::CommandPoolCreateInfo()

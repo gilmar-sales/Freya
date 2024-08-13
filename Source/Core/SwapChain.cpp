@@ -11,7 +11,7 @@ namespace FREYA_NAMESPACE
         mDepthImage.reset();
         mSampleImage.reset();
 
-        for (auto& frame : mFrames)
+        for (const auto& frame : mFrames)
         {
             mDevice->Get().destroyFramebuffer(frame.frameBuffer);
             mDevice->Get().destroyImageView(frame.imageView);

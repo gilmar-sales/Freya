@@ -19,7 +19,7 @@ namespace FREYA_NAMESPACE
 
         std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
 
-        std::set<uint32_t> uniqueQueueFamilies = {
+        std::set uniqueQueueFamilies = {
             indices.graphicsFamily.value(),
             indices.presentFamily.value(),
         };
@@ -75,7 +75,7 @@ namespace FREYA_NAMESPACE
             indices);
     }
 
-    QueueFamilyIndices DeviceBuilder::findQueueFamilies(vk::PhysicalDevice device)
+    QueueFamilyIndices DeviceBuilder::findQueueFamilies(const vk::PhysicalDevice device) const
     {
         QueueFamilyIndices indices;
 

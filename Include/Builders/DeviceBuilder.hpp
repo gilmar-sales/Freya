@@ -40,7 +40,7 @@ namespace FREYA_NAMESPACE
         Ref<Device> Build();
 
       protected:
-        QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device);
+        QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device) const;
 
       private:
         Ref<Instance>            mInstance;
