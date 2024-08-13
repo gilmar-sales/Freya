@@ -7,20 +7,19 @@ namespace FREYA_NAMESPACE
 
     class MeshPoolFactory
     {
-        public:
-        MeshPoolFactory(Ref<Device> device,
-                 Ref<PhysicalDevice> physicalDevice,
-                 Ref<CommandPool> commandPool) :
-                 mDevice(device), mPhysicalDevice(physicalDevice), mCommandPool(commandPool)
-                 {
-
-                 }
+      public:
+        MeshPoolFactory(const Ref<Device>&         device,
+                        const Ref<PhysicalDevice>& physicalDevice,
+                        const Ref<CommandPool>&    commandPool) :
+            mDevice(device), mPhysicalDevice(physicalDevice), mCommandPool(commandPool)
+        {
+        }
 
         Ref<MeshPool> CreateMeshPool();
 
-        private:
-            Ref<Device> mDevice;
-            Ref<PhysicalDevice> mPhysicalDevice;
-            Ref<CommandPool> mCommandPool;
+      private:
+        Ref<Device>         mDevice;
+        Ref<PhysicalDevice> mPhysicalDevice;
+        Ref<CommandPool>    mCommandPool;
     };
-}
+} // namespace FREYA_NAMESPACE

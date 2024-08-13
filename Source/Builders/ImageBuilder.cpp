@@ -140,7 +140,7 @@ namespace FREYA_NAMESPACE
 
         auto imageView = mDevice->Get().createImageView(imageViewInfo);
 
-        return std::make_shared<Image>(mDevice, image, imageView, imageMemory, mFormat);
+        return MakeRef<Image>(mDevice, image, imageView, imageMemory, mFormat);
     }
 
     vk::Format ImageBuilder::chooseFormat()

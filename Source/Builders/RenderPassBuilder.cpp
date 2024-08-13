@@ -311,7 +311,7 @@ namespace FREYA_NAMESPACE
         mDevice->Get().destroyShaderModule(vertShaderModule->Get());
         mDevice->Get().destroyShaderModule(fragShaderModule->Get());
 
-        return std::make_shared<RenderPass>(
+        return MakeRef<RenderPass>(
             mDevice,
             mSurface,
             renderPass,

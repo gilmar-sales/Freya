@@ -16,7 +16,7 @@ namespace FREYA_NAMESPACE
 
         assert(window != nullptr && "Failed to create SDL3 Window");
 
-        return std::make_shared<Window>(
+        return MakeRef<Window>(
             window, mTitle, mWidth, mHeight, mVSync, mEventManager);
     }
 

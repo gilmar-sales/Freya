@@ -129,7 +129,7 @@ namespace FREYA_NAMESPACE
             assert(frames[index].frameBuffer && "Failed to create framebuffer");
         }
 
-        return std::make_shared<SwapChain>(
+        return MakeRef<SwapChain>(
             mDevice,
             mInstance,
             mSurface,

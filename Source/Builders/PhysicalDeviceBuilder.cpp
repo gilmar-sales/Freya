@@ -35,7 +35,7 @@ namespace FREYA_NAMESPACE
 
         assert(physicalDevice && "Could not select physical device.");
 
-        return std::make_shared<PhysicalDevice>(physicalDevice);
+        return MakeRef<PhysicalDevice>(physicalDevice);
     }
 
 } // namespace FREYA_NAMESPACE

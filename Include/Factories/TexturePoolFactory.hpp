@@ -8,9 +8,8 @@ namespace FREYA_NAMESPACE
     class TexturePoolFactory
     {
       public:
-        TexturePoolFactory(Ref<Device> device,
-                           Ref<CommandPool>
-                               commandPool) :
+        TexturePoolFactory(const Ref<Device>&      device,
+                           const Ref<CommandPool>& commandPool) :
             mDevice(device), mCommandPool(commandPool)
         {
         }

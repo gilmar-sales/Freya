@@ -15,7 +15,7 @@ namespace FREYA_NAMESPACE
 
         assert(shaderModule && "Failed to create shader module.");
 
-        return std::make_shared<ShaderModule>(shaderModule);
+        return MakeRef<ShaderModule>(shaderModule);
     }
 
     std::vector<char> ShaderModuleBuilder::readFile(const std::string& filename)

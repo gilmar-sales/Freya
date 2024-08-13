@@ -65,7 +65,7 @@ namespace FREYA_NAMESPACE
         auto presentQueue  = device.getQueue(indices.presentFamily.value(), 0);
         auto transferQueue = device.getQueue(indices.transferFamily.value(), 0);
 
-        return std::make_shared<Device>(
+        return MakeRef<Device>(
             mPhysicalDevice,
             mSurface,
             device,

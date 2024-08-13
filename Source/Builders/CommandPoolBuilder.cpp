@@ -29,7 +29,7 @@ namespace FREYA_NAMESPACE
 
         assert(!commandBuffers.empty() && "Failed to allocate command buffers");
 
-        return std::make_shared<CommandPool>(mDevice, commandPool, commandBuffers);
+        return MakeRef<CommandPool>(mDevice, commandPool, commandBuffers);
     }
 
 } // namespace FREYA_NAMESPACE

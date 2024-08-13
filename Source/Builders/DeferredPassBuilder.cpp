@@ -159,6 +159,6 @@ namespace FREYA_NAMESPACE
 
         auto renderPass = mDevice->Get().createRenderPass(renderPassCreateInfo);
 
-        return std::make_shared<DeferredPass>();
+        return MakeRef<DeferredPass>();
     }
 } // namespace FREYA_NAMESPACE

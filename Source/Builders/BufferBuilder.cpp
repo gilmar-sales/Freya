@@ -105,7 +105,7 @@ namespace FREYA_NAMESPACE
             mDevice->Get().unmapMemory(memory);
         }
 
-        return std::make_shared<Buffer>(mDevice, mUsage, mSize, buffer, memory);
+        return MakeRef<Buffer>(mDevice, mUsage, mSize, buffer, memory);
     };
 
 } // namespace FREYA_NAMESPACE

@@ -130,7 +130,7 @@ namespace FREYA_NAMESPACE
             assert(debugMessenger && "Failed to set up debug messenger!");
         }
 
-        return std::make_shared<Instance>(instance, debugMessenger);
+        return MakeRef<Instance>(instance, debugMessenger);
     }
 
     bool InstanceBuilder::checkLayerSupport(const char* layer)

@@ -82,7 +82,7 @@ namespace FREYA_NAMESPACE
                    "Failed to create synchronization objects for a frame");
         }
 
-        return std::make_shared<Renderer>(instance,
+        return MakeRef<Renderer>(instance,
                                           surface,
                                           physicalDevice,
                                           device,
