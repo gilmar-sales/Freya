@@ -1,9 +1,9 @@
 #pragma once
 
 #include "Containers/SparseSet.hpp"
-#include "Core/Buffer.hpp"
 #include "Core/CommandPool.hpp"
 #include "Core/Device.hpp"
+#include "Core/RenderPass.hpp"
 #include "Texture.hpp"
 
 namespace FREYA_NAMESPACE
@@ -13,16 +13,20 @@ namespace FREYA_NAMESPACE
       public:
         using TextureSet = SparseSet<Texture>;
 
-        TexturePool(const Ref<Device>& device,
-                    const Ref<CommandPool>& commandPool);
+        TexturePool(const Ref<Device>&      device,
+                    const Ref<CommandPool>& commandPool,
+                    const Ref<RenderPass>&  renderPass);
 
-        std::uint32_t CreateTextureFromFile(std::string path) const;
+        ~TexturePool();
+
+        std::uint32_t CreateTextureFromFile(std::string path);
+        void          Bind(uint32_t uint32);
 
       private:
         Ref<Device>      mDevice;
         Ref<CommandPool> mCommandPool;
+        Ref<RenderPass>  mRenderPass;
 
-        std::vector<Ref<Buffer>> mImageBuffers;
-        TextureSet               mTextures;
+        TextureSet mTextures;
     };
 } // namespace FREYA_NAMESPACE

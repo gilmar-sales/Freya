@@ -12,6 +12,11 @@ namespace FREYA_NAMESPACE
 
     RenderPass::~RenderPass()
     {
+
+        mDevice->Get().destroyDescriptorPool(mSamplerDescriptorPool);
+
+        mDevice->Get().destroySampler(mSampler);
+
         mDevice->Get().destroyDescriptorPool(mDescriptorPool);
 
         for (auto& uniformBuffer : mUniformBuffers)

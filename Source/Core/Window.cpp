@@ -74,13 +74,13 @@ namespace FREYA_NAMESPACE
                 }
 
                 case SDL_EVENT_KEY_DOWN: {
-                    const auto keyEvent = KeyPressedEvent { .key = (KeyCode) sdlEvent.key.scancode };
+                    const auto keyEvent = KeyPressedEvent { .key = static_cast<KeyCode>(sdlEvent.key.scancode) };
                     mEventManager->Send(keyEvent);
                     break;
                 }
 
                 case SDL_EVENT_KEY_UP: {
-                    const auto keyEvent = KeyReleasedEvent { .key = (KeyCode) sdlEvent.key.scancode };
+                    const auto keyEvent = KeyReleasedEvent { .key = static_cast<KeyCode>(sdlEvent.key.scancode) };
                     mEventManager->Send(keyEvent);
                     break;
                 }

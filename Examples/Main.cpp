@@ -4,7 +4,7 @@
 
 #include <glm/ext/matrix_transform.hpp>
 
-class MainApp : public fra::AbstractApplication
+class MainApp final : public fra::AbstractApplication
 {
   public:
     void StartUp() override
@@ -17,7 +17,7 @@ class MainApp : public fra::AbstractApplication
         red_ship_meshes = mMeshPool->CreateMeshFromFile("D:/Models/Civic.obj");
         mModelMatrix    = glm::mat4(1);
 
-        auto texture = mTexturePool->CreateTextureFromFile("./Shaders/papel-parede.jpg");
+        mTexture = mTexturePool->CreateTextureFromFile("./Shaders/papel-parede.jpg");
 
         mEventManager->Subscribe<fra::KeyPressedEvent>([](fra::KeyPressedEvent event) {
             std::println("Key pressed");
@@ -61,6 +61,7 @@ class MainApp : public fra::AbstractApplication
 
         for (const auto& mesh : red_ship_meshes)
         {
+            mTexturePool->Bind(mTexture);
             mMeshPool->Draw(mesh);
         }
 
@@ -71,24 +72,26 @@ class MainApp : public fra::AbstractApplication
     std::vector<unsigned>             red_ship_meshes;
     std::shared_ptr<fra::TexturePool> mTexturePool;
     std::shared_ptr<fra::MeshPool>    mMeshPool;
-    glm::mat4                         mModelMatrix;
-    float                             mCurrentTime;
+
+    std::uint32_t mTexture {};
+    glm::mat4     mModelMatrix {};
+    float         mCurrentTime {};
 };
 
 int main(int argc, const char** argv)
 {
-    auto app = fra::ApplicationBuilder()
-                   .WithWindow([](fra::WindowBuilder& windowBuilder) {
-                       windowBuilder
-                           .SetTitle("Space")
-                           .SetWidth(1920)
-                           .SetHeight(1080)
-                           .SetVSync(false);
-                   })
-                   .WithRenderer([](fra::RendererBuilder& rendererBuilder) {
-                       rendererBuilder.SetSamples(vk::SampleCountFlagBits::e8);
-                   })
-                   .Build<MainApp>();
+    const auto app = fra::ApplicationBuilder()
+                         .WithWindow([](fra::WindowBuilder& windowBuilder) {
+                             windowBuilder
+                                 .SetTitle("Space")
+                                 .SetWidth(1920)
+                                 .SetHeight(1080)
+                                 .SetVSync(false);
+                         })
+                         .WithRenderer([](fra::RendererBuilder& rendererBuilder) {
+                             rendererBuilder.SetSamples(vk::SampleCountFlagBits::e8);
+                         })
+                         .Build<MainApp>();
 
     app->Run();
 

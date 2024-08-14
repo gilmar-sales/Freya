@@ -165,7 +165,7 @@ namespace FREYA_NAMESPACE
 
     Ref<TexturePoolFactory> Renderer::GetTexturePoolFactory()
     {
-        return MakeRef<TexturePoolFactory>(mDevice, mCommandPool);
+        return MakeRef<TexturePoolFactory>(mDevice, mCommandPool, mRenderPass);
     }
 
     BufferBuilder Renderer::GetBufferBuilder() const
@@ -208,6 +208,8 @@ namespace FREYA_NAMESPACE
             throw std::runtime_error("failed to reset fences!");
 
         mCommandPool->SetCommandBufferIndex(mCurrentFrameIndex);
+        mRenderPass->SetFrameIndex(mCurrentFrameIndex);
+
         auto& commandBuffer = mCommandPool->GetCommandBuffer();
         commandBuffer.reset();
 

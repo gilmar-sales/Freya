@@ -20,13 +20,18 @@ namespace FREYA_NAMESPACE
                    const std::vector<Ref<Buffer>>&             uniformBuffers,
                    const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
                    const std::vector<vk::DescriptorSet>&       descriptorSets,
-                   const vk::DescriptorPool                    descriptorPool) :
+                   const vk::DescriptorPool                    descriptorPool,
+                   const vk::DescriptorSetLayout               samplerLayout,
+                   const vk::DescriptorPool                    samplerDescriptorPool,
+                   const vk::Sampler                           sampler) :
             mDevice(device),
             mSurface(surface), mRenderPass(renderPass),
             mPipelineLayout(pipelineLayout), mGraphicsPipeline(graphicsPipeline),
             mUniformBuffers(uniformBuffers),
             mDescriptorSetLayouts(descriptorSetLayouts),
-            mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool)
+            mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool),
+            mSamplerLayout(samplerLayout), mSamplerDescriptorPool(samplerDescriptorPool),
+            mSampler(sampler)
         {
         }
 
@@ -36,11 +41,25 @@ namespace FREYA_NAMESPACE
         void UpdateModel(glm::mat4 model, std::uint32_t frameIndex) const;
 
         void BindDescriptorSet(const Ref<CommandPool>& commandPool,
-                               std::uint32_t    frameIndex) const;
+                               std::uint32_t           frameIndex) const;
 
         vk::RenderPass&     Get() { return mRenderPass; }
         vk::PipelineLayout& GetPipelineLayout() { return mPipelineLayout; }
         vk::Pipeline&       GetGraphicsPipeline() { return mGraphicsPipeline; }
+
+        vk::DescriptorSetLayout& GetSamplerLayout() { return mSamplerLayout; }
+        vk::DescriptorPool&      GetSamplerDescriptorPool() { return mSamplerDescriptorPool; }
+        vk::Sampler&             GetSampler() { return mSampler; }
+
+        vk::DescriptorSet& GetCurrentDescriptorSet() { return mDescriptorSets[mIndex]; }
+
+        void SetFrameIndex(const std::uint32_t index)
+        {
+            assert(index < mDescriptorSets.size() &&
+                   "Cannot get vk::CommandBuffer: index out of bounds.");
+
+            mIndex = index;
+        }
 
       private:
         Ref<Device>  mDevice;
@@ -54,6 +73,10 @@ namespace FREYA_NAMESPACE
         std::vector<vk::DescriptorSetLayout> mDescriptorSetLayouts;
         std::vector<vk::DescriptorSet>       mDescriptorSets;
         vk::DescriptorPool                   mDescriptorPool;
+        vk::DescriptorSetLayout              mSamplerLayout;
+        vk::DescriptorPool                   mSamplerDescriptorPool;
+        vk::Sampler                          mSampler;
+        std::uint32_t                        mIndex;
     };
 
 } // namespace FREYA_NAMESPACE

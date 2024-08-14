@@ -1,12 +1,15 @@
 #pragma once
 
+#include "Core/Image.hpp"
+
 namespace FREYA_NAMESPACE
 {
     struct Texture
     {
         operator std::uint32_t() const { return id; }
 
-        std::uint32_t imageBufferIndex;
+        Ref<Image>        image;
+        vk::DescriptorSet descriptorSet;
 
         std::uint32_t width;
         std::uint32_t height;

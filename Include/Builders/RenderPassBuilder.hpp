@@ -49,7 +49,7 @@ namespace FREYA_NAMESPACE
         Ref<RenderPass> Build();
 
       protected:
-        vk::Format getDepthFormat();
+        vk::Format getDepthFormat() const;
 
       private:
         Ref<Device>         mDevice;

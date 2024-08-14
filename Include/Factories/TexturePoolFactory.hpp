@@ -9,8 +9,9 @@ namespace FREYA_NAMESPACE
     {
       public:
         TexturePoolFactory(const Ref<Device>&      device,
-                           const Ref<CommandPool>& commandPool) :
-            mDevice(device), mCommandPool(commandPool)
+                           const Ref<CommandPool>& commandPool,
+                           const Ref<RenderPass>&  renderPass) :
+            mDevice(device), mCommandPool(commandPool), mRenderPass(renderPass)
         {
         }
 
@@ -19,5 +20,6 @@ namespace FREYA_NAMESPACE
       private:
         Ref<Device>      mDevice;
         Ref<CommandPool> mCommandPool;
+        Ref<RenderPass>  mRenderPass;
     };
 } // namespace FREYA_NAMESPACE
