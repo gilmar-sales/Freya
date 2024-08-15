@@ -14,10 +14,10 @@ class MainApp final : public fra::AbstractApplication
         mMeshPool    = mRenderer->GetMeshPoolFactory()->CreateMeshPool();
         mTexturePool = mRenderer->GetTexturePoolFactory()->CreateTexturePool();
 
-        red_ship_meshes = mMeshPool->CreateMeshFromFile("D:/Models/Civic.obj");
-        mModelMatrix    = glm::mat4(1);
+        mModelMatrix = glm::scale(glm::mat4(1), glm::vec3(10000));
 
-        mTexture = mTexturePool->CreateTextureFromFile("./Shaders/papel-parede.jpg");
+        mTextureA = mTexturePool->CreateTextureFromFile("D:/Models/Emergency Backup Generator_Default_color.jpg");
+        mModelA   = mMeshPool->CreateMeshFromFile("C:/Models/moon.fbx");
 
         mEventManager->Subscribe<fra::KeyPressedEvent>([](fra::KeyPressedEvent event) {
             std::println("Key pressed");
@@ -27,24 +27,24 @@ class MainApp final : public fra::AbstractApplication
             std::println("Key released");
         });
 
-        // mEventManager->Subscribe<fra::MouseMoveEvent>([](fra::MouseMoveEvent event) {
-        //     std::println("Mouse position: {}, {}", event.x, event.y);
-        //     std::println("Mouse delta: {}, {}", event.deltaX, event.deltaY);
-        // });
+        mEventManager->Subscribe<fra::MouseMoveEvent>([](fra::MouseMoveEvent event) {
+            std::println("Mouse position: {}, {}", event.x, event.y);
+            std::println("Mouse delta: {}, {}", event.deltaX, event.deltaY);
+        });
 
         mEventManager->Subscribe<fra::MouseButtonPressedEvent>([](fra::MouseButtonPressedEvent event) {
-            std::println("Mouse button pressed: {}", (int) event.button);
+            std::println("Mouse button pressed: {}", static_cast<int>(event.button));
         });
         mEventManager->Subscribe<fra::MouseButtonReleasedEvent>([](fra::MouseButtonReleasedEvent event) {
-            std::println("Mouse button released: {}", (int) event.button);
+            std::println("Mouse button released: {}", static_cast<int>(event.button));
         });
     }
 
     void Update() override
     {
         mCurrentTime += mWindow->GetDeltaTime();
-        mModelMatrix = glm::translate(mModelMatrix, glm::vec3(0.0, glm::cos(mCurrentTime), 0.0) * mWindow->GetDeltaTime());
-        mModelMatrix = glm::rotate(mModelMatrix, glm::radians(15.0f * mWindow->GetDeltaTime()), glm::vec3(0.0, 1.0, 0.0));
+        // mModelMatrix = glm::translate(mModelMatrix, glm::vec3(0.0, glm::cos(mCurrentTime), 0.0) * mWindow->GetDeltaTime());
+        mModelMatrix = glm::rotate(mModelMatrix, glm::radians(15.0f * mWindow->GetDeltaTime()), glm::normalize(glm::vec3(1.0, 1.0, 0.0)));
 
         mRenderer->BeginFrame();
 
@@ -59,9 +59,9 @@ class MainApp final : public fra::AbstractApplication
 
         mRenderer->BindBuffer(mInstanceMatrixBuffers);
 
-        for (const auto& mesh : red_ship_meshes)
+        for (const auto& mesh : mModelA)
         {
-            mTexturePool->Bind(mTexture);
+            mTexturePool->Bind(mTextureA);
             mMeshPool->Draw(mesh);
         }
 
@@ -69,13 +69,16 @@ class MainApp final : public fra::AbstractApplication
     }
 
   private:
-    std::vector<unsigned>             red_ship_meshes;
+    std::vector<unsigned> mModelA;
+    std::uint32_t         mTextureA {};
+
+    std::vector<unsigned> mModelB;
+    std::uint32_t         mTextureB {};
+
     std::shared_ptr<fra::TexturePool> mTexturePool;
     std::shared_ptr<fra::MeshPool>    mMeshPool;
-
-    std::uint32_t mTexture {};
-    glm::mat4     mModelMatrix {};
-    float         mCurrentTime {};
+    glm::mat4                         mModelMatrix {};
+    float                             mCurrentTime {};
 };
 
 int main(int argc, const char** argv)
@@ -89,7 +92,7 @@ int main(int argc, const char** argv)
                                  .SetVSync(false);
                          })
                          .WithRenderer([](fra::RendererBuilder& rendererBuilder) {
-                             rendererBuilder.SetSamples(vk::SampleCountFlagBits::e8);
+                             rendererBuilder.SetSamples(vk::SampleCountFlagBits::e8).SetDrawDistance(1000000.0f);
                          })
                          .Build<MainApp>();
 

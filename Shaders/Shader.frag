@@ -19,5 +19,5 @@ void main()
 {
     float lightIntensity = pub.ambientLight.w + max(dot(normalize(fragNormal), pub.ambientLight.xyz), 0);
 
-    outColor = texture(texSampler, fragTexCoord) * vec4(lightIntensity * fragColor, 1.0);
+    outColor = /*texture(texSampler, fragTexCoord)  *  */vec4(lightIntensity * fragColor, 1.0);
 }

@@ -119,7 +119,7 @@ namespace FREYA_NAMESPACE
     {
         auto extent = mSurface->QueryExtent();
 
-        auto cameraPosition = glm::vec3(0.0f, 0.0f, -10.0f);
+        auto cameraPosition = glm::vec3(0.0f, 0.0f, -1000.1f);
         auto cameraMatrix   = glm::mat4(1.0f);
         auto cameraForward =
             glm::vec3(glm::vec4(0.0f, 0.0f, 1.0f, 0.0) * cameraMatrix);
