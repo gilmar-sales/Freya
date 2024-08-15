@@ -7,11 +7,11 @@
 namespace FREYA_NAMESPACE
 {
 
-    std::shared_ptr<CommandPool> CommandPoolBuilder::Build()
+    Ref<CommandPool> CommandPoolBuilder::Build()
     {
-        auto queueFamilyIndices = mDevice->GetQueueFamilyIndices();
+        const auto queueFamilyIndices = mDevice->GetQueueFamilyIndices();
 
-        auto commandPoolCreateInfo =
+        const auto commandPoolCreateInfo =
             vk::CommandPoolCreateInfo()
                 .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
                 .setQueueFamilyIndex(queueFamilyIndices.graphicsFamily.value());
@@ -20,16 +20,16 @@ namespace FREYA_NAMESPACE
 
         assert(commandPool && "Failed to create command pool");
 
-        auto allocInfo = vk::CommandBufferAllocateInfo()
-                             .setCommandPool(commandPool)
-                             .setLevel(vk::CommandBufferLevel::ePrimary)
-                             .setCommandBufferCount(mSwapChain->GetFrames().size());
+        const auto allocInfo = vk::CommandBufferAllocateInfo()
+                                   .setCommandPool(commandPool)
+                                   .setLevel(vk::CommandBufferLevel::ePrimary)
+                                   .setCommandBufferCount(mCount);
 
         auto commandBuffers = mDevice->Get().allocateCommandBuffers(allocInfo);
 
         assert(!commandBuffers.empty() && "Failed to allocate command buffers");
 
-        return std::make_shared<CommandPool>(mDevice, commandPool, commandBuffers);
+        return MakeRef<CommandPool>(mDevice, commandPool, commandBuffers);
     }
 
 } // namespace FREYA_NAMESPACE

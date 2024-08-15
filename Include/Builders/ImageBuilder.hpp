@@ -3,6 +3,8 @@
 #include "Core/Device.hpp"
 #include "Core/Image.hpp"
 
+#include "CommandPoolBuilder.hpp"
+
 namespace FREYA_NAMESPACE
 {
     enum class ImageUsage
@@ -16,50 +18,63 @@ namespace FREYA_NAMESPACE
     class ImageBuilder
     {
       public:
-        ImageBuilder(std::shared_ptr<Device> device) :
+        explicit ImageBuilder(const Ref<Device>& device) :
             mDevice(device), mUsage(ImageUsage::Texture),
             mFormat(vk::Format::eUndefined), mSamples(vk::SampleCountFlagBits::e1),
-            mWidth(1024), mHeight(1024)
+            mWidth(1024), mHeight(1024), mChannels(0), mData(nullptr)
         {
         }
 
-        ImageBuilder& SetUsage(ImageUsage usage)
+        ImageBuilder& SetUsage(const ImageUsage usage)
         {
             mUsage = usage;
             return *this;
         }
 
-        ImageBuilder& SetFormat(vk::Format format)
+        ImageBuilder& SetFormat(const vk::Format format)
         {
             mFormat = format;
             return *this;
         }
 
-        ImageBuilder& SetSamples(vk::SampleCountFlagBits samples)
+        ImageBuilder& SetSamples(const vk::SampleCountFlagBits samples)
         {
             mSamples = samples;
             return *this;
         }
 
-        ImageBuilder& SetWidth(std::uint32_t width)
+        ImageBuilder& SetWidth(const std::uint32_t width)
         {
             mWidth = width;
             return *this;
         }
 
-        ImageBuilder& SetHeight(std::uint32_t height)
+        ImageBuilder& SetHeight(const std::uint32_t height)
         {
             mHeight = height;
             return *this;
         }
 
-        std::shared_ptr<Image> Build();
+        ImageBuilder& SetChannels(const std::uint32_t channels)
+        {
+            mChannels = channels;
+            return *this;
+        }
+
+        ImageBuilder& SetData(void* data)
+        {
+            mData = data;
+            return *this;
+        }
+
+        Ref<Image> Build();
 
       protected:
         vk::Format chooseFormat();
+        void       transitionLayout(const Ref<CommandPool>& commandPool, vk::Image image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout) const;
 
       private:
-        std::shared_ptr<Device> mDevice;
+        Ref<Device> mDevice;
 
         ImageUsage mUsage;
 
@@ -67,6 +82,8 @@ namespace FREYA_NAMESPACE
         vk::SampleCountFlagBits mSamples;
         std::uint32_t           mWidth;
         std::uint32_t           mHeight;
+        std::uint32_t           mChannels;
+        void*                   mData;
     };
 
 } // namespace FREYA_NAMESPACE

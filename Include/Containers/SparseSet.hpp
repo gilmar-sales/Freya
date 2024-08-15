@@ -9,7 +9,9 @@ namespace FREYA_NAMESPACE
 {
     template <typename T>
     concept has_size_t_cast = requires(T value) {
-        { value } -> std::convertible_to<std::size_t>;
+        {
+            value
+        } -> std::convertible_to<std::size_t>;
     };
 
     template <typename T>
@@ -42,9 +44,10 @@ namespace FREYA_NAMESPACE
         {
             if (contains(n))
                 return;
+
             std::lock_guard lock { m_lock };
 
-            sparse[n] = static_cast<T>(dense.size());
+            sparse[n] = dense.size();
             dense.push_back(n);
             sorted = false;
         }
@@ -76,7 +79,7 @@ namespace FREYA_NAMESPACE
             sparse[a]        = 0;
         }
 
-        bool contains(const T& n) const
+        bool contains(const uint32_t& n) const
         {
             return sparse[n] < dense.size() && dense[sparse[n]] == n;
         }
@@ -133,10 +136,10 @@ namespace FREYA_NAMESPACE
         }
 
       private:
-        std::mutex     m_lock;
-        std::vector<T> dense;
-        std::vector<T> sparse;
-        bool           sorted;
+        std::mutex          m_lock;
+        std::vector<T>      dense;
+        std::vector<size_t> sparse;
+        bool                sorted;
     };
 
 } // namespace FREYA_NAMESPACE

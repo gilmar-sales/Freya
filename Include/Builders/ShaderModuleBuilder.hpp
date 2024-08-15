@@ -9,25 +9,25 @@ namespace FREYA_NAMESPACE
     class ShaderModuleBuilder
     {
       public:
-        ShaderModuleBuilder& SetDevice(std::shared_ptr<Device> device)
+        ShaderModuleBuilder& SetDevice(const Ref<Device>& device)
         {
             mDevice = device;
             return *this;
         }
 
-        ShaderModuleBuilder& SetFilePath(std::string filePath)
+        ShaderModuleBuilder& SetFilePath(const std::string& filePath)
         {
             mFilePath = filePath;
             return *this;
         }
 
-        std::shared_ptr<ShaderModule> Build();
+        Ref<ShaderModule> Build() const;
 
       protected:
         static std::vector<char> readFile(const std::string& filename);
 
       private:
-        std::shared_ptr<Device> mDevice;
-        std::string             mFilePath;
+        Ref<Device> mDevice;
+        std::string mFilePath;
     };
 } // namespace FREYA_NAMESPACE

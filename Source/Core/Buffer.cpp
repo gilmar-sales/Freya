@@ -12,31 +12,28 @@ namespace FREYA_NAMESPACE
         mDevice->Get().freeMemory(mMemory);
     }
 
-    void Buffer::Bind(std::shared_ptr<CommandPool> commandPool)
+    void Buffer::Bind(const Ref<CommandPool>& commandPool) const
     {
-        vk::DeviceSize offsets[] = { 0 };
+        constexpr vk::DeviceSize offsets[] = { 0 };
         switch (mUsage)
         {
-            case fra::BufferUsage::Vertex:
+            case BufferUsage::Vertex:
                 commandPool->GetCommandBuffer().bindVertexBuffers(0, 1, &mBuffer,
                                                                   offsets);
                 break;
-            case fra::BufferUsage::Index:
+            case BufferUsage::Index:
                 commandPool->GetCommandBuffer().bindIndexBuffer(mBuffer, 0,
                                                                 vk::IndexType::eUint16);
                 break;
-            case fra::BufferUsage::Instance:
-            {
+            case BufferUsage::Instance: {
                 commandPool->GetCommandBuffer().bindVertexBuffers(1, 1, &mBuffer, offsets);
             }
-            case BufferUsage::TexCoord:
-                break;
             default:
                 break;
         }
     }
 
-    void Buffer::Copy(void* data, std::uint32_t size, std::uint32_t offset)
+    void Buffer::Copy(void* data, std::uint64_t size, std::uint64_t offset)
     {
         if (mSize >= size && data != nullptr)
         {

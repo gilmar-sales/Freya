@@ -12,42 +12,41 @@ namespace FREYA_NAMESPACE
     class DeviceBuilder
     {
       public:
-        DeviceBuilder()
-            : mInstance(nullptr), mPhysicalDevice(nullptr), mSurface(nullptr),
-              mDeviceExtensions({VK_KHR_SWAPCHAIN_EXTENSION_NAME})
+        DeviceBuilder() :
+            mDeviceExtensions({ VK_KHR_SWAPCHAIN_EXTENSION_NAME })
         {
         }
 
         ~DeviceBuilder() = default;
 
-        DeviceBuilder &SetInstance(std::shared_ptr<Instance> instance)
+        DeviceBuilder& SetInstance(const Ref<Instance>& instance)
         {
             mInstance = instance;
             return *this;
         }
 
-        DeviceBuilder &SetPhysicalDevice(std::shared_ptr<PhysicalDevice> physicalDevice)
+        DeviceBuilder& SetPhysicalDevice(const Ref<PhysicalDevice>& physicalDevice)
         {
             mPhysicalDevice = physicalDevice;
             return *this;
         }
 
-        DeviceBuilder &SetSurface(std::shared_ptr<Surface> surface)
+        DeviceBuilder& SetSurface(const Ref<Surface>& surface)
         {
             mSurface = surface;
             return *this;
         }
 
-        std::shared_ptr<Device> Build();
+        Ref<Device> Build();
 
       protected:
-        QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device);
+        QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device) const;
 
       private:
-        std::shared_ptr<Instance> mInstance;
-        std::shared_ptr<PhysicalDevice> mPhysicalDevice;
-        std::shared_ptr<Surface> mSurface;
-        std::vector<const char *> mDeviceExtensions;
+        Ref<Instance>            mInstance;
+        Ref<PhysicalDevice>      mPhysicalDevice;
+        Ref<Surface>             mSurface;
+        std::vector<const char*> mDeviceExtensions;
     };
 
 } // namespace FREYA_NAMESPACE

@@ -7,7 +7,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    std::shared_ptr<Device> DeviceBuilder::Build()
+    Ref<Device> DeviceBuilder::Build()
     {
         assert(mInstance.get() &&
                "Could not create an fra::Device with an invalid fra::Instance");
@@ -19,7 +19,7 @@ namespace FREYA_NAMESPACE
 
         std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
 
-        std::set<uint32_t> uniqueQueueFamilies = {
+        std::set uniqueQueueFamilies = {
             indices.graphicsFamily.value(),
             indices.presentFamily.value(),
         };
@@ -38,7 +38,8 @@ namespace FREYA_NAMESPACE
 
         auto deviceFeatures = vk::PhysicalDeviceFeatures()
                                   .setDepthClamp(true)
-                                  .setDepthBounds(false);
+                                  .setDepthBounds(false)
+                                  .setSamplerAnisotropy(true);
 
         auto createInfo =
             vk::DeviceCreateInfo()
@@ -65,7 +66,7 @@ namespace FREYA_NAMESPACE
         auto presentQueue  = device.getQueue(indices.presentFamily.value(), 0);
         auto transferQueue = device.getQueue(indices.transferFamily.value(), 0);
 
-        return std::make_shared<Device>(
+        return MakeRef<Device>(
             mPhysicalDevice,
             mSurface,
             device,
@@ -75,7 +76,7 @@ namespace FREYA_NAMESPACE
             indices);
     }
 
-    QueueFamilyIndices DeviceBuilder::findQueueFamilies(vk::PhysicalDevice device)
+    QueueFamilyIndices DeviceBuilder::findQueueFamilies(const vk::PhysicalDevice device) const
     {
         QueueFamilyIndices indices;
 

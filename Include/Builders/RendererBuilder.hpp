@@ -19,7 +19,7 @@ namespace FREYA_NAMESPACE
         {
         }
 
-        RendererBuilder& WithInstance(std::function<void(InstanceBuilder&)> instanceBuilderFunc)
+        RendererBuilder& WithInstance(const std::function<void(InstanceBuilder&)>& instanceBuilderFunc)
         {
             instanceBuilderFunc(mInstanceBuilder);
             return *this;
@@ -31,54 +31,54 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        RendererBuilder& SetWidth(std::uint32_t width)
+        RendererBuilder& SetWidth(const std::uint32_t width)
         {
             mWidth = width;
             return *this;
         }
 
-        RendererBuilder& SetHeight(std::uint32_t height)
+        RendererBuilder& SetHeight(const std::uint32_t height)
         {
             mHeight = height;
             return *this;
         }
 
-        RendererBuilder& SetVSync(bool vSync)
+        RendererBuilder& SetVSync(const bool vSync)
         {
             mVSync = vSync;
             return *this;
         }
 
-        RendererBuilder& SetFrameCount(std::uint32_t frameCount)
+        RendererBuilder& SetFrameCount(const std::uint32_t frameCount)
         {
             mFrameCount = frameCount;
             return *this;
         }
 
-        RendererBuilder& SetSamples(vk::SampleCountFlagBits samples)
+        RendererBuilder& SetSamples(const vk::SampleCountFlagBits samples)
         {
             mSamples = samples;
             return *this;
         }
 
-        RendererBuilder& SetClearColor(vk::ClearColorValue clearColor)
+        RendererBuilder& SetClearColor(const vk::ClearColorValue clearColor)
         {
             mClearColor = clearColor;
             return *this;
         }
 
-        RendererBuilder& SetDrawDistance(float drawDistance)
+        RendererBuilder& SetDrawDistance(const float drawDistance)
         {
 
             mDrawDistance = drawDistance;
             return *this;
         }
-        std::shared_ptr<Renderer> Build();
+        Ref<Renderer> Build();
 
       private:
         friend class ApplicationBuilder;
 
-        RendererBuilder& SetEventManager(Ref<EventManager> eventManager)
+        RendererBuilder& SetEventManager(const Ref<EventManager>& eventManager)
         {
             mEventManager = eventManager;
             return *this;

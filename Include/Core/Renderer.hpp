@@ -5,6 +5,7 @@
 #include "Device.hpp"
 #include "Events/EventManager.hpp"
 #include "Factories/MeshPoolFactory.hpp"
+#include "Factories/TexturePoolFactory.hpp"
 #include "Instance.hpp"
 #include "PhysicalDevice.hpp"
 #include "RenderPass.hpp"
@@ -12,8 +13,7 @@
 #include "SwapChain.hpp"
 
 #include <Builders/BufferBuilder.hpp>
-#include <glm/ext/matrix_clip_space.hpp>
-#include <glm/ext/matrix_transform.hpp>
+
 #include <glm/glm.hpp>
 
 namespace FREYA_NAMESPACE
@@ -23,36 +23,32 @@ namespace FREYA_NAMESPACE
     class Renderer
     {
       public:
-        Renderer(Ref<Instance> instance,
-                 Ref<Surface>
-                     surface,
-                 Ref<PhysicalDevice>
-                     physicalDevice,
-                 Ref<Device>
-                     device,
-                 Ref<SwapChain>
-                     swapChain,
-                 Ref<RenderPass>
-                     renderPass,
-                 Ref<CommandPool>
-                     commandPool,
-                 std::vector<vk::Semaphore>
-                     imageAvailableSemaphores,
-                 std::vector<vk::Semaphore>
-                     renderFinishedSemaphores,
-                 std::vector<vk::Fence>
-                                         inFlightFences,
-                 bool                    vSync,
-                 vk::SampleCountFlagBits samples,
-                 vk::ClearColorValue clearColor, float drawDistance,
-                 Ref<EventManager> eventManager) :
+        Renderer(const Ref<Instance>&              instance,
+                 const Ref<Surface>&               surface,
+                 const Ref<PhysicalDevice>&        physicalDevice,
+                 const Ref<Device>&                device,
+                 const Ref<SwapChain>&             swapChain,
+                 const Ref<RenderPass>&            renderPass,
+                 const Ref<CommandPool>&           commandPool,
+                 const std::vector<vk::Semaphore>& imageAvailableSemaphores,
+                 const std::vector<vk::Semaphore>& renderFinishedSemaphores,
+                 const std::vector<vk::Fence>&     inFlightFences,
+                 const bool                        vSync,
+                 const vk::SampleCountFlagBits     samples,
+                 const vk::ClearColorValue         clearColor,
+                 const float                       drawDistance,
+                 const Ref<EventManager>&          eventManager) :
             mInstance(instance),
             mSurface(surface), mPhysicalDevice(physicalDevice),
             mDevice(device), mSwapChain(swapChain), mRenderPass(renderPass),
             mCommandPool(commandPool),
+            mEventManager(eventManager),
             mImageAvailableSemaphores(imageAvailableSemaphores),
             mRenderFinishedSemaphores(renderFinishedSemaphores),
-            mInFlightFences(inFlightFences), mVSync(vSync), mSamples(samples), mClearColor(clearColor), mDrawDistance(drawDistance), mCurrentFrameIndex(0), mEventManager(eventManager)
+            mInFlightFences(inFlightFences),
+            mSamples(samples), mClearColor(clearColor),
+            mDrawDistance(drawDistance), mVSync(vSync), mCurrentFrameIndex(0),
+            mCurrentProjection({})
         {
             ClearProjections();
 
@@ -70,24 +66,25 @@ namespace FREYA_NAMESPACE
 
         void EndFrame();
 
-        void                    RebuildSwapChain();
-        bool                    GetVSync() { return mVSync; }
-        void                    SetVSync(bool vSync);
-        void                    SetSamples(vk::SampleCountFlagBits samples);
-        vk::SampleCountFlagBits GetSamples() { return mSamples; }
-        float                   GetDrawDistance() { return mDrawDistance; }
+        void                                  RebuildSwapChain();
+        [[nodiscard]] bool                    GetVSync() const { return mVSync; }
+        void                                  SetVSync(bool vSync);
+        void                                  SetSamples(vk::SampleCountFlagBits samples);
+        [[nodiscard]] vk::SampleCountFlagBits GetSamples() const { return mSamples; }
+        [[nodiscard]] float                   GetDrawDistance() const { return mDrawDistance; }
 
         void SetDrawDistance(float drawDistance);
         void ClearProjections();
 
-        const ProjectionUniformBuffer& GetCurrentProjection() { return mCurrentProjection; }
-        void                           UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer);
-        void                           UpdateModel(glm::mat4& model);
+        [[nodiscard]] const ProjectionUniformBuffer& GetCurrentProjection() const { return mCurrentProjection; }
+        void                                         UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer);
+        void                                         UpdateModel(glm::mat4& model);
 
-        Ref<MeshPoolFactory> GetMeshPoolFactory();
-        BufferBuilder        GetBufferBuilder();
+        Ref<MeshPoolFactory>    GetMeshPoolFactory();
+        Ref<TexturePoolFactory> GetTexturePoolFactory();
+        BufferBuilder           GetBufferBuilder() const;
 
-        void BindBuffer(Ref<Buffer> buffer);
+        void BindBuffer(const Ref<Buffer>& buffer) const;
 
       private:
         Ref<Instance>       mInstance;

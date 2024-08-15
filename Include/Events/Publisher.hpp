@@ -9,14 +9,14 @@ namespace FREYA_NAMESPACE
     };
 
     template <typename TEvent>
-    class Publisher : public IPublisher
+    class Publisher final : public IPublisher
     {
       public:
         using EventListener = std::move_only_function<void(TEvent&)>;
 
         void Subscribe(auto&& listener)
         {
-            mListeners.emplace_back(std::move(listener));
+            mListeners.emplace_back(std::forward<EventListener>(listener));
         }
 
         void Publish(TEvent event)

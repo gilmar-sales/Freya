@@ -12,21 +12,21 @@ namespace FREYA_NAMESPACE
     class PhysicalDevice
     {
       public:
-        PhysicalDevice(vk::PhysicalDevice physicalDevice) :
+        explicit PhysicalDevice(const vk::PhysicalDevice physicalDevice) :
             mPhysicalDevice(physicalDevice)
         {
         }
 
-        operator bool() { return mPhysicalDevice; }
+        operator bool() const { return mPhysicalDevice; }
 
         vk::PhysicalDevice&     Get() { return mPhysicalDevice; }
-        SwapChainSupportDetails QuerySwapChainSupport(vk::SurfaceKHR surface);
+        SwapChainSupportDetails QuerySwapChainSupport(vk::SurfaceKHR surface) const;
         std::uint32_t           QueryCompatibleMemoryType(std::uint32_t           typeFilter,
-                                                          vk::MemoryPropertyFlags properties);
+                                                          vk::MemoryPropertyFlags properties) const;
         vk::SampleCountFlagBits QuerySamplesSupport(
-            vk::SampleCountFlagBits desired = vk::SampleCountFlagBits::e1);
+            vk::SampleCountFlagBits desired = vk::SampleCountFlagBits::e1) const;
 
-        vk::Format GetDepthFormat();
+        vk::Format GetDepthFormat() const;
 
       private:
         vk::PhysicalDevice mPhysicalDevice;

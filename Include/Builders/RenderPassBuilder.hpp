@@ -11,46 +11,50 @@ namespace FREYA_NAMESPACE
     class RenderPassBuilder
     {
       public:
-        RenderPassBuilder &SetDevice(std::shared_ptr<Device> device)
+        RenderPassBuilder() :
+            mSamples(vk::SampleCountFlagBits::e1),
+            mFrameCount(0) {}
+
+        RenderPassBuilder& SetDevice(const Ref<Device>& device)
         {
             mDevice = device;
             return *this;
         }
 
-        RenderPassBuilder &SetPhysicalDevice(
-            std::shared_ptr<PhysicalDevice> physicalDevice)
+        RenderPassBuilder& SetPhysicalDevice(
+            const Ref<PhysicalDevice>& physicalDevice)
         {
             mPhysicalDevice = physicalDevice;
             return *this;
         }
 
-        RenderPassBuilder &SetSurface(std::shared_ptr<Surface> surface)
+        RenderPassBuilder& SetSurface(const Ref<Surface>& surface)
         {
             mSurface = surface;
             return *this;
         }
 
-        RenderPassBuilder &SetSamples(vk::SampleCountFlagBits samples)
+        RenderPassBuilder& SetSamples(const vk::SampleCountFlagBits samples)
         {
             mSamples = samples;
             return *this;
         }
 
-        RenderPassBuilder &SetFrameCount(std::uint32_t frameCount)
+        RenderPassBuilder& SetFrameCount(const std::uint32_t frameCount)
         {
             mFrameCount = frameCount;
             return *this;
         }
 
-        std::shared_ptr<RenderPass> Build();
+        Ref<RenderPass> Build();
 
       protected:
-        vk::Format getDepthFormat();
+        vk::Format getDepthFormat() const;
 
       private:
-        std::shared_ptr<Device> mDevice;
-        std::shared_ptr<PhysicalDevice> mPhysicalDevice;
-        std::shared_ptr<Surface> mSurface;
+        Ref<Device>         mDevice;
+        Ref<PhysicalDevice> mPhysicalDevice;
+        Ref<Surface>        mSurface;
 
         vk::SampleCountFlagBits mSamples;
 

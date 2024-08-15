@@ -9,25 +9,25 @@ namespace FREYA_NAMESPACE
     class PhysicalDeviceBuilder
     {
       public:
-        PhysicalDeviceBuilder()
-            : mPhysicalDeviceTypePriorities({vk::PhysicalDeviceType::eDiscreteGpu,
-                                             vk::PhysicalDeviceType::eIntegratedGpu,
-                                             vk::PhysicalDeviceType::eCpu,
-                                             vk::PhysicalDeviceType::eVirtualGpu,
-                                             vk::PhysicalDeviceType::eOther})
+        PhysicalDeviceBuilder() :
+            mPhysicalDeviceTypePriorities({ vk::PhysicalDeviceType::eDiscreteGpu,
+                                            vk::PhysicalDeviceType::eIntegratedGpu,
+                                            vk::PhysicalDeviceType::eCpu,
+                                            vk::PhysicalDeviceType::eVirtualGpu,
+                                            vk::PhysicalDeviceType::eOther })
         {
         }
 
-        PhysicalDeviceBuilder &SetInstance(std::shared_ptr<Instance> instance)
+        PhysicalDeviceBuilder& SetInstance(const Ref<Instance>& instance)
         {
             mInstance = instance;
             return *this;
         }
 
-        std::shared_ptr<PhysicalDevice> Build();
+        Ref<PhysicalDevice> Build() const;
 
       private:
-        std::shared_ptr<Instance> mInstance;
+        Ref<Instance>                       mInstance;
         std::vector<vk::PhysicalDeviceType> mPhysicalDeviceTypePriorities;
     };
 } // namespace FREYA_NAMESPACE

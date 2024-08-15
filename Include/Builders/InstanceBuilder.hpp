@@ -8,48 +8,51 @@ namespace FREYA_NAMESPACE
     class InstanceBuilder
     {
       public:
-        InstanceBuilder()
-        {
-            mApplicationName = "Freya Application";
-            mEngineName      = "Freya Engine";
-            mVulkanVersion   = VK_MAKE_VERSION(1, 0, 0);
-            mAPIVersion      = VK_MAKE_API_VERSION(0, 1, 3, 0);
-        };
+        InstanceBuilder() :
+            mApplicationVersion(0),
+            mApplicationName("Freya Application"),
+            mEngineName("Freya Engine"),
+            mVulkanVersion(VK_MAKE_VERSION(1, 0, 0)),
+            mAPIVersion(VK_MAKE_API_VERSION(0, 1, 3, 0)) {};
 
         ~InstanceBuilder() = default;
 
-        InstanceBuilder &SetApplicationName(std::string_view name);
-        InstanceBuilder &SetApplicationVersion(std::uint32_t major,
+        InstanceBuilder& SetApplicationName(std::string_view name);
+        InstanceBuilder& SetApplicationVersion(std::uint32_t major,
                                                std::uint32_t minor,
                                                std::uint32_t patch);
 
-        InstanceBuilder &SetEngineName();
+        InstanceBuilder& SetEngineName(const std::string& engineName)
+        {
+            mEngineName = engineName;
+            return *this;
+        }
 
-        InstanceBuilder &SetVulkanVersion(std::uint32_t major,
-                                          std::uint32_t minor,
-                                          std::uint32_t patch);
+        InstanceBuilder& SetVulkanVersion(const std::uint32_t major,
+                                          const std::uint32_t minor,
+                                          const std::uint32_t patch);
 
-        InstanceBuilder &SetAPIVersion(std::uint32_t major,
-                                       std::uint32_t minor,
-                                       std::uint32_t patch);
+        InstanceBuilder& SetAPIVersion(const std::uint32_t major,
+                                       const std::uint32_t minor,
+                                       const std::uint32_t patch);
 
-        InstanceBuilder &AddLayer(const char *layer);
-        InstanceBuilder &AddLayers(std::vector<const char *> layers);
-        InstanceBuilder &AddValidationLayers();
+        InstanceBuilder& AddLayer(const char* layer);
+        InstanceBuilder& AddLayers(const std::vector<const char*>& layers);
+        InstanceBuilder& AddValidationLayers();
 
-        InstanceBuilder &AddExtension(const char *extension);
-        InstanceBuilder &AddExtensions(std::vector<const char *> extesions);
+        InstanceBuilder& AddExtension(const char* extension);
+        InstanceBuilder& AddExtensions(const std::vector<const char*>& extesions);
 
-        std::shared_ptr<Instance> Build();
+        Ref<Instance> Build();
 
       protected:
-        bool checkLayerSupport(const char *layer);
+        static bool checkLayerSupport(const char* layer);
 
       private:
-        std::vector<const char *> mLayers;
-        std::vector<const char *> mExtensions;
+        std::vector<const char*> mLayers;
+        std::vector<const char*> mExtensions;
 
-        std::string mApplicationName;
+        std::string   mApplicationName;
         std::uint32_t mApplicationVersion;
 
         std::string mEngineName;

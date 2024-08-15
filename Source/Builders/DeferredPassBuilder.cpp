@@ -2,9 +2,10 @@
 
 namespace FREYA_NAMESPACE
 {
-    std::shared_ptr<DeferredPass> DeferredPassBuilder::Build()
+
+    Ref<DeferredPass> DeferredPassBuilder::Build() const
     {
-        auto surfaceFormat = mSurface->QuerySurfaceFormat().format;
+        const auto surfaceFormat = mSurface->QuerySurfaceFormat().format;
 
         auto attachments = {
             // Back buffer
@@ -159,6 +160,6 @@ namespace FREYA_NAMESPACE
 
         auto renderPass = mDevice->Get().createRenderPass(renderPassCreateInfo);
 
-        return std::make_shared<DeferredPass>();
+        return MakeRef<DeferredPass>();
     }
 } // namespace FREYA_NAMESPACE

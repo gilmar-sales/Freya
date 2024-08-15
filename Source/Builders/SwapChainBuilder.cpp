@@ -14,7 +14,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    std::shared_ptr<SwapChain> SwapChainBuilder::Build()
+    Ref<SwapChain> SwapChainBuilder::Build()
     {
         auto surfaceFormat = mSurface->QuerySurfaceFormat();
         auto presentMode   = choosePresentMode();
@@ -129,7 +129,7 @@ namespace FREYA_NAMESPACE
             assert(frames[index].frameBuffer && "Failed to create framebuffer");
         }
 
-        return std::make_shared<SwapChain>(
+        return MakeRef<SwapChain>(
             mDevice,
             mInstance,
             mSurface,
@@ -144,16 +144,15 @@ namespace FREYA_NAMESPACE
         auto presentModes =
             mPhysicalDevice->QuerySwapChainSupport(mSurface->Get()).presentModes;
 
-        auto presentModesByPriotiry =
+        const auto presentModesByPriotiry =
             mVSync
-                ? std::vector<
-                      vk::PresentModeKHR> { vk::PresentModeKHR::eFifo,
-                                            vk::PresentModeKHR::eMailbox,
-                                            vk::PresentModeKHR::eImmediate,
-                                            vk::PresentModeKHR::eFifoRelaxed,
-                                            vk::PresentModeKHR::eSharedContinuousRefresh,
-                                            vk::PresentModeKHR::eSharedDemandRefresh }
-                : std::vector<vk::PresentModeKHR> {
+                ? std::vector { vk::PresentModeKHR::eFifo,
+                                vk::PresentModeKHR::eMailbox,
+                                vk::PresentModeKHR::eImmediate,
+                                vk::PresentModeKHR::eFifoRelaxed,
+                                vk::PresentModeKHR::eSharedContinuousRefresh,
+                                vk::PresentModeKHR::eSharedDemandRefresh }
+                : std::vector {
                       vk::PresentModeKHR::eMailbox,
                       vk::PresentModeKHR::eImmediate,
                       vk::PresentModeKHR::eFifoRelaxed,
@@ -164,7 +163,7 @@ namespace FREYA_NAMESPACE
 
         for (const auto& presentMode : presentModesByPriotiry)
         {
-            if (std::find(presentModes.begin(), presentModes.end(), presentMode) !=
+            if (std::ranges::find(presentModes.begin(), presentModes.end(), presentMode) !=
                 presentModes.end())
             {
                 return presentMode;

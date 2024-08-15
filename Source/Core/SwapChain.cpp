@@ -11,7 +11,7 @@ namespace FREYA_NAMESPACE
         mDepthImage.reset();
         mSampleImage.reset();
 
-        for (auto& frame : mFrames)
+        for (const auto& frame : mFrames)
         {
             mDevice->Get().destroyFramebuffer(frame.frameBuffer);
             mDevice->Get().destroyImageView(frame.imageView);
@@ -22,16 +22,14 @@ namespace FREYA_NAMESPACE
 
     const SwapChainFrame& SwapChain::GetNextFrame(vk::Semaphore semaphore)
     {
-        auto nextImageInfo =
+        const auto nextImageInfo =
             vk::AcquireNextImageInfoKHR()
                 .setSemaphore(semaphore)
                 .setSwapchain(mSwapChain)
                 .setTimeout(UINT64_MAX)
                 .setDeviceMask(1);
 
-        auto imageIndexResult = mDevice->Get().acquireNextImage2KHR(nextImageInfo);
-
-        if (imageIndexResult.result == vk::Result::eSuccess)
+        if (const auto imageIndexResult = mDevice->Get().acquireNextImage2KHR(nextImageInfo); imageIndexResult.result == vk::Result::eSuccess)
         {
             mCurrentFrameIndex = imageIndexResult.value;
             return mFrames[mCurrentFrameIndex];

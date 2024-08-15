@@ -10,42 +10,43 @@ namespace FREYA_NAMESPACE
         Staging,
         Vertex,
         Index,
-        TexCoord,
         Uniform,
-        Instance
+        Instance,
+        Image
     };
 
     class Buffer
     {
       public:
-        Buffer(std::shared_ptr<Device> device,
-               BufferUsage             usage,
-               std::uint32_t           size,
-               vk::Buffer              buffer,
-               vk::DeviceMemory        memory) :
-            mDevice(device),
-            mUsage(usage), mBuffer(buffer), mMemory(memory),
-            mSize(size)
+        Buffer(const Ref<Device>&     device,
+               const BufferUsage      usage,
+               const std::uint64_t    size,
+               const vk::Buffer       buffer,
+               const vk::DeviceMemory memory) :
+            mDevice(device), mBuffer(buffer), mMemory(memory),
+            mUsage(usage), mSize(size)
         {
         }
 
         ~Buffer();
 
-        void Bind(std::shared_ptr<CommandPool> commandPool);
+        void Bind(const Ref<CommandPool>& commandPool) const;
 
         vk::Buffer& Get() { return mBuffer; }
 
-        const std::uint32_t& GetSize() { return mSize; }
+        vk::DeviceMemory& GetMemory() { return mMemory; }
 
-        void Copy(void* data, std::uint32_t size, std::uint32_t offset = 0);
+        [[nodiscard]] const std::uint64_t& GetSize() const { return mSize; }
+
+        void Copy(void* data, std::uint64_t size, std::uint64_t offset = 0);
 
       private:
-        std::shared_ptr<Device> mDevice;
+        Ref<Device> mDevice;
 
         vk::Buffer       mBuffer;
         vk::DeviceMemory mMemory;
         BufferUsage      mUsage;
-        std::uint32_t    mSize;
+        std::uint64_t    mSize;
     };
 
 } // namespace FREYA_NAMESPACE

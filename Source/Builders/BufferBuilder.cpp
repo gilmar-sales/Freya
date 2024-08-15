@@ -7,11 +7,11 @@
 namespace FREYA_NAMESPACE
 {
 
-    std::shared_ptr<Buffer> BufferBuilder::Build()
+    Ref<Buffer> BufferBuilder::Build()
     {
         assert(mDevice.get() && "Cannot create fra::Buffer with an invalid fra::Device");
 
-        auto queueFamilyIndices = mDevice->GetQueueFamilyIndices();
+        const auto queueFamilyIndices = mDevice->GetQueueFamilyIndices();
 
         auto bufferInfo =
             vk::BufferCreateInfo()
@@ -22,15 +22,15 @@ namespace FREYA_NAMESPACE
 
         switch (mUsage)
         {
-            case fra::BufferUsage::Staging:
+            case BufferUsage::Staging:
                 bufferInfo.setUsage(vk::BufferUsageFlagBits::eTransferSrc);
                 break;
-            case fra::BufferUsage::Instance:
-            case fra::BufferUsage::Vertex:
+            case BufferUsage::Instance:
+            case BufferUsage::Vertex:
                 bufferInfo.setUsage(vk::BufferUsageFlagBits::eVertexBuffer |
                                     vk::BufferUsageFlagBits::eTransferDst);
                 break;
-            case fra::BufferUsage::Index:
+            case BufferUsage::Index:
                 bufferInfo.setUsage(vk::BufferUsageFlagBits::eIndexBuffer |
                                     vk::BufferUsageFlagBits::eTransferDst);
                 break;
@@ -43,7 +43,7 @@ namespace FREYA_NAMESPACE
 
         if (queueFamilyIndices.isUnique())
         {
-            std::array<std::uint32_t, 2> queues = {
+            const std::array queues = {
                 queueFamilyIndices.graphicsFamily.value(),
                 queueFamilyIndices.transferFamily.value()
             };
@@ -57,7 +57,7 @@ namespace FREYA_NAMESPACE
 
         assert(buffer && "Failed to create vk::Buffer.");
 
-        auto memoryRequirements = mDevice->Get().getBufferMemoryRequirements(buffer);
+        const auto memoryRequirements = mDevice->Get().getBufferMemoryRequirements(buffer);
 
         auto memoryProperties = vk::MemoryPropertyFlags {};
 
@@ -80,11 +80,11 @@ namespace FREYA_NAMESPACE
                 break;
         }
 
-        auto memoryTypeIndex = mDevice->GetPhysicalDevice()->QueryCompatibleMemoryType(
+        const auto memoryTypeIndex = mDevice->GetPhysicalDevice()->QueryCompatibleMemoryType(
             memoryRequirements.memoryTypeBits,
             memoryProperties);
 
-        auto allocInfo =
+        const auto allocInfo =
             vk::MemoryAllocateInfo()
                 .setAllocationSize(memoryRequirements.size)
                 .setMemoryTypeIndex(memoryTypeIndex);
@@ -105,7 +105,7 @@ namespace FREYA_NAMESPACE
             mDevice->Get().unmapMemory(memory);
         }
 
-        return std::make_shared<Buffer>(mDevice, mUsage, mSize, buffer, memory);
+        return MakeRef<Buffer>(mDevice, mUsage, mSize, buffer, memory);
     };
 
 } // namespace FREYA_NAMESPACE

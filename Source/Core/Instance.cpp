@@ -13,10 +13,9 @@ namespace FREYA_NAMESPACE
     {
         if constexpr (enableValidationLayers)
         {
-            auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) mInstance.getProcAddr(
-                "vkDestroyDebugUtilsMessengerEXT");
-
-            if (func != nullptr)
+            if (const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(mInstance.getProcAddr(
+                    "vkDestroyDebugUtilsMessengerEXT"));
+                func != nullptr)
             {
                 func(mInstance, mDebugMessenger, nullptr);
             }

@@ -4,10 +4,12 @@
 #include "Builders/RenderPassBuilder.hpp"
 #include "Builders/SwapChainBuilder.hpp"
 
-#include "Asset/Vertex.hpp"
 #include "Core/Buffer.hpp"
 #include "Core/CommandPool.hpp"
 #include <Core/UniformBuffer.hpp>
+
+#include <glm/ext/matrix_clip_space.hpp>
+#include <glm/ext/matrix_transform.hpp>
 
 namespace FREYA_NAMESPACE
 {
@@ -117,7 +119,7 @@ namespace FREYA_NAMESPACE
     {
         auto extent = mSurface->QueryExtent();
 
-        auto cameraPosition = glm::vec3(0.0f, 0.0f, -10.0f);
+        auto cameraPosition = glm::vec3(0.0f, 0.0f, -1000.1f);
         auto cameraMatrix   = glm::mat4(1.0f);
         auto cameraForward =
             glm::vec3(glm::vec4(0.0f, 0.0f, 1.0f, 0.0) * cameraMatrix);
@@ -156,17 +158,22 @@ namespace FREYA_NAMESPACE
         mCommandPool->GetCommandBuffer().pushConstants(mRenderPass->GetPipelineLayout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(model), &model);
     }
 
-    std::shared_ptr<MeshPoolFactory> Renderer::GetMeshPoolFactory()
+    Ref<MeshPoolFactory> Renderer::GetMeshPoolFactory()
     {
-        return std::make_shared<MeshPoolFactory>(mDevice, mPhysicalDevice, mCommandPool);
+        return MakeRef<MeshPoolFactory>(mDevice, mPhysicalDevice, mCommandPool);
     }
 
-    BufferBuilder Renderer::GetBufferBuilder()
+    Ref<TexturePoolFactory> Renderer::GetTexturePoolFactory()
+    {
+        return MakeRef<TexturePoolFactory>(mDevice, mCommandPool, mRenderPass);
+    }
+
+    BufferBuilder Renderer::GetBufferBuilder() const
     {
         return BufferBuilder(mDevice);
     }
 
-    void Renderer::BindBuffer(std::shared_ptr<Buffer> buffer)
+    void Renderer::BindBuffer(const Ref<Buffer>& buffer) const
     {
         buffer->Bind(mCommandPool);
     }
@@ -177,7 +184,7 @@ namespace FREYA_NAMESPACE
                                          &mInFlightFences[mCurrentFrameIndex],
                                          true,
                                          UINT64_MAX) != vk::Result::eSuccess)
-            throw new std::runtime_error("failed to wait for fences!");
+            throw std::runtime_error("failed to wait for fences!");
 
         if (mResizeEvent.has_value())
         {
@@ -201,6 +208,8 @@ namespace FREYA_NAMESPACE
             throw std::runtime_error("failed to reset fences!");
 
         mCommandPool->SetCommandBufferIndex(mCurrentFrameIndex);
+        mRenderPass->SetFrameIndex(mCurrentFrameIndex);
+
         auto& commandBuffer = mCommandPool->GetCommandBuffer();
         commandBuffer.reset();
 
@@ -225,18 +234,18 @@ namespace FREYA_NAMESPACE
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                                    mRenderPass->GetGraphicsPipeline());
 
-        auto viewport =
+        const auto viewport =
             vk::Viewport()
                 .setX(0)
                 .setY(0)
-                .setWidth(mSwapChain->GetExtent().width)
-                .setHeight(mSwapChain->GetExtent().height)
+                .setWidth(static_cast<float>(mSwapChain->GetExtent().width))
+                .setHeight(static_cast<float>(mSwapChain->GetExtent().height))
                 .setMinDepth(0.0f)
                 .setMaxDepth(1.0f);
 
         commandBuffer.setViewport(0, 1, &viewport);
 
-        auto scissor =
+        const auto scissor =
             vk::Rect2D().setOffset({ 0, 0 }).setExtent(mSwapChain->GetExtent());
 
         commandBuffer.setScissor(0, 1, &scissor);

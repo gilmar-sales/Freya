@@ -8,10 +8,9 @@ namespace FREYA_NAMESPACE
     class Surface
     {
       public:
-        Surface(std::shared_ptr<Instance> instance,
-                std::shared_ptr<PhysicalDevice>
-                               physicalDevice,
-                vk::SurfaceKHR surface) :
+        Surface(const Ref<Instance>&       instance,
+                const Ref<PhysicalDevice>& physicalDevice,
+                const vk::SurfaceKHR       surface) :
             mInstance(instance),
             mPhysicalDevice(physicalDevice), mSurface(surface)
         {
@@ -22,13 +21,13 @@ namespace FREYA_NAMESPACE
 
         vk::SurfaceKHR& Get() { return mSurface; }
 
-        vk::SurfaceFormatKHR QuerySurfaceFormat();
-        vk::Extent2D         QueryExtent();
-        std::uint32_t        QueryFrameCountSupport(std::uint32_t desired);
+        vk::SurfaceFormatKHR QuerySurfaceFormat() const;
+        vk::Extent2D         QueryExtent() const;
+        std::uint32_t        QueryFrameCountSupport(std::uint32_t desired) const;
 
       private:
-        std::shared_ptr<Instance>       mInstance;
-        std::shared_ptr<PhysicalDevice> mPhysicalDevice;
+        Ref<Instance>       mInstance;
+        Ref<PhysicalDevice> mPhysicalDevice;
 
         vk::SurfaceCapabilitiesKHR mCapabilities;
         vk::SurfaceKHR             mSurface;

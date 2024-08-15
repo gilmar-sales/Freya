@@ -4,30 +4,33 @@
 #include "Core/Device.hpp"
 #include "Core/SwapChain.hpp"
 
-
 namespace FREYA_NAMESPACE
 {
 
     class CommandPoolBuilder
     {
       public:
-        CommandPoolBuilder& SetDevice(std::shared_ptr<Device> device)
+        explicit CommandPoolBuilder() :
+            mCount(0) {}
+
+        CommandPoolBuilder& SetDevice(const Ref<Device>& device)
         {
             mDevice = device;
             return *this;
         }
 
-        CommandPoolBuilder& SetSwapChain(std::shared_ptr<SwapChain> swapChain)
+        CommandPoolBuilder& SetCount(std::uint32_t count)
         {
-            mSwapChain = swapChain;
+            mCount = count;
             return *this;
         }
 
-        std::shared_ptr<CommandPool> Build();
+        Ref<CommandPool> Build();
 
       private:
-        std::shared_ptr<Device>    mDevice;
-        std::shared_ptr<SwapChain> mSwapChain;
+        Ref<Device> mDevice;
+
+        std::uint32_t mCount;
     };
 
 } // namespace FREYA_NAMESPACE

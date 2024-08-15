@@ -10,7 +10,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    std::shared_ptr<Renderer> RendererBuilder::Build()
+    Ref<Renderer> RendererBuilder::Build()
     {
         auto instance = mInstanceBuilder.Build();
 
@@ -55,8 +55,10 @@ namespace FREYA_NAMESPACE
                              .SetSamples(mSamples)
                              .Build();
 
-        auto commandPool =
-            CommandPoolBuilder().SetDevice(device).SetSwapChain(swapChain).Build();
+        auto commandPool = CommandPoolBuilder()
+                               .SetDevice(device)
+                               .SetCount(mFrameCount)
+                               .Build();
 
         auto imageAvailableSemaphores = std::vector<vk::Semaphore>(mFrameCount);
 
@@ -80,7 +82,7 @@ namespace FREYA_NAMESPACE
                    "Failed to create synchronization objects for a frame");
         }
 
-        return std::make_shared<Renderer>(instance,
+        return MakeRef<Renderer>(instance,
                                           surface,
                                           physicalDevice,
                                           device,

@@ -3,10 +3,6 @@
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_vulkan.h>
 
-#include <glm/ext/matrix_clip_space.hpp>
-#include <glm/ext/matrix_transform.hpp>
-#include <glm/glm.hpp>
-
 #include <sstream>
 
 namespace FREYA_NAMESPACE
@@ -24,10 +20,11 @@ namespace FREYA_NAMESPACE
         static auto     previousCounter = SDL_GetPerformanceCounter();
         static double   secondTime      = 0;
 
-        auto currentCount = SDL_GetPerformanceCounter();
+        const auto currentCount = SDL_GetPerformanceCounter();
 
-        mDeltaTime = (double) (currentCount - previousCounter) /
-                     (double) SDL_GetPerformanceFrequency();
+        mDeltaTime = static_cast<float>(currentCount - previousCounter) /
+                     static_cast<float>(SDL_GetPerformanceFrequency());
+
         secondTime += mDeltaTime;
         previousCounter = currentCount;
 
@@ -68,7 +65,7 @@ namespace FREYA_NAMESPACE
                 }
 
                 case SDL_EVENT_WINDOW_RESIZED: {
-                    auto resizeEvent = WindowResizeEvent {
+                    const auto resizeEvent = WindowResizeEvent {
                         .width  = sdlEvent.window.data1,
                         .height = sdlEvent.window.data2
                     };
@@ -77,37 +74,37 @@ namespace FREYA_NAMESPACE
                 }
 
                 case SDL_EVENT_KEY_DOWN: {
-                    auto keyEvent = KeyPressedEvent { .key = (KeyCode) sdlEvent.key.scancode };
+                    const auto keyEvent = KeyPressedEvent { .key = static_cast<KeyCode>(sdlEvent.key.scancode) };
                     mEventManager->Send(keyEvent);
                     break;
                 }
 
                 case SDL_EVENT_KEY_UP: {
-                    auto keyEvent = KeyReleasedEvent { .key = (KeyCode) sdlEvent.key.scancode };
+                    const auto keyEvent = KeyReleasedEvent { .key = static_cast<KeyCode>(sdlEvent.key.scancode) };
                     mEventManager->Send(keyEvent);
                     break;
                 }
 
                 case SDL_EVENT_MOUSE_MOTION: {
-                    auto mouseEvent = MouseMoveEvent { .x      = sdlEvent.motion.x,
-                                                       .y      = sdlEvent.motion.y,
-                                                       .deltaX = sdlEvent.motion.xrel,
-                                                       .deltaY = sdlEvent.motion.yrel };
+                    const auto mouseEvent = MouseMoveEvent { .x      = sdlEvent.motion.x,
+                                                             .y      = sdlEvent.motion.y,
+                                                             .deltaX = sdlEvent.motion.xrel,
+                                                             .deltaY = sdlEvent.motion.yrel };
                     mEventManager->Send(mouseEvent);
                     break;
                 }
 
                 case SDL_EVENT_MOUSE_BUTTON_DOWN: {
-                    auto mouseEvent = MouseButtonPressedEvent {
-                        .button = (MouseButton) sdlEvent.button.button
+                    const auto mouseEvent = MouseButtonPressedEvent {
+                        .button = static_cast<MouseButton>(sdlEvent.button.button)
                     };
                     mEventManager->Send(mouseEvent);
                     break;
                 }
 
                 case SDL_EVENT_MOUSE_BUTTON_UP: {
-                    auto mouseEvent = MouseButtonReleasedEvent {
-                        .button = (MouseButton) sdlEvent.button.button
+                    const auto mouseEvent = MouseButtonReleasedEvent {
+                        .button = static_cast<MouseButton>(sdlEvent.button.button)
                     };
                     mEventManager->Send(mouseEvent);
                     break;

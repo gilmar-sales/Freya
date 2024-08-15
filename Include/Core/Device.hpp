@@ -12,13 +12,13 @@ namespace FREYA_NAMESPACE
         std::optional<uint32_t> presentFamily;
         std::optional<uint32_t> transferFamily;
 
-        bool isComplete()
+        [[nodiscard]] bool isComplete() const
         {
             return graphicsFamily.has_value() && presentFamily.has_value() &&
                    transferFamily.has_value();
         }
 
-        bool isUnique()
+        [[nodiscard]] bool isUnique() const
         {
             return graphicsFamily.value() != presentFamily.value() &&
                    graphicsFamily.value() != transferFamily.value();
@@ -28,43 +28,43 @@ namespace FREYA_NAMESPACE
     class Device
     {
       public:
-        Device(std::shared_ptr<PhysicalDevice> physicalDevice,
-               std::shared_ptr<Surface> surface,
-               vk::Device device,
-               vk::Queue graphicsQueue,
-               vk::Queue presentQueue,
-               vk::Queue transferQueue,
-               QueueFamilyIndices queueFamilyIndices)
-            : mPhysicalDevice(physicalDevice), mSurface(surface), mDevice(device),
-              mGraphicsQueue(graphicsQueue), mPresentQueue(presentQueue),
-              mTransferQueue(transferQueue), mQueueFamilyIndices(queueFamilyIndices)
+        Device(const Ref<PhysicalDevice>& physicalDevice,
+               const Ref<Surface>&        surface,
+               const vk::Device           device,
+               const vk::Queue            graphicsQueue,
+               const vk::Queue            presentQueue,
+               const vk::Queue            transferQueue,
+               const QueueFamilyIndices&  queueFamilyIndices) :
+            mPhysicalDevice(physicalDevice), mSurface(surface), mDevice(device),
+            mGraphicsQueue(graphicsQueue), mPresentQueue(presentQueue),
+            mTransferQueue(transferQueue), mQueueFamilyIndices(queueFamilyIndices)
         {
         }
 
         ~Device() { mDevice.destroy(); }
 
-        operator bool() { return mDevice; }
+        operator bool() const { return mDevice; }
 
-        vk::Device &Get() { return mDevice; }
+        vk::Device& Get() { return mDevice; }
 
-        vk::Queue &GetGraphicsQueue() { return mGraphicsQueue; }
-        vk::Queue &GetPresentQueue() { return mPresentQueue; }
-        vk::Queue &GetTransferQueue() { return mTransferQueue; }
+        vk::Queue& GetGraphicsQueue() { return mGraphicsQueue; }
+        vk::Queue& GetPresentQueue() { return mPresentQueue; }
+        vk::Queue& GetTransferQueue() { return mTransferQueue; }
 
-        std::shared_ptr<Surface> GetSurface() { return mSurface; }
-        std::shared_ptr<PhysicalDevice> GetPhysicalDevice() { return mPhysicalDevice; }
+        Ref<Surface>        GetSurface() { return mSurface; }
+        Ref<PhysicalDevice> GetPhysicalDevice() { return mPhysicalDevice; }
 
-        QueueFamilyIndices &GetQueueFamilyIndices() { return mQueueFamilyIndices; }
+        QueueFamilyIndices& GetQueueFamilyIndices() { return mQueueFamilyIndices; }
 
       private:
-        std::shared_ptr<PhysicalDevice> mPhysicalDevice;
-        std::shared_ptr<Surface> mSurface;
+        Ref<PhysicalDevice> mPhysicalDevice;
+        Ref<Surface>        mSurface;
 
         QueueFamilyIndices mQueueFamilyIndices;
 
         vk::Device mDevice;
-        vk::Queue mGraphicsQueue;
-        vk::Queue mPresentQueue;
-        vk::Queue mTransferQueue;
+        vk::Queue  mGraphicsQueue;
+        vk::Queue  mPresentQueue;
+        vk::Queue  mTransferQueue;
     };
 } // namespace FREYA_NAMESPACE

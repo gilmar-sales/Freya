@@ -2,17 +2,22 @@
 
 #include <Builders/ApplicationBuilder.hpp>
 
-class MainApp : public fra::AbstractApplication
+#include <glm/ext/matrix_transform.hpp>
+
+class MainApp final : public fra::AbstractApplication
 {
   public:
     void StartUp() override
     {
         mRenderer->ClearProjections();
 
-        mMeshPool = mRenderer->GetMeshPoolFactory()->CreateMeshPool();
+        mMeshPool    = mRenderer->GetMeshPoolFactory()->CreateMeshPool();
+        mTexturePool = mRenderer->GetTexturePoolFactory()->CreateTexturePool();
 
-        red_ship_meshes = mMeshPool->CreateMeshFromFile("D:/Models/Civic.obj");
-        mModelMatrix    = glm::mat4(1);
+        mModelMatrix = glm::scale(glm::mat4(1), glm::vec3(10000));
+
+        mTextureA = mTexturePool->CreateTextureFromFile("D:/Models/Emergency Backup Generator_Default_color.jpg");
+        mModelA   = mMeshPool->CreateMeshFromFile("C:/Models/moon.fbx");
 
         mEventManager->Subscribe<fra::KeyPressedEvent>([](fra::KeyPressedEvent event) {
             std::println("Key pressed");
@@ -22,24 +27,24 @@ class MainApp : public fra::AbstractApplication
             std::println("Key released");
         });
 
-        // mEventManager->Subscribe<fra::MouseMoveEvent>([](fra::MouseMoveEvent event) {
-        //     std::println("Mouse position: {}, {}", event.x, event.y);
-        //     std::println("Mouse delta: {}, {}", event.deltaX, event.deltaY);
-        // });
+        mEventManager->Subscribe<fra::MouseMoveEvent>([](fra::MouseMoveEvent event) {
+            std::println("Mouse position: {}, {}", event.x, event.y);
+            std::println("Mouse delta: {}, {}", event.deltaX, event.deltaY);
+        });
 
         mEventManager->Subscribe<fra::MouseButtonPressedEvent>([](fra::MouseButtonPressedEvent event) {
-            std::println("Mouse button pressed: {}", (int) event.button);
+            std::println("Mouse button pressed: {}", static_cast<int>(event.button));
         });
         mEventManager->Subscribe<fra::MouseButtonReleasedEvent>([](fra::MouseButtonReleasedEvent event) {
-            std::println("Mouse button released: {}", (int) event.button);
+            std::println("Mouse button released: {}", static_cast<int>(event.button));
         });
     }
 
     void Update() override
     {
         mCurrentTime += mWindow->GetDeltaTime();
-        mModelMatrix = glm::translate(mModelMatrix, glm::vec3(0.0, glm::cos(mCurrentTime), 0.0) * mWindow->GetDeltaTime());
-        mModelMatrix = glm::rotate(mModelMatrix, glm::radians(15.0f * mWindow->GetDeltaTime()), glm::vec3(0.0, 1.0, 0.0));
+        // mModelMatrix = glm::translate(mModelMatrix, glm::vec3(0.0, glm::cos(mCurrentTime), 0.0) * mWindow->GetDeltaTime());
+        mModelMatrix = glm::rotate(mModelMatrix, glm::radians(15.0f * mWindow->GetDeltaTime()), glm::normalize(glm::vec3(1.0, 1.0, 0.0)));
 
         mRenderer->BeginFrame();
 
@@ -54,8 +59,9 @@ class MainApp : public fra::AbstractApplication
 
         mRenderer->BindBuffer(mInstanceMatrixBuffers);
 
-        for (const auto& mesh : red_ship_meshes)
+        for (const auto& mesh : mModelA)
         {
+            mTexturePool->Bind(mTextureA);
             mMeshPool->Draw(mesh);
         }
 
@@ -63,26 +69,32 @@ class MainApp : public fra::AbstractApplication
     }
 
   private:
-    std::vector<unsigned>          red_ship_meshes;
-    std::shared_ptr<fra::MeshPool> mMeshPool;
-    glm::mat4                      mModelMatrix;
-    float                          mCurrentTime;
+    std::vector<unsigned> mModelA;
+    std::uint32_t         mTextureA {};
+
+    std::vector<unsigned> mModelB;
+    std::uint32_t         mTextureB {};
+
+    std::shared_ptr<fra::TexturePool> mTexturePool;
+    std::shared_ptr<fra::MeshPool>    mMeshPool;
+    glm::mat4                         mModelMatrix {};
+    float                             mCurrentTime {};
 };
 
 int main(int argc, const char** argv)
 {
-    auto app = fra::ApplicationBuilder()
-                   .WithWindow([](fra::WindowBuilder& windowBuilder) {
-                       windowBuilder
-                           .SetTitle("Space")
-                           .SetWidth(1920)
-                           .SetHeight(1080)
-                           .SetVSync(false);
-                   })
-                   .WithRenderer([](fra::RendererBuilder& rendererBuilder) {
-                       rendererBuilder.SetSamples(vk::SampleCountFlagBits::e8);
-                   })
-                   .Build<MainApp>();
+    const auto app = fra::ApplicationBuilder()
+                         .WithWindow([](fra::WindowBuilder& windowBuilder) {
+                             windowBuilder
+                                 .SetTitle("Space")
+                                 .SetWidth(1920)
+                                 .SetHeight(1080)
+                                 .SetVSync(false);
+                         })
+                         .WithRenderer([](fra::RendererBuilder& rendererBuilder) {
+                             rendererBuilder.SetSamples(vk::SampleCountFlagBits::e8).SetDrawDistance(1000000.0f);
+                         })
+                         .Build<MainApp>();
 
     app->Run();
 

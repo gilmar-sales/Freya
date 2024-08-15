@@ -12,7 +12,7 @@ namespace FREYA_NAMESPACE
     class MeshSet
     {
       public:
-        MeshSet(unsigned capacity = 512u)
+        explicit MeshSet(const unsigned capacity = 512u)
         {
             dense.reserve(capacity);
             sparse.resize(capacity);
@@ -23,8 +23,9 @@ namespace FREYA_NAMESPACE
 
         void insert(Mesh n)
         {
-            if (contains(n)) return;
-            std::lock_guard<std::mutex> lock{m_lock};
+            if (contains(n))
+                return;
+            std::lock_guard<std::mutex> lock { m_lock };
 
             sparse[n] = dense.size();
             dense.push_back(n);
@@ -33,8 +34,9 @@ namespace FREYA_NAMESPACE
 
         void remove(Mesh n)
         {
-            if (!contains(n)) return;
-            std::lock_guard<std::mutex> lock{m_lock};
+            if (!contains(n))
+                return;
+            std::lock_guard<std::mutex> lock { m_lock };
 
             dense[sparse[n]]                = dense[dense.size() - 1];
             sparse[dense[dense.size() - 1]] = sparse[n];
@@ -43,14 +45,14 @@ namespace FREYA_NAMESPACE
             sorted = false;
         }
 
-        bool contains(std::uint32_t n) const
+        [[nodiscard]] bool contains(const std::uint32_t n) const
         {
             return sparse[n] < dense.size() && dense[sparse[n]].id == n;
         }
 
         void clear() { dense.clear(); }
 
-        void resize(unsigned size)
+        void resize(const unsigned size)
         {
             dense.reserve(size);
             sparse.resize(size);
@@ -58,21 +60,22 @@ namespace FREYA_NAMESPACE
 
         void sort()
         {
-            if (sorted) return;
-            std::lock_guard<std::mutex> lock{m_lock};
+            if (sorted)
+                return;
+            std::lock_guard lock { m_lock };
             denseSort();
 
             sparseReorder();
             sorted = true;
         }
 
-        Mesh &operator[](int index) { return dense[index]; };
+        Mesh& operator[](const std::uint32_t index) { return dense[index]; };
 
-        size_t size() { return dense.size(); }
+        [[nodiscard]] size_t size() const { return dense.size(); }
 
-        auto begin() const { return dense.rbegin(); }
+        [[nodiscard]] auto begin() const { return dense.rbegin(); }
 
-        auto end() const { return dense.rend(); }
+        [[nodiscard]] auto end() const { return dense.rend(); }
 
       protected:
         void denseSort() { std::sort(dense.begin(), dense.end()); }
@@ -86,9 +89,9 @@ namespace FREYA_NAMESPACE
         }
 
       private:
-        std::mutex m_lock;
-        std::vector<Mesh> dense;
+        std::mutex                 m_lock;
+        std::vector<Mesh>          dense;
         std::vector<std::uint32_t> sparse;
-        bool sorted;
+        bool                       sorted;
     };
 } // namespace FREYA_NAMESPACE

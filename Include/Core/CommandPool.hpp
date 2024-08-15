@@ -10,21 +10,21 @@ namespace FREYA_NAMESPACE
     class CommandPool
     {
       public:
-        CommandPool(std::shared_ptr<Device> device,
-                    vk::CommandPool commandPool,
-                    std::vector<vk::CommandBuffer> commandBuffers)
-            : mDevice(device), mCommandPool(commandPool), mCommandBuffers(commandBuffers),
-              mIndex(0)
+        CommandPool(const Ref<Device>&                    device,
+                    const vk::CommandPool                 commandPool,
+                    const std::vector<vk::CommandBuffer>& commandBuffers) :
+            mDevice(device), mCommandPool(commandPool), mCommandBuffers(commandBuffers),
+            mIndex(0)
         {
         }
 
         ~CommandPool();
 
-        vk::CommandPool &Get() { return mCommandPool; }
+        vk::CommandPool& Get() { return mCommandPool; }
 
-        vk::CommandBuffer &GetCommandBuffer() { return mCommandBuffers[mIndex]; }
+        vk::CommandBuffer& GetCommandBuffer() { return mCommandBuffers[mIndex]; }
 
-        void SetCommandBufferIndex(std::uint32_t index)
+        void SetCommandBufferIndex(const std::uint32_t index)
         {
             assert(index < mCommandBuffers.size() &&
                    "Cannot get vk::CommandBuffer: index out of bounds.");
@@ -32,15 +32,15 @@ namespace FREYA_NAMESPACE
             mIndex = index;
         }
 
-        vk::CommandBuffer CreateCommandBuffer();
-        void FreeCommandBuffer(vk::CommandBuffer);
+        [[nodiscard]] vk::CommandBuffer CreateCommandBuffer() const;
+        void                            FreeCommandBuffer(vk::CommandBuffer) const;
 
       private:
-        std::shared_ptr<Device> mDevice;
+        Ref<Device> mDevice;
 
-        vk::CommandPool mCommandPool;
+        vk::CommandPool                mCommandPool;
         std::vector<vk::CommandBuffer> mCommandBuffers;
-        std::uint32_t mIndex;
+        std::uint32_t                  mIndex;
     };
 
 } // namespace FREYA_NAMESPACE

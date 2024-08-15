@@ -10,16 +10,15 @@
 #include "Core/Surface.hpp"
 #include "Core/UniformBuffer.hpp"
 
-#include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
-#include <vulkan/vulkan.h>
+
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_enums.hpp>
 
 namespace FREYA_NAMESPACE
 {
 
-    std::shared_ptr<RenderPass> RenderPassBuilder::Build()
+    Ref<RenderPass> RenderPassBuilder::Build()
     {
         auto format = mSurface->QuerySurfaceFormat().format;
 
@@ -202,6 +201,7 @@ namespace FREYA_NAMESPACE
                             .setMaxSets(mFrameCount);
 
         auto descriptorPool = mDevice->Get().createDescriptorPool(poolInfo);
+
         auto uboLayoutBinding =
             vk::DescriptorSetLayoutBinding()
                 .setBinding(0)
@@ -210,9 +210,12 @@ namespace FREYA_NAMESPACE
                 .setStageFlags(vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr);
 
-        auto descriptorSetCreateInfo =
-            vk::DescriptorSetLayoutCreateInfo().setBindingCount(1).setPBindings(
-                &uboLayoutBinding);
+        auto descriptorSetBindings = std::array {
+            uboLayoutBinding,
+        };
+
+        auto descriptorSetCreateInfo = vk::DescriptorSetLayoutCreateInfo()
+                                           .setBindings(descriptorSetBindings);
 
         auto layouts = std::vector<vk::DescriptorSetLayout> {};
         for (auto i = 0; i < mFrameCount; i++)
@@ -221,17 +224,48 @@ namespace FREYA_NAMESPACE
                 mDevice->Get().createDescriptorSetLayout(descriptorSetCreateInfo));
         }
 
-        auto descriptorSetAllocInfo =
-            vk::DescriptorSetAllocateInfo().setSetLayouts(layouts).setDescriptorPool(
-                descriptorPool);
+        auto descriptorSetAllocInfo = vk::DescriptorSetAllocateInfo()
+                                          .setSetLayouts(layouts)
+                                          .setDescriptorPool(descriptorPool);
 
         auto descriptorSets =
             mDevice->Get().allocateDescriptorSets(descriptorSetAllocInfo);
 
-        auto pipelineLayoutInfo = vk::PipelineLayoutCreateInfo()
-                                      .setSetLayouts(layouts);
+        auto samplerPoolSize = vk::DescriptorPoolSize()
+                                   .setType(vk::DescriptorType::eCombinedImageSampler)
+                                   .setDescriptorCount(2 << 16);
 
-        auto uniformBuffers = std::vector<std::shared_ptr<Buffer>>();
+        auto samplerPoolInfo = vk::DescriptorPoolCreateInfo()
+                                   .setPoolSizeCount(1)
+                                   .setPPoolSizes(&samplerPoolSize)
+                                   .setMaxSets(2 << 16);
+
+        auto samplerDescriptorPool = mDevice->Get().createDescriptorPool(samplerPoolInfo);
+
+        auto samplerLayoutBinding = vk::DescriptorSetLayoutBinding()
+                                        .setBinding(0)
+                                        .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                                        .setDescriptorCount(1)
+                                        .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                                        .setPImmutableSamplers(nullptr);
+
+        auto samplerDescriptorSetBindings = std::array {
+            samplerLayoutBinding,
+        };
+
+        auto samplerDescriptorSetCreateInfo = vk::DescriptorSetLayoutCreateInfo()
+                                                  .setBindings(samplerDescriptorSetBindings);
+
+        auto samplerLayout = mDevice->Get().createDescriptorSetLayout(samplerDescriptorSetCreateInfo);
+
+        layouts.push_back(samplerLayout);
+
+        const auto pipelineLayouts = std::array { layouts[0], samplerLayout };
+
+        auto pipelineLayoutInfo = vk::PipelineLayoutCreateInfo()
+                                      .setSetLayouts(pipelineLayouts);
+
+        auto uniformBuffers = std::vector<Ref<Buffer>>();
 
         for (auto i = 0; i < mFrameCount; i++)
         {
@@ -311,7 +345,23 @@ namespace FREYA_NAMESPACE
         mDevice->Get().destroyShaderModule(vertShaderModule->Get());
         mDevice->Get().destroyShaderModule(fragShaderModule->Get());
 
-        return std::make_shared<RenderPass>(
+        constexpr auto samplerCreateInfo = vk::SamplerCreateInfo()
+                                               .setMagFilter(vk::Filter::eLinear)
+                                               .setMinFilter(vk::Filter::eLinear)
+                                               .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+                                               .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+                                               .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+                                               .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+                                               .setUnnormalizedCoordinates(false)
+                                               .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+                                               .setMipLodBias(0.0f)
+                                               .setMinLod(0.0f)
+                                               .setMaxLod(0.0f)
+                                               .setAnisotropyEnable(true)
+                                               .setMaxAnisotropy(16);
+
+        const auto sampler = mDevice->Get().createSampler(samplerCreateInfo);
+        return MakeRef<RenderPass>(
             mDevice,
             mSurface,
             renderPass,
@@ -320,10 +370,13 @@ namespace FREYA_NAMESPACE
             uniformBuffers,
             layouts,
             descriptorSets,
-            descriptorPool);
+            descriptorPool,
+            samplerLayout,
+            samplerDescriptorPool,
+            sampler);
     }
 
-    vk::Format RenderPassBuilder::getDepthFormat()
+    vk::Format RenderPassBuilder::getDepthFormat() const
     {
         auto candidates = std::vector<vk::Format> {
             vk::Format::eD32SfloatS8Uint,
@@ -333,12 +386,11 @@ namespace FREYA_NAMESPACE
             vk::Format::eD16Unorm,
         };
 
-        auto depthFeature = vk::FormatFeatureFlagBits::eDepthStencilAttachment;
-        for (auto& format : candidates)
+        constexpr auto depthFeature = vk::FormatFeatureFlagBits::eDepthStencilAttachment;
+        for (const auto& format : candidates)
         {
-            auto props = mPhysicalDevice->Get().getFormatProperties(format);
-
-            if ((props.optimalTilingFeatures & depthFeature) == depthFeature)
+            if (auto props = mPhysicalDevice->Get().getFormatProperties(format);
+                (props.optimalTilingFeatures & depthFeature) == depthFeature)
             {
                 return format;
             }

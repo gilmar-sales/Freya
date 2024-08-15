@@ -19,16 +19,16 @@ namespace FREYA_NAMESPACE
         {
         }
 
-        ApplicationBuilder& WithWindow(std::function<void(WindowBuilder&)> windowBuilderFunc);
-        ApplicationBuilder& WithRenderer(std::function<void(RendererBuilder&)> rendererBuilderFunc);
+        ApplicationBuilder& WithWindow(const std::function<void(WindowBuilder&)>& windowBuilderFunc);
+        ApplicationBuilder& WithRenderer(const std::function<void(RendererBuilder&)>& rendererBuilderFunc);
 
         template <typename T>
             requires IsApplication<T>
-        std::shared_ptr<T> Build()
+        Ref<T> Build()
         {
-            auto app = std::make_shared<T>();
+            auto app = MakeRef<T>();
 
-            auto eventManager = std::make_shared<EventManager>();
+            auto eventManager = MakeRef<EventManager>();
 
             auto window = mWindowBuilder.SetEventManager(eventManager).Build();
 
