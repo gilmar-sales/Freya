@@ -184,7 +184,7 @@ namespace FREYA_NAMESPACE
                 .setAttachmentCount(1)
                 .setPAttachments(&colorBlendAttachment);
 
-        std::vector<vk::DynamicState> dynamicStates = {
+        auto dynamicStates = std::vector {
             vk::DynamicState::eViewport, vk::DynamicState::eScissor
         };
 
@@ -242,15 +242,13 @@ namespace FREYA_NAMESPACE
 
         auto samplerDescriptorPool = mDevice->Get().createDescriptorPool(samplerPoolInfo);
 
-        auto samplerLayoutBinding = vk::DescriptorSetLayoutBinding()
-                                        .setBinding(0)
-                                        .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                                        .setDescriptorCount(1)
-                                        .setStageFlags(vk::ShaderStageFlagBits::eFragment)
-                                        .setPImmutableSamplers(nullptr);
-
         auto samplerDescriptorSetBindings = std::array {
-            samplerLayoutBinding,
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(0)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
         };
 
         auto samplerDescriptorSetCreateInfo = vk::DescriptorSetLayoutCreateInfo()
@@ -374,29 +372,6 @@ namespace FREYA_NAMESPACE
             samplerLayout,
             samplerDescriptorPool,
             sampler);
-    }
-
-    vk::Format RenderPassBuilder::getDepthFormat() const
-    {
-        auto candidates = std::vector<vk::Format> {
-            vk::Format::eD32SfloatS8Uint,
-            vk::Format::eD32Sfloat,
-            vk::Format::eD24UnormS8Uint,
-            vk::Format::eD16UnormS8Uint,
-            vk::Format::eD16Unorm,
-        };
-
-        constexpr auto depthFeature = vk::FormatFeatureFlagBits::eDepthStencilAttachment;
-        for (const auto& format : candidates)
-        {
-            if (auto props = mPhysicalDevice->Get().getFormatProperties(format);
-                (props.optimalTilingFeatures & depthFeature) == depthFeature)
-            {
-                return format;
-            }
-        }
-
-        return vk::Format();
     }
 
 } // namespace FREYA_NAMESPACE
