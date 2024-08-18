@@ -19,7 +19,7 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        CommandPoolBuilder& SetCount(std::uint32_t count)
+        CommandPoolBuilder& SetCount(const std::uint32_t count)
         {
             mCount = count;
             return *this;

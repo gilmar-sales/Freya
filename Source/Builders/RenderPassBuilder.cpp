@@ -38,8 +38,9 @@ namespace FREYA_NAMESPACE
         if (mSamples != vk::SampleCountFlagBits::e1)
             colorAttachment.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
-        auto colorAttachmentRef = vk::AttachmentReference().setAttachment(0).setLayout(
-            vk::ImageLayout::eColorAttachmentOptimal);
+        auto colorAttachmentRef = vk::AttachmentReference()
+                                      .setAttachment(0)
+                                      .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
         auto depthAttachment =
             vk::AttachmentDescription()
@@ -74,8 +75,9 @@ namespace FREYA_NAMESPACE
                 .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
 
         auto colorAttachmentResolveRef =
-            vk::AttachmentReference().setAttachment(2).setLayout(
-                vk::ImageLayout::eColorAttachmentOptimal);
+            vk::AttachmentReference()
+                .setAttachment(2)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
         auto subpass =
             vk::SubpassDescription()
@@ -99,12 +101,13 @@ namespace FREYA_NAMESPACE
                 .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
 
         auto attachments =
-            mSamples != vk::SampleCountFlagBits::e1
-                ? std::vector<vk::AttachmentDescription> { colorAttachment,
-                                                           depthAttachment,
-                                                           colorAttachmentResolve }
-                : std::vector<vk::AttachmentDescription> {
-                      colorAttachment, depthAttachment
+            mSamples == vk::SampleCountFlagBits::e1
+                ? std::vector { colorAttachment,
+                                depthAttachment }
+                : std::vector {
+                      colorAttachment,
+                      depthAttachment,
+                      colorAttachmentResolve
                   };
 
         auto renderPassInfo =

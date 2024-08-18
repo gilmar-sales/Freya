@@ -26,7 +26,7 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        DeferredPassBuilder& SetSamples(vk::SampleCountFlagBits samples)
+        DeferredPassBuilder& SetSamples(const vk::SampleCountFlagBits samples)
         {
             mSamples = samples;
             return *this;
