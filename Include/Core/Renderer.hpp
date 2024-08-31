@@ -78,7 +78,7 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] const ProjectionUniformBuffer& GetCurrentProjection() const { return mCurrentProjection; }
         void                                         UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer);
-        void                                         UpdateModel(glm::mat4& model);
+        void                                         UpdateModel(const glm::mat4& model) const;
 
         Ref<MeshPoolFactory>        GetMeshPoolFactory();
         Ref<TexturePoolFactory>     GetTexturePoolFactory();

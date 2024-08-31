@@ -17,9 +17,9 @@ class MainApp final : public fra::AbstractApplication
         mModelMatrix[0] = glm::translate(glm::scale(glm::mat4(1), glm::vec3(300)), glm::vec3(-1, 0, 0));
         mModelMatrix[1] = glm::translate(glm::scale(glm::mat4(1), glm::vec3(300)), glm::vec3(1, 0, 0));
 
-        mTextureA = mTexturePool->CreateTextureFromFile("/run/media/gilmar/Gilmar/Models/textures/Office_sofa_DefaultMaterial_BaseColor.png");
-        mTextureB = mTexturePool->CreateTextureFromFile("/run/media/gilmar/Gilmar/Models/textures/Office_sofa_DefaultMaterial_Normal.png");
-        mModelA   = mMeshPool->CreateMeshFromFile("/run/media/gilmar/Gilmar/Models/source/Office sofa.fbx");
+        mTextureA = mTexturePool->CreateTextureFromFile("D:/Models/textures/Office_sofa_DefaultMaterial_BaseColor.png");
+        mTextureB = mTexturePool->CreateTextureFromFile("D:/Models/textures/Office_sofa_DefaultMaterial_Normal.png");
+        mModelA   = mMeshPool->CreateMeshFromFile("D:/Models/source/Office sofa.fbx");
 
         mEventManager->Subscribe<fra::KeyPressedEvent>([](fra::KeyPressedEvent event) {
             std::println("Key pressed");
