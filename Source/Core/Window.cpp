@@ -65,10 +65,13 @@ namespace FREYA_NAMESPACE
                 }
 
                 case SDL_EVENT_WINDOW_RESIZED: {
+                    const auto scale = SDL_GetWindowDisplayScale(mWindow);
+
                     const auto resizeEvent = WindowResizeEvent {
-                        .width  = sdlEvent.window.data1,
-                        .height = sdlEvent.window.data2
+                        .width  = sdlEvent.window.data1 * static_cast<int>(scale),
+                        .height = sdlEvent.window.data2 * static_cast<int>(scale)
                     };
+
                     mEventManager->Send(resizeEvent);
                     break;
                 }
