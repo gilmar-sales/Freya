@@ -25,30 +25,23 @@ namespace FREYA_NAMESPACE
 
     vk::Extent2D Surface::QueryExtent() const
     {
-        if (mCapabilities.currentExtent.width != std::numeric_limits<std::uint32_t>::max())
+        const auto capablities = mPhysicalDevice->Get().getSurfaceCapabilitiesKHR(mSurface);
+
+        if (capablities.currentExtent.width != std::numeric_limits<std::uint32_t>::max())
         {
-            return mCapabilities.currentExtent;
+            return capablities.currentExtent;
         }
 
         const auto actualExtent =
             vk::Extent2D()
-                .setWidth(std::min(mCapabilities.maxImageExtent.width, mWidth))
-                .setHeight(std::min(mCapabilities.maxImageExtent.height, mHeight));
+                .setWidth(std::min(mMaxExtent.width, mWidth))
+                .setHeight(std::min(mMaxExtent.height, mHeight));
 
         return actualExtent;
     }
 
-    std::uint32_t Surface::QueryFrameCountSupport(std::uint32_t desired) const
+    std::uint32_t Surface::QueryFrameCountSupport(const std::uint32_t desired) const
     {
-        if (desired < mCapabilities.minImageCount)
-        {
-            desired = mCapabilities.minImageCount;
-        }
-        if (mCapabilities.maxImageCount > 0 && desired > mCapabilities.maxImageCount)
-        {
-            desired = mCapabilities.maxImageCount;
-        }
-
-        return desired;
+        return std::clamp(desired, mMinImageCount, mMaxImageCount);
     }
 } // namespace FREYA_NAMESPACE
