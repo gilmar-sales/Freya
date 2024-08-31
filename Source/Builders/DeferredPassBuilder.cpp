@@ -51,41 +51,51 @@ namespace FREYA_NAMESPACE
         };
 
         // Depth pre pass
-        auto depthAttachmentReference =
-            vk::AttachmentReference().setAttachment(1).setLayout(
-                vk::ImageLayout::eDepthStencilAttachmentOptimal);
+        constexpr auto depthAttachmentReference =
+            vk::AttachmentReference()
+                .setAttachment(1)
+                .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
-        auto gBufferReference = vk::AttachmentReference().setAttachment(2).setLayout(
-            vk::ImageLayout::eColorAttachmentOptimal);
+        auto gBufferReference =
+            vk::AttachmentReference()
+                .setAttachment(2)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
         auto gBufferReadReference = {
-            vk::AttachmentReference().setAttachment(2).setLayout(
-                vk::ImageLayout::eReadOnlyOptimal),
-            vk::AttachmentReference().setAttachment(1).setLayout(
-                vk::ImageLayout::eDepthStencilReadOnlyOptimal),
+            vk::AttachmentReference()
+                .setAttachment(2)
+                .setLayout(vk::ImageLayout::eReadOnlyOptimal),
+            vk::AttachmentReference()
+                .setAttachment(1)
+                .setLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal),
         };
 
         auto translucentBufferWriteReference = {
-            vk::AttachmentReference().setAttachment(3).setLayout(
-                vk::ImageLayout::eColorAttachmentOptimal),
+            vk::AttachmentReference()
+                .setAttachment(3)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
         };
 
         auto opaqueBufferWriteReference = {
-            vk::AttachmentReference().setAttachment(4).setLayout(
-                vk::ImageLayout::eColorAttachmentOptimal),
+            vk::AttachmentReference()
+                .setAttachment(4)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
         };
 
         auto compositeReference = {
-            vk::AttachmentReference().setAttachment(3).setLayout(
-                vk::ImageLayout::eShaderReadOnlyOptimal),
-            vk::AttachmentReference().setAttachment(4).setLayout(
-                vk::ImageLayout::eShaderReadOnlyOptimal),
+            vk::AttachmentReference()
+                .setAttachment(3)
+                .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            vk::AttachmentReference()
+                .setAttachment(4)
+                .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
         };
 
         // Final pass-back buffer render reference
         auto backBufferRenderReference = {
-            vk::AttachmentReference().setAttachment(0).setLayout(
-                vk::ImageLayout::eColorAttachmentOptimal),
+            vk::AttachmentReference()
+                .setAttachment(0)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
         };
 
         auto subpasses = {
@@ -152,7 +162,7 @@ namespace FREYA_NAMESPACE
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
         };
 
-        auto renderPassCreateInfo =
+        const auto renderPassCreateInfo =
             vk::RenderPassCreateInfo()
                 .setAttachments(attachments)
                 .setSubpasses(subpasses)

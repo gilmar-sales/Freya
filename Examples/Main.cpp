@@ -53,7 +53,7 @@ class MainApp final : public fra::AbstractApplication
 
         mWindow->Update();
 
-        auto mInstanceMatrixBuffers =
+        const auto mInstanceMatrixBuffers =
             mRenderer->GetBufferBuilder()
                 .SetData(&mModelMatrix[0][0])
                 .SetSize(sizeof(glm::mat4) * 2)
@@ -67,7 +67,7 @@ class MainApp final : public fra::AbstractApplication
             mTexturePool->Bind(mTextureA);
             mMeshPool->DrawInstanced(mesh, 1);
             mTexturePool->Bind(mTextureB);
-            mMeshPool->DrawInstanced(mesh, 1,1);
+            mMeshPool->DrawInstanced(mesh, 1, 1);
         }
 
         mRenderer->EndFrame();
