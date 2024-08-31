@@ -80,9 +80,9 @@ namespace FREYA_NAMESPACE
         void                                         UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer);
         void                                         UpdateModel(glm::mat4& model);
 
-        Ref<MeshPoolFactory>    GetMeshPoolFactory();
-        Ref<TexturePoolFactory> GetTexturePoolFactory();
-        BufferBuilder           GetBufferBuilder() const;
+        Ref<MeshPoolFactory>        GetMeshPoolFactory();
+        Ref<TexturePoolFactory>     GetTexturePoolFactory();
+        [[nodiscard]] BufferBuilder GetBufferBuilder() const;
 
         void BindBuffer(const Ref<Buffer>& buffer) const;
 

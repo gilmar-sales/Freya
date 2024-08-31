@@ -22,6 +22,8 @@ namespace FREYA_NAMESPACE
                            .SetInstance(instance)
                            .SetPhysicalDevice(physicalDevice)
                            .SetWindow(mWindow)
+                           .SetWidth(mWidth)
+                           .SetHeight(mHeight)
                            .Build();
 
         mFrameCount = surface->QueryFrameCountSupport(mFrameCount);
@@ -83,20 +85,20 @@ namespace FREYA_NAMESPACE
         }
 
         return MakeRef<Renderer>(instance,
-                                          surface,
-                                          physicalDevice,
-                                          device,
-                                          swapChain,
-                                          renderPass,
-                                          commandPool,
-                                          imageAvailableSemaphores,
-                                          renderFinishedSemaphores,
-                                          inFlightFences,
-                                          mVSync,
-                                          mSamples,
-                                          mClearColor,
-                                          mDrawDistance,
-                                          mEventManager);
+                                 surface,
+                                 physicalDevice,
+                                 device,
+                                 swapChain,
+                                 renderPass,
+                                 commandPool,
+                                 imageAvailableSemaphores,
+                                 renderFinishedSemaphores,
+                                 inFlightFences,
+                                 mVSync,
+                                 mSamples,
+                                 mClearColor,
+                                 mDrawDistance,
+                                 mEventManager);
     }
 
 } // namespace FREYA_NAMESPACE

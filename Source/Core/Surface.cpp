@@ -25,17 +25,15 @@ namespace FREYA_NAMESPACE
 
     vk::Extent2D Surface::QueryExtent() const
     {
-        const auto capabilities = mPhysicalDevice->Get().getSurfaceCapabilitiesKHR(mSurface);
-
-        if (capabilities.currentExtent.width != std::numeric_limits<std::uint32_t>::max())
+        if (mCapabilities.currentExtent.width != std::numeric_limits<std::uint32_t>::max())
         {
-            return capabilities.currentExtent;
+            return mCapabilities.currentExtent;
         }
 
         const auto actualExtent =
             vk::Extent2D()
-                .setWidth(capabilities.maxImageExtent.width)
-                .setHeight(capabilities.maxImageExtent.height);
+                .setWidth(std::min(mCapabilities.maxImageExtent.width, mWidth))
+                .setHeight(std::min(mCapabilities.maxImageExtent.height, mHeight));
 
         return actualExtent;
     }

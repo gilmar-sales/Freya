@@ -34,6 +34,18 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        SurfaceBuilder& SetWidth(const std::uint32_t width)
+        {
+            mWidth = width;
+            return *this;
+        }
+
+        SurfaceBuilder& SetHeight(const std::uint32_t height)
+        {
+            mHeight = height;
+            return *this;
+        }
+
         Ref<Surface> Build();
 
       private:

@@ -10,9 +10,14 @@ namespace FREYA_NAMESPACE
       public:
         Surface(const Ref<Instance>&       instance,
                 const Ref<PhysicalDevice>& physicalDevice,
-                const vk::SurfaceKHR       surface) :
+                const vk::SurfaceKHR       surface,
+                const std::uint32_t        width,
+                const std::uint32_t        height) :
             mInstance(instance),
-            mPhysicalDevice(physicalDevice), mSurface(surface)
+            mPhysicalDevice(physicalDevice),
+            mSurface(surface),
+            mWidth(width),
+            mHeight(height)
         {
             mCapabilities = mPhysicalDevice->Get().getSurfaceCapabilitiesKHR(mSurface);
         }
@@ -21,9 +26,12 @@ namespace FREYA_NAMESPACE
 
         vk::SurfaceKHR& Get() { return mSurface; }
 
-        vk::SurfaceFormatKHR QuerySurfaceFormat() const;
-        vk::Extent2D         QueryExtent() const;
-        std::uint32_t        QueryFrameCountSupport(std::uint32_t desired) const;
+        [[nodiscard]] vk::SurfaceFormatKHR QuerySurfaceFormat() const;
+        [[nodiscard]] vk::Extent2D         QueryExtent() const;
+        [[nodiscard]] std::uint32_t        QueryFrameCountSupport(std::uint32_t desired) const;
+
+        void SetWidth(const std::uint32_t width) { mWidth = std::min(mCapabilities.maxImageExtent.width, width); }
+        void SetHeight(const std::uint32_t height) { mHeight = std::min(mCapabilities.maxImageExtent.height, height); }
 
       private:
         Ref<Instance>       mInstance;
@@ -31,6 +39,8 @@ namespace FREYA_NAMESPACE
 
         vk::SurfaceCapabilitiesKHR mCapabilities;
         vk::SurfaceKHR             mSurface;
+        std::uint32_t              mWidth;
+        std::uint32_t              mHeight;
     };
 
 } // namespace FREYA_NAMESPACE

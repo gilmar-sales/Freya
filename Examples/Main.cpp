@@ -14,10 +14,12 @@ class MainApp final : public fra::AbstractApplication
         mMeshPool    = mRenderer->GetMeshPoolFactory()->CreateMeshPool();
         mTexturePool = mRenderer->GetTexturePoolFactory()->CreateTexturePool();
 
-        mModelMatrix = glm::scale(glm::mat4(1), glm::vec3(10000));
+        mModelMatrix[0] = glm::translate(glm::scale(glm::mat4(1), glm::vec3(300)), glm::vec3(-1, 0, 0));
+        mModelMatrix[1] = glm::translate(glm::scale(glm::mat4(1), glm::vec3(300)), glm::vec3(1, 0, 0));
 
-        mTextureA = mTexturePool->CreateTextureFromFile("D:/Models/Emergency Backup Generator_Default_color.jpg");
-        mModelA   = mMeshPool->CreateMeshFromFile("C:/Models/moon.fbx");
+        mTextureA = mTexturePool->CreateTextureFromFile("/run/media/gilmar/Gilmar/Models/textures/Office_sofa_DefaultMaterial_BaseColor.png");
+        mTextureB = mTexturePool->CreateTextureFromFile("/run/media/gilmar/Gilmar/Models/textures/Office_sofa_DefaultMaterial_Normal.png");
+        mModelA   = mMeshPool->CreateMeshFromFile("/run/media/gilmar/Gilmar/Models/source/Office sofa.fbx");
 
         mEventManager->Subscribe<fra::KeyPressedEvent>([](fra::KeyPressedEvent event) {
             std::println("Key pressed");
@@ -44,7 +46,8 @@ class MainApp final : public fra::AbstractApplication
     {
         mCurrentTime += mWindow->GetDeltaTime();
         // mModelMatrix = glm::translate(mModelMatrix, glm::vec3(0.0, glm::cos(mCurrentTime), 0.0) * mWindow->GetDeltaTime());
-        mModelMatrix = glm::rotate(mModelMatrix, glm::radians(15.0f * mWindow->GetDeltaTime()), glm::normalize(glm::vec3(1.0, 1.0, 0.0)));
+        mModelMatrix[0] = glm::rotate(mModelMatrix[0], glm::radians(15.0f * mWindow->GetDeltaTime()), glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
+        mModelMatrix[1] = glm::rotate(mModelMatrix[1], glm::radians(15.0f * mWindow->GetDeltaTime()), glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
 
         mRenderer->BeginFrame();
 
@@ -53,7 +56,7 @@ class MainApp final : public fra::AbstractApplication
         auto mInstanceMatrixBuffers =
             mRenderer->GetBufferBuilder()
                 .SetData(&mModelMatrix[0][0])
-                .SetSize(sizeof(glm::mat4))
+                .SetSize(sizeof(glm::mat4) * 2)
                 .SetUsage(fra::BufferUsage::Instance)
                 .Build();
 
@@ -62,7 +65,9 @@ class MainApp final : public fra::AbstractApplication
         for (const auto& mesh : mModelA)
         {
             mTexturePool->Bind(mTextureA);
-            mMeshPool->Draw(mesh);
+            mMeshPool->DrawInstanced(mesh, 1);
+            mTexturePool->Bind(mTextureB);
+            mMeshPool->DrawInstanced(mesh, 1,1);
         }
 
         mRenderer->EndFrame();
@@ -77,7 +82,7 @@ class MainApp final : public fra::AbstractApplication
 
     std::shared_ptr<fra::TexturePool> mTexturePool;
     std::shared_ptr<fra::MeshPool>    mMeshPool;
-    glm::mat4                         mModelMatrix {};
+    glm::mat4                         mModelMatrix[2] {};
     float                             mCurrentTime {};
 };
 
