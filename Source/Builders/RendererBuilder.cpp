@@ -68,9 +68,9 @@ namespace FREYA_NAMESPACE
 
         auto inFlightFences = std::vector<vk::Fence>(mFrameCount);
 
-        auto semaphoreInfo = vk::SemaphoreCreateInfo();
+        constexpr auto semaphoreInfo = vk::SemaphoreCreateInfo();
 
-        auto fenceInfo =
+        constexpr auto fenceInfo =
             vk::FenceCreateInfo().setFlags(vk::FenceCreateFlagBits::eSignaled);
 
         for (size_t i = 0; i < mFrameCount; i++)
