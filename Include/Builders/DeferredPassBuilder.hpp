@@ -38,7 +38,7 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        Ref<DeferredPass> Build() const;
+        [[nodiscard]] Ref<DeferredPass> Build() const;
 
       private:
         Ref<Device>  mDevice;

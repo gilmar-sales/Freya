@@ -5,13 +5,13 @@ namespace FREYA_NAMESPACE
 
     Ref<DeferredPass> DeferredPassBuilder::Build() const
     {
-        const auto surfaceFormat = mSurface->QuerySurfaceFormat().format;
+        // const auto surfaceFormat = mSurface->QuerySurfaceFormat().format;
 
         auto attachments = {
             // Back buffer
             vk::AttachmentDescription()
-                .setFormat(surfaceFormat)
-                .setSamples(mSamples)
+                .setFormat(vk::Format::eR8G8B8A8Unorm)
+                .setSamples(vk::SampleCountFlagBits::e1)
                 .setLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStoreOp(vk::AttachmentStoreOp::eStore)
                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
@@ -20,28 +20,28 @@ namespace FREYA_NAMESPACE
                 .setFinalLayout(vk::ImageLayout::ePresentSrcKHR),
             // Depth buffer
             vk::AttachmentDescription()
-                .setFormat(mDevice->GetPhysicalDevice()->GetDepthFormat())
-                .setSamples(mSamples)
+                .setFormat(vk::Format::eD32Sfloat)
+                .setSamples(vk::SampleCountFlagBits::e1)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
-                .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal),
+                .setFinalLayout(vk::ImageLayout::eUndefined),
             // G buffer
             vk::AttachmentDescription()
                 .setFormat(vk::Format::eR32G32B32A32Uint)
-                .setSamples(mSamples)
+                .setSamples(vk::SampleCountFlagBits::e1)
                 .setLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
                 .setFinalLayout(vk::ImageLayout::eUndefined),
-            // Translucency buffer
+            // Translucent buffer
             vk::AttachmentDescription()
-                .setFormat(surfaceFormat)
-                .setSamples(mSamples)
+                .setFormat(vk::Format::eR8G8B8A8Unorm)
+                .setSamples(vk::SampleCountFlagBits::e1)
                 .setLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
@@ -50,44 +50,43 @@ namespace FREYA_NAMESPACE
                 .setFinalLayout(vk::ImageLayout::eUndefined),
         };
 
-        // Depth pre pass
-        constexpr auto depthAttachmentReference =
+        constexpr auto depthBufferReference =
             vk::AttachmentReference()
-                .setAttachment(1)
+                .setAttachment(DepthAttachment)
                 .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
-        auto gBufferReference =
+        auto gBufferWriteReference =
             vk::AttachmentReference()
-                .setAttachment(2)
+                .setAttachment(GBufferAttachment)
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
         auto gBufferReadReference = {
             vk::AttachmentReference()
-                .setAttachment(2)
+                .setAttachment(GBufferAttachment)
                 .setLayout(vk::ImageLayout::eReadOnlyOptimal),
             vk::AttachmentReference()
-                .setAttachment(1)
+                .setAttachment(DepthAttachment)
                 .setLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal),
         };
 
         auto translucentBufferWriteReference = {
             vk::AttachmentReference()
-                .setAttachment(3)
+                .setAttachment(TranslucentAttachment)
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
         };
 
         auto opaqueBufferWriteReference = {
             vk::AttachmentReference()
-                .setAttachment(4)
+                .setAttachment(OpaqueAttachment)
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
         };
 
-        auto compositeReference = {
+        auto compositeReadReference = {
             vk::AttachmentReference()
-                .setAttachment(3)
+                .setAttachment(TranslucentAttachment)
                 .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
             vk::AttachmentReference()
-                .setAttachment(4)
+                .setAttachment(OpaqueAttachment)
                 .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
         };
 
@@ -102,12 +101,12 @@ namespace FREYA_NAMESPACE
             // Subpass 0 - depth prepass
             vk::SubpassDescription()
                 .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-                .setPDepthStencilAttachment(&depthAttachmentReference),
+                .setPDepthStencilAttachment(&depthBufferReference),
             // Subpass 1 - g-buffer generation
             vk::SubpassDescription()
                 .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-                .setColorAttachments(gBufferReference)
-                .setPDepthStencilAttachment(&depthAttachmentReference),
+                .setColorAttachments(gBufferWriteReference)
+                .setPDepthStencilAttachment(&depthBufferReference),
             // Subpass 2 - lighting
             vk::SubpassDescription()
                 .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
@@ -120,14 +119,15 @@ namespace FREYA_NAMESPACE
             // Subpass 4 - composite
             vk::SubpassDescription()
                 .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+                .setInputAttachments(compositeReadReference)
                 .setColorAttachments(backBufferRenderReference),
         };
 
         auto dependencies = {
             // G-buffer pass depends on depth prepass.
             vk::SubpassDependency()
-                .setSrcSubpass(0)
-                .setDstSubpass(1)
+                .setSrcSubpass(DepthPrePass)
+                .setDstSubpass(GBufferPass)
                 .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
                 .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
                 .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
@@ -135,8 +135,8 @@ namespace FREYA_NAMESPACE
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
             // Lighting pass depends on g-buffer.
             vk::SubpassDependency()
-                .setSrcSubpass(1)
-                .setDstSubpass(2)
+                .setSrcSubpass(GBufferPass)
+                .setDstSubpass(LightingPass)
                 .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
                 .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
                 .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
@@ -144,8 +144,8 @@ namespace FREYA_NAMESPACE
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
             // Composite pass depends on translucent pass
             vk::SubpassDependency()
-                .setSrcSubpass(4)
-                .setDstSubpass(3)
+                .setSrcSubpass(TranslucentPass)
+                .setDstSubpass(CompositePass)
                 .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
                 .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
                 .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
@@ -153,8 +153,8 @@ namespace FREYA_NAMESPACE
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
             // Composite pass also depends on lightning
             vk::SubpassDependency()
-                .setSrcSubpass(4)
-                .setDstSubpass(2)
+                .setSrcSubpass(LightingPass)
+                .setDstSubpass(CompositePass)
                 .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
                 .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
                 .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
@@ -170,6 +170,6 @@ namespace FREYA_NAMESPACE
 
         auto renderPass = mDevice->Get().createRenderPass(renderPassCreateInfo);
 
-        return MakeRef<DeferredPass>();
+        return MakeRef<DeferredPass>(mDevice, mSurface, renderPass);
     }
 } // namespace FREYA_NAMESPACE
