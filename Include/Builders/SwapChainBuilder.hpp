@@ -74,6 +74,7 @@ namespace FREYA_NAMESPACE
             mHeight = height;
             return *this;
         }
+
         SwapChainBuilder& SetFrameCount(const uint32_t frameCount)
         {
             mFrameCount = frameCount;
@@ -96,7 +97,7 @@ namespace FREYA_NAMESPACE
         Ref<PhysicalDevice> mPhysicalDevice;
         Ref<Device>         mDevice;
         Ref<Surface>        mSurface;
-        Ref<ForwardPass>     mRenderPass;
+        Ref<ForwardPass>    mRenderPass;
 
         vk::SampleCountFlagBits mSamples;
 

@@ -42,6 +42,6 @@ namespace FREYA_NAMESPACE
 
     std::uint32_t Surface::QueryFrameCountSupport(const std::uint32_t desired) const
     {
-        return std::clamp(desired, mMinImageCount, mMaxImageCount);
+        return std::clamp(desired, mMinImageCount, std::max(mMinImageCount, mMaxImageCount));
     }
 } // namespace FREYA_NAMESPACE
