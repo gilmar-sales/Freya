@@ -39,6 +39,7 @@ namespace FREYA_NAMESPACE
         }
 
         [[nodiscard]] Ref<DeferredPass> Build() const;
+        vk::RenderPass                  createRenderPass() const;
 
       private:
         Ref<Device>  mDevice;

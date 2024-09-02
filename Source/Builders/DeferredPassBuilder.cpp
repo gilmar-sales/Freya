@@ -1,9 +1,44 @@
 #include "Builders/DeferredPassBuilder.hpp"
 
+#include "Builders/ShaderModuleBuilder.hpp"
+
 namespace FREYA_NAMESPACE
 {
 
     Ref<DeferredPass> DeferredPassBuilder::Build() const
+    {
+        auto renderPass = createRenderPass();
+
+        const auto gBufferVertShaderModule =
+            ShaderModuleBuilder()
+                .SetDevice(mDevice)
+                .SetFilePath("./Shaders/Deferred/gbuffer.vert.spv")
+                .Build();
+
+        const auto gBufferFragShaderModule =
+            ShaderModuleBuilder()
+                .SetDevice(mDevice)
+                .SetFilePath("./Shaders/Deferred/gbuffer.frag.spv")
+                .Build();
+
+        const auto gBufferVertShaderStageInfo =
+            vk::PipelineShaderStageCreateInfo()
+                .setStage(vk::ShaderStageFlagBits::eVertex)
+                .setModule(gBufferVertShaderModule->Get())
+                .setPName("main");
+
+        const auto gBufferFragShaderStageInfo =
+            vk::PipelineShaderStageCreateInfo()
+                .setStage(vk::ShaderStageFlagBits::eFragment)
+                .setModule(gBufferFragShaderModule->Get())
+                .setPName("main");
+
+        auto shaderStages = { gBufferVertShaderStageInfo, gBufferFragShaderStageInfo };
+
+        return MakeRef<DeferredPass>(mDevice, mSurface, renderPass);
+    }
+
+    vk::RenderPass DeferredPassBuilder::createRenderPass() const
     {
         // const auto surfaceFormat = mSurface->QuerySurfaceFormat().format;
 
@@ -62,11 +97,11 @@ namespace FREYA_NAMESPACE
 
         auto gBufferReadReference = {
             vk::AttachmentReference()
-                .setAttachment(DeferredGBufferAttachment)
-                .setLayout(vk::ImageLayout::eReadOnlyOptimal),
-            vk::AttachmentReference()
                 .setAttachment(DeferredDepthAttachment)
                 .setLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal),
+            vk::AttachmentReference()
+                .setAttachment(DeferredGBufferAttachment)
+                .setLayout(vk::ImageLayout::eReadOnlyOptimal),
         };
 
         auto translucentBufferWriteReference = {
@@ -93,7 +128,7 @@ namespace FREYA_NAMESPACE
         // Final pass-back buffer render reference
         auto backBufferRenderReference = {
             vk::AttachmentReference()
-                .setAttachment(0)
+                .setAttachment(DeferredBackAttachment)
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
         };
 
@@ -168,8 +203,6 @@ namespace FREYA_NAMESPACE
                 .setSubpasses(subpasses)
                 .setDependencies(dependencies);
 
-        auto renderPass = mDevice->Get().createRenderPass(renderPassCreateInfo);
-
-        return MakeRef<DeferredPass>(mDevice, mSurface, renderPass);
+        return mDevice->Get().createRenderPass(renderPassCreateInfo);
     }
 } // namespace FREYA_NAMESPACE

@@ -250,7 +250,7 @@ namespace FREYA_NAMESPACE
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
-                .setPImmutableSamplers(nullptr),
+                .setPImmutableSamplers(nullptr)
         };
 
         auto samplerDescriptorSetCreateInfo = vk::DescriptorSetLayoutCreateInfo()
