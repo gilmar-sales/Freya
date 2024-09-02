@@ -1,8 +1,8 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.25)
 
 project(
-    Freya 
-    LANGUAGES C CXX
+        Freya
+        LANGUAGES C CXX
 )
 
 find_package(Vulkan REQUIRED)
@@ -22,80 +22,78 @@ SOURCE_GROUP(Factories FILES ${Factories_SRCS})
 SOURCE_GROUP(Shaders FILES ${Shaders_SRCS})
 
 if (BUILD_SHARED_LIBS)
-add_library(Freya 
-${Asset_SRCS}
-${Builders_SRCS}
-${Core_SRCS}
-${Factories_SRCS}
-${Shaders_SRCS}
-)
+    add_library(Freya
+            ${Asset_SRCS}
+            ${Builders_SRCS}
+            ${Core_SRCS}
+            ${Factories_SRCS}
+            ${Shaders_SRCS}
+    )
 
 
-if(MSVC)
-  target_compile_options(Freya PUBLIC "/ZI" "/MP")
-  target_link_options(Freya PUBLIC "/INCREMENTAL")
-endif()
+    if (MSVC)
+        target_compile_options(Freya PUBLIC "/ZI" "/MP")
+        target_link_options(Freya PUBLIC "/INCREMENTAL")
+    endif ()
 
-target_compile_features(Freya PUBLIC cxx_std_23)
-target_include_directories(Freya PUBLIC Include ${Vulkan_INCLUDE_DIRS})
-target_link_libraries(Freya SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES} )
+    target_compile_features(Freya PUBLIC cxx_std_23)
+    target_include_directories(Freya PUBLIC Include ${Vulkan_INCLUDE_DIRS})
+    target_link_libraries(Freya SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES})
 
-target_precompile_headers(Freya  PUBLIC
-    <memory>
-    <limits>
-    <cstdint>
-    <string>
-    <vector>
-    <set>
-    <print>
-    <fstream>
-    <vulkan/vulkan.hpp>
-    <SDL3/SDL.h>
-    <SDL3/SDL_vulkan.h>
-    Include/Macro.hpp
-)
+    target_precompile_headers(Freya PUBLIC
+            <memory>
+            <limits>
+            <cstdint>
+            <string>
+            <vector>
+            <set>
+            <print>
+            <fstream>
+            <vulkan/vulkan.hpp>
+            <SDL3/SDL.h>
+            <SDL3/SDL_vulkan.h>
+            Include/Macro.hpp
+    )
 
-if (MINGW)
-target_link_libraries(Freya stdc++exp)
-endif(MINGW)
-endif(BUILD_SHARED_LIBS)
+    if (MINGW)
+        target_link_libraries(Freya stdc++exp)
+    endif (MINGW)
+endif (BUILD_SHARED_LIBS)
 
 add_library(Freya-static STATIC
-${Asset_SRCS}
-${Builders_SRCS}
-${Core_SRCS}
-${Factories_SRCS}
-${Shaders_SRCS}
+        ${Asset_SRCS}
+        ${Builders_SRCS}
+        ${Core_SRCS}
+        ${Factories_SRCS}
+        ${Shaders_SRCS}
 )
 
-if(MSVC)
-  target_compile_options(Freya-static  PUBLIC "/ZI" "/MP")
-  target_link_options(Freya-static  PUBLIC "/INCREMENTAL")
-endif()
+if (MSVC)
+    target_compile_options(Freya-static PUBLIC "/ZI" "/MP")
+    target_link_options(Freya-static PUBLIC "/INCREMENTAL")
+endif ()
 
-target_compile_features(Freya-static  PUBLIC cxx_std_23)
-
-target_include_directories(Freya-static  PUBLIC Include ${Vulkan_INCLUDE_DIRS})
-
-target_link_libraries(Freya-static  SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES})
+target_compile_features(Freya-static PUBLIC cxx_std_23)
+target_include_directories(Freya-static PUBLIC Include ${Vulkan_INCLUDE_DIRS})
+target_link_libraries(Freya-static SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES})
 
 if (MINGW)
-target_link_libraries(Freya-static stdc++exp)
-endif(MINGW)
+    target_link_libraries(Freya-static stdc++exp)
+endif (MINGW)
 
-target_precompile_headers(Freya-static  PUBLIC
-    <memory>
-    <limits>
-    <cstdint>
-    <string>
-    <vector>
-    <set>
-    <print>
-    <fstream>
-    <vulkan/vulkan.hpp>
-    <SDL3/SDL.h>
-    <SDL3/SDL_vulkan.h>
-    Include/Macro.hpp
+target_precompile_headers(Freya-static PUBLIC
+        <memory>
+        <limits>
+        <cstdint>
+        <string>
+        <vector>
+        <set>
+        <print>
+        <fstream>
+        <vulkan/vulkan.hpp>
+        <SDL3/SDL.h>
+        <SDL3/SDL_vulkan.h>
+        Include/Macro.hpp
 )
 
 
@@ -103,12 +101,12 @@ add_executable(Main Examples/Main.cpp)
 
 target_compile_features(Main PUBLIC cxx_std_23)
 
-target_link_libraries(Main Freya-static ) 
+target_link_libraries(Main Freya-static)
 
-if(MSVC)
-  target_compile_options(Main PUBLIC "/ZI" "/MP")
-  target_link_options(Main PUBLIC "/INCREMENTAL")
-endif()
+if (MSVC)
+    target_compile_options(Main PUBLIC "/ZI" "/MP")
+    target_link_options(Main PUBLIC "/INCREMENTAL")
+endif ()
 
 
 file(COPY Shaders DESTINATION ${CMAKE_BINARY_DIR})
