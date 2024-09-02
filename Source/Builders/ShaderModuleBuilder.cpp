@@ -2,11 +2,34 @@
 
 #include "Core/Device.hpp"
 
+// #include <shaderc/shaderc.hpp>
+
 namespace FREYA_NAMESPACE
 {
     Ref<ShaderModule> ShaderModuleBuilder::Build() const
     {
-        const auto code       = readFile(mFilePath);
+        const auto code = readFile(mFilePath);
+
+        // TODO: Link shaderc correctly
+        // if (not mFilePath.ends_with(".spv"))
+        // {
+        //     const auto compiler       = shaderc::Compiler();
+        //     const auto compiledSource = compiler.CompileGlslToSpv(code.data(), code.size(), shaderc_glsl_fragment_shader, "main");
+        //
+        //     if (compiledSource.GetNumErrors())
+        //         throw std::runtime_error("Shader compilation failed: " + compiledSource.GetErrorMessage());
+        //
+        //     const auto createInfo = vk::ShaderModuleCreateInfo()
+        //                                 .setCode(*compiledSource.begin())
+        //                                 .setCodeSize(compiledSource.end() - compiledSource.begin());
+        //
+        //     auto shaderModule = mDevice->Get().createShaderModule(createInfo);
+        //
+        //     assert(shaderModule && "Failed to create shader module.");
+        //
+        //     return MakeRef<ShaderModule>(shaderModule);
+        // }
+
         const auto createInfo = vk::ShaderModuleCreateInfo()
                                     .setCodeSize(code.size())
                                     .setPCode(reinterpret_cast<const uint32_t*>(code.data()));
