@@ -5,20 +5,20 @@ namespace FREYA_NAMESPACE
 {
     enum : std::uint32_t
     {
-        BackAttachment,
-        DepthAttachment,
-        GBufferAttachment,
-        TranslucentAttachment,
-        OpaqueAttachment
+        DeferredBackAttachment,
+        DeferredDepthAttachment,
+        DeferredGBufferAttachment,
+        DeferredTranslucentAttachment,
+        DeferredOpaqueAttachment
     };
 
     enum : std::uint32_t
     {
-        DepthPrePass,
-        GBufferPass,
-        LightingPass,
-        TranslucentPass,
-        CompositePass
+        DeferredDepthPrePass,
+        DeferredGBufferPass,
+        DeferredLightingPass,
+        DeferredTranslucentPass,
+        DeferredCompositePass
     };
 
     class DeferredPass

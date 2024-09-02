@@ -52,41 +52,41 @@ namespace FREYA_NAMESPACE
 
         constexpr auto depthBufferReference =
             vk::AttachmentReference()
-                .setAttachment(DepthAttachment)
+                .setAttachment(DeferredDepthAttachment)
                 .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
         auto gBufferWriteReference =
             vk::AttachmentReference()
-                .setAttachment(GBufferAttachment)
+                .setAttachment(DeferredGBufferAttachment)
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
         auto gBufferReadReference = {
             vk::AttachmentReference()
-                .setAttachment(GBufferAttachment)
+                .setAttachment(DeferredGBufferAttachment)
                 .setLayout(vk::ImageLayout::eReadOnlyOptimal),
             vk::AttachmentReference()
-                .setAttachment(DepthAttachment)
+                .setAttachment(DeferredDepthAttachment)
                 .setLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal),
         };
 
         auto translucentBufferWriteReference = {
             vk::AttachmentReference()
-                .setAttachment(TranslucentAttachment)
+                .setAttachment(DeferredTranslucentAttachment)
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
         };
 
         auto opaqueBufferWriteReference = {
             vk::AttachmentReference()
-                .setAttachment(OpaqueAttachment)
+                .setAttachment(DeferredOpaqueAttachment)
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
         };
 
         auto compositeReadReference = {
             vk::AttachmentReference()
-                .setAttachment(TranslucentAttachment)
+                .setAttachment(DeferredTranslucentAttachment)
                 .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
             vk::AttachmentReference()
-                .setAttachment(OpaqueAttachment)
+                .setAttachment(DeferredOpaqueAttachment)
                 .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
         };
 
@@ -126,8 +126,8 @@ namespace FREYA_NAMESPACE
         auto dependencies = {
             // G-buffer pass depends on depth prepass.
             vk::SubpassDependency()
-                .setSrcSubpass(DepthPrePass)
-                .setDstSubpass(GBufferPass)
+                .setSrcSubpass(DeferredDepthPrePass)
+                .setDstSubpass(DeferredGBufferPass)
                 .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
                 .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
                 .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
@@ -135,8 +135,8 @@ namespace FREYA_NAMESPACE
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
             // Lighting pass depends on g-buffer.
             vk::SubpassDependency()
-                .setSrcSubpass(GBufferPass)
-                .setDstSubpass(LightingPass)
+                .setSrcSubpass(DeferredGBufferPass)
+                .setDstSubpass(DeferredLightingPass)
                 .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
                 .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
                 .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
@@ -144,8 +144,8 @@ namespace FREYA_NAMESPACE
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
             // Composite pass depends on translucent pass
             vk::SubpassDependency()
-                .setSrcSubpass(TranslucentPass)
-                .setDstSubpass(CompositePass)
+                .setSrcSubpass(DeferredTranslucentPass)
+                .setDstSubpass(DeferredCompositePass)
                 .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
                 .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
                 .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
@@ -153,8 +153,8 @@ namespace FREYA_NAMESPACE
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
             // Composite pass also depends on lightning
             vk::SubpassDependency()
-                .setSrcSubpass(LightingPass)
-                .setDstSubpass(CompositePass)
+                .setSrcSubpass(DeferredLightingPass)
+                .setDstSubpass(DeferredCompositePass)
                 .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
                 .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
                 .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
