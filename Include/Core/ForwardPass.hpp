@@ -8,6 +8,12 @@
 
 namespace FREYA_NAMESPACE
 {
+    enum : std::uint32_t
+    {
+        ForwardColorAttachment,
+        ForwardDepthAttachment,
+        ForwardColorResolveAttachment
+    };
 
     class ForwardPass
     {

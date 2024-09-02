@@ -39,7 +39,7 @@ namespace FREYA_NAMESPACE
             colorAttachment.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
         auto colorAttachmentRef = vk::AttachmentReference()
-                                      .setAttachment(0)
+                                      .setAttachment(ForwardColorAttachment)
                                       .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
         auto depthAttachment =
@@ -60,7 +60,7 @@ namespace FREYA_NAMESPACE
 
         auto depthAttachmentRef =
             vk::AttachmentReference()
-                .setAttachment(1)
+                .setAttachment(ForwardDepthAttachment)
                 .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
         auto colorAttachmentResolve =
@@ -76,14 +76,13 @@ namespace FREYA_NAMESPACE
 
         auto colorAttachmentResolveRef =
             vk::AttachmentReference()
-                .setAttachment(2)
+                .setAttachment(ForwardColorResolveAttachment)
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
         auto subpass =
             vk::SubpassDescription()
                 .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-                .setColorAttachmentCount(1)
-                .setPColorAttachments(&colorAttachmentRef)
+                .setColorAttachments(colorAttachmentRef)
                 .setPDepthStencilAttachment(&depthAttachmentRef);
 
         if (mSamples != vk::SampleCountFlagBits::e1)
