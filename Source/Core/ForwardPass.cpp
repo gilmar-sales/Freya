@@ -1,4 +1,4 @@
-#include "Core/RenderPass.hpp"
+#include "Core/ForwardPass.hpp"
 
 #include "Core/Buffer.hpp"
 #include "Core/CommandPool.hpp"
@@ -10,7 +10,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    RenderPass::~RenderPass()
+    ForwardPass::~ForwardPass()
     {
         mDevice->Get().destroyDescriptorPool(mSamplerDescriptorPool);
 
@@ -34,8 +34,8 @@ namespace FREYA_NAMESPACE
         mDevice->Get().destroyRenderPass(mRenderPass);
     }
 
-    void RenderPass::UpdateProjection(ProjectionUniformBuffer& buffer,
-                                      const std::uint32_t      frameIndex) const
+    void ForwardPass::UpdateProjection(ProjectionUniformBuffer& buffer,
+                                       const std::uint32_t      frameIndex) const
     {
         mUniformBuffers[frameIndex]->Copy(&buffer, sizeof(ProjectionUniformBuffer));
 
@@ -57,13 +57,13 @@ namespace FREYA_NAMESPACE
         mDevice->Get().updateDescriptorSets(1, &descriptorWriter, 0, nullptr);
     }
 
-    void RenderPass::UpdateModel(glm::mat4 model, const std::uint32_t frameIndex) const
+    void ForwardPass::UpdateModel(glm::mat4 model, const std::uint32_t frameIndex) const
     {
         mUniformBuffers[frameIndex]->Copy(&model, sizeof(model));
     }
 
-    void RenderPass::BindDescriptorSet(const Ref<CommandPool>& commandPool,
-                                       const std::uint32_t     frameIndex) const
+    void ForwardPass::BindDescriptorSet(const Ref<CommandPool>& commandPool,
+                                        const std::uint32_t     frameIndex) const
     {
         commandPool->GetCommandBuffer().bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,

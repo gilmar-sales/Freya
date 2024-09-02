@@ -3,7 +3,7 @@
 #include "Containers/SparseSet.hpp"
 #include "Core/CommandPool.hpp"
 #include "Core/Device.hpp"
-#include "Core/RenderPass.hpp"
+#include "Core/ForwardPass.hpp"
 #include "Texture.hpp"
 
 namespace FREYA_NAMESPACE
@@ -15,7 +15,7 @@ namespace FREYA_NAMESPACE
 
         TexturePool(const Ref<Device>&      device,
                     const Ref<CommandPool>& commandPool,
-                    const Ref<RenderPass>&  renderPass);
+                    const Ref<ForwardPass>&  renderPass);
 
         ~TexturePool();
 
@@ -25,7 +25,7 @@ namespace FREYA_NAMESPACE
       private:
         Ref<Device>      mDevice;
         Ref<CommandPool> mCommandPool;
-        Ref<RenderPass>  mRenderPass;
+        Ref<ForwardPass>  mRenderPass;
 
         TextureSet mTextures;
     };

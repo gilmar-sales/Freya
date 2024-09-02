@@ -9,21 +9,21 @@
 namespace FREYA_NAMESPACE
 {
 
-    class RenderPass
+    class ForwardPass
     {
       public:
-        RenderPass(const Ref<Device>&                          device,
-                   const Ref<Surface>&                         surface,
-                   const vk::RenderPass                        renderPass,
-                   const vk::PipelineLayout                    pipelineLayout,
-                   const vk::Pipeline                          graphicsPipeline,
-                   const std::vector<Ref<Buffer>>&             uniformBuffers,
-                   const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
-                   const std::vector<vk::DescriptorSet>&       descriptorSets,
-                   const vk::DescriptorPool                    descriptorPool,
-                   const vk::DescriptorSetLayout               samplerLayout,
-                   const vk::DescriptorPool                    samplerDescriptorPool,
-                   const vk::Sampler                           sampler) :
+        ForwardPass(const Ref<Device>&                          device,
+                    const Ref<Surface>&                         surface,
+                    const vk::RenderPass                        renderPass,
+                    const vk::PipelineLayout                    pipelineLayout,
+                    const vk::Pipeline                          graphicsPipeline,
+                    const std::vector<Ref<Buffer>>&             uniformBuffers,
+                    const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
+                    const std::vector<vk::DescriptorSet>&       descriptorSets,
+                    const vk::DescriptorPool                    descriptorPool,
+                    const vk::DescriptorSetLayout               samplerLayout,
+                    const vk::DescriptorPool                    samplerDescriptorPool,
+                    const vk::Sampler                           sampler) :
             mDevice(device),
             mSurface(surface), mRenderPass(renderPass),
             mPipelineLayout(pipelineLayout), mGraphicsPipeline(graphicsPipeline),
@@ -31,11 +31,11 @@ namespace FREYA_NAMESPACE
             mDescriptorSetLayouts(descriptorSetLayouts),
             mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool),
             mSamplerLayout(samplerLayout), mSamplerDescriptorPool(samplerDescriptorPool),
-            mSampler(sampler)
+            mSampler(sampler), mIndex(0)
         {
         }
 
-        ~RenderPass();
+        ~ForwardPass();
 
         void UpdateProjection(ProjectionUniformBuffer& buffer, std::uint32_t frameIndex) const;
         void UpdateModel(glm::mat4 model, std::uint32_t frameIndex) const;

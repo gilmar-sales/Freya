@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/RenderPass.hpp"
+#include "Core/ForwardPass.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -8,45 +8,45 @@ namespace FREYA_NAMESPACE
     class Device;
     class Surface;
 
-    class RenderPassBuilder
+    class ForwardPassBuilder
     {
       public:
-        RenderPassBuilder() :
+        ForwardPassBuilder() :
             mSamples(vk::SampleCountFlagBits::e1),
             mFrameCount(0) {}
 
-        RenderPassBuilder& SetDevice(const Ref<Device>& device)
+        ForwardPassBuilder& SetDevice(const Ref<Device>& device)
         {
             mDevice = device;
             return *this;
         }
 
-        RenderPassBuilder& SetPhysicalDevice(
+        ForwardPassBuilder& SetPhysicalDevice(
             const Ref<PhysicalDevice>& physicalDevice)
         {
             mPhysicalDevice = physicalDevice;
             return *this;
         }
 
-        RenderPassBuilder& SetSurface(const Ref<Surface>& surface)
+        ForwardPassBuilder& SetSurface(const Ref<Surface>& surface)
         {
             mSurface = surface;
             return *this;
         }
 
-        RenderPassBuilder& SetSamples(const vk::SampleCountFlagBits samples)
+        ForwardPassBuilder& SetSamples(const vk::SampleCountFlagBits samples)
         {
             mSamples = samples;
             return *this;
         }
 
-        RenderPassBuilder& SetFrameCount(const std::uint32_t frameCount)
+        ForwardPassBuilder& SetFrameCount(const std::uint32_t frameCount)
         {
             mFrameCount = frameCount;
             return *this;
         }
 
-        Ref<RenderPass> Build();
+        Ref<ForwardPass> Build();
 
       private:
         Ref<Device>         mDevice;

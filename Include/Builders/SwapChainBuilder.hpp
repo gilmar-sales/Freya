@@ -8,7 +8,7 @@ namespace FREYA_NAMESPACE
     class PhysicalDevice;
     class Device;
     class Surface;
-    class RenderPass;
+    class ForwardPass;
 
     class SwapChainBuilder
     {
@@ -51,7 +51,7 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        SwapChainBuilder& SetRenderPass(const Ref<RenderPass>& renderPass)
+        SwapChainBuilder& SetRenderPass(const Ref<ForwardPass>& renderPass)
         {
             mRenderPass = renderPass;
             return *this;
@@ -96,7 +96,7 @@ namespace FREYA_NAMESPACE
         Ref<PhysicalDevice> mPhysicalDevice;
         Ref<Device>         mDevice;
         Ref<Surface>        mSurface;
-        Ref<RenderPass>     mRenderPass;
+        Ref<ForwardPass>     mRenderPass;
 
         vk::SampleCountFlagBits mSamples;
 

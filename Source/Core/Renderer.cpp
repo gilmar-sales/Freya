@@ -1,7 +1,7 @@
 #include "Core/Renderer.hpp"
 
 #include "Builders/BufferBuilder.hpp"
-#include "Builders/RenderPassBuilder.hpp"
+#include "Builders/ForwardPassBuilder.hpp"
 #include "Builders/SwapChainBuilder.hpp"
 
 #include "Core/Buffer.hpp"
@@ -86,7 +86,7 @@ namespace FREYA_NAMESPACE
         mRenderPass.reset();
 
         mRenderPass =
-            RenderPassBuilder()
+            ForwardPassBuilder()
                 .SetDevice(mDevice)
                 .SetPhysicalDevice(mPhysicalDevice)
                 .SetSurface(mSurface)
@@ -228,15 +228,17 @@ namespace FREYA_NAMESPACE
                 .setDepthStencil(vk::ClearDepthStencilValue().setDepth(1.0f))
         };
 
-        const auto renderPassInfo =
+        const auto renderPassBeginInfo =
             vk::RenderPassBeginInfo()
                 .setRenderPass(mRenderPass->Get())
                 .setFramebuffer(swapChainFrame.frameBuffer)
                 .setRenderArea(
-                    vk::Rect2D().setOffset({ 0, 0 }).setExtent(mSwapChain->GetExtent()))
+                    vk::Rect2D()
+                        .setOffset({ 0, 0 })
+                        .setExtent(mSwapChain->GetExtent()))
                 .setClearValues(clearValues);
 
-        commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+        commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
 
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                                    mRenderPass->GetGraphicsPipeline());

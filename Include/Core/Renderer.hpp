@@ -6,9 +6,9 @@
 #include "Events/EventManager.hpp"
 #include "Factories/MeshPoolFactory.hpp"
 #include "Factories/TexturePoolFactory.hpp"
+#include "ForwardPass.hpp"
 #include "Instance.hpp"
 #include "PhysicalDevice.hpp"
-#include "RenderPass.hpp"
 #include "Surface.hpp"
 #include "SwapChain.hpp"
 
@@ -28,7 +28,7 @@ namespace FREYA_NAMESPACE
                  const Ref<PhysicalDevice>&        physicalDevice,
                  const Ref<Device>&                device,
                  const Ref<SwapChain>&             swapChain,
-                 const Ref<RenderPass>&            renderPass,
+                 const Ref<ForwardPass>&           renderPass,
                  const Ref<CommandPool>&           commandPool,
                  const std::vector<vk::Semaphore>& imageAvailableSemaphores,
                  const std::vector<vk::Semaphore>& renderFinishedSemaphores,
@@ -92,7 +92,7 @@ namespace FREYA_NAMESPACE
         Ref<PhysicalDevice> mPhysicalDevice;
         Ref<Device>         mDevice;
         Ref<SwapChain>      mSwapChain;
-        Ref<RenderPass>     mRenderPass;
+        Ref<ForwardPass>    mRenderPass;
         Ref<CommandPool>    mCommandPool;
         Ref<EventManager>   mEventManager;
 

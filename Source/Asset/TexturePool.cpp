@@ -8,7 +8,7 @@ namespace FREYA_NAMESPACE
 {
     TexturePool::TexturePool(const Ref<Device>&      device,
                              const Ref<CommandPool>& commandPool,
-                             const Ref<RenderPass>&  renderPass) :
+                             const Ref<ForwardPass>&  renderPass) :
         mDevice(device),
         mCommandPool(commandPool),
         mRenderPass(renderPass)

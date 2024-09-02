@@ -2,8 +2,8 @@
 
 #include "Builders/CommandPoolBuilder.hpp"
 #include "Builders/DeviceBuilder.hpp"
+#include "Builders/ForwardPassBuilder.hpp"
 #include "Builders/PhysicalDeviceBuilder.hpp"
-#include "Builders/RenderPassBuilder.hpp"
 #include "Builders/SurfaceBuilder.hpp"
 #include "Builders/SwapChainBuilder.hpp"
 
@@ -36,7 +36,7 @@ namespace FREYA_NAMESPACE
 
         mSamples = physicalDevice->QuerySamplesSupport(mSamples);
 
-        auto renderPass = RenderPassBuilder()
+        auto renderPass = ForwardPassBuilder()
                               .SetDevice(device)
                               .SetPhysicalDevice(physicalDevice)
                               .SetSurface(surface)

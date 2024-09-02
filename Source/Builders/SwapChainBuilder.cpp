@@ -3,8 +3,8 @@
 #include "Builders/SurfaceBuilder.hpp"
 
 #include "Core/Device.hpp"
+#include "Core/ForwardPass.hpp"
 #include "Core/PhysicalDevice.hpp"
-#include "Core/RenderPass.hpp"
 #include <Builders/ImageBuilder.hpp>
 
 #include <vulkan/vulkan_to_string.hpp>

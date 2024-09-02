@@ -1,4 +1,4 @@
-#include "Builders/RenderPassBuilder.hpp"
+#include "Builders/ForwardPassBuilder.hpp"
 
 #include "Builders/BufferBuilder.hpp"
 #include "Builders/ShaderModuleBuilder.hpp"
@@ -18,7 +18,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    Ref<RenderPass> RenderPassBuilder::Build()
+    Ref<ForwardPass> ForwardPassBuilder::Build()
     {
         auto format = mSurface->QuerySurfaceFormat().format;
 
@@ -362,7 +362,7 @@ namespace FREYA_NAMESPACE
                                                .setMaxAnisotropy(16);
 
         const auto sampler = mDevice->Get().createSampler(samplerCreateInfo);
-        return MakeRef<RenderPass>(
+        return MakeRef<ForwardPass>(
             mDevice,
             mSurface,
             renderPass,
