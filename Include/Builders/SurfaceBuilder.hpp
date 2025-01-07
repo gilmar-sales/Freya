@@ -12,9 +12,7 @@ namespace FREYA_NAMESPACE
       public:
         SurfaceBuilder() :
             mWindow(nullptr),
-            mImageCount(0),
-            mWidth(800),
-            mHeight(600) {}
+            mImageCount(0) {}
 
         SurfaceBuilder& SetWindow(SDL_Window* window)
         {
@@ -34,19 +32,7 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        SurfaceBuilder& SetWidth(const std::uint32_t width)
-        {
-            mWidth = width;
-            return *this;
-        }
-
-        SurfaceBuilder& SetHeight(const std::uint32_t height)
-        {
-            mHeight = height;
-            return *this;
-        }
-
-        Ref<Surface> Build();
+        std::shared_ptr<Surface> Build();
 
       private:
         SDL_Window*         mWindow;
@@ -54,8 +40,6 @@ namespace FREYA_NAMESPACE
         Ref<PhysicalDevice> mPhysicalDevice;
 
         std::uint32_t mImageCount;
-        std::uint32_t mWidth;
-        std::uint32_t mHeight;
     };
 
 } // namespace FREYA_NAMESPACE

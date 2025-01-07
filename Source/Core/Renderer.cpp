@@ -189,9 +189,6 @@ namespace FREYA_NAMESPACE
 
         if (mResizeEvent.has_value())
         {
-            mSurface->SetWidth(mResizeEvent->width);
-            mSurface->SetHeight(mResizeEvent->height);
-
             RebuildSwapChain();
 
             mResizeEvent.reset();
