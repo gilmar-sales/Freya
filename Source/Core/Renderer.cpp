@@ -148,6 +148,16 @@ namespace FREYA_NAMESPACE
         mCurrentProjection = projectionUniformBuffer;
     }
 
+    glm::mat4 Renderer::CalculateProjectionMatrix(const float near, const float far) const
+    {
+        const auto extent = mSurface->QueryExtent();
+        return glm::perspective(glm::radians(75.0f),
+                                static_cast<float>(extent.width) /
+                                    static_cast<float>(extent.height),
+                                near,
+                                far);
+    }
+
     void Renderer::UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer)
     {
         mRenderPass->UpdateProjection(projectionUniformBuffer, mCurrentFrameIndex);

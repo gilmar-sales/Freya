@@ -75,6 +75,7 @@ namespace FREYA_NAMESPACE
 
         void SetDrawDistance(float drawDistance);
         void ClearProjections();
+        glm::mat4 CalculateProjectionMatrix(float near, float far) const;
 
         [[nodiscard]] const ProjectionUniformBuffer& GetCurrentProjection() const { return mCurrentProjection; }
         void                                         UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer);

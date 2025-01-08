@@ -24,6 +24,8 @@ namespace FREYA_NAMESPACE
                 mWindow->Update();
                 Update();
             }
+
+            ShutDown();
         };
 
       protected:
