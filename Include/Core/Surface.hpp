@@ -11,19 +11,13 @@ namespace FREYA_NAMESPACE
         Surface(const Ref<Instance>&       instance,
                 const Ref<PhysicalDevice>& physicalDevice,
                 const vk::SurfaceKHR       surface,
-                const std::uint32_t        width,
-                const std::uint32_t        height) :
+                SDL_Window*    window) :
             mInstance(instance),
             mPhysicalDevice(physicalDevice),
             mSurface(surface),
-            mWidth(width),
-            mHeight(height)
+            mWindow(window)
         {
-            const auto capabilities = mPhysicalDevice->Get().getSurfaceCapabilitiesKHR(mSurface);
-
-            mMaxExtent     = capabilities.maxImageExtent;
-            mMinImageCount = capabilities.minImageCount;
-            mMaxImageCount = capabilities.maxImageCount;
+            mCapabilities = mPhysicalDevice->Get().getSurfaceCapabilitiesKHR(mSurface);
         }
 
         ~Surface();
@@ -34,27 +28,12 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] vk::Extent2D         QueryExtent() const;
         [[nodiscard]] std::uint32_t        QueryFrameCountSupport(std::uint32_t desired) const;
 
-        void SetWidth(const std::uint32_t width)
-        {
-            mWidth = std::min(mMaxExtent.width, width);
-        }
-
-        void SetHeight(const std::uint32_t height)
-        {
-            mHeight = std::min(mMaxExtent.height, height);
-        }
-
       private:
         Ref<Instance>       mInstance;
         Ref<PhysicalDevice> mPhysicalDevice;
         vk::SurfaceKHR      mSurface;
-
-        std::uint32_t mMinImageCount;
-        std::uint32_t mMaxImageCount;
-        vk::Extent2D  mMaxExtent;
-
-        std::uint32_t mWidth;
-        std::uint32_t mHeight;
+        SDL_Window*                mWindow;
+        vk::SurfaceCapabilitiesKHR mCapabilities;
     };
 
 } // namespace FREYA_NAMESPACE

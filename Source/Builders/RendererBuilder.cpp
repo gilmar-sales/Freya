@@ -22,8 +22,6 @@ namespace FREYA_NAMESPACE
                            .SetInstance(instance)
                            .SetPhysicalDevice(physicalDevice)
                            .SetWindow(mWindow)
-                           .SetWidth(mWidth)
-                           .SetHeight(mHeight)
                            .Build();
 
         mFrameCount = surface->QueryFrameCountSupport(mFrameCount);

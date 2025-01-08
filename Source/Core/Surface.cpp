@@ -25,23 +25,40 @@ namespace FREYA_NAMESPACE
 
     vk::Extent2D Surface::QueryExtent() const
     {
-        const auto capablities = mPhysicalDevice->Get().getSurfaceCapabilitiesKHR(mSurface);
+        auto w = 0, h = 0;
+        SDL_GetWindowSize(mWindow, &w, &h);
 
-        if (capablities.currentExtent.width != std::numeric_limits<std::uint32_t>::max())
+        auto width  = static_cast<uint32_t>(w);
+        auto height = static_cast<uint32_t>(h);
+
+        auto capabilities = mPhysicalDevice->Get().getSurfaceCapabilitiesKHR(mSurface);
+        if (capabilities.currentExtent.width != std::numeric_limits<std::uint32_t>::max())
         {
-            return capablities.currentExtent;
+            return vk::Extent2D()
+                .setWidth(std::min(width, capabilities.currentExtent.width))
+                .setHeight(std::min(height, capabilities.currentExtent.height));
         }
+        else
+        {
+            auto actualExtent = vk::Extent2D()
+                                    .setWidth(std::min(width, capabilities.maxImageExtent.width))
+                                    .setHeight(std::min(height, capabilities.maxImageExtent.height));
 
-        const auto actualExtent =
-            vk::Extent2D()
-                .setWidth(std::min(mMaxExtent.width, mWidth))
-                .setHeight(std::min(mMaxExtent.height, mHeight));
-
-        return actualExtent;
+            return actualExtent;
+        }
     }
 
-    std::uint32_t Surface::QueryFrameCountSupport(const std::uint32_t desired) const
+    std::uint32_t Surface::QueryFrameCountSupport(std::uint32_t desired) const
     {
-        return std::clamp(desired, mMinImageCount, std::max(mMinImageCount, mMaxImageCount));
+        if (desired < mCapabilities.minImageCount)
+        {
+            desired = mCapabilities.minImageCount;
+        }
+        if (mCapabilities.maxImageCount > 0 && desired > mCapabilities.maxImageCount)
+        {
+            desired = mCapabilities.maxImageCount;
+        }
+
+        return desired;
     }
 } // namespace FREYA_NAMESPACE

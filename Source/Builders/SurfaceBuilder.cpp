@@ -18,7 +18,7 @@ namespace FREYA_NAMESPACE
         auto surface = vk::SurfaceKHR { cSurface };
         assert(surface && "Failed to create SDL2 surface.");
 
-        return MakeRef<Surface>(mInstance, mPhysicalDevice, surface, mWidth, mHeight);
+        return MakeRef<Surface>(mInstance, mPhysicalDevice, surface, mWindow);
     }
 
 } // namespace FREYA_NAMESPACE

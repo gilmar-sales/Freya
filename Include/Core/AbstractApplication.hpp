@@ -12,6 +12,7 @@ namespace FREYA_NAMESPACE
         virtual ~AbstractApplication() = default;
 
         virtual void StartUp() {};
+        virtual void ShutDown() {};
 
         virtual void Update() = 0;
 
@@ -31,7 +32,7 @@ namespace FREYA_NAMESPACE
       protected:
         friend class ApplicationBuilder;
 
-        float                         mDeltaTime;
+        float             mDeltaTime;
         Ref<Window>       mWindow;
         Ref<Renderer>     mRenderer;
         Ref<EventManager> mEventManager;
