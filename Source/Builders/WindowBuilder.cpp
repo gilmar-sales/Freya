@@ -5,7 +5,7 @@ namespace FREYA_NAMESPACE
 
     Ref<Window> WindowBuilder::Build()
     {
-        assert(SDL_Init(SDL_INIT_VIDEO) == 0 && "Failed to initialize SDL3");
+        assert(SDL_Init(SDL_INIT_VIDEO) && "Failed to initialize SDL3");
 
         SDL_Vulkan_LoadLibrary(nullptr);
 
