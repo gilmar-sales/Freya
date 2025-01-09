@@ -47,6 +47,8 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] float GetDeltaTime() const { return mDeltaTime; }
 
+        void SetMouseGrab(bool grab) const;
+
       private:
         friend class ApplicationBuilder;
         void pollEvents();

@@ -43,6 +43,12 @@ namespace FREYA_NAMESPACE
         frames++;
     }
 
+    void Window::SetMouseGrab(const bool grab) const
+    {
+        SDL_SetWindowRelativeMouseMode(mWindow, grab);
+        SDL_SetWindowMouseGrab(mWindow, grab);
+    }
+
     void Window::pollEvents()
     {
         SDL_Event sdlEvent;
