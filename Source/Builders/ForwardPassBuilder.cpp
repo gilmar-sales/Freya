@@ -164,7 +164,7 @@ namespace FREYA_NAMESPACE
                 .setRasterizerDiscardEnable(false)
                 .setPolygonMode(vk::PolygonMode::eFill)
                 .setCullMode(vk::CullModeFlagBits::eBack)
-                .setFrontFace(vk::FrontFace::eCounterClockwise)
+                .setFrontFace(vk::FrontFace::eClockwise)
                 .setLineWidth(1.0f)
                 .setDepthBiasEnable(false);
 
