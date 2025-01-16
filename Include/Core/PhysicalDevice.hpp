@@ -28,6 +28,8 @@ namespace FREYA_NAMESPACE
 
         vk::Format GetDepthFormat() const;
 
+        std::vector<const char*> FilterSupportedExtensions(std::vector<const char*> requestedExtensions) const;
+
       private:
         vk::PhysicalDevice mPhysicalDevice;
     };

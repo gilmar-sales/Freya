@@ -76,7 +76,7 @@ namespace FREYA_NAMESPACE
 
     vk::Format PhysicalDevice::GetDepthFormat() const
     {
-        const auto candidates = std::vector<vk::Format> {
+        const auto candidates = std::vector {
             vk::Format::eD32SfloatS8Uint,
             vk::Format::eD32Sfloat,
             vk::Format::eD24UnormS8Uint,
@@ -95,5 +95,19 @@ namespace FREYA_NAMESPACE
         }
 
         return vk::Format::eD32Sfloat;
+    }
+    std::vector<const char*> PhysicalDevice::FilterSupportedExtensions(std::vector<const char*> requestedExtensions) const
+    {
+        auto supportedExtensions = mPhysicalDevice.enumerateDeviceExtensionProperties();
+        auto filteredExtensions  = std::vector<const char*>();
+        filteredExtensions.reserve(requestedExtensions.size());
+
+        std::ranges::copy_if(requestedExtensions, std::back_inserter(filteredExtensions), [&](const char* extension) {
+            return std::ranges::find_if(supportedExtensions, [extension](vk::ExtensionProperties& extensionProperties) {
+                       return extensionProperties.extensionName == extension;
+                   }) != supportedExtensions.end();
+        });
+
+        return std::move(filteredExtensions);
     }
 } // namespace FREYA_NAMESPACE

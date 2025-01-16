@@ -84,10 +84,26 @@ namespace FREYA_NAMESPACE
             memoryRequirements.memoryTypeBits,
             memoryProperties);
 
+        auto priorityInfo = vk::MemoryPriorityAllocateInfoEXT()
+                                .setPriority(0.2f);
+
+        switch (mUsage)
+        {
+            case BufferUsage::Vertex:
+            case BufferUsage::Index:
+            case BufferUsage::Uniform:
+            case BufferUsage::Instance:
+                priorityInfo.setPriority(1.0f);
+                break;
+            default:
+                break;
+        }
+
         const auto allocInfo =
             vk::MemoryAllocateInfo()
                 .setAllocationSize(memoryRequirements.size)
-                .setMemoryTypeIndex(memoryTypeIndex);
+                .setMemoryTypeIndex(memoryTypeIndex)
+                .setPNext(&priorityInfo);
 
         auto memory = mDevice->Get().allocateMemory(allocInfo);
 

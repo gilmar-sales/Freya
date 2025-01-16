@@ -13,7 +13,7 @@ namespace FREYA_NAMESPACE
     {
       public:
         DeviceBuilder() :
-            mDeviceExtensions({ VK_KHR_SWAPCHAIN_EXTENSION_NAME })
+            mDeviceExtensions({ VK_KHR_SWAPCHAIN_EXTENSION_NAME, "VK_EXT_memory_priority", "VK_EXT_pageable_device_local_memory" })
         {
         }
 
@@ -40,7 +40,8 @@ namespace FREYA_NAMESPACE
         Ref<Device> Build();
 
       protected:
-        QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device) const;
+        QueueFamilyIndices              findQueueFamilies(vk::PhysicalDevice device) const;
+        static std::vector<const char*> OptionalExtensions;
 
       private:
         Ref<Instance>            mInstance;

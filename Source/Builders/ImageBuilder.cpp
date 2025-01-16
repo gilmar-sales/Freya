@@ -50,10 +50,24 @@ namespace FREYA_NAMESPACE
             imageRequirements.memoryTypeBits,
             vk::MemoryPropertyFlagBits::eDeviceLocal);
 
+        auto priorityInfo = vk::MemoryPriorityAllocateInfoEXT()
+                                .setPriority(0.5f);
+
+        switch (mUsage)
+        {
+            case ImageUsage::Color:
+            case ImageUsage::Depth:
+            case ImageUsage::Sampling:
+                priorityInfo.setPriority(1.0f);
+            default:
+                break;
+        }
+
         auto imageMemoryInfo =
             vk::MemoryAllocateInfo()
                 .setAllocationSize(imageRequirements.size)
-                .setMemoryTypeIndex(memoryTypeIndex);
+                .setMemoryTypeIndex(memoryTypeIndex)
+                .setPNext(&priorityInfo);
 
         auto imageMemory = mDevice->Get().allocateMemory(imageMemoryInfo);
 

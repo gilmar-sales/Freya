@@ -27,7 +27,7 @@ namespace FREYA_NAMESPACE
                 .setFormat(format)
                 .setSamples(mSamples)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
-                .setStoreOp(vk::AttachmentStoreOp::eStore)
+                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
@@ -47,7 +47,7 @@ namespace FREYA_NAMESPACE
                 .setFormat(mPhysicalDevice->GetDepthFormat())
                 .setSamples(mSamples)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
-                .setStoreOp(vk::AttachmentStoreOp::eStore)
+                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setStencilLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
@@ -90,14 +90,23 @@ namespace FREYA_NAMESPACE
             subpass.setPResolveAttachments(&colorAttachmentResolveRef);
         }
 
-        auto dependency =
+        auto dependencies = std::vector {
             vk::SubpassDependency()
                 .setSrcSubpass(~0u)
                 .setDstSubpass(0)
                 .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
                 .setSrcAccessMask(vk::AccessFlagBits::eNone)
                 .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
+                .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite),
+            vk::SubpassDependency()
+                .setSrcSubpass(~0u)
+                .setDstSubpass(0)
+                .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
+                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                .setDependencyFlags(vk::DependencyFlagBits::eByRegion)
+        };
 
         auto attachments =
             mSamples == vk::SampleCountFlagBits::e1
@@ -113,7 +122,7 @@ namespace FREYA_NAMESPACE
             vk::RenderPassCreateInfo()
                 .setAttachments(attachments)
                 .setSubpasses(subpass)
-                .setDependencies(dependency);
+                .setDependencies(dependencies);
 
         auto renderPass = mDevice->Get().createRenderPass(renderPassInfo);
 

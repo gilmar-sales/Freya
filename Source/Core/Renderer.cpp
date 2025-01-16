@@ -224,7 +224,8 @@ namespace FREYA_NAMESPACE
         const auto& commandBuffer = mCommandPool->GetCommandBuffer();
         commandBuffer.reset();
 
-        constexpr auto beginInfo = vk::CommandBufferBeginInfo();
+        constexpr auto beginInfo = vk::CommandBufferBeginInfo()
+                                       .setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
 
         commandBuffer.begin(beginInfo);
 
