@@ -235,7 +235,9 @@ namespace FREYA_NAMESPACE
             vk::ClearValue()
                 .setColor(mClearColor),
             vk::ClearValue()
-                .setDepthStencil(vk::ClearDepthStencilValue().setDepth(1.0f))
+                .setDepthStencil(vk::ClearDepthStencilValue().setDepth(1.0f)),
+            vk::ClearValue()
+                .setColor(mClearColor),
         };
 
         const auto renderPassBeginInfo =

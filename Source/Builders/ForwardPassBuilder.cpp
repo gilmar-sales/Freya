@@ -63,7 +63,7 @@ namespace FREYA_NAMESPACE
                 .setFormat(mPhysicalDevice->GetDepthFormat())
                 .setSamples(mSamples)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
-                .setStoreOp(vk::AttachmentStoreOp::eStore)
+                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setStencilLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
