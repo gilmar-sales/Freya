@@ -7,6 +7,7 @@
 namespace FREYA_NAMESPACE
 {
     std::vector<const char*> DeviceBuilder::OptionalExtensions = {
+        "VK_EXT_memory_priority",
         "VK_EXT_pageable_device_local_memory"
     };
 
@@ -49,7 +50,7 @@ namespace FREYA_NAMESPACE
         // TODO: use optional extensions for memory priority
         auto optionalExtensions = mPhysicalDevice->FilterSupportedExtensions(OptionalExtensions);
 
-        mDeviceExtensions.insert_range(mDeviceExtensions.end(), optionalExtensions);
+        mDeviceExtensions.insert(mDeviceExtensions.end(), optionalExtensions.begin(), optionalExtensions.end());
 
         auto createInfo =
             vk::DeviceCreateInfo()
