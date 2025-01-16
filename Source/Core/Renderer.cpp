@@ -222,7 +222,9 @@ namespace FREYA_NAMESPACE
         mRenderPass->SetFrameIndex(mCurrentFrameIndex);
 
         const auto& commandBuffer = mCommandPool->GetCommandBuffer();
-        commandBuffer.reset();
+
+        if (mCurrentFrameIndex == 0)
+            mDevice->Get().resetCommandPool(mCommandPool->Get());
 
         constexpr auto beginInfo = vk::CommandBufferBeginInfo()
                                        .setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);

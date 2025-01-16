@@ -13,7 +13,6 @@ namespace FREYA_NAMESPACE
 
         const auto commandPoolCreateInfo =
             vk::CommandPoolCreateInfo()
-                .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
                 .setQueueFamilyIndex(queueFamilyIndices.graphicsFamily.value());
 
         auto commandPool = mDevice->Get().createCommandPool(commandPoolCreateInfo);
