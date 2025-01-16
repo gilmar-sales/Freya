@@ -42,16 +42,32 @@ namespace FREYA_NAMESPACE
                                       .setAttachment(ForwardColorAttachment)
                                       .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
+        auto colorAttachmentResolve =
+            vk::AttachmentDescription()
+                .setFormat(format)
+                .setSamples(vk::SampleCountFlagBits::e1)
+                .setLoadOp(vk::AttachmentLoadOp::eClear)
+                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setInitialLayout(vk::ImageLayout::eUndefined)
+                .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+
+        auto colorAttachmentResolveRef =
+            vk::AttachmentReference()
+                .setAttachment(ForwardColorResolveAttachment)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
         auto depthAttachment =
             vk::AttachmentDescription()
                 .setFormat(mPhysicalDevice->GetDepthFormat())
                 .setSamples(mSamples)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
-                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setStoreOp(vk::AttachmentStoreOp::eStore)
                 .setStencilLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
-                .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+                .setFinalLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal);
 
         if (mSamples != vk::SampleCountFlagBits::e1)
             depthAttachment.setFinalLayout(vk::ImageLayout::eDepthAttachmentStencilReadOnlyOptimal);
@@ -62,22 +78,6 @@ namespace FREYA_NAMESPACE
             vk::AttachmentReference()
                 .setAttachment(ForwardDepthAttachment)
                 .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
-
-        auto colorAttachmentResolve =
-            vk::AttachmentDescription()
-                .setFormat(format)
-                .setSamples(vk::SampleCountFlagBits::e1)
-                .setLoadOp(vk::AttachmentLoadOp::eDontCare)
-                .setStoreOp(vk::AttachmentStoreOp::eStore)
-                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-                .setInitialLayout(vk::ImageLayout::eUndefined)
-                .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
-
-        auto colorAttachmentResolveRef =
-            vk::AttachmentReference()
-                .setAttachment(ForwardColorResolveAttachment)
-                .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
         auto subpass =
             vk::SubpassDescription()
@@ -92,18 +92,19 @@ namespace FREYA_NAMESPACE
 
         auto dependencies = std::vector {
             vk::SubpassDependency()
-                .setSrcSubpass(~0u)
+                .setSrcSubpass(VK_SUBPASS_EXTERNAL)
                 .setDstSubpass(0)
-                .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setSrcStageMask(vk::PipelineStageFlagBits::eBottomOfPipe)
+                .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests)
                 .setSrcAccessMask(vk::AccessFlagBits::eNone)
-                .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite),
+                .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite)
+                .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
             vk::SubpassDependency()
-                .setSrcSubpass(~0u)
-                .setDstSubpass(0)
-                .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setSrcSubpass(0)
+                .setDstSubpass(VK_SUBPASS_EXTERNAL)
+                .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eLateFragmentTests)
                 .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
-                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite)
                 .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion)
         };
