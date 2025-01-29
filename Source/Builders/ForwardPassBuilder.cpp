@@ -15,15 +15,13 @@
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_enums.hpp>
 
-namespace FREYA_NAMESPACE
-{
-
-    Ref<ForwardPass> ForwardPassBuilder::Build()
-    {
+namespace
+FREYA_NAMESPACE {
+    Ref<ForwardPass> ForwardPassBuilder::Build() {
         auto format = mSurface->QuerySurfaceFormat().format;
 
         auto colorAttachment =
-            vk::AttachmentDescription()
+                vk::AttachmentDescription()
                 .setFormat(format)
                 .setSamples(mSamples)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
@@ -33,17 +31,17 @@ namespace FREYA_NAMESPACE
                 .setInitialLayout(vk::ImageLayout::eUndefined)
                 .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
 
-        std::println("Color Format: {}", vk::to_string(colorAttachment.format));
+        std::cout << "Color Format: " << vk::to_string(colorAttachment.format) << std::endl;
 
         if (mSamples != vk::SampleCountFlagBits::e1)
             colorAttachment.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
         auto colorAttachmentRef = vk::AttachmentReference()
-                                      .setAttachment(ForwardColorAttachment)
-                                      .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+                .setAttachment(ForwardColorAttachment)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
         auto colorAttachmentResolve =
-            vk::AttachmentDescription()
+                vk::AttachmentDescription()
                 .setFormat(format)
                 .setSamples(vk::SampleCountFlagBits::e1)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
@@ -54,12 +52,12 @@ namespace FREYA_NAMESPACE
                 .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
 
         auto colorAttachmentResolveRef =
-            vk::AttachmentReference()
+                vk::AttachmentReference()
                 .setAttachment(ForwardColorResolveAttachment)
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
         auto depthAttachment =
-            vk::AttachmentDescription()
+                vk::AttachmentDescription()
                 .setFormat(mPhysicalDevice->GetDepthFormat())
                 .setSamples(mSamples)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
@@ -72,55 +70,60 @@ namespace FREYA_NAMESPACE
         if (mSamples != vk::SampleCountFlagBits::e1)
             depthAttachment.setFinalLayout(vk::ImageLayout::eDepthAttachmentStencilReadOnlyOptimal);
 
-        std::println("Depth Format: {}", vk::to_string(depthAttachment.format));
+        std::cout << "Depth Format: " << to_string(depthAttachment.format) << std::endl;
 
         auto depthAttachmentRef =
-            vk::AttachmentReference()
+                vk::AttachmentReference()
                 .setAttachment(ForwardDepthAttachment)
                 .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
         auto subpass =
-            vk::SubpassDescription()
+                vk::SubpassDescription()
                 .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
                 .setColorAttachments(colorAttachmentRef)
                 .setPDepthStencilAttachment(&depthAttachmentRef);
 
-        if (mSamples != vk::SampleCountFlagBits::e1)
-        {
+        if (mSamples != vk::SampleCountFlagBits::e1) {
             subpass.setPResolveAttachments(&colorAttachmentResolveRef);
         }
 
-        auto dependencies = std::vector {
+        auto dependencies = std::vector{
             vk::SubpassDependency()
-                .setSrcSubpass(VK_SUBPASS_EXTERNAL)
-                .setDstSubpass(0)
-                .setSrcStageMask(vk::PipelineStageFlagBits::eBottomOfPipe)
-                .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests)
-                .setSrcAccessMask(vk::AccessFlagBits::eNone)
-                .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite)
-                .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
+            .setSrcSubpass(VK_SUBPASS_EXTERNAL)
+            .setDstSubpass(0)
+            .setSrcStageMask(vk::PipelineStageFlagBits::eBottomOfPipe)
+            .setDstStageMask(
+                vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests)
+            .setSrcAccessMask(vk::AccessFlagBits::eNone)
+            .setDstAccessMask(
+                vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite)
+            .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
             vk::SubpassDependency()
-                .setSrcSubpass(0)
-                .setDstSubpass(VK_SUBPASS_EXTERNAL)
-                .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eLateFragmentTests)
-                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
-                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite)
-                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
-                .setDependencyFlags(vk::DependencyFlagBits::eByRegion)
+            .setSrcSubpass(0)
+            .setDstSubpass(VK_SUBPASS_EXTERNAL)
+            .setSrcStageMask(
+                vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eLateFragmentTests)
+            .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
+            .setSrcAccessMask(
+                vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite)
+            .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+            .setDependencyFlags(vk::DependencyFlagBits::eByRegion)
         };
 
         auto attachments =
-            mSamples == vk::SampleCountFlagBits::e1
-                ? std::vector { colorAttachment,
-                                depthAttachment }
-                : std::vector {
-                      colorAttachment,
-                      depthAttachment,
-                      colorAttachmentResolve
-                  };
+                mSamples == vk::SampleCountFlagBits::e1
+                    ? std::vector{
+                        colorAttachment,
+                        depthAttachment
+                    }
+                    : std::vector{
+                        colorAttachment,
+                        depthAttachment,
+                        colorAttachmentResolve
+                    };
 
         auto renderPassInfo =
-            vk::RenderPassCreateInfo()
+                vk::RenderPassCreateInfo()
                 .setAttachments(attachments)
                 .setSubpasses(subpass)
                 .setDependencies(dependencies);
@@ -128,48 +131,48 @@ namespace FREYA_NAMESPACE
         auto renderPass = mDevice->Get().createRenderPass(renderPassInfo);
 
         auto vertShaderModule =
-            ShaderModuleBuilder()
+                ShaderModuleBuilder()
                 .SetDevice(mDevice)
                 .SetFilePath("./Shaders/Vert.spv")
                 .Build();
 
         auto fragShaderModule =
-            ShaderModuleBuilder()
+                ShaderModuleBuilder()
                 .SetDevice(mDevice)
                 .SetFilePath("./Shaders/Frag.spv")
                 .Build();
 
         auto vertShaderStageInfo =
-            vk::PipelineShaderStageCreateInfo()
+                vk::PipelineShaderStageCreateInfo()
                 .setStage(vk::ShaderStageFlagBits::eVertex)
                 .setModule(vertShaderModule->Get())
                 .setPName("main");
 
         auto fragShaderStageInfo =
-            vk::PipelineShaderStageCreateInfo()
+                vk::PipelineShaderStageCreateInfo()
                 .setStage(vk::ShaderStageFlagBits::eFragment)
                 .setModule(fragShaderModule->Get())
                 .setPName("main");
 
-        auto shaderStages = { vertShaderStageInfo, fragShaderStageInfo };
+        auto shaderStages = {vertShaderStageInfo, fragShaderStageInfo};
 
-        auto vertexBindingDescription    = Vertex::GetBindingDescription();
+        auto vertexBindingDescription = Vertex::GetBindingDescription();
         auto vertexAttributesDescription = Vertex::GetAttributesDescription();
 
         auto vertexInputInfo =
-            vk::PipelineVertexInputStateCreateInfo()
+                vk::PipelineVertexInputStateCreateInfo()
                 .setVertexBindingDescriptions(vertexBindingDescription)
                 .setVertexAttributeDescriptions(vertexAttributesDescription);
 
         auto inputAssembly = vk::PipelineInputAssemblyStateCreateInfo()
-                                 .setTopology(vk::PrimitiveTopology::eTriangleList)
-                                 .setPrimitiveRestartEnable(false);
+                .setTopology(vk::PrimitiveTopology::eTriangleList)
+                .setPrimitiveRestartEnable(false);
 
         auto viewportState =
-            vk::PipelineViewportStateCreateInfo().setViewportCount(1).setScissorCount(1);
+                vk::PipelineViewportStateCreateInfo().setViewportCount(1).setScissorCount(1);
 
         auto rasterizer =
-            vk::PipelineRasterizationStateCreateInfo()
+                vk::PipelineRasterizationStateCreateInfo()
                 .setDepthClampEnable(true)
                 .setRasterizerDiscardEnable(false)
                 .setPolygonMode(vk::PolygonMode::eFill)
@@ -179,7 +182,7 @@ namespace FREYA_NAMESPACE
                 .setDepthBiasEnable(false);
 
         auto colorBlendAttachment =
-            vk::PipelineColorBlendAttachmentState()
+                vk::PipelineColorBlendAttachmentState()
                 .setColorWriteMask(
                     vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
                     vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA)
@@ -192,95 +195,93 @@ namespace FREYA_NAMESPACE
                 .setAlphaBlendOp(vk::BlendOp::eAdd);
 
         auto colorBlending =
-            vk::PipelineColorBlendStateCreateInfo()
+                vk::PipelineColorBlendStateCreateInfo()
                 .setAttachmentCount(1)
                 .setPAttachments(&colorBlendAttachment);
 
-        auto dynamicStates = std::vector {
+        auto dynamicStates = std::vector{
             vk::DynamicState::eViewport, vk::DynamicState::eScissor
         };
 
         auto dynamicState =
-            vk::PipelineDynamicStateCreateInfo().setDynamicStates(dynamicStates);
+                vk::PipelineDynamicStateCreateInfo().setDynamicStates(dynamicStates);
 
         auto poolSize = vk::DescriptorPoolSize()
-                            .setType(vk::DescriptorType::eUniformBuffer)
-                            .setDescriptorCount(mFrameCount);
+                .setType(vk::DescriptorType::eUniformBuffer)
+                .setDescriptorCount(mFrameCount);
 
         auto poolInfo = vk::DescriptorPoolCreateInfo()
-                            .setPoolSizeCount(1)
-                            .setPPoolSizes(&poolSize)
-                            .setMaxSets(mFrameCount);
+                .setPoolSizeCount(1)
+                .setPPoolSizes(&poolSize)
+                .setMaxSets(mFrameCount);
 
         auto descriptorPool = mDevice->Get().createDescriptorPool(poolInfo);
 
         auto uboLayoutBinding =
-            vk::DescriptorSetLayoutBinding()
+                vk::DescriptorSetLayoutBinding()
                 .setBinding(0)
                 .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr);
 
-        auto descriptorSetBindings = std::array {
+        auto descriptorSetBindings = std::array{
             uboLayoutBinding,
         };
 
         auto descriptorSetCreateInfo = vk::DescriptorSetLayoutCreateInfo()
-                                           .setBindings(descriptorSetBindings);
+                .setBindings(descriptorSetBindings);
 
-        auto layouts = std::vector<vk::DescriptorSetLayout> {};
-        for (auto i = 0; i < mFrameCount; i++)
-        {
+        auto layouts = std::vector<vk::DescriptorSetLayout>{};
+        for (auto i = 0; i < mFrameCount; i++) {
             layouts.push_back(
                 mDevice->Get().createDescriptorSetLayout(descriptorSetCreateInfo));
         }
 
         auto descriptorSetAllocInfo = vk::DescriptorSetAllocateInfo()
-                                          .setSetLayouts(layouts)
-                                          .setDescriptorPool(descriptorPool);
+                .setSetLayouts(layouts)
+                .setDescriptorPool(descriptorPool);
 
         auto descriptorSets =
-            mDevice->Get().allocateDescriptorSets(descriptorSetAllocInfo);
+                mDevice->Get().allocateDescriptorSets(descriptorSetAllocInfo);
 
         auto samplerPoolSize = vk::DescriptorPoolSize()
-                                   .setType(vk::DescriptorType::eCombinedImageSampler)
-                                   .setDescriptorCount(2 << 16);
+                .setType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(2 << 16);
 
         auto samplerPoolInfo = vk::DescriptorPoolCreateInfo()
-                                   .setPoolSizeCount(1)
-                                   .setPPoolSizes(&samplerPoolSize)
-                                   .setMaxSets(2 << 16);
+                .setPoolSizeCount(1)
+                .setPPoolSizes(&samplerPoolSize)
+                .setMaxSets(2 << 16);
 
         auto samplerDescriptorPool = mDevice->Get().createDescriptorPool(samplerPoolInfo);
 
-        auto samplerDescriptorSetBindings = std::array {
+        auto samplerDescriptorSetBindings = std::array{
             vk::DescriptorSetLayoutBinding()
-                .setBinding(0)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
-                .setPImmutableSamplers(nullptr)
+            .setBinding(0)
+            .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+            .setDescriptorCount(1)
+            .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+            .setPImmutableSamplers(nullptr)
         };
 
         auto samplerDescriptorSetCreateInfo = vk::DescriptorSetLayoutCreateInfo()
-                                                  .setBindings(samplerDescriptorSetBindings);
+                .setBindings(samplerDescriptorSetBindings);
 
         auto samplerLayout = mDevice->Get().createDescriptorSetLayout(samplerDescriptorSetCreateInfo);
 
         layouts.push_back(samplerLayout);
 
-        const auto pipelineLayouts = std::array { layouts[0], samplerLayout };
+        const auto pipelineLayouts = std::array{layouts[0], samplerLayout};
 
         auto pipelineLayoutInfo = vk::PipelineLayoutCreateInfo()
-                                      .setSetLayouts(pipelineLayouts);
+                .setSetLayouts(pipelineLayouts);
 
-        auto uniformBuffers = std::vector<Ref<Buffer>>();
+        auto uniformBuffers = std::vector<Ref<Buffer> >();
 
-        for (auto i = 0; i < mFrameCount; i++)
-        {
+        for (auto i = 0; i < mFrameCount; i++) {
             auto uniformBuffer =
-                BufferBuilder(mDevice)
+                    BufferBuilder(mDevice)
                     .SetUsage(BufferUsage::Uniform)
                     .SetSize(sizeof(ProjectionUniformBuffer))
                     .Build();
@@ -288,13 +289,13 @@ namespace FREYA_NAMESPACE
             uniformBuffers.push_back(uniformBuffer);
 
             auto bufferInfo =
-                vk::DescriptorBufferInfo()
+                    vk::DescriptorBufferInfo()
                     .setBuffer(uniformBuffer->Get())
                     .setOffset(0)
                     .setRange(sizeof(ProjectionUniformBuffer));
 
             auto descriptorWriter =
-                vk::WriteDescriptorSet()
+                    vk::WriteDescriptorSet()
                     .setDstSet(descriptorSets[i])
                     .setDstBinding(0)
                     .setDstArrayElement(0)
@@ -310,12 +311,12 @@ namespace FREYA_NAMESPACE
         assert(pipelineLayout && "Failed to create pipeline layout.");
 
         auto stencilOpState = vk::StencilOpState()
-                                  .setFailOp(vk::StencilOp::eKeep)
-                                  .setPassOp(vk::StencilOp::eKeep)
-                                  .setCompareOp(vk::CompareOp::eAlways);
+                .setFailOp(vk::StencilOp::eKeep)
+                .setPassOp(vk::StencilOp::eKeep)
+                .setCompareOp(vk::CompareOp::eAlways);
 
         auto depthStencilInfo =
-            vk::PipelineDepthStencilStateCreateInfo()
+                vk::PipelineDepthStencilStateCreateInfo()
                 .setDepthTestEnable(true)
                 .setDepthWriteEnable(true)
                 .setDepthCompareOp(vk::CompareOp::eLess)
@@ -327,12 +328,12 @@ namespace FREYA_NAMESPACE
                 .setFront(stencilOpState);
 
         auto multisamplingInfo =
-            vk::PipelineMultisampleStateCreateInfo()
+                vk::PipelineMultisampleStateCreateInfo()
                 .setSampleShadingEnable(0)
                 .setRasterizationSamples(mSamples);
 
         auto pipelineInfo =
-            vk::GraphicsPipelineCreateInfo()
+                vk::GraphicsPipelineCreateInfo()
                 .setStages(shaderStages)
                 .setPVertexInputState(&vertexInputInfo)
                 .setPInputAssemblyState(&inputAssembly)
@@ -348,7 +349,7 @@ namespace FREYA_NAMESPACE
                 .setPMultisampleState(&multisamplingInfo);
 
         auto graphicsPipeline =
-            mDevice->Get().createGraphicsPipeline(nullptr, pipelineInfo).value;
+                mDevice->Get().createGraphicsPipeline(nullptr, pipelineInfo).value;
 
         assert(graphicsPipeline && "Failed to create graphics pipeline.");
 
@@ -356,19 +357,19 @@ namespace FREYA_NAMESPACE
         mDevice->Get().destroyShaderModule(fragShaderModule->Get());
 
         constexpr auto samplerCreateInfo = vk::SamplerCreateInfo()
-                                               .setMagFilter(vk::Filter::eLinear)
-                                               .setMinFilter(vk::Filter::eLinear)
-                                               .setAddressModeU(vk::SamplerAddressMode::eRepeat)
-                                               .setAddressModeV(vk::SamplerAddressMode::eRepeat)
-                                               .setAddressModeW(vk::SamplerAddressMode::eRepeat)
-                                               .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
-                                               .setUnnormalizedCoordinates(false)
-                                               .setMipmapMode(vk::SamplerMipmapMode::eLinear)
-                                               .setMipLodBias(0.0f)
-                                               .setMinLod(0.0f)
-                                               .setMaxLod(0.0f)
-                                               .setAnisotropyEnable(true)
-                                               .setMaxAnisotropy(16);
+                .setMagFilter(vk::Filter::eLinear)
+                .setMinFilter(vk::Filter::eLinear)
+                .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+                .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+                .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+                .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+                .setUnnormalizedCoordinates(false)
+                .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+                .setMipLodBias(0.0f)
+                .setMinLod(0.0f)
+                .setMaxLod(0.0f)
+                .setAnisotropyEnable(true)
+                .setMaxAnisotropy(16);
 
         const auto sampler = mDevice->Get().createSampler(samplerCreateInfo);
         return MakeRef<ForwardPass>(
@@ -385,5 +386,4 @@ namespace FREYA_NAMESPACE
             samplerDescriptorPool,
             sampler);
     }
-
 } // namespace FREYA_NAMESPACE

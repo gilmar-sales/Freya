@@ -2,14 +2,14 @@
 
 namespace FREYA_NAMESPACE
 {
-    static VKAPI_ATTR VkBool32 VKAPI_CALL
-    DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
-                  VkDebugUtilsMessageTypeFlagsEXT             messageType,
-                  const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    static VKAPI_ATTR vk::Bool32 VKAPI_CALL
+    DebugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
+                  vk::DebugUtilsMessageTypeFlagsEXT             messageType,
+                  const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData,
                   void*                                       pUserData)
     {
         // to_string(static_cast<vk::DebugUtilsMessageSeverityFlagsEXT>(messageSeverity));
-        std::println("Vulkan Validation Layer Error: {}", pCallbackData->pMessage);
+        std::cout << "Vulkan Validation Layer Error: " << pCallbackData->pMessage << std::endl;
 
         return VK_FALSE;
     };
@@ -110,6 +110,7 @@ namespace FREYA_NAMESPACE
         instanceCreateInfo.ppEnabledExtensionNames = mExtensions.data();
 
         auto instance = vk::createInstance(instanceCreateInfo);
+
         assert(instance && "Could not create Vulkan instance.");
 
         auto isValidationLayer = [](const char* layer) {

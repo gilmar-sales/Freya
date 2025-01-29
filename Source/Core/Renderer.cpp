@@ -121,7 +121,7 @@ namespace FREYA_NAMESPACE
 
         constexpr auto cameraPosition = glm::vec3(0.0f, 0.0f, -1000.1f);
         constexpr auto cameraMatrix   = glm::mat4(1.0f);
-        constexpr auto cameraForward =
+        const auto cameraForward =
             glm::vec3(glm::vec4(0.0f, 0.0f, 1.0f, 0.0) * cameraMatrix);
         const auto cameraRight =
             glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), cameraForward));

@@ -9,27 +9,23 @@
 
 #include <vulkan/vulkan_to_string.hpp>
 
-#include <print>
-
-namespace FREYA_NAMESPACE
-{
-
-    Ref<SwapChain> SwapChainBuilder::Build()
-    {
+namespace
+FREYA_NAMESPACE {
+    Ref<SwapChain> SwapChainBuilder::Build() {
         auto surfaceFormat = mSurface->QuerySurfaceFormat();
-        auto presentMode   = choosePresentMode();
-        auto extent        = mSurface->QueryExtent();
+        auto presentMode = choosePresentMode();
+        auto extent = mSurface->QueryExtent();
 
-        std::println("Frame Count: {}", mFrameCount);
-        std::println("Sample Count: {}", vk::to_string(mSamples));
-        std::println("Surface Format: {}", vk::to_string(surfaceFormat.format));
-        std::println("Present Mode: {}", vk::to_string(presentMode));
-        std::println("Extent: {}, {}", extent.width, extent.height);
+        std::cout << "Frame Count: " << mFrameCount << std::endl;
+        std::cout << "Sample Count: " << to_string(mSamples) << std::endl;
+        std::cout << "Surface Format: " << to_string(surfaceFormat.format) << std::endl;
+        std::cout << "Present Mode: " << to_string(presentMode) << std::endl;
+        std::cout << "Extent: " << extent.width << ", " << extent.height << std::endl;
 
         auto supportDetails = mPhysicalDevice->QuerySwapChainSupport(mSurface->Get());
 
         auto createInfo =
-            vk::SwapchainCreateInfoKHR()
+                vk::SwapchainCreateInfoKHR()
                 .setSurface(mSurface->Get())
                 .setImageFormat(surfaceFormat.format)
                 .setImageColorSpace(surfaceFormat.colorSpace)
@@ -44,20 +40,19 @@ namespace FREYA_NAMESPACE
                 .setClipped(true);
 
         assert(mDevice->GetQueueFamilyIndices().isComplete() &&
-               "Could not set image sharing mode with incomplete queue families");
+            "Could not set image sharing mode with incomplete queue families");
 
-        if (mDevice->GetQueueFamilyIndices().isUnique())
-        {
+        if (mDevice->GetQueueFamilyIndices().isUnique()) {
             std::uint32_t queueFamilyIndices[] = {
                 mDevice->GetQueueFamilyIndices().graphicsFamily.value(),
                 mDevice->GetQueueFamilyIndices().presentFamily.value()
             };
 
             createInfo.setImageSharingMode(vk::SharingMode::eConcurrent)
-                .setQueueFamilyIndices(queueFamilyIndices);
+                    .setQueueFamilyIndices(queueFamilyIndices);
         }
 
-        std::println("Sharing Mode: {}", vk::to_string(createInfo.imageSharingMode));
+        std::cout << "Sharing Mode: " << to_string(createInfo.imageSharingMode) << std::endl;
 
         auto swapChain = mDevice->Get().createSwapchainKHR(createInfo);
 
@@ -66,25 +61,25 @@ namespace FREYA_NAMESPACE
         auto swapChainImages = mDevice->Get().getSwapchainImagesKHR(swapChain);
 
         auto imageViewCreateInfo =
-            vk::ImageViewCreateInfo()
+                vk::ImageViewCreateInfo()
                 .setViewType(vk::ImageViewType::e2D)
                 .setFormat(surfaceFormat.format)
                 .setComponents(vk::ComponentMapping()
-                                   .setR(vk::ComponentSwizzle::eIdentity)
-                                   .setG(vk::ComponentSwizzle::eIdentity)
-                                   .setB(vk::ComponentSwizzle::eIdentity)
-                                   .setA(vk::ComponentSwizzle::eIdentity))
+                    .setR(vk::ComponentSwizzle::eIdentity)
+                    .setG(vk::ComponentSwizzle::eIdentity)
+                    .setB(vk::ComponentSwizzle::eIdentity)
+                    .setA(vk::ComponentSwizzle::eIdentity))
                 .setSubresourceRange(vk::ImageSubresourceRange()
-                                         .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                         .setBaseMipLevel(0)
-                                         .setLevelCount(1)
-                                         .setBaseArrayLayer(0)
-                                         .setLayerCount(1));
+                    .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                    .setBaseMipLevel(0)
+                    .setLevelCount(1)
+                    .setBaseArrayLayer(0)
+                    .setLayerCount(1));
 
         auto frames = std::vector<SwapChainFrame>(swapChainImages.size());
 
         auto depthImage =
-            ImageBuilder(mDevice)
+                ImageBuilder(mDevice)
                 .SetUsage(ImageUsage::Depth)
                 .SetSamples(mSamples)
                 .SetWidth(extent.width)
@@ -92,15 +87,14 @@ namespace FREYA_NAMESPACE
                 .Build();
 
         auto sampleImage =
-            ImageBuilder(mDevice)
+                ImageBuilder(mDevice)
                 .SetUsage(ImageUsage::Sampling)
                 .SetSamples(mSamples)
                 .SetWidth(extent.width)
                 .SetHeight(extent.height)
                 .Build();
 
-        for (auto index = 0; index < swapChainImages.size(); index++)
-        {
+        for (auto index = 0; index < swapChainImages.size(); index++) {
             frames[index].image = swapChainImages[index];
 
             imageViewCreateInfo.setImage(swapChainImages[index]);
@@ -108,16 +102,18 @@ namespace FREYA_NAMESPACE
             assert(frames[index].imageView && "Failed to create image views");
 
             auto attachments =
-                mSamples != vk::SampleCountFlagBits::e1
-                    ? std::vector<vk::ImageView> { sampleImage->GetImageView(),
-                                                   depthImage->GetImageView(),
-                                                   frames[index].imageView }
-                    : std::vector<vk::ImageView> {
-                          frames[index].imageView, depthImage->GetImageView()
-                      };
+                    mSamples != vk::SampleCountFlagBits::e1
+                        ? std::vector<vk::ImageView>{
+                            sampleImage->GetImageView(),
+                            depthImage->GetImageView(),
+                            frames[index].imageView
+                        }
+                        : std::vector<vk::ImageView>{
+                            frames[index].imageView, depthImage->GetImageView()
+                        };
 
             auto framebufferInfo =
-                vk::FramebufferCreateInfo()
+                    vk::FramebufferCreateInfo()
                     .setRenderPass(mRenderPass->Get())
                     .setAttachments(attachments)
                     .setWidth(extent.width)
@@ -139,38 +135,36 @@ namespace FREYA_NAMESPACE
             sampleImage);
     }
 
-    vk::PresentModeKHR SwapChainBuilder::choosePresentMode()
-    {
+    vk::PresentModeKHR SwapChainBuilder::choosePresentMode() {
         auto presentModes =
-            mPhysicalDevice->QuerySwapChainSupport(mSurface->Get()).presentModes;
+                mPhysicalDevice->QuerySwapChainSupport(mSurface->Get()).presentModes;
 
         const auto presentModesByPriotiry =
-            mVSync
-                ? std::vector { vk::PresentModeKHR::eFifo,
-                                vk::PresentModeKHR::eMailbox,
-                                vk::PresentModeKHR::eImmediate,
-                                vk::PresentModeKHR::eFifoRelaxed,
-                                vk::PresentModeKHR::eSharedContinuousRefresh,
-                                vk::PresentModeKHR::eSharedDemandRefresh }
-                : std::vector {
-                      vk::PresentModeKHR::eMailbox,
-                      vk::PresentModeKHR::eImmediate,
-                      vk::PresentModeKHR::eFifoRelaxed,
-                      vk::PresentModeKHR::eFifo,
-                      vk::PresentModeKHR::eSharedContinuousRefresh,
-                      vk::PresentModeKHR::eSharedDemandRefresh
-                  };
+                mVSync
+                    ? std::vector{
+                        vk::PresentModeKHR::eFifo,
+                        vk::PresentModeKHR::eMailbox,
+                        vk::PresentModeKHR::eImmediate,
+                        vk::PresentModeKHR::eFifoRelaxed,
+                        vk::PresentModeKHR::eSharedContinuousRefresh,
+                        vk::PresentModeKHR::eSharedDemandRefresh
+                    }
+                    : std::vector{
+                        vk::PresentModeKHR::eMailbox,
+                        vk::PresentModeKHR::eImmediate,
+                        vk::PresentModeKHR::eFifoRelaxed,
+                        vk::PresentModeKHR::eFifo,
+                        vk::PresentModeKHR::eSharedContinuousRefresh,
+                        vk::PresentModeKHR::eSharedDemandRefresh
+                    };
 
-        for (const auto& presentMode : presentModesByPriotiry)
-        {
+        for (const auto &presentMode: presentModesByPriotiry) {
             if (std::ranges::find(presentModes.begin(), presentModes.end(), presentMode) !=
-                presentModes.end())
-            {
+                presentModes.end()) {
                 return presentMode;
             }
         }
 
         return vk::PresentModeKHR::eFifo;
     }
-
 } // namespace FREYA_NAMESPACE

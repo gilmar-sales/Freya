@@ -88,7 +88,7 @@ target_precompile_headers(Freya-static PUBLIC
         <string>
         <vector>
         <set>
-        <print>
+        <iostream>
         <fstream>
         <vulkan/vulkan.hpp>
         <SDL3/SDL.h>
