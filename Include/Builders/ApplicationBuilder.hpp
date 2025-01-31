@@ -17,8 +17,8 @@ namespace FREYA_NAMESPACE
     {
       public:
         ApplicationBuilder() :
-            mWindowBuilder(WindowBuilder()),
-            mServiceCollection(std::make_shared<ServiceCollection>())
+            mServiceCollection(std::make_shared<ServiceCollection>()),
+            mWindowBuilder(WindowBuilder())
         {
         }
 
