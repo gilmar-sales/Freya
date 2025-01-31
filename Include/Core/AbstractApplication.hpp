@@ -4,11 +4,22 @@
 #include "Core/Window.hpp"
 #include "Events/EventManager.hpp"
 
+#include <ServiceProvider.hpp>
+
 namespace FREYA_NAMESPACE
 {
     class AbstractApplication
     {
       public:
+        explicit AbstractApplication(
+            const Ref<ServiceProvider>& serviceProvider) : mDeltaTime(0)
+        {
+            mServiceProvider = serviceProvider;
+            mEventManager    = mServiceProvider->GetService<EventManager>();
+            mWindow          = mServiceProvider->GetService<Window>();
+            mRenderer        = mServiceProvider->GetService<Renderer>();
+        }
+
         virtual ~AbstractApplication() = default;
 
         virtual void StartUp() {};
@@ -32,9 +43,10 @@ namespace FREYA_NAMESPACE
       protected:
         friend class ApplicationBuilder;
 
-        float             mDeltaTime;
-        Ref<Window>       mWindow;
-        Ref<Renderer>     mRenderer;
-        Ref<EventManager> mEventManager;
+        float                mDeltaTime;
+        Ref<ServiceProvider> mServiceProvider;
+        Ref<Window>          mWindow;
+        Ref<Renderer>        mRenderer;
+        Ref<EventManager>    mEventManager;
     };
 } // namespace FREYA_NAMESPACE
