@@ -129,7 +129,7 @@ namespace FREYA_NAMESPACE
                 case SDL_EVENT_GAMEPAD_BUTTON_DOWN: {
                     const auto gamePadEvent = GamepadButtonPressedEvent {
                         .button =
-                            static_cast<GamepadButton>(sdlEvent.button.button)
+                            static_cast<GamepadButton>(sdlEvent.gbutton.button)
                     };
                     mEventManager->Send(gamePadEvent);
                     break;
@@ -153,7 +153,7 @@ namespace FREYA_NAMESPACE
                 case SDL_EVENT_GAMEPAD_BUTTON_UP: {
                     const auto gamePadEvent = GamepadButtonReleasedEvent {
                         .button =
-                            static_cast<GamepadButton>(sdlEvent.button.button)
+                            static_cast<GamepadButton>(sdlEvent.gbutton.button)
                     };
                     mEventManager->Send(gamePadEvent);
                     break;
