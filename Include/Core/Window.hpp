@@ -5,6 +5,8 @@
 
 #include <SDL3/SDL.h>
 
+#include <utility>
+
 namespace FREYA_NAMESPACE
 {
 
@@ -12,21 +14,37 @@ namespace FREYA_NAMESPACE
     {
       public:
         Window(SDL_Window*              window,
-               const std::string&       title,
+               std::string              title,
                const std::uint32_t      width,
                const std::uint32_t      height,
                const bool               vSync,
                const Ref<EventManager>& eventManager) :
-            mEventManager(eventManager),
-            mWindow(window), mTitle(title), mWidth(width),
-            mHeight(height), mVSync(vSync), mRunning(true)
+            mEventManager(eventManager), mWindow(window),
+            mTitle(std::move(title)), mWidth(width), mHeight(height),
+            mVSync(vSync), mRunning(true), mDeltaTime(0)
         {
-            mEventManager->Subscribe<WindowResizeEvent>([this](WindowResizeEvent event) {
-                if (!event.handled)
+            mEventManager->Subscribe<WindowResizeEvent>(
+                [this](const WindowResizeEvent event) {
+                    if (!event.handled)
+                    {
+                        Resize(event.width, event.height);
+                    }
+                });
+
+            mGamepads               = std::vector<SDL_Gamepad*>();
+            auto       gamepadCount = 0;
+            const auto gamepadIds   = SDL_GetGamepads(&gamepadCount);
+
+            for (int i = 0; i < gamepadCount; ++i)
+            {
+                if (SDL_IsGamepad(gamepadIds[i]))
                 {
-                    Resize(event.width, event.height);
+                    if (auto* controller = SDL_OpenGamepad(gamepadIds[i]))
+                    {
+                        mGamepads.push_back(controller);
+                    }
                 }
-            });
+            }
         }
 
         ~Window();
@@ -53,14 +71,15 @@ namespace FREYA_NAMESPACE
         friend class ApplicationBuilder;
         void pollEvents();
 
-        Ref<EventManager> mEventManager;
-        SDL_Window*       mWindow;
-        std::string       mTitle;
-        std::uint32_t     mWidth;
-        std::uint32_t     mHeight;
-        bool              mVSync;
-        bool              mRunning;
-        float             mDeltaTime;
+        Ref<EventManager>         mEventManager;
+        std::vector<SDL_Gamepad*> mGamepads;
+        SDL_Window*               mWindow;
+        std::string               mTitle;
+        std::uint32_t             mWidth;
+        std::uint32_t             mHeight;
+        bool                      mVSync;
+        bool                      mRunning;
+        float                     mDeltaTime;
     };
 
 } // namespace FREYA_NAMESPACE

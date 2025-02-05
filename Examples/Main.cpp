@@ -32,27 +32,32 @@ class MainApp final : public fra::AbstractApplication
             mMeshPool->CreateMeshFromFile("D:/Models/source/Office sofa.fbx");
 
         mEventManager->Subscribe<fra::KeyPressedEvent>(
-            [](fra::KeyPressedEvent event) { std::cout << "Key pressed"; });
+            [](fra::KeyPressedEvent event) {
+                std::cout << "Key pressed" << std::endl;
+            });
 
         mEventManager->Subscribe<fra::KeyReleasedEvent>(
-            [](fra::KeyReleasedEvent event) { std::cout << "Key released"; });
+            [](fra::KeyReleasedEvent event) {
+                std::cout << "Key released" << std::endl;
+            });
 
         mEventManager->Subscribe<fra::MouseMoveEvent>(
             [](fra::MouseMoveEvent event) {
-                std::cout << "Mouse position: " << event.x << ", " << event.y;
+                std::cout << "Mouse position: " << event.x << ", " << event.y
+                          << std::endl;
                 std::cout << "Mouse delta: " << event.deltaX << ", "
-                          << event.deltaY;
+                          << event.deltaY << std::endl;
             });
 
         mEventManager->Subscribe<fra::MouseButtonPressedEvent>(
             [](fra::MouseButtonPressedEvent event) {
                 std::cout << "Mouse button pressed: "
-                          << static_cast<int>(event.button);
+                          << static_cast<int>(event.button) << std::endl;
             });
         mEventManager->Subscribe<fra::MouseButtonReleasedEvent>(
             [](fra::MouseButtonReleasedEvent event) {
                 std::cout << "Mouse button released: "
-                          << static_cast<int>(event.button);
+                          << static_cast<int>(event.button) << std::endl;
             });
     }
 
