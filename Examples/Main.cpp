@@ -1,5 +1,3 @@
-#include <iostream>
-
 #include <Builders/ApplicationBuilder.hpp>
 
 #include <glm/ext/matrix_transform.hpp>
@@ -48,12 +46,16 @@ class MainApp final : public fra::AbstractApplication
 
         mWindow->Update();
 
-        const auto mInstanceMatrixBuffers =
-            mRenderer->GetBufferBuilder()
-                .SetData(&mModelMatrix[0][0])
-                .SetSize(sizeof(glm::mat4) * 2)
-                .SetUsage(fra::BufferUsage::Instance)
-                .Build();
+        if (mInstanceMatrixBuffers == nullptr)
+            mInstanceMatrixBuffers =
+                mRenderer->GetBufferBuilder()
+                    .SetData(&mModelMatrix[0][0])
+                    .SetSize(sizeof(glm::mat4) * 2)
+                    .SetUsage(fra::BufferUsage::Instance)
+                    .Build();
+        else
+            mInstanceMatrixBuffers->Copy(
+                &mModelMatrix[0][0], sizeof(glm::mat4) * 2);
 
         mRenderer->BindBuffer(mInstanceMatrixBuffers);
 
@@ -79,6 +81,8 @@ class MainApp final : public fra::AbstractApplication
     std::shared_ptr<fra::MeshPool>    mMeshPool;
     glm::mat4                         mModelMatrix[2] {};
     float                             mCurrentTime {};
+
+    Ref<fra::Buffer> mInstanceMatrixBuffers;
 };
 
 int main(int argc, const char** argv)
