@@ -246,11 +246,14 @@ namespace FREYA_NAMESPACE
 
         commandBuffer.begin(beginInfo);
 
-        auto clearValues = {
+        auto clearValues = std::vector {
             vk::ClearValue().setColor(mClearColor),
             vk::ClearValue().setDepthStencil(
                 vk::ClearDepthStencilValue().setDepth(1.0f)),
         };
+
+        if (mSamples > vk::SampleCountFlagBits::e1)
+            clearValues.push_back(vk::ClearValue().setColor(mClearColor));
 
         const auto renderPassBeginInfo =
             vk::RenderPassBeginInfo()
