@@ -45,7 +45,7 @@ namespace FREYA_NAMESPACE
         ~ForwardPass();
 
         void UpdateProjection(const ProjectionUniformBuffer& buffer,
-                              std::uint32_t            frameIndex) const;
+                              std::uint32_t                  frameIndex) const;
 
         void BindDescriptorSet(const Ref<CommandPool>& commandPool,
                                std::uint32_t           frameIndex) const;
