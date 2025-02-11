@@ -121,26 +121,31 @@ namespace FREYA_NAMESPACE
 
         constexpr auto cameraPosition = glm::vec3(0.0f, 0.0f, -1000.1f);
         constexpr auto cameraMatrix   = glm::mat4(1.0f);
-        const auto cameraForward =
+        const auto     cameraForward =
             glm::vec3(glm::vec4(0.0f, 0.0f, 1.0f, 0.0) * cameraMatrix);
-        const auto cameraRight =
-            glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), cameraForward));
-        const auto cameraUp = glm::normalize(glm::cross(cameraForward, cameraRight));
+        const auto cameraRight = glm::normalize(
+            glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), cameraForward));
+        const auto cameraUp =
+            glm::normalize(glm::cross(cameraForward, cameraRight));
 
         auto projectionUniformBuffer = ProjectionUniformBuffer {
-            .view =
-                glm::lookAt(cameraPosition, cameraPosition + cameraForward, cameraUp),
-            .projection   = glm::perspectiveFov(glm::radians(45.0f),
-                                                static_cast<float>(extent.width),
-                                                static_cast<float>(extent.height),
-                                                0.1f,
-                                                mDrawDistance),
-            .ambientLight = glm::vec4(glm::normalize(glm::vec3(0.0f, 3.0f, 0.0f)), 0.1f)
+            .view       = glm::lookAt(cameraPosition,
+                                      cameraPosition + cameraForward,
+                                      cameraUp),
+            .projection = glm::perspectiveFov(
+                glm::radians(45.0f),
+                static_cast<float>(extent.width),
+                static_cast<float>(extent.height),
+                0.1f,
+                mDrawDistance),
+            .ambientLight =
+                glm::vec4(glm::normalize(glm::vec3(0.0f, 3.0f, 0.0f)), 0.1f)
         };
 
         projectionUniformBuffer.projection[1][1] *= -1.f;
 
-        for (auto frameIndex = 0; frameIndex < mImageAvailableSemaphores.size(); frameIndex++)
+        for (auto frameIndex = 0; frameIndex < mImageAvailableSemaphores.size();
+             frameIndex++)
         {
             mRenderPass->UpdateProjection(projectionUniformBuffer, frameIndex);
         }
@@ -148,25 +153,34 @@ namespace FREYA_NAMESPACE
         mCurrentProjection = projectionUniformBuffer;
     }
 
-    glm::mat4 Renderer::CalculateProjectionMatrix(const float near, const float far) const
+    glm::mat4 Renderer::CalculateProjectionMatrix(const float near,
+                                                  const float far) const
     {
         const auto extent = mSurface->QueryExtent();
-        return glm::perspective(glm::radians(75.0f),
-                                static_cast<float>(extent.width) /
-                                    static_cast<float>(extent.height),
-                                near,
-                                far);
+        return glm::perspective(
+            glm::radians(75.0f),
+            static_cast<float>(extent.width) /
+                static_cast<float>(extent.height),
+            near,
+            far);
     }
 
-    void Renderer::UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer)
+    void Renderer::UpdateProjection(
+        ProjectionUniformBuffer& projectionUniformBuffer)
     {
-        mRenderPass->UpdateProjection(projectionUniformBuffer, mCurrentFrameIndex);
+        mRenderPass->UpdateProjection(projectionUniformBuffer,
+                                      mCurrentFrameIndex);
         mCurrentProjection = projectionUniformBuffer;
     }
 
     void Renderer::UpdateModel(const glm::mat4& model) const
     {
-        mCommandPool->GetCommandBuffer().pushConstants(mRenderPass->GetPipelineLayout(), vk::ShaderStageFlagBits::eVertex, 0, sizeof(model), &model);
+        mCommandPool->GetCommandBuffer().pushConstants(
+            mRenderPass->GetPipelineLayout(),
+            vk::ShaderStageFlagBits::eVertex,
+            0,
+            sizeof(model),
+            &model);
     }
 
     Ref<MeshPoolFactory> Renderer::GetMeshPoolFactory()
@@ -204,17 +218,18 @@ namespace FREYA_NAMESPACE
             mResizeEvent.reset();
         }
 
-        auto swapChainFrame =
-            mSwapChain->GetNextFrame(mImageAvailableSemaphores[mCurrentFrameIndex]);
+        auto swapChainFrame = mSwapChain->GetNextFrame(
+            mImageAvailableSemaphores[mCurrentFrameIndex]);
 
         while (!swapChainFrame)
         {
             RebuildSwapChain();
-            swapChainFrame =
-                mSwapChain->GetNextFrame(mImageAvailableSemaphores[mCurrentFrameIndex]);
+            swapChainFrame = mSwapChain->GetNextFrame(
+                mImageAvailableSemaphores[mCurrentFrameIndex]);
         }
 
-        if (mDevice->Get().resetFences(1, &mInFlightFences[mCurrentFrameIndex]) !=
+        if (mDevice->Get().resetFences(1,
+                                       &mInFlightFences[mCurrentFrameIndex]) !=
             vk::Result::eSuccess)
             throw std::runtime_error("failed to reset fences!");
 
@@ -226,31 +241,27 @@ namespace FREYA_NAMESPACE
         if (mCurrentFrameIndex == 0)
             mDevice->Get().resetCommandPool(mCommandPool->Get());
 
-        constexpr auto beginInfo = vk::CommandBufferBeginInfo()
-                                       .setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+        constexpr auto beginInfo = vk::CommandBufferBeginInfo().setFlags(
+            vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
 
         commandBuffer.begin(beginInfo);
 
         auto clearValues = {
-            vk::ClearValue()
-                .setColor(mClearColor),
-            vk::ClearValue()
-                .setDepthStencil(vk::ClearDepthStencilValue().setDepth(1.0f)),
-            vk::ClearValue()
-                .setColor(mClearColor),
+            vk::ClearValue().setColor(mClearColor),
+            vk::ClearValue().setDepthStencil(
+                vk::ClearDepthStencilValue().setDepth(1.0f)),
         };
 
         const auto renderPassBeginInfo =
             vk::RenderPassBeginInfo()
                 .setRenderPass(mRenderPass->Get())
                 .setFramebuffer(swapChainFrame.frameBuffer)
-                .setRenderArea(
-                    vk::Rect2D()
-                        .setOffset({ 0, 0 })
-                        .setExtent(mSwapChain->GetExtent()))
+                .setRenderArea(vk::Rect2D().setOffset({ 0, 0 }).setExtent(
+                    mSwapChain->GetExtent()))
                 .setClearValues(clearValues);
 
-        commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
+        commandBuffer.beginRenderPass(renderPassBeginInfo,
+                                      vk::SubpassContents::eInline);
 
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                                    mRenderPass->GetGraphicsPipeline());
@@ -289,7 +300,9 @@ namespace FREYA_NAMESPACE
 
         auto waitSemaphores = { mImageAvailableSemaphores[mCurrentFrameIndex] };
 
-        auto signalSemaphores = { mRenderFinishedSemaphores[mCurrentFrameIndex] };
+        auto signalSemaphores = {
+            mRenderFinishedSemaphores[mCurrentFrameIndex]
+        };
 
         const auto submitInfo =
             vk::SubmitInfo()
@@ -298,12 +311,10 @@ namespace FREYA_NAMESPACE
                 .setCommandBuffers(commandBuffers)
                 .setSignalSemaphores(signalSemaphores);
 
-        const auto submitResult =
-            mDevice->GetGraphicsQueue()
-                .submit(
-                    1,
-                    &submitInfo,
-                    mInFlightFences[mCurrentFrameIndex]);
+        const auto submitResult = mDevice->GetGraphicsQueue().submit(
+            1,
+            &submitInfo,
+            mInFlightFences[mCurrentFrameIndex]);
 
         if (submitResult != vk::Result::eSuccess)
             throw std::runtime_error("failed to submit draw command buffer!");
@@ -318,7 +329,8 @@ namespace FREYA_NAMESPACE
                 .setSwapchains(swapChains)
                 .setImageIndices(imageIndices);
 
-        if (const auto result = mDevice->GetPresentQueue().presentKHR(presentInfo);
+        if (const auto result =
+                mDevice->GetPresentQueue().presentKHR(presentInfo);
             result == vk::Result::eErrorOutOfDateKHR ||
             result == vk::Result::eSuboptimalKHR)
         {
@@ -329,7 +341,8 @@ namespace FREYA_NAMESPACE
             throw std::runtime_error("failed to present swap chain image!");
         }
 
-        mCurrentFrameIndex = (mCurrentFrameIndex + 1) % mImageAvailableSemaphores.size();
+        mCurrentFrameIndex =
+            (mCurrentFrameIndex + 1) % mImageAvailableSemaphores.size();
         mDevice->Get().waitIdle();
     }
 

@@ -21,11 +21,12 @@ namespace FREYA_NAMESPACE
                  const Ref<CommandPool>&    commandPool);
 
         void Draw(std::uint32_t meshId);
-        void DrawInstanced(std::uint32_t meshId, size_t instanceCount, size_t firstInstance = 0);
+        void DrawInstanced(std::uint32_t meshId,
+                           size_t        instanceCount,
+                           size_t        firstInstance = 0);
 
-        std::uint32_t              CreateMesh(std::vector<Vertex> vertices,
-                                              std::vector<uint16_t>
-                                                  indices);
+        std::uint32_t CreateMesh(
+            std::vector<Vertex> vertices, std::vector<uint16_t> indices);
         std::vector<std::uint32_t> CreateMeshFromFile(const std::string& path);
 
       protected:
@@ -37,14 +38,18 @@ namespace FREYA_NAMESPACE
 
         std::uint32_t processMesh(const aiMesh* mesh, const aiScene* scene);
         void          processNode(std::vector<std::uint32_t>& meshes,
-                                  const aiNode*                     node,
+                                  const aiNode*               node,
                                   const aiScene*              scene);
+
+        Ref<Buffer> queryStagingBuffer(std::uint32_t size);
+        Ref<Buffer> createStagingBuffer(std::uint32_t size);
 
       private:
         Ref<Device>         mDevice;
         Ref<PhysicalDevice> mPhysicalDevice;
         Ref<CommandPool>    mCommandPool;
 
+        std::vector<Ref<Buffer>>   mStagingBuffers;
         std::vector<Ref<Buffer>>   mVertexBuffers;
         std::vector<std::uint32_t> mVertexBuffersOffsets;
 

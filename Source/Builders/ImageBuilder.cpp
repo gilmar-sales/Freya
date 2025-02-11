@@ -13,7 +13,9 @@ namespace FREYA_NAMESPACE
 
         auto imageInfo =
             vk::ImageCreateInfo()
-                .setExtent(vk::Extent3D().setWidth(mWidth).setHeight(mHeight).setDepth(1))
+                .setExtent(
+                    vk::Extent3D().setWidth(mWidth).setHeight(mHeight).setDepth(
+                        1))
                 .setFormat(mFormat)
                 .setTiling(vk::ImageTiling::eOptimal)
                 .setMipLevels(1)
@@ -29,14 +31,17 @@ namespace FREYA_NAMESPACE
                 imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment);
                 break;
             case ImageUsage::Depth:
-                imageInfo.setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment);
+                imageInfo.setUsage(
+                    vk::ImageUsageFlagBits::eDepthStencilAttachment);
                 break;
             case ImageUsage::Texture:
-                imageInfo.setUsage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled);
+                imageInfo.setUsage(vk::ImageUsageFlagBits::eTransferDst |
+                                   vk::ImageUsageFlagBits::eSampled);
                 break;
             case ImageUsage::Sampling:
-                imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment |
-                                   vk::ImageUsageFlagBits::eTransientAttachment);
+                imageInfo.setUsage(
+                    vk::ImageUsageFlagBits::eColorAttachment |
+                    vk::ImageUsageFlagBits::eTransientAttachment);
                 break;
             default:
                 break;
@@ -44,14 +49,16 @@ namespace FREYA_NAMESPACE
 
         auto image = mDevice->Get().createImage(imageInfo);
 
-        auto imageRequirements = mDevice->Get().getImageMemoryRequirements(image);
+        const auto imageRequirements =
+            mDevice->Get().getImageMemoryRequirements(image);
 
-        auto memoryTypeIndex = mDevice->GetPhysicalDevice()->QueryCompatibleMemoryType(
-            imageRequirements.memoryTypeBits,
-            vk::MemoryPropertyFlagBits::eDeviceLocal);
+        const auto memoryTypeIndex =
+            mDevice->GetPhysicalDevice()->QueryCompatibleMemoryType(
+                imageRequirements.memoryTypeBits,
+                vk::MemoryPropertyFlagBits::eDeviceLocal);
 
-        auto priorityInfo = vk::MemoryPriorityAllocateInfoEXT()
-                                .setPriority(0.5f);
+        auto priorityInfo =
+            vk::MemoryPriorityAllocateInfoEXT().setPriority(0.5f);
 
         switch (mUsage)
         {
@@ -63,7 +70,7 @@ namespace FREYA_NAMESPACE
                 break;
         }
 
-        auto imageMemoryInfo =
+        const auto imageMemoryInfo =
             vk::MemoryAllocateInfo()
                 .setAllocationSize(imageRequirements.size)
                 .setMemoryTypeIndex(memoryTypeIndex)
@@ -75,48 +82,62 @@ namespace FREYA_NAMESPACE
 
         if (mData != nullptr && mUsage == ImageUsage::Texture)
         {
-            auto commandPool = CommandPoolBuilder()
-                                   .SetDevice(mDevice)
-                                   .SetCount(2)
-                                   .Build();
+            const auto commandPool =
+                CommandPoolBuilder().SetDevice(mDevice).SetCount(2).Build();
 
-            auto imageBufferStaging = BufferBuilder(mDevice)
-                                          .SetData(mData)
-                                          .SetSize(mWidth * mHeight * mChannels)
-                                          .SetUsage(BufferUsage::Staging)
-                                          .Build();
+            const auto imageBufferStaging =
+                BufferBuilder(mDevice)
+                    .SetData(mData)
+                    .SetSize(mWidth * mHeight * mChannels)
+                    .SetUsage(BufferUsage::Staging)
+                    .Build();
 
-            transitionLayout(commandPool, image, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+            transitionLayout(commandPool,
+                             image,
+                             vk::ImageLayout::eUndefined,
+                             vk::ImageLayout::eTransferDstOptimal);
 
-            auto commandBuffer = commandPool->CreateCommandBuffer();
+            const auto commandBuffer = commandPool->CreateCommandBuffer();
 
-            commandBuffer.begin(vk::CommandBufferBeginInfo().setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
+            commandBuffer.begin(vk::CommandBufferBeginInfo().setFlags(
+                vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
 
-            auto imageBufferCopy = { vk::BufferImageCopy()
-                                         .setBufferOffset(0)
-                                         .setBufferRowLength(0)
-                                         .setBufferImageHeight(0)
-                                         .setImageSubresource(vk::ImageSubresourceLayers()
-                                                                  .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                                                  .setMipLevel(0)
-                                                                  .setBaseArrayLayer(0)
-                                                                  .setLayerCount(1))
-                                         .setImageOffset({ 0, 0, 0 })
-                                         .setImageExtent({ mWidth, mHeight, 1 }) };
+            const auto imageBufferCopy = {
+                vk::BufferImageCopy()
+                    .setBufferOffset(0)
+                    .setBufferRowLength(0)
+                    .setBufferImageHeight(0)
+                    .setImageSubresource(
+                        vk::ImageSubresourceLayers()
+                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                            .setMipLevel(0)
+                            .setBaseArrayLayer(0)
+                            .setLayerCount(1))
+                    .setImageOffset({ 0, 0, 0 })
+                    .setImageExtent({ mWidth, mHeight, 1 })
+            };
 
-            commandBuffer.copyBufferToImage(imageBufferStaging->Get(), image, vk::ImageLayout::eTransferDstOptimal, imageBufferCopy);
+            commandBuffer.copyBufferToImage(
+                imageBufferStaging->Get(),
+                image,
+                vk::ImageLayout::eTransferDstOptimal,
+                imageBufferCopy);
 
             commandBuffer.end();
 
-            auto submitInfo =
-                vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(&commandBuffer);
+            const auto submitInfo =
+                vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(
+                    &commandBuffer);
 
             mDevice->GetTransferQueue().submit(submitInfo);
             mDevice->GetTransferQueue().waitIdle();
 
             commandPool->FreeCommandBuffer(commandBuffer);
 
-            transitionLayout(commandPool, image, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+            transitionLayout(commandPool,
+                             image,
+                             vk::ImageLayout::eTransferDstOptimal,
+                             vk::ImageLayout::eShaderReadOnlyOptimal);
         }
 
         auto aspect = vk::ImageAspectFlagBits::eNone;
@@ -135,7 +156,7 @@ namespace FREYA_NAMESPACE
                 break;
         }
 
-        auto imageViewInfo =
+        const auto imageViewInfo =
             vk::ImageViewCreateInfo()
                 .setImage(image)
                 .setViewType(vk::ImageViewType::e2D)
@@ -180,33 +201,38 @@ namespace FREYA_NAMESPACE
         return vk::Format();
     }
 
-    void ImageBuilder::transitionLayout(const Ref<CommandPool>& commandPool, const vk::Image image, const vk::ImageLayout oldLayout, const vk::ImageLayout newLayout) const
+    void ImageBuilder::transitionLayout(const Ref<CommandPool>& commandPool,
+                                        const vk::Image         image,
+                                        const vk::ImageLayout   oldLayout,
+                                        const vk::ImageLayout   newLayout) const
     {
         const auto commandBuffer = commandPool->CreateCommandBuffer();
 
-        commandBuffer.begin(vk::CommandBufferBeginInfo().setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
+        commandBuffer.begin(vk::CommandBufferBeginInfo().setFlags(
+            vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
 
-        auto imageMemoryBarrier = vk::ImageMemoryBarrier()
-                                      .setOldLayout(oldLayout)
-                                      .setNewLayout(newLayout)
-                                      .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-                                      .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-                                      .setImage(image)
-                                      .setSubresourceRange(vk::ImageSubresourceRange()
-                                                               .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                                               .setBaseMipLevel(0)
-                                                               .setLevelCount(1)
-                                                               .setBaseArrayLayer(0)
-                                                               .setLayerCount(1));
+        auto imageMemoryBarrier =
+            vk::ImageMemoryBarrier()
+                .setOldLayout(oldLayout)
+                .setNewLayout(newLayout)
+                .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                .setImage(image)
+                .setSubresourceRange(
+                    vk::ImageSubresourceRange()
+                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                        .setBaseMipLevel(0)
+                        .setLevelCount(1)
+                        .setBaseArrayLayer(0)
+                        .setLayerCount(1));
 
         vk::PipelineStageFlags srcStage, dstStage;
 
         if (oldLayout == vk::ImageLayout::eUndefined &&
             newLayout == vk::ImageLayout::eTransferDstOptimal)
         {
-            imageMemoryBarrier
-                .setSrcAccessMask({})
-                .setDstAccessMask(vk::AccessFlagBits::eTransferWrite);
+            imageMemoryBarrier.setSrcAccessMask({}).setDstAccessMask(
+                vk::AccessFlagBits::eTransferWrite);
 
             srcStage = vk::PipelineStageFlagBits::eTopOfPipe;
             dstStage = vk::PipelineStageFlagBits::eTransfer;
@@ -222,12 +248,22 @@ namespace FREYA_NAMESPACE
             dstStage = vk::PipelineStageFlagBits::eFragmentShader;
         }
 
-        commandBuffer.pipelineBarrier(srcStage, dstStage, vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
+        commandBuffer.pipelineBarrier(
+            srcStage,
+            dstStage,
+            vk::DependencyFlags(),
+            0,
+            nullptr,
+            0,
+            nullptr,
+            1,
+            &imageMemoryBarrier);
 
         commandBuffer.end();
 
         const auto submitInfo =
-            vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(&commandBuffer);
+            vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(
+                &commandBuffer);
 
         mDevice->GetTransferQueue().submit(submitInfo);
         mDevice->GetTransferQueue().waitIdle();

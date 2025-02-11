@@ -14,12 +14,16 @@ namespace FREYA_NAMESPACE
     {
       public:
         RendererBuilder() :
-            mInstanceBuilder(InstanceBuilder()), mWindow(nullptr), mWidth(1280), mHeight(720),
-            mVSync(true), mFrameCount(4), mSamples(vk::SampleCountFlagBits::e1), mClearColor(vk::ClearColorValue { 0.2f, 0.4f, 0.6f, 1.0f }), mDrawDistance(1000.0f)
+            mInstanceBuilder(InstanceBuilder()), mWindow(nullptr), mWidth(1280),
+            mHeight(720), mVSync(true), mFrameCount(4),
+            mSamples(vk::SampleCountFlagBits::e1),
+            mClearColor(vk::ClearColorValue { 0.0f, 0.0f, 0.0f, 0.0f }),
+            mDrawDistance(1000.0f)
         {
         }
 
-        RendererBuilder& WithInstance(const std::function<void(InstanceBuilder&)>& instanceBuilderFunc)
+        RendererBuilder& WithInstance(
+            const std::function<void(InstanceBuilder&)>& instanceBuilderFunc)
         {
             instanceBuilderFunc(mInstanceBuilder);
             return *this;

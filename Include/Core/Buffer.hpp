@@ -38,7 +38,7 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] const std::uint64_t& GetSize() const { return mSize; }
 
-        void Copy(void* data, std::uint64_t size, std::uint64_t offset = 0);
+        void Copy(const void* data, std::uint64_t size, std::uint64_t offset = 0);
 
       private:
         Ref<Device> mDevice;

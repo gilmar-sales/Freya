@@ -18,27 +18,29 @@ namespace FREYA_NAMESPACE
         switch (mUsage)
         {
             case BufferUsage::Vertex:
-                commandPool->GetCommandBuffer().bindVertexBuffers(0, 1, &mBuffer,
-                                                                  offsets);
+                commandPool->GetCommandBuffer().bindVertexBuffers(
+                    0, 1, &mBuffer, offsets);
                 break;
             case BufferUsage::Index:
-                commandPool->GetCommandBuffer().bindIndexBuffer(mBuffer, 0,
-                                                                vk::IndexType::eUint16);
+                commandPool->GetCommandBuffer().bindIndexBuffer(
+                    mBuffer, 0, vk::IndexType::eUint16);
                 break;
             case BufferUsage::Instance: {
-                commandPool->GetCommandBuffer().bindVertexBuffers(1, 1, &mBuffer, offsets);
+                commandPool->GetCommandBuffer().bindVertexBuffers(
+                    1, 1, &mBuffer, offsets);
             }
             default:
                 break;
         }
     }
 
-    void Buffer::Copy(void* data, std::uint64_t size, std::uint64_t offset)
+    void Buffer::Copy(const void* data, const std::uint64_t size,
+                      const std::uint64_t offset)
     {
         if (mSize >= size && data != nullptr)
         {
-            void* deviceData =
-                mDevice->Get().mapMemory(mMemory, 0, mSize, vk::MemoryMapFlagBits {});
+            void* deviceData = mDevice->Get().mapMemory(
+                mMemory, offset, mSize, vk::MemoryMapFlagBits {});
 
             memcpy(deviceData, data, size);
 
