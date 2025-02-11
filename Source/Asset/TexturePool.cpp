@@ -1,12 +1,14 @@
 #include "Asset/TexturePool.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
+#include "Builders/BufferBuilder.hpp"
 #include "stb_image.h"
+
 #include <Builders/ImageBuilder.hpp>
 
 namespace FREYA_NAMESPACE
 {
-    constexpr auto MinTextureSize = 2 * 1024 * 1024;
+    constexpr auto MegaBytes = 1024 * 1024;
 
     TexturePool::TexturePool(const Ref<Device>&      device,
                              const Ref<CommandPool>& commandPool,
@@ -26,6 +28,9 @@ namespace FREYA_NAMESPACE
 
     std::uint32_t TexturePool::CreateTextureFromFile(std::string path)
     {
+
+        std::cout << "TexturePool::TexturePool - " << path << std::endl;
+
         int        width, height, channels;
         const auto imageData =
             stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
@@ -36,12 +41,16 @@ namespace FREYA_NAMESPACE
                 std::format("Failed to load texture: {}", path));
         }
 
+        const auto stagingBuffer =
+            queryStagingBuffer(width * height * STBI_rgb_alpha);
+
         const auto image =
             ImageBuilder(mDevice)
                 .SetUsage(ImageUsage::Texture)
                 .SetWidth(width)
                 .SetHeight(height)
                 .SetChannels(STBI_rgb_alpha)
+                .SetStagingBuffer(stagingBuffer)
                 .SetData(imageData)
                 .Build();
 
@@ -101,5 +110,31 @@ namespace FREYA_NAMESPACE
             1,
             descriptorSets,
             nullptr);
+    }
+
+    Ref<Buffer> TexturePool::queryStagingBuffer(std::uint32_t size)
+    {
+        for (auto stagingBuffer : mStagingBuffers)
+        {
+            if (stagingBuffer->GetSize() >= size)
+                return stagingBuffer;
+        }
+
+        return createStagingBuffer(size);
+    }
+
+    Ref<Buffer> TexturePool::createStagingBuffer(std::uint32_t size)
+    {
+        const auto bufferSize = (size / MegaBytes + 4) * MegaBytes;
+
+        auto stagingBuffer =
+            BufferBuilder(mDevice)
+                .SetSize(bufferSize)
+                .SetUsage(BufferUsage::Staging)
+                .Build();
+
+        mStagingBuffers.push_back(stagingBuffer);
+
+        return stagingBuffer;
     }
 } // namespace FREYA_NAMESPACE

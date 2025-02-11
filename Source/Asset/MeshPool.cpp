@@ -79,10 +79,13 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    std::uint32_t MeshPool::CreateMesh(
-        std::vector<Vertex> vertices, std::vector<uint16_t> indices)
+    std::uint32_t MeshPool::CreateMesh(const std::vector<Vertex>&   vertices,
+                                       const std::vector<uint16_t>& indices)
     {
-        const auto beginInfo = vk::CommandBufferBeginInfo().setFlags(
+
+        std::cout << "MeshPool::CreateMesh" << std::endl;
+
+        constexpr auto beginInfo = vk::CommandBufferBeginInfo().setFlags(
             vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
         const auto commandBuffer = mCommandPool->CreateCommandBuffer();
 
@@ -186,7 +189,7 @@ namespace FREYA_NAMESPACE
     {
         const auto vertexBuffer =
             BufferBuilder(mDevice)
-                .SetSize(sizeof(Vertex) * size)
+                .SetSize(size)
                 .SetUsage(BufferUsage::Vertex)
                 .Build();
 
@@ -216,7 +219,7 @@ namespace FREYA_NAMESPACE
     {
         const auto indexBuffer =
             BufferBuilder(mDevice)
-                .SetSize(sizeof(uint16_t) * size)
+                .SetSize(size)
                 .SetUsage(BufferUsage::Index)
                 .Build();
 

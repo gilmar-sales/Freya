@@ -15,17 +15,21 @@ namespace FREYA_NAMESPACE
 
         TexturePool(const Ref<Device>&      device,
                     const Ref<CommandPool>& commandPool,
-                    const Ref<ForwardPass>&  renderPass);
+                    const Ref<ForwardPass>& renderPass);
 
         ~TexturePool();
 
         std::uint32_t CreateTextureFromFile(std::string path);
         void          Bind(uint32_t uint32);
 
+        Ref<Buffer> queryStagingBuffer(std::uint32_t size);
+        Ref<Buffer> createStagingBuffer(std::uint32_t size);
+
       private:
-        Ref<Device>      mDevice;
-        Ref<CommandPool> mCommandPool;
-        Ref<ForwardPass>  mRenderPass;
+        Ref<Device>              mDevice;
+        Ref<CommandPool>         mCommandPool;
+        Ref<ForwardPass>         mRenderPass;
+        std::vector<Ref<Buffer>> mStagingBuffers;
 
         TextureSet mTextures;
     };

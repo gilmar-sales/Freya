@@ -9,7 +9,8 @@ namespace FREYA_NAMESPACE
 
     Ref<Buffer> BufferBuilder::Build()
     {
-        assert(mDevice.get() && "Cannot create fra::Buffer with an invalid fra::Device");
+        assert(mDevice.get() &&
+               "Cannot create fra::Buffer with an invalid fra::Device");
 
         const auto queueFamilyIndices = mDevice->GetQueueFamilyIndices();
 
@@ -18,7 +19,8 @@ namespace FREYA_NAMESPACE
                 .setSize(mSize)
                 .setSharingMode(vk::SharingMode::eExclusive)
                 .setQueueFamilyIndexCount(1)
-                .setPQueueFamilyIndices(&queueFamilyIndices.graphicsFamily.value());
+                .setPQueueFamilyIndices(
+                    &queueFamilyIndices.graphicsFamily.value());
 
         switch (mUsage)
         {
@@ -57,35 +59,35 @@ namespace FREYA_NAMESPACE
 
         assert(buffer && "Failed to create vk::Buffer.");
 
-        const auto memoryRequirements = mDevice->Get().getBufferMemoryRequirements(buffer);
+        const auto memoryRequirements =
+            mDevice->Get().getBufferMemoryRequirements(buffer);
 
         auto memoryProperties = vk::MemoryPropertyFlags {};
 
         switch (mUsage)
         {
             case BufferUsage::Staging:
-                memoryProperties =
-                    vk::MemoryPropertyFlagBits::eHostVisible |
-                    vk::MemoryPropertyFlagBits::eHostCoherent;
+                memoryProperties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                   vk::MemoryPropertyFlagBits::eHostCoherent;
                 break;
             case BufferUsage::Vertex:
             case BufferUsage::Index:
             case BufferUsage::Uniform:
             case BufferUsage::Instance:
-                memoryProperties =
-                    vk::MemoryPropertyFlagBits::eHostVisible |
-                    vk::MemoryPropertyFlagBits::eDeviceLocal;
+                memoryProperties = vk::MemoryPropertyFlagBits::eHostVisible |
+                                   vk::MemoryPropertyFlagBits::eDeviceLocal;
                 break;
             default:
                 break;
         }
 
-        const auto memoryTypeIndex = mDevice->GetPhysicalDevice()->QueryCompatibleMemoryType(
-            memoryRequirements.memoryTypeBits,
-            memoryProperties);
+        const auto memoryTypeIndex =
+            mDevice->GetPhysicalDevice()->QueryCompatibleMemoryType(
+                memoryRequirements.memoryTypeBits,
+                memoryProperties);
 
-        auto priorityInfo = vk::MemoryPriorityAllocateInfoEXT()
-                                .setPriority(0.2f);
+        auto priorityInfo =
+            vk::MemoryPriorityAllocateInfoEXT().setPriority(0.2f);
 
         switch (mUsage)
         {
@@ -113,8 +115,11 @@ namespace FREYA_NAMESPACE
 
         if (mData != nullptr)
         {
-            void* data =
-                mDevice->Get().mapMemory(memory, 0, mSize, vk::MemoryMapFlagBits {});
+            void* data = mDevice->Get().mapMemory(
+                memory,
+                0,
+                mSize,
+                vk::MemoryMapFlagBits {});
 
             memcpy(data, mData, mSize);
 

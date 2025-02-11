@@ -6,6 +6,8 @@ namespace FREYA_NAMESPACE
 {
     Ref<Image> ImageBuilder::Build()
     {
+        std::cout << "ImageBuilder::Build" << std::endl;
+
         if (mFormat == vk::Format::eUndefined)
         {
             chooseFormat();
@@ -66,6 +68,8 @@ namespace FREYA_NAMESPACE
             case ImageUsage::Depth:
             case ImageUsage::Sampling:
                 priorityInfo.setPriority(1.0f);
+            case ImageUsage::Texture:
+                priorityInfo.setPriority(0.8f);
             default:
                 break;
         }
@@ -85,12 +89,15 @@ namespace FREYA_NAMESPACE
             const auto commandPool =
                 CommandPoolBuilder().SetDevice(mDevice).SetCount(2).Build();
 
-            const auto imageBufferStaging =
-                BufferBuilder(mDevice)
-                    .SetData(mData)
-                    .SetSize(mWidth * mHeight * mChannels)
-                    .SetUsage(BufferUsage::Staging)
-                    .Build();
+            if (mStagingBuffer == nullptr)
+                mStagingBuffer =
+                    BufferBuilder(mDevice)
+                        .SetData(mData)
+                        .SetSize(mWidth * mHeight * mChannels)
+                        .SetUsage(BufferUsage::Staging)
+                        .Build();
+            else
+                mStagingBuffer->Copy(mData, mWidth * mHeight * mChannels);
 
             transitionLayout(commandPool,
                              image,
@@ -118,7 +125,7 @@ namespace FREYA_NAMESPACE
             };
 
             commandBuffer.copyBufferToImage(
-                imageBufferStaging->Get(),
+                mStagingBuffer->Get(),
                 image,
                 vk::ImageLayout::eTransferDstOptimal,
                 imageBufferCopy);

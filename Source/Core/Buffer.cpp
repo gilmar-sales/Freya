@@ -40,7 +40,7 @@ namespace FREYA_NAMESPACE
         if (mSize >= size && data != nullptr)
         {
             void* deviceData = mDevice->Get().mapMemory(
-                mMemory, offset, mSize, vk::MemoryMapFlagBits {});
+                mMemory, offset, size, vk::MemoryMapFlagBits {});
 
             memcpy(deviceData, data, size);
 

@@ -25,8 +25,8 @@ namespace FREYA_NAMESPACE
                            size_t        instanceCount,
                            size_t        firstInstance = 0);
 
-        std::uint32_t CreateMesh(
-            std::vector<Vertex> vertices, std::vector<uint16_t> indices);
+        std::uint32_t CreateMesh(const std::vector<Vertex>&   vertices,
+                                 const std::vector<uint16_t>& indices);
         std::vector<std::uint32_t> CreateMeshFromFile(const std::string& path);
 
       protected:

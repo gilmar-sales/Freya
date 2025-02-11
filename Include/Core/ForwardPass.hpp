@@ -18,33 +18,34 @@ namespace FREYA_NAMESPACE
     class ForwardPass
     {
       public:
-        ForwardPass(const Ref<Device>&                          device,
-                    const Ref<Surface>&                         surface,
-                    const vk::RenderPass                        renderPass,
-                    const vk::PipelineLayout                    pipelineLayout,
-                    const vk::Pipeline                          graphicsPipeline,
-                    const std::vector<Ref<Buffer>>&             uniformBuffers,
-                    const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
-                    const std::vector<vk::DescriptorSet>&       descriptorSets,
-                    const vk::DescriptorPool                    descriptorPool,
-                    const vk::DescriptorSetLayout               samplerLayout,
-                    const vk::DescriptorPool                    samplerDescriptorPool,
-                    const vk::Sampler                           sampler) :
-            mDevice(device),
-            mSurface(surface), mRenderPass(renderPass),
-            mPipelineLayout(pipelineLayout), mGraphicsPipeline(graphicsPipeline),
-            mUniformBuffers(uniformBuffers),
+        ForwardPass(
+            const Ref<Device>&                          device,
+            const Ref<Surface>&                         surface,
+            const vk::RenderPass                        renderPass,
+            const vk::PipelineLayout                    pipelineLayout,
+            const vk::Pipeline                          graphicsPipeline,
+            const Ref<Buffer>&                          uniformBuffer,
+            const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
+            const std::vector<vk::DescriptorSet>&       descriptorSets,
+            const vk::DescriptorPool                    descriptorPool,
+            const vk::DescriptorSetLayout               samplerLayout,
+            const vk::DescriptorPool                    samplerDescriptorPool,
+            const vk::Sampler                           sampler) :
+            mDevice(device), mSurface(surface), mRenderPass(renderPass),
+            mPipelineLayout(pipelineLayout),
+            mGraphicsPipeline(graphicsPipeline), mUniformBuffer(uniformBuffer),
             mDescriptorSetLayouts(descriptorSetLayouts),
             mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool),
-            mSamplerLayout(samplerLayout), mSamplerDescriptorPool(samplerDescriptorPool),
-            mSampler(sampler), mIndex(0)
+            mSamplerLayout(samplerLayout),
+            mSamplerDescriptorPool(samplerDescriptorPool), mSampler(sampler),
+            mIndex(0)
         {
         }
 
         ~ForwardPass();
 
-        void UpdateProjection(ProjectionUniformBuffer& buffer, std::uint32_t frameIndex) const;
-        void UpdateModel(glm::mat4 model, std::uint32_t frameIndex) const;
+        void UpdateProjection(const ProjectionUniformBuffer& buffer,
+                              std::uint32_t            frameIndex) const;
 
         void BindDescriptorSet(const Ref<CommandPool>& commandPool,
                                std::uint32_t           frameIndex) const;
@@ -54,10 +55,16 @@ namespace FREYA_NAMESPACE
         vk::Pipeline&       GetGraphicsPipeline() { return mGraphicsPipeline; }
 
         vk::DescriptorSetLayout& GetSamplerLayout() { return mSamplerLayout; }
-        vk::DescriptorPool&      GetSamplerDescriptorPool() { return mSamplerDescriptorPool; }
-        vk::Sampler&             GetSampler() { return mSampler; }
+        vk::DescriptorPool&      GetSamplerDescriptorPool()
+        {
+            return mSamplerDescriptorPool;
+        }
+        vk::Sampler& GetSampler() { return mSampler; }
 
-        vk::DescriptorSet& GetCurrentDescriptorSet() { return mDescriptorSets[mIndex]; }
+        vk::DescriptorSet& GetCurrentDescriptorSet()
+        {
+            return mDescriptorSets[mIndex];
+        }
 
         void SetFrameIndex(const std::uint32_t index)
         {
@@ -75,7 +82,7 @@ namespace FREYA_NAMESPACE
         vk::PipelineLayout mPipelineLayout;
         vk::Pipeline       mGraphicsPipeline;
 
-        std::vector<Ref<Buffer>>             mUniformBuffers;
+        Ref<Buffer>                          mUniformBuffer;
         std::vector<vk::DescriptorSetLayout> mDescriptorSetLayouts;
         std::vector<vk::DescriptorSet>       mDescriptorSets;
         vk::DescriptorPool                   mDescriptorPool;
