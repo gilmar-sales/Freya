@@ -1,6 +1,6 @@
-#include "Core/SwapChain.hpp"
+#include "Freya/Core/SwapChain.hpp"
 
-#include "Core/Device.hpp"
+#include "Freya/Core/Device.hpp"
 
 namespace FREYA_NAMESPACE
 {

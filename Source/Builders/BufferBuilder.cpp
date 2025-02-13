@@ -1,8 +1,8 @@
-#include "Builders/BufferBuilder.hpp"
+#include "Freya/Builders/BufferBuilder.hpp"
 
-#include "Core/Buffer.hpp"
-#include "Core/Device.hpp"
-#include "Core/PhysicalDevice.hpp"
+#include "Freya/Core/Buffer.hpp"
+#include "Freya/Core/Device.hpp"
+#include "Freya/Core/PhysicalDevice.hpp"
 
 namespace FREYA_NAMESPACE
 {

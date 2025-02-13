@@ -1,6 +1,6 @@
-#include "Builders/DeferredPassBuilder.hpp"
+#include "Freya/Builders/DeferredPassBuilder.hpp"
 
-#include "Builders/ShaderModuleBuilder.hpp"
+#include "Freya/Builders/ShaderModuleBuilder.hpp"
 
 namespace FREYA_NAMESPACE
 {

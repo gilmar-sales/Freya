@@ -1,7 +1,7 @@
-#include "Core/Buffer.hpp"
+#include "Freya/Core/Buffer.hpp"
 
-#include "Core/CommandPool.hpp"
-#include "Core/Device.hpp"
+#include "Freya/Core/CommandPool.hpp"
+#include "Freya/Core/Device.hpp"
 
 namespace FREYA_NAMESPACE
 {

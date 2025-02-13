@@ -1,6 +1,6 @@
-#include "Core/CommandPool.hpp"
+#include "Freya/Core/CommandPool.hpp"
 
-#include "Core/Device.hpp"
+#include "Freya/Core/Device.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -12,15 +12,17 @@ namespace FREYA_NAMESPACE
 
     vk::CommandBuffer CommandPool::CreateCommandBuffer() const
     {
-        const auto allocInfo = vk::CommandBufferAllocateInfo()
-                                   .setLevel(vk::CommandBufferLevel::ePrimary)
-                                   .setCommandPool(mCommandPool)
-                                   .setCommandBufferCount(1);
+        const auto allocInfo =
+            vk::CommandBufferAllocateInfo()
+                .setLevel(vk::CommandBufferLevel::ePrimary)
+                .setCommandPool(mCommandPool)
+                .setCommandBufferCount(1);
 
         return mDevice->Get().allocateCommandBuffers(allocInfo)[0];
     }
 
-    void CommandPool::FreeCommandBuffer(const vk::CommandBuffer commandBuffer) const
+    void CommandPool::FreeCommandBuffer(
+        const vk::CommandBuffer commandBuffer) const
     {
         mDevice->Get().freeCommandBuffers(mCommandPool, 1, &commandBuffer);
     }

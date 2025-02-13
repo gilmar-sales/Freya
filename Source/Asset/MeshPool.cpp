@@ -1,5 +1,5 @@
-#include "Asset/MeshPool.hpp"
-#include "Builders/BufferBuilder.hpp"
+#include "Freya/Asset/MeshPool.hpp"
+#include "Freya/Builders/BufferBuilder.hpp"
 
 namespace FREYA_NAMESPACE
 {

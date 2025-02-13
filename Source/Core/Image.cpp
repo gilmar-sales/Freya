@@ -1,4 +1,4 @@
-#include "Core/Image.hpp"
+#include "Freya/Core/Image.hpp"
 
 namespace FREYA_NAMESPACE
 {

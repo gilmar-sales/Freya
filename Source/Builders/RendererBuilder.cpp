@@ -1,11 +1,11 @@
-#include "Builders/RendererBuilder.hpp"
+#include "Freya/Builders/RendererBuilder.hpp"
 
-#include "Builders/CommandPoolBuilder.hpp"
-#include "Builders/DeviceBuilder.hpp"
-#include "Builders/ForwardPassBuilder.hpp"
-#include "Builders/PhysicalDeviceBuilder.hpp"
-#include "Builders/SurfaceBuilder.hpp"
-#include "Builders/SwapChainBuilder.hpp"
+#include "Freya/Builders/CommandPoolBuilder.hpp"
+#include "Freya/Builders/DeviceBuilder.hpp"
+#include "Freya/Builders/ForwardPassBuilder.hpp"
+#include "Freya/Builders/PhysicalDeviceBuilder.hpp"
+#include "Freya/Builders/SurfaceBuilder.hpp"
+#include "Freya/Builders/SwapChainBuilder.hpp"
 
 namespace FREYA_NAMESPACE
 {

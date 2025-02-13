@@ -1,6 +1,6 @@
-#include "Builders/PhysicalDeviceBuilder.hpp"
+#include "Freya/Builders/PhysicalDeviceBuilder.hpp"
 
-#include "Core/Instance.hpp"
+#include "Freya/Core/Instance.hpp"
 
 namespace FREYA_NAMESPACE
 {

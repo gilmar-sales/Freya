@@ -1,4 +1,4 @@
-#include "Builders/WindowBuilder.hpp"
+#include "Freya/Builders/WindowBuilder.hpp"
 
 namespace FREYA_NAMESPACE
 {

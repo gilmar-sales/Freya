@@ -1,8 +1,8 @@
-#include "Builders/DeviceBuilder.hpp"
+#include "Freya/Builders/DeviceBuilder.hpp"
 
-#include "Core/Instance.hpp"
-#include "Core/PhysicalDevice.hpp"
-#include "Core/Surface.hpp"
+#include "Freya/Core/Instance.hpp"
+#include "Freya/Core/PhysicalDevice.hpp"
+#include "Freya/Core/Surface.hpp"
 
 namespace FREYA_NAMESPACE
 {

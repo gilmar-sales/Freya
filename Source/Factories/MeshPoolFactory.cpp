@@ -1,4 +1,4 @@
-#include "Factories/MeshPoolFactory.hpp"
+#include "Freya/Factories/MeshPoolFactory.hpp"
 
 namespace FREYA_NAMESPACE
 {

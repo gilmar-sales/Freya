@@ -1,7 +1,7 @@
-#include "Builders/CommandPoolBuilder.hpp"
+#include "Freya/Builders/CommandPoolBuilder.hpp"
 
-#include "Core/Device.hpp"
-#include "Core/SwapChain.hpp"
+#include "Freya/Core/Device.hpp"
+#include "Freya/Core/SwapChain.hpp"
 #include <cassert>
 
 namespace FREYA_NAMESPACE

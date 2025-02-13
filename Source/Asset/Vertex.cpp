@@ -1,4 +1,4 @@
-#include "Asset/Vertex.hpp"
+#include "Freya/Asset/Vertex.hpp"
 
 namespace FREYA_NAMESPACE
 {

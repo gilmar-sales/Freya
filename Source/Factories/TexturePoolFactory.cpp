@@ -1,4 +1,4 @@
-#include "Factories/TexturePoolFactory.hpp"
+#include "Freya/Factories/TexturePoolFactory.hpp"
 
 namespace FREYA_NAMESPACE
 {

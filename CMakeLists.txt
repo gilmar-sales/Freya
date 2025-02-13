@@ -63,7 +63,7 @@ if (BUILD_SHARED_LIBS)
             <vulkan/vulkan.hpp>
             <SDL3/SDL.h>
             <SDL3/SDL_vulkan.h>
-            Include/Macro.hpp
+            Include/Freya/Freya.hpp
     )
 
     if (MINGW)
@@ -104,7 +104,7 @@ target_precompile_headers(Freya-static PUBLIC
         <vulkan/vulkan.hpp>
         <SDL3/SDL.h>
         <SDL3/SDL_vulkan.h>
-        Include/Macro.hpp
+        Include/Freya/Freya.hpp
 )
 
 

@@ -1,4 +1,4 @@
-#include "Core/Window.hpp"
+#include "Freya/Core/Window.hpp"
 
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_vulkan.h>

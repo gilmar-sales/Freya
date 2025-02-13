@@ -1,10 +1,10 @@
-#include "Asset/TexturePool.hpp"
+#include "Freya/Asset/TexturePool.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "Builders/BufferBuilder.hpp"
 #include "stb_image.h"
 
-#include <Builders/ImageBuilder.hpp>
+#include "Freya/Builders/BufferBuilder.hpp"
+#include "Freya/Builders/ImageBuilder.hpp"
 
 namespace FREYA_NAMESPACE
 {

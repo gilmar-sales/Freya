@@ -1,14 +1,14 @@
-#include "Builders/ForwardPassBuilder.hpp"
+#include "Freya/Builders/ForwardPassBuilder.hpp"
 
-#include "Builders/BufferBuilder.hpp"
-#include "Builders/ShaderModuleBuilder.hpp"
+#include "Freya/Builders/BufferBuilder.hpp"
+#include "Freya/Builders/ShaderModuleBuilder.hpp"
 
-#include "Asset/Vertex.hpp"
-#include "Core/Device.hpp"
-#include "Core/PhysicalDevice.hpp"
-#include "Core/ShaderModule.hpp"
-#include "Core/Surface.hpp"
-#include "Core/UniformBuffer.hpp"
+#include "Freya/Asset/Vertex.hpp"
+#include "Freya/Core/Device.hpp"
+#include "Freya/Core/PhysicalDevice.hpp"
+#include "Freya/Core/ShaderModule.hpp"
+#include "Freya/Core/Surface.hpp"
+#include "Freya/Core/UniformBuffer.hpp"
 
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_enums.hpp>

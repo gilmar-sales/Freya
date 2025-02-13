@@ -1,12 +1,11 @@
-#include "Core/Renderer.hpp"
+#include "Freya/Core/Renderer.hpp"
 
-#include "Builders/BufferBuilder.hpp"
-#include "Builders/ForwardPassBuilder.hpp"
-#include "Builders/SwapChainBuilder.hpp"
-
-#include "Core/Buffer.hpp"
-#include "Core/CommandPool.hpp"
-#include <Core/UniformBuffer.hpp>
+#include "Freya/Builders/BufferBuilder.hpp"
+#include "Freya/Builders/ForwardPassBuilder.hpp"
+#include "Freya/Builders/SwapChainBuilder.hpp"
+#include "Freya/Core/Buffer.hpp"
+#include "Freya/Core/CommandPool.hpp"
+#include "Freya/Core/UniformBuffer.hpp"
 
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>

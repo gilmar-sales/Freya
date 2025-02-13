@@ -1,6 +1,6 @@
-#include "Builders/ImageBuilder.hpp"
+#include "Freya/Builders/ImageBuilder.hpp"
 
-#include "Builders/BufferBuilder.hpp"
+#include "Freya/Builders/BufferBuilder.hpp"
 
 namespace FREYA_NAMESPACE
 {

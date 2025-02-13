@@ -1,4 +1,4 @@
-#include "Core/Instance.hpp"
+#include "Freya/Core/Instance.hpp"
 
 namespace FREYA_NAMESPACE
 {

@@ -1,4 +1,4 @@
-#include "Core/UniformBuffer.hpp"
+#include "Freya/Core/UniformBuffer.hpp"
 
 namespace FREYA_NAMESPACE
 {

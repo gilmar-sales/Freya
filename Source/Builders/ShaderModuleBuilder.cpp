@@ -1,6 +1,6 @@
-#include "Builders/ShaderModuleBuilder.hpp"
+#include "Freya/Builders/ShaderModuleBuilder.hpp"
 
-#include "Core/Device.hpp"
+#include "Freya/Core/Device.hpp"
 
 // #include <shaderc/shaderc.hpp>
 

@@ -1,8 +1,8 @@
-#include "Core/ForwardPass.hpp"
+#include "Freya/Core/ForwardPass.hpp"
 
-#include "Core/Buffer.hpp"
-#include "Core/CommandPool.hpp"
-#include "Core/Device.hpp"
+#include "Freya/Core/Buffer.hpp"
+#include "Freya/Core/CommandPool.hpp"
+#include "Freya/Core/Device.hpp"
 
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
