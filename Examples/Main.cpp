@@ -1,4 +1,4 @@
-#include <Builders/ApplicationBuilder.hpp>
+#include <Freya/Builders/ApplicationBuilder.hpp>
 
 #include <glm/ext/matrix_transform.hpp>
 
@@ -23,11 +23,11 @@ class MainApp final : public fra::AbstractApplication
             glm::scale(glm::mat4(1), glm::vec3(300)), glm::vec3(1, 0, 0));
 
         mTextureA = mTexturePool->CreateTextureFromFile(
-            "D:/Models/textures/Office_sofa_DefaultMaterial_BaseColor.png");
+            "./Resources/Textures/OfficeSofa_BaseColor.png");
         mTextureB = mTexturePool->CreateTextureFromFile(
-            "D:/Models/textures/Office_sofa_DefaultMaterial_Normal.png");
+            "./Resources/Textures/OfficeSofa_Normal.png");
         mModelA =
-            mMeshPool->CreateMeshFromFile("D:/Models/source/Office sofa.fbx");
+            mMeshPool->CreateMeshFromFile("./Resources/Models/OfficeSofa.fbx");
     }
 
     void Update() override

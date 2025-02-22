@@ -5,6 +5,8 @@ project(
         LANGUAGES C CXX
 )
 
+option(FREYA_BUILD_EXAMPLES "Build freyr examples" OFF)
+
 find_package(Vulkan REQUIRED)
 
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "Disable assimp tests build")
@@ -108,16 +110,7 @@ target_precompile_headers(Freya-static PUBLIC
 )
 
 
-add_executable(Main Examples/Main.cpp)
+if (FREYA_BUILD_EXAMPLES)
+    add_subdirectory(Examples)
+endif (FREYA_BUILD_EXAMPLES)
 
-target_compile_features(Main PUBLIC cxx_std_23)
-
-target_link_libraries(Main Freya-static)
-
-if (MSVC)
-    target_compile_options(Main PUBLIC "/ZI" "/MP")
-    target_link_options(Main PUBLIC "/INCREMENTAL")
-endif ()
-
-
-file(COPY Shaders DESTINATION ${CMAKE_BINARY_DIR})
