@@ -19,6 +19,8 @@ namespace FREYA_NAMESPACE
     {
         auto format = mSurface->QuerySurfaceFormat().format;
 
+        std::cout << "Color Format: " << vk::to_string(format) << std::endl;
+
         auto colorAttachment =
             vk::AttachmentDescription()
                 .setFormat(format)
@@ -29,9 +31,6 @@ namespace FREYA_NAMESPACE
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
                 .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
-
-        std::cout << "Color Format: " << vk::to_string(colorAttachment.format)
-                  << std::endl;
 
         if (mSamples != vk::SampleCountFlagBits::e1)
             colorAttachment.setFinalLayout(
@@ -46,8 +45,8 @@ namespace FREYA_NAMESPACE
             vk::AttachmentDescription()
                 .setFormat(format)
                 .setSamples(vk::SampleCountFlagBits::e1)
-                .setLoadOp(vk::AttachmentLoadOp::eClear)
-                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStoreOp(vk::AttachmentStoreOp::eStore)
                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
@@ -67,11 +66,8 @@ namespace FREYA_NAMESPACE
                 .setStencilLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
-                .setFinalLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal);
-
-        if (mSamples != vk::SampleCountFlagBits::e1)
-            depthAttachment.setFinalLayout(
-                vk::ImageLayout::eDepthAttachmentStencilReadOnlyOptimal);
+                .setFinalLayout(
+                    vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
         std::cout << "Depth Format: " << to_string(depthAttachment.format)
                   << std::endl;
@@ -96,27 +92,27 @@ namespace FREYA_NAMESPACE
             vk::SubpassDependency()
                 .setSrcSubpass(VK_SUBPASS_EXTERNAL)
                 .setDstSubpass(0)
-                .setSrcStageMask(vk::PipelineStageFlagBits::eBottomOfPipe)
-                .setDstStageMask(
-                    vk::PipelineStageFlagBits::eColorAttachmentOutput |
-                    vk::PipelineStageFlagBits::eEarlyFragmentTests)
-                .setSrcAccessMask(vk::AccessFlagBits::eNone)
-                .setDstAccessMask(
-                    vk::AccessFlagBits::eColorAttachmentWrite |
-                    vk::AccessFlagBits::eDepthStencilAttachmentWrite)
-                .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
-            vk::SubpassDependency()
-                .setSrcSubpass(0)
-                .setDstSubpass(VK_SUBPASS_EXTERNAL)
                 .setSrcStageMask(
-                    vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                    vk::PipelineStageFlagBits::eEarlyFragmentTests |
                     vk::PipelineStageFlagBits::eLateFragmentTests)
-                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
+                .setDstStageMask(
+                    vk::PipelineStageFlagBits::eEarlyFragmentTests |
+                    vk::PipelineStageFlagBits::eLateFragmentTests)
                 .setSrcAccessMask(
-                    vk::AccessFlagBits::eColorAttachmentWrite |
                     vk::AccessFlagBits::eDepthStencilAttachmentWrite)
-                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
-                .setDependencyFlags(vk::DependencyFlagBits::eByRegion)
+                .setDstAccessMask(
+                    vk::AccessFlagBits::eDepthStencilAttachmentWrite |
+                    vk::AccessFlagBits::eDepthStencilAttachmentRead),
+            vk::SubpassDependency()
+                .setSrcSubpass(VK_SUBPASS_EXTERNAL)
+                .setDstSubpass(0)
+                .setSrcStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setDstStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setSrcAccessMask(vk::AccessFlagBits::eNone)
+                .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite |
+                                  vk::AccessFlagBits::eColorAttachmentRead)
         };
 
         auto attachments =
