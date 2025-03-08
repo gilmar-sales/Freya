@@ -132,6 +132,32 @@ namespace FREYA_NAMESPACE
             assert(frames[index].frameBuffer && "Failed to create framebuffer");
         }
 
+        auto imageAvailableSemaphores = std::vector<vk::Semaphore>(mFrameCount);
+
+        auto renderFinishedSemaphores = std::vector<vk::Semaphore>(mFrameCount);
+
+        auto inFlightFences = std::vector<vk::Fence>(mFrameCount);
+
+        constexpr auto semaphoreInfo = vk::SemaphoreCreateInfo();
+
+        constexpr auto fenceInfo =
+            vk::FenceCreateInfo().setFlags(vk::FenceCreateFlagBits::eSignaled);
+
+        for (size_t i = 0; i < mFrameCount; i++)
+        {
+            imageAvailableSemaphores[i] =
+                mDevice->Get().createSemaphore(semaphoreInfo);
+
+            renderFinishedSemaphores[i] =
+                mDevice->Get().createSemaphore(semaphoreInfo);
+
+            inFlightFences[i] = mDevice->Get().createFence(fenceInfo);
+
+            assert(imageAvailableSemaphores[i] && renderFinishedSemaphores[i] &&
+                   inFlightFences[i] &&
+                   "Failed to create synchronization objects for a frame");
+        }
+
         return MakeRef<SwapChain>(
             mDevice,
             mInstance,
@@ -139,7 +165,10 @@ namespace FREYA_NAMESPACE
             swapChain,
             frames,
             depthImage,
-            sampleImage);
+            sampleImage,
+            imageAvailableSemaphores,
+            renderFinishedSemaphores,
+            inFlightFences);
     }
 
     vk::PresentModeKHR SwapChainBuilder::choosePresentMode()

@@ -1,29 +1,32 @@
 #pragma once
-
 #include "Device.hpp"
 
 namespace FREYA_NAMESPACE
 {
     enum : std::uint32_t
     {
-        DeferredPositionsAttachment,
-        DeferredNormalsAttachment,
-        DeferredAlbedoAttachment,
+        DeferredBackAttachment,
         DeferredDepthAttachment,
+        DeferredGBufferAttachment,
+        DeferredTranslucentAttachment,
+        DeferredOpaqueAttachment
     };
 
     enum : std::uint32_t
     {
+        DeferredDepthPrePass,
         DeferredGBufferPass,
         DeferredLightingPass,
+        DeferredTranslucentPass,
+        DeferredCompositePass
     };
 
-    class DeferredPass
+    class DeferredCompressedPass
     {
       public:
-        explicit DeferredPass(const Ref<Device>&   device,
-                              const Ref<Surface>&  surface,
-                              const vk::RenderPass renderPass) :
+        explicit DeferredCompressedPass(const Ref<Device>&   device,
+                                        const Ref<Surface>&  surface,
+                                        const vk::RenderPass renderPass) :
             mDevice(device), mSurface(surface), mRenderPass(renderPass)
         {
         }

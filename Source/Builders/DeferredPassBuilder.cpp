@@ -33,26 +33,47 @@ namespace FREYA_NAMESPACE
                 .setModule(gBufferFragShaderModule->Get())
                 .setPName("main");
 
-        auto shaderStages = { gBufferVertShaderStageInfo, gBufferFragShaderStageInfo };
+        auto shaderStages = { gBufferVertShaderStageInfo,
+                              gBufferFragShaderStageInfo };
 
         return MakeRef<DeferredPass>(mDevice, mSurface, renderPass);
     }
 
     vk::RenderPass DeferredPassBuilder::createRenderPass() const
     {
-        // const auto surfaceFormat = mSurface->QuerySurfaceFormat().format;
+        const auto surfaceFormat = mSurface->QuerySurfaceFormat().format;
 
         auto attachments = {
-            // Back buffer
+            // Positions
             vk::AttachmentDescription()
-                .setFormat(vk::Format::eR8G8B8A8Unorm)
+                .setFormat(vk::Format::eR16G16B16A16Sfloat)
                 .setSamples(vk::SampleCountFlagBits::e1)
-                .setLoadOp(vk::AttachmentLoadOp::eDontCare)
-                .setStoreOp(vk::AttachmentStoreOp::eStore)
+                .setLoadOp(vk::AttachmentLoadOp::eClear)
+                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
-                .setFinalLayout(vk::ImageLayout::ePresentSrcKHR),
+                .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            // Normals
+            vk::AttachmentDescription()
+                .setFormat(vk::Format::eR16G16B16A16Sfloat)
+                .setSamples(vk::SampleCountFlagBits::e1)
+                .setLoadOp(vk::AttachmentLoadOp::eClear)
+                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setInitialLayout(vk::ImageLayout::eUndefined)
+                .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            // Albedo
+            vk::AttachmentDescription()
+                .setFormat(vk::Format::eR8G8B8A8Unorm)
+                .setSamples(vk::SampleCountFlagBits::e1)
+                .setLoadOp(vk::AttachmentLoadOp::eClear)
+                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setInitialLayout(vk::ImageLayout::eUndefined)
+                .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
             // Depth buffer
             vk::AttachmentDescription()
                 .setFormat(vk::Format::eD32Sfloat)
@@ -62,138 +83,56 @@ namespace FREYA_NAMESPACE
                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
-                .setFinalLayout(vk::ImageLayout::eUndefined),
-            // G buffer
-            vk::AttachmentDescription()
-                .setFormat(vk::Format::eR32G32B32A32Uint)
-                .setSamples(vk::SampleCountFlagBits::e1)
-                .setLoadOp(vk::AttachmentLoadOp::eDontCare)
-                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
-                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-                .setInitialLayout(vk::ImageLayout::eUndefined)
-                .setFinalLayout(vk::ImageLayout::eUndefined),
-            // Translucent buffer
-            vk::AttachmentDescription()
-                .setFormat(vk::Format::eR8G8B8A8Unorm)
-                .setSamples(vk::SampleCountFlagBits::e1)
-                .setLoadOp(vk::AttachmentLoadOp::eDontCare)
-                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
-                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-                .setInitialLayout(vk::ImageLayout::eUndefined)
-                .setFinalLayout(vk::ImageLayout::eUndefined),
+                .setFinalLayout(
+                    vk::ImageLayout::eDepthStencilAttachmentOptimal),
         };
 
-        constexpr auto depthBufferReference =
+        auto gBufferReferences = std::vector {
+            vk::AttachmentReference()
+                .setAttachment(DeferredPositionsAttachment)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
+            vk::AttachmentReference()
+                .setAttachment(DeferredNormalsAttachment)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
+            vk::AttachmentReference()
+                .setAttachment(DeferredAlbedoAttachment)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal)
+        };
+
+        const auto depthBufferReference =
             vk::AttachmentReference()
                 .setAttachment(DeferredDepthAttachment)
                 .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
-        auto gBufferWriteReference =
-            vk::AttachmentReference()
-                .setAttachment(DeferredGBufferAttachment)
-                .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
-
-        auto gBufferReadReference = {
-            vk::AttachmentReference()
-                .setAttachment(DeferredDepthAttachment)
-                .setLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal),
-            vk::AttachmentReference()
-                .setAttachment(DeferredGBufferAttachment)
-                .setLayout(vk::ImageLayout::eReadOnlyOptimal),
-        };
-
-        auto translucentBufferWriteReference = {
-            vk::AttachmentReference()
-                .setAttachment(DeferredTranslucentAttachment)
-                .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
-        };
-
-        auto opaqueBufferWriteReference = {
-            vk::AttachmentReference()
-                .setAttachment(DeferredOpaqueAttachment)
-                .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
-        };
-
-        auto compositeReadReference = {
-            vk::AttachmentReference()
-                .setAttachment(DeferredTranslucentAttachment)
-                .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
-            vk::AttachmentReference()
-                .setAttachment(DeferredOpaqueAttachment)
-                .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
-        };
-
-        // Final pass-back buffer render reference
-        auto backBufferRenderReference = {
-            vk::AttachmentReference()
-                .setAttachment(DeferredBackAttachment)
-                .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
-        };
-
         auto subpasses = {
-            // Subpass 0 - depth prepass
             vk::SubpassDescription()
                 .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+                .setColorAttachments(gBufferReferences)
                 .setPDepthStencilAttachment(&depthBufferReference),
-            // Subpass 1 - g-buffer generation
-            vk::SubpassDescription()
-                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-                .setColorAttachments(gBufferWriteReference)
-                .setPDepthStencilAttachment(&depthBufferReference),
-            // Subpass 2 - lighting
-            vk::SubpassDescription()
-                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-                .setInputAttachments(gBufferReadReference)
-                .setColorAttachments(opaqueBufferWriteReference),
-            // Subpass 3 - translucents
-            vk::SubpassDescription()
-                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-                .setColorAttachments(translucentBufferWriteReference),
-            // Subpass 4 - composite
-            vk::SubpassDescription()
-                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-                .setInputAttachments(compositeReadReference)
-                .setColorAttachments(backBufferRenderReference),
         };
 
         auto dependencies = {
-            // G-buffer pass depends on depth prepass.
+            // Starting from G-buffer.
             vk::SubpassDependency()
-                .setSrcSubpass(DeferredDepthPrePass)
-                .setDstSubpass(DeferredGBufferPass)
-                .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
-                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                .setSrcSubpass(vk::SubpassExternal)
+                .setDstSubpass(0)
+                .setSrcStageMask(vk::PipelineStageFlagBits::eBottomOfPipe)
+                .setDstStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setSrcAccessMask(vk::AccessFlagBits::eMemoryRead)
+                .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentRead |
+                                  vk::AccessFlagBits::eColorAttachmentWrite)
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
             // Lighting pass depends on g-buffer.
             vk::SubpassDependency()
                 .setSrcSubpass(DeferredGBufferPass)
-                .setDstSubpass(DeferredLightingPass)
-                .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
-                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
-                .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
-            // Composite pass depends on translucent pass
-            vk::SubpassDependency()
-                .setSrcSubpass(DeferredTranslucentPass)
-                .setDstSubpass(DeferredCompositePass)
-                .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
-                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
-                .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
-            // Composite pass also depends on lightning
-            vk::SubpassDependency()
-                .setSrcSubpass(DeferredLightingPass)
-                .setDstSubpass(DeferredCompositePass)
-                .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
-                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                .setDstSubpass(vk::SubpassExternal)
+                .setSrcStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setDstStageMask(vk::PipelineStageFlagBits::eBottomOfPipe)
+                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentRead |
+                                  vk::AccessFlagBits::eColorAttachmentWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eMemoryRead)
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
         };
 

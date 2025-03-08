@@ -23,21 +23,6 @@ namespace FREYA_NAMESPACE
         mVertexBuffer.reset();
         mIndexBuffer.reset();
 
-        for (const auto& semaphore : mRenderFinishedSemaphores)
-        {
-            mDevice->Get().destroySemaphore(semaphore);
-        }
-
-        for (const auto& semaphore : mImageAvailableSemaphores)
-        {
-            mDevice->Get().destroySemaphore(semaphore);
-        }
-
-        for (const auto& fence : mInFlightFences)
-        {
-            mDevice->Get().destroyFence(fence);
-        }
-
         mCommandPool.reset();
 
         mDevice.reset();
@@ -143,7 +128,7 @@ namespace FREYA_NAMESPACE
 
         projectionUniformBuffer.projection[1][1] *= -1.f;
 
-        for (auto frameIndex = 0; frameIndex < mImageAvailableSemaphores.size();
+        for (auto frameIndex = 0; frameIndex < mSwapChain->GetFrameCount();
              frameIndex++)
         {
             mRenderPass->UpdateProjection(projectionUniformBuffer, frameIndex);
@@ -168,7 +153,7 @@ namespace FREYA_NAMESPACE
         ProjectionUniformBuffer& projectionUniformBuffer)
     {
         mRenderPass->UpdateProjection(projectionUniformBuffer,
-                                      mCurrentFrameIndex);
+                                      mSwapChain->GetCurrentFrameIndex());
         mCurrentProjection = projectionUniformBuffer;
     }
 
@@ -204,11 +189,7 @@ namespace FREYA_NAMESPACE
 
     void Renderer::BeginFrame()
     {
-        if (mDevice->Get().waitForFences(1,
-                                         &mInFlightFences[mCurrentFrameIndex],
-                                         true,
-                                         UINT64_MAX) != vk::Result::eSuccess)
-            throw std::runtime_error("failed to wait for fences!");
+        mSwapChain->WaitNextFrame();
 
         if (mResizeEvent.has_value())
         {
@@ -217,27 +198,22 @@ namespace FREYA_NAMESPACE
             mResizeEvent.reset();
         }
 
-        auto swapChainFrame = mSwapChain->GetNextFrame(
-            mImageAvailableSemaphores[mCurrentFrameIndex]);
+        auto swapChainFrame = mSwapChain->GetNextFrame();
 
         while (!swapChainFrame)
         {
             RebuildSwapChain();
-            swapChainFrame = mSwapChain->GetNextFrame(
-                mImageAvailableSemaphores[mCurrentFrameIndex]);
+            swapChainFrame = mSwapChain->GetNextFrame();
         }
 
-        if (mDevice->Get().resetFences(1,
-                                       &mInFlightFences[mCurrentFrameIndex]) !=
-            vk::Result::eSuccess)
-            throw std::runtime_error("failed to reset fences!");
+        mSwapChain->BeginNextFrame();
 
-        mCommandPool->SetCommandBufferIndex(mCurrentFrameIndex);
-        mRenderPass->SetFrameIndex(mCurrentFrameIndex);
+        mCommandPool->SetCommandBufferIndex(mSwapChain->GetCurrentFrameIndex());
+        mRenderPass->SetFrameIndex(mSwapChain->GetCurrentFrameIndex());
 
         const auto& commandBuffer = mCommandPool->GetCommandBuffer();
 
-        if (mCurrentFrameIndex == 0)
+        if (mSwapChain->GetCurrentFrameIndex() == 0)
             mDevice->Get().resetCommandPool(mCommandPool->Get());
 
         constexpr auto beginInfo = vk::CommandBufferBeginInfo().setFlags(
@@ -284,7 +260,8 @@ namespace FREYA_NAMESPACE
 
         commandBuffer.setScissor(0, 1, &scissor);
 
-        mRenderPass->BindDescriptorSet(mCommandPool, mCurrentFrameIndex);
+        mRenderPass->BindDescriptorSet(mCommandPool,
+                                       mSwapChain->GetCurrentFrameIndex());
     }
 
     void Renderer::EndFrame()
@@ -296,55 +273,20 @@ namespace FREYA_NAMESPACE
 
         auto commandBuffers = { commandBuffer };
 
-        constexpr vk::PipelineStageFlags waitStages[] = {
-            vk::PipelineStageFlagBits::eColorAttachmentOutput
-        };
+        mSwapChain->WaitCommandBuffersSubmission(commandBuffers);
 
-        auto waitSemaphores = { mImageAvailableSemaphores[mCurrentFrameIndex] };
+        auto presentResult = mSwapChain->Present();
 
-        auto signalSemaphores = {
-            mRenderFinishedSemaphores[mCurrentFrameIndex]
-        };
-
-        const auto submitInfo =
-            vk::SubmitInfo()
-                .setWaitSemaphores(waitSemaphores)
-                .setWaitDstStageMask(waitStages)
-                .setCommandBuffers(commandBuffers)
-                .setSignalSemaphores(signalSemaphores);
-
-        const auto submitResult = mDevice->GetGraphicsQueue().submit(
-            1,
-            &submitInfo,
-            mInFlightFences[mCurrentFrameIndex]);
-
-        if (submitResult != vk::Result::eSuccess)
-            throw std::runtime_error("failed to submit draw command buffer!");
-
-        auto swapChains = { mSwapChain->Get() };
-
-        auto imageIndices = { mSwapChain->GetCurrentFrameIndex() };
-
-        const auto presentInfo =
-            vk::PresentInfoKHR()
-                .setWaitSemaphores(signalSemaphores)
-                .setSwapchains(swapChains)
-                .setImageIndices(imageIndices);
-
-        if (const auto result =
-                mDevice->GetPresentQueue().presentKHR(presentInfo);
-            result == vk::Result::eErrorOutOfDateKHR ||
-            result == vk::Result::eSuboptimalKHR)
+        if (presentResult == vk::Result::eErrorOutOfDateKHR ||
+            presentResult == vk::Result::eSuboptimalKHR)
         {
             RebuildSwapChain();
         }
-        else if (result != vk::Result::eSuccess)
+        else if (presentResult != vk::Result::eSuccess)
         {
             throw std::runtime_error("failed to present swap chain image!");
         }
 
-        mCurrentFrameIndex =
-            (mCurrentFrameIndex + 1) % mImageAvailableSemaphores.size();
         mDevice->Get().waitIdle();
     }
 

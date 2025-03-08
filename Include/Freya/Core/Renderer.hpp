@@ -22,30 +22,24 @@ namespace FREYA_NAMESPACE
     class Renderer
     {
       public:
-        Renderer(const Ref<Instance>&              instance,
-                 const Ref<Surface>&               surface,
-                 const Ref<PhysicalDevice>&        physicalDevice,
-                 const Ref<Device>&                device,
-                 const Ref<SwapChain>&             swapChain,
-                 const Ref<ForwardPass>&           renderPass,
-                 const Ref<CommandPool>&           commandPool,
-                 const std::vector<vk::Semaphore>& imageAvailableSemaphores,
-                 const std::vector<vk::Semaphore>& renderFinishedSemaphores,
-                 const std::vector<vk::Fence>&     inFlightFences,
-                 const bool                        vSync,
-                 const vk::SampleCountFlagBits     samples,
-                 const vk::ClearColorValue         clearColor,
-                 const float                       drawDistance,
-                 const Ref<EventManager>&          eventManager) :
+        Renderer(const Ref<Instance>&          instance,
+                 const Ref<Surface>&           surface,
+                 const Ref<PhysicalDevice>&    physicalDevice,
+                 const Ref<Device>&            device,
+                 const Ref<SwapChain>&         swapChain,
+                 const Ref<ForwardPass>&       renderPass,
+                 const Ref<CommandPool>&       commandPool,
+                 const bool                    vSync,
+                 const vk::SampleCountFlagBits samples,
+                 const vk::ClearColorValue     clearColor,
+                 const float                   drawDistance,
+                 const Ref<EventManager>&      eventManager) :
             mInstance(instance), mSurface(surface),
             mPhysicalDevice(physicalDevice), mDevice(device),
-            mSwapChain(swapChain), mRenderPass(renderPass),
+            mSwapChain(swapChain), mRenderPass(renderPass), mSamples(samples),
             mCommandPool(commandPool), mEventManager(eventManager),
-            mImageAvailableSemaphores(imageAvailableSemaphores),
-            mRenderFinishedSemaphores(renderFinishedSemaphores),
-            mInFlightFences(inFlightFences), mSamples(samples),
             mClearColor(clearColor), mDrawDistance(drawDistance), mVSync(vSync),
-            mCurrentFrameIndex(0), mCurrentProjection({})
+            mCurrentProjection({})
         {
             ClearProjections();
 
@@ -102,10 +96,6 @@ namespace FREYA_NAMESPACE
         Ref<CommandPool>    mCommandPool;
         Ref<EventManager>   mEventManager;
 
-        std::vector<vk::Semaphore> mImageAvailableSemaphores;
-        std::vector<vk::Semaphore> mRenderFinishedSemaphores;
-        std::vector<vk::Fence>     mInFlightFences;
-
         vk::SampleCountFlagBits mSamples;
         vk::ClearColorValue     mClearColor;
         float                   mDrawDistance;
@@ -119,7 +109,6 @@ namespace FREYA_NAMESPACE
         Ref<Buffer> mIndexBuffer;
 
         std::optional<WindowResizeEvent> mResizeEvent;
-        std::uint32_t                    mCurrentFrameIndex;
 
         ProjectionUniformBuffer mCurrentProjection;
     };
