@@ -12,8 +12,9 @@ namespace FREYA_NAMESPACE
     {
       public:
         ForwardPassBuilder() :
-            mSamples(vk::SampleCountFlagBits::e1),
-            mFrameCount(0) {}
+            mSamples(vk::SampleCountFlagBits::e1), mFrameCount(0)
+        {
+        }
 
         ForwardPassBuilder& SetDevice(const Ref<Device>& device)
         {
@@ -49,6 +50,9 @@ namespace FREYA_NAMESPACE
         Ref<ForwardPass> Build();
 
       private:
+        vk::RenderPass                               createRenderPass() const;
+        std::tuple<vk::PipelineLayout, vk::Pipeline> createPipeline() const;
+
         Ref<Device>         mDevice;
         Ref<PhysicalDevice> mPhysicalDevice;
         Ref<Surface>        mSurface;

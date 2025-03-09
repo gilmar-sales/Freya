@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Device.hpp"
+#include "Freya/Core/Device.hpp"
+#include "Freya/Core/RenderPass.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -18,21 +19,22 @@ namespace FREYA_NAMESPACE
         DeferredLightingPass,
     };
 
-    class DeferredPass
+    class DeferredPass : public RenderPass
     {
       public:
-        explicit DeferredPass(const Ref<Device>&   device,
-                              const Ref<Surface>&  surface,
-                              const vk::RenderPass renderPass) :
-            mDevice(device), mSurface(surface), mRenderPass(renderPass)
+        explicit DeferredPass(const Ref<Device>&       device,
+                              const Ref<Surface>&      surface,
+                              const vk::RenderPass     renderPass,
+                              const vk::PipelineLayout pipelineLayout,
+                              const vk::Pipeline       graphicsPipeline) :
+            RenderPass(renderPass, pipelineLayout, graphicsPipeline),
+            mDevice(device), mSurface(surface)
         {
         }
 
       private:
         Ref<Device>  mDevice;
         Ref<Surface> mSurface;
-
-        vk::RenderPass mRenderPass;
     };
 
 } // namespace FREYA_NAMESPACE

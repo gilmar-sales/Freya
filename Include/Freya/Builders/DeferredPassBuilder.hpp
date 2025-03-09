@@ -40,9 +40,11 @@ namespace FREYA_NAMESPACE
         }
 
         [[nodiscard]] Ref<DeferredPass> Build() const;
-        vk::RenderPass                  createRenderPass() const;
 
       private:
+        vk::RenderPass                               createRenderPass() const;
+        std::tuple<vk::PipelineLayout, vk::Pipeline> createPipeline() const;
+
         Ref<Device>  mDevice;
         Ref<Surface> mSurface;
 

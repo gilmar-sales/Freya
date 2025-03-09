@@ -12,13 +12,13 @@ namespace FREYA_NAMESPACE
         const auto gBufferVertShaderModule =
             ShaderModuleBuilder()
                 .SetDevice(mDevice)
-                .SetFilePath("./Shaders/Deferred/gbuffer.vert.spv")
+                .SetFilePath("./Resources/Shaders/Deferred/Vert.spv")
                 .Build();
 
         const auto gBufferFragShaderModule =
             ShaderModuleBuilder()
                 .SetDevice(mDevice)
-                .SetFilePath("./Shaders/Deferred/gbuffer.frag.spv")
+                .SetFilePath("./Resources/Shaders/Deferred/Frag.spv")
                 .Build();
 
         const auto gBufferVertShaderStageInfo =
@@ -36,7 +36,12 @@ namespace FREYA_NAMESPACE
         auto shaderStages = { gBufferVertShaderStageInfo,
                               gBufferFragShaderStageInfo };
 
-        return MakeRef<DeferredPass>(mDevice, mSurface, renderPass);
+        return MakeRef<DeferredPass>(
+            mDevice,
+            mSurface,
+            renderPass,
+            vk::PipelineLayout(),
+            vk::Pipeline());
     }
 
     vk::RenderPass DeferredPassBuilder::createRenderPass() const

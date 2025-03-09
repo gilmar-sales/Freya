@@ -3,6 +3,7 @@
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/RenderPass.hpp"
 #include "Freya/Core/Surface.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 
@@ -15,7 +16,7 @@ namespace FREYA_NAMESPACE
         ForwardColorResolveAttachment
     };
 
-    class ForwardPass
+    class ForwardPass : public RenderPass
     {
       public:
         ForwardPass(
@@ -31,9 +32,8 @@ namespace FREYA_NAMESPACE
             const vk::DescriptorSetLayout               samplerLayout,
             const vk::DescriptorPool                    samplerDescriptorPool,
             const vk::Sampler                           sampler) :
-            mDevice(device), mSurface(surface), mRenderPass(renderPass),
-            mPipelineLayout(pipelineLayout),
-            mGraphicsPipeline(graphicsPipeline), mUniformBuffer(uniformBuffer),
+            RenderPass(renderPass, pipelineLayout, graphicsPipeline),
+            mDevice(device), mSurface(surface), mUniformBuffer(uniformBuffer),
             mDescriptorSetLayouts(descriptorSetLayouts),
             mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool),
             mSamplerLayout(samplerLayout),
@@ -49,8 +49,6 @@ namespace FREYA_NAMESPACE
 
         void BindDescriptorSet(const Ref<CommandPool>& commandPool,
                                std::uint32_t           frameIndex) const;
-
-        vk::RenderPass&     Get() { return mRenderPass; }
         vk::PipelineLayout& GetPipelineLayout() { return mPipelineLayout; }
         vk::Pipeline&       GetGraphicsPipeline() { return mGraphicsPipeline; }
 
@@ -77,10 +75,6 @@ namespace FREYA_NAMESPACE
       private:
         Ref<Device>  mDevice;
         Ref<Surface> mSurface;
-
-        vk::RenderPass     mRenderPass;
-        vk::PipelineLayout mPipelineLayout;
-        vk::Pipeline       mGraphicsPipeline;
 
         Ref<Buffer>                          mUniformBuffer;
         std::vector<vk::DescriptorSetLayout> mDescriptorSetLayouts;
