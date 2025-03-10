@@ -12,17 +12,19 @@ namespace FREYA_NAMESPACE
 {
     Ref<SwapChain> SwapChainBuilder::Build()
     {
+        mLogger->LogTrace("Building 'fra::SwapChain':");
+
         auto surfaceFormat = mSurface->QuerySurfaceFormat();
         auto presentMode   = choosePresentMode();
         auto extent        = mSurface->QueryExtent();
 
-        std::cout << "Frame Count: " << mFrameCount << std::endl;
-        std::cout << "Sample Count: " << to_string(mSamples) << std::endl;
-        std::cout << "Surface Format: " << to_string(surfaceFormat.format)
-                  << std::endl;
-        std::cout << "Present Mode: " << to_string(presentMode) << std::endl;
-        std::cout << "Extent: " << extent.width << ", " << extent.height
-                  << std::endl;
+        mLogger->LogTrace("\tFrame Count: {}", mFrameCount);
+
+        auto surfaceFormatString = to_string(surfaceFormat.format);
+        mLogger->LogTrace("\tSurface Format: {}", surfaceFormatString);
+
+        auto presentModeString = to_string(presentMode);
+        mLogger->LogTrace("\tPresent Mode: {}", presentModeString);
 
         auto supportDetails =
             mPhysicalDevice->QuerySwapChainSupport(mSurface->Get());
@@ -42,8 +44,8 @@ namespace FREYA_NAMESPACE
                 .setImageSharingMode(vk::SharingMode::eExclusive)
                 .setClipped(true);
 
-        assert(
-            mDevice->GetQueueFamilyIndices().isComplete() &&
+        mLogger->Assert(
+            mDevice->GetQueueFamilyIndices().isComplete(),
             "Could not set image sharing mode with incomplete queue families");
 
         if (mDevice->GetQueueFamilyIndices().isUnique())
@@ -57,12 +59,12 @@ namespace FREYA_NAMESPACE
                 .setQueueFamilyIndices(queueFamilyIndices);
         }
 
-        std::cout << "Sharing Mode: " << to_string(createInfo.imageSharingMode)
-                  << std::endl;
+        auto sharingMode = to_string(createInfo.imageSharingMode);
+        mLogger->LogTrace("\tSharing Mode: {}", sharingMode);
 
         auto swapChain = mDevice->Get().createSwapchainKHR(createInfo);
 
-        assert(swapChain && "Failed to create swap chain");
+        mLogger->Assert(swapChain, "\tFailed to create swap chain");
 
         auto swapChainImages = mDevice->Get().getSwapchainImagesKHR(swapChain);
 
@@ -86,7 +88,8 @@ namespace FREYA_NAMESPACE
         auto frames = std::vector<SwapChainFrame>(swapChainImages.size());
 
         auto depthImage =
-            ImageBuilder(mDevice)
+            mServiceProvider->GetService<ImageBuilder>()
+                ->SetDevice(mDevice)
                 .SetUsage(ImageUsage::Depth)
                 .SetSamples(mSamples)
                 .SetWidth(extent.width)
@@ -94,7 +97,8 @@ namespace FREYA_NAMESPACE
                 .Build();
 
         auto sampleImage =
-            ImageBuilder(mDevice)
+            mServiceProvider->GetService<ImageBuilder>()
+                ->SetDevice(mDevice)
                 .SetUsage(ImageUsage::Sampling)
                 .SetSamples(mSamples)
                 .SetWidth(extent.width)
@@ -108,7 +112,9 @@ namespace FREYA_NAMESPACE
             imageViewCreateInfo.setImage(swapChainImages[index]);
             frames[index].imageView =
                 mDevice->Get().createImageView(imageViewCreateInfo);
-            assert(frames[index].imageView && "Failed to create image views");
+
+            mLogger->Assert(frames[index].imageView,
+                            "\tFailed to create image views");
 
             auto attachments =
                 mSamples != vk::SampleCountFlagBits::e1
@@ -129,7 +135,8 @@ namespace FREYA_NAMESPACE
             frames[index].frameBuffer =
                 mDevice->Get().createFramebuffer(framebufferInfo);
 
-            assert(frames[index].frameBuffer && "Failed to create framebuffer");
+            mLogger->Assert(frames[index].frameBuffer,
+                            "\tFailed to create framebuffer");
         }
 
         auto imageAvailableSemaphores = std::vector<vk::Semaphore>(mFrameCount);
@@ -153,9 +160,10 @@ namespace FREYA_NAMESPACE
 
             inFlightFences[i] = mDevice->Get().createFence(fenceInfo);
 
-            assert(imageAvailableSemaphores[i] && renderFinishedSemaphores[i] &&
-                   inFlightFences[i] &&
-                   "Failed to create synchronization objects for a frame");
+            mLogger->Assert(
+                imageAvailableSemaphores[i] && renderFinishedSemaphores[i] &&
+                    inFlightFences[i],
+                "\tFailed to create synchronization objects for a frame");
         }
 
         return MakeRef<SwapChain>(

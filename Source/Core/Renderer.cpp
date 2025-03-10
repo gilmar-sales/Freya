@@ -40,8 +40,8 @@ namespace FREYA_NAMESPACE
         mSwapChain.reset();
 
         mSwapChain =
-            SwapChainBuilder()
-                .SetInstance(mInstance)
+            mServiceProvider->GetService<SwapChainBuilder>()
+                ->SetInstance(mInstance)
                 .SetSurface(mSurface)
                 .SetPhysicalDevice(mPhysicalDevice)
                 .SetDevice(mDevice)
@@ -70,8 +70,8 @@ namespace FREYA_NAMESPACE
         mRenderPass.reset();
 
         mRenderPass =
-            ForwardPassBuilder()
-                .SetDevice(mDevice)
+            mServiceProvider->GetService<ForwardPassBuilder>()
+                ->SetDevice(mDevice)
                 .SetPhysicalDevice(mPhysicalDevice)
                 .SetSurface(mSurface)
                 .SetSamples(mSamples)
@@ -79,8 +79,8 @@ namespace FREYA_NAMESPACE
                 .Build();
 
         mSwapChain =
-            SwapChainBuilder()
-                .SetInstance(mInstance)
+            mServiceProvider->GetService<SwapChainBuilder>()
+                ->SetInstance(mInstance)
                 .SetSurface(mSurface)
                 .SetPhysicalDevice(mPhysicalDevice)
                 .SetDevice(mDevice)
@@ -174,7 +174,11 @@ namespace FREYA_NAMESPACE
 
     Ref<TexturePoolFactory> Renderer::GetTexturePoolFactory()
     {
-        return MakeRef<TexturePoolFactory>(mDevice, mCommandPool, mRenderPass);
+        return MakeRef<TexturePoolFactory>(
+            mServiceProvider,
+            mDevice,
+            mCommandPool,
+            mRenderPass);
     }
 
     BufferBuilder Renderer::GetBufferBuilder() const

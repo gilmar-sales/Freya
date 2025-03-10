@@ -103,7 +103,7 @@ namespace FREYA_NAMESPACE
         auto appInfo =
             vk::ApplicationInfo()
                 .setPApplicationName(mApplicationName.c_str())
-                .setApplicationVersion(VK_MAKE_VERSION(1, 0, 0))
+                .setApplicationVersion(mApplicationVersion)
                 .setPEngineName(mEngineName.c_str())
                 .setEngineVersion(mVulkanVersion)
                 .setApiVersion(mAPIVersion);
@@ -119,7 +119,8 @@ namespace FREYA_NAMESPACE
 
         auto instance = vk::createInstance(instanceCreateInfo);
 
-        assert(instance && "Could not create Vulkan instance.");
+        mLogger->Assert(instance != nullptr,
+                        "Could not create Vulkan instance.");
 
         auto isValidationLayer = [](const char* layer) {
             return layer == ValidationLayer;
@@ -141,8 +142,7 @@ namespace FREYA_NAMESPACE
                         vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
                         vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
                         vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance)
-                    .setPfnUserCallback(
-                        (PFN_vkDebugUtilsMessengerCallbackEXT) DebugCallback);
+                    .setPfnUserCallback(DebugCallback);
 
             VkDebugUtilsMessengerEXT nativeDebugMessenger;
 
@@ -161,7 +161,26 @@ namespace FREYA_NAMESPACE
 
             debugMessenger = vk::DebugUtilsMessengerEXT(nativeDebugMessenger);
 
-            assert(debugMessenger && "Failed to set up debug messenger!");
+            mLogger->Assert(debugMessenger,
+                            "Failed to set up debug messenger!");
+        }
+
+        auto appVMajor = VK_API_VERSION_MAJOR(mApplicationVersion);
+        auto appVMinor = VK_API_VERSION_MINOR(mApplicationVersion);
+        auto appVPatch = VK_API_VERSION_PATCH(mApplicationVersion);
+
+        mLogger->LogTrace("Building 'fra::Instance':");
+
+        mLogger->LogTrace("\tApplication: {}@{}.{}.{}",
+                          mApplicationName,
+                          appVMajor,
+                          appVMinor,
+                          appVPatch);
+
+        mLogger->LogTrace("\tLayers:");
+        for (auto& layer : mLayers)
+        {
+            mLogger->LogTrace("\t\t{}", layer);
         }
 
         return MakeRef<Instance>(instance, debugMessenger);

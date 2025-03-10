@@ -10,11 +10,14 @@ namespace FREYA_NAMESPACE
 {
     constexpr auto MegaBytes = 1024 * 1024;
 
-    TexturePool::TexturePool(const Ref<Device>&      device,
-                             const Ref<CommandPool>& commandPool,
-                             const Ref<ForwardPass>& renderPass) :
-        mDevice(device), mCommandPool(commandPool), mRenderPass(renderPass)
+    TexturePool::TexturePool(const Ref<skr::ServiceProvider>& serviceProvider,
+                             const Ref<Device>&               device,
+                             const Ref<CommandPool>&          commandPool,
+                             const Ref<ForwardPass>&          renderPass) :
+        mServiceProvider(serviceProvider), mDevice(device),
+        mCommandPool(commandPool), mRenderPass(renderPass)
     {
+        mLogger = mServiceProvider->GetService<skr::Logger>();
         stbi_set_flip_vertically_on_load(true);
     }
 
@@ -28,24 +31,21 @@ namespace FREYA_NAMESPACE
 
     std::uint32_t TexturePool::CreateTextureFromFile(std::string path)
     {
-
-        std::cout << "TexturePool::TexturePool - " << path << std::endl;
+        mLogger->LogTrace("TexturePool::CreateTextureFromFile:");
+        mLogger->LogTrace("\tPath: {}", path);
 
         int        width, height, channels;
         const auto imageData =
             stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
 
-        if (!imageData)
-        {
-            throw std::runtime_error(
-                std::format("Failed to load texture: {}", path));
-        }
+        mLogger->Assert(imageData != nullptr, "\tFailed to load texture.");
 
         const auto stagingBuffer =
             queryStagingBuffer(width * height * STBI_rgb_alpha);
 
         const auto image =
-            ImageBuilder(mDevice)
+            mServiceProvider->GetService<ImageBuilder>()
+                ->SetDevice(mDevice)
                 .SetUsage(ImageUsage::Texture)
                 .SetWidth(width)
                 .SetHeight(height)

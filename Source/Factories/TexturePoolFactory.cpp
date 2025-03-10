@@ -4,6 +4,7 @@ namespace FREYA_NAMESPACE
 {
     Ref<TexturePool> TexturePoolFactory::CreateTexturePool()
     {
-        return MakeRef<TexturePool>(mDevice, mCommandPool, mRenderPass);
+        return MakeRef<TexturePool>(
+            mServiceProvider, mDevice, mCommandPool, mRenderPass);
     }
 } // namespace FREYA_NAMESPACE

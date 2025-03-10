@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Freya/Core/Device.hpp"
-#include "Freya/Core/Image.hpp"
 #include "Freya/Builders/CommandPoolBuilder.hpp"
 #include "Freya/Core/Buffer.hpp"
+#include "Freya/Core/Device.hpp"
+#include "Freya/Core/Image.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -18,12 +18,17 @@ namespace FREYA_NAMESPACE
     class ImageBuilder
     {
       public:
-        explicit ImageBuilder(const Ref<Device>& device) :
-            mDevice(device), mUsage(ImageUsage::Texture),
+        explicit ImageBuilder(const Ref<skr::Logger>& logger) :
+            mLogger(logger), mUsage(ImageUsage::Texture),
             mFormat(vk::Format::eUndefined),
             mSamples(vk::SampleCountFlagBits::e1), mWidth(1024), mHeight(1024),
             mChannels(0), mData(nullptr)
         {
+        }
+        ImageBuilder& SetDevice(const Ref<Device>& device)
+        {
+            mDevice = device;
+            return *this;
         }
 
         ImageBuilder& SetUsage(const ImageUsage usage)
@@ -83,7 +88,8 @@ namespace FREYA_NAMESPACE
                                     vk::ImageLayout newLayout) const;
 
       private:
-        Ref<Device> mDevice;
+        Ref<skr::Logger> mLogger;
+        Ref<Device>      mDevice;
 
         Ref<Buffer> mStagingBuffer;
         ImageUsage  mUsage;

@@ -7,9 +7,11 @@ namespace FREYA_NAMESPACE
     {
         auto sdlInit = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD);
 
-        assert(sdlInit && "Failed to initialize SDL3");
+        mLogger->Assert(sdlInit, "Failed to initialize SDL3");
 
-        SDL_Vulkan_LoadLibrary(nullptr);
+        auto vulkanLoad = SDL_Vulkan_LoadLibrary(nullptr);
+
+        mLogger->Assert(vulkanLoad, "Failed to load Vulkan");
 
         constexpr auto windowFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
 
@@ -19,7 +21,11 @@ namespace FREYA_NAMESPACE
             static_cast<int>(mHeight),
             windowFlags);
 
-        assert(window != nullptr && "Failed to create SDL3 Window");
+        mLogger->Assert(window != nullptr, "Failed to create SDL3 Window");
+
+        mLogger->LogTrace("Building 'fra::Window':");
+        mLogger->LogTrace("\tSize:{}x{}", mWidth, mHeight);
+        mLogger->LogTrace("\tVSync: {}", mVSync);
 
         return MakeRef<Window>(
             window,

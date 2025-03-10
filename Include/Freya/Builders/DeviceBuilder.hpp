@@ -12,7 +12,8 @@ namespace FREYA_NAMESPACE
     class DeviceBuilder
     {
       public:
-        DeviceBuilder() :
+        DeviceBuilder(const Ref<skr::Logger>& logger) :
+            mLogger(logger),
             mDeviceExtensions({ VK_KHR_SWAPCHAIN_EXTENSION_NAME })
         {
         }
@@ -25,7 +26,8 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        DeviceBuilder& SetPhysicalDevice(const Ref<PhysicalDevice>& physicalDevice)
+        DeviceBuilder& SetPhysicalDevice(
+            const Ref<PhysicalDevice>& physicalDevice)
         {
             mPhysicalDevice = physicalDevice;
             return *this;
@@ -40,10 +42,11 @@ namespace FREYA_NAMESPACE
         Ref<Device> Build();
 
       protected:
-        QueueFamilyIndices              findQueueFamilies(vk::PhysicalDevice device) const;
+        QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device) const;
         static std::vector<const char*> OptionalExtensions;
 
       private:
+        Ref<skr::Logger>         mLogger;
         Ref<Instance>            mInstance;
         Ref<PhysicalDevice>      mPhysicalDevice;
         Ref<Surface>             mSurface;

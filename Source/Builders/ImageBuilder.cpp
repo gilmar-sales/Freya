@@ -6,12 +6,17 @@ namespace FREYA_NAMESPACE
 {
     Ref<Image> ImageBuilder::Build()
     {
-        std::cout << "ImageBuilder::Build" << std::endl;
+        mLogger->LogTrace("Building 'fra::Image'");
+
+        mLogger->LogTrace("\tSize: {}x{}", mWidth, mHeight);
 
         if (mFormat == vk::Format::eUndefined)
         {
             chooseFormat();
         }
+
+        auto format = to_string(mFormat);
+        mLogger->LogTrace("\tFormat: {}", format);
 
         auto imageInfo =
             vk::ImageCreateInfo()

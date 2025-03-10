@@ -1,9 +1,16 @@
 #pragma once
 
-#include <ServiceCollection.hpp>
+#include <Skirnir/ServiceCollection.hpp>
 
+#include "Freya/Builders/DeviceBuilder.hpp"
+#include "Freya/Builders/ForwardPassBuilder.hpp"
+#include "Freya/Builders/ImageBuilder.hpp"
+#include "Freya/Builders/PhysicalDeviceBuilder.hpp"
 #include "Freya/Builders/RendererBuilder.hpp"
+#include "Freya/Builders/SurfaceBuilder.hpp"
+#include "Freya/Builders/SwapChainBuilder.hpp"
 #include "Freya/Builders/WindowBuilder.hpp"
+
 #include "Freya/Core/AbstractApplication.hpp"
 
 namespace FREYA_NAMESPACE
@@ -17,13 +24,11 @@ namespace FREYA_NAMESPACE
     {
       public:
         ApplicationBuilder() :
-            mServiceCollection(std::make_shared<ServiceCollection>()),
-            mWindowBuilder(WindowBuilder())
+            mServiceCollection(std::make_shared<skr::ServiceCollection>())
         {
         }
 
-        [[nodiscard]] std::shared_ptr<ServiceCollection> GetServiceCollection()
-            const
+        [[nodiscard]] Ref<skr::ServiceCollection> GetServiceCollection() const
         {
             return mServiceCollection;
         }
@@ -40,22 +45,42 @@ namespace FREYA_NAMESPACE
         {
             mServiceCollection->AddSingleton<T>();
 
+            mServiceCollection->AddTransient<WindowBuilder>();
+            mServiceCollection->AddTransient<InstanceBuilder>();
+            mServiceCollection->AddTransient<PhysicalDeviceBuilder>();
+            mServiceCollection->AddTransient<DeviceBuilder>();
+            mServiceCollection->AddTransient<SurfaceBuilder>();
+            mServiceCollection->AddTransient<ForwardPassBuilder>();
+            mServiceCollection->AddTransient<SwapChainBuilder>();
+            mServiceCollection->AddTransient<ImageBuilder>();
+            mServiceCollection->AddTransient<RendererBuilder>();
+
             mServiceCollection->AddSingleton<EventManager>();
 
             mServiceCollection->AddSingleton<Window>(
-                [&](ServiceProvider& serviceProvider) {
-                    return mWindowBuilder
-                        .SetEventManager(
+                [&](skr::ServiceProvider& serviceProvider) {
+                    auto windowBuilder =
+                        serviceProvider.GetService<WindowBuilder>();
+
+                    mWindowBuilderFunc(*windowBuilder);
+
+                    return windowBuilder
+                        ->SetEventManager(
                             serviceProvider.GetService<EventManager>())
                         .Build();
                 });
 
             mServiceCollection->AddSingleton<Renderer>(
-                [&](ServiceProvider& serviceProvider) {
+                [&](skr::ServiceProvider& serviceProvider) {
+                    auto rendererBuilder =
+                        serviceProvider.GetService<RendererBuilder>();
+
+                    mRendererBuilderFunc(*rendererBuilder);
+
                     auto window = serviceProvider.GetService<Window>();
 
-                    return mRendererBuilder
-                        .WithInstance([](InstanceBuilder& instanceBuilder) {
+                    return rendererBuilder
+                        ->WithInstance([](InstanceBuilder& instanceBuilder) {
                             uint32_t extensionCount;
                             auto     extensionNames =
                                 SDL_Vulkan_GetInstanceExtensions(
@@ -78,14 +103,14 @@ namespace FREYA_NAMESPACE
                 });
 
             mServiceCollection->AddSingleton<MeshPool>(
-                [&](ServiceProvider& serviceProvider) {
+                [&](skr::ServiceProvider& serviceProvider) {
                     return serviceProvider.GetService<Renderer>()
                         ->GetMeshPoolFactory()
                         ->CreateMeshPool();
                 });
 
             mServiceCollection->AddSingleton<TexturePool>(
-                [&](ServiceProvider& serviceProvider) {
+                [&](skr::ServiceProvider& serviceProvider) {
                     return serviceProvider.GetService<Renderer>()
                         ->GetTexturePoolFactory()
                         ->CreateTexturePool();
@@ -98,8 +123,9 @@ namespace FREYA_NAMESPACE
         }
 
       protected:
-        std::shared_ptr<ServiceCollection> mServiceCollection;
-        WindowBuilder                      mWindowBuilder;
-        RendererBuilder                    mRendererBuilder;
+        std::function<void(WindowBuilder&)>   mWindowBuilderFunc;
+        std::function<void(RendererBuilder&)> mRendererBuilderFunc;
+
+        Ref<skr::ServiceCollection> mServiceCollection;
     };
 } // namespace FREYA_NAMESPACE

@@ -8,18 +8,21 @@ namespace FREYA_NAMESPACE
     class TexturePoolFactory
     {
       public:
-        TexturePoolFactory(const Ref<Device>&      device,
-                           const Ref<CommandPool>& commandPool,
-                           const Ref<ForwardPass>&  renderPass) :
-            mDevice(device), mCommandPool(commandPool), mRenderPass(renderPass)
+        TexturePoolFactory(const Ref<skr::ServiceProvider>& serviceProvider,
+                           const Ref<Device>&               device,
+                           const Ref<CommandPool>&          commandPool,
+                           const Ref<ForwardPass>&          renderPass) :
+            mServiceProvider(serviceProvider), mDevice(device),
+            mCommandPool(commandPool), mRenderPass(renderPass)
         {
         }
 
         Ref<TexturePool> CreateTexturePool();
 
       private:
-        Ref<Device>      mDevice;
-        Ref<CommandPool> mCommandPool;
-        Ref<ForwardPass>  mRenderPass;
+        Ref<skr::ServiceProvider> mServiceProvider;
+        Ref<Device>               mDevice;
+        Ref<CommandPool>          mCommandPool;
+        Ref<ForwardPass>          mRenderPass;
     };
 } // namespace FREYA_NAMESPACE

@@ -13,9 +13,10 @@ namespace FREYA_NAMESPACE
       public:
         using TextureSet = SparseSet<Texture>;
 
-        TexturePool(const Ref<Device>&      device,
-                    const Ref<CommandPool>& commandPool,
-                    const Ref<ForwardPass>& renderPass);
+        TexturePool(const Ref<skr::ServiceProvider>& serviceProvider,
+                    const Ref<Device>&               device,
+                    const Ref<CommandPool>&          commandPool,
+                    const Ref<ForwardPass>&          renderPass);
 
         ~TexturePool();
 
@@ -26,10 +27,12 @@ namespace FREYA_NAMESPACE
         Ref<Buffer> createStagingBuffer(std::uint32_t size);
 
       private:
-        Ref<Device>              mDevice;
-        Ref<CommandPool>         mCommandPool;
-        Ref<ForwardPass>         mRenderPass;
-        std::vector<Ref<Buffer>> mStagingBuffers;
+        Ref<skr::Logger>          mLogger;
+        Ref<skr::ServiceProvider> mServiceProvider;
+        Ref<Device>               mDevice;
+        Ref<CommandPool>          mCommandPool;
+        Ref<ForwardPass>          mRenderPass;
+        std::vector<Ref<Buffer>>  mStagingBuffers;
 
         TextureSet mTextures;
     };

@@ -13,7 +13,9 @@ namespace FREYA_NAMESPACE
     class SwapChainBuilder
     {
       public:
-        SwapChainBuilder() :
+        SwapChainBuilder(const Ref<skr::Logger>&          logger,
+                         const Ref<skr::ServiceProvider>& serviceProvider) :
+            mLogger(logger), mServiceProvider(serviceProvider),
             mPhysicalDevice(nullptr), mSurface(nullptr),
             mSamples(vk::SampleCountFlagBits::e1), mWidth(1280), mHeight(720),
             mFrameCount(2), mVSync(true)
@@ -93,6 +95,9 @@ namespace FREYA_NAMESPACE
         vk::PresentModeKHR choosePresentMode();
 
       private:
+        Ref<skr::Logger>          mLogger;
+        Ref<skr::ServiceProvider> mServiceProvider;
+
         Ref<Instance>       mInstance;
         Ref<PhysicalDevice> mPhysicalDevice;
         Ref<Device>         mDevice;

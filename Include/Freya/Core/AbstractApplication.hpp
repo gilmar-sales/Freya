@@ -4,7 +4,7 @@
 #include "Freya/Core/Window.hpp"
 #include "Freya/Events/EventManager.hpp"
 
-#include <ServiceProvider.hpp>
+#include <Skirnir/ServiceProvider.hpp>
 
 namespace FREYA_NAMESPACE
 {
@@ -12,7 +12,7 @@ namespace FREYA_NAMESPACE
     {
       public:
         explicit AbstractApplication(
-            const Ref<ServiceProvider>& serviceProvider) : mDeltaTime(0)
+            const Ref<skr::ServiceProvider>& serviceProvider) : mDeltaTime(0)
         {
             mServiceProvider = serviceProvider;
             mEventManager    = mServiceProvider->GetService<EventManager>();
@@ -43,10 +43,10 @@ namespace FREYA_NAMESPACE
       protected:
         friend class ApplicationBuilder;
 
-        float                mDeltaTime;
-        Ref<ServiceProvider> mServiceProvider;
-        Ref<Window>          mWindow;
-        Ref<Renderer>        mRenderer;
-        Ref<EventManager>    mEventManager;
+        float                     mDeltaTime;
+        Ref<skr::ServiceProvider> mServiceProvider;
+        Ref<Window>               mWindow;
+        Ref<Renderer>             mRenderer;
+        Ref<EventManager>         mEventManager;
     };
 } // namespace FREYA_NAMESPACE

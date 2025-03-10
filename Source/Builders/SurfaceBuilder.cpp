@@ -9,14 +9,17 @@ namespace FREYA_NAMESPACE
 
     Ref<Surface> SurfaceBuilder::Build()
     {
-        assert(mInstance.get() &&
-               "Could not create fra::Surface with an invalid fra::Instance");
+        mLogger->Assert(
+            mInstance != nullptr,
+            "Could not build 'fra::Surface' with an invalid 'fra::Instance'");
 
         VkSurfaceKHR cSurface;
         SDL_Vulkan_CreateSurface(mWindow, mInstance->Get(), nullptr, &cSurface);
 
         auto surface = vk::SurfaceKHR { cSurface };
-        assert(surface && "Failed to create SDL2 surface.");
+        mLogger->Assert(surface, "Failed to create SDL3 surface.");
+
+        mLogger->LogTrace("Building 'fra::Surface'.");
 
         return MakeRef<Surface>(mInstance, mPhysicalDevice, surface, mWindow);
     }

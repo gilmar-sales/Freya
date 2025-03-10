@@ -2,16 +2,18 @@
 
 namespace FREYA_NAMESPACE
 {
-    ApplicationBuilder& ApplicationBuilder::WithWindow(const std::function<void(WindowBuilder&)>& windowBuilderFunc)
+    ApplicationBuilder& ApplicationBuilder::WithWindow(
+        const std::function<void(WindowBuilder&)>& windowBuilderFunc)
     {
-        windowBuilderFunc(mWindowBuilder);
+        mWindowBuilderFunc = windowBuilderFunc;
 
         return *this;
     }
 
-    ApplicationBuilder& ApplicationBuilder::WithRenderer(const std::function<void(RendererBuilder&)>& rendererBuilderFunc)
+    ApplicationBuilder& ApplicationBuilder::WithRenderer(
+        const std::function<void(RendererBuilder&)>& rendererBuilderFunc)
     {
-        rendererBuilderFunc(mRendererBuilder);
+        mRendererBuilderFunc = rendererBuilderFunc;
 
         return *this;
     }

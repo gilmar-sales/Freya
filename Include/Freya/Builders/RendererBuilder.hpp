@@ -13,19 +13,20 @@ namespace FREYA_NAMESPACE
     class RendererBuilder
     {
       public:
-        RendererBuilder() :
-            mInstanceBuilder(InstanceBuilder()), mWindow(nullptr), mWidth(1280),
+        RendererBuilder(const Ref<skr::ServiceProvider>& serviceProvider) :
+            mServiceProvider(serviceProvider), mWindow(nullptr), mWidth(1280),
             mHeight(720), mVSync(true), mFrameCount(4),
             mSamples(vk::SampleCountFlagBits::e1),
             mClearColor(vk::ClearColorValue { 0.0f, 0.0f, 0.0f, 0.0f }),
-            mDrawDistance(1000.0f)
+            mDrawDistance(1000.0f),
+            mLogger(serviceProvider->GetService<skr::Logger>())
         {
         }
 
         RendererBuilder& WithInstance(
             const std::function<void(InstanceBuilder&)>& instanceBuilderFunc)
         {
-            instanceBuilderFunc(mInstanceBuilder);
+            mInstanceBuilderFunc = instanceBuilderFunc;
             return *this;
         }
 
@@ -88,9 +89,11 @@ namespace FREYA_NAMESPACE
             return *this;
         };
 
-        Ref<EventManager> mEventManager;
+        Ref<EventManager>                     mEventManager;
+        std::function<void(InstanceBuilder&)> mInstanceBuilderFunc;
 
-        InstanceBuilder mInstanceBuilder;
+        Ref<skr::ServiceProvider> mServiceProvider;
+        Ref<skr::Logger>          mLogger;
 
         SDL_Window*   mWindow;
         std::uint32_t mWidth;

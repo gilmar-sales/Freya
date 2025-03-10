@@ -22,24 +22,25 @@ namespace FREYA_NAMESPACE
     class Renderer
     {
       public:
-        Renderer(const Ref<Instance>&          instance,
-                 const Ref<Surface>&           surface,
-                 const Ref<PhysicalDevice>&    physicalDevice,
-                 const Ref<Device>&            device,
-                 const Ref<SwapChain>&         swapChain,
-                 const Ref<ForwardPass>&       renderPass,
-                 const Ref<CommandPool>&       commandPool,
-                 const bool                    vSync,
-                 const vk::SampleCountFlagBits samples,
-                 const vk::ClearColorValue     clearColor,
-                 const float                   drawDistance,
-                 const Ref<EventManager>&      eventManager) :
+        Renderer(const Ref<Instance>&             instance,
+                 const Ref<Surface>&              surface,
+                 const Ref<PhysicalDevice>&       physicalDevice,
+                 const Ref<Device>&               device,
+                 const Ref<SwapChain>&            swapChain,
+                 const Ref<ForwardPass>&          renderPass,
+                 const Ref<CommandPool>&          commandPool,
+                 const Ref<skr::ServiceProvider>& serviceProvider,
+                 const bool                       vSync,
+                 const vk::SampleCountFlagBits    samples,
+                 const vk::ClearColorValue        clearColor,
+                 const float                      drawDistance,
+                 const Ref<EventManager>&         eventManager) :
             mInstance(instance), mSurface(surface),
             mPhysicalDevice(physicalDevice), mDevice(device),
             mSwapChain(swapChain), mRenderPass(renderPass), mSamples(samples),
-            mCommandPool(commandPool), mEventManager(eventManager),
-            mClearColor(clearColor), mDrawDistance(drawDistance), mVSync(vSync),
-            mCurrentProjection({})
+            mCommandPool(commandPool), mServiceProvider(serviceProvider),
+            mEventManager(eventManager), mClearColor(clearColor),
+            mDrawDistance(drawDistance), mVSync(vSync), mCurrentProjection({})
         {
             ClearProjections();
 
@@ -87,14 +88,15 @@ namespace FREYA_NAMESPACE
         void BindBuffer(const Ref<Buffer>& buffer) const;
 
       private:
-        Ref<Instance>       mInstance;
-        Ref<Surface>        mSurface;
-        Ref<PhysicalDevice> mPhysicalDevice;
-        Ref<Device>         mDevice;
-        Ref<SwapChain>      mSwapChain;
-        Ref<ForwardPass>    mRenderPass;
-        Ref<CommandPool>    mCommandPool;
-        Ref<EventManager>   mEventManager;
+        Ref<skr::ServiceProvider> mServiceProvider;
+        Ref<Instance>             mInstance;
+        Ref<Surface>              mSurface;
+        Ref<PhysicalDevice>       mPhysicalDevice;
+        Ref<Device>               mDevice;
+        Ref<SwapChain>            mSwapChain;
+        Ref<ForwardPass>          mRenderPass;
+        Ref<CommandPool>          mCommandPool;
+        Ref<EventManager>         mEventManager;
 
         vk::SampleCountFlagBits mSamples;
         vk::ClearColorValue     mClearColor;

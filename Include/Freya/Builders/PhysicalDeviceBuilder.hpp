@@ -9,12 +9,14 @@ namespace FREYA_NAMESPACE
     class PhysicalDeviceBuilder
     {
       public:
-        PhysicalDeviceBuilder() :
-            mPhysicalDeviceTypePriorities({ vk::PhysicalDeviceType::eDiscreteGpu,
-                                            vk::PhysicalDeviceType::eIntegratedGpu,
-                                            vk::PhysicalDeviceType::eCpu,
-                                            vk::PhysicalDeviceType::eVirtualGpu,
-                                            vk::PhysicalDeviceType::eOther })
+        PhysicalDeviceBuilder(const Ref<skr::Logger>& logger) :
+            mLogger(logger),
+            mPhysicalDeviceTypePriorities(
+                { vk::PhysicalDeviceType::eDiscreteGpu,
+                  vk::PhysicalDeviceType::eIntegratedGpu,
+                  vk::PhysicalDeviceType::eCpu,
+                  vk::PhysicalDeviceType::eVirtualGpu,
+                  vk::PhysicalDeviceType::eOther })
         {
         }
 
@@ -27,6 +29,7 @@ namespace FREYA_NAMESPACE
         Ref<PhysicalDevice> Build() const;
 
       private:
+        Ref<skr::Logger>                    mLogger;
         Ref<Instance>                       mInstance;
         std::vector<vk::PhysicalDeviceType> mPhysicalDeviceTypePriorities;
     };

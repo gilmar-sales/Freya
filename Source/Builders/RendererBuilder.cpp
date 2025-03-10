@@ -12,24 +12,30 @@ namespace FREYA_NAMESPACE
 
     Ref<Renderer> RendererBuilder::Build()
     {
-        auto instance = mInstanceBuilder.Build();
+        auto instanceBuilder = mServiceProvider->GetService<InstanceBuilder>();
 
-        assert(instance && "Failed to create fra::Instance");
+        mInstanceBuilderFunc(*instanceBuilder);
+
+        auto instance = instanceBuilder->Build();
+
+        mLogger->Assert(instance != nullptr, "Failed to create fra::Instance");
 
         auto physicalDevice =
-            PhysicalDeviceBuilder().SetInstance(instance).Build();
+            mServiceProvider->GetService<PhysicalDeviceBuilder>()
+                ->SetInstance(instance)
+                .Build();
 
         auto surface =
-            SurfaceBuilder()
-                .SetInstance(instance)
+            mServiceProvider->GetService<SurfaceBuilder>()
+                ->SetInstance(instance)
                 .SetPhysicalDevice(physicalDevice)
                 .SetWindow(mWindow)
                 .Build();
 
         mFrameCount = surface->QueryFrameCountSupport(mFrameCount);
 
-        auto device = DeviceBuilder()
-                          .SetInstance(instance)
+        auto device = mServiceProvider->GetService<DeviceBuilder>()
+                          ->SetInstance(instance)
                           .SetPhysicalDevice(physicalDevice)
                           .SetSurface(surface)
                           .Build();
@@ -37,8 +43,8 @@ namespace FREYA_NAMESPACE
         mSamples = physicalDevice->QuerySamplesSupport(mSamples);
 
         auto renderPass =
-            ForwardPassBuilder()
-                .SetDevice(device)
+            mServiceProvider->GetService<ForwardPassBuilder>()
+                ->SetDevice(device)
                 .SetPhysicalDevice(physicalDevice)
                 .SetSurface(surface)
                 .SetSamples(mSamples)
@@ -46,8 +52,8 @@ namespace FREYA_NAMESPACE
                 .Build();
 
         auto swapChain =
-            SwapChainBuilder()
-                .SetInstance(instance)
+            mServiceProvider->GetService<SwapChainBuilder>()
+                ->SetInstance(instance)
                 .SetPhysicalDevice(physicalDevice)
                 .SetDevice(device)
                 .SetSurface(surface)
@@ -65,6 +71,11 @@ namespace FREYA_NAMESPACE
                 .SetCount(mFrameCount)
                 .Build();
 
+        auto samples = static_cast<int>(mSamples);
+
+        mLogger->LogTrace("Creating renderer - Frame count: {} - Samples: {}",
+                          mFrameCount,
+                          samples);
         return MakeRef<Renderer>(
             instance,
             surface,
@@ -73,6 +84,7 @@ namespace FREYA_NAMESPACE
             swapChain,
             renderPass,
             commandPool,
+            mServiceProvider,
             mVSync,
             mSamples,
             mClearColor,

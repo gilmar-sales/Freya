@@ -8,19 +8,18 @@ namespace FREYA_NAMESPACE
     class InstanceBuilder
     {
       public:
-        InstanceBuilder() :
-            mApplicationVersion(0),
-            mApplicationName("Freya Application"),
-            mEngineName("Freya Engine"),
-            mVulkanVersion(VK_MAKE_VERSION(1, 0, 0)),
+        InstanceBuilder(const Ref<skr::Logger>& logger) :
+            mLogger(logger),
+            mApplicationVersion(VK_MAKE_API_VERSION(0, 0, 0, 1)),
+            mApplicationName("Freya Application"), mEngineName("Freya Engine"),
+            mVulkanVersion(VK_MAKE_API_VERSION(0, 1, 0, 0)),
             mAPIVersion(VK_MAKE_API_VERSION(0, 1, 3, 0)) {};
 
         ~InstanceBuilder() = default;
 
         InstanceBuilder& SetApplicationName(std::string_view name);
-        InstanceBuilder& SetApplicationVersion(std::uint32_t major,
-                                               std::uint32_t minor,
-                                               std::uint32_t patch);
+        InstanceBuilder& SetApplicationVersion(
+            std::uint32_t major, std::uint32_t minor, std::uint32_t patch);
 
         InstanceBuilder& SetEngineName(const std::string& engineName)
         {
@@ -41,7 +40,8 @@ namespace FREYA_NAMESPACE
         InstanceBuilder& AddValidationLayers();
 
         InstanceBuilder& AddExtension(const char* extension);
-        InstanceBuilder& AddExtensions(const std::vector<const char*>& extesions);
+        InstanceBuilder& AddExtensions(
+            const std::vector<const char*>& extesions);
 
         Ref<Instance> Build();
 
@@ -49,6 +49,8 @@ namespace FREYA_NAMESPACE
         static bool checkLayerSupport(const char* layer);
 
       private:
+        Ref<skr::Logger> mLogger;
+
         std::vector<const char*> mLayers;
         std::vector<const char*> mExtensions;
 

@@ -17,6 +17,8 @@ namespace FREYA_NAMESPACE
 {
     Ref<ForwardPass> ForwardPassBuilder::Build()
     {
+        mLogger->LogTrace("Building 'fra::ForwardPass':");
+
         auto renderPass = createRenderPass();
 
         auto vertShaderModule =
@@ -208,7 +210,7 @@ namespace FREYA_NAMESPACE
         auto pipelineLayout =
             mDevice->Get().createPipelineLayout(pipelineLayoutInfo);
 
-        assert(pipelineLayout && "Failed to create pipeline layout.");
+        mLogger->Assert(pipelineLayout, "\tFailed to create pipeline layout.");
 
         auto stencilOpState =
             vk::StencilOpState()
@@ -252,7 +254,8 @@ namespace FREYA_NAMESPACE
         auto graphicsPipeline =
             mDevice->Get().createGraphicsPipeline(nullptr, pipelineInfo).value;
 
-        assert(graphicsPipeline && "Failed to create graphics pipeline.");
+        mLogger->Assert(graphicsPipeline,
+                        "\tFailed to create the graphics pipeline.");
 
         mDevice->Get().destroyShaderModule(vertShaderModule->Get());
         mDevice->Get().destroyShaderModule(fragShaderModule->Get());
@@ -274,6 +277,7 @@ namespace FREYA_NAMESPACE
                 .setMaxAnisotropy(16);
 
         const auto sampler = mDevice->Get().createSampler(samplerCreateInfo);
+
         return MakeRef<ForwardPass>(
             mDevice,
             mSurface,
@@ -294,7 +298,8 @@ vk::RenderPass FREYA_NAMESPACE::ForwardPassBuilder::createRenderPass() const
 {
     auto format = mSurface->QuerySurfaceFormat().format;
 
-    std::cout << "Color Format: " << vk::to_string(format) << std::endl;
+    auto colorFormat = vk::to_string(format);
+    mLogger->LogTrace("\tColor Format: {}", colorFormat);
 
     auto colorAttachment =
         vk::AttachmentDescription()
@@ -343,8 +348,8 @@ vk::RenderPass FREYA_NAMESPACE::ForwardPassBuilder::createRenderPass() const
             .setInitialLayout(vk::ImageLayout::eUndefined)
             .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
-    std::cout << "Depth Format: " << to_string(depthAttachment.format)
-              << std::endl;
+    auto depthFormat = to_string(depthAttachment.format);
+    mLogger->LogTrace("\tDepth Format: {}", depthFormat);
 
     auto depthAttachmentRef =
         vk::AttachmentReference()
