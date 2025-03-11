@@ -39,20 +39,14 @@ namespace FREYA_NAMESPACE
         mLogger->Assert(physicalDevice, "Could not select physical device.");
 
         auto properties = physicalDevice.getProperties();
-        auto deviceName = properties.deviceName.data();
-        auto deviceType = to_string(properties.deviceType);
-
-        auto driverVMajor = VK_API_VERSION_MAJOR(properties.driverVersion);
-        auto driverVMinor = VK_API_VERSION_MINOR(properties.driverVersion);
-        auto driverVPatch = VK_API_VERSION_PATCH(properties.driverVersion);
 
         mLogger->LogTrace("Building 'fra::PhysicalDevice':");
-        mLogger->LogTrace("\tName: {}", deviceName);
-        mLogger->LogTrace("\tType: {}", deviceType);
+        mLogger->LogTrace("\tName: {}", properties.deviceName.data());
+        mLogger->LogTrace("\tType: {}", to_string(properties.deviceType));
         mLogger->LogTrace("\tDriver version: {}.{}.{}",
-                          driverVMajor,
-                          driverVMinor,
-                          driverVPatch);
+                          VK_API_VERSION_MAJOR(properties.driverVersion),
+                          VK_API_VERSION_MINOR(properties.driverVersion),
+                          VK_API_VERSION_PATCH(properties.driverVersion));
 
         return MakeRef<PhysicalDevice>(physicalDevice);
     }

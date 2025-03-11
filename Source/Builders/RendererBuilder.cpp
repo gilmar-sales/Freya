@@ -71,11 +71,9 @@ namespace FREYA_NAMESPACE
                 .SetCount(mFrameCount)
                 .Build();
 
-        auto samples = static_cast<int>(mSamples);
-
         mLogger->LogTrace("Creating renderer - Frame count: {} - Samples: {}",
                           mFrameCount,
-                          samples);
+                          static_cast<int>(mSamples));
         return MakeRef<Renderer>(
             instance,
             surface,

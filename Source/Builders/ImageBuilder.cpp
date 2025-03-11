@@ -15,8 +15,7 @@ namespace FREYA_NAMESPACE
             chooseFormat();
         }
 
-        auto format = to_string(mFormat);
-        mLogger->LogTrace("\tFormat: {}", format);
+        mLogger->LogTrace("\tFormat: {}", to_string(mFormat));
 
         auto imageInfo =
             vk::ImageCreateInfo()

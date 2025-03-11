@@ -165,17 +165,13 @@ namespace FREYA_NAMESPACE
                             "Failed to set up debug messenger!");
         }
 
-        auto appVMajor = VK_API_VERSION_MAJOR(mApplicationVersion);
-        auto appVMinor = VK_API_VERSION_MINOR(mApplicationVersion);
-        auto appVPatch = VK_API_VERSION_PATCH(mApplicationVersion);
-
         mLogger->LogTrace("Building 'fra::Instance':");
 
         mLogger->LogTrace("\tApplication: {}@{}.{}.{}",
                           mApplicationName,
-                          appVMajor,
-                          appVMinor,
-                          appVPatch);
+                          VK_API_VERSION_MAJOR(mApplicationVersion),
+                          VK_API_VERSION_MINOR(mApplicationVersion),
+                          VK_API_VERSION_PATCH(mApplicationVersion));
 
         mLogger->LogTrace("\tLayers:");
         for (auto& layer : mLayers)

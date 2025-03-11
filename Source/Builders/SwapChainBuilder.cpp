@@ -20,11 +20,10 @@ namespace FREYA_NAMESPACE
 
         mLogger->LogTrace("\tFrame Count: {}", mFrameCount);
 
-        auto surfaceFormatString = to_string(surfaceFormat.format);
-        mLogger->LogTrace("\tSurface Format: {}", surfaceFormatString);
+        mLogger->LogTrace("\tSurface Format: {}",
+                          to_string(surfaceFormat.format));
 
-        auto presentModeString = to_string(presentMode);
-        mLogger->LogTrace("\tPresent Mode: {}", presentModeString);
+        mLogger->LogTrace("\tPresent Mode: {}", to_string(presentMode));
 
         auto supportDetails =
             mPhysicalDevice->QuerySwapChainSupport(mSurface->Get());
@@ -59,8 +58,8 @@ namespace FREYA_NAMESPACE
                 .setQueueFamilyIndices(queueFamilyIndices);
         }
 
-        auto sharingMode = to_string(createInfo.imageSharingMode);
-        mLogger->LogTrace("\tSharing Mode: {}", sharingMode);
+        mLogger->LogTrace("\tSharing Mode: {}",
+                          to_string(createInfo.imageSharingMode));
 
         auto swapChain = mDevice->Get().createSwapchainKHR(createInfo);
 

@@ -298,8 +298,7 @@ vk::RenderPass FREYA_NAMESPACE::ForwardPassBuilder::createRenderPass() const
 {
     auto format = mSurface->QuerySurfaceFormat().format;
 
-    auto colorFormat = vk::to_string(format);
-    mLogger->LogTrace("\tColor Format: {}", colorFormat);
+    mLogger->LogTrace("\tColor Format: {}", vk::to_string(format));
 
     auto colorAttachment =
         vk::AttachmentDescription()
@@ -348,8 +347,7 @@ vk::RenderPass FREYA_NAMESPACE::ForwardPassBuilder::createRenderPass() const
             .setInitialLayout(vk::ImageLayout::eUndefined)
             .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
-    auto depthFormat = to_string(depthAttachment.format);
-    mLogger->LogTrace("\tDepth Format: {}", depthFormat);
+    mLogger->LogTrace("\tDepth Format: {}", to_string(depthAttachment.format));
 
     auto depthAttachmentRef =
         vk::AttachmentReference()
