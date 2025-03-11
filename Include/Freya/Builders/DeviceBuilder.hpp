@@ -12,7 +12,7 @@ namespace FREYA_NAMESPACE
     class DeviceBuilder
     {
       public:
-        DeviceBuilder(const Ref<skr::Logger>& logger) :
+        DeviceBuilder(const Ref<skr::Logger<DeviceBuilder>>& logger) :
             mLogger(logger),
             mDeviceExtensions({ VK_KHR_SWAPCHAIN_EXTENSION_NAME })
         {
@@ -46,11 +46,11 @@ namespace FREYA_NAMESPACE
         static std::vector<const char*> OptionalExtensions;
 
       private:
-        Ref<skr::Logger>         mLogger;
-        Ref<Instance>            mInstance;
-        Ref<PhysicalDevice>      mPhysicalDevice;
-        Ref<Surface>             mSurface;
-        std::vector<const char*> mDeviceExtensions;
+        Ref<skr::Logger<DeviceBuilder>> mLogger;
+        Ref<Instance>                   mInstance;
+        Ref<PhysicalDevice>             mPhysicalDevice;
+        Ref<Surface>                    mSurface;
+        std::vector<const char*>        mDeviceExtensions;
     };
 
 } // namespace FREYA_NAMESPACE

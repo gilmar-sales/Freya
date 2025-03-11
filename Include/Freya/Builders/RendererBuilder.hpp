@@ -19,7 +19,7 @@ namespace FREYA_NAMESPACE
             mSamples(vk::SampleCountFlagBits::e1),
             mClearColor(vk::ClearColorValue { 0.0f, 0.0f, 0.0f, 0.0f }),
             mDrawDistance(1000.0f),
-            mLogger(serviceProvider->GetService<skr::Logger>())
+            mLogger(serviceProvider->GetService<skr::Logger<RendererBuilder>>())
         {
         }
 
@@ -92,8 +92,8 @@ namespace FREYA_NAMESPACE
         Ref<EventManager>                     mEventManager;
         std::function<void(InstanceBuilder&)> mInstanceBuilderFunc;
 
-        Ref<skr::ServiceProvider> mServiceProvider;
-        Ref<skr::Logger>          mLogger;
+        Ref<skr::ServiceProvider>         mServiceProvider;
+        Ref<skr::Logger<RendererBuilder>> mLogger;
 
         SDL_Window*   mWindow;
         std::uint32_t mWidth;

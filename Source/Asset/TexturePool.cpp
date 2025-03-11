@@ -17,7 +17,7 @@ namespace FREYA_NAMESPACE
         mServiceProvider(serviceProvider), mDevice(device),
         mCommandPool(commandPool), mRenderPass(renderPass)
     {
-        mLogger = mServiceProvider->GetService<skr::Logger>();
+        mLogger = mServiceProvider->GetService<skr::Logger<TexturePool>>();
         stbi_set_flip_vertically_on_load(true);
     }
 

@@ -8,7 +8,7 @@ namespace FREYA_NAMESPACE
     class WindowBuilder
     {
       public:
-        WindowBuilder(const Ref<skr::Logger>& logger) :
+        WindowBuilder(const Ref<skr::Logger<WindowBuilder>>& logger) :
             mTitle("Freya Window"), mWidth(800), mHeight(600), mVSync(false),
             mLogger(logger)
         {
@@ -56,7 +56,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t mHeight;
         bool          mVSync;
 
-        Ref<skr::Logger> mLogger;
+        Ref<skr::Logger<WindowBuilder>> mLogger;
     };
 
 } // namespace FREYA_NAMESPACE

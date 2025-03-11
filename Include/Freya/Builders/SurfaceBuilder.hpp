@@ -10,7 +10,7 @@ namespace FREYA_NAMESPACE
     class SurfaceBuilder
     {
       public:
-        SurfaceBuilder(const Ref<skr::Logger>& logger) :
+        SurfaceBuilder(const Ref<skr::Logger<SurfaceBuilder>>& logger) :
             mLogger(logger), mWindow(nullptr), mImageCount(0)
         {
         }
@@ -37,10 +37,10 @@ namespace FREYA_NAMESPACE
         std::shared_ptr<Surface> Build();
 
       private:
-        Ref<skr::Logger>    mLogger;
-        SDL_Window*         mWindow;
-        Ref<Instance>       mInstance;
-        Ref<PhysicalDevice> mPhysicalDevice;
+        Ref<skr::Logger<SurfaceBuilder>> mLogger;
+        SDL_Window*                      mWindow;
+        Ref<Instance>                    mInstance;
+        Ref<PhysicalDevice>              mPhysicalDevice;
 
         std::uint32_t mImageCount;
     };

@@ -11,7 +11,7 @@ namespace FREYA_NAMESPACE
     class ForwardPassBuilder
     {
       public:
-        ForwardPassBuilder(const Ref<skr::Logger>& logger) :
+        ForwardPassBuilder(const Ref<skr::Logger<ForwardPassBuilder>>& logger) :
             mLogger(logger), mSamples(vk::SampleCountFlagBits::e1),
             mFrameCount(0)
         {
@@ -54,10 +54,10 @@ namespace FREYA_NAMESPACE
         vk::RenderPass                               createRenderPass() const;
         std::tuple<vk::PipelineLayout, vk::Pipeline> createPipeline() const;
 
-        Ref<skr::Logger>    mLogger;
-        Ref<Device>         mDevice;
-        Ref<PhysicalDevice> mPhysicalDevice;
-        Ref<Surface>        mSurface;
+        Ref<skr::Logger<ForwardPassBuilder>> mLogger;
+        Ref<Device>                          mDevice;
+        Ref<PhysicalDevice>                  mPhysicalDevice;
+        Ref<Surface>                         mSurface;
 
         vk::SampleCountFlagBits mSamples;
 

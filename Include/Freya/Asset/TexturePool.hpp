@@ -27,12 +27,12 @@ namespace FREYA_NAMESPACE
         Ref<Buffer> createStagingBuffer(std::uint32_t size);
 
       private:
-        Ref<skr::Logger>          mLogger;
-        Ref<skr::ServiceProvider> mServiceProvider;
-        Ref<Device>               mDevice;
-        Ref<CommandPool>          mCommandPool;
-        Ref<ForwardPass>          mRenderPass;
-        std::vector<Ref<Buffer>>  mStagingBuffers;
+        Ref<skr::Logger<TexturePool>> mLogger;
+        Ref<skr::ServiceProvider>     mServiceProvider;
+        Ref<Device>                   mDevice;
+        Ref<CommandPool>              mCommandPool;
+        Ref<ForwardPass>              mRenderPass;
+        std::vector<Ref<Buffer>>      mStagingBuffers;
 
         TextureSet mTextures;
     };

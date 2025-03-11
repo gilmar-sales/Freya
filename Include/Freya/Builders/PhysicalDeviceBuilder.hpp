@@ -9,7 +9,8 @@ namespace FREYA_NAMESPACE
     class PhysicalDeviceBuilder
     {
       public:
-        PhysicalDeviceBuilder(const Ref<skr::Logger>& logger) :
+        PhysicalDeviceBuilder(
+            const Ref<skr::Logger<PhysicalDeviceBuilder>>& logger) :
             mLogger(logger),
             mPhysicalDeviceTypePriorities(
                 { vk::PhysicalDeviceType::eDiscreteGpu,
@@ -29,8 +30,8 @@ namespace FREYA_NAMESPACE
         Ref<PhysicalDevice> Build() const;
 
       private:
-        Ref<skr::Logger>                    mLogger;
-        Ref<Instance>                       mInstance;
-        std::vector<vk::PhysicalDeviceType> mPhysicalDeviceTypePriorities;
+        Ref<skr::Logger<PhysicalDeviceBuilder>> mLogger;
+        Ref<Instance>                           mInstance;
+        std::vector<vk::PhysicalDeviceType>     mPhysicalDeviceTypePriorities;
     };
 } // namespace FREYA_NAMESPACE

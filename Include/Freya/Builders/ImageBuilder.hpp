@@ -18,7 +18,7 @@ namespace FREYA_NAMESPACE
     class ImageBuilder
     {
       public:
-        explicit ImageBuilder(const Ref<skr::Logger>& logger) :
+        explicit ImageBuilder(const Ref<skr::Logger<ImageBuilder>>& logger) :
             mLogger(logger), mUsage(ImageUsage::Texture),
             mFormat(vk::Format::eUndefined),
             mSamples(vk::SampleCountFlagBits::e1), mWidth(1024), mHeight(1024),
@@ -88,8 +88,8 @@ namespace FREYA_NAMESPACE
                                     vk::ImageLayout newLayout) const;
 
       private:
-        Ref<skr::Logger> mLogger;
-        Ref<Device>      mDevice;
+        Ref<skr::Logger<ImageBuilder>> mLogger;
+        Ref<Device>                    mDevice;
 
         Ref<Buffer> mStagingBuffer;
         ImageUsage  mUsage;

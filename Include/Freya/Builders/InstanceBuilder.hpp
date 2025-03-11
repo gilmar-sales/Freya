@@ -8,7 +8,7 @@ namespace FREYA_NAMESPACE
     class InstanceBuilder
     {
       public:
-        InstanceBuilder(const Ref<skr::Logger>& logger) :
+        InstanceBuilder(const Ref<skr::Logger<InstanceBuilder>>& logger) :
             mLogger(logger),
             mApplicationVersion(VK_MAKE_API_VERSION(0, 0, 0, 1)),
             mApplicationName("Freya Application"), mEngineName("Freya Engine"),
@@ -49,7 +49,7 @@ namespace FREYA_NAMESPACE
         static bool checkLayerSupport(const char* layer);
 
       private:
-        Ref<skr::Logger> mLogger;
+        Ref<skr::Logger<InstanceBuilder>> mLogger;
 
         std::vector<const char*> mLayers;
         std::vector<const char*> mExtensions;
