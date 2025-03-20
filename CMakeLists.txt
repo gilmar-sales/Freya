@@ -15,10 +15,35 @@ set(SDL_TEST_LIBRARY OFF CACHE BOOL "Disable SDL3 tests build")
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build Shared Library")
 set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "Disable assimp warnings as errors")
 
-add_subdirectory(ThirdParty/SDL)
-add_subdirectory(ThirdParty/glm)
-add_subdirectory(ThirdParty/assimp)
-add_subdirectory(ThirdParty/Skirnir)
+include(FetchContent)
+
+FetchContent_Declare(
+SDL
+GIT_REPOSITORY "https://github.com/libsdl-org/SDL.git"
+GIT_TAG        "release-3.2.8"
+)
+FetchContent_MakeAvailable(SDL)
+
+FetchContent_Declare(
+glm
+GIT_REPOSITORY "https://github.com/g-truc/glm.git"
+GIT_TAG        "1.0.1"
+)
+FetchContent_MakeAvailable(glm)
+
+FetchContent_Declare(
+assimp
+GIT_REPOSITORY "https://github.com/assimp/assimp.git"
+GIT_TAG        "v5.4.3"
+)
+FetchContent_MakeAvailable(assimp)
+
+FetchContent_Declare(
+skirnir
+GIT_REPOSITORY "https://github.com/gilmar-sales/Skirnir.git"
+GIT_TAG        "main"
+)
+FetchContent_MakeAvailable(skirnir)
 
 file(GLOB_RECURSE Asset_SRCS Source/Asset/**.cpp Include/Asset/**.hpp)
 file(GLOB_RECURSE Builders_SRCS Source/Builders/**.cpp Include/Builders/**.hpp)
