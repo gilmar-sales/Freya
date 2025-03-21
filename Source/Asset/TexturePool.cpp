@@ -1,7 +1,14 @@
 #include "Freya/Asset/TexturePool.hpp"
 
+#ifndef NDEBUG
+    #undef __OPTIMIZE__
+#endif
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+
+#ifndef NDEBUG
+    #define __OPTIMIZE__ 1
+#endif
 
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
