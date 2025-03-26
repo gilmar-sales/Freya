@@ -12,7 +12,10 @@ namespace FREYA_NAMESPACE
         Color,
         Depth,
         Sampling,
-        Texture
+        Texture,
+        GBufferPosition,
+        GBufferNormal,
+        GBufferAlbedo
     };
 
     class ImageBuilder

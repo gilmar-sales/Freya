@@ -49,6 +49,15 @@ namespace FREYA_NAMESPACE
                     vk::ImageUsageFlagBits::eColorAttachment |
                     vk::ImageUsageFlagBits::eTransientAttachment);
                 break;
+            case ImageUsage::GBufferPosition:
+                imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment);
+                break;
+            case ImageUsage::GBufferNormal:
+                imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment);
+                break;
+            case ImageUsage::GBufferAlbedo:
+                imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment);
+                break;
             default:
                 break;
         }
@@ -204,6 +213,15 @@ namespace FREYA_NAMESPACE
                 break;
             case ImageUsage::Sampling:
                 mFormat = mDevice->GetSurface()->QuerySurfaceFormat().format;
+                break;
+            case ImageUsage::GBufferPosition:
+                mFormat = vk::Format::eR16G16B16A16Sfloat;
+                break;
+            case ImageUsage::GBufferNormal:
+                mFormat = vk::Format::eR16G16B16A16Sfloat;
+                break;
+            case ImageUsage::GBufferAlbedo:
+                mFormat = vk::Format::eR8G8B8A8Unorm;
                 break;
             default:
                 break;

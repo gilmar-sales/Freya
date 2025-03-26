@@ -44,12 +44,12 @@ namespace FREYA_NAMESPACE
       private:
         vk::RenderPass                               createRenderPass() const;
         std::tuple<vk::PipelineLayout, vk::Pipeline> createPipeline() const;
+        DeferredPassDescriptors                      createDescriptors() const;
 
         Ref<Device>  mDevice;
         Ref<Surface> mSurface;
 
         vk::SampleCountFlagBits mSamples;
-
-        std::uint32_t mFrameCount;
+        std::uint32_t           mFrameCount;
     };
 } // namespace FREYA_NAMESPACE

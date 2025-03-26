@@ -19,6 +19,20 @@ namespace FREYA_NAMESPACE
         DeferredLightingPass,
     };
 
+    struct DeferredPassAttachments
+    {
+        Ref<Image> Position;
+        Ref<Image> Normal;
+        Ref<Image> Albedo;
+    };
+
+    struct DeferredPassDescriptors
+    {
+        vk::DescriptorPool pool;
+        vk::DescriptorSet  composition;
+        vk::DescriptorSet  model;
+    };
+
     class DeferredPass : public RenderPass
     {
       public:
