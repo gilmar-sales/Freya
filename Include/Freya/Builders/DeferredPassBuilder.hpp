@@ -42,9 +42,12 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] Ref<DeferredPass> Build() const;
 
       private:
-        vk::RenderPass                               createRenderPass() const;
-        std::tuple<vk::PipelineLayout, vk::Pipeline> createPipeline() const;
-        DeferredPassDescriptors                      createDescriptors() const;
+        vk::RenderPass          createRenderPass() const;
+        DeferredPassDescriptors createDescriptors(
+            const DeferredPassAttachments& attachments) const;
+        DeferredPassPipeline createPipeline(
+            vk::RenderPass                 renderPass,
+            const DeferredPassDescriptors& descriptors) const;
 
         Ref<Device>  mDevice;
         Ref<Surface> mSurface;

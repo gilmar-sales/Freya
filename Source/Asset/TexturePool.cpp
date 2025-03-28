@@ -36,7 +36,8 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    std::uint32_t TexturePool::CreateTextureFromFile(std::string path)
+    std::uint32_t TexturePool::CreateTextureFromFile(std::string path,
+                                                     int         binding)
     {
         mLogger->LogTrace("TexturePool::CreateTextureFromFile:");
         mLogger->LogTrace("\tPath: {}", path);
@@ -80,7 +81,7 @@ namespace FREYA_NAMESPACE
         auto samplerDescriptorWriter =
             vk::WriteDescriptorSet()
                 .setDstSet(samplerDescriptorSet[0])
-                .setDstBinding(0)
+                .setDstBinding(binding)
                 .setDstArrayElement(0)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1)

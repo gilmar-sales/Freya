@@ -9,6 +9,34 @@ namespace FREYA_NAMESPACE
     {
         auto renderPass = createRenderPass();
 
+        auto attachments = DeferredPassAttachments {
+            .Position = ImageBuilder(MakeRef<skr::Logger<ImageBuilder>>(
+                                         MakeRef<skr::LoggerOptions>()))
+                            .SetUsage(ImageUsage::GBufferPosition)
+                            .SetDevice(mDevice)
+                            .SetHeight(mSurface->QueryExtent().height)
+                            .SetWidth(mSurface->QueryExtent().width)
+                            .Build(),
+            .Normal = ImageBuilder(MakeRef<skr::Logger<ImageBuilder>>(
+                                       MakeRef<skr::LoggerOptions>()))
+                          .SetUsage(ImageUsage::GBufferNormal)
+                          .SetDevice(mDevice)
+                          .SetHeight(mSurface->QueryExtent().height)
+                          .SetWidth(mSurface->QueryExtent().width)
+                          .Build(),
+            .Albedo = ImageBuilder(MakeRef<skr::Logger<ImageBuilder>>(
+                                       MakeRef<skr::LoggerOptions>()))
+                          .SetUsage(ImageUsage::GBufferAlbedo)
+                          .SetDevice(mDevice)
+                          .SetHeight(mSurface->QueryExtent().height)
+                          .SetWidth(mSurface->QueryExtent().width)
+                          .Build(),
+        };
+
+        auto descriptors = createDescriptors(attachments);
+
+        auto pipeline = createPipeline(renderPass, descriptors);
+
         const auto gBufferVertShaderModule =
             ShaderModuleBuilder()
                 .SetDevice(mDevice)
@@ -150,7 +178,58 @@ namespace FREYA_NAMESPACE
         return mDevice->Get().createRenderPass(renderPassCreateInfo);
     }
 
-    DeferredPassDescriptors DeferredPassBuilder::createDescriptors() const
+    DeferredPassPipeline DeferredPassBuilder::createPipeline(
+        vk::RenderPass                 renderPass,
+        const DeferredPassDescriptors& descriptors) const
+    {
+        auto pipelineLayoutCreateInfo =
+            vk::PipelineLayoutCreateInfo().setSetLayoutCount(1).setPSetLayouts(
+                &descriptors.layout);
+
+        auto pipelineLayout =
+            mDevice->Get().createPipelineLayout(pipelineLayoutCreateInfo);
+
+        auto vertexBindingDescription    = Vertex::GetBindingDescription();
+        auto vertexAttributesDescription = Vertex::GetAttributesDescription();
+
+        auto vertexInputInfo =
+            vk::PipelineVertexInputStateCreateInfo()
+                .setVertexBindingDescriptions(vertexBindingDescription)
+                .setVertexAttributeDescriptions(vertexAttributesDescription);
+
+        auto inputAssembly =
+            vk::PipelineInputAssemblyStateCreateInfo()
+                .setTopology(vk::PrimitiveTopology::eTriangleList)
+                .setPrimitiveRestartEnable(false);
+
+        auto viewportState = vk::PipelineViewportStateCreateInfo()
+                                 .setViewportCount(1)
+                                 .setScissorCount(1);
+
+        auto rasterizer =
+            vk::PipelineRasterizationStateCreateInfo()
+                .setDepthClampEnable(true)
+                .setRasterizerDiscardEnable(false)
+                .setPolygonMode(vk::PolygonMode::eFill)
+                .setCullMode(vk::CullModeFlagBits::eBack)
+                .setFrontFace(vk::FrontFace::eClockwise)
+                .setLineWidth(1.0f)
+                .setDepthBiasEnable(false);
+
+        auto pipelineCreateInfo =
+            vk::GraphicsPipelineCreateInfo()
+                .setLayout(pipelineLayout)
+                .setRenderPass(renderPass)
+                .setSubpass(0)
+                .setBasePipelineHandle(nullptr)
+                .setBasePipelineIndex(-1);
+
+        return DeferredPassPipeline { .pipelineLayout = pipelineLayout,
+                                      .pipeline       = vk::Pipeline() };
+    }
+
+    DeferredPassDescriptors DeferredPassBuilder::createDescriptors(
+        const DeferredPassAttachments& attachments) const
     {
         auto descriptorPoolSizes = {
             vk::DescriptorPoolSize()
@@ -214,7 +293,8 @@ namespace FREYA_NAMESPACE
 
         auto allocInfo = vk::DescriptorSetAllocateInfo()
                              .setDescriptorPool(descriptorPool)
-                             .setSetLayouts({ descriptorSetLayout });
+                             .setSetLayouts({ descriptorSetLayout })
+                             .setDescriptorSetCount(1);
 
         constexpr auto samplerCreateInfo =
             vk::SamplerCreateInfo()
@@ -234,30 +314,6 @@ namespace FREYA_NAMESPACE
 
         const auto sampler = mDevice->Get().createSampler(samplerCreateInfo);
 
-        auto attachments = DeferredPassAttachments {
-            .Position = ImageBuilder(MakeRef<skr::Logger<ImageBuilder>>(
-                                         MakeRef<skr::LoggerOptions>()))
-                            .SetUsage(ImageUsage::GBufferPosition)
-                            .SetDevice(mDevice)
-                            .SetHeight(mSurface->QueryExtent().height)
-                            .SetWidth(mSurface->QueryExtent().width)
-                            .Build(),
-            .Normal = ImageBuilder(MakeRef<skr::Logger<ImageBuilder>>(
-                                       MakeRef<skr::LoggerOptions>()))
-                          .SetUsage(ImageUsage::GBufferNormal)
-                          .SetDevice(mDevice)
-                          .SetHeight(mSurface->QueryExtent().height)
-                          .SetWidth(mSurface->QueryExtent().width)
-                          .Build(),
-            .Albedo = ImageBuilder(MakeRef<skr::Logger<ImageBuilder>>(
-                                       MakeRef<skr::LoggerOptions>()))
-                          .SetUsage(ImageUsage::GBufferAlbedo)
-                          .SetDevice(mDevice)
-                          .SetHeight(mSurface->QueryExtent().height)
-                          .SetWidth(mSurface->QueryExtent().width)
-                          .Build(),
-        };
-
         auto texDescriptorPosition =
             vk::DescriptorImageInfo()
                 .setSampler(sampler)
@@ -276,29 +332,30 @@ namespace FREYA_NAMESPACE
                 .setImageView(attachments.Albedo->GetImageView())
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 
-        auto descriptorSets = mDevice->Get().allocateDescriptorSets(allocInfo);
+        auto compositionDescriptor =
+            mDevice->Get().allocateDescriptorSets(allocInfo).at(0);
 
         auto writeDescriptorSets = std::vector<vk::WriteDescriptorSet> {
             vk::WriteDescriptorSet()
-                .setDstSet(descriptorSets[0])
+                .setDstSet(compositionDescriptor)
                 .setDstBinding(1)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1)
                 .setPImageInfo(&texDescriptorPosition),
             vk::WriteDescriptorSet()
-                .setDstSet(descriptorSets[0])
+                .setDstSet(compositionDescriptor)
                 .setDstBinding(2)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1)
                 .setPImageInfo(&texDescriptorNormal),
             vk::WriteDescriptorSet()
-                .setDstSet(descriptorSets[0])
+                .setDstSet(compositionDescriptor)
                 .setDstBinding(3)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1)
                 .setPImageInfo(&texDescriptorAlbedo),
             vk::WriteDescriptorSet()
-                .setDstSet(descriptorSets[0])
+                .setDstSet(compositionDescriptor)
                 .setDstBinding(4)
                 .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                 .setDescriptorCount(1)
@@ -308,10 +365,8 @@ namespace FREYA_NAMESPACE
 
         mDevice->Get().updateDescriptorSets(writeDescriptorSets, nullptr);
 
-        return DeferredPassDescriptors {
-            .pool        = descriptorPool,
-            .composition = descriptorSets[0],
-            .model       = descriptorSets[1],
-        };
+        return DeferredPassDescriptors { .pool        = descriptorPool,
+                                         .layout      = descriptorSetLayout,
+                                         .composition = compositionDescriptor };
     }
 } // namespace FREYA_NAMESPACE

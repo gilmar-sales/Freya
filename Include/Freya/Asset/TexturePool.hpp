@@ -20,7 +20,7 @@ namespace FREYA_NAMESPACE
 
         ~TexturePool();
 
-        std::uint32_t CreateTextureFromFile(std::string path);
+        std::uint32_t CreateTextureFromFile(std::string path, int binding = 0);
         void          Bind(uint32_t uint32);
 
         Ref<Buffer> queryStagingBuffer(std::uint32_t size);

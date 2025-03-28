@@ -28,9 +28,15 @@ namespace FREYA_NAMESPACE
 
     struct DeferredPassDescriptors
     {
-        vk::DescriptorPool pool;
-        vk::DescriptorSet  composition;
-        vk::DescriptorSet  model;
+        vk::DescriptorPool      pool;
+        vk::DescriptorSetLayout layout;
+        vk::DescriptorSet       composition;
+    };
+
+    struct DeferredPassPipeline
+    {
+        vk::PipelineLayout pipelineLayout;
+        vk::Pipeline       pipeline;
     };
 
     class DeferredPass : public RenderPass
