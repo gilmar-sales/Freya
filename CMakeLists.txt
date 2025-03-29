@@ -59,46 +59,7 @@ SOURCE_GROUP(Containers FILES ${Containers_SRCS})
 SOURCE_GROUP(Factories FILES ${Factories_SRCS})
 SOURCE_GROUP(Shaders FILES ${Shaders_SRCS})
 
-if (BUILD_SHARED_LIBS)
-    add_library(Freya
-            ${Asset_SRCS}
-            ${Builders_SRCS}
-            ${Core_SRCS}
-            ${Factories_SRCS}
-            ${Shaders_SRCS}
-    )
-
-
-    if (MSVC)
-        target_compile_options(Freya PUBLIC "/ZI" "/MP")
-        target_link_options(Freya PUBLIC "/INCREMENTAL")
-    endif ()
-
-    target_compile_features(Freya PUBLIC cxx_std_23)
-    target_include_directories(Freya PUBLIC Include ${Vulkan_INCLUDE_DIRS})
-    target_link_libraries(Freya SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES} skirnir::skirnir)
-
-    target_precompile_headers(Freya PUBLIC
-            <memory>
-            <limits>
-            <cstdint>
-            <string>
-            <vector>
-            <set>
-            <print>
-            <fstream>
-            <vulkan/vulkan.hpp>
-            <SDL3/SDL.h>
-            <SDL3/SDL_vulkan.h>
-            Include/Freya/Freya.hpp
-    )
-
-    if (MINGW)
-        target_link_libraries(Freya stdc++exp)
-    endif (MINGW)
-endif (BUILD_SHARED_LIBS)
-
-add_library(Freya-static STATIC
+add_library(Freya STATIC
         ${Asset_SRCS}
         ${Builders_SRCS}
         ${Core_SRCS}
@@ -106,20 +67,22 @@ add_library(Freya-static STATIC
         ${Shaders_SRCS}
 )
 
+add_library(Freya::Freya ALIAS Freya)
+
 if (MSVC)
-    target_compile_options(Freya-static PUBLIC "/ZI" "/MP")
-    target_link_options(Freya-static PUBLIC "/INCREMENTAL")
+    target_compile_options(Freya PUBLIC "/ZI" "/MP")
+    target_link_options(Freya PUBLIC "/INCREMENTAL")
 endif ()
 
-target_compile_features(Freya-static PUBLIC cxx_std_23)
-target_include_directories(Freya-static PUBLIC Include ${Vulkan_INCLUDE_DIRS})
-target_link_libraries(Freya-static SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES} skirnir::skirnir)
+target_compile_features(Freya PUBLIC cxx_std_23)
+target_include_directories(Freya PUBLIC Include ${Vulkan_INCLUDE_DIRS})
+target_link_libraries(Freya SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES} skirnir::skirnir)
 
 if (MINGW)
-    target_link_libraries(Freya-static stdc++exp)
+    target_link_libraries(Freya stdc++exp)
 endif (MINGW)
 
-target_precompile_headers(Freya-static PUBLIC
+target_precompile_headers(Freya PUBLIC
         <memory>
         <limits>
         <cstdint>
