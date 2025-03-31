@@ -26,6 +26,14 @@ namespace FREYA_NAMESPACE
     {
         mLogger = mServiceProvider->GetService<skr::Logger<TexturePool>>();
         stbi_set_flip_vertically_on_load(true);
+
+        const auto samplerDescriptorSetAllocInfo =
+            vk::DescriptorSetAllocateInfo()
+                .setSetLayouts(mRenderPass->GetSamplerLayout())
+                .setDescriptorPool(mRenderPass->GetSamplerDescriptorPool());
+
+        mTextureDescriptorSet = mDevice->Get().allocateDescriptorSets(
+            samplerDescriptorSetAllocInfo)[0];
     }
 
     TexturePool::~TexturePool()
@@ -33,11 +41,12 @@ namespace FREYA_NAMESPACE
         for (auto texture : mTextures)
         {
             texture.image.reset();
+
+            mDevice->Get().destroySampler(texture.sampler);
         }
     }
 
-    std::uint32_t TexturePool::CreateTextureFromFile(std::string path,
-                                                     int         binding)
+    std::uint32_t TexturePool::CreateTextureFromFile(std::string path)
     {
         mLogger->LogTrace("TexturePool::CreateTextureFromFile:");
         mLogger->LogTrace("\tPath: {}", path);
@@ -63,23 +72,53 @@ namespace FREYA_NAMESPACE
 
         stbi_image_free(imageData);
 
-        const auto samplerDescriptorSetAllocInfo =
-            vk::DescriptorSetAllocateInfo()
-                .setSetLayouts(mRenderPass->GetSamplerLayout())
-                .setDescriptorPool(mRenderPass->GetSamplerDescriptorPool());
+        constexpr auto samplerCreateInfo =
+            vk::SamplerCreateInfo()
+                .setMagFilter(vk::Filter::eLinear)
+                .setMinFilter(vk::Filter::eLinear)
+                .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+                .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+                .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+                .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+                .setUnnormalizedCoordinates(false)
+                .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+                .setMipLodBias(0.0f)
+                .setMinLod(0.0f)
+                .setMaxLod(0.0f)
+                .setAnisotropyEnable(true)
+                .setMaxAnisotropy(16);
 
-        const auto samplerDescriptorSet = mDevice->Get().allocateDescriptorSets(
-            samplerDescriptorSetAllocInfo);
+        const auto sampler = mDevice->Get().createSampler(samplerCreateInfo);
+
+        const auto texture = Texture {
+            .image   = image,
+            .sampler = sampler,
+            .width   = static_cast<std::uint32_t>(width),
+            .height  = static_cast<std::uint32_t>(height),
+            .id      = static_cast<std::uint32_t>(mTextures.size()),
+        };
+
+        mTextures.insert(texture);
+
+        return texture.id;
+    }
+
+    void TexturePool::Bind(const std::uint32_t uint32, int binding)
+    {
+        if (!mTextures.contains(uint32))
+            return;
+
+        const auto& texture = mTextures[uint32];
 
         auto descriptorImageInfo =
             vk::DescriptorImageInfo()
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setSampler(mRenderPass->GetSampler())
-                .setImageView(image->GetImageView());
+                .setSampler(texture.sampler)
+                .setImageView(texture.image->GetImageView());
 
         auto samplerDescriptorWriter =
             vk::WriteDescriptorSet()
-                .setDstSet(samplerDescriptorSet[0])
+                .setDstSet(mTextureDescriptorSet)
                 .setDstBinding(binding)
                 .setDstArrayElement(0)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
@@ -89,27 +128,7 @@ namespace FREYA_NAMESPACE
         mDevice->Get()
             .updateDescriptorSets(1, &samplerDescriptorWriter, 0, nullptr);
 
-        const auto texture = Texture {
-            .image         = image,
-            .descriptorSet = samplerDescriptorSet[0],
-            .width         = static_cast<std::uint32_t>(width),
-            .height        = static_cast<std::uint32_t>(height),
-            .id            = static_cast<std::uint32_t>(mTextures.size()),
-        };
-
-        mTextures.insert(texture);
-
-        return texture.id;
-    }
-
-    void TexturePool::Bind(const std::uint32_t uint32)
-    {
-        if (!mTextures.contains(uint32))
-            return;
-
-        const auto& texture = mTextures[uint32];
-
-        const auto descriptorSets = std::array { texture.descriptorSet };
+        const auto descriptorSets = std::array { mTextureDescriptorSet };
 
         mCommandPool->GetCommandBuffer().bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,

@@ -30,14 +30,13 @@ namespace FREYA_NAMESPACE
             const std::vector<vk::DescriptorSet>&       descriptorSets,
             const vk::DescriptorPool                    descriptorPool,
             const vk::DescriptorSetLayout               samplerLayout,
-            const vk::DescriptorPool                    samplerDescriptorPool,
-            const vk::Sampler                           sampler) :
+            const vk::DescriptorPool                    samplerDescriptorPool) :
             RenderPass(renderPass, pipelineLayout, graphicsPipeline),
             mDevice(device), mSurface(surface), mUniformBuffer(uniformBuffer),
             mDescriptorSetLayouts(descriptorSetLayouts),
             mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool),
             mSamplerLayout(samplerLayout),
-            mSamplerDescriptorPool(samplerDescriptorPool), mSampler(sampler)
+            mSamplerDescriptorPool(samplerDescriptorPool)
         {
         }
 
@@ -56,7 +55,6 @@ namespace FREYA_NAMESPACE
         {
             return mSamplerDescriptorPool;
         }
-        vk::Sampler& GetSampler() { return mSampler; }
 
       private:
         Ref<Device>  mDevice;
@@ -68,7 +66,6 @@ namespace FREYA_NAMESPACE
         vk::DescriptorPool                   mDescriptorPool;
         vk::DescriptorSetLayout              mSamplerLayout;
         vk::DescriptorPool                   mSamplerDescriptorPool;
-        vk::Sampler                          mSampler;
     };
 
 } // namespace FREYA_NAMESPACE

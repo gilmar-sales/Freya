@@ -25,6 +25,8 @@ class MainApp final : public fra::AbstractApplication
             "./Resources/Textures/OfficeSofa_BaseColor.png");
         mTextureB = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/OfficeSofa_Normal.png");
+        mTextureC = mTexturePool->CreateTextureFromFile(
+            "./Resources/Textures/OfficeSofa_Roughness.png");
         mModelA =
             mMeshPool->CreateMeshFromFile("./Resources/Models/OfficeSofa.fbx");
     }
@@ -57,9 +59,11 @@ class MainApp final : public fra::AbstractApplication
 
         for (const auto& mesh : mModelA)
         {
-            mTexturePool->Bind(mTextureA);
+            mTexturePool->Bind(mTextureA, 0);
+            mTexturePool->Bind(mTextureB, 1);
+            mTexturePool->Bind(mTextureC, 2);
+
             mMeshPool->DrawInstanced(mesh, 1);
-            mTexturePool->Bind(mTextureB);
             mMeshPool->DrawInstanced(mesh, 1, 1);
         }
 
@@ -72,6 +76,7 @@ class MainApp final : public fra::AbstractApplication
 
     std::vector<unsigned> mModelB;
     std::uint32_t         mTextureB {};
+    std::uint32_t         mTextureC {};
 
     Ref<fra::TexturePool> mTexturePool;
     Ref<fra::MeshPool>    mMeshPool;

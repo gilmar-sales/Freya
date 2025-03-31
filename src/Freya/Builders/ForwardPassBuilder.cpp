@@ -155,6 +155,18 @@ namespace FREYA_NAMESPACE
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(1)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(2)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr)
         };
 
@@ -244,24 +256,6 @@ namespace FREYA_NAMESPACE
         mDevice->Get().destroyShaderModule(vertShaderModule->Get());
         mDevice->Get().destroyShaderModule(fragShaderModule->Get());
 
-        constexpr auto samplerCreateInfo =
-            vk::SamplerCreateInfo()
-                .setMagFilter(vk::Filter::eLinear)
-                .setMinFilter(vk::Filter::eLinear)
-                .setAddressModeU(vk::SamplerAddressMode::eRepeat)
-                .setAddressModeV(vk::SamplerAddressMode::eRepeat)
-                .setAddressModeW(vk::SamplerAddressMode::eRepeat)
-                .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
-                .setUnnormalizedCoordinates(false)
-                .setMipmapMode(vk::SamplerMipmapMode::eLinear)
-                .setMipLodBias(0.0f)
-                .setMinLod(0.0f)
-                .setMaxLod(0.0f)
-                .setAnisotropyEnable(true)
-                .setMaxAnisotropy(16);
-
-        const auto sampler = mDevice->Get().createSampler(samplerCreateInfo);
-
         return skr::MakeRef<ForwardPass>(
             mDevice,
             mSurface,
@@ -273,8 +267,7 @@ namespace FREYA_NAMESPACE
             descriptorSets,
             descriptorPool,
             samplerLayout,
-            samplerDescriptorPool,
-            sampler);
+            samplerDescriptorPool);
     }
 } // namespace FREYA_NAMESPACE
 

@@ -261,6 +261,7 @@ namespace FREYA_NAMESPACE
         {
             const auto& aVertex    = mesh->mVertices[i];
             const auto& aNormal    = mesh->mNormals[i];
+            const auto& aTangent   = mesh->mTangents[i];
             const auto& aTextCoord = mesh->mTextureCoords[0][i];
 
             const auto material = scene->mMaterials[mesh->mMaterialIndex];
@@ -268,11 +269,13 @@ namespace FREYA_NAMESPACE
             aiColor3D aColor(1.0, 1.0, 1.0);
             material->Get(AI_MATKEY_COLOR_DIFFUSE, aColor);
 
-            auto vertex =
-                Vertex { .position = glm::vec3(aVertex.x, aVertex.y, aVertex.z),
-                         .color    = glm::vec3(aColor.r, aColor.g, aColor.b),
-                         .normal   = glm::vec3(aNormal.x, aNormal.y, aNormal.z),
-                         .texCoord = glm::vec2(aTextCoord.x, aTextCoord.y) };
+            auto vertex = Vertex {
+                .position = glm::vec3(aVertex.x, aVertex.y, aVertex.z),
+                .color    = glm::vec3(aColor.r, aColor.g, aColor.b),
+                .normal   = glm::vec3(aNormal.x, aNormal.y, aNormal.z),
+                .tangent  = glm::vec3(aTangent.x, aTangent.y, aTangent.z),
+                .texCoord = glm::vec2(aTextCoord.x, aTextCoord.y)
+            };
 
             // process vertex positions, normals and texture coordinates
             vertices.push_back(vertex);

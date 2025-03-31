@@ -14,8 +14,6 @@ namespace FREYA_NAMESPACE
     {
         mDevice->Get().destroyDescriptorPool(mSamplerDescriptorPool);
 
-        mDevice->Get().destroySampler(mSampler);
-
         mDevice->Get().destroyDescriptorPool(mDescriptorPool);
 
         mUniformBuffer.reset();

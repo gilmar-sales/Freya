@@ -20,8 +20,8 @@ namespace FREYA_NAMESPACE
 
         ~TexturePool();
 
-        std::uint32_t CreateTextureFromFile(std::string path, int binding = 0);
-        void          Bind(uint32_t uint32);
+        std::uint32_t CreateTextureFromFile(std::string path);
+        void          Bind(uint32_t texture, int binding = 0);
 
         Ref<Buffer> queryStagingBuffer(std::uint32_t size);
         Ref<Buffer> createStagingBuffer(std::uint32_t size);
@@ -33,6 +33,7 @@ namespace FREYA_NAMESPACE
         Ref<CommandPool>              mCommandPool;
         Ref<ForwardPass>              mRenderPass;
         std::vector<Ref<Buffer>>      mStagingBuffers;
+        vk::DescriptorSet             mTextureDescriptorSet;
 
         TextureSet mTextures;
     };

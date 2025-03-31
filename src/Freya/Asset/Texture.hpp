@@ -8,8 +8,8 @@ namespace FREYA_NAMESPACE
     {
         operator std::uint32_t() const { return id; }
 
-        Ref<Image>        image;
-        vk::DescriptorSet descriptorSet;
+        Ref<Image>  image;
+        vk::Sampler sampler;
 
         std::uint32_t width;
         std::uint32_t height;
