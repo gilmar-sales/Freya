@@ -1,11 +1,8 @@
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.29)
 
-project(
-        Freya
-        LANGUAGES C CXX
-)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-option(FREYA_BUILD_EXAMPLES "Build freyr examples" OFF)
+project(Freya CXX)
 
 find_package(Vulkan REQUIRED)
 
@@ -45,42 +42,17 @@ GIT_TAG        "main"
 )
 FetchContent_MakeAvailable(skirnir)
 
-file(GLOB_RECURSE Asset_SRCS Source/Asset/**.cpp Include/Asset/**.hpp)
-file(GLOB_RECURSE Builders_SRCS Source/Builders/**.cpp Include/Builders/**.hpp)
-file(GLOB_RECURSE Core_SRCS Source/Core/**.cpp Include/Core/**.hpp)
-file(GLOB_RECURSE Containers_SRCS Include/Containers/**.hpp)
-file(GLOB_RECURSE Factories_SRCS Source/Factories/**.cpp Include/Factories/**.hpp)
-file(GLOB_RECURSE Shaders_SRCS Shaders/**.vert Shaders/**.frag)
+option(FREYA_BUILD_EXAMPLES "Build freyr examples" OFF)
 
-SOURCE_GROUP(Asset FILES ${Asset_SRCS})
-SOURCE_GROUP(Builders FILES ${Builders_SRCS})
-SOURCE_GROUP(Core FILES ${Core_SRCS})
-SOURCE_GROUP(Containers FILES ${Containers_SRCS})
-SOURCE_GROUP(Factories FILES ${Factories_SRCS})
-SOURCE_GROUP(Shaders FILES ${Shaders_SRCS})
+file(GLOB_RECURSE Freya_SRCS src/**.cpp)
 
-add_library(Freya STATIC
-        ${Asset_SRCS}
-        ${Builders_SRCS}
-        ${Core_SRCS}
-        ${Factories_SRCS}
-        ${Shaders_SRCS}
-)
+add_library(Freya ${Freya_SRCS})
 
 add_library(Freya::Freya ALIAS Freya)
 
-if (MSVC)
-    target_compile_options(Freya PUBLIC "/ZI" "/MP")
-    target_link_options(Freya PUBLIC "/INCREMENTAL")
-endif ()
-
 target_compile_features(Freya PUBLIC cxx_std_23)
-target_include_directories(Freya PUBLIC Include ${Vulkan_INCLUDE_DIRS})
+target_include_directories(Freya PUBLIC include src ${Vulkan_INCLUDE_DIRS})
 target_link_libraries(Freya SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES} skirnir::skirnir)
-
-if (MINGW)
-    target_link_libraries(Freya stdc++exp)
-endif (MINGW)
 
 target_precompile_headers(Freya PUBLIC
         <memory>
@@ -92,15 +64,15 @@ target_precompile_headers(Freya PUBLIC
         <iostream>
         <fstream>
         <vulkan/vulkan.hpp>
+        <vulkan/vulkan_enums.hpp>
         <SDL3/SDL.h>
+        <SDL3/SDL_events.h>
         <SDL3/SDL_vulkan.h>
-        Include/Freya/Freya.hpp
+        <Skirnir/Skirnir.hpp>
+        <Freya/Pch.hpp>
 )
-
 
 if (FREYA_BUILD_EXAMPLES)
     add_subdirectory(Examples)
 endif (FREYA_BUILD_EXAMPLES)
 
-
-file(COPY Shaders DESTINATION ${CMAKE_BINARY_DIR}/Resources)
