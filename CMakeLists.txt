@@ -76,3 +76,5 @@ if (FREYA_BUILD_EXAMPLES)
     add_subdirectory(Examples)
 endif (FREYA_BUILD_EXAMPLES)
 
+
+file(COPY shaders DESTINATION ${CMAKE_BINARY_DIR}/Resources)
