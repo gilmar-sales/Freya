@@ -7,28 +7,54 @@ class MainApp final : public fra::AbstractApplication
         AbstractApplication(serviceProvider)
     {
 
-        mMeshPool    = serviceProvider->GetService<fra::MeshPool>();
-        mTexturePool = serviceProvider->GetService<fra::TexturePool>();
+        mMeshPool     = serviceProvider->GetService<fra::MeshPool>();
+        mTexturePool  = serviceProvider->GetService<fra::TexturePool>();
+        mMaterialPool = serviceProvider->GetService<fra::MaterialPool>();
     }
 
     void StartUp() override
     {
         mRenderer->ClearProjections();
 
-        mModelMatrix[0] = glm::translate(
-            glm::scale(glm::mat4(1), glm::vec3(3)), glm::vec3(-1, 0, 0));
+        mModelMatrix[0] = glm::scale(
+            glm::translate(glm::mat4(1), glm::vec3(-3, 2, 0)), glm::vec3(0.3));
 
-        mModelMatrix[1] = glm::translate(
-            glm::scale(glm::mat4(1), glm::vec3(3)), glm::vec3(1, 0, 0));
+        mModelMatrix[1] = glm::scale(
+            glm::translate(glm::mat4(1), glm::vec3(3, 2, 0)), glm::vec3(0.3));
 
-        mTextureA = mTexturePool->CreateTextureFromFile(
+        mModelMatrix[2] = glm::scale(
+            glm::translate(glm::mat4(1), glm::vec3(-3, -2, 0)), glm::vec3(2));
+
+        mModelMatrix[3] = glm::scale(
+            glm::translate(glm::mat4(1), glm::vec3(3, -2, 0)), glm::vec3(2));
+
+        mSofaAlbedo = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/OfficeSofa_BaseColor.png");
-        mTextureB = mTexturePool->CreateTextureFromFile(
+        mSofaNormal = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/OfficeSofa_Normal.png");
-        mTextureC = mTexturePool->CreateTextureFromFile(
+        mSofaRoughness = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/OfficeSofa_Roughness.png");
-        mModelA =
+
+        mSofaMaterial =
+            mMaterialPool->Create({ mSofaAlbedo, mSofaNormal, mSofaRoughness });
+
+        mSofaModel =
             mMeshPool->CreateMeshFromFile("./Resources/Models/OfficeSofa.fbx");
+
+        mSpaceShipAlbedo = mTexturePool->CreateTextureFromFile(
+            "./Resources/Textures/SpaceShip_Base_color.jpg");
+
+        mSpaceShipNormal = mTexturePool->CreateTextureFromFile(
+            "./Resources/Textures/SpaceShip_Normal.jpg");
+
+        mSpaceShipRoughness = mTexturePool->CreateTextureFromFile(
+            "./Resources/Textures/SpaceShip_Roughness.jpg");
+
+        mSpaceShipMaterial = mMaterialPool->Create(
+            { mSpaceShipAlbedo, mSpaceShipNormal, mSpaceShipRoughness });
+
+        mSpaceShipModel =
+            mMeshPool->CreateMeshFromFile("./Resources/Models/SpaceShip.fbx");
     }
 
     void Update() override
@@ -42,46 +68,64 @@ class MainApp final : public fra::AbstractApplication
             mModelMatrix[1], glm::radians(15.0f * mWindow->GetDeltaTime()),
             glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
 
+        mModelMatrix[2] = glm::rotate(
+            mModelMatrix[2], glm::radians(15.0f * mWindow->GetDeltaTime()),
+            glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
+
+        mModelMatrix[3] = glm::rotate(
+            mModelMatrix[3], glm::radians(15.0f * mWindow->GetDeltaTime()),
+            glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
+
         mRenderer->BeginFrame();
 
         if (mInstanceMatrixBuffers == nullptr)
             mInstanceMatrixBuffers =
                 mRenderer->GetBufferBuilder()
                     .SetData(&mModelMatrix[0][0])
-                    .SetSize(sizeof(glm::mat4) * 2)
+                    .SetSize(sizeof(glm::mat4) * 4)
                     .SetUsage(fra::BufferUsage::Instance)
                     .Build();
         else
             mInstanceMatrixBuffers->Copy(
-                &mModelMatrix[0][0], sizeof(glm::mat4) * 2);
+                &mModelMatrix[0][0], sizeof(glm::mat4) * 4);
 
         mRenderer->BindBuffer(mInstanceMatrixBuffers);
 
-        for (const auto& mesh : mModelA)
-        {
-            mTexturePool->Bind(mTextureA, 0);
-            mTexturePool->Bind(mTextureB, 1);
-            mTexturePool->Bind(mTextureC, 2);
+        mMaterialPool->Bind(mSpaceShipMaterial);
 
-            mMeshPool->DrawInstanced(mesh, 1);
-            mMeshPool->DrawInstanced(mesh, 1, 1);
+        for (const auto& mesh : mSpaceShipModel)
+        {
+            mMeshPool->DrawInstanced(mesh, 2);
+        }
+
+        mMaterialPool->Bind(mSofaMaterial);
+
+        for (const auto& mesh : mSofaModel)
+        {
+            mMeshPool->DrawInstanced(mesh, 2, 2);
         }
 
         mRenderer->EndFrame();
     }
 
   private:
-    std::vector<unsigned> mModelA;
-    std::uint32_t         mTextureA {};
+    std::vector<unsigned> mSofaModel;
+    std::uint32_t         mSofaAlbedo {};
+    std::uint32_t         mSofaNormal {};
+    std::uint32_t         mSofaRoughness {};
+    std::uint32_t         mSofaMaterial {};
 
-    std::vector<unsigned> mModelB;
-    std::uint32_t         mTextureB {};
-    std::uint32_t         mTextureC {};
+    std::vector<unsigned> mSpaceShipModel;
+    std::uint32_t         mSpaceShipAlbedo {};
+    std::uint32_t         mSpaceShipNormal {};
+    std::uint32_t         mSpaceShipRoughness {};
+    std::uint32_t         mSpaceShipMaterial {};
 
-    Ref<fra::TexturePool> mTexturePool;
-    Ref<fra::MeshPool>    mMeshPool;
-    glm::mat4             mModelMatrix[2] {};
-    float                 mCurrentTime {};
+    Ref<fra::MaterialPool> mMaterialPool;
+    Ref<fra::TexturePool>  mTexturePool;
+    Ref<fra::MeshPool>     mMeshPool;
+    glm::mat4              mModelMatrix[4] {};
+    float                  mCurrentTime {};
 
     Ref<fra::Buffer> mInstanceMatrixBuffers;
 };

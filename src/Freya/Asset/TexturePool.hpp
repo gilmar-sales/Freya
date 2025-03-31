@@ -21,7 +21,15 @@ namespace FREYA_NAMESPACE
         ~TexturePool();
 
         std::uint32_t CreateTextureFromFile(std::string path);
-        void          Bind(uint32_t texture, int binding = 0);
+
+        Texture& GetTexture(std::uint32_t textureId)
+        {
+            mLogger->Assert(mTextures.contains(textureId),
+                            "Failed to get texture with id: {}",
+                            textureId);
+
+            return mTextures[textureId];
+        }
 
         Ref<Buffer> queryStagingBuffer(std::uint32_t size);
         Ref<Buffer> createStagingBuffer(std::uint32_t size);

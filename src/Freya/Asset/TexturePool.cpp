@@ -103,41 +103,6 @@ namespace FREYA_NAMESPACE
         return texture.id;
     }
 
-    void TexturePool::Bind(const std::uint32_t uint32, int binding)
-    {
-        if (!mTextures.contains(uint32))
-            return;
-
-        const auto& texture = mTextures[uint32];
-
-        auto descriptorImageInfo =
-            vk::DescriptorImageInfo()
-                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setSampler(texture.sampler)
-                .setImageView(texture.image->GetImageView());
-
-        auto samplerDescriptorWriter =
-            vk::WriteDescriptorSet()
-                .setDstSet(mTextureDescriptorSet)
-                .setDstBinding(binding)
-                .setDstArrayElement(0)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setImageInfo(descriptorImageInfo);
-
-        mDevice->Get()
-            .updateDescriptorSets(1, &samplerDescriptorWriter, 0, nullptr);
-
-        const auto descriptorSets = std::array { mTextureDescriptorSet };
-
-        mCommandPool->GetCommandBuffer().bindDescriptorSets(
-            vk::PipelineBindPoint::eGraphics,
-            mRenderPass->GetPipelineLayout(),
-            1,
-            descriptorSets,
-            nullptr);
-    }
-
     Ref<Buffer> TexturePool::queryStagingBuffer(std::uint32_t size)
     {
         for (auto stagingBuffer : mStagingBuffers)

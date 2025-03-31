@@ -12,8 +12,10 @@
 #include "Freya/Builders/WindowBuilder.hpp"
 #include "Freya/FreyaOptions.hpp"
 
+#include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Asset/TexturePool.hpp"
+
 
 #include "Freya/Core/AbstractApplication.hpp"
 
