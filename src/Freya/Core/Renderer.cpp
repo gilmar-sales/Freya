@@ -89,7 +89,7 @@ namespace FREYA_NAMESPACE
 
         projectionUniformBuffer.projection[1][1] *= -1.f;
 
-        for (auto frameIndex = 0; frameIndex < mSwapChain->GetFrameCount();
+        for (auto frameIndex = 0; frameIndex < mFreyaOptions->frameCount;
              frameIndex++)
         {
             mRenderPass->UpdateProjection(projectionUniformBuffer, frameIndex);
@@ -140,14 +140,14 @@ namespace FREYA_NAMESPACE
 
     void Renderer::BeginFrame()
     {
+        mSwapChain->WaitNextFrame();
+
         if (mResizeEvent.has_value())
         {
             RebuildSwapChain();
 
             mResizeEvent.reset();
         }
-
-        mSwapChain->WaitNextFrame();
 
         auto swapChainFrame = mSwapChain->GetNextFrame();
 

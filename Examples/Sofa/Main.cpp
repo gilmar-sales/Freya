@@ -90,7 +90,6 @@ int main(int argc, const char** argv)
                 freyaOptions.width       = 1920;
                 freyaOptions.height      = 1080;
                 freyaOptions.vSync       = false;
-                freyaOptions.frameCount  = 3;
                 freyaOptions.sampleCount = vk::SampleCountFlagBits::e4;
             })
             .Build<MainApp>();

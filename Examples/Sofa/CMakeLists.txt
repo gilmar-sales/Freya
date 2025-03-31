@@ -10,5 +10,5 @@ if (MSVC)
 endif ()
 
 
-file(COPY ../../shaders DESTINATION ${CMAKE_BINARY_DIR}/Examples/Sofa/Resources)
+file(COPY ../../Shaders DESTINATION ${CMAKE_BINARY_DIR}/Examples/Sofa/Resources)
 file(COPY Resources DESTINATION ${CMAKE_BINARY_DIR}/Examples/Sofa)

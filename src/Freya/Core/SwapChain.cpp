@@ -116,7 +116,7 @@ namespace FREYA_NAMESPACE
 
         const auto result = mDevice->GetPresentQueue().presentKHR(presentInfo);
 
-        mCurrentFrameIndex = (mCurrentFrameIndex + 1) % mFrames.size();
+        mCurrentFrameIndex = (mCurrentFrameIndex + 1) % mInFlightFences.size();
 
         return result;
     }
