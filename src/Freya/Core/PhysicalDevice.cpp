@@ -37,9 +37,12 @@ namespace FREYA_NAMESPACE
         return 0;
     }
 
-    vk::SampleCountFlagBits PhysicalDevice::QuerySamplesSupport(
-        const vk::SampleCountFlagBits desired) const
+    std::uint32_t PhysicalDevice::QuerySamplesSupport(
+        const std::uint32_t desired) const
     {
+        const auto vkDesiredSamples =
+            static_cast<vk::SampleCountFlagBits>(desired);
+
         const auto deviceProperties = mPhysicalDevice.getProperties();
 
         const auto counts =
@@ -54,24 +57,24 @@ namespace FREYA_NAMESPACE
 
         for (auto& sample : samples)
         {
-            if (sample & counts & desired)
+            if (sample & counts & vkDesiredSamples)
             {
-                return sample;
+                return static_cast<std::uint32_t>(sample);
             }
         }
 
-        if (desired != vk::SampleCountFlagBits::e1)
+        if (vkDesiredSamples != vk::SampleCountFlagBits::e1)
         {
             for (auto& sample : samples)
             {
                 if (sample & counts)
                 {
-                    return sample;
+                    return static_cast<std::uint32_t>(sample);
                 }
             }
         }
 
-        return vk::SampleCountFlagBits::e1;
+        return 1;
     }
 
     vk::Format PhysicalDevice::GetDepthFormat() const

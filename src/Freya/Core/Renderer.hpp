@@ -55,9 +55,9 @@ namespace FREYA_NAMESPACE
         void               RebuildSwapChain();
         [[nodiscard]] bool GetVSync() const { return mFreyaOptions->vSync; }
         void               SetVSync(bool vSync);
-        void               SetSamples(vk::SampleCountFlagBits samples);
+        void               SetSamples(std::uint32_t samples);
 
-        [[nodiscard]] vk::SampleCountFlagBits GetSamples() const
+        [[nodiscard]] std::uint32_t GetSamples() const
         {
             return mFreyaOptions->sampleCount;
         }

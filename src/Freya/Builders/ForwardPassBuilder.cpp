@@ -226,10 +226,13 @@ namespace FREYA_NAMESPACE
                 .setDepthBoundsTestEnable(false)
                 .setStencilTestEnable(false);
 
+        const auto vkSampleCount =
+            static_cast<vk::SampleCountFlagBits>(mFreyaOptions->sampleCount);
+
         auto multisamplingInfo =
             vk::PipelineMultisampleStateCreateInfo()
                 .setSampleShadingEnable(false)
-                .setRasterizationSamples(mFreyaOptions->sampleCount);
+                .setRasterizationSamples(vkSampleCount);
 
         auto pipelineInfo =
             vk::GraphicsPipelineCreateInfo()
@@ -277,10 +280,13 @@ vk::RenderPass FREYA_NAMESPACE::ForwardPassBuilder::createRenderPass() const
 
     mLogger->LogTrace("\tColor Format: {}", vk::to_string(format));
 
+    const auto vkSampleCount =
+        static_cast<vk::SampleCountFlagBits>(mFreyaOptions->sampleCount);
+
     auto colorAttachment =
         vk::AttachmentDescription()
             .setFormat(format)
-            .setSamples(mFreyaOptions->sampleCount)
+            .setSamples(vkSampleCount)
             .setLoadOp(vk::AttachmentLoadOp::eClear)
             .setStoreOp(vk::AttachmentStoreOp::eStore)
             .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
@@ -288,7 +294,7 @@ vk::RenderPass FREYA_NAMESPACE::ForwardPassBuilder::createRenderPass() const
             .setInitialLayout(vk::ImageLayout::eUndefined)
             .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
 
-    if (mFreyaOptions->sampleCount != vk::SampleCountFlagBits::e1)
+    if (vkSampleCount != vk::SampleCountFlagBits::e1)
     {
 
         colorAttachment.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal)
@@ -298,7 +304,7 @@ vk::RenderPass FREYA_NAMESPACE::ForwardPassBuilder::createRenderPass() const
     auto depthAttachment =
         vk::AttachmentDescription()
             .setFormat(mPhysicalDevice->GetDepthFormat())
-            .setSamples(mFreyaOptions->sampleCount)
+            .setSamples(vkSampleCount)
             .setLoadOp(vk::AttachmentLoadOp::eClear)
             .setStoreOp(vk::AttachmentStoreOp::eDontCare)
             .setStencilLoadOp(vk::AttachmentLoadOp::eClear)
@@ -339,7 +345,7 @@ vk::RenderPass FREYA_NAMESPACE::ForwardPassBuilder::createRenderPass() const
                        .setColorAttachments(colorAttachmentRef)
                        .setPDepthStencilAttachment(&depthAttachmentRef);
 
-    if (mFreyaOptions->sampleCount != vk::SampleCountFlagBits::e1)
+    if (vkSampleCount != vk::SampleCountFlagBits::e1)
     {
         subpass.setPResolveAttachments(&colorAttachmentResolveRef);
     }
@@ -358,7 +364,7 @@ vk::RenderPass FREYA_NAMESPACE::ForwardPassBuilder::createRenderPass() const
     };
 
     auto attachments =
-        mFreyaOptions->sampleCount == vk::SampleCountFlagBits::e1
+        vkSampleCount == vk::SampleCountFlagBits::e1
             ? std::vector { colorAttachment, depthAttachment }
             : std::vector { colorAttachment, depthAttachment,
                             colorAttachmentResolve };

@@ -39,7 +39,7 @@ namespace FREYA_NAMESPACE
         RebuildSwapChain();
     }
 
-    void Renderer::SetSamples(vk::SampleCountFlagBits samples)
+    void Renderer::SetSamples(std::uint32_t samples)
     {
         mFreyaOptions->sampleCount = samples;
         const auto frameCount      = mSwapChain->GetFrames().size();

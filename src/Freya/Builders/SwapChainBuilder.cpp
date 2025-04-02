@@ -18,6 +18,9 @@ namespace FREYA_NAMESPACE
         auto presentMode   = choosePresentMode();
         auto extent        = mSurface->QueryExtent();
 
+        const auto vkSampleCount =
+            static_cast<vk::SampleCountFlagBits>(mFreyaOptions->sampleCount);
+
         mLogger->LogTrace("\tFrame Count: {}", mFreyaOptions->frameCount);
 
         mLogger->LogTrace("\tSurface Format: {}",
@@ -102,7 +105,7 @@ namespace FREYA_NAMESPACE
         auto depthImage =
             mServiceProvider->GetService<ImageBuilder>()
                 ->SetUsage(ImageUsage::Depth)
-                .SetSamples(mFreyaOptions->sampleCount)
+                .SetSamples(vkSampleCount)
                 .SetWidth(extent.width)
                 .SetHeight(extent.height)
                 .Build();
@@ -110,7 +113,7 @@ namespace FREYA_NAMESPACE
         auto sampleImage =
             mServiceProvider->GetService<ImageBuilder>()
                 ->SetUsage(ImageUsage::Sampling)
-                .SetSamples(mFreyaOptions->sampleCount)
+                .SetSamples(vkSampleCount)
                 .SetWidth(extent.width)
                 .SetHeight(extent.height)
                 .Build();
@@ -118,7 +121,7 @@ namespace FREYA_NAMESPACE
         for (auto index = 0; index < swapChainImages.size(); index++)
         {
             auto attachments =
-                mFreyaOptions->sampleCount != vk::SampleCountFlagBits::e1
+                vkSampleCount != vk::SampleCountFlagBits::e1
                     ? std::vector<vk::ImageView> { sampleImage->GetImageView(),
                                                    depthImage->GetImageView(),
                                                    frames[index].imageView }
