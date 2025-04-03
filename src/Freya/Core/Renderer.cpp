@@ -230,8 +230,6 @@ namespace FREYA_NAMESPACE
         {
             throw std::runtime_error("failed to present swap chain image!");
         }
-
-        mDevice->Get().waitIdle();
     }
 
 } // namespace FREYA_NAMESPACE
