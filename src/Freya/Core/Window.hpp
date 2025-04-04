@@ -63,6 +63,28 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] float GetDeltaTime() const { return mDeltaTime; }
 
+        float IsFullscreen() const
+        {
+            return SDL_GetWindowFlags(mWindow) & SDL_WINDOW_FULLSCREEN;
+        }
+
+        void SetFullscreen(bool fullscreen)
+        {
+            if (fullscreen)
+            {
+                SDL_SetWindowFullscreen(mWindow, SDL_WINDOW_FULLSCREEN);
+            }
+            else
+            {
+                SDL_SetWindowFullscreen(mWindow, 0);
+            }
+        }
+
+        [[nodiscard]] bool IsMouseGrab() const
+        {
+            return SDL_GetWindowFlags(mWindow) & SDL_WINDOW_MOUSE_GRABBED;
+        }
+
         void SetMouseGrab(bool grab) const;
 
         SDL_Window* Get() const { return mWindow; }

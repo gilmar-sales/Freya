@@ -8,6 +8,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t       width        = 800;
         std::uint32_t       height       = 600;
         bool                vSync        = true;
+        bool                fullscreen   = true;
         std::uint32_t       sampleCount  = 1;
         std::uint32_t       frameCount   = 4;
         vk::ClearColorValue clearColor   = { 0.0f, 0.0f, 0.0f, 0.0f };
