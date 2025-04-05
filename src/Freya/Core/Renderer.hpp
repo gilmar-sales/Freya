@@ -83,6 +83,16 @@ namespace FREYA_NAMESPACE
 
         void BindBuffer(const Ref<Buffer>& buffer) const;
 
+        std::uint32_t GetCurrentFrameIndex() const
+        {
+            return mSwapChain->GetCurrentFrameIndex();
+        }
+
+        std::uint32_t GetFrameCount() const
+        {
+            return mSwapChain->GetFrameCount();
+        }
+
       private:
         Ref<skr::ServiceProvider> mServiceProvider;
         Ref<Instance>             mInstance;
