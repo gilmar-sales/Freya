@@ -2,6 +2,7 @@
 
 #include "Freya/Builders/DeviceBuilder.hpp"
 #include "Freya/Builders/ForwardPassBuilder.hpp"
+#include "Freya/Builders/FreyaOptionsBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/InstanceBuilder.hpp"
 #include "Freya/Builders/PhysicalDeviceBuilder.hpp"
@@ -10,12 +11,10 @@
 #include "Freya/Builders/SurfaceBuilder.hpp"
 #include "Freya/Builders/SwapChainBuilder.hpp"
 #include "Freya/Builders/WindowBuilder.hpp"
-#include "Freya/FreyaOptions.hpp"
 
 #include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Asset/TexturePool.hpp"
-
 
 #include "Freya/Core/AbstractApplication.hpp"
 
@@ -30,7 +29,7 @@ namespace FREYA_NAMESPACE
         ApplicationBuilder() :
             mServiceCollection(std::make_shared<skr::ServiceCollection>())
         {
-            mFreyaOptionsFunc = [](FreyaOptions& freyaOptions) {};
+            mFreyaOptionsBuilderFunc = [](FreyaOptionsBuilder& freyaOptions) {};
         }
 
         [[nodiscard]] Ref<skr::ServiceCollection> GetServiceCollection() const
@@ -39,7 +38,7 @@ namespace FREYA_NAMESPACE
         }
 
         ApplicationBuilder& WithOptions(
-            std::function<void(FreyaOptions&)> freyaOptionsFunc);
+            std::function<void(FreyaOptionsBuilder&)> freyaOptionsBuilderFunc);
 
         template <typename T>
             requires IsApplication<T>
@@ -58,7 +57,7 @@ namespace FREYA_NAMESPACE
       protected:
         void AddServices();
 
-        std::function<void(FreyaOptions&)> mFreyaOptionsFunc;
+        std::function<void(FreyaOptionsBuilder&)> mFreyaOptionsBuilderFunc;
 
         Ref<skr::ServiceCollection> mServiceCollection;
     };

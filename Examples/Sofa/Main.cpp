@@ -132,15 +132,16 @@ class MainApp final : public fra::AbstractApplication
 
 int main(int argc, const char** argv)
 {
-    const auto app = fra::ApplicationBuilder()
-                         .WithOptions([](fra::FreyaOptions& freyaOptions) {
-                             freyaOptions.title       = "Sofa example";
-                             freyaOptions.width       = 1920;
-                             freyaOptions.height      = 1080;
-                             freyaOptions.vSync       = false;
-                             freyaOptions.sampleCount = 8;
-                         })
-                         .Build<MainApp>();
+    const auto app =
+        fra::ApplicationBuilder()
+            .WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
+                freyaOptions.SetTitle("Sofa example")
+                    .SetWidth(1920)
+                    .SetHeight(1080)
+                    .SetVSync(false)
+                    .SetSampleCount(8);
+            })
+            .Build<MainApp>();
 
     app->Run();
 

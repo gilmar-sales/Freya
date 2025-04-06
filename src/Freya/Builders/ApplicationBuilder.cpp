@@ -3,9 +3,9 @@
 namespace FREYA_NAMESPACE
 {
     ApplicationBuilder& ApplicationBuilder::WithOptions(
-        std::function<void(FreyaOptions&)> freyaOptionsBuilderFunc)
+        std::function<void(FreyaOptionsBuilder&)> freyaOptionsBuilderFunc)
     {
-        mFreyaOptionsFunc = freyaOptionsBuilderFunc;
+        mFreyaOptionsBuilderFunc = freyaOptionsBuilderFunc;
 
         return *this;
     }
@@ -14,16 +14,16 @@ namespace FREYA_NAMESPACE
     {
 
         mServiceCollection->AddSingleton<FreyaOptions>(
-            [freyaOptionsFunc =
-                 mFreyaOptionsFunc](skr::ServiceProvider& serviceProvider) {
-                auto freyaOptions = skr::MakeRef<FreyaOptions>();
+            [freyaOptionsBuilderFunc = mFreyaOptionsBuilderFunc](
+                skr::ServiceProvider& serviceProvider) {
+                auto freyaOptionsBuilder = FreyaOptionsBuilder();
 
-                if (freyaOptionsFunc)
+                if (freyaOptionsBuilderFunc)
                 {
-                    freyaOptionsFunc(*freyaOptions);
+                    freyaOptionsBuilderFunc(freyaOptionsBuilder);
                 }
 
-                return freyaOptions;
+                return freyaOptionsBuilder.Build();
             });
 
         mServiceCollection->AddTransient<WindowBuilder>();
