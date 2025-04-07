@@ -66,6 +66,14 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        FreyaOptionsBuilder& SetRenderingStrategy(
+            RenderingStrategy renderingStrategy)
+        {
+            mFreyaOptions->renderingStrategy = renderingStrategy;
+
+            return *this;
+        }
+
         Ref<FreyaOptions> Build() { return mFreyaOptions; }
 
       private:

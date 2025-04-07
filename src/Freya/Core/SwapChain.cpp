@@ -6,8 +6,7 @@ namespace FREYA_NAMESPACE
 
     SwapChain::~SwapChain()
     {
-        mDepthImage.reset();
-        mSampleImage.reset();
+        mOffscreenBuffers.clear();
 
         for (const auto& frame : mFrames)
         {

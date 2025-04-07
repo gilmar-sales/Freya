@@ -20,22 +20,30 @@ namespace FREYA_NAMESPACE
         static SwapChainFrame Null;
     };
 
+    struct OffscreenBuffer
+    {
+        Ref<Image> depth;
+        Ref<Image> sampler;
+        Ref<Image> albedo;
+        Ref<Image> normal;
+        Ref<Image> position;
+    };
+
     class SwapChain
     {
       public:
-        SwapChain(const Ref<Device>&                 device,
-                  const Ref<Instance>&               instance,
-                  const Ref<Surface>&                surface,
-                  const vk::SwapchainKHR             swapChain,
-                  const std::vector<SwapChainFrame>& frames,
-                  const Ref<Image>&                  depthImage,
-                  const Ref<Image>&                  sampleImage,
-                  const std::vector<vk::Semaphore>&  imageAvailableSemaphores,
-                  const std::vector<vk::Semaphore>&  renderFinishedSemaphores,
-                  const std::vector<vk::Fence>&      inFlightFences) :
+        SwapChain(const Ref<Device>&                  device,
+                  const Ref<Instance>&                instance,
+                  const Ref<Surface>&                 surface,
+                  const vk::SwapchainKHR              swapChain,
+                  const std::vector<SwapChainFrame>&  frames,
+                  const std::vector<OffscreenBuffer>& offscreenBuffers,
+                  const std::vector<vk::Semaphore>&   imageAvailableSemaphores,
+                  const std::vector<vk::Semaphore>&   renderFinishedSemaphores,
+                  const std::vector<vk::Fence>&       inFlightFences) :
             mDevice(device), mInstance(instance), mSurface(surface),
             mSwapChain(swapChain), mFrames(frames), mCurrentFrameIndex(0),
-            mDepthImage(depthImage), mSampleImage(sampleImage),
+            mOffscreenBuffers(offscreenBuffers),
             mImageAvailableSemaphores(imageAvailableSemaphores),
             mRenderFinishedSemaphores(renderFinishedSemaphores),
             mInFlightFences(inFlightFences)
@@ -50,6 +58,11 @@ namespace FREYA_NAMESPACE
         Ref<Surface>                       GetSurface() { return mSurface; }
         const std::vector<SwapChainFrame>& GetFrames() { return mFrames; }
         const size_t GetFrameCount() { return mFrames.size(); }
+
+        std::vector<OffscreenBuffer>& GetOffscreenBuffers()
+        {
+            return mOffscreenBuffers;
+        }
 
         void WaitNextFrame();
         void BeginNextFrame();
@@ -86,8 +99,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t mCurrentFrameIndex;
         std::uint32_t mCurrentImageIndex;
 
-        Ref<Image> mDepthImage;
-        Ref<Image> mSampleImage;
+        std::vector<OffscreenBuffer> mOffscreenBuffers;
     };
 
 } // namespace FREYA_NAMESPACE

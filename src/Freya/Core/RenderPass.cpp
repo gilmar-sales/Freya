@@ -34,6 +34,18 @@ namespace FREYA_NAMESPACE
                 vk::ClearDepthStencilValue().setDepth(1.0f)),
         };
 
+        if (mFreyaOptions->renderingStrategy == RenderingStrategy::Deferred)
+        {
+            clearValues.push_back(
+                vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }));
+
+            clearValues.push_back(
+                vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }));
+
+            clearValues.push_back(
+                vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }));
+        }
+
         commandBuffer.beginRenderPass(
             vk::RenderPassBeginInfo()
                 .setRenderPass(mRenderPass)
@@ -52,6 +64,20 @@ namespace FREYA_NAMESPACE
     void RenderPass::End(const Ref<CommandPool> commandPool) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
+
+        if (mFreyaOptions->renderingStrategy == RenderingStrategy::Deferred)
+        {
+            commandBuffer.nextSubpass(vk::SubpassContents::eInline);
+
+            commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+                                       mCompositionPipeline);
+
+            commandBuffer.bindDescriptorSets(
+                vk::PipelineBindPoint::eGraphics, mCompositionPipelineLayout, 0,
+                1, &mCompositionDescriptorSets[0], 0, nullptr);
+
+            commandBuffer.draw(3, 1, 0, 0);
+        }
 
         commandBuffer.endRenderPass();
     }
@@ -90,6 +116,50 @@ namespace FREYA_NAMESPACE
                 .setBufferInfo(bufferInfo);
 
         mDevice->Get().updateDescriptorSets(1, &descriptorWriter, 0, nullptr);
+    }
+
+    void RenderPass::SetOffscreenBuffers(Ref<SwapChain> swapChain)
+    {
+        for (auto& offscreenBuffer : swapChain->GetOffscreenBuffers())
+        {
+            auto albedoImageInfo =
+                vk::DescriptorImageInfo()
+                    .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                    .setImageView(offscreenBuffer.albedo->GetImageView());
+
+            auto normalImageInfo =
+                vk::DescriptorImageInfo()
+                    .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                    .setImageView(offscreenBuffer.normal->GetImageView())
+                    .setSampler(nullptr);
+
+            auto positionImageInfo =
+                vk::DescriptorImageInfo()
+                    .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                    .setImageView(offscreenBuffer.position->GetImageView());
+
+            auto writeDescriptorSets = std::vector {
+                vk::WriteDescriptorSet()
+                    .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                    .setImageInfo(albedoImageInfo)
+                    .setDstBinding(0)
+                    .setDstSet(mCompositionDescriptorSets[0]),
+                vk::WriteDescriptorSet()
+                    .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                    .setImageInfo(normalImageInfo)
+                    .setDstBinding(1)
+                    .setDstSet(mCompositionDescriptorSets[0]),
+                vk::WriteDescriptorSet()
+                    .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                    .setImageInfo(positionImageInfo)
+                    .setDstBinding(2)
+                    .setDstSet(mCompositionDescriptorSets[0]),
+            };
+
+            mDevice->Get().updateDescriptorSets(
+                writeDescriptorSets.size(), writeDescriptorSets.data(), 0,
+                nullptr);
+        }
     }
 
 } // namespace FREYA_NAMESPACE

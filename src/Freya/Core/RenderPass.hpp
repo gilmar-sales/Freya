@@ -14,7 +14,10 @@ namespace FREYA_NAMESPACE
     {
         ColorAttachment,
         DepthAttachment,
-        ColorResolveAttachment
+        ColorResolveAttachment,
+        GBufferAlbedoAttachment,
+        GBufferPositionAttachment,
+        GBufferNormalAttachment
     };
 
     class RenderPass
@@ -22,10 +25,13 @@ namespace FREYA_NAMESPACE
       public:
         RenderPass(
             const Ref<Device>& device, const Ref<FreyaOptions>& freyaOptions,
-            const vk::RenderPass                        renderPass,
-            const vk::PipelineLayout                    pipelineLayout,
-            const vk::Pipeline                          graphicsPipeline,
-            const Ref<Buffer>&                          uniformBuffer,
+            const vk::RenderPass                  renderPass,
+            const vk::PipelineLayout              pipelineLayout,
+            const vk::Pipeline                    graphicsPipeline,
+            const vk::PipelineLayout              compositionPipelineLayout,
+            const vk::Pipeline                    compositionPipeline,
+            const std::vector<vk::DescriptorSet>& compositionDescriptorSets,
+            const Ref<Buffer>&                    uniformBuffer,
             const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
             const std::vector<vk::DescriptorSet>&       descriptorSets,
             const vk::DescriptorPool                    descriptorPool,
@@ -33,7 +39,11 @@ namespace FREYA_NAMESPACE
             const vk::DescriptorPool                    samplerDescriptorPool) :
             mDevice(device), mFreyaOptions(freyaOptions),
             mRenderPass(renderPass), mPipelineLayout(pipelineLayout),
-            mGraphicsPipeline(graphicsPipeline), mUniformBuffer(uniformBuffer),
+            mGraphicsPipeline(graphicsPipeline),
+            mCompositionPipelineLayout(compositionPipelineLayout),
+            mCompositionPipeline(compositionPipeline),
+            mCompositionDescriptorSets(compositionDescriptorSets),
+            mUniformBuffer(uniformBuffer),
             mDescriptorSetLayouts(descriptorSetLayouts),
             mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool),
             mSamplerLayout(samplerLayout),
@@ -66,13 +76,21 @@ namespace FREYA_NAMESPACE
             return mSamplerDescriptorPool;
         }
 
+        void SetOffscreenBuffers(Ref<SwapChain> swapChain);
+
         Ref<Device>       mDevice;
         Ref<FreyaOptions> mFreyaOptions;
 
-        vk::RenderPass     mRenderPass;
+        vk::RenderPass mRenderPass;
+
         vk::PipelineLayout mPipelineLayout;
         vk::Pipeline       mGraphicsPipeline;
-        Ref<Buffer>        mUniformBuffer;
+
+        vk::PipelineLayout             mCompositionPipelineLayout;
+        vk::Pipeline                   mCompositionPipeline;
+        std::vector<vk::DescriptorSet> mCompositionDescriptorSets;
+
+        Ref<Buffer> mUniformBuffer;
 
         std::vector<vk::DescriptorSetLayout> mDescriptorSetLayouts;
         std::vector<vk::DescriptorSet>       mDescriptorSets;

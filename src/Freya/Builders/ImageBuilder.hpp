@@ -6,7 +6,6 @@
 #include "Freya/Core/Image.hpp"
 #include "Freya/Core/Surface.hpp"
 
-
 namespace FREYA_NAMESPACE
 {
     enum class ImageUsage
@@ -15,9 +14,9 @@ namespace FREYA_NAMESPACE
         Depth,
         Sampling,
         Texture,
+        GBufferAlbedo,
         GBufferPosition,
         GBufferNormal,
-        GBufferAlbedo
     };
 
     class ImageBuilder

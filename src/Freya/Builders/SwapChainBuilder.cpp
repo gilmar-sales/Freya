@@ -6,7 +6,6 @@
 #include "Freya/Core/PhysicalDevice.hpp"
 #include "Freya/Core/RenderPass.hpp"
 
-
 #include <vulkan/vulkan_to_string.hpp>
 
 namespace FREYA_NAMESPACE
@@ -103,31 +102,78 @@ namespace FREYA_NAMESPACE
                             "\tFailed to create image views");
         }
 
-        auto depthImage =
-            mServiceProvider->GetService<ImageBuilder>()
-                ->SetUsage(ImageUsage::Depth)
-                .SetSamples(vkSampleCount)
-                .SetWidth(extent.width)
-                .SetHeight(extent.height)
-                .Build();
-
-        auto sampleImage =
-            mServiceProvider->GetService<ImageBuilder>()
-                ->SetUsage(ImageUsage::Sampling)
-                .SetSamples(vkSampleCount)
-                .SetWidth(extent.width)
-                .SetHeight(extent.height)
-                .Build();
+        auto offscreenBuffers = std::vector<OffscreenBuffer> {};
 
         for (auto index = 0; index < swapChainImages.size(); index++)
         {
-            auto attachments =
-                vkSampleCount != vk::SampleCountFlagBits::e1
-                    ? std::vector<vk::ImageView> { sampleImage->GetImageView(),
-                                                   depthImage->GetImageView(),
-                                                   frames[index].imageView }
-                    : std::vector<vk::ImageView> { frames[index].imageView,
-                                                   depthImage->GetImageView() };
+            auto offscreenBuffer = OffscreenBuffer {};
+
+            auto depthImage =
+                mServiceProvider->GetService<ImageBuilder>()
+                    ->SetUsage(ImageUsage::Depth)
+                    .SetSamples(vkSampleCount)
+                    .SetWidth(extent.width)
+                    .SetHeight(extent.height)
+                    .Build();
+
+            offscreenBuffer.depth = depthImage;
+
+            auto albedoImage =
+                mServiceProvider->GetService<ImageBuilder>()
+                    ->SetUsage(ImageUsage::GBufferAlbedo)
+                    .SetSamples(vkSampleCount)
+                    .SetWidth(extent.width)
+                    .SetHeight(extent.height)
+                    .Build();
+
+            auto positionImage =
+                mServiceProvider->GetService<ImageBuilder>()
+                    ->SetUsage(ImageUsage::GBufferPosition)
+                    .SetSamples(vkSampleCount)
+                    .SetWidth(extent.width)
+                    .SetHeight(extent.height)
+                    .Build();
+
+            auto normalImage =
+                mServiceProvider->GetService<ImageBuilder>()
+                    ->SetUsage(ImageUsage::GBufferNormal)
+                    .SetSamples(vkSampleCount)
+                    .SetWidth(extent.width)
+                    .SetHeight(extent.height)
+                    .Build();
+
+            auto attachments = std::vector<vk::ImageView> {
+                frames[index].imageView, depthImage->GetImageView()
+            };
+
+            if (vkSampleCount != vk::SampleCountFlagBits::e1)
+            {
+                auto sampleImage =
+                    mServiceProvider->GetService<ImageBuilder>()
+                        ->SetUsage(ImageUsage::Sampling)
+                        .SetSamples(vkSampleCount)
+                        .SetWidth(extent.width)
+                        .SetHeight(extent.height)
+                        .Build();
+
+                offscreenBuffer.sampler = sampleImage;
+
+                attachments = std::vector<vk::ImageView> {
+                    sampleImage->GetImageView(), depthImage->GetImageView(),
+                    frames[index].imageView
+                };
+            }
+
+            if (mFreyaOptions->renderingStrategy == RenderingStrategy::Deferred)
+            {
+                offscreenBuffer.albedo   = albedoImage;
+                offscreenBuffer.normal   = normalImage;
+                offscreenBuffer.position = positionImage;
+
+                attachments.push_back(albedoImage->GetImageView());
+                attachments.push_back(normalImage->GetImageView());
+                attachments.push_back(positionImage->GetImageView());
+            }
 
             auto framebufferInfo =
                 vk::FramebufferCreateInfo()
@@ -142,6 +188,8 @@ namespace FREYA_NAMESPACE
 
             mLogger->Assert(frames[index].frameBuffer,
                             "\tFailed to create framebuffer");
+
+            offscreenBuffers.push_back(offscreenBuffer);
         }
 
         auto imageAvailableSemaphores =
@@ -174,16 +222,8 @@ namespace FREYA_NAMESPACE
         }
 
         return skr::MakeRef<SwapChain>(
-            mDevice,
-            mInstance,
-            mSurface,
-            swapChain,
-            frames,
-            depthImage,
-            sampleImage,
-            imageAvailableSemaphores,
-            renderFinishedSemaphores,
-            inFlightFences);
+            mDevice, mInstance, mSurface, swapChain, frames, offscreenBuffers,
+            imageAvailableSemaphores, renderFinishedSemaphores, inFlightFences);
     }
 
     vk::PresentModeKHR SwapChainBuilder::choosePresentMode()

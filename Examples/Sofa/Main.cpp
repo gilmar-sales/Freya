@@ -139,8 +139,9 @@ int main(int argc, const char** argv)
                     .SetWidth(1920)
                     .SetHeight(1080)
                     .SetVSync(false)
-                    .SetSampleCount(8)
-                    .SetFullscreen(false);
+                    .SetSampleCount(1)
+                    .SetFullscreen(false)
+                    .SetRenderingStrategy(fra::RenderingStrategy::Deferred);
             })
             .Build<MainApp>();
 

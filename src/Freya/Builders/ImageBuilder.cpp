@@ -36,6 +36,12 @@ namespace FREYA_NAMESPACE
             case ImageUsage::Color:
                 imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment);
                 break;
+            case ImageUsage::GBufferNormal:
+            case ImageUsage::GBufferPosition:
+            case ImageUsage::GBufferAlbedo:
+                imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment |
+                                   vk::ImageUsageFlagBits::eInputAttachment);
+                break;
             case ImageUsage::Depth:
                 imageInfo.setUsage(
                     vk::ImageUsageFlagBits::eDepthStencilAttachment);
@@ -48,15 +54,6 @@ namespace FREYA_NAMESPACE
                 imageInfo.setUsage(
                     vk::ImageUsageFlagBits::eColorAttachment |
                     vk::ImageUsageFlagBits::eTransientAttachment);
-                break;
-            case ImageUsage::GBufferPosition:
-                imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment);
-                break;
-            case ImageUsage::GBufferNormal:
-                imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment);
-                break;
-            case ImageUsage::GBufferAlbedo:
-                imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment);
                 break;
             default:
                 break;
@@ -153,6 +150,9 @@ namespace FREYA_NAMESPACE
             case ImageUsage::Color:
             case ImageUsage::Sampling:
             case ImageUsage::Texture:
+            case ImageUsage::GBufferAlbedo:
+            case ImageUsage::GBufferNormal:
+            case ImageUsage::GBufferPosition:
                 aspect = vk::ImageAspectFlagBits::eColor;
                 break;
             case ImageUsage::Depth:

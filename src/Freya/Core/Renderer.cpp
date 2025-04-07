@@ -31,6 +31,7 @@ namespace FREYA_NAMESPACE
         mSwapChain.reset();
 
         mSwapChain = mServiceProvider->GetService<SwapChainBuilder>()->Build();
+        mRenderPass->SetOffscreenBuffers(mSwapChain);
     }
 
     void Renderer::SetVSync(bool vSync)

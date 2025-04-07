@@ -11,7 +11,6 @@
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Events/EventManager.hpp"
 
-
 namespace FREYA_NAMESPACE
 {
     class Buffer;
@@ -37,6 +36,7 @@ namespace FREYA_NAMESPACE
             mCurrentProjection({})
         {
             ClearProjections();
+            mRenderPass->SetOffscreenBuffers(mSwapChain);
 
             mEventManager->Subscribe<WindowResizeEvent>(
                 [this](WindowResizeEvent event) {

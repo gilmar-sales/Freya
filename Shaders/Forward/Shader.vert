@@ -13,18 +13,18 @@ layout(location = 3) in vec3 inTangent;
 layout(location = 4) in vec2 inTexCoord;
 layout(location = 5) in mat4 inModel;
 
-layout(location = 0) out vec3 fragColor;
-layout(location = 1) out vec3 fragPosition;
-layout(location = 2) out vec2 fragTexCoord;
+layout(location = 0) out vec2 outTexCoord;
+layout(location = 1) out vec3 outColor;
+layout(location = 2) out vec3 outPosition;
 layout(location = 3) out mat3 TBN;
 
 void main() {
     vec4 vertexPosition = inModel * vec4(inPosition, 1.0);
     gl_Position = pub.proj * pub.view * vertexPosition;
 
-    fragColor = inColor;
-    fragPosition = vertexPosition.xyz;
-    fragTexCoord = inTexCoord;
+    outColor = inColor;
+    outPosition = vertexPosition.xyz;
+    outTexCoord = inTexCoord;
     
     vec3 T = normalize(vec3(inModel * vec4(inTangent, 0.0)));
     vec3 N = normalize(vec3(inModel * vec4(inNormal, 0.0)));

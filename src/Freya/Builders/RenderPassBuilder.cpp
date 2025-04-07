@@ -19,29 +19,72 @@ namespace FREYA_NAMESPACE
 
         auto renderPass = createRenderPass();
 
-        auto vertShaderModule =
-            mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath("./Resources/Shaders/Forward/Vert.spv")
-                .Build();
+        auto shaderStages = std::vector<vk::PipelineShaderStageCreateInfo>();
 
-        auto fragShaderModule =
-            mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath("./Resources/Shaders/Forward/Frag.spv")
-                .Build();
+        auto shaderModules = std::vector<Ref<ShaderModule>>();
 
-        auto vertShaderStageInfo =
-            vk::PipelineShaderStageCreateInfo()
-                .setStage(vk::ShaderStageFlagBits::eVertex)
-                .setModule(vertShaderModule->Get())
-                .setPName("main");
+        if (mFreyaOptions->renderingStrategy == RenderingStrategy::Deferred)
+        {
+            auto vertShaderModule =
+                mServiceProvider->GetService<ShaderModuleBuilder>()
+                    ->SetFilePath(
+                        "./Resources/Shaders/Deferred/GBuffer.vert.spv")
+                    .Build();
 
-        auto fragShaderStageInfo =
-            vk::PipelineShaderStageCreateInfo()
-                .setStage(vk::ShaderStageFlagBits::eFragment)
-                .setModule(fragShaderModule->Get())
-                .setPName("main");
+            auto fragShaderModule =
+                mServiceProvider->GetService<ShaderModuleBuilder>()
+                    ->SetFilePath(
+                        "./Resources/Shaders/Deferred/GBuffer.frag.spv")
+                    .Build();
 
-        auto shaderStages = { vertShaderStageInfo, fragShaderStageInfo };
+            shaderModules.push_back(vertShaderModule);
+            shaderModules.push_back(fragShaderModule);
+
+            auto vertShaderStageInfo =
+                vk::PipelineShaderStageCreateInfo()
+                    .setStage(vk::ShaderStageFlagBits::eVertex)
+                    .setModule(vertShaderModule->Get())
+                    .setPName("main");
+
+            auto fragShaderStageInfo =
+                vk::PipelineShaderStageCreateInfo()
+                    .setStage(vk::ShaderStageFlagBits::eFragment)
+                    .setModule(fragShaderModule->Get())
+                    .setPName("main");
+
+            shaderStages.push_back(vertShaderStageInfo);
+            shaderStages.push_back(fragShaderStageInfo);
+        }
+        else
+        {
+            auto vertShaderModule =
+                mServiceProvider->GetService<ShaderModuleBuilder>()
+                    ->SetFilePath("./Resources/Shaders/Forward/Vert.spv")
+                    .Build();
+
+            auto fragShaderModule =
+                mServiceProvider->GetService<ShaderModuleBuilder>()
+                    ->SetFilePath("./Resources/Shaders/Forward/Frag.spv")
+                    .Build();
+
+            shaderModules.push_back(vertShaderModule);
+            shaderModules.push_back(fragShaderModule);
+
+            auto vertShaderStageInfo =
+                vk::PipelineShaderStageCreateInfo()
+                    .setStage(vk::ShaderStageFlagBits::eVertex)
+                    .setModule(vertShaderModule->Get())
+                    .setPName("main");
+
+            auto fragShaderStageInfo =
+                vk::PipelineShaderStageCreateInfo()
+                    .setStage(vk::ShaderStageFlagBits::eFragment)
+                    .setModule(fragShaderModule->Get())
+                    .setPName("main");
+
+            shaderStages.push_back(vertShaderStageInfo);
+            shaderStages.push_back(fragShaderStageInfo);
+        }
 
         auto vertexBindingDescription    = Vertex::GetBindingDescription();
         auto vertexAttributesDescription = Vertex::GetAttributesDescription();
@@ -78,13 +121,41 @@ namespace FREYA_NAMESPACE
                                    vk::ColorComponentFlagBits::eA)
                 .setBlendEnable(false);
 
+        auto pipelineBlendAttachments = std::vector { colorBlendAttachment };
+
+        if (mFreyaOptions->renderingStrategy == RenderingStrategy::Deferred)
+        {
+            pipelineBlendAttachments.push_back(
+                vk::PipelineColorBlendAttachmentState()
+                    .setColorWriteMask(vk::ColorComponentFlagBits::eR |
+                                       vk::ColorComponentFlagBits::eG |
+                                       vk::ColorComponentFlagBits::eB |
+                                       vk::ColorComponentFlagBits::eA)
+                    .setBlendEnable(false));
+
+            pipelineBlendAttachments.push_back(
+                vk::PipelineColorBlendAttachmentState()
+                    .setColorWriteMask(vk::ColorComponentFlagBits::eR |
+                                       vk::ColorComponentFlagBits::eG |
+                                       vk::ColorComponentFlagBits::eB |
+                                       vk::ColorComponentFlagBits::eA)
+                    .setBlendEnable(false));
+
+            pipelineBlendAttachments.push_back(
+                vk::PipelineColorBlendAttachmentState()
+                    .setColorWriteMask(vk::ColorComponentFlagBits::eR |
+                                       vk::ColorComponentFlagBits::eG |
+                                       vk::ColorComponentFlagBits::eB |
+                                       vk::ColorComponentFlagBits::eA)
+                    .setBlendEnable(false));
+        }
+
         auto colorBlending =
             vk::PipelineColorBlendStateCreateInfo()
                 .setLogicOpEnable(false)
                 .setLogicOp(vk::LogicOp::eCopy)
                 .setBlendConstants({ 0.0f, 0.0f, 0.0f, 0.0f })
-                .setAttachmentCount(1)
-                .setPAttachments(&colorBlendAttachment);
+                .setAttachments(pipelineBlendAttachments);
 
         auto dynamicStates = std::vector { vk::DynamicState::eViewport,
                                            vk::DynamicState::eScissor };
@@ -225,7 +296,7 @@ namespace FREYA_NAMESPACE
             vk::PipelineDepthStencilStateCreateInfo()
                 .setDepthTestEnable(true)
                 .setDepthWriteEnable(true)
-                .setDepthCompareOp(vk::CompareOp::eLess)
+                .setDepthCompareOp(vk::CompareOp::eLessOrEqual)
                 .setDepthBoundsTestEnable(false)
                 .setStencilTestEnable(false);
 
@@ -259,8 +330,137 @@ namespace FREYA_NAMESPACE
         mLogger->Assert(graphicsPipeline,
                         "\tFailed to create the graphics pipeline.");
 
-        mDevice->Get().destroyShaderModule(vertShaderModule->Get());
-        mDevice->Get().destroyShaderModule(fragShaderModule->Get());
+        for (auto& shaderModule : shaderModules)
+        {
+            mDevice->Get().destroyShaderModule(shaderModule->Get());
+        }
+
+        shaderStages.clear();
+        shaderModules.clear();
+
+        if (mFreyaOptions->renderingStrategy == RenderingStrategy::Deferred)
+        {
+            auto vertShaderModule =
+                mServiceProvider->GetService<ShaderModuleBuilder>()
+                    ->SetFilePath(
+                        "./Resources/Shaders/Deferred/Composition.vert.spv")
+                    .Build();
+
+            auto fragShaderModule =
+                mServiceProvider->GetService<ShaderModuleBuilder>()
+                    ->SetFilePath(
+                        "./Resources/Shaders/Deferred/Composition.frag.spv")
+                    .Build();
+
+            shaderModules.push_back(vertShaderModule);
+            shaderModules.push_back(fragShaderModule);
+
+            auto vertShaderStageInfo =
+                vk::PipelineShaderStageCreateInfo()
+                    .setStage(vk::ShaderStageFlagBits::eVertex)
+                    .setModule(vertShaderModule->Get())
+                    .setPName("main");
+
+            auto fragShaderStageInfo =
+                vk::PipelineShaderStageCreateInfo()
+                    .setStage(vk::ShaderStageFlagBits::eFragment)
+                    .setModule(fragShaderModule->Get())
+                    .setPName("main");
+
+            shaderStages.push_back(vertShaderStageInfo);
+            shaderStages.push_back(fragShaderStageInfo);
+
+            pipelineInfo.setStages(shaderStages).setSubpass(1);
+        }
+
+        auto compositionPoolSize =
+            vk::DescriptorPoolSize()
+                .setType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(2 << 16);
+
+        auto compositionPoolInfo =
+            vk::DescriptorPoolCreateInfo()
+                .setPoolSizeCount(1)
+                .setPPoolSizes(&compositionPoolSize)
+                .setMaxSets(2 << 16);
+
+        auto compositionDescriptorPool =
+            mDevice->Get().createDescriptorPool(compositionPoolInfo);
+
+        auto compositionDescriptorSetBindings = std::array {
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(0)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(1)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(2)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr)
+        };
+
+        auto compositionDescriptorSetCreateInfo =
+            vk::DescriptorSetLayoutCreateInfo().setBindings(
+                compositionDescriptorSetBindings);
+
+        auto compositionLayout = mDevice->Get().createDescriptorSetLayout(
+            compositionDescriptorSetCreateInfo);
+
+        const auto compositionPipelineLayouts =
+            std::array { compositionLayout };
+
+        auto compositionPipelineLayoutInfo =
+            vk::PipelineLayoutCreateInfo().setSetLayouts(
+                compositionPipelineLayouts);
+
+        auto compositionPipelineLayout =
+            mDevice->Get().createPipelineLayout(compositionPipelineLayoutInfo);
+
+        auto emptyInputState = vk::PipelineVertexInputStateCreateInfo();
+
+        auto blendStates = std::vector {
+            vk::PipelineColorBlendAttachmentState()
+                .setColorWriteMask(vk::ColorComponentFlagBits::eR |
+                                   vk::ColorComponentFlagBits::eG |
+                                   vk::ColorComponentFlagBits::eB |
+                                   vk::ColorComponentFlagBits::eA)
+                .setBlendEnable(false)
+        };
+
+        colorBlending.setAttachments(blendStates);
+
+        pipelineInfo.setLayout(compositionPipelineLayout)
+            .setPVertexInputState(&emptyInputState);
+
+        depthStencilInfo.setDepthWriteEnable(false);
+
+        auto compositionPipeline =
+            mDevice->Get().createGraphicsPipeline(nullptr, pipelineInfo).value;
+
+        mLogger->Assert(compositionPipeline,
+                        "\tFailed to create the composition pipeline.");
+
+        auto compositionDescriptorSetAllocInfo =
+            vk::DescriptorSetAllocateInfo()
+                .setSetLayouts(compositionPipelineLayouts)
+                .setDescriptorPool(compositionDescriptorPool);
+
+        auto compositionDescriptorSets = mDevice->Get().allocateDescriptorSets(
+            compositionDescriptorSetAllocInfo);
+
+        for (auto& shaderModule : shaderModules)
+        {
+            mDevice->Get().destroyShaderModule(shaderModule->Get());
+        }
 
         return skr::MakeRef<RenderPass>(
             mDevice,
@@ -268,6 +468,9 @@ namespace FREYA_NAMESPACE
             renderPass,
             pipelineLayout,
             graphicsPipeline,
+            compositionPipelineLayout,
+            compositionPipeline,
+            compositionDescriptorSets,
             uniformBuffer,
             frameLayouts,
             descriptorSets,
@@ -290,6 +493,23 @@ namespace FREYA_NAMESPACE
                 .setAttachment(ColorAttachment)
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
+        auto mainPassColorAttachments = std::vector { colorAttachmentRef };
+
+        if (mFreyaOptions->renderingStrategy == RenderingStrategy::Deferred)
+        {
+            mainPassColorAttachments.push_back(
+                vk::AttachmentReference().setAttachment(2).setLayout(
+                    vk::ImageLayout::eColorAttachmentOptimal));
+
+            mainPassColorAttachments.push_back(
+                vk::AttachmentReference().setAttachment(3).setLayout(
+                    vk::ImageLayout::eColorAttachmentOptimal));
+
+            mainPassColorAttachments.push_back(
+                vk::AttachmentReference().setAttachment(4).setLayout(
+                    vk::ImageLayout::eColorAttachmentOptimal));
+        }
+
         auto depthAttachmentRef =
             vk::AttachmentReference()
                 .setAttachment(DepthAttachment)
@@ -303,7 +523,7 @@ namespace FREYA_NAMESPACE
         auto mainPass =
             vk::SubpassDescription()
                 .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-                .setColorAttachments(colorAttachmentRef)
+                .setColorAttachments(mainPassColorAttachments)
                 .setPDepthStencilAttachment(&depthAttachmentRef);
 
         if (vkSampleCount != vk::SampleCountFlagBits::e1)
@@ -312,6 +532,26 @@ namespace FREYA_NAMESPACE
         }
 
         auto subpasses = std::vector { mainPass };
+
+        auto gBufferReferences =
+            std::vector { vk::AttachmentReference().setAttachment(2).setLayout(
+                              vk::ImageLayout::eShaderReadOnlyOptimal),
+                          vk::AttachmentReference().setAttachment(3).setLayout(
+                              vk::ImageLayout::eShaderReadOnlyOptimal),
+                          vk::AttachmentReference().setAttachment(4).setLayout(
+                              vk::ImageLayout::eShaderReadOnlyOptimal) };
+
+        auto compositionPass =
+            vk::SubpassDescription()
+                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+                .setColorAttachments(colorAttachmentRef)
+                .setPDepthStencilAttachment(&depthAttachmentRef)
+                .setInputAttachments(gBufferReferences);
+
+        if (mFreyaOptions->renderingStrategy == RenderingStrategy::Deferred)
+        {
+            subpasses.push_back(compositionPass);
+        }
 
         auto renderPassInfo =
             vk::RenderPassCreateInfo()
@@ -384,6 +624,46 @@ namespace FREYA_NAMESPACE
             attachments.push_back(colorAttachmentResolve);
         }
 
+        if (mFreyaOptions->renderingStrategy == RenderingStrategy::Deferred)
+        {
+            auto albedoAttachment =
+                vk::AttachmentDescription()
+                    .setFormat(vk::Format::eR8G8B8A8Unorm)
+                    .setSamples(vk::SampleCountFlagBits::e1)
+                    .setLoadOp(vk::AttachmentLoadOp::eClear)
+                    .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                    .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                    .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                    .setInitialLayout(vk::ImageLayout::eUndefined)
+                    .setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+            auto normalAttachment =
+                vk::AttachmentDescription()
+                    .setFormat(vk::Format::eR16G16B16A16Sfloat)
+                    .setSamples(vk::SampleCountFlagBits::e1)
+                    .setLoadOp(vk::AttachmentLoadOp::eClear)
+                    .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                    .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                    .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                    .setInitialLayout(vk::ImageLayout::eUndefined)
+                    .setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+            auto positionAttachment =
+                vk::AttachmentDescription()
+                    .setFormat(vk::Format::eR16G16B16A16Sfloat)
+                    .setSamples(vk::SampleCountFlagBits::e1)
+                    .setLoadOp(vk::AttachmentLoadOp::eClear)
+                    .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                    .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                    .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                    .setInitialLayout(vk::ImageLayout::eUndefined)
+                    .setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+            attachments.push_back(albedoAttachment);
+            attachments.push_back(normalAttachment);
+            attachments.push_back(positionAttachment);
+        }
+
         return attachments;
     }
 
@@ -438,16 +718,6 @@ namespace FREYA_NAMESPACE
                 .setSrcAccessMask(vk::AccessFlagBits::eNone)
                 .setDstAccessMask(vk::AccessFlagBits::eInputAttachmentRead)
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
-            vk::SubpassDependency()
-                .setSrcSubpass(1)
-                .setDstSubpass(vk::SubpassExternal)
-                .setSrcStageMask(
-                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstStageMask(vk::PipelineStageFlagBits::eBottomOfPipe)
-                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentRead |
-                                  vk::AccessFlagBits::eColorAttachmentWrite)
-                .setDstAccessMask(vk::AccessFlagBits::eMemoryRead)
-                .setDependencyFlags(vk::DependencyFlagBits::eByRegion)
 
         };
     }
