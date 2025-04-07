@@ -184,12 +184,14 @@ namespace FREYA_NAMESPACE
         auto pipelineLayoutInfo =
             vk::PipelineLayoutCreateInfo().setSetLayouts(pipelineLayouts);
 
+        unsigned long long minimumBufferSize = 1024 * 1024;
+
         auto uniformBuffer =
             BufferBuilder(mDevice)
                 .SetUsage(BufferUsage::Uniform)
                 .SetSize(std::max(
                     sizeof(ProjectionUniformBuffer) * mFreyaOptions->frameCount,
-                    1024uz * 1024uz))
+                    minimumBufferSize))
                 .Build();
 
         for (auto i = 0; i < mFreyaOptions->frameCount; i++)

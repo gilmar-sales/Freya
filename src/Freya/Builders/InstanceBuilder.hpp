@@ -12,8 +12,8 @@ namespace FREYA_NAMESPACE
             mLogger(logger),
             mApplicationVersion(VK_MAKE_API_VERSION(0, 0, 0, 1)),
             mApplicationName("Freya Application"), mEngineName("Freya Engine"),
-            mVulkanVersion(VK_MAKE_API_VERSION(0, 1, 0, 0)),
-            mAPIVersion(VK_MAKE_API_VERSION(0, 1, 0, 0))
+            mVulkanVersion(VK_MAKE_API_VERSION(0, 1, 3, 0)),
+            mAPIVersion(VK_MAKE_API_VERSION(0, 1, 3, 0))
         {
             uint32_t extensionCount;
             auto     extensionNames =
