@@ -170,25 +170,7 @@ namespace FREYA_NAMESPACE
 
         commandBuffer.begin(beginInfo);
 
-        auto clearValues = std::vector {
-            vk::ClearValue().setColor(mFreyaOptions->clearColor),
-            vk::ClearValue().setDepthStencil(
-                vk::ClearDepthStencilValue().setDepth(1.0f)),
-        };
-
-        const auto renderPassBeginInfo =
-            vk::RenderPassBeginInfo()
-                .setRenderPass(mRenderPass->Get())
-                .setFramebuffer(swapChainFrame.frameBuffer)
-                .setRenderArea(vk::Rect2D().setOffset({ 0, 0 }).setExtent(
-                    mSwapChain->GetExtent()))
-                .setClearValues(clearValues);
-
-        commandBuffer.beginRenderPass(renderPassBeginInfo,
-                                      vk::SubpassContents::eInline);
-
-        commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
-                                   mRenderPass->GetGraphicsPipeline());
+        mRenderPass->Begin(mSwapChain, mCommandPool);
 
         const auto viewport =
             vk::Viewport()
@@ -205,16 +187,14 @@ namespace FREYA_NAMESPACE
             vk::Rect2D().setOffset({ 0, 0 }).setExtent(mSwapChain->GetExtent());
 
         commandBuffer.setScissor(0, 1, &scissor);
-
-        mRenderPass->BindDescriptorSet(mCommandPool,
-                                       mSwapChain->GetCurrentFrameIndex());
     }
 
     void Renderer::EndFrame()
     {
+        mRenderPass->End(mCommandPool);
+
         auto commandBuffer = mCommandPool->GetCommandBuffer();
 
-        commandBuffer.endRenderPass();
         commandBuffer.end();
 
         std::vector<vk::CommandBuffer> commandBuffers = { commandBuffer };

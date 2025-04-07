@@ -51,11 +51,17 @@ namespace FREYA_NAMESPACE
         const std::vector<SwapChainFrame>& GetFrames() { return mFrames; }
         const size_t GetFrameCount() { return mFrames.size(); }
 
-        void                  WaitNextFrame();
-        void                  BeginNextFrame();
+        void WaitNextFrame();
+        void BeginNextFrame();
+
         const SwapChainFrame& GetNextFrame();
-        void                  WaitCommandBuffersSubmission(
-                             std::vector<vk::CommandBuffer> commandBuffers);
+        const SwapChainFrame& GetCurrentFrame() const
+        {
+            return mFrames[mCurrentFrameIndex];
+        }
+
+        void WaitCommandBuffersSubmission(
+            std::vector<vk::CommandBuffer> commandBuffers);
         vk::Result Present(std::vector<vk::CommandBuffer> commandBuffers);
 
         [[nodiscard]] std::uint32_t GetCurrentFrameIndex() const

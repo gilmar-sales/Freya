@@ -264,6 +264,7 @@ namespace FREYA_NAMESPACE
         return skr::MakeRef<ForwardPass>(
             mDevice,
             mSurface,
+            mFreyaOptions,
             renderPass,
             pipelineLayout,
             graphicsPipeline,
