@@ -10,7 +10,7 @@ namespace FREYA_NAMESPACE
     class PhysicalDevice;
     class Device;
     class Surface;
-    class ForwardPass;
+    class RenderPass;
 
     class SwapChainBuilder
     {
@@ -19,7 +19,7 @@ namespace FREYA_NAMESPACE
                          const Ref<PhysicalDevice>& physicalDevice,
                          const Ref<Device>&         device,
                          const Ref<Surface>&        surface,
-                         const Ref<ForwardPass>&    renderPass,
+                         const Ref<RenderPass>&     renderPass,
                          const Ref<FreyaOptions>&   freyaOptions,
                          const Ref<skr::Logger<SwapChainBuilder>>& logger,
                          const Ref<skr::ServiceProvider>& serviceProvider) :
@@ -40,7 +40,7 @@ namespace FREYA_NAMESPACE
         Ref<PhysicalDevice> mPhysicalDevice;
         Ref<Device>         mDevice;
         Ref<Surface>        mSurface;
-        Ref<ForwardPass>    mRenderPass;
+        Ref<RenderPass>     mRenderPass;
         Ref<FreyaOptions>   mFreyaOptions;
 
         Ref<skr::Logger<SwapChainBuilder>> mLogger;

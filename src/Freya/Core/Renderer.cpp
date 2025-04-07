@@ -1,7 +1,7 @@
 #include "Renderer.hpp"
 
 #include "Freya/Builders/BufferBuilder.hpp"
-#include "Freya/Builders/ForwardPassBuilder.hpp"
+#include "Freya/Builders/RenderPassBuilder.hpp"
 #include "Freya/Builders/SwapChainBuilder.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
@@ -49,7 +49,7 @@ namespace FREYA_NAMESPACE
         mRenderPass.reset();
 
         mRenderPass =
-            mServiceProvider->GetService<ForwardPassBuilder>()->Build();
+            mServiceProvider->GetService<RenderPassBuilder>()->Build();
 
         mSwapChain = mServiceProvider->GetService<SwapChainBuilder>()->Build();
     }

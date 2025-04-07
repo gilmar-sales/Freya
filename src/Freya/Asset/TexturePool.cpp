@@ -20,7 +20,7 @@ namespace FREYA_NAMESPACE
     TexturePool::TexturePool(const Ref<skr::ServiceProvider>& serviceProvider,
                              const Ref<Device>&               device,
                              const Ref<CommandPool>&          commandPool,
-                             const Ref<ForwardPass>&          renderPass) :
+                             const Ref<RenderPass>&           renderPass) :
         mServiceProvider(serviceProvider), mDevice(device),
         mCommandPool(commandPool), mRenderPass(renderPass)
     {

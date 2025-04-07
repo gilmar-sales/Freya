@@ -1,4 +1,4 @@
-#include "Freya/Builders/ForwardPassBuilder.hpp"
+#include "Freya/Builders/RenderPassBuilder.hpp"
 
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
@@ -9,12 +9,13 @@
 #include "Freya/Core/ShaderModule.hpp"
 #include "Freya/Core/Surface.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
+#include "RenderPassBuilder.hpp"
 
 namespace FREYA_NAMESPACE
 {
-    Ref<ForwardPass> ForwardPassBuilder::Build()
+    Ref<RenderPass> RenderPassBuilder::Build()
     {
-        mLogger->LogTrace("Building 'fra::ForwardPass':");
+        mLogger->LogTrace("Building 'fra::RenderPass':");
 
         auto renderPass = createRenderPass();
 
@@ -116,20 +117,21 @@ namespace FREYA_NAMESPACE
             uboLayoutBinding,
         };
 
-        auto descriptorSetCreateInfo =
+        auto descriptorSetLayoutCreateInfo =
             vk::DescriptorSetLayoutCreateInfo().setBindings(
                 descriptorSetBindings);
 
-        auto layouts = std::vector<vk::DescriptorSetLayout> {};
+        auto frameLayouts = std::vector<vk::DescriptorSetLayout> {};
+
         for (auto i = 0; i < mFreyaOptions->frameCount; i++)
         {
-            layouts.push_back(mDevice->Get().createDescriptorSetLayout(
-                descriptorSetCreateInfo));
+            frameLayouts.push_back(mDevice->Get().createDescriptorSetLayout(
+                descriptorSetLayoutCreateInfo));
         }
 
         auto descriptorSetAllocInfo =
             vk::DescriptorSetAllocateInfo()
-                .setSetLayouts(layouts)
+                .setSetLayouts(frameLayouts)
                 .setDescriptorPool(descriptorPool);
 
         auto descriptorSets =
@@ -177,9 +179,8 @@ namespace FREYA_NAMESPACE
         auto samplerLayout = mDevice->Get().createDescriptorSetLayout(
             samplerDescriptorSetCreateInfo);
 
-        layouts.push_back(samplerLayout);
-
-        const auto pipelineLayouts = std::array { layouts[0], samplerLayout };
+        const auto pipelineLayouts =
+            std::array { frameLayouts[0], samplerLayout };
 
         auto pipelineLayoutInfo =
             vk::PipelineLayoutCreateInfo().setSetLayouts(pipelineLayouts);
@@ -261,124 +262,194 @@ namespace FREYA_NAMESPACE
         mDevice->Get().destroyShaderModule(vertShaderModule->Get());
         mDevice->Get().destroyShaderModule(fragShaderModule->Get());
 
-        return skr::MakeRef<ForwardPass>(
+        return skr::MakeRef<RenderPass>(
             mDevice,
-            mSurface,
             mFreyaOptions,
             renderPass,
             pipelineLayout,
             graphicsPipeline,
             uniformBuffer,
-            layouts,
+            frameLayouts,
             descriptorSets,
             descriptorPool,
             samplerLayout,
             samplerDescriptorPool);
     }
+
+    vk::RenderPass RenderPassBuilder::createRenderPass() const
+    {
+        auto attachments = createAttachments();
+
+        auto dependencies = createDependencies();
+
+        const auto vkSampleCount =
+            static_cast<vk::SampleCountFlagBits>(mFreyaOptions->sampleCount);
+
+        auto colorAttachmentRef =
+            vk::AttachmentReference()
+                .setAttachment(ColorAttachment)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+        auto depthAttachmentRef =
+            vk::AttachmentReference()
+                .setAttachment(DepthAttachment)
+                .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+        auto colorAttachmentResolveRef =
+            vk::AttachmentReference()
+                .setAttachment(ColorResolveAttachment)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+        auto mainPass =
+            vk::SubpassDescription()
+                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+                .setColorAttachments(colorAttachmentRef)
+                .setPDepthStencilAttachment(&depthAttachmentRef);
+
+        if (vkSampleCount != vk::SampleCountFlagBits::e1)
+        {
+            mainPass.setPResolveAttachments(&colorAttachmentResolveRef);
+        }
+
+        auto subpasses = std::vector { mainPass };
+
+        auto renderPassInfo =
+            vk::RenderPassCreateInfo()
+                .setAttachments(attachments)
+                .setSubpasses(subpasses)
+                .setDependencies(dependencies);
+
+        auto renderPass = mDevice->Get().createRenderPass(renderPassInfo);
+
+        return renderPass;
+    }
+
+    std::vector<vk::AttachmentDescription> RenderPassBuilder::
+        createAttachments() const
+    {
+        auto format      = mSurface->QuerySurfaceFormat().format;
+        auto depthFormat = mPhysicalDevice->GetDepthFormat();
+
+        mLogger->LogTrace("\tColor Format: {}", vk::to_string(format));
+        mLogger->LogTrace("\tDepth Format: {}", to_string(depthFormat));
+
+        const auto vkSampleCount =
+            static_cast<vk::SampleCountFlagBits>(mFreyaOptions->sampleCount);
+
+        auto colorAttachment =
+            vk::AttachmentDescription()
+                .setFormat(format)
+                .setSamples(vkSampleCount)
+                .setLoadOp(vk::AttachmentLoadOp::eClear)
+                .setStoreOp(vk::AttachmentStoreOp::eStore)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setInitialLayout(vk::ImageLayout::eUndefined)
+                .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+
+        if (vkSampleCount != vk::SampleCountFlagBits::e1)
+        {
+            colorAttachment
+                .setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal)
+                .setStoreOp(vk::AttachmentStoreOp::eDontCare);
+        }
+
+        auto depthAttachment =
+            vk::AttachmentDescription()
+                .setFormat(depthFormat)
+                .setSamples(vkSampleCount)
+                .setLoadOp(vk::AttachmentLoadOp::eClear)
+                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eClear)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setInitialLayout(vk::ImageLayout::eUndefined)
+                .setFinalLayout(
+                    vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+        auto attachments = std::vector { colorAttachment, depthAttachment };
+
+        if (vkSampleCount != vk::SampleCountFlagBits::e1)
+        {
+            auto colorAttachmentResolve =
+                vk::AttachmentDescription()
+                    .setFormat(format)
+                    .setSamples(vk::SampleCountFlagBits::e1)
+                    .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+                    .setStoreOp(vk::AttachmentStoreOp::eStore)
+                    .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                    .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                    .setInitialLayout(vk::ImageLayout::eUndefined)
+                    .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+
+            attachments.push_back(colorAttachmentResolve);
+        }
+
+        return attachments;
+    }
+
+    std::vector<vk::SubpassDependency> RenderPassBuilder::createDependencies()
+        const
+    {
+        if (mFreyaOptions->renderingStrategy == RenderingStrategy::Forward)
+            return std::vector {
+                vk::SubpassDependency()
+                    .setSrcSubpass(vk::SubpassExternal)
+                    .setDstSubpass(0)
+                    .setSrcStageMask(
+                        vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                        vk::PipelineStageFlagBits::eEarlyFragmentTests)
+                    .setDstStageMask(
+                        vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                        vk::PipelineStageFlagBits::eEarlyFragmentTests)
+                    .setSrcAccessMask(vk::AccessFlagBits::eNone)
+                    .setDstAccessMask(
+                        vk::AccessFlagBits::eColorAttachmentWrite |
+                        vk::AccessFlagBits::eDepthStencilAttachmentWrite)
+            };
+
+        return std::vector {
+            vk::SubpassDependency()
+                .setSrcSubpass(vk::SubpassExternal)
+                .setDstSubpass(0)
+                .setSrcStageMask(
+                    vk::PipelineStageFlagBits::eEarlyFragmentTests |
+                    vk::PipelineStageFlagBits::eLateFragmentTests)
+                .setDstStageMask(
+                    vk::PipelineStageFlagBits::eEarlyFragmentTests |
+                    vk::PipelineStageFlagBits::eLateFragmentTests)
+                .setSrcAccessMask(vk::AccessFlagBits::eNone)
+                .setDstAccessMask(
+                    vk::AccessFlagBits::eDepthStencilAttachmentWrite),
+            vk::SubpassDependency()
+                .setSrcSubpass(vk::SubpassExternal)
+                .setDstSubpass(0)
+                .setSrcStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setDstStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setSrcAccessMask(vk::AccessFlagBits::eNone)
+                .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite),
+            vk::SubpassDependency()
+                .setSrcSubpass(0)
+                .setDstSubpass(1)
+                .setSrcStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
+                .setSrcAccessMask(vk::AccessFlagBits::eNone)
+                .setDstAccessMask(vk::AccessFlagBits::eInputAttachmentRead)
+                .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
+            vk::SubpassDependency()
+                .setSrcSubpass(1)
+                .setDstSubpass(vk::SubpassExternal)
+                .setSrcStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setDstStageMask(vk::PipelineStageFlagBits::eBottomOfPipe)
+                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentRead |
+                                  vk::AccessFlagBits::eColorAttachmentWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eMemoryRead)
+                .setDependencyFlags(vk::DependencyFlagBits::eByRegion)
+
+        };
+    }
+
 } // namespace FREYA_NAMESPACE
-
-vk::RenderPass FREYA_NAMESPACE::ForwardPassBuilder::createRenderPass() const
-{
-    auto format = mSurface->QuerySurfaceFormat().format;
-
-    mLogger->LogTrace("\tColor Format: {}", vk::to_string(format));
-
-    const auto vkSampleCount =
-        static_cast<vk::SampleCountFlagBits>(mFreyaOptions->sampleCount);
-
-    auto colorAttachment =
-        vk::AttachmentDescription()
-            .setFormat(format)
-            .setSamples(vkSampleCount)
-            .setLoadOp(vk::AttachmentLoadOp::eClear)
-            .setStoreOp(vk::AttachmentStoreOp::eStore)
-            .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-            .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-            .setInitialLayout(vk::ImageLayout::eUndefined)
-            .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
-
-    if (vkSampleCount != vk::SampleCountFlagBits::e1)
-    {
-
-        colorAttachment.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal)
-            .setStoreOp(vk::AttachmentStoreOp::eDontCare);
-    }
-
-    auto depthAttachment =
-        vk::AttachmentDescription()
-            .setFormat(mPhysicalDevice->GetDepthFormat())
-            .setSamples(vkSampleCount)
-            .setLoadOp(vk::AttachmentLoadOp::eClear)
-            .setStoreOp(vk::AttachmentStoreOp::eDontCare)
-            .setStencilLoadOp(vk::AttachmentLoadOp::eClear)
-            .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-            .setInitialLayout(vk::ImageLayout::eUndefined)
-            .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
-
-    auto colorAttachmentResolve =
-        vk::AttachmentDescription()
-            .setFormat(format)
-            .setSamples(vk::SampleCountFlagBits::e1)
-            .setLoadOp(vk::AttachmentLoadOp::eDontCare)
-            .setStoreOp(vk::AttachmentStoreOp::eStore)
-            .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-            .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-            .setInitialLayout(vk::ImageLayout::eUndefined)
-            .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
-
-    auto colorAttachmentRef =
-        vk::AttachmentReference()
-            .setAttachment(ForwardColorAttachment)
-            .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
-
-    auto depthAttachmentRef =
-        vk::AttachmentReference()
-            .setAttachment(ForwardDepthAttachment)
-            .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
-
-    auto colorAttachmentResolveRef =
-        vk::AttachmentReference()
-            .setAttachment(ForwardColorResolveAttachment)
-            .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
-
-    mLogger->LogTrace("\tDepth Format: {}", to_string(depthAttachment.format));
-
-    auto subpass = vk::SubpassDescription()
-                       .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-                       .setColorAttachments(colorAttachmentRef)
-                       .setPDepthStencilAttachment(&depthAttachmentRef);
-
-    if (vkSampleCount != vk::SampleCountFlagBits::e1)
-    {
-        subpass.setPResolveAttachments(&colorAttachmentResolveRef);
-    }
-
-    auto dependencies = std::vector {
-        vk::SubpassDependency()
-            .setSrcSubpass(vk::SubpassExternal)
-            .setDstSubpass(0)
-            .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput |
-                             vk::PipelineStageFlagBits::eEarlyFragmentTests)
-            .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput |
-                             vk::PipelineStageFlagBits::eEarlyFragmentTests)
-            .setSrcAccessMask(vk::AccessFlagBits::eNone)
-            .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite |
-                              vk::AccessFlagBits::eDepthStencilAttachmentWrite)
-    };
-
-    auto attachments =
-        vkSampleCount == vk::SampleCountFlagBits::e1
-            ? std::vector { colorAttachment, depthAttachment }
-            : std::vector { colorAttachment, depthAttachment,
-                            colorAttachmentResolve };
-
-    auto renderPassInfo =
-        vk::RenderPassCreateInfo()
-            .setAttachments(attachments)
-            .setSubpasses(subpass)
-            .setDependencies(dependencies);
-
-    auto renderPass = mDevice->Get().createRenderPass(renderPassInfo);
-
-    return renderPass;
-}

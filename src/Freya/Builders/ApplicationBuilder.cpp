@@ -31,7 +31,7 @@ namespace FREYA_NAMESPACE
         mServiceCollection->AddTransient<PhysicalDeviceBuilder>();
         mServiceCollection->AddTransient<DeviceBuilder>();
         mServiceCollection->AddTransient<SurfaceBuilder>();
-        mServiceCollection->AddTransient<ForwardPassBuilder>();
+        mServiceCollection->AddTransient<RenderPassBuilder>();
         mServiceCollection->AddTransient<SwapChainBuilder>();
         mServiceCollection->AddTransient<ImageBuilder>();
         mServiceCollection->AddTransient<RendererBuilder>();
@@ -101,12 +101,12 @@ namespace FREYA_NAMESPACE
                 return windowBuilder->Build();
             });
 
-        mServiceCollection->AddSingleton<ForwardPass>(
+        mServiceCollection->AddSingleton<RenderPass>(
             [](skr::ServiceProvider& serviceProvider) {
-                auto forwardPassBuilder =
-                    serviceProvider.GetService<ForwardPassBuilder>();
+                auto renderPassBuilder =
+                    serviceProvider.GetService<RenderPassBuilder>();
 
-                return forwardPassBuilder->Build();
+                return renderPassBuilder->Build();
             });
 
         mServiceCollection->AddSingleton<Renderer>(

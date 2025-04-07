@@ -4,12 +4,13 @@
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
-#include "Freya/Core/ForwardPass.hpp"
 #include "Freya/Core/Instance.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
+#include "Freya/Core/RenderPass.hpp"
 #include "Freya/Core/Surface.hpp"
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Events/EventManager.hpp"
+
 
 namespace FREYA_NAMESPACE
 {
@@ -23,7 +24,7 @@ namespace FREYA_NAMESPACE
                  const Ref<PhysicalDevice>&       physicalDevice,
                  const Ref<Device>&               device,
                  const Ref<SwapChain>&            swapChain,
-                 const Ref<ForwardPass>&          renderPass,
+                 const Ref<RenderPass>&           renderPass,
                  const Ref<CommandPool>&          commandPool,
                  const Ref<skr::ServiceProvider>& serviceProvider,
                  const Ref<FreyaOptions>&         freyaOptions,
@@ -100,7 +101,7 @@ namespace FREYA_NAMESPACE
         Ref<PhysicalDevice>       mPhysicalDevice;
         Ref<Device>               mDevice;
         Ref<SwapChain>            mSwapChain;
-        Ref<ForwardPass>          mRenderPass;
+        Ref<RenderPass>           mRenderPass;
         Ref<CommandPool>          mCommandPool;
         Ref<EventManager>         mEventManager;
         Ref<FreyaOptions>         mFreyaOptions;

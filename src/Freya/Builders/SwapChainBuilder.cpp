@@ -3,8 +3,9 @@
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/SurfaceBuilder.hpp"
 #include "Freya/Core/Device.hpp"
-#include "Freya/Core/ForwardPass.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
+#include "Freya/Core/RenderPass.hpp"
+
 
 #include <vulkan/vulkan_to_string.hpp>
 

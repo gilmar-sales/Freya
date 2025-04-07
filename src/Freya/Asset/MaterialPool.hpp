@@ -5,7 +5,7 @@
 #include "Freya/Containers/SparseSet.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
-#include "Freya/Core/ForwardPass.hpp"
+#include "Freya/Core/RenderPass.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -16,7 +16,7 @@ namespace FREYA_NAMESPACE
       public:
         MaterialPool(const Ref<Device>&                    device,
                      const Ref<CommandPool>&               commandPool,
-                     const Ref<ForwardPass>&               renderPass,
+                     const Ref<RenderPass>&                renderPass,
                      const Ref<TexturePool>&               texturePool,
                      const Ref<skr::Logger<MaterialPool>>& logger) :
             mDevice(device), mCommandPool(commandPool), mRenderPass(renderPass),
@@ -34,7 +34,7 @@ namespace FREYA_NAMESPACE
       private:
         Ref<Device>                    mDevice;
         Ref<CommandPool>               mCommandPool;
-        Ref<ForwardPass>               mRenderPass;
+        Ref<RenderPass>                mRenderPass;
         Ref<TexturePool>               mTexturePool;
         Ref<skr::Logger<MaterialPool>> mLogger;
 

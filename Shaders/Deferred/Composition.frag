@@ -1,8 +1,8 @@
 #version 450
 
-layout (binding = 1) uniform sampler2D samplerposition;
-layout (binding = 2) uniform sampler2D samplerNormal;
-layout (binding = 3) uniform sampler2D samplerAlbedo;
+layout (binding = 0) uniform sampler2D samplerAlbedo;
+layout (binding = 1) uniform sampler2D samplerNormal;
+layout (binding = 2) uniform sampler2D samplerposition;
 
 layout (location = 0) in vec2 inUV;
 

@@ -18,7 +18,7 @@ namespace FREYA_NAMESPACE
                         const Ref<Device>&               device,
                         const Ref<CommandPool>&          commandPool,
                         const Ref<SwapChain>&            swapChain,
-                        const Ref<ForwardPass>&          renderPass,
+                        const Ref<RenderPass>&           renderPass,
                         const Ref<EventManager>&         eventManager,
                         const Ref<Window>&               window,
                         const Ref<FreyaOptions>&         freyaOptions,
@@ -44,7 +44,7 @@ namespace FREYA_NAMESPACE
         Ref<CommandPool>    mCommandPool;
         Ref<SwapChain>      mSwapChain;
         Ref<EventManager>   mEventManager;
-        Ref<ForwardPass>    mRenderPass;
+        Ref<RenderPass>     mRenderPass;
         Ref<Window>         mWindow;
         Ref<FreyaOptions>   mFreyaOptions;
 
