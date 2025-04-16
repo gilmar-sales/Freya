@@ -84,7 +84,7 @@ namespace FREYA_NAMESPACE
                 0.1f,
                 mFreyaOptions->drawDistance),
             .ambientLight =
-                glm::vec4(glm::normalize(glm::vec3(0.0f, 3.0f, 0.0f)), 0.1f)
+                glm::vec4(glm::normalize(glm::vec3(0.0f, 3.0f, 0.0f)), 0.5f)
         };
 
         projectionUniformBuffer.projection[1][1] *= -1.f;
