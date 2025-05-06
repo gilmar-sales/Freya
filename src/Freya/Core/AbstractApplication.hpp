@@ -1,21 +1,22 @@
 #pragma once
 
+#include "Freya/Core/FreyaExtension.hpp"
 #include "Freya/Core/Renderer.hpp"
 #include "Freya/Core/Window.hpp"
 #include "Freya/Events/EventManager.hpp"
 
 namespace FREYA_NAMESPACE
 {
-    class AbstractApplication
+    class AbstractApplication : skr::IApplication
     {
       public:
         explicit AbstractApplication(
-            const Ref<skr::ServiceProvider>& serviceProvider) : mDeltaTime(0)
+            const Ref<skr::ServiceProvider>& serviceProvider) :
+            IApplication(serviceProvider), mDeltaTime(0)
         {
-            mServiceProvider = serviceProvider;
-            mEventManager    = mServiceProvider->GetService<EventManager>();
-            mWindow          = mServiceProvider->GetService<Window>();
-            mRenderer        = mServiceProvider->GetService<Renderer>();
+            mEventManager = mRootServiceProvider->GetService<EventManager>();
+            mWindow       = mRootServiceProvider->GetService<Window>();
+            mRenderer     = mRootServiceProvider->GetService<Renderer>();
         }
 
         virtual ~AbstractApplication() = default;
@@ -25,15 +26,14 @@ namespace FREYA_NAMESPACE
 
         virtual void Update() = 0;
 
-        virtual void Run();
+        void Run() override;
 
       protected:
         friend class ApplicationBuilder;
 
-        float                     mDeltaTime;
-        Ref<skr::ServiceProvider> mServiceProvider;
-        Ref<Window>               mWindow;
-        Ref<Renderer>             mRenderer;
-        Ref<EventManager>         mEventManager;
+        float             mDeltaTime;
+        Ref<Window>       mWindow;
+        Ref<Renderer>     mRenderer;
+        Ref<EventManager> mEventManager;
     };
 } // namespace FREYA_NAMESPACE

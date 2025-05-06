@@ -1,4 +1,4 @@
-#include <Freya/Builders/ApplicationBuilder.hpp>
+#include <Freya/Core/AbstractApplication.hpp>
 
 class MainApp final : public fra::AbstractApplication
 {
@@ -133,15 +133,16 @@ class MainApp final : public fra::AbstractApplication
 int main(int argc, const char** argv)
 {
     const auto app =
-        fra::ApplicationBuilder()
-            .WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
-                freyaOptions.SetTitle("Sofa example")
-                    .SetWidth(1920)
-                    .SetHeight(1080)
-                    .SetVSync(false)
-                    .SetSampleCount(8)
-                    .SetFullscreen(false);
-            })
+        skr::ApplicationBuilder()
+            .AddExtension(fra::FreyaExtension().WithOptions(
+                [](fra::FreyaOptionsBuilder& freyaOptions) {
+                    freyaOptions.SetTitle("Sofa example")
+                        .SetWidth(1920)
+                        .SetHeight(1080)
+                        .SetVSync(false)
+                        .SetSampleCount(8)
+                        .SetFullscreen(false);
+                }))
             .Build<MainApp>();
 
     app->Run();

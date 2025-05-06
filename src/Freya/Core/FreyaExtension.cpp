@@ -1,19 +1,11 @@
-#include "ApplicationBuilder.hpp"
+#include "FreyaExtension.hpp"
 
 namespace FREYA_NAMESPACE
 {
-    ApplicationBuilder& ApplicationBuilder::WithOptions(
-        std::function<void(FreyaOptionsBuilder&)> freyaOptionsBuilderFunc)
+
+    void FreyaExtension::Configure(skr::ServiceCollection& services) const
     {
-        mFreyaOptionsBuilderFunc = freyaOptionsBuilderFunc;
-
-        return *this;
-    }
-
-    void ApplicationBuilder::AddServices()
-    {
-
-        mServiceCollection->AddSingleton<FreyaOptions>(
+        services.AddSingleton<FreyaOptions>(
             [freyaOptionsBuilderFunc = mFreyaOptionsBuilderFunc](
                 skr::ServiceProvider& serviceProvider) {
                 auto freyaOptionsBuilder = FreyaOptionsBuilder();
@@ -26,19 +18,19 @@ namespace FREYA_NAMESPACE
                 return freyaOptionsBuilder.Build();
             });
 
-        mServiceCollection->AddTransient<WindowBuilder>();
-        mServiceCollection->AddTransient<InstanceBuilder>();
-        mServiceCollection->AddTransient<PhysicalDeviceBuilder>();
-        mServiceCollection->AddTransient<DeviceBuilder>();
-        mServiceCollection->AddTransient<SurfaceBuilder>();
-        mServiceCollection->AddTransient<RenderPassBuilder>();
-        mServiceCollection->AddTransient<SwapChainBuilder>();
-        mServiceCollection->AddTransient<ImageBuilder>();
-        mServiceCollection->AddTransient<RendererBuilder>();
-        mServiceCollection->AddTransient<ShaderModuleBuilder>();
-        mServiceCollection->AddTransient<CommandPoolBuilder>();
+        services.AddTransient<WindowBuilder>();
+        services.AddTransient<InstanceBuilder>();
+        services.AddTransient<PhysicalDeviceBuilder>();
+        services.AddTransient<DeviceBuilder>();
+        services.AddTransient<SurfaceBuilder>();
+        services.AddTransient<RenderPassBuilder>();
+        services.AddTransient<SwapChainBuilder>();
+        services.AddTransient<ImageBuilder>();
+        services.AddTransient<RendererBuilder>();
+        services.AddTransient<ShaderModuleBuilder>();
+        services.AddTransient<CommandPoolBuilder>();
 
-        mServiceCollection->AddSingleton<Instance>(
+        services.AddSingleton<Instance>(
             [](skr::ServiceProvider& serviceProvider) {
                 auto freyaOptions = serviceProvider.GetService<FreyaOptions>();
 
@@ -48,7 +40,7 @@ namespace FREYA_NAMESPACE
                 return instanceBuilder->Build();
             });
 
-        mServiceCollection->AddSingleton<Surface>(
+        services.AddSingleton<Surface>(
             [](skr::ServiceProvider& serviceProvider) {
                 auto surfaceBuilder =
                     serviceProvider.GetService<SurfaceBuilder>();
@@ -56,7 +48,7 @@ namespace FREYA_NAMESPACE
                 return surfaceBuilder->Build();
             });
 
-        mServiceCollection->AddSingleton<PhysicalDevice>(
+        services.AddSingleton<PhysicalDevice>(
             [](skr::ServiceProvider& serviceProvider) {
                 auto physicalDeviceBuilder =
                     serviceProvider.GetService<PhysicalDeviceBuilder>();
@@ -64,7 +56,7 @@ namespace FREYA_NAMESPACE
                 return physicalDeviceBuilder->Build();
             });
 
-        mServiceCollection->AddSingleton<Device>(
+        services.AddSingleton<Device>(
             [](skr::ServiceProvider& serviceProvider) {
                 auto freyaOptions = serviceProvider.GetService<FreyaOptions>();
 
@@ -74,7 +66,7 @@ namespace FREYA_NAMESPACE
                 return deviceBuilder->Build();
             });
 
-        mServiceCollection->AddSingleton<CommandPool>(
+        services.AddSingleton<CommandPool>(
             [](skr::ServiceProvider serviceProvider) {
                 auto freyaOptions = serviceProvider.GetService<FreyaOptions>();
 
@@ -83,17 +75,17 @@ namespace FREYA_NAMESPACE
                     .Build();
             });
 
-        mServiceCollection->AddTransient<SwapChain>(
+        services.AddTransient<SwapChain>(
             [](skr::ServiceProvider& serviceProvider) {
                 return serviceProvider.GetService<SwapChainBuilder>()->Build();
             });
 
-        mServiceCollection->AddSingleton<EventManager>();
-        mServiceCollection->AddSingleton<MeshPool>();
-        mServiceCollection->AddSingleton<TexturePool>();
-        mServiceCollection->AddSingleton<MaterialPool>();
+        services.AddSingleton<EventManager>();
+        services.AddSingleton<MeshPool>();
+        services.AddSingleton<TexturePool>();
+        services.AddSingleton<MaterialPool>();
 
-        mServiceCollection->AddSingleton<Window>(
+        services.AddSingleton<Window>(
             [](skr::ServiceProvider& serviceProvider) {
                 auto windowBuilder =
                     serviceProvider.GetService<WindowBuilder>();
@@ -101,7 +93,7 @@ namespace FREYA_NAMESPACE
                 return windowBuilder->Build();
             });
 
-        mServiceCollection->AddSingleton<RenderPass>(
+        services.AddSingleton<RenderPass>(
             [](skr::ServiceProvider& serviceProvider) {
                 auto renderPassBuilder =
                     serviceProvider.GetService<RenderPassBuilder>();
@@ -109,7 +101,7 @@ namespace FREYA_NAMESPACE
                 return renderPassBuilder->Build();
             });
 
-        mServiceCollection->AddSingleton<Renderer>(
+        services.AddSingleton<Renderer>(
             [](skr::ServiceProvider& serviceProvider) {
                 auto freyaOptions = serviceProvider.GetService<FreyaOptions>();
 
