@@ -17,7 +17,7 @@ include(FetchContent)
 FetchContent_Declare(
 SDL
 GIT_REPOSITORY "https://github.com/libsdl-org/SDL.git"
-GIT_TAG        "release-3.2.12"
+GIT_TAG        "release-3.2.14"
 )
 FetchContent_MakeAvailable(SDL)
 
@@ -38,7 +38,7 @@ FetchContent_MakeAvailable(assimp)
 FetchContent_Declare(
 skirnir
 GIT_REPOSITORY "https://github.com/gilmar-sales/Skirnir.git"
-GIT_TAG        "v0.9.0"
+GIT_TAG        "v0.10.2"
 )
 FetchContent_MakeAvailable(skirnir)
 
