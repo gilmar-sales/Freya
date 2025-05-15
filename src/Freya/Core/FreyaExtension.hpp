@@ -21,7 +21,7 @@ namespace FREYA_NAMESPACE
     class FreyaExtension : public skr::IExtension
     {
       public:
-        void Configure(skr::ServiceCollection& services) const override;
+        void ConfigureServices(skr::ServiceCollection& services) override;
 
         FreyaExtension& WithOptions(
             std::function<void(FreyaOptionsBuilder&)> freyaOptionsBuilderFunc)

@@ -38,7 +38,7 @@ FetchContent_MakeAvailable(assimp)
 FetchContent_Declare(
 skirnir
 GIT_REPOSITORY "https://github.com/gilmar-sales/Skirnir.git"
-GIT_TAG        "v0.10.2"
+GIT_TAG        "v0.11.0"
 )
 FetchContent_MakeAvailable(skirnir)
 

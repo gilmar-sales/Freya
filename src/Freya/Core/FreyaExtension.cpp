@@ -3,7 +3,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    void FreyaExtension::Configure(skr::ServiceCollection& services) const
+    void FreyaExtension::ConfigureServices(skr::ServiceCollection& services)
     {
         services.AddSingleton<FreyaOptions>(
             [freyaOptionsBuilderFunc = mFreyaOptionsBuilderFunc](
