@@ -8,7 +8,6 @@ namespace FREYA_NAMESPACE
         const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData,
         void*                                         pUserData)
     {
-        ;
         std::cerr << "Vulkan Validation Layer ["
                   << to_string(
                          static_cast<vk::DebugUtilsMessageSeverityFlagsEXT>(
@@ -66,7 +65,7 @@ namespace FREYA_NAMESPACE
 
     InstanceBuilder& InstanceBuilder::AddLayer(const char* layer)
     {
-        assert(checkLayerSupport(layer) && layer && "not supported.");
+        mLogger->Assert(checkLayerSupport(layer), "{} not supported.", layer);
 
         mLayers.push_back(layer);
         return *this;
@@ -153,8 +152,9 @@ namespace FREYA_NAMESPACE
                 reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
                     instance.getProcAddr("vkCreateDebugUtilsMessengerEXT"));
 
-            assert(func != nullptr &&
-                   "Failed to get vkCreateDebugUtilsMessengerEXT function");
+            mLogger->Assert(
+                func != nullptr,
+                "Failed to get vkCreateDebugUtilsMessengerEXT function");
 
             func(static_cast<VkInstance>(instance),
                  reinterpret_cast<VkDebugUtilsMessengerCreateInfoEXT*>(

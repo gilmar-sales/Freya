@@ -129,8 +129,9 @@ namespace FREYA_NAMESPACE
                 indices.transferFamily = i;
             }
 
-            assert(mSurface &&
-                   "Could not create fra::Device with an invalid surface.");
+            mLogger->Assert(
+                mSurface != nullptr,
+                "Could not create fra::Device with an invalid surface.");
 
             VkBool32 presentSupport =
                 device.getSurfaceSupportKHR(i, mSurface->Get());

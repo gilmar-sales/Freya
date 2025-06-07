@@ -1,5 +1,4 @@
 #include "Freya/Core/PhysicalDevice.hpp"
-#include <cassert>
 
 namespace FREYA_NAMESPACE
 {
