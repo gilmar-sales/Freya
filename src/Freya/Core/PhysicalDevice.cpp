@@ -114,8 +114,9 @@ namespace FREYA_NAMESPACE
                            supportedExtensions,
                            [extension](
                                vk::ExtensionProperties& extensionProperties) {
-                               return extensionProperties.extensionName ==
-                                      extension;
+                               return std::strcmp(
+                                          extensionProperties.extensionName,
+                                          extension) == 0;
                            }) != supportedExtensions.end();
             });
 
