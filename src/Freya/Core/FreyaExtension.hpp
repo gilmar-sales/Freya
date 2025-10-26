@@ -26,12 +26,12 @@ namespace FREYA_NAMESPACE
         FreyaExtension& WithOptions(
             std::function<void(FreyaOptionsBuilder&)> freyaOptionsBuilderFunc)
         {
-            mFreyaOptionsBuilderFunc = freyaOptionsBuilderFunc;
+            freyaOptionsBuilderFunc(mFreyaOptionsBuilder);
 
             return *this;
         }
 
       private:
-        std::function<void(FreyaOptionsBuilder&)> mFreyaOptionsBuilderFunc;
+        FreyaOptionsBuilder mFreyaOptionsBuilder;
     };
 } // namespace FREYA_NAMESPACE

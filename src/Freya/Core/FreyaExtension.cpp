@@ -5,18 +5,9 @@ namespace FREYA_NAMESPACE
 
     void FreyaExtension::ConfigureServices(skr::ServiceCollection& services)
     {
-        services.AddSingleton<FreyaOptions>(
-            [freyaOptionsBuilderFunc = mFreyaOptionsBuilderFunc](
-                skr::ServiceProvider& serviceProvider) {
-                auto freyaOptionsBuilder = FreyaOptionsBuilder();
-
-                if (freyaOptionsBuilderFunc)
-                {
-                    freyaOptionsBuilderFunc(freyaOptionsBuilder);
-                }
-
-                return freyaOptionsBuilder.Build();
-            });
+        services.AddSingleton<FreyaOptions>([this](skr::ServiceProvider&) {
+            return mFreyaOptionsBuilder.Build();
+        });
 
         services.AddTransient<WindowBuilder>();
         services.AddTransient<InstanceBuilder>();
