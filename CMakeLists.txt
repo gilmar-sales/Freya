@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.29)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(Freya CXX)
+project(Freya LANGUAGES CXX VERSION 0.9.0)
 
 find_package(Vulkan REQUIRED)
 
@@ -38,11 +38,16 @@ FetchContent_MakeAvailable(assimp)
 FetchContent_Declare(
 skirnir
 GIT_REPOSITORY "https://github.com/gilmar-sales/Skirnir.git"
-GIT_TAG        "v0.11.0"
+GIT_TAG        "v0.14.1"
 )
 FetchContent_MakeAvailable(skirnir)
 
 option(FREYA_BUILD_EXAMPLES "Build freyr examples" OFF)
+
+if (${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
+    set(FREYA_BUILD_EXAMPLES ON)
+endif ()
+
 
 file(GLOB_RECURSE Freya_SRCS src/**.cpp)
 
