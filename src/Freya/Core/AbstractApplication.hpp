@@ -7,7 +7,7 @@
 
 namespace FREYA_NAMESPACE
 {
-    class AbstractApplication : skr::IApplication
+    class AbstractApplication : public skr::IApplication
     {
       public:
         explicit AbstractApplication(
