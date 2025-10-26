@@ -52,6 +52,14 @@ namespace FREYA_NAMESPACE
             return mFreyaOptions->height;
         }
 
+        float GetScale() const
+        {
+            SDL_DisplayID display_id = SDL_GetDisplayForWindow(mWindow);
+            float         scale      = SDL_GetDisplayContentScale(display_id);
+
+            return scale;
+        }
+
         void Resize(const std::uint32_t width, const std::uint32_t height)
         {
             mFreyaOptions->width  = width;

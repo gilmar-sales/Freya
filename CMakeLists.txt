@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.29)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(Freya LANGUAGES CXX VERSION 0.10.0)
+project(Freya LANGUAGES CXX VERSION 0.11.0)
 
 find_package(Vulkan REQUIRED)
 
@@ -15,30 +15,30 @@ set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "Disable assimp warnings as errors"
 include(FetchContent)
 
 FetchContent_Declare(
-SDL
-GIT_REPOSITORY "https://github.com/libsdl-org/SDL.git"
-GIT_TAG        "release-3.2.24"
+        SDL
+        GIT_REPOSITORY "https://github.com/libsdl-org/SDL.git"
+        GIT_TAG "release-3.2.24"
 )
 FetchContent_MakeAvailable(SDL)
 
 FetchContent_Declare(
-glm
-GIT_REPOSITORY "https://github.com/g-truc/glm.git"
-GIT_TAG        "1.0.1"
+        glm
+        GIT_REPOSITORY "https://github.com/g-truc/glm.git"
+        GIT_TAG "1.0.1"
 )
 FetchContent_MakeAvailable(glm)
 
 FetchContent_Declare(
-assimp
-GIT_REPOSITORY "https://github.com/assimp/assimp.git"
-GIT_TAG        "v5.4.3"
+        assimp
+        GIT_REPOSITORY "https://github.com/assimp/assimp.git"
+        GIT_TAG "v5.4.3"
 )
 FetchContent_MakeAvailable(assimp)
 
 FetchContent_Declare(
-skirnir
-GIT_REPOSITORY "https://github.com/gilmar-sales/Skirnir.git"
-GIT_TAG        "v0.14.1"
+        skirnir
+        GIT_REPOSITORY "https://github.com/gilmar-sales/Skirnir.git"
+        GIT_TAG "v0.14.1"
 )
 FetchContent_MakeAvailable(skirnir)
 
