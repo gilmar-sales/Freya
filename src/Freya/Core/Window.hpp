@@ -89,6 +89,11 @@ namespace FREYA_NAMESPACE
 
         SDL_Window* Get() const { return mWindow; }
 
+        void AddEventPollCallback(std::function<void(SDL_Event)> callback)
+        {
+            mEventPollCallbacks.push_back(callback);
+        }
+
       private:
         friend class ApplicationBuilder;
         void pollEvents();
@@ -96,10 +101,11 @@ namespace FREYA_NAMESPACE
         Ref<EventManager> mEventManager;
         Ref<FreyaOptions> mFreyaOptions;
 
-        std::vector<SDL_Gamepad*> mGamepads;
-        SDL_Window*               mWindow;
-        bool                      mRunning;
-        float                     mDeltaTime;
+        std::vector<SDL_Gamepad*>                   mGamepads;
+        std::vector<std::function<void(SDL_Event)>> mEventPollCallbacks;
+        SDL_Window*                                 mWindow;
+        bool                                        mRunning;
+        float                                       mDeltaTime;
     };
 
 } // namespace FREYA_NAMESPACE

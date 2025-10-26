@@ -61,6 +61,11 @@ namespace FREYA_NAMESPACE
 
         while (SDL_PollEvent(&sdlEvent))
         {
+            for (const auto& eventPollCallback : mEventPollCallbacks)
+            {
+                eventPollCallback(sdlEvent);
+            }
+
             switch (sdlEvent.type)
             {
                 case SDL_EVENT_WINDOW_CLOSE_REQUESTED: {
