@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.29)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(Freya LANGUAGES CXX VERSION 0.11.0)
+project(Freya LANGUAGES CXX VERSION 0.11.1)
 
 find_package(Vulkan REQUIRED)
 
@@ -24,21 +24,21 @@ FetchContent_MakeAvailable(SDL)
 FetchContent_Declare(
         glm
         GIT_REPOSITORY "https://github.com/g-truc/glm.git"
-        GIT_TAG "1.0.1"
+        GIT_TAG "1.0.2"
 )
 FetchContent_MakeAvailable(glm)
 
 FetchContent_Declare(
         assimp
         GIT_REPOSITORY "https://github.com/assimp/assimp.git"
-        GIT_TAG "v5.4.3"
+        GIT_TAG "v6.0.2"
 )
 FetchContent_MakeAvailable(assimp)
 
 FetchContent_Declare(
         skirnir
         GIT_REPOSITORY "https://github.com/gilmar-sales/Skirnir.git"
-        GIT_TAG "v0.14.1"
+        GIT_TAG "v0.15.0"
 )
 FetchContent_MakeAvailable(skirnir)
 
