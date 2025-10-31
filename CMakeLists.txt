@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.29)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(Freya LANGUAGES CXX VERSION 0.11.1)
+project(Freya LANGUAGES CXX VERSION 0.11.2)
 
 find_package(Vulkan REQUIRED)
 
@@ -38,7 +38,7 @@ FetchContent_MakeAvailable(assimp)
 FetchContent_Declare(
         skirnir
         GIT_REPOSITORY "https://github.com/gilmar-sales/Skirnir.git"
-        GIT_TAG "v0.15.0"
+        GIT_TAG "v0.15.1"
 )
 FetchContent_MakeAvailable(skirnir)
 
