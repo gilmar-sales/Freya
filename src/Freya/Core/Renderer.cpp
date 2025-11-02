@@ -144,6 +144,8 @@ namespace FREYA_NAMESPACE
 
         if (mResizeEvent.has_value())
         {
+            mFreyaOptions->width = mResizeEvent->width;
+            mFreyaOptions->height = mResizeEvent->height;
             RebuildSwapChain();
 
             mResizeEvent.reset();

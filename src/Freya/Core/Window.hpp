@@ -9,20 +9,13 @@ namespace FREYA_NAMESPACE
     class Window
     {
       public:
-        Window(SDL_Window*              window,
-               const Ref<EventManager>& eventManager,
-               const Ref<FreyaOptions>& freyaOptions) :
+        Window(SDL_Window*                     window,
+               const Ref<EventManager>&        eventManager,
+               const Ref<FreyaOptions>&        freyaOptions,
+               const Ref<skr::Logger<Window>>& logger) :
             mEventManager(eventManager), mFreyaOptions(freyaOptions),
-            mWindow(window), mRunning(true), mDeltaTime(0)
+            mWindow(window), mRunning(true), mDeltaTime(0), mLogger(logger)
         {
-            mEventManager->Subscribe<WindowResizeEvent>(
-                [this](const WindowResizeEvent event) {
-                    if (!event.handled)
-                    {
-                        Resize(event.width, event.height);
-                    }
-                });
-
             mGamepads               = std::vector<SDL_Gamepad*>();
             auto       gamepadCount = 0;
             const auto gamepadIds   = SDL_GetGamepads(&gamepadCount);
@@ -106,8 +99,9 @@ namespace FREYA_NAMESPACE
         friend class ApplicationBuilder;
         void pollEvents();
 
-        Ref<EventManager> mEventManager;
-        Ref<FreyaOptions> mFreyaOptions;
+        Ref<EventManager>        mEventManager;
+        Ref<FreyaOptions>        mFreyaOptions;
+        Ref<skr::Logger<Window>> mLogger;
 
         std::vector<SDL_Gamepad*>                   mGamepads;
         std::vector<std::function<void(SDL_Event)>> mEventPollCallbacks;

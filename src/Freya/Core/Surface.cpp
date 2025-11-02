@@ -26,11 +26,8 @@ namespace FREYA_NAMESPACE
 
     vk::Extent2D Surface::QueryExtent() const
     {
-        auto w = 0, h = 0;
-        SDL_GetWindowSize(mWindow->Get(), &w, &h);
-
-        auto width  = static_cast<uint32_t>(w);
-        auto height = static_cast<uint32_t>(h);
+        auto width  = mWindow->GetWidth();
+        auto height = mWindow->GetHeight();
 
         auto capabilities =
             mPhysicalDevice->Get().getSurfaceCapabilitiesKHR(mSurface);

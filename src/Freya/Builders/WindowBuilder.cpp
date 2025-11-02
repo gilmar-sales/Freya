@@ -15,7 +15,7 @@ namespace FREYA_NAMESPACE
 
         mLogger->Assert(vulkanLoad, "Failed to load Vulkan");
 
-        auto windowFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
+        auto windowFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
 
         if (mFreyaOptions->fullscreen)
         {
@@ -39,7 +39,7 @@ namespace FREYA_NAMESPACE
             "\tFullscreen: {}",
             (bool) (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN));
 
-        return skr::MakeRef<Window>(window, mEventManager, mFreyaOptions);
+        return skr::MakeRef<Window>(window, mEventManager, mFreyaOptions, mWindowLogger);
     }
 
 } // namespace FREYA_NAMESPACE

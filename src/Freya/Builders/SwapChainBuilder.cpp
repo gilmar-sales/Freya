@@ -24,7 +24,7 @@ namespace FREYA_NAMESPACE
 
         mLogger->LogTrace("\tFrame Count: {}", mFreyaOptions->frameCount);
 
-        mLogger->LogTrace("\tSurface Format: {}",
+        mLogger->LogTrace("\tS`urface Format: {}",
                           to_string(surfaceFormat.format));
 
         mLogger->LogTrace("\tPresent Mode: {}", to_string(presentMode));
