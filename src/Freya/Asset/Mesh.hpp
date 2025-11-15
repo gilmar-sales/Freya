@@ -1,10 +1,17 @@
 #pragma once
 
+#include <compare>
+#include <cstdint>
+
 namespace FREYA_NAMESPACE
 {
     struct Mesh
     {
-        operator std::uint32_t() { return id; }
+        operator size_t() const { return id; }
+
+        operator bool() const { return id != 0; }
+
+        auto operator<=>(const Mesh& other) const { return id <=> other.id; }
 
         std::uint32_t vertexBufferIndex;
         std::uint32_t vertexBufferOffset;

@@ -45,7 +45,7 @@ namespace FREYA_NAMESPACE
             sorted = false;
         }
 
-        [[nodiscard]] bool contains(const std::uint32_t n) const
+        [[nodiscard]] bool contains(const size_t n) const
         {
             return sparse[n] < dense.size() && dense[sparse[n]].id == n;
         }
@@ -69,7 +69,7 @@ namespace FREYA_NAMESPACE
             sorted = true;
         }
 
-        Mesh& operator[](const std::uint32_t index) { return dense[index]; };
+        Mesh& operator[](const size_t index) { return dense[index]; };
 
         [[nodiscard]] size_t size() const { return dense.size(); }
 
@@ -91,7 +91,7 @@ namespace FREYA_NAMESPACE
       private:
         std::mutex                 m_lock;
         std::vector<Mesh>          dense;
-        std::vector<std::uint32_t> sparse;
+        std::vector<size_t> sparse;
         bool                       sorted;
     };
 } // namespace FREYA_NAMESPACE
