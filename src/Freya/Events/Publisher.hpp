@@ -17,7 +17,7 @@ namespace FREYA_NAMESPACE
     class Publisher final : public IPublisher
     {
       public:
-        using EventListener = std::move_only_function<void(TEvent&)>;
+        using EventListener = std::function<void(TEvent&)>;
 
         void Subscribe(auto&& listener)
         {
