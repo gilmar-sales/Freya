@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.29)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(Freya LANGUAGES CXX VERSION 0.11.4)
+project(Freya LANGUAGES CXX VERSION 0.11.6)
 
 find_package(Vulkan REQUIRED)
 
@@ -10,14 +10,15 @@ set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "Disable assimp tests build")
 set(SDL_TEST OFF CACHE BOOL "Disable SDL2 tests build")
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "Disable SDL3 tests build")
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build Shared Library")
-set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "Disable assimp warnings as errors")
+set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL
+    "Disable assimp warnings as errors")
 
 include(FetchContent)
 
 FetchContent_Declare(
         SDL
         GIT_REPOSITORY "https://github.com/libsdl-org/SDL.git"
-        GIT_TAG "release-3.2.24"
+        GIT_TAG "release-3.2.26"
 )
 FetchContent_MakeAvailable(SDL)
 
@@ -38,7 +39,7 @@ FetchContent_MakeAvailable(assimp)
 FetchContent_Declare(
         skirnir
         GIT_REPOSITORY "https://github.com/gilmar-sales/Skirnir.git"
-        GIT_TAG "v0.15.1"
+        GIT_TAG "v0.15.2"
 )
 FetchContent_MakeAvailable(skirnir)
 
@@ -57,7 +58,8 @@ add_library(Freya::Freya ALIAS Freya)
 
 target_compile_features(Freya PUBLIC cxx_std_23)
 target_include_directories(Freya PUBLIC include src ${Vulkan_INCLUDE_DIRS})
-target_link_libraries(Freya SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES} skirnir::skirnir)
+target_link_libraries(Freya PUBLIC
+    SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES} skirnir::skirnir)
 
 target_precompile_headers(Freya PUBLIC
         <memory>

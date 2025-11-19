@@ -16,6 +16,12 @@ namespace FREYA_NAMESPACE
             mEventManager(eventManager), mFreyaOptions(freyaOptions),
             mWindow(window), mRunning(true), mDeltaTime(0), mLogger(logger)
         {
+            int width, height;
+            SDL_GetWindowSizeInPixels(mWindow, &width, &height);
+
+            freyaOptions->width  = width;
+            freyaOptions->height = height;
+
             mGamepads               = std::vector<SDL_Gamepad*>();
             auto       gamepadCount = 0;
             const auto gamepadIds   = SDL_GetGamepads(&gamepadCount);
@@ -64,21 +70,14 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] float GetDeltaTime() const { return mDeltaTime; }
 
-        float IsFullscreen() const
+        bool IsFullscreen() const
         {
             return SDL_GetWindowFlags(mWindow) & SDL_WINDOW_FULLSCREEN;
         }
 
         void SetFullscreen(bool fullscreen)
         {
-            if (fullscreen)
-            {
-                SDL_SetWindowFullscreen(mWindow, SDL_WINDOW_FULLSCREEN);
-            }
-            else
-            {
-                SDL_SetWindowFullscreen(mWindow, 0);
-            }
+            SDL_SetWindowFullscreen(mWindow, fullscreen);
         }
 
         [[nodiscard]] bool IsMouseGrab() const

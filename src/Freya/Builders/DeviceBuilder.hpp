@@ -1,12 +1,11 @@
 #pragma once
 
-#include "Freya/Core/Device.hpp"
-
 namespace FREYA_NAMESPACE
 {
     class PhysicalDevice;
     class Instance;
     class Surface;
+    class Device;
     struct QueueFamilyIndices;
 
     class DeviceBuilder

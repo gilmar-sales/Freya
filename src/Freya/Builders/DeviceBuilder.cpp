@@ -1,7 +1,6 @@
 #include "Freya/Builders/DeviceBuilder.hpp"
 
-#include "Freya/Core/Instance.hpp"
-#include "Freya/Core/PhysicalDevice.hpp"
+#include "Freya/Core/Device.hpp"
 #include "Freya/Core/Surface.hpp"
 
 namespace FREYA_NAMESPACE
@@ -65,16 +64,6 @@ namespace FREYA_NAMESPACE
                 .setPEnabledFeatures(&deviceFeatures)
                 .setEnabledExtensionCount(mDeviceExtensions.size())
                 .setPpEnabledExtensionNames(mDeviceExtensions.data());
-
-        if (enableValidationLayers)
-        {
-            createInfo.setEnabledLayerCount(1).setPpEnabledLayerNames(
-                &ValidationLayer);
-        }
-        else
-        {
-            createInfo.setEnabledLayerCount(0);
-        }
 
         mLogger->LogTrace("Creating logical device.");
 
