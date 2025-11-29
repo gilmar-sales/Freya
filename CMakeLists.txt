@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.29)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(Freya LANGUAGES CXX VERSION 0.11.6)
+project(Freya LANGUAGES CXX VERSION 0.11.7)
 
 find_package(Vulkan REQUIRED)
 

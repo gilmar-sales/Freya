@@ -34,11 +34,13 @@ namespace FREYA_NAMESPACE
         switch (mUsage)
         {
             case ImageUsage::Color:
-                imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment);
+                imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment|
+                                   vk::ImageUsageFlagBits::eSampled);
                 break;
             case ImageUsage::Depth:
                 imageInfo.setUsage(
-                    vk::ImageUsageFlagBits::eDepthStencilAttachment);
+                vk::ImageUsageFlagBits::eDepthStencilAttachment|
+                               vk::ImageUsageFlagBits::eSampled);
                 break;
             case ImageUsage::Texture:
                 imageInfo.setUsage(vk::ImageUsageFlagBits::eTransferDst |
