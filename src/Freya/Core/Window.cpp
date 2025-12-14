@@ -22,14 +22,6 @@ namespace FREYA_NAMESPACE
 
     void Window::Update()
     {
-        auto mouseEvent = 
-            MouseMoveEvent { .x      = 0,
-                            .y      = 0,
-                            .deltaX = 0,
-                            .deltaY = 0 };
-        const auto mousePos = SDL_GetMouseState(&mouseEvent.x, &mouseEvent.y);
-        mEventManager->Send(mouseEvent);
-
         static unsigned frames          = 0;
         static auto     previousCounter = SDL_GetPerformanceCounter();
         static double   secondTime      = 0;
