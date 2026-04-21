@@ -6,7 +6,6 @@
 #include "Freya/Core/PhysicalDevice.hpp"
 #include "Freya/Core/RenderPass.hpp"
 
-
 #include <vulkan/vulkan_to_string.hpp>
 
 namespace FREYA_NAMESPACE
@@ -24,7 +23,7 @@ namespace FREYA_NAMESPACE
 
         mLogger->LogTrace("\tFrame Count: {}", mFreyaOptions->frameCount);
 
-        mLogger->LogTrace("\tS`urface Format: {}",
+        mLogger->LogTrace("\tSurface Format: {}",
                           to_string(surfaceFormat.format));
 
         mLogger->LogTrace("\tPresent Mode: {}", to_string(presentMode));

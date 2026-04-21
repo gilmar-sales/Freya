@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.29)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(Freya LANGUAGES CXX VERSION 0.11.10)
+project(Freya LANGUAGES CXX VERSION 0.11.11)
 
 find_package(Vulkan REQUIRED)
 
@@ -18,7 +18,7 @@ include(FetchContent)
 FetchContent_Declare(
         SDL
         GIT_REPOSITORY "https://github.com/libsdl-org/SDL.git"
-        GIT_TAG "release-3.4.2"
+        GIT_TAG "release-3.4.4"
 )
 FetchContent_MakeAvailable(SDL)
 
@@ -39,14 +39,14 @@ FetchContent_MakeAvailable(assimp)
 FetchContent_Declare(
         skirnir
         GIT_REPOSITORY "https://github.com/gilmar-sales/Skirnir.git"
-        GIT_TAG "v0.15.3"
+        GIT_TAG "v0.16.0"
 )
 FetchContent_MakeAvailable(skirnir)
 
 option(FREYA_BUILD_EXAMPLES "Build freyr examples" OFF)
 
 if (${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
-    set(FREYA_BUILD_EXAMPLES ON)
+  set(FREYA_BUILD_EXAMPLES ON)
 endif ()
 
 
@@ -80,7 +80,7 @@ target_precompile_headers(Freya PUBLIC
 )
 
 if (FREYA_BUILD_EXAMPLES)
-    add_subdirectory(Examples)
+  add_subdirectory(Examples)
 endif (FREYA_BUILD_EXAMPLES)
 
 

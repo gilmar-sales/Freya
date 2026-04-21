@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Skirnir/Skirnir.hpp>
+
 #include "Freya/Core/FreyaExtension.hpp"
 #include "Freya/Core/Renderer.hpp"
 #include "Freya/Core/Window.hpp"
