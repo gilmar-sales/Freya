@@ -111,7 +111,7 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `height` | `std::uint32_t` | `600` | Window height |
 | `vSync` | `bool` | `true` | Vertical synchronization |
 | `fullscreen` | `bool` | `true` | Fullscreen mode |
-| `sampleCount` | `std::uint32_t` | `1` | MSAA sample count |
+| `sampleCount` | `std::uint32_t` | `8` | MSAA sample count |
 | `frameCount` | `std::uint32_t` | `4` | Number of frames in flight |
 | `drawDistance` | `float` | `1000.0f` | Render distance |
 | `renderingStrategy` | `RenderingStrategy` | `Forward` | Forward or Deferred |
