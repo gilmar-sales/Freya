@@ -49,7 +49,7 @@ namespace FREYA_NAMESPACE
          * enabled.
          * @return vk::Result::eSuccess on successful destruction
          */
-        vk::Result destroy_debug_utilsMessengerEXT();
+        vk::Result destroyDebugUtilsMessengerEXT();
 
       private:
         vk::DebugUtilsMessengerEXT mDebugMessenger;
