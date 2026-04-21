@@ -134,9 +134,9 @@ int main(int argc, const char** argv)
 {
     const auto app =
         skr::ApplicationBuilder()
-            .AddExtension<fra::FreyaExtension>(
-                [](Ref<fra::FreyaExtension> freya) {
-                    freya->WithOptions(
+            .WithExtension<fra::FreyaExtension>(
+                [](fra::FreyaExtension freya) {
+                    freya.WithOptions(
                         [](fra::FreyaOptionsBuilder& freyaOptions) {
                             freyaOptions.SetTitle("Sofa example")
                                 .SetWidth(1920)

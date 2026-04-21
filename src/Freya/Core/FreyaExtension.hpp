@@ -13,24 +13,26 @@ namespace FREYA_NAMESPACE
     {
       public:
         /**
-         * @brief Configures services in the service collection.
-         * Registers all builders as transient, all core objects as singletons.
-         * @param services Service collection to configure
-         */
-        void ConfigureServices(Ref<skr::ServiceCollection> services) override;
-
-        /**
          * @brief Fluent API to configure FreyaOptions.
          * @param freyaOptionsBuilderFunc Lambda receiving FreyaOptionsBuilder
          * @return Reference to this for chaining
          */
         FreyaExtension& WithOptions(
-            std::function<void(FreyaOptionsBuilder&)> freyaOptionsBuilderFunc)
+            const std::function<void(FreyaOptionsBuilder&)>&
+                freyaOptionsBuilderFunc)
         {
             freyaOptionsBuilderFunc(mFreyaOptionsBuilder);
 
             return *this;
         }
+
+      protected:
+        /**
+         * @brief Configures services in the service collection.
+         * Registers all builders as transient, all core objects as singletons.
+         * @param services Service collection to configure
+         */
+        void ConfigureServices(skr::ServiceCollection& services) override;
 
       private:
         FreyaOptionsBuilder
