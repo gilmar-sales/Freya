@@ -2,11 +2,22 @@
 
 namespace FREYA_NAMESPACE
 {
+    /**
+     * @brief Destroys the Vulkan surface.
+     */
     Surface::~Surface()
     {
         mInstance->Get().destroySurfaceKHR(mSurface);
     }
 
+    /**
+     * @brief Queries the preferred surface format.
+     *
+     * Prefers B8G8R8A8Unorm format with SRGB color space.
+     * Falls back to first available format if preferred not found.
+     *
+     * @return Preferred surface format
+     */
     vk::SurfaceFormatKHR Surface::QuerySurfaceFormat() const
     {
         const auto supportDetails =
@@ -24,6 +35,16 @@ namespace FREYA_NAMESPACE
         return supportDetails.formats[0];
     }
 
+    /**
+     * @brief Queries the surface extent based on window and device
+     * capabilities.
+     *
+     * Returns window dimensions clamped to device capabilities.
+     * If currentExtent is max uint32, uses min of window size and
+     * maxImageExtent. Otherwise uses currentExtent directly.
+     *
+     * @return Surface extent (width/height)
+     */
     vk::Extent2D Surface::QueryExtent() const
     {
         auto width  = mWindow->GetWidth();
@@ -51,6 +72,13 @@ namespace FREYA_NAMESPACE
         }
     }
 
+    /**
+     * @brief Queries supported frame count, clamped to device limits.
+     *
+     * @param desired Desired frame count
+     * @return Frame count clamped between minImageCount and maxImageCount (if
+     * set)
+     */
     std::uint32_t Surface::QueryFrameCountSupport(std::uint32_t desired) const
     {
         if (desired < mCapabilities.minImageCount)

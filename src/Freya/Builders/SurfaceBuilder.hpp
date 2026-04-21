@@ -14,6 +14,15 @@ namespace FREYA_NAMESPACE
     class Window;
     struct FreyaOptions;
 
+    /**
+     * @brief Builder for creating Surface objects from SDL3 window.
+     *
+     * @param instance      Instance reference
+     * @param physicalDevice Physical device reference
+     * @param window         Window reference
+     * @param freyaOptions   Freya options reference
+     * @param logger         Logger reference
+     */
     class SurfaceBuilder
     {
       public:
@@ -27,14 +36,18 @@ namespace FREYA_NAMESPACE
         {
         }
 
+        /**
+         * @brief Builds and returns the Surface object.
+         * @return Shared pointer to created Surface
+         */
         Ref<Surface> Build();
 
       private:
-        Ref<skr::Logger<SurfaceBuilder>> mLogger;
-        Ref<Window>                      mWindow;
-        Ref<Instance>                    mInstance;
-        Ref<PhysicalDevice>              mPhysicalDevice;
-        Ref<FreyaOptions>                mFreyaOptions;
+        Ref<skr::Logger<SurfaceBuilder>> mLogger;   ///< Logger reference
+        Ref<Window>                      mWindow;   ///< Window reference
+        Ref<Instance>                    mInstance; ///< Instance reference
+        Ref<PhysicalDevice> mPhysicalDevice; ///< Physical device reference
+        Ref<FreyaOptions>   mFreyaOptions;   ///< Freya options reference
     };
 
 } // namespace FREYA_NAMESPACE

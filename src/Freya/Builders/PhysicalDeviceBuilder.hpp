@@ -7,6 +7,17 @@ namespace FREYA_NAMESPACE
 {
     class Instance;
 
+    /**
+     * @brief Builder for selecting and creating PhysicalDevice objects.
+     *
+     * Enumerates available devices and selects based on priority:
+     * Discrete GPU > Integrated GPU > CPU > Virtual GPU > Other.
+     * Also queries and adjusts MSAA sample count to supported maximum.
+     *
+     * @param instance    Instance reference
+     * @param freyaOptions Freya options for sample count
+     * @param logger      Logger reference
+     */
     class PhysicalDeviceBuilder
     {
       public:
@@ -25,14 +36,19 @@ namespace FREYA_NAMESPACE
         {
         }
 
+        /**
+         * @brief Builds and returns the PhysicalDevice object.
+         * @return Shared pointer to created PhysicalDevice
+         */
         Ref<PhysicalDevice> Build() const;
 
       private:
-        Ref<Instance>     mInstance;
-        Ref<FreyaOptions> mFreyaOptions;
+        Ref<Instance>     mInstance;     ///< Instance reference
+        Ref<FreyaOptions> mFreyaOptions; ///< Freya options reference
 
-        Ref<skr::Logger<PhysicalDeviceBuilder>> mLogger;
+        Ref<skr::Logger<PhysicalDeviceBuilder>> mLogger; ///< Logger reference
 
-        std::vector<vk::PhysicalDeviceType> mPhysicalDeviceTypePriorities;
+        std::vector<vk::PhysicalDeviceType>
+            mPhysicalDeviceTypePriorities; ///< Device type selection priority
     };
 } // namespace FREYA_NAMESPACE

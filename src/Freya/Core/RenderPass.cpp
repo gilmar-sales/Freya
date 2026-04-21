@@ -2,6 +2,10 @@
 
 namespace FREYA_NAMESPACE
 {
+    /**
+     * @brief Destroys all Vulkan resources: descriptor pools, pipeline, layout,
+     * render pass.
+     */
     RenderPass::~RenderPass()
     {
         mDevice->Get().destroyDescriptorPool(mSamplerDescriptorPool);
@@ -21,6 +25,13 @@ namespace FREYA_NAMESPACE
         mDevice->Get().destroyRenderPass(mRenderPass);
     }
 
+    /**
+     * @brief Begins render pass, sets clear values, and binds graphics
+     * pipeline.
+     *
+     * @param swapChain   Swapchain for framebuffer access
+     * @param commandPool Command pool for current command buffer
+     */
     void RenderPass::Begin(const Ref<SwapChain> swapChain,
                            const Ref<CommandPool>
                                commandPool) const
@@ -49,12 +60,23 @@ namespace FREYA_NAMESPACE
         BindDescriptorSet(commandPool, swapChain->GetCurrentFrameIndex());
     }
 
+    /**
+     * @brief Ends the render pass.
+     * @param commandPool Command pool for current command buffer
+     */
     void RenderPass::End(const Ref<CommandPool> commandPool) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 
         commandBuffer.endRenderPass();
     }
+
+    /**
+     * @brief Binds descriptor set at pipeline binding 0 for the given frame.
+     *
+     * @param commandPool Command pool for current command buffer
+     * @param frameIndex  Frame index for descriptor set selection
+     */
     void RenderPass::BindDescriptorSet(const Ref<CommandPool>& commandPool,
                                        const std::uint32_t     frameIndex) const
     {
@@ -68,6 +90,15 @@ namespace FREYA_NAMESPACE
             nullptr);
     }
 
+    /**
+     * @brief Updates projection uniform buffer for a given frame index.
+     *
+     * Copies data to uniform buffer and updates descriptor set with buffer
+     * info.
+     *
+     * @param buffer     Projection data to upload
+     * @param frameIndex Frame index for offset and descriptor set selection
+     */
     void RenderPass::UpdateProjection(const ProjectionUniformBuffer& buffer,
                                       const std::uint32_t frameIndex) const
     {

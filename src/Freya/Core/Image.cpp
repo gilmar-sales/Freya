@@ -2,6 +2,9 @@
 
 namespace FREYA_NAMESPACE
 {
+    /**
+     * @brief Destroys image view, image, and frees device memory.
+     */
     Image::~Image()
     {
         mDevice->Get().destroyImageView(mImageView);
