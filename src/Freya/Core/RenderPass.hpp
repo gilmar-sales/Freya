@@ -9,14 +9,36 @@
 
 namespace FREYA_NAMESPACE
 {
-
+    /**
+     * @brief Attachment indices for render pass.
+     */
     enum : std::uint32_t
     {
-        ColorAttachment,
-        DepthAttachment,
-        ColorResolveAttachment
+        ColorAttachment,       ///< Color attachment index
+        DepthAttachment,       ///< Depth attachment index
+        ColorResolveAttachment ///< MSAA resolve attachment index
     };
 
+    /**
+     * @brief Encapsulates a complete render pass with pipeline and descriptors.
+     *
+     * Manages a Vulkan render pass, graphics pipeline, descriptor sets,
+     * and uniform buffer for projection matrices. Handles begin/end
+     * render pass operations and descriptor set binding.
+     *
+     * @param device              Device reference
+     * @param freyaOptions        Freya options for clear values and sample
+     * count
+     * @param renderPass          Vulkan render pass handle
+     * @param pipelineLayout      Pipeline layout handle
+     * @param graphicsPipeline    Graphics pipeline handle
+     * @param uniformBuffer       Uniform buffer for projection matrices
+     * @param descriptorSetLayouts Descriptor set layout vector
+     * @param descriptorSets      Allocated descriptor sets
+     * @param descriptorPool      Descriptor pool
+     * @param samplerLayout       Sampler descriptor set layout
+     * @param samplerDescriptorPool Sampler descriptor pool
+     */
     class RenderPass
     {
       public:
@@ -43,24 +65,55 @@ namespace FREYA_NAMESPACE
 
         ~RenderPass();
 
+        /**
+         * @brief Returns the underlying render pass handle.
+         */
         vk::RenderPass& Get() { return mRenderPass; }
 
+        /**
+         * @brief Returns the pipeline layout handle.
+         */
         vk::PipelineLayout& GetPipelineLayout() { return mPipelineLayout; }
 
+        /**
+         * @brief Begins the render pass with clear values and binds pipeline.
+         * @param swapChain   Swapchain for framebuffer access
+         * @param commandPool Command pool for current command buffer
+         */
         void Begin(const Ref<SwapChain> swapChain,
                    const Ref<CommandPool>
                        commandPool) const;
 
+        /**
+         * @brief Ends the render pass.
+         * @param commandPool Command pool for current command buffer
+         */
         void End(const Ref<CommandPool> commandPool) const;
 
+        /**
+         * @brief Binds descriptor set at pipeline layout binding 0.
+         * @param commandPool Command pool for current command buffer
+         * @param frameIndex  Frame index for descriptor set selection
+         */
         void BindDescriptorSet(const Ref<CommandPool>& commandPool,
                                std::uint32_t           frameIndex) const;
 
+        /**
+         * @brief Updates projection uniform buffer for a given frame index.
+         * @param buffer     Projection data to upload
+         * @param frameIndex Frame index for offset calculation
+         */
         void UpdateProjection(const ProjectionUniformBuffer& buffer,
                               std::uint32_t                  frameIndex) const;
 
+        /**
+         * @brief Returns the sampler descriptor set layout.
+         */
         vk::DescriptorSetLayout& GetSamplerLayout() { return mSamplerLayout; }
 
+        /**
+         * @brief Returns the sampler descriptor pool.
+         */
         vk::DescriptorPool& GetSamplerDescriptorPool()
         {
             return mSamplerDescriptorPool;
