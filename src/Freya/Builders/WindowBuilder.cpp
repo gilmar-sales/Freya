@@ -20,6 +20,20 @@ namespace FREYA_NAMESPACE
         if (mFreyaOptions->fullscreen)
         {
             windowFlags |= SDL_WINDOW_FULLSCREEN;
+        } else {
+            auto displayId = SDL_GetPrimaryDisplay();
+            const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(displayId);
+            
+            if (mode &&
+                !mFreyaOptions->fullscreen &&
+                mFreyaOptions->width  == static_cast<uint32_t>(mode->w) &&
+                mFreyaOptions->height == static_cast<uint32_t>(mode->h))
+            {
+                mLogger->LogWarn("\tWindow size matches display resolution, "
+                                  "reducing by 1px to avoid forced fullscreen");
+                mFreyaOptions->width -= 1;
+                mFreyaOptions->height -= 1;
+            }
         }
 
         auto window = SDL_CreateWindow(
@@ -30,6 +44,7 @@ namespace FREYA_NAMESPACE
 
         mLogger->Assert(window != nullptr, "Failed to create SDL3 Window");
 
+        
         mLogger->LogTrace("\tSize:{}x{}",
                           mFreyaOptions->width,
                           mFreyaOptions->height);
