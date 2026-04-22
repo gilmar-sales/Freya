@@ -8,6 +8,7 @@ find_package(Vulkan REQUIRED)
 
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "Disable assimp tests build")
 set(SDL_TEST OFF CACHE BOOL "Disable SDL2 tests build")
+set(SDL_X11_XTEST OFF CACHE BOOL "Disable SDL3 xtests build")
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "Disable SDL3 tests build")
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build Shared Library")
 set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL
