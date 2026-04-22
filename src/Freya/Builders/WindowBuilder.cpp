@@ -36,7 +36,7 @@ namespace FREYA_NAMESPACE
                 if (SDL_GetDisplayUsableBounds(displayId, &usableBounds))
                 {
                     mFreyaOptions->width = usableBounds.w;
-                    mFreyaOptions->height = usableBounds.h;
+                    mFreyaOptions->height = usableBounds.h - 46;
                 }
                 else {
                     mFreyaOptions->width -= 10;
