@@ -71,22 +71,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - if: ${{ matrix.os == 'ubuntu-latest' }}
+      
+      - name: Install SDL3 build dependencies
+        if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
             libxi-dev libxinerama-dev libxxf86vm-dev libxss-dev \
             libxkbcommon-dev libxkbcommon-x11-dev \
             libwayland-dev wayland-protocols \
-            libegl-dev libgl-dev libgles-dev \
             libdrm-dev libgbm-dev \
             libudev-dev libdbus-1-dev \
-            libpulse-dev libasound2-dev \
-            libibus-1.0-dev libfcitx-dev \
-            libsndfile1-dev
+            libpulse-dev libasound2-dev
 
       - name: Set reusable strings
         # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
