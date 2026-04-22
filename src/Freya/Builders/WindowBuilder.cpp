@@ -29,7 +29,7 @@ namespace FREYA_NAMESPACE
                 mFreyaOptions->width  == static_cast<uint32_t>(mode->w) &&
                 mFreyaOptions->height == static_cast<uint32_t>(mode->h))
             {
-                mLogger->LogWarn("\tWindow size matches display resolution, "
+                mLogger->LogWarning("\tWindow size matches display resolution, "
                                   "reducing by 1px to avoid forced fullscreen");
                 mFreyaOptions->width -= 1;
                 mFreyaOptions->height -= 1;
