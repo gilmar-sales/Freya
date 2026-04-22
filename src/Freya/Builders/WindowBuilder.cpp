@@ -30,9 +30,18 @@ namespace FREYA_NAMESPACE
                 mFreyaOptions->height == static_cast<uint32_t>(mode->h))
             {
                 mLogger->LogWarning("\tWindow size matches display resolution, "
-                                  "reducing by 1px to avoid forced fullscreen");
-                mFreyaOptions->width -= 1;
-                mFreyaOptions->height -= 1;
+                                  "reducing resolution to avoid forced fullscreen");
+
+                SDL_Rect usableBounds;
+                if (SDL_GetDisplayUsableBounds(displayId, SDL_Rect *rect)
+                {
+                    mFreyaOptions->width = usableBounds.w;
+                    mFreyaOptions->height = usableBounds.h;
+                }
+                else {
+                    mFreyaOptions->width -= 10;
+                    mFreyaOptions->height -= 60;
+                }
             }
         }
 
