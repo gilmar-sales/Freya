@@ -33,7 +33,7 @@ namespace FREYA_NAMESPACE
                                   "reducing resolution to avoid forced fullscreen");
 
                 SDL_Rect usableBounds;
-                if (SDL_GetDisplayUsableBounds(displayId, SDL_Rect *rect)
+                if (SDL_GetDisplayUsableBounds(displayId, SDL_Rect *rect))
                 {
                     mFreyaOptions->width = usableBounds.w;
                     mFreyaOptions->height = usableBounds.h;
