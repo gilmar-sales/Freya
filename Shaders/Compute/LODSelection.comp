@@ -1,0 +1,189 @@
+#version 450
+
+#include "Common/Dither.glsl"
+
+//
+// LOD Selection Compute Shader
+//
+// This shader performs GPU-driven LOD selection and instance compaction.
+// It reads instance data, transforms, and LOD group metadata, then writes
+// compacted indirect draw commands for the graphics pipeline.
+//
+// Workgroup: 256 threads, processes 1 instance each
+//
+
+// === Push Constants ===
+layout(push_constant) uniform PushConstants {
+    vec3   cameraPosition;
+    float  globalDrawDistanceSquared; // Squared for efficient distance comparison
+    uint   instanceCount;
+    uint   lodLevelCount;            // Total number of LOD levels in flat array
+} pc;
+
+// === Storage Buffers ===
+
+// Input: Per-instance LOD data
+layout(set = 0, binding = 0) readonly buffer InstanceData {
+    uint instanceData[]; // LODInstanceData: meshGroupId, currentLOD, transformIndex, padding
+};
+
+// Input: Transform matrices (mat4 = 16 floats)
+layout(set = 0, binding = 1) readonly buffer TransformBuffer {
+    float transforms[];
+};
+
+// Input: Flat array of all LOD levels
+// Layout: [group0_lod0, group0_lod1, ..., group1_lod0, ...]
+layout(set = 0, binding = 2) readonly buffer LODLevelBuffer {
+    float lodLevels[]; // LODLevel: meshId, switchDistance, fadeStart, padding (4 floats each)
+};
+
+// Input: Mesh metadata (indexCount, firstIndex, vertexOffset per mesh)
+// Used to build draw commands
+layout(set = 0, binding = 3) readonly buffer MeshMetadataBuffer {
+    uint meshMetadata[]; // Per mesh: indexCount, firstIndex, vertexOffset, padding
+};
+
+// Output: Compacted indirect draw commands
+layout(set = 0, binding = 4) writeonly buffer DrawCommandBuffer {
+    uint drawCommands[]; // DrawIndexedIndirectCommand: indexCount, instanceCount, firstIndex, vertexOffset, firstInstance (5 uints each)
+};
+
+// Output: Visible instance indices (for debugging/additional processing)
+layout(set = 0, binding = 5) writeonly buffer VisibleInstances {
+    uint visibleInstances[];
+};
+
+// Output: Atomic counter for number of visible instances
+layout(set = 0, binding = 6) uniform atomic_uint drawCount;
+
+// === Helper Functions ===
+
+LODInstanceData getInstanceData(uint instanceId) {
+    uint offset = instanceId * 4; // 4 uints per instance
+    LODInstanceData data;
+    data.meshGroupId = instanceData[offset + 0];
+    data.currentLOD = instanceData[offset + 1];
+    data.transformIndex = instanceData[offset + 2];
+    // offset + 3 is padding
+    return data;
+}
+
+LODLevel getLODLevel(uint levelIndex) {
+    uint offset = levelIndex * 4; // 4 floats per level
+    LODLevel level;
+    level.meshId = floatBitsToUint(lodLevels[offset + 0]);
+    level.switchDistance = lodLevels[offset + 1];
+    level.fadeStart = lodLevels[offset + 2];
+    // offset + 3 is padding
+    return level;
+}
+
+MeshMetadata getMeshMetadata(uint meshId) {
+    uint offset = meshId * 4;
+    MeshMetadata meta;
+    meta.indexCount = meshMetadata[offset + 0];
+    meta.firstIndex = meshMetadata[offset + 1];
+    meta.vertexOffset = meshMetadata[offset + 2];
+    return meta;
+}
+
+mat4 getTransform(uint transformIndex) {
+    uint offset = transformIndex * 16; // mat4 = 16 floats
+    mat4 result;
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            result[i][j] = transforms[offset + i * 4 + j];
+        }
+    }
+    return result;
+}
+
+// Binary search to find appropriate LOD level
+uint selectLOD(uint groupOffset, uint levelCount, float distSquared) {
+    if (levelCount == 0) return 0;
+
+    uint selectedLOD = 0;
+    for (uint i = 1; i < levelCount; i++) {
+        uint levelIndex = groupOffset + i;
+        LODLevel level = getLODLevel(levelIndex);
+        if (distSquared > level.switchDistance * level.switchDistance) {
+            selectedLOD = i;
+        }
+    }
+    return selectedLOD;
+}
+
+// === Main ===
+
+void main() {
+    uint instanceId = gl_GlobalInvocationID.x;
+
+    // Bounds check
+    if (instanceId >= pc.instanceCount) {
+        return;
+    }
+
+    // --- Fetch instance and transform ---
+    LODInstanceData instance = getInstanceData(instanceId);
+    mat4 transform = getTransform(instance.transformIndex);
+
+    // --- Calculate world space position (translation column of transform) ---
+    vec3 worldPosition = vec3(transform[3][0], transform[3][1], transform[3][2]);
+
+    // --- Distance culling ---
+    vec3 toCamera = cameraPosition - worldPosition;
+    float distSquared = dot(toCamera, toCamera);
+
+    if (distSquared > pc.globalDrawDistanceSquared) {
+        return; // Frustum/distance culled
+    }
+
+    // --- LOD selection ---
+    uint lodLevel = selectLOD(instance.meshGroupId, pc.lodLevelCount, distSquared);
+
+    // --- Get mesh metadata for this LOD ---
+    uint lodLevelIndex = instance.meshGroupId + lodLevel;
+    LODLevel level = getLODLevel(lodLevelIndex);
+    MeshMetadata meshMeta = getMeshMetadata(level.meshId);
+
+    // --- Atomic append to visible instances ---
+    uint drawIndex = atomicCounterIncrement(drawCount);
+
+    // --- Write indirect draw command ---
+    uint cmdOffset = drawIndex * 5;
+    drawCommands[cmdOffset + 0] = meshMeta.indexCount;      // indexCount
+    drawCommands[cmdOffset + 1] = 1;                        // instanceCount
+    drawCommands[cmdOffset + 2] = meshMeta.firstIndex;      // firstIndex
+    drawCommands[cmdOffset + 3] = meshMeta.vertexOffset;     // vertexOffset
+    drawCommands[cmdOffset + 4] = drawIndex;                 // firstInstance
+
+    // Store visible instance index for debugging
+    visibleInstances[drawIndex] = instanceId;
+
+    // Update instance's current LOD (for debugging/monitoring)
+    // Note: We can't actually write back to the instance buffer from compute,
+    // so this would need to be done differently if needed
+}
+
+// === Structs for clarity ===
+struct LODInstanceData {
+    uint meshGroupId;
+    uint currentLOD;
+    uint transformIndex;
+    uint padding;
+};
+
+struct LODLevel {
+    uint meshId;
+    float switchDistance;
+    float fadeStart;
+    uint padding;
+};
+
+struct MeshMetadata {
+    uint indexCount;
+    uint firstIndex;
+    uint vertexOffset;
+    uint padding;
+};

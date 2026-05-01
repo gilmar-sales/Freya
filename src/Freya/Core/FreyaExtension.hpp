@@ -1,4 +1,23 @@
+#include "Skirnir/ApplicationBuilder.hpp"
+
+#include "Freya/Builders/DeviceBuilder.hpp"
 #include "Freya/Builders/FreyaOptionsBuilder.hpp"
+#include "Freya/Builders/ImageBuilder.hpp"
+#include "Freya/Builders/InstanceBuilder.hpp"
+#include "Freya/Builders/LODBuilder.hpp"
+#include "Freya/Builders/PhysicalDeviceBuilder.hpp"
+#include "Freya/Builders/RenderPassBuilder.hpp"
+#include "Freya/Builders/RendererBuilder.hpp"
+#include "Freya/Builders/ShaderModuleBuilder.hpp"
+#include "Freya/Builders/SurfaceBuilder.hpp"
+#include "Freya/Builders/SwapChainBuilder.hpp"
+#include "Freya/Builders/WindowBuilder.hpp"
+
+#include "Freya/Asset/LODPool.hpp"
+#include "Freya/Asset/LODService.hpp"
+#include "Freya/Asset/MaterialPool.hpp"
+#include "Freya/Asset/MeshPool.hpp"
+#include "Freya/Asset/TexturePool.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -27,11 +46,6 @@ namespace FREYA_NAMESPACE
         }
 
       protected:
-        /**
-         * @brief Configures services in the service collection.
-         * Registers all builders as transient, all core objects as singletons.
-         * @param services Service collection to configure
-         */
         void ConfigureServices(skr::ServiceCollection& services) override;
 
       private:

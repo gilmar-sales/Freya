@@ -1,20 +1,5 @@
 #include "FreyaExtension.hpp"
 
-#include "Freya/Builders/DeviceBuilder.hpp"
-#include "Freya/Builders/ImageBuilder.hpp"
-#include "Freya/Builders/InstanceBuilder.hpp"
-#include "Freya/Builders/PhysicalDeviceBuilder.hpp"
-#include "Freya/Builders/RenderPassBuilder.hpp"
-#include "Freya/Builders/RendererBuilder.hpp"
-#include "Freya/Builders/ShaderModuleBuilder.hpp"
-#include "Freya/Builders/SurfaceBuilder.hpp"
-#include "Freya/Builders/SwapChainBuilder.hpp"
-#include "Freya/Builders/WindowBuilder.hpp"
-
-#include "Freya/Asset/MaterialPool.hpp"
-#include "Freya/Asset/MeshPool.hpp"
-#include "Freya/Asset/TexturePool.hpp"
-
 namespace FREYA_NAMESPACE
 {
 
@@ -36,54 +21,30 @@ namespace FREYA_NAMESPACE
         services.AddTransient<ShaderModuleBuilder>();
         services.AddTransient<CommandPoolBuilder>();
 
-        services.AddSingleton<Instance>(
+        services.AddSingleton<LODPool>();
+        services.AddSingleton<LODService>(
             [](skr::ServiceProvider& serviceProvider) {
                 auto freyaOptions = serviceProvider.GetService<FreyaOptions>();
+                auto lodPool      = serviceProvider.GetService<LODPool>();
+                auto meshPool     = serviceProvider.GetService<MeshPool>();
+                auto renderer     = serviceProvider.GetService<Renderer>();
+                auto device       = serviceProvider.GetService<Device>();
+                auto physicalDevice =
+                    serviceProvider.GetService<PhysicalDevice>();
+                auto commandPool = serviceProvider.GetService<CommandPool>();
 
-                auto instanceBuilder =
-                    serviceProvider.GetService<InstanceBuilder>();
+                LODBuilder lodBuilder;
+                lodBuilder.SetDevice(device);
+                lodBuilder.SetPhysicalDevice(physicalDevice);
+                lodBuilder.SetCommandPool(commandPool);
+                lodBuilder.SetLODPool(lodPool);
+                lodBuilder.SetMeshPool(meshPool);
+                lodBuilder.SetRenderer(renderer);
+                lodBuilder.SetFreyaOptions(freyaOptions);
+                lodBuilder.SetServiceProvider(
+                    serviceProvider.GetService<skr::ServiceProvider>());
 
-                return instanceBuilder->Build();
-            });
-
-        services.AddSingleton<Surface>(
-            [](skr::ServiceProvider& serviceProvider) {
-                auto surfaceBuilder =
-                    serviceProvider.GetService<SurfaceBuilder>();
-
-                return surfaceBuilder->Build();
-            });
-
-        services.AddSingleton<PhysicalDevice>(
-            [](skr::ServiceProvider& serviceProvider) {
-                auto physicalDeviceBuilder =
-                    serviceProvider.GetService<PhysicalDeviceBuilder>();
-
-                return physicalDeviceBuilder->Build();
-            });
-
-        services.AddSingleton<Device>(
-            [](skr::ServiceProvider& serviceProvider) {
-                auto freyaOptions = serviceProvider.GetService<FreyaOptions>();
-
-                auto deviceBuilder =
-                    serviceProvider.GetService<DeviceBuilder>();
-
-                return deviceBuilder->Build();
-            });
-
-        services.AddSingleton<CommandPool>(
-            [](skr::ServiceProvider serviceProvider) {
-                auto freyaOptions = serviceProvider.GetService<FreyaOptions>();
-
-                return serviceProvider.GetService<CommandPoolBuilder>()
-                    ->SetCount(freyaOptions->frameCount)
-                    .Build();
-            });
-
-        services.AddTransient<SwapChain>(
-            [](skr::ServiceProvider& serviceProvider) {
-                return serviceProvider.GetService<SwapChainBuilder>()->Build();
+                return lodBuilder.Build();
             });
 
         services.AddSingleton<EventManager>();
