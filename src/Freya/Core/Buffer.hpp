@@ -15,7 +15,8 @@ namespace FREYA_NAMESPACE
         Index,    ///< Index buffer (device local)
         Uniform,  ///< Uniform buffer (device local)
         Instance, ///< Instance buffer (device local)
-        Image     ///< Image buffer
+        Image,    ///< Image buffer
+        Storage   ///< Storage buffer
     };
 
     /**

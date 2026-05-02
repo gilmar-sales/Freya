@@ -39,6 +39,8 @@ namespace FREYA_NAMESPACE
             case BufferUsage::Uniform:
                 bufferInfo.setUsage(vk::BufferUsageFlagBits::eUniformBuffer);
                 break;
+            case BufferUsage::Storage:
+                bufferInfo.setUsage(vk::BufferUsageFlagBits::eStorageBuffer);
             default:
                 break;
         }

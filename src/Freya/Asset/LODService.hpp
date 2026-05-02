@@ -149,6 +149,7 @@ namespace FREYA_NAMESPACE
         Ref<Renderer>                mRenderer;
         Ref<FreyaOptions>            mFreyaOptions;
         Ref<skr::Logger<LODService>> mLogger;
+        Ref<skr::ServiceProvider>    mServiceProvider;
 
         // GPU buffers
         Ref<Buffer> mInstanceBuffer;    // LODInstanceData[] - read by compute

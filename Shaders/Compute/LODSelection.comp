@@ -55,7 +55,32 @@ layout(set = 0, binding = 5) writeonly buffer VisibleInstances {
 };
 
 // Output: Atomic counter for number of visible instances
-layout(set = 0, binding = 6) uniform atomic_uint drawCount;
+// Note: This is a single uint that we atomically increment
+layout(set = 0, binding = 6) buffer DrawCountBuffer {
+    uint drawCount;
+};
+
+// === Structs for clarity ===
+struct LODInstanceData {
+    uint meshGroupId;
+    uint currentLOD;
+    uint transformIndex;
+    uint padding;
+};
+
+struct LODLevel {
+    uint meshId;
+    float switchDistance;
+    float fadeStart;
+    uint padding;
+};
+
+struct MeshMetadata {
+    uint indexCount;
+    uint firstIndex;
+    uint vertexOffset;
+    uint padding;
+};
 
 // === Helper Functions ===
 
@@ -132,7 +157,7 @@ void main() {
     vec3 worldPosition = vec3(transform[3][0], transform[3][1], transform[3][2]);
 
     // --- Distance culling ---
-    vec3 toCamera = cameraPosition - worldPosition;
+    vec3 toCamera = pc.cameraPosition - worldPosition;
     float distSquared = dot(toCamera, toCamera);
 
     if (distSquared > pc.globalDrawDistanceSquared) {
@@ -147,8 +172,8 @@ void main() {
     LODLevel level = getLODLevel(lodLevelIndex);
     MeshMetadata meshMeta = getMeshMetadata(level.meshId);
 
-    // --- Atomic append to visible instances ---
-    uint drawIndex = atomicCounterIncrement(drawCount);
+    // --- Atomic append to visible instances using atomicAdd ---
+    uint drawIndex = atomicAdd(drawCount, 1u);
 
     // --- Write indirect draw command ---
     uint cmdOffset = drawIndex * 5;
@@ -165,25 +190,3 @@ void main() {
     // Note: We can't actually write back to the instance buffer from compute,
     // so this would need to be done differently if needed
 }
-
-// === Structs for clarity ===
-struct LODInstanceData {
-    uint meshGroupId;
-    uint currentLOD;
-    uint transformIndex;
-    uint padding;
-};
-
-struct LODLevel {
-    uint meshId;
-    float switchDistance;
-    float fadeStart;
-    uint padding;
-};
-
-struct MeshMetadata {
-    uint indexCount;
-    uint firstIndex;
-    uint vertexOffset;
-    uint padding;
-};

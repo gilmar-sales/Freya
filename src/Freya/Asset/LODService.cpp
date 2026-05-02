@@ -2,6 +2,7 @@
 #include "Freya/Asset/LODPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
+#include "Freya/Builders/ShaderModuleBuilder.hpp"
 #include "Freya/Core/Renderer.hpp"
 
 namespace FREYA_NAMESPACE
@@ -15,7 +16,8 @@ namespace FREYA_NAMESPACE
         mMeshPool(serviceProvider->GetService<MeshPool>()),
         mRenderer(serviceProvider->GetService<Renderer>()),
         mFreyaOptions(serviceProvider->GetService<FreyaOptions>()),
-        mLogger(serviceProvider->GetService<skr::Logger<LODService>>())
+        mLogger(serviceProvider->GetService<skr::Logger<LODService>>()),
+        mServiceProvider(serviceProvider)
     {
         mLogger->LogInformation(
             "Initializing LOD service with {} max instances", mMaxInstances);
@@ -299,8 +301,33 @@ namespace FREYA_NAMESPACE
         mLODComputePipelineLayout =
             mDevice->Get().createPipelineLayout(pipelineLayoutInfo);
 
-        // TODO: Create actual pipeline by loading SPIR-V shader
-        mLogger->LogInformation("Created LOD compute pipeline layout");
+        // Load and create compute shader module
+        auto computeShaderModule =
+            mServiceProvider->GetService<ShaderModuleBuilder>()
+                ->SetFilePath("./Resources/Shaders/Compute/LODSelection.spv")
+                .Build();
+
+        const vk::PipelineShaderStageCreateInfo shaderStageInfo =
+            vk::PipelineShaderStageCreateInfo()
+                .setStage(vk::ShaderStageFlagBits::eCompute)
+                .setModule(computeShaderModule->Get())
+                .setPName("main");
+
+        const vk::ComputePipelineCreateInfo pipelineInfo =
+            vk::ComputePipelineCreateInfo()
+                .setLayout(mLODComputePipelineLayout)
+                .setStage(shaderStageInfo);
+
+        const auto [result, pipeline] =
+            mDevice->Get().createComputePipeline(nullptr, pipelineInfo);
+        mLODComputePipeline = pipeline;
+
+        mLogger->Assert(mLODComputePipeline,
+                        "Failed to create LOD compute pipeline.");
+
+        mDevice->Get().destroyShaderModule(computeShaderModule->Get());
+
+        mLogger->LogInformation("Created LOD compute pipeline");
     }
 
     void LODService::createDitherTexture()

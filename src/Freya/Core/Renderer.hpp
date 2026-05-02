@@ -191,6 +191,15 @@ namespace FREYA_NAMESPACE
             return mSwapChain->GetFrameCount();
         }
 
+        /**
+         * @brief Returns the command pool for direct command recording.
+         * @return Reference to the command pool
+         */
+        [[nodiscard]] Ref<CommandPool> GetCommandPool() const
+        {
+            return mCommandPool;
+        }
+
       private:
         Ref<skr::ServiceProvider> mServiceProvider;
         Ref<Instance>             mInstance;
