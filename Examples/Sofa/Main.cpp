@@ -55,6 +55,13 @@ class MainApp final : public fra::AbstractApplication
         mSpaceShipModel =
             mMeshPool->CreateMeshFromFile("./Resources/Models/SpaceShip.fbx");
 
+        // Refresh mesh metadata after meshes are loaded
+        // (LODService constructor ran before StartUp, when mesh pool was empty)
+        if (mLODService)
+        {
+            mLODService->RefreshMeshMetadata();
+        }
+
         // === LOD System Setup ===
         setupLODSystem();
 
@@ -127,6 +134,13 @@ class MainApp final : public fra::AbstractApplication
         // Second spaceship (different transform)
         mSpaceShipInstanceId2 =
             mLODService->AddInstance(mSpaceShipLODGroups[0], 1);
+
+        // Initialize transform buffer for LOD system
+        // Upload initial transforms so the first Dispatch has valid data
+        for (std::uint32_t i = 0; i < 4; ++i)
+        {
+            mLODService->UpdateTransform(i, mModelMatrix[i]);
+        }
 
         mLogger->LogInformation(
             "LOD system initialized with {} total instances",

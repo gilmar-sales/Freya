@@ -78,6 +78,15 @@ namespace FREYA_NAMESPACE
         // === GPU Data Update ===
 
         /**
+         * @brief Refreshes the mesh metadata GPU buffer from MeshPool.
+         *
+         * Must be called after new meshes are loaded, since the initial
+         * metadata upload in the constructor runs before StartUp populates
+         * the mesh pool.
+         */
+        void RefreshMeshMetadata();
+
+        /**
          * @brief Updates GPU buffers with latest instance data
          * @param cmd Command buffer to record upload
          * @param cameraPosition Current camera world position

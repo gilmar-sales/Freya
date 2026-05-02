@@ -514,6 +514,22 @@ namespace FREYA_NAMESPACE
         // Update GPU data (upload instance, LOD levels, reset draw count)
         UpdateGPUData(cmd, mPushConstants.cameraPosition);
 
+        // Clear draw command buffer to avoid stale commands from previous frames.
+        // Any draw command beyond the GPU-written count will have indexCount=0 (no-op).
+        cmd.fillBuffer(mDrawCommandBuffer->Get(), 0, VK_WHOLE_SIZE, 0);
+
+        // Barrier: transfer write (fillBuffer) → compute shader read
+        const auto fillBarrier = vk::BufferMemoryBarrier()
+                                     .setBuffer(mDrawCommandBuffer->Get())
+                                     .setOffset(0)
+                                     .setSize(VK_WHOLE_SIZE)
+                                     .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
+                                     .setDstAccessMask(vk::AccessFlagBits::eShaderWrite);
+        cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
+                            vk::PipelineStageFlagBits::eComputeShader,
+                            vk::DependencyFlagBits::eByRegion, nullptr, fillBarrier,
+                            nullptr);
+
         // Bind compute pipeline
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, mLODComputePipeline);
 
@@ -556,6 +572,11 @@ namespace FREYA_NAMESPACE
                           frameIndex, mInstanceCount);
     }
 
+    void LODService::RefreshMeshMetadata()
+    {
+        updateMeshMetadata();
+    }
+
     void LODService::SetGlobalDrawDistance(float distance)
     {
         mPushConstants.globalDrawDistance = distance * distance;
@@ -595,7 +616,7 @@ namespace FREYA_NAMESPACE
             mFreyaOptions->frameCount);
     }
 
-    void LODService::updateMeshMetadata()
+void LODService::updateMeshMetadata()
     {
         // Build mesh metadata array from MeshPool
         // This provides indexCount, firstIndex, vertexOffset for each mesh
@@ -604,8 +625,9 @@ namespace FREYA_NAMESPACE
         mMeshPool->ForEachMesh([&meshMetadata](std::uint32_t meshId, const Mesh& mesh) {
             meshMetadata[meshId] = MeshMetadata {
                 .indexCount   = mesh.indexCount,
-                .firstIndex   = static_cast<std::uint32_t>(mesh.indexBufferOffset / sizeof(std::uint16_t)),
-                .vertexOffset = static_cast<std::int32_t>(mesh.vertexBufferOffset / sizeof(Vertex)),
+                .firstIndex   = mesh.indexBufferOffset / static_cast<unsigned>(sizeof(std::uint16_t)),
+                // vertexOffset must be actual byte offset for GPU access
+                .vertexOffset = static_cast<std::int32_t>(mesh.vertexBufferOffset),
                 .padding      = 0
             };
         });
