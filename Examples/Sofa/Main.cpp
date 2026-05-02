@@ -148,6 +148,11 @@ class MainApp final : public fra::AbstractApplication
         {
             mSofaInstanceIds.push_back(mLODService->AddInstance(groupId, 2));
         }
+        // Second Sofa at transform 3
+        for (const auto groupId : mSofaLODGroups)
+        {
+            mSofaInstanceIds.push_back(mLODService->AddInstance(groupId, 3));
+        }
 
         // Initialize transform buffer for LOD system
         // Upload initial transforms so the first Dispatch has valid data
@@ -230,20 +235,15 @@ class MainApp final : public fra::AbstractApplication
             const auto drawCmdBuffer = mLODService->GetDrawCommandBufferRef();
             const auto drawCount     = mLODService->GetDrawCount();
 
-            // Draw with spaceship material
+            // Single DrawIndirect call — both meshes share buffer 0 at
+            // offset 0, and the compute shader emits draw commands with
+            // absolute buffer offsets. All LOD-instances render correctly
+            // regardless of which mesh ID is used for the buffer binding.
             mMaterialPool->Bind(mSpaceShipMaterial);
             if (!mSpaceShipModel.empty())
             {
                 mMeshPool->DrawIndirect(
                     mSpaceShipModel[0], drawCmdBuffer, drawCount);
-            }
-
-            // Draw with sofa material
-            mMaterialPool->Bind(mSofaMaterial);
-            if (!mSofaModel.empty())
-            {
-                mMeshPool->DrawIndirect(
-                    mSofaModel[0], drawCmdBuffer, drawCount);
             }
         }
         else

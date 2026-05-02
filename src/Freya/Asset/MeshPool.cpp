@@ -4,7 +4,7 @@
 namespace FREYA_NAMESPACE
 {
     constexpr auto MegaBytes           = 1024 * 1024;
-    constexpr auto MinVertexBufferSize = 1 * MegaBytes;
+    constexpr auto MinVertexBufferSize = 10 * MegaBytes;
     constexpr auto MinIndexBufferSize  = 2 * MegaBytes;
 
     MeshPool::MeshPool(const Ref<Device>&                device,
@@ -89,19 +89,14 @@ namespace FREYA_NAMESPACE
             auto& mesh = mMeshes[meshId];
 
             const auto& vertexBuffer = mVertexBuffers[mesh.vertexBufferIndex];
-            const auto  vertexOffset =
-                static_cast<vk::DeviceSize>(mesh.vertexBufferOffset);
-
+            constexpr auto bindOffset = vk::DeviceSize(0);
             mCommandPool->GetCommandBuffer()
-                .bindVertexBuffers(0, 1, &vertexBuffer->Get(), &vertexOffset);
+                .bindVertexBuffers(0, 1, &vertexBuffer->Get(), &bindOffset);
 
             const auto& indexBuffer = mIndexBuffers[mesh.indexBufferIndex];
-            const auto  indexOffset =
-                static_cast<vk::DeviceSize>(mesh.indexBufferOffset);
-
             mCommandPool->GetCommandBuffer().bindIndexBuffer(
                 indexBuffer->Get(),
-                indexOffset,
+                vk::DeviceSize(0),
                 vk::IndexType::eUint16);
 
             mCommandPool->GetCommandBuffer().drawIndexedIndirect(
