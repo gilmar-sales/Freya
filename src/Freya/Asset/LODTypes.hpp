@@ -18,15 +18,19 @@ class MeshPool;
  * Each LOD level specifies which mesh to render at what distance range.
  * Levels are ordered from highest detail (LOD 0) to lowest.
  */
-struct LODLevel {
+struct alignas(16) LODLevel {
     std::uint32_t meshId;          // Reference to MeshPool mesh
     float         switchDistance;   // Camera distance (squared) to switch TO this LOD
     float         fadeStart;        // Start distance for dither cross-fade
+    std::uint32_t padding;         // Explicit 16-byte stride matching GLSL layout in LODSelection.comp
 
     bool operator<(const LODLevel& other) const {
         return switchDistance < other.switchDistance;
     }
 };
+
+static_assert(sizeof(LODLevel) == 16,
+              "LODLevel must be 16 bytes (alignas(16) + members + padding) to match GLSL struct layout");
 
 /**
  * @brief A group of LOD levels representing the same geometry at different detail levels

@@ -66,6 +66,17 @@ namespace FREYA_NAMESPACE
 
             memcpy(deviceData, data, size);
 
+            // Flush writes to device memory so the GPU sees the data.
+            // Required for non-coherent host-visible memory (which is the
+            // default for storage/indirect buffers). Without this flush the
+            // compute shader may read stale data from its cache.
+            const auto flushRange = vk::MappedMemoryRange()
+                                        .setMemory(mMemory)
+                                        .setOffset(offset)
+                                        .setSize(VK_WHOLE_SIZE);
+            static_cast<void>(
+                mDevice->Get().flushMappedMemoryRanges(1, &flushRange));
+
             mDevice->Get().unmapMemory(mMemory);
         }
     }

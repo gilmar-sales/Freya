@@ -125,15 +125,30 @@ class MainApp final : public fra::AbstractApplication
                                     mSofaLODGroups.size());
         }
 
-        // Add LOD instances for each object
-        // Each instance references a LOD group and a transform index
-        mSpaceShipInstanceId =
-            mLODService->AddInstance(mSpaceShipLODGroups[0], 0);
-        mSofaInstanceId = mLODService->AddInstance(mSofaLODGroups[0], 2);
+        // Add LOD instances for ALL sub-meshes of each model.
+        // Each instance references a LOD group (one per sub-mesh) and a
+        // transform index. If a model has multiple sub-meshes, all must be
+        // instantiated so the compute shader emits draw commands for each.
+        //
+        // First spaceship at transform 0: each sub-mesh gets an instance
+        for (const auto groupId : mSpaceShipLODGroups)
+        {
+            mSpaceShipInstanceIds.push_back(
+                mLODService->AddInstance(groupId, 0));
+        }
+        // Second spaceship at transform 1
+        for (const auto groupId : mSpaceShipLODGroups)
+        {
+            mSpaceShipInstanceIds.push_back(
+                mLODService->AddInstance(groupId, 1));
+        }
 
-        // Second spaceship (different transform)
-        mSpaceShipInstanceId2 =
-            mLODService->AddInstance(mSpaceShipLODGroups[0], 1);
+        // Sofa at transform 2: each sub-mesh gets an instance
+        for (const auto groupId : mSofaLODGroups)
+        {
+            mSofaInstanceIds.push_back(
+                mLODService->AddInstance(groupId, 2));
+        }
 
         // Initialize transform buffer for LOD system
         // Upload initial transforms so the first Dispatch has valid data
@@ -197,7 +212,7 @@ class MainApp final : public fra::AbstractApplication
             mInstanceMatrixBuffers->Copy(
                 &mModelMatrix[0][0], sizeof(glm::mat4) * 4);
 
-mRenderer->BindBuffer(mInstanceMatrixBuffers);
+        mRenderer->BindBuffer(mInstanceMatrixBuffers);
 
         // Draw using MDI (Multi-Draw Indirect) via LODService
         // The compute shader generates draw commands, we execute them here.
@@ -214,22 +229,22 @@ mRenderer->BindBuffer(mInstanceMatrixBuffers);
         if (mLODService && mLODService->GetInstanceCount() > 0)
         {
             const auto drawCmdBuffer = mLODService->GetDrawCommandBufferRef();
-            const auto drawCount = mLODService->GetDrawCount();
+            const auto drawCount     = mLODService->GetDrawCount();
 
             // Draw with spaceship material
             mMaterialPool->Bind(mSpaceShipMaterial);
             if (!mSpaceShipModel.empty())
             {
-                mMeshPool->DrawIndirect(mSpaceShipModel[0], drawCmdBuffer,
-                                        drawCount);
+                mMeshPool->DrawIndirect(
+                    mSpaceShipModel[0], drawCmdBuffer, drawCount);
             }
 
             // Draw with sofa material
             mMaterialPool->Bind(mSofaMaterial);
             if (!mSofaModel.empty())
             {
-                mMeshPool->DrawIndirect(mSofaModel[0], drawCmdBuffer,
-                                        drawCount);
+                mMeshPool->DrawIndirect(
+                    mSofaModel[0], drawCmdBuffer, drawCount);
             }
         }
         else
@@ -246,7 +261,7 @@ mRenderer->BindBuffer(mInstanceMatrixBuffers);
             mMaterialPool->Bind(mSofaMaterial);
             for (const auto& mesh : mSofaModel)
             {
-mMeshPool->DrawInstanced(mesh, 2, 2);
+                mMeshPool->DrawInstanced(mesh, 2, 2);
             }
         }
 
@@ -290,11 +305,8 @@ mMeshPool->DrawInstanced(mesh, 2, 2);
     // LOD system data
     std::vector<std::uint32_t> mSpaceShipLODGroups;
     std::vector<std::uint32_t> mSofaLODGroups;
-    std::uint32_t              mSpaceShipInstanceId =
-        std::numeric_limits<std::uint32_t>::max();
-    std::uint32_t mSpaceShipInstanceId2 =
-        std::numeric_limits<std::uint32_t>::max();
-    std::uint32_t mSofaInstanceId = std::numeric_limits<std::uint32_t>::max();
+    std::vector<std::uint32_t> mSpaceShipInstanceIds;
+    std::vector<std::uint32_t> mSofaInstanceIds;
 
     Ref<skr::Logger<MainApp>> mLogger;
 };
