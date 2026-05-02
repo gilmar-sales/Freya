@@ -18,15 +18,33 @@ class MainApp final : public fra::AbstractApplication
     {
         mRenderer->ClearProjections();
 
-        // Initialize model matrices
-        mModelMatrix[0] = glm::scale(
-            glm::translate(glm::mat4(1), glm::vec3(-3, 2, 0)), glm::vec3(0.3));
-        mModelMatrix[1] = glm::scale(
-            glm::translate(glm::mat4(1), glm::vec3(3, 2, 0)), glm::vec3(0.3));
-        mModelMatrix[2] = glm::scale(
-            glm::translate(glm::mat4(1), glm::vec3(-3, -2, 0)), glm::vec3(2));
-        mModelMatrix[3] = glm::scale(
-            glm::translate(glm::mat4(1), glm::vec3(3, -2, 0)), glm::vec3(2));
+        // Two parallel queues extending into the distance, 10 objects each.
+        // Each queue steps 10 units further back so the LOD system selects
+        // progressively lower detail levels.  At Z=10 the object is ~20 units
+        // from camera (LOD0); at Z=100 it is ~110 units away (LOD1/2).
+        constexpr std::uint32_t CountPerRow  = 10;
+        constexpr std::uint32_t TotalObjects = CountPerRow * 2; // 20
+
+        mModelMatrix.resize(TotalObjects);
+
+        const float yPos = -5.0f;
+        for (std::uint32_t i = 0; i < CountPerRow; ++i)
+        {
+            // Spaceship queue (transforms 0..9): left side
+            const float zPos = 10.0f + static_cast<float>(i) * 10.0f;
+            mModelMatrix[i] = glm::scale(
+                glm::translate(glm::mat4(1), glm::vec3(-3, yPos, zPos)),
+                glm::vec3(0.3f));
+        }
+
+        for (std::uint32_t i = 0; i < CountPerRow; ++i)
+        {
+            // Sofa queue (transforms 10..19): right side
+            const float zPos = 10.0f + static_cast<float>(i) * 10.0f;
+            mModelMatrix[i + CountPerRow] = glm::scale(
+                glm::translate(glm::mat4(1), glm::vec3(3, yPos, zPos)),
+                glm::vec3(2.0f));
+        }
 
         // Create textures
         mSofaAlbedo = mTexturePool->CreateTextureFromFile(
@@ -76,20 +94,15 @@ class MainApp final : public fra::AbstractApplication
             return;
         }
 
+        constexpr std::uint32_t CountPerRow = 10;
+
         // Create LOD groups for SpaceShip
-        // For demo: simulate 3 LOD levels using the same meshes at different
-        // distances In production, you'd have actual simplified mesh variants
         if (!mSpaceShipModel.empty())
         {
-            // Simulated LOD distances (in world units)
-            // LOD0: 0-50 units, LOD1: 50-150 units, LOD2: 150-400 units, LOD3:
-            // 400+ (culled)
+            // LOD0: 0-50 units, LOD1: 50-150 units, LOD2: 150-400 units,
+            // LOD3: 400+ (culled)
             std::vector<float> lodDistances = { 0.0f, 50.0f, 150.0f, 400.0f };
 
-            // Create multiple LOD groups to simulate different detail levels
-            // Using the same mesh ID for all levels as placeholder
-            // In reality, you'd have: spaceship_lod0, spaceship_lod1,
-            // spaceship_lod2, etc.
             for (std::uint32_t i = 0; i < mSpaceShipModel.size(); ++i)
             {
                 auto                       meshId  = mSpaceShipModel[i];
@@ -125,40 +138,25 @@ class MainApp final : public fra::AbstractApplication
                                     mSofaLODGroups.size());
         }
 
-        // Add LOD instances for ALL sub-meshes of each model.
-        // Each instance references a LOD group (one per sub-mesh) and a
-        // transform index. If a model has multiple sub-meshes, all must be
-        // instantiated so the compute shader emits draw commands for each.
-        //
-        // First spaceship at transform 0: each sub-mesh gets an instance
-        for (const auto groupId : mSpaceShipLODGroups)
+        // Add LOD instances: 10 spaceships (transforms 0..9) and 10 sofas
+        // (transforms 10..19).
+        for (std::uint32_t idx = 0; idx < CountPerRow; ++idx)
         {
-            mSpaceShipInstanceIds.push_back(
-                mLODService->AddInstance(groupId, 0, mSpaceShipMaterial));
-        }
-        // Second spaceship at transform 1
-        for (const auto groupId : mSpaceShipLODGroups)
-        {
-            mSpaceShipInstanceIds.push_back(
-                mLODService->AddInstance(groupId, 1, mSpaceShipMaterial));
-        }
-
-        // Sofa at transform 2: each sub-mesh gets an instance
-        for (const auto groupId : mSofaLODGroups)
-        {
-            mSofaInstanceIds.push_back(
-                mLODService->AddInstance(groupId, 2, mSofaMaterial));
-        }
-        // Second Sofa at transform 3
-        for (const auto groupId : mSofaLODGroups)
-        {
-            mSofaInstanceIds.push_back(
-                mLODService->AddInstance(groupId, 3, mSofaMaterial));
+            for (const auto groupId : mSpaceShipLODGroups)
+            {
+                mSpaceShipInstanceIds.push_back(
+                    mLODService->AddInstance(groupId, idx, mSpaceShipMaterial));
+            }
+            for (const auto groupId : mSofaLODGroups)
+            {
+                mSofaInstanceIds.push_back(
+                    mLODService->AddInstance(
+                        groupId, idx + CountPerRow, mSofaMaterial));
+            }
         }
 
-        // Initialize transform buffer for LOD system
-        // Upload initial transforms so the first Dispatch has valid data
-        for (std::uint32_t i = 0; i < 4; ++i)
+        // Upload all initial transforms so the first Dispatch has valid data
+        for (std::uint32_t i = 0; i < mModelMatrix.size(); ++i)
         {
             mLODService->UpdateTransform(i, mModelMatrix[i]);
         }
@@ -170,83 +168,59 @@ class MainApp final : public fra::AbstractApplication
 
     void Update() override
     {
-        mCurrentTime += mWindow->GetDeltaTime();
+        const float dt = mWindow->GetDeltaTime();
 
-        // Rotate model matrices
-        mModelMatrix[0] = glm::rotate(
-            mModelMatrix[0], glm::radians(15.0f * mWindow->GetDeltaTime()),
-            glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
-        mModelMatrix[1] = glm::rotate(
-            mModelMatrix[1], glm::radians(15.0f * mWindow->GetDeltaTime()),
-            glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
-        mModelMatrix[2] = glm::rotate(
-            mModelMatrix[2], glm::radians(15.0f * mWindow->GetDeltaTime()),
-            glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
-        mModelMatrix[3] = glm::rotate(
-            mModelMatrix[3], glm::radians(15.0f * mWindow->GetDeltaTime()),
-            glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
+        // Rotate all model matrices uniformly
+        const float angle     = glm::radians(15.0f * dt);
+        const auto  axis      = glm::normalize(glm::vec3(0.0f, 1.0f, 0.0f));
+        for (auto& mat : mModelMatrix)
+        {
+            mat = glm::rotate(mat, angle, axis);
+        }
 
-        // Update transform buffer for LOD system
+        // Update LOD transform buffer and dispatch compute
         if (mLODService)
         {
-            for (std::uint32_t i = 0; i < 4; ++i)
+            for (std::uint32_t i = 0; i < mModelMatrix.size(); ++i)
             {
                 mLODService->UpdateTransform(i, mModelMatrix[i]);
             }
 
-            // Camera position (fixed as per renderer)
             const glm::vec3 cameraPosition = glm::vec3(0.0f, 0.0f, -10.1f);
             mLODService->SetCameraPosition(cameraPosition);
             mLODService->SetGlobalDrawDistance(mRenderer->GetDrawDistance());
 
             // Dispatch LOD compute shader OUTSIDE render pass
-            // This must happen BEFORE BeginFrame() which starts the render pass
             mLODService->Dispatch(mRenderer->GetCurrentFrameIndex());
         }
 
         mRenderer->BeginFrame();
 
-        // Update instance matrix buffer
+        // Update instance matrix buffer (all transforms)
+        const auto totalBytes =
+            sizeof(glm::mat4) * static_cast<std::uint32_t>(mModelMatrix.size());
         if (mInstanceMatrixBuffers == nullptr)
             mInstanceMatrixBuffers =
                 mRenderer->GetBufferBuilder()
-                    .SetData(&mModelMatrix[0][0])
-                    .SetSize(sizeof(glm::mat4) * 4)
+                    .SetData(mModelMatrix.data())
+                    .SetSize(totalBytes)
                     .SetUsage(fra::BufferUsage::Instance)
                     .Build();
         else
-            mInstanceMatrixBuffers->Copy(
-                &mModelMatrix[0][0], sizeof(glm::mat4) * 4);
+            mInstanceMatrixBuffers->Copy(mModelMatrix.data(), totalBytes);
 
         mRenderer->BindBuffer(mInstanceMatrixBuffers);
 
         // Draw using MDI (Multi-Draw Indirect) via LODService
-        // The compute shader generates draw commands, we execute them here.
-        //
-        // The draw commands contain absolute buffer offsets (vertexOffset in
-        // vertex-index units, firstIndex in index units), so we bind the
-        // shared vertex/index buffer at offset 0. A single DrawIndirect call
-        // executes all LOD-selected draws for all instances.
-        //
-        // Note: When instances use different materials, we need to issue
-        // separate DrawIndirect calls per material (each re-executes the
-        // same draw commands with the active material). A production system
-        // would encode material in the draw command or sort by material.
         if (mLODService && mLODService->GetInstanceCount() > 0)
         {
             const auto drawCmdBuffer = mLODService->GetDrawCommandBufferRef();
             const auto drawCount     = mLODService->GetDrawCount();
 
-            // Bind the global bindless sampler descriptor set (set 1).
-            // In bindless mode, the specific materialId doesn't matter here
-            // — it's carried per-draw in the draw metadata buffer and used
-            // directly in the shader via nonuniformEXT().
+            // Bind the global bindless sampler descriptor set (set 1)
             mMaterialPool->Bind(0);
 
-            // Bind the draw metadata descriptor (set 2) containing the
-            // materialId per draw command. The vertex shader reads this via
-            // gl_DrawIDARB and passes it as a flat output to the fragment
-            // shader.
+            // Bind the draw metadata descriptor (set 2) — materialId per draw
             {
                 auto cmdBuffer =
                     mRenderer->GetCommandPool()->GetCommandBuffer();
@@ -254,15 +228,12 @@ class MainApp final : public fra::AbstractApplication
                 cmdBuffer.bindDescriptorSets(
                     vk::PipelineBindPoint::eGraphics,
                     mRenderer->GetRenderPass()->GetPipelineLayout(),
-                    2, // set 2 = draw metadata
-                    1, &lodDescSet,
+                    2, 1, &lodDescSet,
                     0, nullptr);
             }
 
-            // Single DrawIndirect call — both meshes share buffer 0 at
-            // offset 0, and the compute shader emits draw commands with
-            // absolute buffer offsets. The fragment shader resolves the
-            // correct material textures via bindless indexing.
+            // Single DrawIndirect call — both spaceship and sofa draws are
+            // emitted by the compute shader with absolute buffer offsets.
             if (!mSpaceShipModel.empty())
             {
                 mMeshPool->DrawIndirect(
@@ -275,12 +246,12 @@ class MainApp final : public fra::AbstractApplication
             mMaterialPool->Bind(0);
             for (const auto& mesh : mSpaceShipModel)
             {
-                mMeshPool->DrawInstanced(mesh, 2);
+                mMeshPool->DrawInstanced(mesh, 10);
             }
             mMaterialPool->Bind(0);
             for (const auto& mesh : mSofaModel)
             {
-                mMeshPool->DrawInstanced(mesh, 2, 2);
+                mMeshPool->DrawInstanced(mesh, 10, 10);
             }
         }
 
@@ -288,7 +259,7 @@ class MainApp final : public fra::AbstractApplication
 
         // Log LOD stats periodically
         static float logTimer = 0.0f;
-        logTimer += mWindow->GetDeltaTime();
+        logTimer += dt;
         if (logTimer > 2.0f && mLODService)
         {
             mLogger->LogInformation("LOD Stats: Instances={}, MaxInstances={}",
@@ -299,6 +270,10 @@ class MainApp final : public fra::AbstractApplication
     }
 
   private:
+    static constexpr std::uint32_t SpaceshipCount = 10;
+    static constexpr std::uint32_t SofaCount      = 10;
+    static constexpr std::uint32_t TotalCount     = SpaceshipCount + SofaCount;
+
     std::vector<unsigned> mSofaModel;
     std::uint32_t         mSofaAlbedo {};
     std::uint32_t         mSofaNormal {};
@@ -316,7 +291,7 @@ class MainApp final : public fra::AbstractApplication
     Ref<fra::MeshPool>     mMeshPool;
     Ref<fra::LODService>   mLODService;
     Ref<fra::LODPool>      mLODPool;
-    glm::mat4              mModelMatrix[4] {};
+    std::vector<glm::mat4> mModelMatrix {};   // size = TotalCount
     float                  mCurrentTime {};
 
     Ref<fra::Buffer> mInstanceMatrixBuffers;
