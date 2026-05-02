@@ -161,11 +161,12 @@ class MainApp final : public fra::AbstractApplication
 
             // Camera position (fixed as per renderer)
             const glm::vec3 cameraPosition = glm::vec3(0.0f, 0.0f, -10.1f);
-
-            // Update GPU data with current camera position
-            // Note: This only updates CPU buffers, not dispatching compute yet
-            // Compute dispatch requires a separate command buffer outside render pass
+            mLODService->SetCameraPosition(cameraPosition);
             mLODService->SetGlobalDrawDistance(mRenderer->GetDrawDistance());
+
+            // Dispatch LOD compute shader OUTSIDE render pass
+            // This must happen BEFORE BeginFrame() which starts the render pass
+            mLODService->Dispatch(mRenderer->GetCurrentFrameIndex());
         }
 
         mRenderer->BeginFrame();
@@ -182,25 +183,49 @@ class MainApp final : public fra::AbstractApplication
             mInstanceMatrixBuffers->Copy(
                 &mModelMatrix[0][0], sizeof(glm::mat4) * 4);
 
-        mRenderer->BindBuffer(mInstanceMatrixBuffers);
+mRenderer->BindBuffer(mInstanceMatrixBuffers);
 
-        // Draw using traditional instanced rendering
-        // Note: For true MDI, we'd use vkCmdDrawIndexedIndirect with the
-        // draw commands from LODService, but that requires the render pass to
-        // support indirect drawing
-
-        // Draw SpaceShips (2 instances)
-        mMaterialPool->Bind(mSpaceShipMaterial);
-        for (const auto& mesh : mSpaceShipModel)
+        // Draw using MDI (Multi-Draw Indirect) via LODService
+        // The compute shader generates draw commands, we execute them here
+        if (mLODService && mLODService->GetInstanceCount() > 0)
         {
-            mMeshPool->DrawInstanced(mesh, 2);
+            // Get the indirect draw buffer from LODService
+            const auto drawCmdBuffer = mLODService->GetDrawCommandBufferRef();
+            const auto drawCount = mLODService->GetDrawCount();
+
+            // For MDI, we need to bind the correct mesh buffers first
+            // Then call drawIndexedIndirect for each mesh type
+
+            // Draw SpaceShips using indirect
+            mMaterialPool->Bind(mSpaceShipMaterial);
+            for (const auto& mesh : mSpaceShipModel)
+            {
+                mMeshPool->DrawIndirect(mesh, drawCmdBuffer, drawCount);
+            }
+
+            // Draw Sofas using indirect
+            mMaterialPool->Bind(mSofaMaterial);
+            for (const auto& mesh : mSofaModel)
+            {
+                mMeshPool->DrawIndirect(mesh, drawCmdBuffer, drawCount);
+            }
         }
-
-        // Draw Sofas (2 instances)
-        mMaterialPool->Bind(mSofaMaterial);
-        for (const auto& mesh : mSofaModel)
+        else
         {
-            mMeshPool->DrawInstanced(mesh, 2, 2);
+            // Fallback to traditional instanced rendering
+            // Draw SpaceShips (2 instances)
+            mMaterialPool->Bind(mSpaceShipMaterial);
+            for (const auto& mesh : mSpaceShipModel)
+            {
+                mMeshPool->DrawInstanced(mesh, 2);
+            }
+
+            // Draw Sofas (2 instances)
+            mMaterialPool->Bind(mSofaMaterial);
+            for (const auto& mesh : mSofaModel)
+            {
+mMeshPool->DrawInstanced(mesh, 2, 2);
+            }
         }
 
         mRenderer->EndFrame();

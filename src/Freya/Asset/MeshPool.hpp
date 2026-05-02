@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Asset/LODTypes.hpp"
 #include "Freya/Asset/Vertex.hpp"
 #include "Freya/Containers/MeshSet.hpp"
 #include "Freya/Core/Buffer.hpp"
@@ -49,6 +50,16 @@ namespace FREYA_NAMESPACE
         void DrawInstanced(std::uint32_t meshId,
                            size_t        instanceCount,
                            size_t        firstInstance = 0);
+
+        /**
+         * @brief Draws using indirect draw commands from a buffer.
+         * @param meshId        Mesh identifier (for vertex/index buffer binding)
+         * @param indirectBuffer Buffer containing DrawIndexedIndirectCommand entries
+         * @param drawCount     Number of draw commands to issue
+         */
+        void DrawIndirect(std::uint32_t       meshId,
+                          const Ref<Buffer>&  indirectBuffer,
+                          std::uint32_t       drawCount);
 
         /**
          * @brief Creates a mesh from CPU vertex/index data.

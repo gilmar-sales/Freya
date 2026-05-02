@@ -99,12 +99,23 @@ namespace FREYA_NAMESPACE
         void BindDescriptorSet(vk::CommandBuffer  cmd,
                                vk::PipelineLayout layout);
 
+        /**
+         * @brief Dispatches the LOD compute shader for the current frame.
+         * Must be called OUTSIDE render pass.
+         * @param frameIndex Current frame index
+         */
+        void Dispatch(std::uint32_t frameIndex);
+
         // === Configuration ===
 
         void SetGlobalDrawDistance(float distance);
         void SetLODDistance(std::uint32_t groupId,
                             std::uint32_t level,
                             float         distance);
+        void SetCameraPosition(const glm::vec3& position)
+        {
+            mPushConstants.cameraPosition = position;
+        }
 
         // === Accessors ===
 
@@ -128,6 +139,16 @@ namespace FREYA_NAMESPACE
         {
             return mMaxInstances;
         }
+        [[nodiscard]] std::uint32_t GetDrawCount() const
+        {
+            // This would be read from GPU in real implementation
+            // For now, return instance count as proxy
+            return mInstanceCount;
+        }
+        [[nodiscard]] Ref<Buffer> GetDrawCommandBufferRef() const
+        {
+            return mDrawCommandBuffer;
+        }
         [[nodiscard]] VkDescriptorSet GetDescriptorSet() const
         {
             return mLODDescriptorSet;
@@ -139,6 +160,7 @@ namespace FREYA_NAMESPACE
         void allocateDescriptorSet();
         void createComputePipeline();
         void createDitherTexture();
+        void createComputeCommandPool();
         void updateDrawCount(vk::CommandBuffer cmd);
         void updateMeshMetadata();
 
@@ -183,6 +205,9 @@ namespace FREYA_NAMESPACE
 
         // Dither texture
         Ref<Texture> mDitherTexture;
+
+        // Compute command pool for LOD dispatch (outside render pass)
+        Ref<CommandPool> mComputeCommandPool;
     };
 
 } // namespace FREYA_NAMESPACE

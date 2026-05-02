@@ -2,6 +2,7 @@
 #include "Freya/Asset/LODPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
+#include "Freya/Builders/CommandPoolBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
 #include "Freya/Core/Renderer.hpp"
 
@@ -40,6 +41,7 @@ namespace FREYA_NAMESPACE
         allocateDescriptorSet();
         createComputePipeline();
         createDitherTexture();
+        createComputeCommandPool();
         updateMeshMetadata();
 
         mLogger->LogInformation("LOD service initialized successfully");
@@ -489,6 +491,71 @@ namespace FREYA_NAMESPACE
                                1, &mLODDescriptorSet, 0, nullptr);
     }
 
+    void LODService::Dispatch(std::uint32_t frameIndex)
+    {
+        if (mInstanceCount == 0)
+        {
+            return;
+        }
+
+        // Get command buffer from the compute pool using round-robin
+        mComputeCommandPool->SetCommandBufferIndex(frameIndex);
+        auto& cmd = mComputeCommandPool->GetCommandBuffer();
+
+        // Reset command buffer
+        cmd.reset();
+
+        // Begin command buffer
+        const auto beginInfo =
+            vk::CommandBufferBeginInfo().setFlags(
+                vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+        cmd.begin(beginInfo);
+
+        // Update GPU data (upload instance, LOD levels, reset draw count)
+        UpdateGPUData(cmd, mPushConstants.cameraPosition);
+
+        // Bind compute pipeline
+        cmd.bindPipeline(vk::PipelineBindPoint::eCompute, mLODComputePipeline);
+
+        // Bind descriptor set at set 0
+        cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute,
+                                mLODComputePipelineLayout, 0, 1, &mLODDescriptorSet,
+                                0, nullptr);
+
+        // Push constants
+        cmd.pushConstants(mLODComputePipelineLayout,
+                          vk::ShaderStageFlagBits::eCompute, 0,
+                          sizeof(LODPushConstants), &mPushConstants);
+
+        // Dispatch compute shader to process instances
+        const std::uint32_t dispatchCount = (mInstanceCount + 255) / 256;
+        cmd.dispatch(dispatchCount, 1, 1);
+
+        // Memory barrier to ensure compute shader writes are visible to draw indirect
+        const vk::MemoryBarrier barrier(vk::AccessFlagBits::eShaderWrite,
+                                        vk::AccessFlagBits::eIndirectCommandRead |
+                                            vk::AccessFlagBits::eVertexAttributeRead);
+
+        cmd.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader,
+                            vk::PipelineStageFlagBits::eDrawIndirect |
+                                vk::PipelineStageFlagBits::eVertexInput,
+                            vk::DependencyFlagBits::eByRegion, barrier, nullptr,
+                            nullptr);
+
+        // End command buffer
+        cmd.end();
+
+        // Submit to graphics queue (most GPUs support compute on graphics queue)
+        const auto submitInfo =
+            vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(&cmd);
+
+        mDevice->GetGraphicsQueue().submit(submitInfo);
+        mDevice->GetGraphicsQueue().waitIdle();
+
+        mLogger->LogTrace("LOD compute dispatched for frame {} ({} instances)",
+                          frameIndex, mInstanceCount);
+    }
+
     void LODService::SetGlobalDrawDistance(float distance)
     {
         mPushConstants.globalDrawDistance = distance * distance;
@@ -512,6 +579,20 @@ namespace FREYA_NAMESPACE
 
         mTransformBuffer->Copy(
             &transform, sizeof(glm::mat4), transformIndex * sizeof(glm::mat4));
+    }
+
+    void LODService::createComputeCommandPool()
+    {
+        // Create a dedicated command pool for compute work
+        // The builder already pre-allocates command buffers based on frameCount
+        mComputeCommandPool =
+            mServiceProvider->GetService<CommandPoolBuilder>()
+                ->SetCount(mFreyaOptions->frameCount)
+                .Build();
+
+        mLogger->LogInformation(
+            "Created compute command pool with {} buffers",
+            mFreyaOptions->frameCount);
     }
 
     void LODService::updateMeshMetadata()
