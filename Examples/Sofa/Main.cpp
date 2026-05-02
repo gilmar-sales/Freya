@@ -1,11 +1,11 @@
 #include <Freya/Freya.hpp>
 
-constexpr std::uint32_t CountPerRow  = 300;
+constexpr std::uint32_t CountPerRow  = 2000;
 constexpr std::uint32_t TotalObjects = CountPerRow * 2; // 40
 
 constexpr auto yPos     = -4.0f;
 constexpr auto initialZ = 4.0f;
-constexpr auto xPosStep = 12.0f;
+constexpr auto xPosStep = 5.0f;
 
 class MainApp final : public fra::AbstractApplication
 {
@@ -103,7 +103,7 @@ class MainApp final : public fra::AbstractApplication
                 // clustering decimation directly in MeshPool
                 const auto lod0 = meshId;
                 const auto lod1 =
-                    mMeshPool->CreateSimplifiedMesh(meshId, 0.30f);
+                    mMeshPool->CreateSimplifiedMesh(meshId, 0.50f);
                 const auto lod2 =
                     mMeshPool->CreateSimplifiedMesh(meshId, 0.75f);
                 const auto lod3 =
