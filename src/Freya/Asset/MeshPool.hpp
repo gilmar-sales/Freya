@@ -8,6 +8,7 @@
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
 
+#include <unordered_map>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
@@ -76,6 +77,23 @@ namespace FREYA_NAMESPACE
          * @return Vector of mesh IDs created from the file
          */
         std::vector<std::uint32_t> CreateMeshFromFile(const std::string& path);
+
+        /**
+         * @brief Creates a simplified decimated version of an existing mesh.
+         *
+         * Uses vertex-clustering decimation to produce a lower-polygon
+         * approximation.  The CPU-side source data stored during the
+         * original CreateMesh call is simplified and uploaded as a new
+         * mesh.  The original mesh is unchanged.
+         *
+         * @param sourceMeshId  Mesh ID of the full-detail original
+         * @param reduction     Fraction of triangles to remove (0.0 = none,
+         *                      1.0 = remove everything)
+         * @return New mesh ID for the simplified version, or UINT32_MAX on
+         *         failure
+         */
+        std::uint32_t CreateSimplifiedMesh(std::uint32_t sourceMeshId,
+                                           float         reduction);
 
       protected:
         /**
@@ -205,6 +223,14 @@ namespace FREYA_NAMESPACE
         }
 
       private:
+        /**
+         * @brief CPU-side copy of vertex/index data for mesh simplification.
+         */
+        struct SourceData {
+            std::vector<Vertex>    vertices;
+            std::vector<uint16_t>  indices;
+        };
+
         Ref<Device>                mDevice;
         Ref<PhysicalDevice>        mPhysicalDevice;
         Ref<CommandPool>           mCommandPool;
@@ -217,6 +243,9 @@ namespace FREYA_NAMESPACE
         std::vector<Ref<Buffer>>   mIndexBuffers;
         std::vector<std::uint32_t> mIndexBuffersOffsets;
         MeshSet                    mMeshes;
+
+        /// CPU-side vertex data kept for mesh simplification
+        std::unordered_map<std::uint32_t, SourceData> mMeshSourceData;
     };
 
 } // namespace FREYA_NAMESPACE

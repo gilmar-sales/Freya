@@ -1,6 +1,9 @@
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 
+#include <glm/glm.hpp>
+#include <unordered_map>
+
 namespace FREYA_NAMESPACE
 {
     constexpr auto MegaBytes           = 1024 * 1024;
@@ -182,6 +185,9 @@ namespace FREYA_NAMESPACE
 
         mMeshes.insert(mesh);
 
+        // Keep a CPU-side copy so CreateSimplifiedMesh can decimate it
+        mMeshSourceData[mesh.id] = { vertices, indices };
+
         vertexBufferOffset += vertexMemorySize;
         indexBufferOffset += indexMemorySize;
 
@@ -216,6 +222,185 @@ namespace FREYA_NAMESPACE
         processNode(meshes, scene->mRootNode, scene);
 
         return meshes;
+    }
+
+    std::uint32_t MeshPool::CreateSimplifiedMesh(
+        const std::uint32_t sourceMeshId, const float reduction)
+    {
+        // Clamp and validate
+        const float r = std::clamp(reduction, 0.0f, 0.99f);
+        if (r < 0.001f)
+        {
+            // No reduction requested — return the original mesh
+            return sourceMeshId;
+        }
+
+        const auto it = mMeshSourceData.find(sourceMeshId);
+        if (it == mMeshSourceData.end())
+        {
+            mLogger->LogError(
+                "CreateSimplifiedMesh: source mesh {} not found",
+                sourceMeshId);
+            return std::numeric_limits<std::uint32_t>::max();
+        }
+
+        const auto& src     = it->second;
+        const auto& srcVerts = src.vertices;
+        const auto& srcIdx   = src.indices;
+
+        if (srcVerts.empty() || srcIdx.empty())
+        {
+            mLogger->LogError(
+                "CreateSimplifiedMesh: source mesh {} has no data",
+                sourceMeshId);
+            return std::numeric_limits<std::uint32_t>::max();
+        }
+
+        // ---------------------------------------------------------------
+        //  Vertex clustering
+        // ---------------------------------------------------------------
+        // 1. Compute bounding box
+        glm::vec3 bmin = srcVerts[0].position;
+        glm::vec3 bmax = srcVerts[0].position;
+        for (const auto& v : srcVerts)
+        {
+            bmin = glm::min(bmin, v.position);
+            bmax = glm::max(bmax, v.position);
+        }
+
+        const glm::vec3 extent   = bmax - bmin;
+        const float maxExtent =
+            glm::max(extent.x, glm::max(extent.y, extent.z));
+        if (maxExtent < 0.001f)
+        {
+            return sourceMeshId;
+        }
+
+        // Grid resolution: more reduction → coarser grid
+        // At r=0.5 → 16 divisions, at r=0.9 → 3 divisions
+        const int gridDivs =
+            std::max(1, static_cast<int>(32.0f * (1.0f - r)));
+
+        const glm::vec3 cellSize = extent / static_cast<float>(gridDivs);
+
+        // 2. Assign each vertex to a cluster
+        struct Cluster {
+            glm::vec3 posSum  = glm::vec3(0.0f);
+            glm::vec3 colSum  = glm::vec3(0.0f);
+            glm::vec3 nrmSum  = glm::vec3(0.0f);
+            glm::vec3 tanSum  = glm::vec3(0.0f);
+            glm::vec2 uvSum   = glm::vec2(0.0f);
+            std::uint32_t cnt = 0;
+        };
+
+        // key = packed grid coordinate → cluster index
+        std::unordered_map<std::uint64_t, std::uint32_t> clusterMap;
+        std::vector<Cluster> clusters;
+        clusters.reserve(srcVerts.size());
+
+        // Per-vertex cluster index (0 = not clustered, -1 = no cluster)
+        std::vector<std::uint32_t> vertCluster(srcVerts.size(), 0xFFFFFFFFu);
+
+        for (std::size_t i = 0; i < srcVerts.size(); ++i)
+        {
+            const auto& pos = srcVerts[i].position;
+
+            // Compute grid cell coordinate
+            const int gx = static_cast<int>(
+                (pos.x - bmin.x) / cellSize.x);
+            const int gy = static_cast<int>(
+                (pos.y - bmin.y) / cellSize.y);
+            const int gz = static_cast<int>(
+                (pos.z - bmin.z) / cellSize.z);
+
+            // Pack into 64-bit key (21 bits per axis)
+            const auto key = (static_cast<std::uint64_t>(
+                                  static_cast<std::uint32_t>(gx) & 0x1FFFFFu)
+                              << 42) |
+                             (static_cast<std::uint64_t>(
+                                  static_cast<std::uint32_t>(gy) & 0x1FFFFFu)
+                              << 21) |
+                             (static_cast<std::uint64_t>(
+                                  static_cast<std::uint32_t>(gz) & 0x1FFFFFu));
+
+            auto [itCluster, inserted] =
+                clusterMap.try_emplace(key, clusters.size());
+            if (inserted)
+            {
+                clusters.emplace_back();
+            }
+
+            const auto clusterIdx = itCluster->second;
+            vertCluster[i]        = clusterIdx;
+
+            auto& cl = clusters[clusterIdx];
+            cl.posSum += pos;
+            cl.colSum += srcVerts[i].color;
+            cl.nrmSum += srcVerts[i].normal;
+            cl.tanSum += srcVerts[i].tangent;
+            cl.uvSum  += srcVerts[i].texCoord;
+            cl.cnt++;
+        }
+
+        mLogger->LogTrace(
+            "Vertex clustering: {} verts → {} clusters (grid {}³)",
+            srcVerts.size(), clusters.size(), gridDivs);
+
+        // 3. Build representative vertices (one per cluster)
+        std::vector<Vertex> newVerts;
+        newVerts.reserve(clusters.size());
+        for (const auto& cl : clusters)
+        {
+            const float inv = 1.0f / static_cast<float>(cl.cnt);
+            Vertex v;
+            v.position = cl.posSum * inv;
+            v.color    = cl.colSum * inv;
+            v.normal   = glm::normalize(cl.nrmSum * inv);
+            v.tangent  = glm::normalize(cl.tanSum * inv);
+            v.texCoord = cl.uvSum * inv;
+            newVerts.push_back(v);
+        }
+
+        // 4. Rebuild faces, skipping degenerates
+        std::vector<std::uint16_t> newIdx;
+        newIdx.reserve(srcIdx.size()); // pessimistic
+
+        const std::uint32_t triCount =
+            static_cast<std::uint32_t>(srcIdx.size() / 3);
+        for (std::uint32_t t = 0; t < triCount; ++t)
+        {
+            const auto i0 = vertCluster[srcIdx[t * 3 + 0]];
+            const auto i1 = vertCluster[srcIdx[t * 3 + 1]];
+            const auto i2 = vertCluster[srcIdx[t * 3 + 2]];
+
+            // Skip degenerate triangles (two or more verts in same cluster)
+            if (i0 == i1 || i1 == i2 || i0 == i2)
+                continue;
+
+            newIdx.push_back(static_cast<std::uint16_t>(i0));
+            newIdx.push_back(static_cast<std::uint16_t>(i1));
+            newIdx.push_back(static_cast<std::uint16_t>(i2));
+        }
+
+        mLogger->LogInformation(
+            "Simplified mesh {}: {} verts, {} tris → {} verts, {} tris "
+            "(reduction {:.0f}%)",
+            sourceMeshId,
+            srcVerts.size(), srcIdx.size() / 3,
+            newVerts.size(), newIdx.size() / 3,
+            r * 100.0f);
+
+        if (newIdx.empty())
+        {
+            mLogger->LogError(
+                "CreateSimplifiedMesh: simplification produced no triangles "
+                "for mesh {}",
+                sourceMeshId);
+            return std::numeric_limits<std::uint32_t>::max();
+        }
+
+        // 5. Upload as a new mesh
+        return CreateMesh(newVerts, newIdx);
     }
 
     std::uint32_t MeshPool::createVertexBuffer(const std::uint32_t size)
