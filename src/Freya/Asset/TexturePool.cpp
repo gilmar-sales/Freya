@@ -72,7 +72,9 @@ namespace FREYA_NAMESPACE
 
         stbi_image_free(imageData);
 
-        constexpr auto samplerCreateInfo =
+        const auto mipLevels = image->GetMipLevels();
+
+        const auto samplerCreateInfo =
             vk::SamplerCreateInfo()
                 .setMagFilter(vk::Filter::eLinear)
                 .setMinFilter(vk::Filter::eLinear)
@@ -84,7 +86,7 @@ namespace FREYA_NAMESPACE
                 .setMipmapMode(vk::SamplerMipmapMode::eLinear)
                 .setMipLodBias(0.0f)
                 .setMinLod(0.0f)
-                .setMaxLod(0.0f)
+                .setMaxLod(static_cast<float>(mipLevels))
                 .setAnisotropyEnable(true)
                 .setMaxAnisotropy(16);
 

@@ -23,9 +23,10 @@ namespace FREYA_NAMESPACE
               const vk::Image        image,
               const vk::ImageView    imageView,
               const vk::DeviceMemory memory,
-              const vk::Format       format) :
+              const vk::Format       format,
+              const std::uint32_t    mipLevels = 1) :
             mDevice(device), mImage(image), mImageView(imageView),
-            mMemory(memory), mFormat(format)
+            mMemory(memory), mFormat(format), mMipLevels(mipLevels)
         {
         }
 
@@ -51,6 +52,8 @@ namespace FREYA_NAMESPACE
          */
         vk::Format& GetFormat() { return mFormat; }
 
+        std::uint32_t GetMipLevels() const { return mMipLevels; }
+
       private:
         Ref<Device> mDevice;
 
@@ -58,6 +61,7 @@ namespace FREYA_NAMESPACE
         vk::ImageView    mImageView;
         vk::DeviceMemory mMemory;
         vk::Format       mFormat;
+        std::uint32_t    mMipLevels;
     };
 
 }; // namespace FREYA_NAMESPACE

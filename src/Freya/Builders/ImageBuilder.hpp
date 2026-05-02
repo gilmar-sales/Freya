@@ -52,7 +52,7 @@ namespace FREYA_NAMESPACE
             mServiceProvider(serviceProvider), mUsage(ImageUsage::Texture),
             mFormat(vk::Format::eUndefined),
             mSamples(vk::SampleCountFlagBits::e1), mWidth(1024), mHeight(1024),
-            mChannels(0), mData(nullptr)
+            mChannels(0), mMipLevels(1), mData(nullptr)
         {
         }
 
@@ -166,7 +166,9 @@ namespace FREYA_NAMESPACE
          */
         void transitionLayout(const Ref<CommandPool>& commandPool,
                               vk::Image image, vk::ImageLayout oldLayout,
-                              vk::ImageLayout newLayout) const;
+                              vk::ImageLayout newLayout,
+                              std::uint32_t baseMipLevel = 0,
+                              std::uint32_t levelCount = VK_REMAINING_MIP_LEVELS) const;
 
       private:
         Ref<skr::Logger<ImageBuilder>> mLogger;  ///< Logger reference
@@ -183,6 +185,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t           mWidth;    ///< Image width
         std::uint32_t           mHeight;   ///< Image height
         std::uint32_t           mChannels; ///< Channel count
+        std::uint32_t           mMipLevels; ///< Number of mip levels
         void*                   mData;     ///< Raw image data
     };
 

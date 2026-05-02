@@ -10,6 +10,7 @@ namespace FREYA_NAMESPACE
      */
     Buffer::~Buffer()
     {
+        mDevice->Get().waitIdle();
         mDevice->Get().destroyBuffer(mBuffer);
         mDevice->Get().freeMemory(mMemory);
     }
