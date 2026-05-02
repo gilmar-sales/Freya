@@ -371,16 +371,21 @@ namespace FREYA_NAMESPACE
 
         const std::uint32_t instanceId = mInstanceCount++;
 
+        // Store the flat-array offset for this group, NOT the group index.
+        // The compute shader uses meshGroupId as the starting index into the
+        // flat LOD level array (see LODSelection.comp selectLOD function).
+        const std::uint32_t groupOffset = mLODPool->GetGroupOffset(groupId);
+
         LODInstanceData data;
-        data.meshGroupId    = groupId;
+        data.meshGroupId    = groupOffset;
         data.currentLOD     = 0;
         data.transformIndex = transformIndex;
         data.padding        = 0;
 
         mInstances[instanceId] = data;
 
-        mLogger->LogTrace("Added instance {} (group={}, transform={})",
-                          instanceId, groupId, transformIndex);
+        mLogger->LogTrace("Added instance {} (group={}, offset={}, transform={})",
+                          instanceId, groupId, groupOffset, transformIndex);
 
         return instanceId;
     }
@@ -625,9 +630,10 @@ void LODService::updateMeshMetadata()
         mMeshPool->ForEachMesh([&meshMetadata](std::uint32_t meshId, const Mesh& mesh) {
             meshMetadata[meshId] = MeshMetadata {
                 .indexCount   = mesh.indexCount,
-                .firstIndex   = mesh.indexBufferOffset / static_cast<unsigned>(sizeof(std::uint16_t)),
-                // vertexOffset must be actual byte offset for GPU access
-                .vertexOffset = static_cast<std::int32_t>(mesh.vertexBufferOffset),
+                .firstIndex   = static_cast<std::uint32_t>(mesh.indexBufferOffset / sizeof(std::uint16_t)),
+                // vertexOffset is in vertex-index units, matching VkDrawIndexedIndirectCommand.
+                // Divide byte-offset by vertex stride to get the correct vertex index.
+                .vertexOffset = static_cast<std::int32_t>(mesh.vertexBufferOffset / sizeof(Vertex)),
                 .padding      = 0
             };
         });

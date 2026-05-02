@@ -200,28 +200,36 @@ class MainApp final : public fra::AbstractApplication
 mRenderer->BindBuffer(mInstanceMatrixBuffers);
 
         // Draw using MDI (Multi-Draw Indirect) via LODService
-        // The compute shader generates draw commands, we execute them here
+        // The compute shader generates draw commands, we execute them here.
+        //
+        // The draw commands contain absolute buffer offsets (vertexOffset in
+        // vertex-index units, firstIndex in index units), so we bind the
+        // shared vertex/index buffer at offset 0. A single DrawIndirect call
+        // executes all LOD-selected draws for all instances.
+        //
+        // Note: When instances use different materials, we need to issue
+        // separate DrawIndirect calls per material (each re-executes the
+        // same draw commands with the active material). A production system
+        // would encode material in the draw command or sort by material.
         if (mLODService && mLODService->GetInstanceCount() > 0)
         {
-            // Get the indirect draw buffer from LODService
             const auto drawCmdBuffer = mLODService->GetDrawCommandBufferRef();
             const auto drawCount = mLODService->GetDrawCount();
 
-            // For MDI, we need to bind the correct mesh buffers first
-            // Then call drawIndexedIndirect for each mesh type
-
-            // Draw SpaceShips using indirect
+            // Draw with spaceship material
             mMaterialPool->Bind(mSpaceShipMaterial);
-            for (const auto& mesh : mSpaceShipModel)
+            if (!mSpaceShipModel.empty())
             {
-                mMeshPool->DrawIndirect(mesh, drawCmdBuffer, drawCount);
+                mMeshPool->DrawIndirect(mSpaceShipModel[0], drawCmdBuffer,
+                                        drawCount);
             }
 
-            // Draw Sofas using indirect
+            // Draw with sofa material
             mMaterialPool->Bind(mSofaMaterial);
-            for (const auto& mesh : mSofaModel)
+            if (!mSofaModel.empty())
             {
-                mMeshPool->DrawIndirect(mesh, drawCmdBuffer, drawCount);
+                mMeshPool->DrawIndirect(mSofaModel[0], drawCmdBuffer,
+                                        drawCount);
             }
         }
         else

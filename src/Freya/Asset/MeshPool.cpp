@@ -88,20 +88,21 @@ namespace FREYA_NAMESPACE
         {
             auto& mesh = mMeshes[meshId];
 
+            // Bind vertex buffer at offset 0 — the draw commands contain
+            // absolute offsets (vertexOffset in vertex-index units, firstIndex
+            // in index units) that reference the buffer from its start.
+            // This is required for Multi-Draw Indirect (MDI) where a single
+            // call executes draw commands for potentially different meshes
+            // all stored within the same buffer object.
             const auto& vertexBuffer = mVertexBuffers[mesh.vertexBufferIndex];
-            const auto  vertexOffset =
-                static_cast<vk::DeviceSize>(mesh.vertexBufferOffset);
-
+            constexpr auto zeroOffset = vk::DeviceSize(0);
             mCommandPool->GetCommandBuffer()
-                .bindVertexBuffers(0, 1, &vertexBuffer->Get(), &vertexOffset);
+                .bindVertexBuffers(0, 1, &vertexBuffer->Get(), &zeroOffset);
 
             const auto& indexBuffer = mIndexBuffers[mesh.indexBufferIndex];
-            const auto  indexOffset =
-                static_cast<vk::DeviceSize>(mesh.indexBufferOffset);
-
             mCommandPool->GetCommandBuffer().bindIndexBuffer(
                 indexBuffer->Get(),
-                indexOffset,
+                vk::DeviceSize(0),
                 vk::IndexType::eUint16);
 
             mCommandPool->GetCommandBuffer().drawIndexedIndirect(
@@ -271,8 +272,8 @@ namespace FREYA_NAMESPACE
     {
         for (auto index = 0; index < mIndexBuffers.size(); index++)
         {
-            if (mVertexBuffers[index]->GetSize() -
-                    mVertexBuffersOffsets[index] >=
+            if (mIndexBuffers[index]->GetSize() -
+                    mIndexBuffersOffsets[index] >=
                 size)
             {
                 return index;

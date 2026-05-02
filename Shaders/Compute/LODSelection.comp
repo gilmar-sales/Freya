@@ -177,11 +177,11 @@ void main() {
 
     // --- Write indirect draw command ---
     uint cmdOffset = drawIndex * 5;
-    drawCommands[cmdOffset + 0] = meshMeta.indexCount;      // indexCount
-    drawCommands[cmdOffset + 1] = 1;                        // instanceCount
-    drawCommands[cmdOffset + 2] = meshMeta.firstIndex;      // firstIndex
-    drawCommands[cmdOffset + 3] = meshMeta.vertexOffset;     // vertexOffset
-    drawCommands[cmdOffset + 4] = drawIndex;                 // firstInstance
+    drawCommands[cmdOffset + 0] = meshMeta.indexCount;          // indexCount
+    drawCommands[cmdOffset + 1] = 1;                            // instanceCount
+    drawCommands[cmdOffset + 2] = meshMeta.firstIndex;          // firstIndex
+    drawCommands[cmdOffset + 3] = meshMeta.vertexOffset;        // vertexOffset
+    drawCommands[cmdOffset + 4] = instance.transformIndex;      // firstInstance — matches instance matrix buffer index
 
     // Store visible instance index for debugging
     visibleInstances[drawIndex] = instanceId;
