@@ -293,19 +293,59 @@ namespace FREYA_NAMESPACE
             std::uint32_t cnt = 0;
         };
 
-        // key = packed grid coordinate → cluster index
-        std::unordered_map<std::uint64_t, std::uint32_t> clusterMap;
+        // UV quantisation resolution (how many cells across the [0,1] UV
+        // domain).  Using the same resolution as the position grid ensures
+        // vertices separated by a sharp UV seam land in distinct clusters
+        // even when their positions are nearly identical.
+        const int uvGridDivs = std::max(1, gridDivs * 2);
+
+        // Cluster key: {gx, gy, gz, gu, gv}
+        struct ClusterKey {
+            std::int32_t gx, gy, gz, gu, gv;
+
+            bool operator==(const ClusterKey& o) const
+            {
+                return gx == o.gx && gy == o.gy && gz == o.gz &&
+                       gu == o.gu && gv == o.gv;
+            }
+        };
+
+        struct ClusterKeyHash {
+            std::size_t operator()(const ClusterKey& k) const
+            {
+                // Pack into 64-bit:
+                //   gx:14, gy:14, gz:14, gu:11, gv:11 = 64
+                return static_cast<std::size_t>(
+                    (static_cast<std::uint64_t>(
+                         static_cast<std::uint32_t>(k.gx) & 0x3FFFu)
+                     << 50) |
+                    (static_cast<std::uint64_t>(
+                         static_cast<std::uint32_t>(k.gy) & 0x3FFFu)
+                     << 36) |
+                    (static_cast<std::uint64_t>(
+                         static_cast<std::uint32_t>(k.gz) & 0x3FFFu)
+                     << 22) |
+                    (static_cast<std::uint64_t>(
+                         static_cast<std::uint32_t>(k.gu) & 0x7FFu)
+                     << 11) |
+                    static_cast<std::uint64_t>(
+                        static_cast<std::uint32_t>(k.gv) & 0x7FFu));
+            }
+        };
+
+        std::unordered_map<ClusterKey, std::uint32_t, ClusterKeyHash>
+            clusterMap;
         std::vector<Cluster> clusters;
         clusters.reserve(srcVerts.size());
 
-        // Per-vertex cluster index (0 = not clustered, -1 = no cluster)
+        // Per-vertex cluster index
         std::vector<std::uint32_t> vertCluster(srcVerts.size(), 0xFFFFFFFFu);
 
         for (std::size_t i = 0; i < srcVerts.size(); ++i)
         {
             const auto& pos = srcVerts[i].position;
 
-            // Compute grid cell coordinate
+            // Compute grid cell coordinate (position)
             const int gx = static_cast<int>(
                 (pos.x - bmin.x) / cellSize.x);
             const int gy = static_cast<int>(
@@ -313,15 +353,13 @@ namespace FREYA_NAMESPACE
             const int gz = static_cast<int>(
                 (pos.z - bmin.z) / cellSize.z);
 
-            // Pack into 64-bit key (21 bits per axis)
-            const auto key = (static_cast<std::uint64_t>(
-                                  static_cast<std::uint32_t>(gx) & 0x1FFFFFu)
-                              << 42) |
-                             (static_cast<std::uint64_t>(
-                                  static_cast<std::uint32_t>(gy) & 0x1FFFFFu)
-                              << 21) |
-                             (static_cast<std::uint64_t>(
-                                  static_cast<std::uint32_t>(gz) & 0x1FFFFFu));
+            // Compute grid cell coordinate (UV)
+            const int gu = static_cast<int>(
+                srcVerts[i].texCoord.x * uvGridDivs);
+            const int gv = static_cast<int>(
+                srcVerts[i].texCoord.y * uvGridDivs);
+
+            const ClusterKey key { gx, gy, gz, gu, gv };
 
             auto [itCluster, inserted] =
                 clusterMap.try_emplace(key, clusters.size());
