@@ -1,5 +1,12 @@
 #include <Freya/Freya.hpp>
 
+constexpr std::uint32_t CountPerRow  = 100;
+constexpr std::uint32_t TotalObjects = CountPerRow * 2; // 40
+
+constexpr auto yPos     = -4.0f;
+constexpr auto initialZ = 4.0f;
+constexpr auto xPosStep = 12.0f;
+
 class MainApp final : public fra::AbstractApplication
 {
   public:
@@ -21,28 +28,22 @@ class MainApp final : public fra::AbstractApplication
         // Two parallel queues extending into the distance, 10 objects each.
         // Each queue steps 10 units further back so the LOD system selects
         // progressively lower detail levels.
-        constexpr std::uint32_t CountPerRow  = 10;
-        constexpr std::uint32_t TotalObjects = CountPerRow * 2; // 20
 
         mModelMatrix.resize(TotalObjects);
-
-        constexpr auto yPos     = -5.0f;
-        constexpr auto initialX = 5.0f;
-        constexpr auto xPosStep = 10.0f;
         for (std::uint32_t i = 0; i < CountPerRow; ++i)
         {
-            // Spaceship queue (transforms 0..9): left side
-            const float zPos = initialX + static_cast<float>(i) * xPosStep;
+            // Spaceship queue (transforms 0..19): left side
+            const float zPos = initialZ + static_cast<float>(i) * xPosStep;
             mModelMatrix[i]  = glm::scale(
-                glm::translate(glm::mat4(1), glm::vec3(-3, yPos, zPos)),
+                glm::translate(glm::mat4(1), glm::vec3(-4.0f, yPos, zPos)),
                 glm::vec3(0.3f));
         }
         for (std::uint32_t i = 0; i < CountPerRow; ++i)
         {
-            // Sofa queue (transforms 10..19): right side
-            const float zPos = initialX + static_cast<float>(i) * xPosStep;
+            // Sofa queue (transforms 20..39): right side
+            const float zPos = initialZ + static_cast<float>(i) * xPosStep;
             mModelMatrix[i + CountPerRow] = glm::scale(
-                glm::translate(glm::mat4(1), glm::vec3(3, yPos, zPos)),
+                glm::translate(glm::mat4(1), glm::vec3(4.0f, yPos, zPos)),
                 glm::vec3(2.0f));
         }
 
@@ -92,7 +93,7 @@ class MainApp final : public fra::AbstractApplication
         // Create LOD groups for SpaceShip
         if (!mSpaceShipModel.empty())
         {
-            std::vector<float> lodDistances = { 0.0f, 10.0f, 150.0f, 400.0f };
+            std::vector<float> lodDistances = { 0.0f, 50.0f, 150.0f, 400.0f };
 
             for (std::uint32_t i = 0; i < mSpaceShipModel.size(); ++i)
             {
@@ -102,7 +103,7 @@ class MainApp final : public fra::AbstractApplication
                 // clustering decimation directly in MeshPool
                 const auto lod0 = meshId;
                 const auto lod1 =
-                    mMeshPool->CreateSimplifiedMesh(meshId, 0.90f);
+                    mMeshPool->CreateSimplifiedMesh(meshId, 0.30f);
                 const auto lod2 =
                     mMeshPool->CreateSimplifiedMesh(meshId, 0.75f);
                 const auto lod3 =
@@ -120,7 +121,7 @@ class MainApp final : public fra::AbstractApplication
         // Create LOD groups for Sofa
         if (!mSofaModel.empty())
         {
-            std::vector<float> lodDistances = { 0.0f, 10.0f, 80.0f, 200.0f };
+            std::vector<float> lodDistances = { 0.0f, 50.0f, 80.0f, 200.0f };
 
             for (std::uint32_t i = 0; i < mSofaModel.size(); ++i)
             {
@@ -129,7 +130,7 @@ class MainApp final : public fra::AbstractApplication
                 // Sofa has fewer triangles, so use gentler reductions
                 const auto lod0 = meshId;
                 const auto lod1 =
-                    mMeshPool->CreateSimplifiedMesh(meshId, 0.90f);
+                    mMeshPool->CreateSimplifiedMesh(meshId, 0.30f);
                 const auto lod2 =
                     mMeshPool->CreateSimplifiedMesh(meshId, 0.55f);
                 const auto lod3 =
@@ -144,21 +145,22 @@ class MainApp final : public fra::AbstractApplication
                                     mSofaLODGroups.size());
         }
 
-        // Simplified meshes were created after the initial RefreshMeshMetadata()
-        // call, so re-populate the GPU metadata buffer so the compute shader
-        // finds valid indexCount/firstIndex/vertexOffset for every mesh.
+        // Simplified meshes were created after the initial
+        // RefreshMeshMetadata() call, so re-populate the GPU metadata buffer so
+        // the compute shader finds valid indexCount/firstIndex/vertexOffset for
+        // every mesh.
         mLODService->RefreshMeshMetadata();
 
-        // Add LOD instances: 10 spaceships (transforms 0..9) and 10 sofas
+        // Add LOD instances: 20 spaceships (transforms 0..9) and 10 sofas
         // (transforms 10..19).
-        for (std::uint32_t idx = 0; idx < 10; ++idx)
+        for (std::uint32_t idx = 0; idx < CountPerRow; ++idx)
         {
             for (const auto groupId : mSpaceShipLODGroups)
                 mSpaceShipInstanceIds.push_back(
                     mLODService->AddInstance(groupId, idx, mSpaceShipMaterial));
             for (const auto groupId : mSofaLODGroups)
-                mSofaInstanceIds.push_back(
-                    mLODService->AddInstance(groupId, idx + 10, mSofaMaterial));
+                mSofaInstanceIds.push_back(mLODService->AddInstance(
+                    groupId, idx + CountPerRow, mSofaMaterial));
         }
 
         // Upload all initial transforms so the first Dispatch has valid data
@@ -306,7 +308,7 @@ int main(int argc, const char** argv)
                         .SetSampleCount(8)
                         .SetFullscreen(false)
                         .SetDrawDistance(1000.0f)
-                        .SetLODDistances({ 0.0f, 10.0f, 150.0f, 400.0f })
+                        .SetLODDistances({ 0.0f, 50.0f, 150.0f, 400.0f })
                         .SetMaxLODLevels(4)
                         .SetUseDitherFade(true);
                 });
