@@ -135,6 +135,15 @@ namespace FREYA_NAMESPACE
         mCurrentProjection = projectionUniformBuffer;
     }
 
+    void Renderer::UpdateCamera(const glm::vec3& position,
+                                const glm::vec3& target,
+                                const glm::vec3& up)
+    {
+        auto projectionUniformBuffer = mCurrentProjection;
+        projectionUniformBuffer.view = glm::lookAt(position, target, up);
+        UpdateProjection(projectionUniformBuffer);
+    }
+
     void Renderer::UpdateModel(const glm::mat4& model) const
     {
         mCommandPool->GetCommandBuffer().pushConstants(

@@ -175,6 +175,21 @@ namespace FREYA_NAMESPACE
         void UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer);
 
         /**
+         * @brief Updates the camera view in the projection uniform buffer.
+         *
+         * Computes a view matrix from the camera position, target point,
+         * and up vector using glm::lookAt. Preserves the current projection
+         * matrix and ambient light settings.
+         *
+         * @param position Camera position in world space
+         * @param target   Point the camera is looking at in world space
+         * @param up       Up direction vector (typically {0,1,0})
+         */
+        void UpdateCamera(const glm::vec3& position,
+                          const glm::vec3& target,
+                          const glm::vec3& up);
+
+        /**
          * @brief Pushes model matrix as push constant to command buffer.
          * @param model 4x4 model transformation matrix
          */

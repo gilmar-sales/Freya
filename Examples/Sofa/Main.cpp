@@ -1,5 +1,7 @@
 #include <Freya/Freya.hpp>
 
+#include <cmath>
+
 class MainApp final : public fra::AbstractApplication
 {
   public:
@@ -61,22 +63,15 @@ class MainApp final : public fra::AbstractApplication
     {
         mCurrentTime += mWindow->GetDeltaTime();
 
-        mModelMatrix[0] = glm::rotate(
-            mModelMatrix[0], glm::radians(15.0f * mWindow->GetDeltaTime()),
-            glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
-        mModelMatrix[1] = glm::rotate(
-            mModelMatrix[1], glm::radians(15.0f * mWindow->GetDeltaTime()),
-            glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
-
-        mModelMatrix[2] = glm::rotate(
-            mModelMatrix[2], glm::radians(15.0f * mWindow->GetDeltaTime()),
-            glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
-
-        mModelMatrix[3] = glm::rotate(
-            mModelMatrix[3], glm::radians(15.0f * mWindow->GetDeltaTime()),
-            glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
-
         mRenderer->BeginFrame();
+
+        // Orbit camera around the origin
+        constexpr float radius = 15.0f;
+        constexpr float speed  = 0.3f;
+        const glm::vec3 position(radius * std::cos(speed * mCurrentTime), 2.0f,
+                                 radius * std::sin(speed * mCurrentTime));
+        mRenderer->UpdateCamera(
+            position, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f });
 
         if (mInstanceMatrixBuffers == nullptr)
             mInstanceMatrixBuffers =
