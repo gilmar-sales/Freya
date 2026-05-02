@@ -16,7 +16,8 @@ namespace FREYA_NAMESPACE
         Uniform,  ///< Uniform buffer (device local)
         Instance, ///< Instance buffer (device local)
         Image,    ///< Image buffer
-        Storage   ///< Storage buffer
+        Storage,  ///< Storage buffer
+        Indirect  ///< Indirect draw buffer (for MDI)
     };
 
     /**

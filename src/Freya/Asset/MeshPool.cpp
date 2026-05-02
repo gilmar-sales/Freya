@@ -80,9 +80,9 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void MeshPool::DrawIndirect(std::uint32_t       meshId,
-                                const Ref<Buffer>&  indirectBuffer,
-                                std::uint32_t       drawCount)
+    void MeshPool::DrawIndirect(std::uint32_t      meshId,
+                                const Ref<Buffer>& indirectBuffer,
+                                std::uint32_t      drawCount)
     {
         if (mMeshes.contains(meshId))
         {
@@ -105,7 +105,10 @@ namespace FREYA_NAMESPACE
                 vk::IndexType::eUint16);
 
             mCommandPool->GetCommandBuffer().drawIndexedIndirect(
-                indirectBuffer->Get(), 0, drawCount, sizeof(DrawIndexedIndirectCommand));
+                indirectBuffer->Get(),
+                0,
+                drawCount,
+                sizeof(DrawIndexedIndirectCommand));
         }
     }
 

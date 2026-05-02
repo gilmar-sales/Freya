@@ -79,13 +79,13 @@ namespace FREYA_NAMESPACE
                 .Build();
 
         // Draw command buffer - holds DrawIndexedIndirectCommand
-        // Use Storage buffer usage for compute shader write access
+        // Use Indirect buffer usage for MDI draw commands
         const auto drawCmdSize =
             sizeof(DrawIndexedIndirectCommand) * mMaxInstances;
         mDrawCommandBuffer =
             BufferBuilder(mDevice)
                 .SetSize(drawCmdSize)
-                .SetUsage(BufferUsage::Storage)
+                .SetUsage(BufferUsage::Indirect)
                 .Build();
 
         // Draw count buffer - atomic counter
