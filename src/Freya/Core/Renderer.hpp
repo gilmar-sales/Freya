@@ -129,14 +129,30 @@ namespace FREYA_NAMESPACE
         void SetDrawDistance(float drawDistance);
 
         /**
+         * @brief Builds a reverse-Z Vulkan perspective projection matrix.
+         *
+         * Reverse-Z maps near→depth=1, far→depth=0, exploiting the fact that
+         * floating-point has higher precision near 0. This gives dramatically
+         * better depth precision at far distances compared to standard mapping.
+         *
+         * @param fovRadians  Field of view in radians
+         * @param aspect      Aspect ratio (width/height)
+         * @param near        Near clipping plane distance
+         * @param far         Far clipping plane distance
+         * @return Reverse-Z projection matrix (Vulkan NDC z ∈ [0,1])
+         */
+        glm::mat4 MakeReverseZProjection(float fovRadians, float aspect,
+                                         float near, float far) const;
+
+        /**
          * @brief Clears all projection caches and recalculates from current
          * camera. Camera position is fixed at (0, 0, -10.1) looking forward.
          */
         void ClearProjections();
 
         /**
-         * @brief Calculates a custom projection matrix with given near/far
-         * planes.
+         * @brief Calculates a custom reverse-Z projection matrix with given
+         * near/far planes.
          * @param near Near clipping plane
          * @param far  Far clipping plane
          * @return 4x4 perspective projection matrix

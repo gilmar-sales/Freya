@@ -62,13 +62,16 @@ namespace FREYA_NAMESPACE
 
         auto rasterizer =
             vk::PipelineRasterizationStateCreateInfo()
-                .setDepthClampEnable(false)
+                .setDepthClampEnable(true)
                 .setRasterizerDiscardEnable(false)
                 .setPolygonMode(vk::PolygonMode::eFill)
                 .setCullMode(vk::CullModeFlagBits::eBack)
                 .setFrontFace(vk::FrontFace::eCounterClockwise)
                 .setLineWidth(1.0f)
-                .setDepthBiasEnable(false);
+                .setDepthBiasEnable(true)
+                .setDepthBiasConstantFactor(0.0f)
+                .setDepthBiasClamp(0.0f)
+                .setDepthBiasSlopeFactor(1.0f);
 
         auto colorBlendAttachment =
             vk::PipelineColorBlendAttachmentState()
@@ -225,7 +228,7 @@ namespace FREYA_NAMESPACE
             vk::PipelineDepthStencilStateCreateInfo()
                 .setDepthTestEnable(true)
                 .setDepthWriteEnable(true)
-                .setDepthCompareOp(vk::CompareOp::eLess)
+                .setDepthCompareOp(vk::CompareOp::eGreaterOrEqual)
                 .setDepthBoundsTestEnable(false)
                 .setStencilTestEnable(false);
 

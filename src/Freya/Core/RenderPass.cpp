@@ -39,10 +39,12 @@ namespace FREYA_NAMESPACE
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 
+        // Reverse-Z: clear depth to 0.0 (far plane) so that nearer fragments
+        // pass the eGreaterOrEqual test.
         auto clearValues = std::vector {
             vk::ClearValue().setColor(mFreyaOptions->clearColor),
             vk::ClearValue().setDepthStencil(
-                vk::ClearDepthStencilValue().setDepth(1.0f)),
+                vk::ClearDepthStencilValue().setDepth(0.0f)),
         };
 
         commandBuffer.beginRenderPass(

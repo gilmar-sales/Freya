@@ -7,6 +7,8 @@
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 
+#include <cmath>
+
 namespace FREYA_NAMESPACE
 {
     Renderer::~Renderer()
@@ -60,6 +62,32 @@ namespace FREYA_NAMESPACE
         ClearProjections();
     }
 
+    glm::mat4 Renderer::MakeReverseZProjection(const float fovRadians,
+                                                const float aspect,
+                                                const float near,
+                                                const float far) const
+    {
+        // Reverse-Z Vulkan projection matrix.
+        // Maps:  near plane → depth 1.0,  far plane → depth 0.0
+        // Floating-point precision is highest near 0, so the far field gets
+        // exponentially better precision than the standard (near→0, far→1)
+        // mapping.
+        const auto f = 1.0f / std::tan(fovRadians * 0.5f);
+
+        auto proj      = glm::mat4(0.0f);
+        proj[0][0]     = f / aspect;
+        proj[1][1]     = -f; // Vulkan Y flip (handled here instead of post-multiply)
+        // Reverse-Z: maps near plane → depth 1, far plane → depth 0
+        // For right-handed view space (z_eye negative), w_clip = -z_eye
+        // is positive, ensuring fragments pass the near/far clip.
+        proj[2][2]     = near / (far - near);     // z-scale (positive)
+        proj[2][3]     = -1.0f;                   // w_clip = -z_eye
+        proj[3][2]     = near * far / (far - near); // z-bias
+        proj[3][3]     = 0.0f;
+
+        return proj;
+    }
+
     void Renderer::ClearProjections()
     {
         const auto extent = mSurface->QueryExtent();
@@ -73,21 +101,25 @@ namespace FREYA_NAMESPACE
         const auto cameraUp =
             glm::normalize(glm::cross(cameraForward, cameraRight));
 
+        // Use a more reasonable near plane for planetary-scale scenes.
+        // With near=1.0 and reverse-Z, depth precision at far distances
+        // improves dramatically over the old near=0.1.
+        const auto near = 1.0f;
+        const auto far  = mFreyaOptions->drawDistance;
+
         auto projectionUniformBuffer = ProjectionUniformBuffer {
             .view       = glm::lookAt(cameraPosition,
                                       cameraPosition + cameraForward,
                                       cameraUp),
-            .projection = glm::perspectiveFov(
+            .projection = MakeReverseZProjection(
                 glm::radians(45.0f),
-                static_cast<float>(extent.width),
-                static_cast<float>(extent.height),
-                0.1f,
-                mFreyaOptions->drawDistance),
+                static_cast<float>(extent.width) /
+                    static_cast<float>(extent.height),
+                near,
+                far),
             .ambientLight =
                 glm::vec4(glm::normalize(glm::vec3(0.0f, 3.0f, 0.0f)), 0.5f)
         };
-
-        projectionUniformBuffer.projection[1][1] *= -1.f;
 
         for (auto frameIndex = 0; frameIndex < mFreyaOptions->frameCount;
              frameIndex++)
@@ -102,7 +134,7 @@ namespace FREYA_NAMESPACE
                                                   const float far) const
     {
         const auto extent = mSurface->QueryExtent();
-        return glm::perspective(
+        return MakeReverseZProjection(
             glm::radians(75.0f),
             static_cast<float>(extent.width) /
                 static_cast<float>(extent.height),
