@@ -144,6 +144,11 @@ class MainApp final : public fra::AbstractApplication
                                     mSofaLODGroups.size());
         }
 
+        // Simplified meshes were created after the initial RefreshMeshMetadata()
+        // call, so re-populate the GPU metadata buffer so the compute shader
+        // finds valid indexCount/firstIndex/vertexOffset for every mesh.
+        mLODService->RefreshMeshMetadata();
+
         // Add LOD instances: 10 spaceships (transforms 0..9) and 10 sofas
         // (transforms 10..19).
         for (std::uint32_t idx = 0; idx < 10; ++idx)
