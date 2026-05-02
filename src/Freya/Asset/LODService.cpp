@@ -426,8 +426,14 @@ namespace FREYA_NAMESPACE
         mPushConstants.globalDrawDistance =
             mFreyaOptions->drawDistance * mFreyaOptions->drawDistance;
         mPushConstants.instanceCount = mInstanceCount;
-        mPushConstants.lodLevelCount =
-            static_cast<std::uint32_t>(mLODPool->GetAllLevels().size());
+        // Per-group level count — selectLOD loops within the current group,
+        // not across all groups (that would cross into other groups' levels).
+        {
+            const auto totalLevels = mLODPool->GetAllLevels().size();
+            const auto groupCount  = mLODPool->GetGroupCount();
+            mPushConstants.lodLevelCount =
+                (groupCount > 0) ? static_cast<std::uint32_t>(totalLevels / groupCount) : 0;
+        }
 
         // Upload instance data to GPU
         if (mInstanceCount > 0)
@@ -572,14 +578,35 @@ namespace FREYA_NAMESPACE
 
         mDevice->GetGraphicsQueue().submit(submitInfo);
         mDevice->GetGraphicsQueue().waitIdle();
-
-        mLogger->LogTrace("LOD compute dispatched for frame {} ({} instances)",
-                          frameIndex, mInstanceCount);
     }
 
     void LODService::RefreshMeshMetadata()
     {
         updateMeshMetadata();
+    }
+
+    std::uint32_t LODService::GetDrawCount() const
+    {
+        // Map the draw count buffer, invalidate the CPU cache (non-coherent
+        // memory), read back the atomic counter written by the compute shader,
+        // then unmap. Dispatch() precedes this call and waits for idle, so
+        // the GPU has finished writing by the time we read here.
+        void* data = mDevice->Get().mapMemory(
+            mDrawCountBuffer->GetMemory(),
+            0,
+            sizeof(std::uint32_t),
+            vk::MemoryMapFlagBits {});
+
+        const auto invalidateRange = vk::MappedMemoryRange()
+                                         .setMemory(mDrawCountBuffer->GetMemory())
+                                         .setOffset(0)
+                                         .setSize(VK_WHOLE_SIZE);
+        static_cast<void>(
+            mDevice->Get().invalidateMappedMemoryRanges(1, &invalidateRange));
+
+        const std::uint32_t count = *static_cast<const std::uint32_t*>(data);
+        mDevice->Get().unmapMemory(mDrawCountBuffer->GetMemory());
+        return count;
     }
 
     void LODService::SetGlobalDrawDistance(float distance)

@@ -19,7 +19,7 @@ layout(push_constant) uniform PushConstants {
     vec3   cameraPosition;
     float  globalDrawDistanceSquared; // Squared for efficient distance comparison
     uint   instanceCount;
-    uint   lodLevelCount;            // Total number of LOD levels in flat array
+    uint   lodLevelCount;            // Number of LOD levels per group (not total across groups)
 } pc;
 
 // === Storage Buffers ===

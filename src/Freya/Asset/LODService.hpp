@@ -148,12 +148,7 @@ namespace FREYA_NAMESPACE
         {
             return mMaxInstances;
         }
-        [[nodiscard]] std::uint32_t GetDrawCount() const
-        {
-            // This would be read from GPU in real implementation
-            // For now, return instance count as proxy
-            return mInstanceCount;
-        }
+        [[nodiscard]] std::uint32_t GetDrawCount() const;
         [[nodiscard]] Ref<Buffer> GetDrawCommandBufferRef() const
         {
             return mDrawCommandBuffer;

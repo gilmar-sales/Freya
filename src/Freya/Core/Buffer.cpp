@@ -73,7 +73,7 @@ namespace FREYA_NAMESPACE
             const auto flushRange = vk::MappedMemoryRange()
                                         .setMemory(mMemory)
                                         .setOffset(offset)
-                                        .setSize(VK_WHOLE_SIZE);
+                                        .setSize(size);
             static_cast<void>(
                 mDevice->Get().flushMappedMemoryRanges(1, &flushRange));
 

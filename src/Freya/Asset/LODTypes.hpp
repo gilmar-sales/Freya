@@ -80,7 +80,7 @@ struct LODPushConstants {
     glm::vec3    cameraPosition;        // Camera world position for distance calculation
     float        globalDrawDistance;   // Maximum draw distance (squared)
     std::uint32_t instanceCount;       // Total number of LOD instances to process
-    std::uint32_t lodLevelCount;       // Total number of LOD levels in flat array
+    std::uint32_t lodLevelCount;       // Number of LOD levels per group (not total across groups)
 };
 
 /**

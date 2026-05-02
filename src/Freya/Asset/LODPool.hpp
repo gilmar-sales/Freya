@@ -68,11 +68,16 @@ class LODPool
      */
     [[nodiscard]] std::uint32_t GetGroupOffset(std::uint32_t groupId) const;
 
-    /**
-     * @brief Gets the level offset within its group's slice of the flat array
-     */
-    [[nodiscard]] std::uint32_t GetLevelOffset(std::uint32_t groupId,
-                                               std::uint32_t level) const;
+        /**
+         * @brief Gets the level offset within its group's slice of the flat array
+         */
+        std::uint32_t GetLevelOffset(std::uint32_t groupId,
+                                     std::uint32_t level) const;
+
+        /**
+         * @brief Returns the number of LOD groups.
+         */
+        [[nodiscard]] std::uint32_t GetGroupCount() const { return static_cast<std::uint32_t>(mGroups.size()); }
 
   private:
     Ref<Device>                mDevice;
