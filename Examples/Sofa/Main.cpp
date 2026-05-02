@@ -134,18 +134,17 @@ int main(int argc, const char** argv)
 {
     const auto app =
         skr::ApplicationBuilder()
-            .WithExtension<fra::FreyaExtension>(
-                [](fra::FreyaExtension freya) {
-                    freya.WithOptions(
-                        [](fra::FreyaOptionsBuilder& freyaOptions) {
-                            freyaOptions.SetTitle("Sofa example")
-                                .SetWidth(1920)
-                                .SetHeight(1080)
-                                .SetVSync(false)
-                                .SetSampleCount(8)
-                                .SetFullscreen(false);
-                        });
-                })
+            .WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
+                freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
+                    freyaOptions.SetTitle("Sofa example")
+                        .SetWidth(1920)
+                        .SetHeight(1080)
+                        .SetVSync(false)
+                        .SetSampleCount(8)
+                        .WithReverseZ()
+                        .SetFullscreen(false);
+                });
+            })
             .Build<MainApp>();
 
     app->Run();

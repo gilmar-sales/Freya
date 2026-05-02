@@ -118,6 +118,13 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        FreyaOptionsBuilder& WithReverseZ(bool value = true)
+        {
+            mFreyaOptions->ReverseZ = value;
+
+            return *this;
+        }
+
         /**
          * @brief Builds and returns the FreyaOptions object.
          * @return Shared pointer to configured FreyaOptions

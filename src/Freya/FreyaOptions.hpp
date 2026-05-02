@@ -40,6 +40,7 @@ namespace FREYA_NAMESPACE
         float             drawDistance = 1000.0f; ///< View distance for culling
         RenderingStrategy renderingStrategy =
             RenderingStrategy::Forward; ///< Rendering strategy
+        bool ReverseZ;
     };
 
 } // namespace FREYA_NAMESPACE

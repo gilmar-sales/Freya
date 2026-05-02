@@ -44,7 +44,8 @@ namespace FREYA_NAMESPACE
         auto clearValues = std::vector {
             vk::ClearValue().setColor(mFreyaOptions->clearColor),
             vk::ClearValue().setDepthStencil(
-                vk::ClearDepthStencilValue().setDepth(0.0f)),
+                vk::ClearDepthStencilValue().setDepth(
+                    mFreyaOptions->ReverseZ ? 0.0f : 1.0f)),
         };
 
         commandBuffer.beginRenderPass(

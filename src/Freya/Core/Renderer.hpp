@@ -141,7 +141,7 @@ namespace FREYA_NAMESPACE
          * @param far         Far clipping plane distance
          * @return Reverse-Z projection matrix (Vulkan NDC z ∈ [0,1])
          */
-        glm::mat4 MakeReverseZProjection(float fovRadians, float aspect,
+        glm::mat4 MakeProjection(float fovRadians, float aspect,
                                          float near, float far) const;
 
         /**
