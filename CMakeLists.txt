@@ -12,7 +12,7 @@ set(SDL_X11_XTEST OFF CACHE BOOL "Disable SDL3 xtests build")
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "Disable SDL3 tests build")
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build Shared Library")
 set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL
-    "Disable assimp warnings as errors")
+        "Disable assimp warnings as errors")
 
 include(FetchContent)
 
@@ -43,11 +43,17 @@ FetchContent_Declare(
         GIT_TAG "v0.16.1"
 )
 FetchContent_MakeAvailable(skirnir)
+FetchContent_Declare(
+        meshoptimizer
+        GIT_REPOSITORY "https://github.com/zeux/meshoptimizer.git"
+        GIT_TAG "v1.1"
+)
+FetchContent_MakeAvailable(meshoptimizer)
 
 option(FREYA_BUILD_EXAMPLES "Build freyr examples" OFF)
 
 if (${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
-  set(FREYA_BUILD_EXAMPLES ON)
+    set(FREYA_BUILD_EXAMPLES ON)
 endif ()
 
 
@@ -60,7 +66,7 @@ add_library(Freya::Freya ALIAS Freya)
 target_compile_features(Freya PUBLIC cxx_std_23)
 target_include_directories(Freya PUBLIC include src ${Vulkan_INCLUDE_DIRS})
 target_link_libraries(Freya PUBLIC
-    SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES} skirnir::skirnir)
+        SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES} skirnir::skirnir meshoptimizer)
 
 target_precompile_headers(Freya PUBLIC
         <memory>
@@ -81,7 +87,7 @@ target_precompile_headers(Freya PUBLIC
 )
 
 if (FREYA_BUILD_EXAMPLES)
-  add_subdirectory(Examples)
+    add_subdirectory(Examples)
 endif (FREYA_BUILD_EXAMPLES)
 
 
