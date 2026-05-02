@@ -92,7 +92,7 @@ class MainApp final : public fra::AbstractApplication
         // Create LOD groups for SpaceShip
         if (!mSpaceShipModel.empty())
         {
-            std::vector<float> lodDistances = { 0.0f, 50.0f, 150.0f, 400.0f };
+            std::vector<float> lodDistances = { 0.0f, 10.0f, 150.0f, 400.0f };
 
             for (std::uint32_t i = 0; i < mSpaceShipModel.size(); ++i)
             {
@@ -102,7 +102,7 @@ class MainApp final : public fra::AbstractApplication
                 // clustering decimation directly in MeshPool
                 const auto lod0 = meshId;
                 const auto lod1 =
-                    mMeshPool->CreateSimplifiedMesh(meshId, 0.50f);
+                    mMeshPool->CreateSimplifiedMesh(meshId, 0.90f);
                 const auto lod2 =
                     mMeshPool->CreateSimplifiedMesh(meshId, 0.75f);
                 const auto lod3 =
@@ -120,7 +120,7 @@ class MainApp final : public fra::AbstractApplication
         // Create LOD groups for Sofa
         if (!mSofaModel.empty())
         {
-            std::vector<float> lodDistances = { 0.0f, 30.0f, 80.0f, 200.0f };
+            std::vector<float> lodDistances = { 0.0f, 10.0f, 80.0f, 200.0f };
 
             for (std::uint32_t i = 0; i < mSofaModel.size(); ++i)
             {
@@ -129,7 +129,7 @@ class MainApp final : public fra::AbstractApplication
                 // Sofa has fewer triangles, so use gentler reductions
                 const auto lod0 = meshId;
                 const auto lod1 =
-                    mMeshPool->CreateSimplifiedMesh(meshId, 0.30f);
+                    mMeshPool->CreateSimplifiedMesh(meshId, 0.90f);
                 const auto lod2 =
                     mMeshPool->CreateSimplifiedMesh(meshId, 0.55f);
                 const auto lod3 =
@@ -306,7 +306,7 @@ int main(int argc, const char** argv)
                         .SetSampleCount(8)
                         .SetFullscreen(false)
                         .SetDrawDistance(1000.0f)
-                        .SetLODDistances({ 0.0f, 50.0f, 150.0f, 400.0f })
+                        .SetLODDistances({ 0.0f, 10.0f, 150.0f, 400.0f })
                         .SetMaxLODLevels(4)
                         .SetUseDitherFade(true);
                 });
