@@ -1,7 +1,6 @@
 #include "Freya/Builders/SwapChainBuilder.hpp"
 
 #include "Freya/Builders/ImageBuilder.hpp"
-#include "Freya/Builders/SurfaceBuilder.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
 #include "Freya/Core/RenderPass.hpp"

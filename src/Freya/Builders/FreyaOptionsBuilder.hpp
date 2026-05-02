@@ -119,6 +119,39 @@ namespace FREYA_NAMESPACE
         }
 
         /**
+         * @brief Sets LOD switch distances.
+         * @param distances Vector of distance thresholds for each LOD level
+         * @return Reference to this for chaining
+         */
+        FreyaOptionsBuilder& SetLODDistances(std::vector<float> distances)
+        {
+            mFreyaOptions->lodDistances = std::move(distances);
+            return *this;
+        }
+
+        /**
+         * @brief Sets maximum LOD levels per group.
+         * @param maxLevels Maximum number of LOD levels
+         * @return Reference to this for chaining
+         */
+        FreyaOptionsBuilder& SetMaxLODLevels(std::uint32_t maxLevels)
+        {
+            mFreyaOptions->maxLODLevels = maxLevels;
+            return *this;
+        }
+
+        /**
+         * @brief Sets whether to use dithered LOD cross-fade.
+         * @param useDitherFade true to enable dithered fade
+         * @return Reference to this for chaining
+         */
+        FreyaOptionsBuilder& SetUseDitherFade(bool useDitherFade)
+        {
+            mFreyaOptions->useDitherFade = useDitherFade;
+            return *this;
+        }
+
+        /**
          * @brief Builds and returns the FreyaOptions object.
          * @return Shared pointer to configured FreyaOptions
          */

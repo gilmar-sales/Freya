@@ -6,12 +6,12 @@
 
 #include "Freya/Asset/LODPool.hpp"
 #include "Freya/Asset/LODTypes.hpp"
+#include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
-#include "Freya/FreyaOptions.hpp"
 #include "Freya/Core/Renderer.hpp"
-#include "Freya/Asset/MeshPool.hpp"
+#include "Freya/FreyaOptions.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -43,14 +43,7 @@ namespace FREYA_NAMESPACE
     class LODService
     {
       public:
-        LODService(const Ref<Device>&               device,
-                   const Ref<PhysicalDevice>&       physicalDevice,
-                   const Ref<CommandPool>&          commandPool,
-                   const Ref<LODPool>&              lodPool,
-                   const Ref<MeshPool>&             meshPool,
-                   const Ref<Renderer>&             renderer,
-                   const Ref<FreyaOptions>&         freyaOptions,
-                   const Ref<skr::ServiceProvider>& serviceProvider);
+        LODService(const Ref<skr::ServiceProvider>& serviceProvider);
 
         ~LODService();
 
@@ -76,6 +69,12 @@ namespace FREYA_NAMESPACE
          */
         void RemoveInstance(std::uint32_t instanceId);
 
+        /**
+         * @brief Updates a transform in the transform buffer
+         */
+        void UpdateTransform(std::uint32_t    transformIndex,
+                             const glm::mat4& transform);
+
         // === GPU Data Update ===
 
         /**
@@ -97,7 +96,8 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Binds the LOD descriptor set
          */
-        void BindDescriptorSet(vk::CommandBuffer cmd, vk::PipelineLayout layout);
+        void BindDescriptorSet(vk::CommandBuffer  cmd,
+                               vk::PipelineLayout layout);
 
         // === Configuration ===
 
@@ -116,6 +116,10 @@ namespace FREYA_NAMESPACE
         {
             return mDrawCommandBuffer->Get();
         }
+        [[nodiscard]] vk::Buffer GetTransformBuffer() const
+        {
+            return mTransformBuffer->Get();
+        }
         [[nodiscard]] std::uint32_t GetInstanceCount() const
         {
             return mInstanceCount;
@@ -124,11 +128,17 @@ namespace FREYA_NAMESPACE
         {
             return mMaxInstances;
         }
+        [[nodiscard]] VkDescriptorSet GetDescriptorSet() const
+        {
+            return mLODDescriptorSet;
+        }
 
       private:
         void createGPUBuffers();
         void createDescriptorSetLayout();
+        void allocateDescriptorSet();
         void createComputePipeline();
+        void createDitherTexture();
         void updateDrawCount(vk::CommandBuffer cmd);
 
         Ref<Device>                  mDevice;
@@ -138,22 +148,25 @@ namespace FREYA_NAMESPACE
         Ref<MeshPool>                mMeshPool;
         Ref<Renderer>                mRenderer;
         Ref<FreyaOptions>            mFreyaOptions;
-        Ref<skr::ServiceProvider>    mServiceProvider;
         Ref<skr::Logger<LODService>> mLogger;
 
-        // GPU buffers (VMA allocated)
+        // GPU buffers
         Ref<Buffer> mInstanceBuffer;    // LODInstanceData[] - read by compute
         Ref<Buffer> mDrawCommandBuffer; // DrawIndexedIndirectCommand[] -
                                         // written by compute, read by graphics
         Ref<Buffer> mDrawCountBuffer;   // uint32_t - atomic counter for visible
                                         // instance count
+        Ref<Buffer> mTransformBuffer;   // mat4[] - transform matrices
+        Ref<Buffer>
+            mLODLevelsBuffer; // LODLevel[] - flat array of LOD level metadata
 
         // CPU mirrors for debugging/editor
         std::vector<LODInstanceData> mInstances;
         std::uint32_t                mInstanceCount = 0;
-        std::uint32_t                mMaxInstances  = 65536; // Configurable
+        std::uint32_t                mMaxInstances  = 65536;
 
-        // Descriptor set (bindless)
+        // Descriptor set
+        vk::DescriptorPool      mDescriptorPool      = VK_NULL_HANDLE;
         vk::DescriptorSet       mLODDescriptorSet    = VK_NULL_HANDLE;
         vk::DescriptorSetLayout mDescriptorSetLayout = VK_NULL_HANDLE;
 

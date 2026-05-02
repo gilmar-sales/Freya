@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 namespace FREYA_NAMESPACE
 {
     /**
@@ -25,6 +27,9 @@ namespace FREYA_NAMESPACE
      * transparent)
      * @param drawDistance      View distance for culling (default 1000.0)
      * @param renderingStrategy Forward or Deferred (default Forward)
+     * @param lodDistances      LOD switch distances (default 0, 50, 150, 400)
+     * @param maxLODLevels      Maximum LOD levels per group (default 4)
+     * @param useDitherFade     Enable dithered LOD cross-fade (default true)
      */
     struct FreyaOptions
     {
@@ -37,9 +42,14 @@ namespace FREYA_NAMESPACE
         std::uint32_t       frameCount  = 4;    ///< Swapchain frame count
         vk::ClearColorValue clearColor  = { 0.0f, 0.0f, 0.0f,
                                             0.0f }; ///< Render pass clear color
-        float             drawDistance = 1000.0f; ///< View distance for culling
-        RenderingStrategy renderingStrategy =
+        float               drawDistance = 1000.0f; ///< View distance for culling
+        RenderingStrategy   renderingStrategy =
             RenderingStrategy::Forward; ///< Rendering strategy
+
+        // LOD configuration
+        std::vector<float> lodDistances = { 0.0f, 50.0f, 150.0f, 400.0f };
+        std::uint32_t      maxLODLevels  = 4;
+        bool               useDitherFade = true;
     };
 
 } // namespace FREYA_NAMESPACE

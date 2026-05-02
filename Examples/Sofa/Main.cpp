@@ -6,28 +6,29 @@ class MainApp final : public fra::AbstractApplication
     explicit MainApp(const Ref<skr::ServiceProvider>& serviceProvider) :
         AbstractApplication(serviceProvider)
     {
-
         mMeshPool     = serviceProvider->GetService<fra::MeshPool>();
         mTexturePool  = serviceProvider->GetService<fra::TexturePool>();
         mMaterialPool = serviceProvider->GetService<fra::MaterialPool>();
+        mLODService   = serviceProvider->GetService<fra::LODService>();
+        mLODPool      = serviceProvider->GetService<fra::LODPool>();
+        mLogger       = serviceProvider->GetService<skr::Logger<MainApp>>();
     }
 
     void StartUp() override
     {
         mRenderer->ClearProjections();
 
+        // Initialize model matrices
         mModelMatrix[0] = glm::scale(
             glm::translate(glm::mat4(1), glm::vec3(-3, 2, 0)), glm::vec3(0.3));
-
         mModelMatrix[1] = glm::scale(
             glm::translate(glm::mat4(1), glm::vec3(3, 2, 0)), glm::vec3(0.3));
-
         mModelMatrix[2] = glm::scale(
             glm::translate(glm::mat4(1), glm::vec3(-3, -2, 0)), glm::vec3(2));
-
         mModelMatrix[3] = glm::scale(
             glm::translate(glm::mat4(1), glm::vec3(3, -2, 0)), glm::vec3(2));
 
+        // Create textures
         mSofaAlbedo = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/OfficeSofa_BaseColor.png");
         mSofaNormal = mTexturePool->CreateTextureFromFile(
@@ -38,46 +39,112 @@ class MainApp final : public fra::AbstractApplication
         mSofaMaterial =
             mMaterialPool->Create({ mSofaAlbedo, mSofaNormal, mSofaRoughness });
 
-        mSofaModel =
-            mMeshPool->CreateMeshFromFile("./Resources/Models/OfficeSofa.fbx");
-
         mSpaceShipAlbedo = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/SpaceShip_Base_color.jpg");
-
         mSpaceShipNormal = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/SpaceShip_Normal.jpg");
-
         mSpaceShipRoughness = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/SpaceShip_Roughness.jpg");
 
         mSpaceShipMaterial = mMaterialPool->Create(
             { mSpaceShipAlbedo, mSpaceShipNormal, mSpaceShipRoughness });
 
+        // Load meshes
+        mSofaModel =
+            mMeshPool->CreateMeshFromFile("./Resources/Models/OfficeSofa.fbx");
         mSpaceShipModel =
             mMeshPool->CreateMeshFromFile("./Resources/Models/SpaceShip.fbx");
+
+        // === LOD System Setup ===
+        setupLODSystem();
+
+        mLogger->LogInformation("Sofa example started with LOD system");
+    }
+
+    void setupLODSystem()
+    {
+        if (!mLODService || !mLODPool)
+        {
+            mLogger->LogWarning("LODService or LODPool not available");
+            return;
+        }
+
+        // Create LOD groups for SpaceShip
+        // For demo: simulate 3 LOD levels using the same meshes at different distances
+        // In production, you'd have actual simplified mesh variants
+        if (!mSpaceShipModel.empty())
+        {
+            // Simulated LOD distances (in world units)
+            // LOD0: 0-50 units, LOD1: 50-150 units, LOD2: 150-400 units, LOD3: 400+ (culled)
+            std::vector<float> lodDistances = { 0.0f, 50.0f, 150.0f, 400.0f };
+
+            // Create multiple LOD groups to simulate different detail levels
+            // Using the same mesh ID for all levels as placeholder
+            // In reality, you'd have: spaceship_lod0, spaceship_lod1, spaceship_lod2, etc.
+            for (std::uint32_t i = 0; i < mSpaceShipModel.size(); ++i)
+            {
+                auto meshId = mSpaceShipModel[i];
+                std::vector<std::uint32_t> meshIds = { meshId, meshId, meshId, meshId };
+
+                std::uint32_t groupId = mLODPool->CreateLODGroup(meshIds, lodDistances);
+                mSpaceShipLODGroups.push_back(groupId);
+            }
+
+            mLogger->LogInformation("Created {} LOD groups for SpaceShip",
+                                    mSpaceShipLODGroups.size());
+        }
+
+        // Create LOD groups for Sofa
+        if (!mSofaModel.empty())
+        {
+            std::vector<float> lodDistances = { 0.0f, 30.0f, 80.0f, 200.0f };
+
+            for (std::uint32_t i = 0; i < mSofaModel.size(); ++i)
+            {
+                auto meshId = mSofaModel[i];
+                std::vector<std::uint32_t> meshIds = { meshId, meshId, meshId, meshId };
+
+                std::uint32_t groupId = mLODPool->CreateLODGroup(meshIds, lodDistances);
+                mSofaLODGroups.push_back(groupId);
+            }
+
+            mLogger->LogInformation("Created {} LOD groups for Sofa",
+                                    mSofaLODGroups.size());
+        }
+
+        // Add LOD instances for each object
+        // Each instance references a LOD group and a transform index
+        mSpaceShipInstanceId = mLODService->AddInstance(mSpaceShipLODGroups[0], 0);
+        mSofaInstanceId = mLODService->AddInstance(mSofaLODGroups[0], 2);
+
+        // Second spaceship (different transform)
+        mSpaceShipInstanceId2 = mLODService->AddInstance(mSpaceShipLODGroups[0], 1);
+
+        mLogger->LogInformation("LOD system initialized with {} total instances",
+                                mLODService->GetInstanceCount());
     }
 
     void Update() override
     {
         mCurrentTime += mWindow->GetDeltaTime();
 
+        // Rotate model matrices
         mModelMatrix[0] = glm::rotate(
             mModelMatrix[0], glm::radians(15.0f * mWindow->GetDeltaTime()),
             glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
         mModelMatrix[1] = glm::rotate(
             mModelMatrix[1], glm::radians(15.0f * mWindow->GetDeltaTime()),
             glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
-
         mModelMatrix[2] = glm::rotate(
             mModelMatrix[2], glm::radians(15.0f * mWindow->GetDeltaTime()),
             glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
-
         mModelMatrix[3] = glm::rotate(
             mModelMatrix[3], glm::radians(15.0f * mWindow->GetDeltaTime()),
             glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
 
         mRenderer->BeginFrame();
 
+        // Update instance matrix buffer
         if (mInstanceMatrixBuffers == nullptr)
             mInstanceMatrixBuffers =
                 mRenderer->GetBufferBuilder()
@@ -91,21 +158,50 @@ class MainApp final : public fra::AbstractApplication
 
         mRenderer->BindBuffer(mInstanceMatrixBuffers);
 
-        mMaterialPool->Bind(mSpaceShipMaterial);
+        // === LOD System Update ===
 
+        // Get camera position for LOD calculations
+        // In a real app, this would come from the camera system
+        const glm::vec3 cameraPosition = glm::vec3(0.0f, 0.0f, -10.1f);
+
+        // Update LOD GPU data with current camera position
+        if (mLODService)
+        {
+            // The UpdateGPUData method takes a command buffer for potential buffer updates
+            // For now, we just pass the camera position for LOD calculations
+            mLODService->SetGlobalDrawDistance(mRenderer->GetDrawDistance());
+        }
+
+        // Draw using traditional instanced rendering (LOD compute shader not yet active)
+        // The LOD system is set up - when the compute shader is compiled, it will
+        // automatically select the appropriate LOD level based on distance
+
+        // Draw SpaceShips (2 instances)
+        mMaterialPool->Bind(mSpaceShipMaterial);
         for (const auto& mesh : mSpaceShipModel)
         {
             mMeshPool->DrawInstanced(mesh, 2);
         }
 
+        // Draw Sofas (2 instances)
         mMaterialPool->Bind(mSofaMaterial);
-
         for (const auto& mesh : mSofaModel)
         {
             mMeshPool->DrawInstanced(mesh, 2, 2);
         }
 
         mRenderer->EndFrame();
+
+        // Log LOD stats periodically
+        static float logTimer = 0.0f;
+        logTimer += mWindow->GetDeltaTime();
+        if (logTimer > 2.0f && mLODService)
+        {
+            mLogger->LogInformation("LOD Stats: Instances={}, MaxInstances={}",
+                                    mLODService->GetInstanceCount(),
+                                    mLODService->GetMaxInstances());
+            logTimer = 0.0f;
+        }
     }
 
   private:
@@ -124,10 +220,21 @@ class MainApp final : public fra::AbstractApplication
     Ref<fra::MaterialPool> mMaterialPool;
     Ref<fra::TexturePool>  mTexturePool;
     Ref<fra::MeshPool>     mMeshPool;
+    Ref<fra::LODService>   mLODService;
+    Ref<fra::LODPool>      mLODPool;
     glm::mat4              mModelMatrix[4] {};
     float                  mCurrentTime {};
 
     Ref<fra::Buffer> mInstanceMatrixBuffers;
+
+    // LOD system data
+    std::vector<std::uint32_t> mSpaceShipLODGroups;
+    std::vector<std::uint32_t> mSofaLODGroups;
+    std::uint32_t mSpaceShipInstanceId = std::numeric_limits<std::uint32_t>::max();
+    std::uint32_t mSpaceShipInstanceId2 = std::numeric_limits<std::uint32_t>::max();
+    std::uint32_t mSofaInstanceId = std::numeric_limits<std::uint32_t>::max();
+
+    Ref<skr::Logger<MainApp>> mLogger;
 };
 
 int main(int argc, const char** argv)
@@ -138,12 +245,16 @@ int main(int argc, const char** argv)
                 [](fra::FreyaExtension freya) {
                     freya.WithOptions(
                         [](fra::FreyaOptionsBuilder& freyaOptions) {
-                            freyaOptions.SetTitle("Sofa example")
+                            freyaOptions.SetTitle("Sofa example - LOD Demo")
                                 .SetWidth(1920)
                                 .SetHeight(1080)
                                 .SetVSync(false)
                                 .SetSampleCount(8)
-                                .SetFullscreen(false);
+                                .SetFullscreen(false)
+                                .SetDrawDistance(500.0f)
+                                .SetLODDistances({ 0.0f, 50.0f, 150.0f, 400.0f })
+                                .SetMaxLODLevels(4)
+                                .SetUseDitherFade(true);
                         });
                 })
             .Build<MainApp>();
