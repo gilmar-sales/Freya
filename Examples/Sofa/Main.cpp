@@ -146,8 +146,7 @@ class MainApp final : public fra::AbstractApplication
         // Sofa at transform 2: each sub-mesh gets an instance
         for (const auto groupId : mSofaLODGroups)
         {
-            mSofaInstanceIds.push_back(
-                mLODService->AddInstance(groupId, 2));
+            mSofaInstanceIds.push_back(mLODService->AddInstance(groupId, 2));
         }
 
         // Initialize transform buffer for LOD system
