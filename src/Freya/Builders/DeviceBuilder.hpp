@@ -26,9 +26,10 @@ namespace FREYA_NAMESPACE
                       const Ref<PhysicalDevice>&             physicalDevice,
                       const Ref<Surface>&                    surface,
                       const Ref<skr::Logger<DeviceBuilder>>& logger) :
-            mInstance(instance), mPhysicalDevice(physicalDevice),
-            mSurface(surface), mLogger(logger),
-            mDeviceExtensions({ VK_KHR_SWAPCHAIN_EXTENSION_NAME })
+            mLogger(logger), mInstance(instance),
+            mPhysicalDevice(physicalDevice), mSurface(surface),
+            mDeviceExtensions({ VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+                                VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME })
         {
         }
 

@@ -47,7 +47,14 @@ namespace FREYA_NAMESPACE
             vk::PhysicalDeviceFeatures()
                 .setDepthClamp(physicalDeviceFeatures.depthClamp)
                 .setDepthBounds(false)
-                .setSamplerAnisotropy(physicalDeviceFeatures.samplerAnisotropy);
+                .setSamplerAnisotropy(physicalDeviceFeatures.samplerAnisotropy)
+                .setMultiDrawIndirect(physicalDeviceFeatures.multiDrawIndirect);
+
+        if (!deviceFeatures.multiDrawIndirect)
+        {
+            mLogger->LogWarning(
+                "multiDrawIndirect not supported - MDI will use drawCount=1");
+        }
 
         // TODO: use optional extensions for memory priority
         auto optionalExtensions =
