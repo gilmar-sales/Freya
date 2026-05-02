@@ -1,6 +1,6 @@
 #include <Freya/Freya.hpp>
 
-constexpr std::uint32_t CountPerRow  = 100;
+constexpr std::uint32_t CountPerRow  = 300;
 constexpr std::uint32_t TotalObjects = CountPerRow * 2; // 40
 
 constexpr auto yPos     = -4.0f;
@@ -35,7 +35,7 @@ class MainApp final : public fra::AbstractApplication
             // Spaceship queue (transforms 0..19): left side
             const float zPos = initialZ + static_cast<float>(i) * xPosStep;
             mModelMatrix[i]  = glm::scale(
-                glm::translate(glm::mat4(1), glm::vec3(-4.0f, yPos, zPos)),
+                glm::translate(glm::mat4(1), glm::vec3(-5.0f, yPos, zPos)),
                 glm::vec3(0.3f));
         }
         for (std::uint32_t i = 0; i < CountPerRow; ++i)
@@ -43,7 +43,7 @@ class MainApp final : public fra::AbstractApplication
             // Sofa queue (transforms 20..39): right side
             const float zPos = initialZ + static_cast<float>(i) * xPosStep;
             mModelMatrix[i + CountPerRow] = glm::scale(
-                glm::translate(glm::mat4(1), glm::vec3(4.0f, yPos, zPos)),
+                glm::translate(glm::mat4(1), glm::vec3(5.0f, yPos, zPos)),
                 glm::vec3(2.0f));
         }
 
