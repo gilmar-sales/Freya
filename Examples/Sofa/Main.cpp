@@ -3,9 +3,17 @@
 constexpr std::uint32_t CountPerRow  = 2000;
 constexpr std::uint32_t TotalObjects = CountPerRow * 2; // 40
 
+constexpr auto xPos     = 10.0f;
 constexpr auto yPos     = -4.0f;
 constexpr auto initialZ = 4.0f;
-constexpr auto xPosStep = 5.0f;
+constexpr auto zPosStep = 5.0f;
+
+std::vector<float> lodDistances = {
+    0.0f, 100.0f, 150.0f, 200.0f, 300.0f, 400.0f, 700.0f, 900.0f,
+};
+std::vector<float> lodReductions = {
+    0.1f, 0.2f, 0.3f, 0.4f, 0.7f, 0.9f, 0.98f
+};
 
 class MainApp final : public fra::AbstractApplication
 {
@@ -33,17 +41,17 @@ class MainApp final : public fra::AbstractApplication
         for (std::uint32_t i = 0; i < CountPerRow; ++i)
         {
             // Spaceship queue (transforms 0..19): left side
-            const float zPos = initialZ + static_cast<float>(i) * xPosStep;
+            const float zPos = initialZ + static_cast<float>(i) * zPosStep;
             mModelMatrix[i]  = glm::scale(
-                glm::translate(glm::mat4(1), glm::vec3(-5.0f, yPos, zPos)),
+                glm::translate(glm::mat4(1), glm::vec3(-xPos, yPos, zPos)),
                 glm::vec3(0.3f));
         }
         for (std::uint32_t i = 0; i < CountPerRow; ++i)
         {
             // Sofa queue (transforms 20..39): right side
-            const float zPos = initialZ + static_cast<float>(i) * xPosStep;
+            const float zPos = initialZ + static_cast<float>(i) * zPosStep;
             mModelMatrix[i + CountPerRow] = glm::scale(
-                glm::translate(glm::mat4(1), glm::vec3(5.0f, yPos, zPos)),
+                glm::translate(glm::mat4(1), glm::vec3(xPos, yPos, zPos)),
                 glm::vec3(2.0f));
         }
 
@@ -93,25 +101,24 @@ class MainApp final : public fra::AbstractApplication
         // Create LOD groups for SpaceShip
         if (!mSpaceShipModel.empty())
         {
-            std::vector<float> lodDistances = { 0.0f, 50.0f, 150.0f, 400.0f };
 
             for (std::uint32_t i = 0; i < mSpaceShipModel.size(); ++i)
             {
                 const auto meshId = mSpaceShipModel[i];
 
-                // Create progressively simplified versions via vertex
-                // clustering decimation directly in MeshPool
-                const auto lod0 = meshId;
-                const auto lod1 =
-                    mMeshPool->CreateSimplifiedMesh(meshId, 0.50f);
-                const auto lod2 =
-                    mMeshPool->CreateSimplifiedMesh(meshId, 0.75f);
-                const auto lod3 =
-                    mMeshPool->CreateSimplifiedMesh(meshId, 0.90f);
+                std::vector<std::uint32_t> meshIds = { meshId };
 
-                std::vector<std::uint32_t> meshIds = { lod0, lod1, lod2, lod3 };
-                std::uint32_t              groupId =
+                for (auto reduction : lodReductions)
+                {
+                    const auto lod =
+                        mMeshPool->CreateSimplifiedMesh(meshId, reduction);
+
+                    meshIds.push_back(lod);
+                }
+
+                std::uint32_t groupId =
                     mLODPool->CreateLODGroup(meshIds, lodDistances);
+
                 mSpaceShipLODGroups.push_back(groupId);
             }
             mLogger->LogInformation("Created {} LOD groups for SpaceShip",
@@ -121,23 +128,21 @@ class MainApp final : public fra::AbstractApplication
         // Create LOD groups for Sofa
         if (!mSofaModel.empty())
         {
-            std::vector<float> lodDistances = { 0.0f, 50.0f, 80.0f, 200.0f };
-
             for (std::uint32_t i = 0; i < mSofaModel.size(); ++i)
             {
                 const auto meshId = mSofaModel[i];
 
-                // Sofa has fewer triangles, so use gentler reductions
-                const auto lod0 = meshId;
-                const auto lod1 =
-                    mMeshPool->CreateSimplifiedMesh(meshId, 0.30f);
-                const auto lod2 =
-                    mMeshPool->CreateSimplifiedMesh(meshId, 0.55f);
-                const auto lod3 =
-                    mMeshPool->CreateSimplifiedMesh(meshId, 0.75f);
+                std::vector<std::uint32_t> meshIds = { meshId };
 
-                std::vector<std::uint32_t> meshIds = { lod0, lod1, lod2, lod3 };
-                std::uint32_t              groupId =
+                for (auto reduction : lodReductions)
+                {
+                    const auto lod =
+                        mMeshPool->CreateSimplifiedMesh(meshId, reduction);
+
+                    meshIds.push_back(lod);
+                }
+
+                std::uint32_t groupId =
                     mLODPool->CreateLODGroup(meshIds, lodDistances);
                 mSofaLODGroups.push_back(groupId);
             }
@@ -228,7 +233,9 @@ class MainApp final : public fra::AbstractApplication
             {
                 auto cmdBuffer =
                     mRenderer->GetCommandPool()->GetCommandBuffer();
+
                 auto lodDescSet = mLODService->GetDrawMetaDescriptorSet();
+
                 cmdBuffer.bindDescriptorSets(
                     vk::PipelineBindPoint::eGraphics,
                     mRenderer->GetRenderPass()->GetPipelineLayout(), 2, 1,
@@ -308,8 +315,8 @@ int main(int argc, const char** argv)
                         .SetSampleCount(8)
                         .SetFullscreen(false)
                         .SetDrawDistance(1000.0f)
-                        .SetLODDistances({ 0.0f, 50.0f, 150.0f, 400.0f })
-                        .SetMaxLODLevels(4)
+                        .SetLODDistances(lodDistances)
+                        .SetMaxLODLevels(lodDistances.size())
                         .SetUseDitherFade(true);
                 });
             })

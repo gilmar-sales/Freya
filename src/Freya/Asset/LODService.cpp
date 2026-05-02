@@ -147,8 +147,8 @@ namespace FREYA_NAMESPACE
             "Created GPU buffers: instance={}, drawCmd={}, drawMeta={}, "
             "drawCount={}, transform={}, lodLevels={}, meshMeta={}",
             instanceBufferSize, drawCmdSize, drawMetadataSize,
-            sizeof(std::uint32_t),
-            transformBufferSize, lodLevelsSize, meshMetadataSize);
+            sizeof(std::uint32_t), transformBufferSize, lodLevelsSize,
+            meshMetadataSize);
     }
 
     void LODService::createDescriptorSetLayout()
@@ -355,10 +355,9 @@ namespace FREYA_NAMESPACE
             mDevice->Get().createDescriptorSetLayout(layoutInfo);
 
         // Create a small descriptor pool for this single set
-        const auto poolSize =
-            vk::DescriptorPoolSize()
-                .setType(vk::DescriptorType::eStorageBuffer)
-                .setDescriptorCount(1);
+        const auto poolSize = vk::DescriptorPoolSize()
+                                  .setType(vk::DescriptorType::eStorageBuffer)
+                                  .setDescriptorCount(1);
 
         const auto poolInfo =
             vk::DescriptorPoolCreateInfo()
@@ -366,17 +365,14 @@ namespace FREYA_NAMESPACE
                 .setPPoolSizes(&poolSize)
                 .setMaxSets(1);
 
-        mDrawMetaGraphicsPool =
-            mDevice->Get().createDescriptorPool(poolInfo);
+        mDrawMetaGraphicsPool = mDevice->Get().createDescriptorPool(poolInfo);
 
         // Allocate the descriptor set
-        const auto allocInfo =
-            vk::DescriptorSetAllocateInfo()
-                .setDescriptorPool(mDrawMetaGraphicsPool)
-                .setSetLayouts(mDrawMetaGraphicsLayout);
+        const auto allocInfo = vk::DescriptorSetAllocateInfo()
+                                   .setDescriptorPool(mDrawMetaGraphicsPool)
+                                   .setSetLayouts(mDrawMetaGraphicsLayout);
 
-        const auto sets =
-            mDevice->Get().allocateDescriptorSets(allocInfo);
+        const auto sets = mDevice->Get().allocateDescriptorSets(allocInfo);
         mDrawMetaDescriptorSet = sets[0];
 
         // Update with the draw metadata buffer
@@ -393,7 +389,8 @@ namespace FREYA_NAMESPACE
 
         mDevice->Get().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
 
-        mLogger->LogInformation("Created draw metadata descriptor for graphics set 2");
+        mLogger->LogInformation(
+            "Created draw metadata descriptor for graphics set 2");
     }
 
     void LODService::createComputePipeline()
@@ -482,11 +479,6 @@ namespace FREYA_NAMESPACE
 
         mInstances[instanceId] = data;
 
-        mLogger->LogTrace("Added instance {} (group={}, offset={}, transform={}, "
-                          "material={})",
-                          instanceId, groupId, groupOffset, transformIndex,
-                          materialId);
-
         return instanceId;
     }
 
@@ -532,7 +524,9 @@ namespace FREYA_NAMESPACE
             const auto totalLevels = mLODPool->GetAllLevels().size();
             const auto groupCount  = mLODPool->GetGroupCount();
             mPushConstants.lodLevelCount =
-                (groupCount > 0) ? static_cast<std::uint32_t>(totalLevels / groupCount) : 0;
+                (groupCount > 0)
+                    ? static_cast<std::uint32_t>(totalLevels / groupCount)
+                    : 0;
         }
 
         // Upload instance data to GPU
@@ -577,14 +571,17 @@ namespace FREYA_NAMESPACE
         const std::uint32_t dispatchCount = (mInstanceCount + 255) / 256;
         cmd.dispatch(dispatchCount, 1, 1);
 
-        // Memory barrier to ensure compute shader writes are visible to draw indirect
+        // Memory barrier to ensure compute shader writes are visible to draw
+        // indirect
         const vk::MemoryBarrier barrier(
             vk::AccessFlagBits::eShaderWrite,
-            vk::AccessFlagBits::eIndirectCommandRead | vk::AccessFlagBits::eVertexAttributeRead);
+            vk::AccessFlagBits::eIndirectCommandRead |
+                vk::AccessFlagBits::eVertexAttributeRead);
 
         cmd.pipelineBarrier(
             vk::PipelineStageFlagBits::eComputeShader,
-            vk::PipelineStageFlagBits::eDrawIndirect | vk::PipelineStageFlagBits::eVertexInput,
+            vk::PipelineStageFlagBits::eDrawIndirect |
+                vk::PipelineStageFlagBits::eVertexInput,
             vk::DependencyFlagBits::eByRegion,
             barrier,
             nullptr,
@@ -595,8 +592,9 @@ namespace FREYA_NAMESPACE
                                        vk::PipelineLayout layout)
     {
         // For graphics pipeline binding, we need to bind at a valid set index
-        // The graphics pipeline layout has sets 0 (UBO), 1 (samplers), and we can add LOD at higher sets
-        // But since we only have 1 set layout, we bind at set 0 (or need to modify pipeline layout)
+        // The graphics pipeline layout has sets 0 (UBO), 1 (samplers), and we
+        // can add LOD at higher sets But since we only have 1 set layout, we
+        // bind at set 0 (or need to modify pipeline layout)
         cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, layout,
                                0, // LOD descriptor set at binding 0
                                1, &mLODDescriptorSet, 0, nullptr);
@@ -617,37 +615,38 @@ namespace FREYA_NAMESPACE
         cmd.reset();
 
         // Begin command buffer
-        const auto beginInfo =
-            vk::CommandBufferBeginInfo().setFlags(
-                vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+        const auto beginInfo = vk::CommandBufferBeginInfo().setFlags(
+            vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
         cmd.begin(beginInfo);
 
         // Update GPU data (upload instance, LOD levels, reset draw count)
         UpdateGPUData(cmd, mPushConstants.cameraPosition);
 
-        // Clear draw command buffer to avoid stale commands from previous frames.
-        // Any draw command beyond the GPU-written count will have indexCount=0 (no-op).
+        // Clear draw command buffer to avoid stale commands from previous
+        // frames. Any draw command beyond the GPU-written count will have
+        // indexCount=0 (no-op).
         cmd.fillBuffer(mDrawCommandBuffer->Get(), 0, VK_WHOLE_SIZE, 0);
 
         // Barrier: transfer write (fillBuffer) → compute shader read
-        const auto fillBarrier = vk::BufferMemoryBarrier()
-                                     .setBuffer(mDrawCommandBuffer->Get())
-                                     .setOffset(0)
-                                     .setSize(VK_WHOLE_SIZE)
-                                     .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
-                                     .setDstAccessMask(vk::AccessFlagBits::eShaderWrite);
-        cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
-                            vk::PipelineStageFlagBits::eComputeShader,
-                            vk::DependencyFlagBits::eByRegion, nullptr, fillBarrier,
-                            nullptr);
+        const auto fillBarrier =
+            vk::BufferMemoryBarrier()
+                .setBuffer(mDrawCommandBuffer->Get())
+                .setOffset(0)
+                .setSize(VK_WHOLE_SIZE)
+                .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eShaderWrite);
+        cmd.pipelineBarrier(
+            vk::PipelineStageFlagBits::eTransfer,
+            vk::PipelineStageFlagBits::eComputeShader,
+            vk::DependencyFlagBits::eByRegion, nullptr, fillBarrier, nullptr);
 
         // Bind compute pipeline
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, mLODComputePipeline);
 
         // Bind descriptor set at set 0
-        cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute,
-                                mLODComputePipelineLayout, 0, 1, &mLODDescriptorSet,
-                                0, nullptr);
+        cmd.bindDescriptorSets(
+            vk::PipelineBindPoint::eCompute, mLODComputePipelineLayout, 0, 1,
+            &mLODDescriptorSet, 0, nullptr);
 
         // Push constants
         cmd.pushConstants(mLODComputePipelineLayout,
@@ -658,21 +657,24 @@ namespace FREYA_NAMESPACE
         const std::uint32_t dispatchCount = (mInstanceCount + 255) / 256;
         cmd.dispatch(dispatchCount, 1, 1);
 
-        // Memory barrier to ensure compute shader writes are visible to draw indirect
-        const vk::MemoryBarrier barrier(vk::AccessFlagBits::eShaderWrite,
-                                        vk::AccessFlagBits::eIndirectCommandRead |
-                                            vk::AccessFlagBits::eVertexAttributeRead);
+        // Memory barrier to ensure compute shader writes are visible to draw
+        // indirect
+        const vk::MemoryBarrier barrier(
+            vk::AccessFlagBits::eShaderWrite,
+            vk::AccessFlagBits::eIndirectCommandRead |
+                vk::AccessFlagBits::eVertexAttributeRead);
 
-        cmd.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader,
-                            vk::PipelineStageFlagBits::eDrawIndirect |
-                                vk::PipelineStageFlagBits::eVertexInput,
-                            vk::DependencyFlagBits::eByRegion, barrier, nullptr,
-                            nullptr);
+        cmd.pipelineBarrier(
+            vk::PipelineStageFlagBits::eComputeShader,
+            vk::PipelineStageFlagBits::eDrawIndirect |
+                vk::PipelineStageFlagBits::eVertexInput,
+            vk::DependencyFlagBits::eByRegion, barrier, nullptr, nullptr);
 
         // End command buffer
         cmd.end();
 
-        // Submit to graphics queue (most GPUs support compute on graphics queue)
+        // Submit to graphics queue (most GPUs support compute on graphics
+        // queue)
         const auto submitInfo =
             vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(&cmd);
 
@@ -697,10 +699,11 @@ namespace FREYA_NAMESPACE
             sizeof(std::uint32_t),
             vk::MemoryMapFlagBits {});
 
-        const auto invalidateRange = vk::MappedMemoryRange()
-                                         .setMemory(mDrawCountBuffer->GetMemory())
-                                         .setOffset(0)
-                                         .setSize(VK_WHOLE_SIZE);
+        const auto invalidateRange =
+            vk::MappedMemoryRange()
+                .setMemory(mDrawCountBuffer->GetMemory())
+                .setOffset(0)
+                .setSize(VK_WHOLE_SIZE);
         static_cast<void>(
             mDevice->Get().invalidateMappedMemoryRanges(1, &invalidateRange));
 
@@ -738,38 +741,41 @@ namespace FREYA_NAMESPACE
     {
         // Create a dedicated command pool for compute work
         // The builder already pre-allocates command buffers based on frameCount
-        mComputeCommandPool =
-            mServiceProvider->GetService<CommandPoolBuilder>()
-                ->SetCount(mFreyaOptions->frameCount)
-                .Build();
+        mComputeCommandPool = mServiceProvider->GetService<CommandPoolBuilder>()
+                                  ->SetCount(mFreyaOptions->frameCount)
+                                  .Build();
 
-        mLogger->LogInformation(
-            "Created compute command pool with {} buffers",
-            mFreyaOptions->frameCount);
+        mLogger->LogInformation("Created compute command pool with {} buffers",
+                                mFreyaOptions->frameCount);
     }
 
-void LODService::updateMeshMetadata()
+    void LODService::updateMeshMetadata()
     {
         // Build mesh metadata array from MeshPool
         // This provides indexCount, firstIndex, vertexOffset for each mesh
         std::vector<MeshMetadata> meshMetadata(4096);
 
-        mMeshPool->ForEachMesh([&meshMetadata](std::uint32_t meshId, const Mesh& mesh) {
-            meshMetadata[meshId] = MeshMetadata {
-                .indexCount   = mesh.indexCount,
-                .firstIndex   = static_cast<std::uint32_t>(mesh.indexBufferOffset / sizeof(std::uint16_t)),
-                // vertexOffset is in vertex-index units, matching VkDrawIndexedIndirectCommand.
-                // Divide byte-offset by vertex stride to get the correct vertex index.
-                .vertexOffset = static_cast<std::int32_t>(mesh.vertexBufferOffset / sizeof(Vertex)),
-                .padding      = 0
-            };
-        });
+        mMeshPool->ForEachMesh(
+            [&meshMetadata](std::uint32_t meshId, const Mesh& mesh) {
+                meshMetadata[meshId] = MeshMetadata {
+                    .indexCount = mesh.indexCount,
+                    .firstIndex = static_cast<std::uint32_t>(
+                        mesh.indexBufferOffset / sizeof(std::uint16_t)),
+                    // vertexOffset is in vertex-index units, matching
+                    // VkDrawIndexedIndirectCommand. Divide byte-offset by
+                    // vertex stride to get the correct vertex index.
+                    .vertexOffset = static_cast<std::int32_t>(
+                        mesh.vertexBufferOffset / sizeof(Vertex)),
+                    .padding = 0
+                };
+            });
 
         mMeshMetadataBuffer->Copy(meshMetadata.data(),
                                   sizeof(MeshMetadata) * meshMetadata.size());
 
-        mLogger->LogInformation("Updated mesh metadata for {} meshes",
-                                static_cast<std::uint32_t>(mMeshPool->GetMeshCount()));
+        mLogger->LogInformation(
+            "Updated mesh metadata for {} meshes",
+            static_cast<std::uint32_t>(mMeshPool->GetMeshCount()));
     }
 
 } // namespace FREYA_NAMESPACE

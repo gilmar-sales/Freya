@@ -1,5 +1,7 @@
 #include "Freya/Asset/MeshPool.hpp"
+
 #include "Freya/Builders/BufferBuilder.hpp"
+#include "meshoptimizer.h"
 
 #include <glm/glm.hpp>
 #include <unordered_map>
@@ -34,8 +36,8 @@ namespace FREYA_NAMESPACE
             const auto  vertexOffset =
                 static_cast<vk::DeviceSize>(mesh.vertexBufferOffset);
 
-            mCommandPool->GetCommandBuffer()
-                .bindVertexBuffers(0, 1, &vertexBuffer->Get(), &vertexOffset);
+            mCommandPool->GetCommandBuffer().bindVertexBuffers(
+                0, 1, &vertexBuffer->Get(), &vertexOffset);
 
             const auto& indexBuffer = mIndexBuffers[mesh.indexBufferIndex];
             const auto  indexOffset =
@@ -45,8 +47,8 @@ namespace FREYA_NAMESPACE
                 indexOffset,
                 vk::IndexType::eUint16);
 
-            mCommandPool->GetCommandBuffer()
-                .drawIndexed(mesh.indexCount, 1, 0, 0, 0);
+            mCommandPool->GetCommandBuffer().drawIndexed(
+                mesh.indexCount, 1, 0, 0, 0);
         }
     }
 
@@ -62,8 +64,8 @@ namespace FREYA_NAMESPACE
             const auto  vertexOffset =
                 static_cast<vk::DeviceSize>(mesh.vertexBufferOffset);
 
-            mCommandPool->GetCommandBuffer()
-                .bindVertexBuffers(0, 1, &vertexBuffer->Get(), &vertexOffset);
+            mCommandPool->GetCommandBuffer().bindVertexBuffers(
+                0, 1, &vertexBuffer->Get(), &vertexOffset);
 
             const auto& indexBuffer = mIndexBuffers[mesh.indexBufferIndex];
             const auto  indexOffset =
@@ -91,10 +93,10 @@ namespace FREYA_NAMESPACE
         {
             auto& mesh = mMeshes[meshId];
 
-            const auto& vertexBuffer = mVertexBuffers[mesh.vertexBufferIndex];
+            const auto& vertexBuffer  = mVertexBuffers[mesh.vertexBufferIndex];
             constexpr auto bindOffset = vk::DeviceSize(0);
-            mCommandPool->GetCommandBuffer()
-                .bindVertexBuffers(0, 1, &vertexBuffer->Get(), &bindOffset);
+            mCommandPool->GetCommandBuffer().bindVertexBuffers(
+                0, 1, &vertexBuffer->Get(), &bindOffset);
 
             const auto& indexBuffer = mIndexBuffers[mesh.indexBufferIndex];
             mCommandPool->GetCommandBuffer().bindIndexBuffer(
@@ -227,28 +229,24 @@ namespace FREYA_NAMESPACE
     std::uint32_t MeshPool::CreateSimplifiedMesh(
         const std::uint32_t sourceMeshId, const float reduction)
     {
-        // Clamp and validate
         const float r = std::clamp(reduction, 0.0f, 0.99f);
+
         if (r < 0.001f)
-        {
-            // No reduction requested — return the original mesh
             return sourceMeshId;
-        }
 
         const auto it = mMeshSourceData.find(sourceMeshId);
         if (it == mMeshSourceData.end())
         {
-            mLogger->LogError(
-                "CreateSimplifiedMesh: source mesh {} not found",
-                sourceMeshId);
+            mLogger->LogError("CreateSimplifiedMesh: source mesh {} not found",
+                              sourceMeshId);
             return std::numeric_limits<std::uint32_t>::max();
         }
 
-        const auto& src     = it->second;
+        const auto& src      = it->second;
         const auto& srcVerts = src.vertices;
         const auto& srcIdx   = src.indices;
 
-        if (srcVerts.empty() || srcIdx.empty())
+        if (srcVerts.empty() || srcIdx.empty() || srcIdx.size() < 3)
         {
             mLogger->LogError(
                 "CreateSimplifiedMesh: source mesh {} has no data",
@@ -257,188 +255,70 @@ namespace FREYA_NAMESPACE
         }
 
         // ---------------------------------------------------------------
-        //  Vertex clustering
+        //  Quadric-error simplification via meshoptimizer
         // ---------------------------------------------------------------
-        // 1. Compute bounding box
-        glm::vec3 bmin = srcVerts[0].position;
-        glm::vec3 bmax = srcVerts[0].position;
+
+        std::vector<float> positions;
+        positions.reserve(srcVerts.size() * 3);
         for (const auto& v : srcVerts)
         {
-            bmin = glm::min(bmin, v.position);
-            bmax = glm::max(bmax, v.position);
+            positions.push_back(v.position.x);
+            positions.push_back(v.position.y);
+            positions.push_back(v.position.z);
         }
 
-        const glm::vec3 extent   = bmax - bmin;
-        const float maxExtent =
-            glm::max(extent.x, glm::max(extent.y, extent.z));
-        if (maxExtent < 0.001f)
+        const size_t targetIndexCount =
+            static_cast<float>(srcIdx.size()) * (1.0f - r);
+
+        if (targetIndexCount < 3)
         {
+            mLogger->LogError(
+                "CreateSimplifiedMesh: target index count too small for mesh "
+                "{}",
+                sourceMeshId);
             return sourceMeshId;
         }
 
-        // Grid resolution: more reduction → coarser grid
-        // At r=0.5 → 16 divisions, at r=0.9 → 3 divisions
-        const int gridDivs =
-            std::max(1, static_cast<int>(32.0f * (1.0f - r)));
+        // 3. Simplify using the geometric sloppy simplifier (fast, no
+        //    attribute weighting).
+        std::vector<std::uint16_t> resultIdx(srcIdx.size());
+        float                      resultError = 0.0f;
 
-        const glm::vec3 cellSize = extent / static_cast<float>(gridDivs);
+        const float targetError = r;
 
-        // 2. Assign each vertex to a cluster
-        struct Cluster {
-            glm::vec3 posSum  = glm::vec3(0.0f);
-            glm::vec3 colSum  = glm::vec3(0.0f);
-            glm::vec3 nrmSum  = glm::vec3(0.0f);
-            glm::vec3 tanSum  = glm::vec3(0.0f);
-            glm::vec2 uvSum   = glm::vec2(0.0f);
-            std::uint32_t cnt = 0;
-        };
+        const size_t newCount = meshopt_simplifySloppy(
+            resultIdx.data(),
+            srcIdx.data(),
+            srcIdx.size(),
+            positions.data(),
+            srcVerts.size(),
+            sizeof(float) * 3, // vertex_positions_stride
+            targetIndexCount,
+            targetError,      // target_aggressiveness
+            &resultError);
 
-        // UV quantisation resolution (how many cells across the [0,1] UV
-        // domain).  Using the same resolution as the position grid ensures
-        // vertices separated by a sharp UV seam land in distinct clusters
-        // even when their positions are nearly identical.
-        const int uvGridDivs = std::max(1, gridDivs * 2);
-
-        // Cluster key: {gx, gy, gz, gu, gv}
-        struct ClusterKey {
-            std::int32_t gx, gy, gz, gu, gv;
-
-            bool operator==(const ClusterKey& o) const
-            {
-                return gx == o.gx && gy == o.gy && gz == o.gz &&
-                       gu == o.gu && gv == o.gv;
-            }
-        };
-
-        struct ClusterKeyHash {
-            std::size_t operator()(const ClusterKey& k) const
-            {
-                // Pack into 64-bit:
-                //   gx:14, gy:14, gz:14, gu:11, gv:11 = 64
-                return static_cast<std::size_t>(
-                    (static_cast<std::uint64_t>(
-                         static_cast<std::uint32_t>(k.gx) & 0x3FFFu)
-                     << 50) |
-                    (static_cast<std::uint64_t>(
-                         static_cast<std::uint32_t>(k.gy) & 0x3FFFu)
-                     << 36) |
-                    (static_cast<std::uint64_t>(
-                         static_cast<std::uint32_t>(k.gz) & 0x3FFFu)
-                     << 22) |
-                    (static_cast<std::uint64_t>(
-                         static_cast<std::uint32_t>(k.gu) & 0x7FFu)
-                     << 11) |
-                    static_cast<std::uint64_t>(
-                        static_cast<std::uint32_t>(k.gv) & 0x7FFu));
-            }
-        };
-
-        std::unordered_map<ClusterKey, std::uint32_t, ClusterKeyHash>
-            clusterMap;
-        std::vector<Cluster> clusters;
-        clusters.reserve(srcVerts.size());
-
-        // Per-vertex cluster index
-        std::vector<std::uint32_t> vertCluster(srcVerts.size(), 0xFFFFFFFFu);
-
-        for (std::size_t i = 0; i < srcVerts.size(); ++i)
-        {
-            const auto& pos = srcVerts[i].position;
-
-            // Compute grid cell coordinate (position)
-            const int gx = static_cast<int>(
-                (pos.x - bmin.x) / cellSize.x);
-            const int gy = static_cast<int>(
-                (pos.y - bmin.y) / cellSize.y);
-            const int gz = static_cast<int>(
-                (pos.z - bmin.z) / cellSize.z);
-
-            // Compute grid cell coordinate (UV)
-            const int gu = static_cast<int>(
-                srcVerts[i].texCoord.x * uvGridDivs);
-            const int gv = static_cast<int>(
-                srcVerts[i].texCoord.y * uvGridDivs);
-
-            const ClusterKey key { gx, gy, gz, gu, gv };
-
-            auto [itCluster, inserted] =
-                clusterMap.try_emplace(key, clusters.size());
-            if (inserted)
-            {
-                clusters.emplace_back();
-            }
-
-            const auto clusterIdx = itCluster->second;
-            vertCluster[i]        = clusterIdx;
-
-            auto& cl = clusters[clusterIdx];
-            cl.posSum += pos;
-            cl.colSum += srcVerts[i].color;
-            cl.nrmSum += srcVerts[i].normal;
-            cl.tanSum += srcVerts[i].tangent;
-            cl.uvSum  += srcVerts[i].texCoord;
-            cl.cnt++;
-        }
-
-        mLogger->LogTrace(
-            "Vertex clustering: {} verts → {} clusters (grid {}³)",
-            srcVerts.size(), clusters.size(), gridDivs);
-
-        // 3. Build representative vertices (one per cluster)
-        std::vector<Vertex> newVerts;
-        newVerts.reserve(clusters.size());
-        for (const auto& cl : clusters)
-        {
-            const float inv = 1.0f / static_cast<float>(cl.cnt);
-            Vertex v;
-            v.position = cl.posSum * inv;
-            v.color    = cl.colSum * inv;
-            v.normal   = glm::normalize(cl.nrmSum * inv);
-            v.tangent  = glm::normalize(cl.tanSum * inv);
-            v.texCoord = cl.uvSum * inv;
-            newVerts.push_back(v);
-        }
-
-        // 4. Rebuild faces, skipping degenerates
-        std::vector<std::uint16_t> newIdx;
-        newIdx.reserve(srcIdx.size()); // pessimistic
-
-        const std::uint32_t triCount =
-            static_cast<std::uint32_t>(srcIdx.size() / 3);
-        for (std::uint32_t t = 0; t < triCount; ++t)
-        {
-            const auto i0 = vertCluster[srcIdx[t * 3 + 0]];
-            const auto i1 = vertCluster[srcIdx[t * 3 + 1]];
-            const auto i2 = vertCluster[srcIdx[t * 3 + 2]];
-
-            // Skip degenerate triangles (two or more verts in same cluster)
-            if (i0 == i1 || i1 == i2 || i0 == i2)
-                continue;
-
-            newIdx.push_back(static_cast<std::uint16_t>(i0));
-            newIdx.push_back(static_cast<std::uint16_t>(i1));
-            newIdx.push_back(static_cast<std::uint16_t>(i2));
-        }
-
-        mLogger->LogInformation(
-            "Simplified mesh {}: {} verts, {} tris → {} verts, {} tris "
-            "(reduction {:.0f}%)",
-            sourceMeshId,
-            srcVerts.size(), srcIdx.size() / 3,
-            newVerts.size(), newIdx.size() / 3,
-            r * 100.0f);
-
-        if (newIdx.empty())
+        if (newCount == 0)
         {
             mLogger->LogError(
-                "CreateSimplifiedMesh: simplification produced no triangles "
-                "for mesh {}",
+                "CreateSimplifiedMesh: simplification failed for mesh {}",
                 sourceMeshId);
             return std::numeric_limits<std::uint32_t>::max();
         }
 
-        // 5. Upload as a new mesh
-        return CreateMesh(newVerts, newIdx);
+        resultIdx.resize(newCount);
+
+        const auto finalReduction =
+            (1.0f -
+             static_cast<float>(newCount) / static_cast<float>(srcIdx.size())) *
+            100.0f;
+
+        mLogger->LogInformation(
+            "Simplified mesh {}: {} verts, {} tris → {} verts, {} tris "
+            "(reduction {:.0f}%, error {:.4f})",
+            sourceMeshId, srcVerts.size(), srcIdx.size() / 3, srcVerts.size(),
+            newCount / 3, finalReduction, resultError);
+
+        return CreateMesh(srcVerts, resultIdx);
     }
 
     std::uint32_t MeshPool::createVertexBuffer(const std::uint32_t size)
