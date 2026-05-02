@@ -200,6 +200,15 @@ namespace FREYA_NAMESPACE
             return mCommandPool;
         }
 
+        /**
+         * @brief Returns the render pass.
+         * @return Reference to the render pass
+         */
+        [[nodiscard]] Ref<RenderPass> GetRenderPass() const
+        {
+            return mRenderPass;
+        }
+
       private:
         Ref<skr::ServiceProvider> mServiceProvider;
         Ref<Instance>             mInstance;

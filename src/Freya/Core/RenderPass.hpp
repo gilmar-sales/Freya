@@ -52,14 +52,16 @@ namespace FREYA_NAMESPACE
             const std::vector<vk::DescriptorSet>&       descriptorSets,
             const vk::DescriptorPool                    descriptorPool,
             const vk::DescriptorSetLayout               samplerLayout,
-            const vk::DescriptorPool                    samplerDescriptorPool) :
+            const vk::DescriptorPool                    samplerDescriptorPool,
+            const vk::DescriptorSetLayout               drawMetaLayout) :
             mDevice(device), mFreyaOptions(freyaOptions),
             mRenderPass(renderPass), mPipelineLayout(pipelineLayout),
             mGraphicsPipeline(graphicsPipeline), mUniformBuffer(uniformBuffer),
             mDescriptorSetLayouts(descriptorSetLayouts),
             mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool),
             mSamplerLayout(samplerLayout),
-            mSamplerDescriptorPool(samplerDescriptorPool)
+            mSamplerDescriptorPool(samplerDescriptorPool),
+            mDrawMetaLayout(drawMetaLayout)
         {
         }
 
@@ -119,6 +121,14 @@ namespace FREYA_NAMESPACE
             return mSamplerDescriptorPool;
         }
 
+        /**
+         * @brief Returns the draw metadata descriptor set layout (set 2).
+         */
+        vk::DescriptorSetLayout& GetDrawMetaLayout()
+        {
+            return mDrawMetaLayout;
+        }
+
         Ref<Device>       mDevice;
         Ref<FreyaOptions> mFreyaOptions;
 
@@ -134,5 +144,6 @@ namespace FREYA_NAMESPACE
       private:
         vk::DescriptorSetLayout mSamplerLayout;
         vk::DescriptorPool      mSamplerDescriptorPool;
+        vk::DescriptorSetLayout mDrawMetaLayout;
     };
 } // namespace FREYA_NAMESPACE

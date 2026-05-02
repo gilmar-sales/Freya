@@ -134,24 +134,26 @@ class MainApp final : public fra::AbstractApplication
         for (const auto groupId : mSpaceShipLODGroups)
         {
             mSpaceShipInstanceIds.push_back(
-                mLODService->AddInstance(groupId, 0));
+                mLODService->AddInstance(groupId, 0, mSpaceShipMaterial));
         }
         // Second spaceship at transform 1
         for (const auto groupId : mSpaceShipLODGroups)
         {
             mSpaceShipInstanceIds.push_back(
-                mLODService->AddInstance(groupId, 1));
+                mLODService->AddInstance(groupId, 1, mSpaceShipMaterial));
         }
 
         // Sofa at transform 2: each sub-mesh gets an instance
         for (const auto groupId : mSofaLODGroups)
         {
-            mSofaInstanceIds.push_back(mLODService->AddInstance(groupId, 2));
+            mSofaInstanceIds.push_back(
+                mLODService->AddInstance(groupId, 2, mSofaMaterial));
         }
         // Second Sofa at transform 3
         for (const auto groupId : mSofaLODGroups)
         {
-            mSofaInstanceIds.push_back(mLODService->AddInstance(groupId, 3));
+            mSofaInstanceIds.push_back(
+                mLODService->AddInstance(groupId, 3, mSofaMaterial));
         }
 
         // Initialize transform buffer for LOD system
@@ -235,11 +237,32 @@ class MainApp final : public fra::AbstractApplication
             const auto drawCmdBuffer = mLODService->GetDrawCommandBufferRef();
             const auto drawCount     = mLODService->GetDrawCount();
 
+            // Bind the global bindless sampler descriptor set (set 1).
+            // In bindless mode, the specific materialId doesn't matter here
+            // — it's carried per-draw in the draw metadata buffer and used
+            // directly in the shader via nonuniformEXT().
+            mMaterialPool->Bind(0);
+
+            // Bind the draw metadata descriptor (set 2) containing the
+            // materialId per draw command. The vertex shader reads this via
+            // gl_DrawIDARB and passes it as a flat output to the fragment
+            // shader.
+            {
+                auto cmdBuffer =
+                    mRenderer->GetCommandPool()->GetCommandBuffer();
+                auto lodDescSet = mLODService->GetDrawMetaDescriptorSet();
+                cmdBuffer.bindDescriptorSets(
+                    vk::PipelineBindPoint::eGraphics,
+                    mRenderer->GetRenderPass()->GetPipelineLayout(),
+                    2, // set 2 = draw metadata
+                    1, &lodDescSet,
+                    0, nullptr);
+            }
+
             // Single DrawIndirect call — both meshes share buffer 0 at
             // offset 0, and the compute shader emits draw commands with
-            // absolute buffer offsets. All LOD-instances render correctly
-            // regardless of which mesh ID is used for the buffer binding.
-            mMaterialPool->Bind(mSpaceShipMaterial);
+            // absolute buffer offsets. The fragment shader resolves the
+            // correct material textures via bindless indexing.
             if (!mSpaceShipModel.empty())
             {
                 mMeshPool->DrawIndirect(
@@ -248,16 +271,13 @@ class MainApp final : public fra::AbstractApplication
         }
         else
         {
-            // Fallback to traditional instanced rendering
-            // Draw SpaceShips (2 instances)
-            mMaterialPool->Bind(mSpaceShipMaterial);
+            // Fallback: draw spaceships with bindless set
+            mMaterialPool->Bind(0);
             for (const auto& mesh : mSpaceShipModel)
             {
                 mMeshPool->DrawInstanced(mesh, 2);
             }
-
-            // Draw Sofas (2 instances)
-            mMaterialPool->Bind(mSofaMaterial);
+            mMaterialPool->Bind(0);
             for (const auto& mesh : mSofaModel)
             {
                 mMeshPool->DrawInstanced(mesh, 2, 2);

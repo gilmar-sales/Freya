@@ -1,4 +1,5 @@
 #version 450
+#extension GL_EXT_nonuniform_qualifier : require
 
 #include "../Common/Dither.glsl"
 
@@ -8,29 +9,24 @@ layout (binding = 0) uniform ProjectionUniformBuffer {
     vec4 ambientLight;
 } pub;
 
-// Material textures (set = 1)
-layout (set = 1, binding = 0) uniform sampler2D albedoSampler;
-layout (set = 1, binding = 1) uniform sampler2D normalSampler;
-layout (set = 1, binding = 2) uniform sampler2D roughnessSampler;
-
-// LOD dither texture (set = 2, binding = 0)
-layout (set = 2, binding = 0) uniform sampler2D ditherSampler;
+// Bindless texture arrays (set 1) — indexed by materialId
+layout (set = 1, binding = 0) uniform sampler2D albedoTextures[];
+layout (set = 1, binding = 1) uniform sampler2D normalTextures[];
+layout (set = 1, binding = 2) uniform sampler2D roughnessTextures[];
 
 layout (location = 0) in vec3 fragColor;
 layout (location = 1) in vec3 fragPosition;
 layout (location = 2) in vec2 fragTexCoord;
 layout (location = 3) in mat3 TBN;
 
+// LOD fade factor
+layout (location = 9) in flat uint materialId;
+layout (location = 6) in float lodFadeFactor;
+
 layout (location = 0) out vec4 outColor;
 
-// LOD fade factor (pushed as vertex attribute or as additional varying)
-// For now, we calculate it from world position distance to camera
-// In a full implementation, this would come from the vertex shader
-layout (location = 4) in flat uint instanceId;
-layout (location = 5) in float lodFadeFactor;
-
-vec3 getNormalFromMap() {
-    vec3 normal = texture(normalSampler, fragTexCoord).rgb * 2.0 - 1.0;
+vec3 getNormalFromMap(sampler2D normalMap, vec2 uv) {
+    vec3 normal = texture(normalMap, uv).rgb * 2.0 - 1.0;
     return normalize(TBN * normal);
 }
 
@@ -40,9 +36,10 @@ vec3 getCameraPosition(mat4 viewMatrix) {
 
 void main()
 {
-    vec3 albedo = texture(albedoSampler, fragTexCoord).rgb;
-    vec3 normal = getNormalFromMap();
-    float roughness = texture(roughnessSampler, fragTexCoord).r;
+    uint matId = nonuniformEXT(materialId);
+    vec3 albedo = texture(albedoTextures[matId], fragTexCoord).rgb;
+    vec3 normal = getNormalFromMap(normalTextures[matId], fragTexCoord);
+    float roughness = texture(roughnessTextures[matId], fragTexCoord).r;
 
     vec3 lightDirNorm = normalize(-pub.ambientLight.xyz);
     vec3 viewDir = normalize(getCameraPosition(pub.view) - fragPosition);

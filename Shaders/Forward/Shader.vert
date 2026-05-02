@@ -1,10 +1,17 @@
 #version 450
+#extension GL_ARB_shader_draw_parameters : require
 
 layout(binding = 0) uniform ProjectionUniformBuffer {
     mat4 view;
     mat4 proj;
     vec4 ambientLight;
 } pub;
+
+// Draw metadata SSBO (set 2, binding 0) — indexed by gl_DrawIDARB
+// Contains materialId per draw command, written by the LOD compute shader
+layout(set = 2, binding = 0) readonly buffer DrawMetadata {
+    uint materialId[];
+} drawMetadata;
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inColor;
@@ -17,6 +24,7 @@ layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec3 fragPosition;
 layout(location = 2) out vec2 fragTexCoord;
 layout(location = 3) out mat3 TBN;
+layout(location = 9) out flat uint fragMaterialId;
 
 void main() {
     vec4 vertexPosition = inModel * vec4(inPosition, 1.0);
@@ -31,4 +39,7 @@ void main() {
     vec3 B = cross(N, T);
 
     TBN = mat3(T, B, N);
+
+    // Read materialId from draw metadata buffer using gl_DrawIDARB
+    fragMaterialId = drawMetadata.materialId[gl_DrawIDARB];
 }

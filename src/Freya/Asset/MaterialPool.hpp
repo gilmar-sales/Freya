@@ -54,24 +54,42 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Creates a material from existing texture IDs.
          * @param textures Vector of texture IDs
-         * @return Material ID for later binding
+         * @return Material ID for bindless texture indexing
+         *
+         * Updates the global bindless sampler descriptor set at the material's
+         * index. The materialId returned is used by the shader to index into
+         * the bindless texture arrays via nonuniformEXT().
          */
         std::uint32_t Create(std::vector<std::uint32_t> textures);
 
         /**
-         * @brief Binds material's descriptor sets to the command buffer.
-         * @param materialId Material identifier
+         * @brief Binds the global bindless sampler descriptor set.
+         * @param materialId Ignored in bindless mode — kept for API
+         *                   compatibility. The material ID is carried in the
+         *                   draw metadata buffer and used directly in the
+         *                   shader.
          */
         void Bind(std::uint32_t materialId);
 
+        /**
+         * @brief Returns the global bindless sampler descriptor set for set 1.
+         */
+        vk::DescriptorSet GetBindlessSamplerSet() const
+        {
+            return mBindlessSamplerSet;
+        }
+
       private:
+        void ensureBindlessDescriptorSet();
+
         Ref<Device>                    mDevice;
         Ref<CommandPool>               mCommandPool;
         Ref<RenderPass>                mRenderPass;
         Ref<TexturePool>               mTexturePool;
         Ref<skr::Logger<MaterialPool>> mLogger;
 
-        MaterialSet mMaterials;
+        MaterialSet     mMaterials;
+        vk::DescriptorSet mBindlessSamplerSet { VK_NULL_HANDLE };
     };
 
 } // namespace FREYA_NAMESPACE

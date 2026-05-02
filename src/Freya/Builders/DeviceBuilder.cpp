@@ -64,8 +64,25 @@ namespace FREYA_NAMESPACE
                                  optionalExtensions.begin(),
                                  optionalExtensions.end());
 
+        // Enable bindless descriptor indexing (Vulkan 1.2 core feature)
+        auto indexingFeatures =
+            vk::PhysicalDeviceDescriptorIndexingFeatures()
+                .setShaderSampledImageArrayNonUniformIndexing(true)
+                .setRuntimeDescriptorArray(true)
+                .setDescriptorBindingPartiallyBound(true);
+
+        // Enable shaderDrawParameters for gl_DrawIDARB (Vulkan 1.3 core
+        // feature)
+        auto drawParamsFeatures =
+            vk::PhysicalDeviceShaderDrawParametersFeatures()
+                .setShaderDrawParameters(true);
+
+        // Chain: createInfo → drawParamsFeatures → indexingFeatures
+        drawParamsFeatures.setPNext(&indexingFeatures);
+
         auto createInfo =
             vk::DeviceCreateInfo()
+                .setPNext(&drawParamsFeatures)
                 .setQueueCreateInfoCount(queueCreateInfos.size())
                 .setPQueueCreateInfos(queueCreateInfos.data())
                 .setPEnabledFeatures(&deviceFeatures)

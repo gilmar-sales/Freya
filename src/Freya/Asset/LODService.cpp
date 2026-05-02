@@ -33,12 +33,13 @@ namespace FREYA_NAMESPACE
         mInstances.resize(mMaxInstances);
         for (auto& instance : mInstances)
         {
-            instance = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0 };
+            instance = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF };
         }
 
         createGPUBuffers();
         createDescriptorSetLayout();
         allocateDescriptorSet();
+        createDrawMetaGraphicsDescriptor();
         createComputePipeline();
         createDitherTexture();
         createComputeCommandPool();
@@ -65,6 +66,14 @@ namespace FREYA_NAMESPACE
         {
             mDevice->Get().destroyDescriptorPool(mDescriptorPool);
         }
+        if (mDrawMetaGraphicsLayout)
+        {
+            mDevice->Get().destroyDescriptorSetLayout(mDrawMetaGraphicsLayout);
+        }
+        if (mDrawMetaGraphicsPool)
+        {
+            mDevice->Get().destroyDescriptorPool(mDrawMetaGraphicsPool);
+        }
     }
 
     void LODService::createGPUBuffers()
@@ -86,6 +95,15 @@ namespace FREYA_NAMESPACE
             BufferBuilder(mDevice)
                 .SetSize(drawCmdSize)
                 .SetUsage(BufferUsage::Indirect)
+                .Build();
+
+        // Draw metadata buffer - stores materialId per draw command
+        // Written by compute shader, read by vertex shader via gl_DrawIDARB
+        const auto drawMetadataSize = sizeof(std::uint32_t) * mMaxInstances;
+        mDrawMetadataBuffer =
+            BufferBuilder(mDevice)
+                .SetSize(drawMetadataSize)
+                .SetUsage(BufferUsage::Storage)
                 .Build();
 
         // Draw count buffer - atomic counter
@@ -126,9 +144,10 @@ namespace FREYA_NAMESPACE
                 .Build();
 
         mLogger->LogInformation(
-            "Created GPU buffers: instance={}, drawCmd={}, drawCount={}, "
-            "transform={}, lodLevels={}, meshMeta={}",
-            instanceBufferSize, drawCmdSize, sizeof(std::uint32_t),
+            "Created GPU buffers: instance={}, drawCmd={}, drawMeta={}, "
+            "drawCount={}, transform={}, lodLevels={}, meshMeta={}",
+            instanceBufferSize, drawCmdSize, drawMetadataSize,
+            sizeof(std::uint32_t),
             transformBufferSize, lodLevelsSize, meshMetadataSize);
     }
 
@@ -139,11 +158,12 @@ namespace FREYA_NAMESPACE
         // 0: LODInstanceData (readonly storage buffer)
         // 1: Transform buffer (readonly storage buffer)
         // 2: LODLevel buffer (readonly storage buffer)
-        // 3: Mesh metadata buffer (readonly storage buffer) - future
+        // 3: Mesh metadata buffer (readonly storage buffer)
         // 4: Draw command buffer (writeable storage buffer)
-        // 5: Visible instances buffer (writeable storage buffer) - future
+        // 5: Visible instances buffer (writeable storage buffer)
         // 6: Draw count (atomic counter)
-        const std::array<vk::DescriptorSetLayoutBinding, 7> bindings = { {
+        // 7: Draw metadata (writeable storage buffer for materialId per draw)
+        const std::array<vk::DescriptorSetLayoutBinding, 8> bindings = { {
             vk::DescriptorSetLayoutBinding()
                 .setBinding(0)
                 .setDescriptorType(vk::DescriptorType::eStorageBuffer)
@@ -179,6 +199,11 @@ namespace FREYA_NAMESPACE
                 .setDescriptorType(vk::DescriptorType::eStorageBuffer)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eCompute),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(7)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eCompute),
         } };
 
         const auto layoutInfo =
@@ -193,10 +218,12 @@ namespace FREYA_NAMESPACE
     void LODService::allocateDescriptorSet()
     {
         // Create descriptor pool for LOD service
+        // 9 storage buffers = 8 for compute + 1 for graphics draw metadata
+        // But we use separate pools, so keep compute pool at 8
         std::array<vk::DescriptorPoolSize, 2> poolSizes = { {
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eStorageBuffer)
-                .setDescriptorCount(8), // Enough for all our storage buffers
+                .setDescriptorCount(8), // 8 storage bindings for compute
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1), // Dither texture
@@ -217,7 +244,7 @@ namespace FREYA_NAMESPACE
         mLODDescriptorSet = mDevice->Get().allocateDescriptorSets(allocInfo)[0];
 
         // Update descriptor set with buffer bindings
-        std::array<vk::WriteDescriptorSet, 7> descriptorWrites = { {
+        std::array<vk::WriteDescriptorSet, 8> descriptorWrites = { {
             // Binding 0: Instance buffer
             vk::WriteDescriptorSet()
                 .setDstSet(mLODDescriptorSet)
@@ -290,6 +317,16 @@ namespace FREYA_NAMESPACE
                                    .setBuffer(mDrawCountBuffer->Get())
                                    .setOffset(0)
                                    .setRange(VK_WHOLE_SIZE)),
+            // Binding 7: Draw metadata buffer (materialId per draw)
+            vk::WriteDescriptorSet()
+                .setDstSet(mLODDescriptorSet)
+                .setDstBinding(7)
+                .setDstArrayElement(0)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setBufferInfo(vk::DescriptorBufferInfo()
+                                   .setBuffer(mDrawMetadataBuffer->Get())
+                                   .setOffset(0)
+                                   .setRange(VK_WHOLE_SIZE)),
         } };
 
         mDevice->Get().updateDescriptorSets(
@@ -297,6 +334,66 @@ namespace FREYA_NAMESPACE
             descriptorWrites.data(), 0, nullptr);
 
         mLogger->LogInformation("Allocated and updated LOD descriptor set");
+    }
+
+    void LODService::createDrawMetaGraphicsDescriptor()
+    {
+        // Create a descriptor set layout for the graphics pipeline's set 2
+        // This set holds the draw metadata buffer (materialId per draw),
+        // indexed by gl_DrawIDARB in the vertex shader.
+        const auto binding =
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(0)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eVertex);
+
+        const auto layoutInfo =
+            vk::DescriptorSetLayoutCreateInfo().setBindings(binding);
+
+        mDrawMetaGraphicsLayout =
+            mDevice->Get().createDescriptorSetLayout(layoutInfo);
+
+        // Create a small descriptor pool for this single set
+        const auto poolSize =
+            vk::DescriptorPoolSize()
+                .setType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1);
+
+        const auto poolInfo =
+            vk::DescriptorPoolCreateInfo()
+                .setPoolSizeCount(1)
+                .setPPoolSizes(&poolSize)
+                .setMaxSets(1);
+
+        mDrawMetaGraphicsPool =
+            mDevice->Get().createDescriptorPool(poolInfo);
+
+        // Allocate the descriptor set
+        const auto allocInfo =
+            vk::DescriptorSetAllocateInfo()
+                .setDescriptorPool(mDrawMetaGraphicsPool)
+                .setSetLayouts(mDrawMetaGraphicsLayout);
+
+        const auto sets =
+            mDevice->Get().allocateDescriptorSets(allocInfo);
+        mDrawMetaDescriptorSet = sets[0];
+
+        // Update with the draw metadata buffer
+        const auto descriptorWrite =
+            vk::WriteDescriptorSet()
+                .setDstSet(mDrawMetaDescriptorSet)
+                .setDstBinding(0)
+                .setDstArrayElement(0)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setBufferInfo(vk::DescriptorBufferInfo()
+                                   .setBuffer(mDrawMetadataBuffer->Get())
+                                   .setOffset(0)
+                                   .setRange(VK_WHOLE_SIZE));
+
+        mDevice->Get().updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
+
+        mLogger->LogInformation("Created draw metadata descriptor for graphics set 2");
     }
 
     void LODService::createComputePipeline()
@@ -359,7 +456,8 @@ namespace FREYA_NAMESPACE
     }
 
     std::uint32_t LODService::AddInstance(std::uint32_t groupId,
-                                          std::uint32_t transformIndex)
+                                          std::uint32_t transformIndex,
+                                          std::uint32_t materialId)
     {
         if (mInstanceCount >= mMaxInstances)
         {
@@ -380,12 +478,14 @@ namespace FREYA_NAMESPACE
         data.meshGroupId    = groupOffset;
         data.currentLOD     = 0;
         data.transformIndex = transformIndex;
-        data.padding        = 0;
+        data.materialId     = materialId;
 
         mInstances[instanceId] = data;
 
-        mLogger->LogTrace("Added instance {} (group={}, offset={}, transform={})",
-                          instanceId, groupId, groupOffset, transformIndex);
+        mLogger->LogTrace("Added instance {} (group={}, offset={}, transform={}, "
+                          "material={})",
+                          instanceId, groupId, groupOffset, transformIndex,
+                          materialId);
 
         return instanceId;
     }
@@ -415,7 +515,7 @@ namespace FREYA_NAMESPACE
             mInstances[instanceId] = mInstances[lastId];
         }
 
-        mInstances[lastId] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0 };
+        mInstances[lastId] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF };
     }
 
     void LODService::UpdateGPUData(vk::CommandBuffer cmd,

@@ -1,4 +1,5 @@
 #version 450
+#extension GL_GOOGLE_include_directive : enable
 
 layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
@@ -62,12 +63,17 @@ layout(set = 0, binding = 6) buffer DrawCountBuffer {
     uint drawCount;
 };
 
+// Output: Per-draw metadata (materialId indexed by gl_DrawIDARB in vertex shader)
+layout(set = 0, binding = 7) writeonly buffer DrawMetadataBuffer {
+    uint drawMetadata[];
+};
+
 // === Structs for clarity ===
 struct LODInstanceData {
     uint meshGroupId;
     uint currentLOD;
     uint transformIndex;
-    uint padding;
+    uint materialId;
 };
 
 struct LODLevel {
@@ -92,7 +98,7 @@ LODInstanceData getInstanceData(uint instanceId) {
     data.meshGroupId = instanceData[offset + 0];
     data.currentLOD = instanceData[offset + 1];
     data.transformIndex = instanceData[offset + 2];
-    // offset + 3 is padding
+    data.materialId = instanceData[offset + 3];
     return data;
 }
 
@@ -184,6 +190,9 @@ void main() {
     drawCommands[cmdOffset + 2] = meshMeta.firstIndex;          // firstIndex
     drawCommands[cmdOffset + 3] = meshMeta.vertexOffset;        // vertexOffset
     drawCommands[cmdOffset + 4] = instance.transformIndex;      // firstInstance — matches instance matrix buffer index
+
+    // Write per-draw metadata (materialId for bindless texturing)
+    drawMetadata[drawIndex] = instance.materialId;
 
     // Store visible instance index for debugging
     visibleInstances[drawIndex] = instanceId;

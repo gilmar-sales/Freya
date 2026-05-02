@@ -53,10 +53,12 @@ namespace FREYA_NAMESPACE
          * @brief Adds a new LOD-managed instance
          * @param groupId LOD group to use
          * @param transformIndex Index into transform buffer
+         * @param materialId Material ID for bindless texture lookup
          * @return Instance ID for later manipulation
          */
         std::uint32_t AddInstance(std::uint32_t groupId,
-                                  std::uint32_t transformIndex);
+                                  std::uint32_t transformIndex,
+                                  std::uint32_t materialId = 0);
 
         /**
          * @brief Updates an instance's transform index
@@ -153,6 +155,18 @@ namespace FREYA_NAMESPACE
         {
             return mDrawCommandBuffer;
         }
+        [[nodiscard]] Ref<Buffer> GetDrawMetadataBufferRef() const
+        {
+            return mDrawMetadataBuffer;
+        }
+        [[nodiscard]] vk::DescriptorSet GetDrawMetaDescriptorSet() const
+        {
+            return mDrawMetaDescriptorSet;
+        }
+        [[nodiscard]] VkDescriptorSetLayout GetDrawMetaDescriptorSetLayout() const
+        {
+            return mDrawMetaGraphicsLayout;
+        }
         [[nodiscard]] VkDescriptorSet GetDescriptorSet() const
         {
             return mLODDescriptorSet;
@@ -165,6 +179,7 @@ namespace FREYA_NAMESPACE
         void createComputePipeline();
         void createDitherTexture();
         void createComputeCommandPool();
+        void createDrawMetaGraphicsDescriptor();
         void updateDrawCount(vk::CommandBuffer cmd);
         void updateMeshMetadata();
 
@@ -182,6 +197,8 @@ namespace FREYA_NAMESPACE
         Ref<Buffer> mInstanceBuffer;    // LODInstanceData[] - read by compute
         Ref<Buffer> mDrawCommandBuffer; // DrawIndexedIndirectCommand[] -
                                         // written by compute, read by graphics
+        Ref<Buffer> mDrawMetadataBuffer; // uint32_t[] - materialId per draw,
+                                         // written by compute, read by vertex
         Ref<Buffer> mDrawCountBuffer;   // uint32_t - atomic counter for visible
                                         // instance count
         Ref<Buffer> mTransformBuffer;   // mat4[] - transform matrices
@@ -203,6 +220,11 @@ namespace FREYA_NAMESPACE
         // Compute pipeline
         vk::Pipeline       mLODComputePipeline       = VK_NULL_HANDLE;
         vk::PipelineLayout mLODComputePipelineLayout = VK_NULL_HANDLE;
+
+        // Graphics pipeline descriptor for draw metadata (set 2)
+        vk::DescriptorSetLayout mDrawMetaGraphicsLayout   = VK_NULL_HANDLE;
+        vk::DescriptorPool      mDrawMetaGraphicsPool     = VK_NULL_HANDLE;
+        vk::DescriptorSet       mDrawMetaDescriptorSet    = VK_NULL_HANDLE;
 
         // Push constants
         LODPushConstants mPushConstants;

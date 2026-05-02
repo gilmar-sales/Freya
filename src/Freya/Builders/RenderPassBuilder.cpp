@@ -137,50 +137,85 @@ namespace FREYA_NAMESPACE
         auto descriptorSets =
             mDevice->Get().allocateDescriptorSets(descriptorSetAllocInfo);
 
+        constexpr std::uint32_t MaxBindlessMaterials = 1024;
+
+        // Bindless sampler pool — large pool for material textures.
+        // Each material uses 3 texture arrays (albedo, normal, roughness) with
+        // MaxBindlessMaterials entries each.  The pool must have enough sampler
+        // descriptors for all bindings in the array descriptor + per-material
+        // allocation overhead.
         auto samplerPoolSize =
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(2 << 16);
+                .setDescriptorCount(2 << 16); // Large pool for worst case
 
         auto samplerPoolInfo =
             vk::DescriptorPoolCreateInfo()
                 .setPoolSizeCount(1)
                 .setPPoolSizes(&samplerPoolSize)
-                .setMaxSets(2 << 16);
+                .setMaxSets(2 << 16); // Allow many sets (though we only use 1)
 
         auto samplerDescriptorPool =
             mDevice->Get().createDescriptorPool(samplerPoolInfo);
 
+        // Bindless sampler descriptor set layout
+        // Three array bindings (albedo, normal, roughness), each MAX_MATERIALS
+        // wide. PARTIALLY_BOUND allows unused slots (unallocated material IDs).
         auto samplerDescriptorSetBindings = std::array {
             vk::DescriptorSetLayoutBinding()
                 .setBinding(0)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
+                .setDescriptorCount(MaxBindlessMaterials)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr),
             vk::DescriptorSetLayoutBinding()
                 .setBinding(1)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
+                .setDescriptorCount(MaxBindlessMaterials)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr),
             vk::DescriptorSetLayoutBinding()
                 .setBinding(2)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
+                .setDescriptorCount(MaxBindlessMaterials)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr)
         };
 
+        // Mark all three bindings as PARTIALLY_BOUND (not all array slots
+        // need valid descriptors — unallocated material IDs are never sampled)
+        auto bindingFlags = std::array {
+            vk::DescriptorBindingFlags(vk::DescriptorBindingFlagBits::ePartiallyBound),
+            vk::DescriptorBindingFlags(vk::DescriptorBindingFlagBits::ePartiallyBound),
+            vk::DescriptorBindingFlags(vk::DescriptorBindingFlagBits::ePartiallyBound),
+        };
+
+        auto bindingFlagsInfo =
+            vk::DescriptorSetLayoutBindingFlagsCreateInfo()
+                .setBindingFlags(bindingFlags);
+
         auto samplerDescriptorSetCreateInfo =
-            vk::DescriptorSetLayoutCreateInfo().setBindings(
-                samplerDescriptorSetBindings);
+            vk::DescriptorSetLayoutCreateInfo()
+                .setBindings(samplerDescriptorSetBindings)
+                .setPNext(&bindingFlagsInfo);
 
         auto samplerLayout = mDevice->Get().createDescriptorSetLayout(
             samplerDescriptorSetCreateInfo);
 
+        // Set 2 layout: draw metadata (storage buffer read by vertex shader
+        // via gl_DrawIDARB)
+        auto drawMetaBinding =
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(0)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eVertex);
+
+        auto drawMetaLayout = mDevice->Get().createDescriptorSetLayout(
+            vk::DescriptorSetLayoutCreateInfo().setBindings(drawMetaBinding));
+
         const auto pipelineLayouts =
-            std::array { frameLayouts[0], samplerLayout };
+            std::array { frameLayouts[0], samplerLayout, drawMetaLayout };
 
         auto pipelineLayoutInfo =
             vk::PipelineLayoutCreateInfo().setSetLayouts(pipelineLayouts);
@@ -273,7 +308,8 @@ namespace FREYA_NAMESPACE
             descriptorSets,
             descriptorPool,
             samplerLayout,
-            samplerDescriptorPool);
+            samplerDescriptorPool,
+            drawMetaLayout);
     }
 
     vk::RenderPass RenderPassBuilder::createRenderPass() const

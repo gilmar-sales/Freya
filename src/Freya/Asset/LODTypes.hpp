@@ -54,10 +54,10 @@ struct LODGroup {
  * LOD selection and culling.
  */
 struct LODInstanceData {
-    std::uint32_t meshGroupId;    // Which LODGroup this instance uses
+    std::uint32_t meshGroupId;     // Which LODGroup this instance uses
     std::uint32_t currentLOD;      // Currently selected LOD level (updated by GPU)
     std::uint32_t transformIndex;  // Index into transform storage buffer
-    float         padding;        // Alignment padding
+    std::uint32_t materialId;      // Material ID for bindless texture lookup
 };
 
 /**

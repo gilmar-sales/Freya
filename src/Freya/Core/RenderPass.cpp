@@ -19,6 +19,8 @@ namespace FREYA_NAMESPACE
             mDevice->Get().destroyDescriptorSetLayout(descriptorSetLayout);
         }
 
+        mDevice->Get().destroyDescriptorSetLayout(mDrawMetaLayout);
+
         mDevice->Get().destroyPipeline(mGraphicsPipeline);
         mDevice->Get().destroyPipelineLayout(mPipelineLayout);
 
