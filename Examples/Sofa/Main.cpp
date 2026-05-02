@@ -70,23 +70,27 @@ class MainApp final : public fra::AbstractApplication
         }
 
         // Create LOD groups for SpaceShip
-        // For demo: simulate 3 LOD levels using the same meshes at different distances
-        // In production, you'd have actual simplified mesh variants
+        // For demo: simulate 3 LOD levels using the same meshes at different
+        // distances In production, you'd have actual simplified mesh variants
         if (!mSpaceShipModel.empty())
         {
             // Simulated LOD distances (in world units)
-            // LOD0: 0-50 units, LOD1: 50-150 units, LOD2: 150-400 units, LOD3: 400+ (culled)
+            // LOD0: 0-50 units, LOD1: 50-150 units, LOD2: 150-400 units, LOD3:
+            // 400+ (culled)
             std::vector<float> lodDistances = { 0.0f, 50.0f, 150.0f, 400.0f };
 
             // Create multiple LOD groups to simulate different detail levels
             // Using the same mesh ID for all levels as placeholder
-            // In reality, you'd have: spaceship_lod0, spaceship_lod1, spaceship_lod2, etc.
+            // In reality, you'd have: spaceship_lod0, spaceship_lod1,
+            // spaceship_lod2, etc.
             for (std::uint32_t i = 0; i < mSpaceShipModel.size(); ++i)
             {
-                auto meshId = mSpaceShipModel[i];
-                std::vector<std::uint32_t> meshIds = { meshId, meshId, meshId, meshId };
+                auto                       meshId  = mSpaceShipModel[i];
+                std::vector<std::uint32_t> meshIds = { meshId, meshId, meshId,
+                                                       meshId };
 
-                std::uint32_t groupId = mLODPool->CreateLODGroup(meshIds, lodDistances);
+                std::uint32_t groupId =
+                    mLODPool->CreateLODGroup(meshIds, lodDistances);
                 mSpaceShipLODGroups.push_back(groupId);
             }
 
@@ -101,10 +105,12 @@ class MainApp final : public fra::AbstractApplication
 
             for (std::uint32_t i = 0; i < mSofaModel.size(); ++i)
             {
-                auto meshId = mSofaModel[i];
-                std::vector<std::uint32_t> meshIds = { meshId, meshId, meshId, meshId };
+                auto                       meshId  = mSofaModel[i];
+                std::vector<std::uint32_t> meshIds = { meshId, meshId, meshId,
+                                                       meshId };
 
-                std::uint32_t groupId = mLODPool->CreateLODGroup(meshIds, lodDistances);
+                std::uint32_t groupId =
+                    mLODPool->CreateLODGroup(meshIds, lodDistances);
                 mSofaLODGroups.push_back(groupId);
             }
 
@@ -114,14 +120,17 @@ class MainApp final : public fra::AbstractApplication
 
         // Add LOD instances for each object
         // Each instance references a LOD group and a transform index
-        mSpaceShipInstanceId = mLODService->AddInstance(mSpaceShipLODGroups[0], 0);
+        mSpaceShipInstanceId =
+            mLODService->AddInstance(mSpaceShipLODGroups[0], 0);
         mSofaInstanceId = mLODService->AddInstance(mSofaLODGroups[0], 2);
 
         // Second spaceship (different transform)
-        mSpaceShipInstanceId2 = mLODService->AddInstance(mSpaceShipLODGroups[0], 1);
+        mSpaceShipInstanceId2 =
+            mLODService->AddInstance(mSpaceShipLODGroups[0], 1);
 
-        mLogger->LogInformation("LOD system initialized with {} total instances",
-                                mLODService->GetInstanceCount());
+        mLogger->LogInformation(
+            "LOD system initialized with {} total instances",
+            mLODService->GetInstanceCount());
     }
 
     void Update() override
@@ -167,14 +176,16 @@ class MainApp final : public fra::AbstractApplication
         // Update LOD GPU data with current camera position
         if (mLODService)
         {
-            // The UpdateGPUData method takes a command buffer for potential buffer updates
-            // For now, we just pass the camera position for LOD calculations
+            // The UpdateGPUData method takes a command buffer for potential
+            // buffer updates For now, we just pass the camera position for LOD
+            // calculations
             mLODService->SetGlobalDrawDistance(mRenderer->GetDrawDistance());
         }
 
-        // Draw using traditional instanced rendering (LOD compute shader not yet active)
-        // The LOD system is set up - when the compute shader is compiled, it will
-        // automatically select the appropriate LOD level based on distance
+        // Draw using traditional instanced rendering (LOD compute shader not
+        // yet active) The LOD system is set up - when the compute shader is
+        // compiled, it will automatically select the appropriate LOD level
+        // based on distance
 
         // Draw SpaceShips (2 instances)
         mMaterialPool->Bind(mSpaceShipMaterial);
@@ -230,8 +241,10 @@ class MainApp final : public fra::AbstractApplication
     // LOD system data
     std::vector<std::uint32_t> mSpaceShipLODGroups;
     std::vector<std::uint32_t> mSofaLODGroups;
-    std::uint32_t mSpaceShipInstanceId = std::numeric_limits<std::uint32_t>::max();
-    std::uint32_t mSpaceShipInstanceId2 = std::numeric_limits<std::uint32_t>::max();
+    std::uint32_t              mSpaceShipInstanceId =
+        std::numeric_limits<std::uint32_t>::max();
+    std::uint32_t mSpaceShipInstanceId2 =
+        std::numeric_limits<std::uint32_t>::max();
     std::uint32_t mSofaInstanceId = std::numeric_limits<std::uint32_t>::max();
 
     Ref<skr::Logger<MainApp>> mLogger;
@@ -241,22 +254,20 @@ int main(int argc, const char** argv)
 {
     const auto app =
         skr::ApplicationBuilder()
-            .WithExtension<fra::FreyaExtension>(
-                [](fra::FreyaExtension freya) {
-                    freya.WithOptions(
-                        [](fra::FreyaOptionsBuilder& freyaOptions) {
-                            freyaOptions.SetTitle("Sofa example - LOD Demo")
-                                .SetWidth(1920)
-                                .SetHeight(1080)
-                                .SetVSync(false)
-                                .SetSampleCount(8)
-                                .SetFullscreen(false)
-                                .SetDrawDistance(500.0f)
-                                .SetLODDistances({ 0.0f, 50.0f, 150.0f, 400.0f })
-                                .SetMaxLODLevels(4)
-                                .SetUseDitherFade(true);
-                        });
-                })
+            .WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
+                freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
+                    freyaOptions.SetTitle("Sofa example - LOD Demo")
+                        .SetWidth(1920)
+                        .SetHeight(1080)
+                        .SetVSync(false)
+                        .SetSampleCount(8)
+                        .SetFullscreen(false)
+                        .SetDrawDistance(500.0f)
+                        .SetLODDistances({ 0.0f, 50.0f, 150.0f, 400.0f })
+                        .SetMaxLODLevels(4)
+                        .SetUseDitherFade(true);
+                });
+            })
             .Build<MainApp>();
 
     app->Run();

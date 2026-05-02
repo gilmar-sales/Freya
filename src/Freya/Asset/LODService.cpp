@@ -67,45 +67,50 @@ namespace FREYA_NAMESPACE
     void LODService::createGPUBuffers()
     {
         // Instance buffer - holds LODInstanceData for each instance
+        // Use Storage buffer usage for compute shader access
         const auto instanceBufferSize = sizeof(LODInstanceData) * mMaxInstances;
         mInstanceBuffer =
             BufferBuilder(mDevice)
                 .SetSize(instanceBufferSize)
-                .SetUsage(BufferUsage::Instance)
+                .SetUsage(BufferUsage::Storage)
                 .Build();
 
         // Draw command buffer - holds DrawIndexedIndirectCommand
+        // Use Storage buffer usage for compute shader write access
         const auto drawCmdSize =
             sizeof(DrawIndexedIndirectCommand) * mMaxInstances;
         mDrawCommandBuffer =
             BufferBuilder(mDevice)
                 .SetSize(drawCmdSize)
-                .SetUsage(BufferUsage::Instance)
+                .SetUsage(BufferUsage::Storage)
                 .Build();
 
         // Draw count buffer - atomic counter
+        // Use Storage buffer usage for atomic operations
         mDrawCountBuffer =
             BufferBuilder(mDevice)
                 .SetSize(sizeof(std::uint32_t))
-                .SetUsage(BufferUsage::Instance)
+                .SetUsage(BufferUsage::Storage)
                 .Build();
 
         // Transform buffer - holds mat4 transforms (placeholder, sized for max
         // instances)
+        // Use Storage buffer usage for compute shader read access
         const auto transformBufferSize = sizeof(glm::mat4) * mMaxInstances;
         mTransformBuffer =
             BufferBuilder(mDevice)
                 .SetSize(transformBufferSize)
-                .SetUsage(BufferUsage::Instance)
+                .SetUsage(BufferUsage::Storage)
                 .Build();
 
         // LOD levels buffer - flat array of all LOD levels
+        // Use Storage buffer usage for compute shader read access
         const auto lodLevelsSize =
             sizeof(LODLevel) * mLODPool->GetAllLevels().size();
         mLODLevelsBuffer =
             BufferBuilder(mDevice)
                 .SetSize(lodLevelsSize > 256 ? lodLevelsSize : 256)
-                .SetUsage(BufferUsage::Instance)
+                .SetUsage(BufferUsage::Storage)
                 .Build();
 
         mLogger->LogInformation(

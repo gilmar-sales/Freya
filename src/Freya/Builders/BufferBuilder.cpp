@@ -76,6 +76,7 @@ namespace FREYA_NAMESPACE
             case BufferUsage::Index:
             case BufferUsage::Uniform:
             case BufferUsage::Instance:
+            case BufferUsage::Storage:
                 memoryProperties = vk::MemoryPropertyFlagBits::eHostVisible |
                                    vk::MemoryPropertyFlagBits::eDeviceLocal;
                 break;
@@ -97,6 +98,7 @@ namespace FREYA_NAMESPACE
             case BufferUsage::Index:
             case BufferUsage::Uniform:
             case BufferUsage::Instance:
+            case BufferUsage::Storage:
                 priorityInfo.setPriority(1.0f);
                 break;
             default:
