@@ -10,6 +10,10 @@ namespace FREYA_NAMESPACE
      */
     Buffer::~Buffer()
     {
+        // Wait for GPU idle before destroying the buffer. Without this,
+        // destroying a buffer while a submitted command buffer still
+        // references it triggers a validation error.
+        mDevice->Get().waitIdle();
         mDevice->Get().destroyBuffer(mBuffer);
         mDevice->Get().freeMemory(mMemory);
     }
