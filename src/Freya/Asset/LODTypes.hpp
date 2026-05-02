@@ -89,4 +89,16 @@ struct LODConfig {
     float              ditherFadeStart = 10.0f; // Distance before switch to start fade
 };
 
+/**
+ * @brief GPU metadata for a mesh used by compute shader
+ *
+ * Layout must match the MeshMetadata struct in LODSelection.comp exactly.
+ */
+struct MeshMetadata {
+    std::uint32_t indexCount;    // Number of indices to draw
+    std::uint32_t firstIndex;    // First index offset in index buffer
+    std::int32_t  vertexOffset; // Base vertex offset
+    std::uint32_t padding;      // Alignment padding
+};
+
 } // namespace FREYA_NAMESPACE

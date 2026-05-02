@@ -112,6 +112,13 @@ namespace FREYA_NAMESPACE
         Mesh& operator[](const size_t index) { return dense[index]; };
 
         /**
+         * @brief Accesses mesh by dense array index (const version).
+         * @param index Dense array index
+         * @return Const reference to mesh
+         */
+        const Mesh& operator[](const size_t index) const { return dense[index]; };
+
+        /**
          * @brief Returns number of meshes.
          */
         [[nodiscard]] size_t size() const { return dense.size(); }

@@ -140,6 +140,7 @@ namespace FREYA_NAMESPACE
         void createComputePipeline();
         void createDitherTexture();
         void updateDrawCount(vk::CommandBuffer cmd);
+        void updateMeshMetadata();
 
         Ref<Device>                  mDevice;
         Ref<PhysicalDevice>          mPhysicalDevice;
@@ -160,6 +161,8 @@ namespace FREYA_NAMESPACE
         Ref<Buffer> mTransformBuffer;   // mat4[] - transform matrices
         Ref<Buffer>
             mLODLevelsBuffer; // LODLevel[] - flat array of LOD level metadata
+        Ref<Buffer>
+            mMeshMetadataBuffer; // MeshMetadata[] - per-mesh index/vertex info
 
         // CPU mirrors for debugging/editor
         std::vector<LODInstanceData> mInstances;

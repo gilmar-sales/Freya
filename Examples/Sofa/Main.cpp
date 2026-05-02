@@ -151,6 +151,23 @@ class MainApp final : public fra::AbstractApplication
             mModelMatrix[3], glm::radians(15.0f * mWindow->GetDeltaTime()),
             glm::normalize(glm::vec3(0.0, 1.0, 0.0)));
 
+        // Update transform buffer for LOD system
+        if (mLODService)
+        {
+            for (std::uint32_t i = 0; i < 4; ++i)
+            {
+                mLODService->UpdateTransform(i, mModelMatrix[i]);
+            }
+
+            // Camera position (fixed as per renderer)
+            const glm::vec3 cameraPosition = glm::vec3(0.0f, 0.0f, -10.1f);
+
+            // Update GPU data with current camera position
+            // Note: This only updates CPU buffers, not dispatching compute yet
+            // Compute dispatch requires a separate command buffer outside render pass
+            mLODService->SetGlobalDrawDistance(mRenderer->GetDrawDistance());
+        }
+
         mRenderer->BeginFrame();
 
         // Update instance matrix buffer
@@ -167,25 +184,10 @@ class MainApp final : public fra::AbstractApplication
 
         mRenderer->BindBuffer(mInstanceMatrixBuffers);
 
-        // === LOD System Update ===
-
-        // Get camera position for LOD calculations
-        // In a real app, this would come from the camera system
-        const glm::vec3 cameraPosition = glm::vec3(0.0f, 0.0f, -10.1f);
-
-        // Update LOD GPU data with current camera position
-        if (mLODService)
-        {
-            // The UpdateGPUData method takes a command buffer for potential
-            // buffer updates For now, we just pass the camera position for LOD
-            // calculations
-            mLODService->SetGlobalDrawDistance(mRenderer->GetDrawDistance());
-        }
-
-        // Draw using traditional instanced rendering (LOD compute shader not
-        // yet active) The LOD system is set up - when the compute shader is
-        // compiled, it will automatically select the appropriate LOD level
-        // based on distance
+        // Draw using traditional instanced rendering
+        // Note: For true MDI, we'd use vkCmdDrawIndexedIndirect with the
+        // draw commands from LODService, but that requires the render pass to
+        // support indirect drawing
 
         // Draw SpaceShips (2 instances)
         mMaterialPool->Bind(mSpaceShipMaterial);

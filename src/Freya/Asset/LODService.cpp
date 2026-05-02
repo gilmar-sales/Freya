@@ -40,6 +40,7 @@ namespace FREYA_NAMESPACE
         allocateDescriptorSet();
         createComputePipeline();
         createDitherTexture();
+        updateMeshMetadata();
 
         mLogger->LogInformation("LOD service initialized successfully");
     }
@@ -113,11 +114,20 @@ namespace FREYA_NAMESPACE
                 .SetUsage(BufferUsage::Storage)
                 .Build();
 
+        // Mesh metadata buffer - per-mesh index/vertex info for compute shader
+        // Sized for max meshes (4096 as per MeshSet default capacity)
+        const auto meshMetadataSize = sizeof(MeshMetadata) * 4096;
+        mMeshMetadataBuffer =
+            BufferBuilder(mDevice)
+                .SetSize(meshMetadataSize)
+                .SetUsage(BufferUsage::Storage)
+                .Build();
+
         mLogger->LogInformation(
             "Created GPU buffers: instance={}, drawCmd={}, drawCount={}, "
-            "transform={}, lodLevels={}",
+            "transform={}, lodLevels={}, meshMeta={}",
             instanceBufferSize, drawCmdSize, sizeof(std::uint32_t),
-            transformBufferSize, lodLevelsSize);
+            transformBufferSize, lodLevelsSize, meshMetadataSize);
     }
 
     void LODService::createDescriptorSetLayout()
@@ -236,19 +246,16 @@ namespace FREYA_NAMESPACE
                                    .setBuffer(mLODLevelsBuffer->Get())
                                    .setOffset(0)
                                    .setRange(VK_WHOLE_SIZE)),
-            // Binding 3: Mesh metadata buffer (placeholder)
+            // Binding 3: Mesh metadata buffer
             vk::WriteDescriptorSet()
                 .setDstSet(mLODDescriptorSet)
                 .setDstBinding(3)
                 .setDstArrayElement(0)
                 .setDescriptorType(vk::DescriptorType::eStorageBuffer)
-                .setBufferInfo(
-                    vk::DescriptorBufferInfo()
-                        .setBuffer(
-                            mInstanceBuffer
-                                ->Get()) // Reuse instance buffer as placeholder
-                        .setOffset(0)
-                        .setRange(VK_WHOLE_SIZE)),
+                .setBufferInfo(vk::DescriptorBufferInfo()
+                                   .setBuffer(mMeshMetadataBuffer->Get())
+                                   .setOffset(0)
+                                   .setRange(VK_WHOLE_SIZE)),
             // Binding 4: Draw command buffer
             vk::WriteDescriptorSet()
                 .setDstSet(mLODDescriptorSet)
@@ -440,10 +447,10 @@ namespace FREYA_NAMESPACE
         // Bind compute pipeline
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, mLODComputePipeline);
 
-        // Bind descriptor set
+        // Bind descriptor set at set 0 (compute pipeline only has 1 set layout)
         cmd.bindDescriptorSets(
             vk::PipelineBindPoint::eCompute, mLODComputePipelineLayout,
-            2, // LOD descriptor set (set = 2)
+            0, // LOD descriptor set at binding 0
             1, &mLODDescriptorSet, 0, nullptr);
 
         // Push constants
@@ -457,15 +464,14 @@ namespace FREYA_NAMESPACE
         const std::uint32_t dispatchCount = (mInstanceCount + 255) / 256;
         cmd.dispatch(dispatchCount, 1, 1);
 
-        // Memory barrier
+        // Memory barrier to ensure compute shader writes are visible to draw indirect
         const vk::MemoryBarrier barrier(
-            vk::AccessFlagBits::eShaderWrite | vk::AccessFlagBits::eShaderRead,
-            vk::AccessFlagBits::eShaderRead | vk::AccessFlagBits::eIndexRead);
+            vk::AccessFlagBits::eShaderWrite,
+            vk::AccessFlagBits::eIndirectCommandRead | vk::AccessFlagBits::eVertexAttributeRead);
 
         cmd.pipelineBarrier(
             vk::PipelineStageFlagBits::eComputeShader,
-            vk::PipelineStageFlagBits::eDrawIndirect |
-                vk::PipelineStageFlagBits::eVertexInput,
+            vk::PipelineStageFlagBits::eDrawIndirect | vk::PipelineStageFlagBits::eVertexInput,
             vk::DependencyFlagBits::eByRegion,
             barrier,
             nullptr,
@@ -475,8 +481,11 @@ namespace FREYA_NAMESPACE
     void LODService::BindDescriptorSet(vk::CommandBuffer  cmd,
                                        vk::PipelineLayout layout)
     {
+        // For graphics pipeline binding, we need to bind at a valid set index
+        // The graphics pipeline layout has sets 0 (UBO), 1 (samplers), and we can add LOD at higher sets
+        // But since we only have 1 set layout, we bind at set 0 (or need to modify pipeline layout)
         cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, layout,
-                               2, // LOD descriptor set
+                               0, // LOD descriptor set at binding 0
                                1, &mLODDescriptorSet, 0, nullptr);
     }
 
@@ -503,6 +512,28 @@ namespace FREYA_NAMESPACE
 
         mTransformBuffer->Copy(
             &transform, sizeof(glm::mat4), transformIndex * sizeof(glm::mat4));
+    }
+
+    void LODService::updateMeshMetadata()
+    {
+        // Build mesh metadata array from MeshPool
+        // This provides indexCount, firstIndex, vertexOffset for each mesh
+        std::vector<MeshMetadata> meshMetadata(4096);
+
+        mMeshPool->ForEachMesh([&meshMetadata](std::uint32_t meshId, const Mesh& mesh) {
+            meshMetadata[meshId] = MeshMetadata {
+                .indexCount   = mesh.indexCount,
+                .firstIndex   = static_cast<std::uint32_t>(mesh.indexBufferOffset / sizeof(std::uint16_t)),
+                .vertexOffset = static_cast<std::int32_t>(mesh.vertexBufferOffset / sizeof(Vertex)),
+                .padding      = 0
+            };
+        });
+
+        mMeshMetadataBuffer->Copy(meshMetadata.data(),
+                                  sizeof(MeshMetadata) * meshMetadata.size());
+
+        mLogger->LogInformation("Updated mesh metadata for {} meshes",
+                                static_cast<std::uint32_t>(mMeshPool->GetMeshCount()));
     }
 
 } // namespace FREYA_NAMESPACE

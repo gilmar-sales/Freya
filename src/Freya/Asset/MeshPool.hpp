@@ -130,6 +130,69 @@ namespace FREYA_NAMESPACE
          */
         Ref<Buffer> createStagingBuffer(std::uint32_t size);
 
+      public:
+        /**
+         * @brief Returns the total number of meshes.
+         */
+        [[nodiscard]] std::uint32_t GetMeshCount() const { return mMeshes.size(); }
+
+        /**
+         * @brief Accesses mesh by ID.
+         * @param meshId Mesh ID
+         * @return Mesh data (check .id != 0 for validity)
+         */
+        [[nodiscard]] Mesh GetMesh(std::uint32_t meshId) const
+        {
+            if (mMeshes.contains(meshId))
+            {
+                return mMeshes[meshId];
+            }
+            return Mesh {};
+        }
+
+        /**
+         * @brief Iterates over all meshes and calls callback.
+         * @param callback Function called with (meshId, mesh) for each mesh
+         */
+        template <typename Func>
+        void ForEachMesh(Func&& callback) const
+        {
+            for (const auto& mesh : mMeshes)
+            {
+                callback(mesh.id, mesh);
+            }
+        }
+
+        /**
+         * @brief Returns vertex buffer for a mesh.
+         * @param meshId Mesh identifier
+         * @return Vertex buffer reference
+         */
+        [[nodiscard]] const Ref<Buffer>& GetVertexBuffer(
+            std::uint32_t meshId) const
+        {
+            if (mMeshes.contains(meshId))
+            {
+                return mVertexBuffers[mMeshes[meshId].vertexBufferIndex];
+            }
+            return mVertexBuffers[0];
+        }
+
+        /**
+         * @brief Returns index buffer for a mesh.
+         * @param meshId Mesh identifier
+         * @return Index buffer reference
+         */
+        [[nodiscard]] const Ref<Buffer>& GetIndexBuffer(
+            std::uint32_t meshId) const
+        {
+            if (mMeshes.contains(meshId))
+            {
+                return mIndexBuffers[mMeshes[meshId].indexBufferIndex];
+            }
+            return mIndexBuffers[0];
+        }
+
       private:
         Ref<Device>                mDevice;
         Ref<PhysicalDevice>        mPhysicalDevice;
