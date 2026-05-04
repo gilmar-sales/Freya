@@ -137,7 +137,8 @@ int main(int argc, const char** argv)
                         .SetVSync(false)
                         .SetSampleCount(8)
                         .WithReverseZ()
-                        .SetFullscreen(false);
+                        .SetFullscreen(false)
+                        .SetRenderingStrategy(fra::RenderingStrategy::Deferred);
                 });
             })
             .Build<MainApp>();

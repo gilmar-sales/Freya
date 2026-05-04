@@ -126,6 +126,17 @@ namespace FREYA_NAMESPACE
         }
 
         /**
+         * @brief Sets the rendering strategy (Forward or Deferred).
+         * @param strategy Rendering strategy enum value
+         * @return Reference to this for chaining
+         */
+        FreyaOptionsBuilder& SetRenderingStrategy(RenderingStrategy strategy)
+        {
+            mFreyaOptions->renderingStrategy = strategy;
+            return *this;
+        }
+
+        /**
          * @brief Builds and returns the FreyaOptions object.
          * @return Shared pointer to configured FreyaOptions
          */

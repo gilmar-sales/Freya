@@ -392,65 +392,23 @@ namespace FREYA_NAMESPACE
     std::vector<vk::SubpassDependency> RenderPassBuilder::createDependencies()
         const
     {
-        if (mFreyaOptions->renderingStrategy == RenderingStrategy::Forward)
-            return std::vector {
-                vk::SubpassDependency()
-                    .setSrcSubpass(vk::SubpassExternal)
-                    .setDstSubpass(0)
-                    .setSrcStageMask(
-                        vk::PipelineStageFlagBits::eColorAttachmentOutput |
-                        vk::PipelineStageFlagBits::eEarlyFragmentTests)
-                    .setDstStageMask(
-                        vk::PipelineStageFlagBits::eColorAttachmentOutput |
-                        vk::PipelineStageFlagBits::eEarlyFragmentTests)
-                    .setSrcAccessMask(vk::AccessFlagBits::eNone)
-                    .setDstAccessMask(
-                        vk::AccessFlagBits::eColorAttachmentWrite |
-                        vk::AccessFlagBits::eDepthStencilAttachmentWrite)
-            };
-
+        // Forward render pass always has exactly 1 subpass — all dependencies
+        // must reference only SubpassExternal and subpass 0.
+        // Multi-subpass dependencies belong in DeferredCompressedPassBuilder.
         return std::vector {
             vk::SubpassDependency()
                 .setSrcSubpass(vk::SubpassExternal)
                 .setDstSubpass(0)
                 .setSrcStageMask(
-                    vk::PipelineStageFlagBits::eEarlyFragmentTests |
-                    vk::PipelineStageFlagBits::eLateFragmentTests)
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                    vk::PipelineStageFlagBits::eEarlyFragmentTests)
                 .setDstStageMask(
-                    vk::PipelineStageFlagBits::eEarlyFragmentTests |
-                    vk::PipelineStageFlagBits::eLateFragmentTests)
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                    vk::PipelineStageFlagBits::eEarlyFragmentTests)
                 .setSrcAccessMask(vk::AccessFlagBits::eNone)
                 .setDstAccessMask(
-                    vk::AccessFlagBits::eDepthStencilAttachmentWrite),
-            vk::SubpassDependency()
-                .setSrcSubpass(vk::SubpassExternal)
-                .setDstSubpass(0)
-                .setSrcStageMask(
-                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstStageMask(
-                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setSrcAccessMask(vk::AccessFlagBits::eNone)
-                .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite),
-            vk::SubpassDependency()
-                .setSrcSubpass(0)
-                .setDstSubpass(1)
-                .setSrcStageMask(
-                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
-                .setSrcAccessMask(vk::AccessFlagBits::eNone)
-                .setDstAccessMask(vk::AccessFlagBits::eInputAttachmentRead)
-                .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
-            vk::SubpassDependency()
-                .setSrcSubpass(1)
-                .setDstSubpass(vk::SubpassExternal)
-                .setSrcStageMask(
-                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstStageMask(vk::PipelineStageFlagBits::eBottomOfPipe)
-                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentRead |
-                                  vk::AccessFlagBits::eColorAttachmentWrite)
-                .setDstAccessMask(vk::AccessFlagBits::eMemoryRead)
-                .setDependencyFlags(vk::DependencyFlagBits::eByRegion)
-
+                    vk::AccessFlagBits::eColorAttachmentWrite |
+                    vk::AccessFlagBits::eDepthStencilAttachmentWrite)
         };
     }
 

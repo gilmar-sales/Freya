@@ -1,5 +1,6 @@
 #include "FreyaExtension.hpp"
 
+#include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/DeviceBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/InstanceBuilder.hpp"
@@ -35,6 +36,7 @@ namespace FREYA_NAMESPACE
         services.AddTransient<RendererBuilder>();
         services.AddTransient<ShaderModuleBuilder>();
         services.AddTransient<CommandPoolBuilder>();
+        services.AddTransient<DeferredCompressedPassBuilder>();
 
         services.AddSingleton<Instance>(
             [](skr::ServiceProvider& serviceProvider) {
@@ -99,6 +101,8 @@ namespace FREYA_NAMESPACE
                 return windowBuilder->Build();
             });
 
+        // Always create forward RenderPass (needed by SwapChainBuilder for
+        // framebuffer creation even in deferred mode)
         services.AddSingleton<RenderPass>(
             [](skr::ServiceProvider& serviceProvider) {
                 auto renderPassBuilder =
@@ -106,6 +110,11 @@ namespace FREYA_NAMESPACE
 
                 return renderPassBuilder->Build();
             });
+
+        // DeferredCompressedPass is NOT registered as a service — the
+        // RendererBuilder creates it internally with the same SwapChain
+        // that the Renderer uses, ensuring framebuffers reference the
+        // correct swapchain images.
 
         services.AddSingleton<Renderer>(
             [](skr::ServiceProvider& serviceProvider) {

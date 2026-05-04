@@ -19,7 +19,7 @@ include(FetchContent)
 FetchContent_Declare(
         SDL
         GIT_REPOSITORY "https://github.com/libsdl-org/SDL.git"
-        GIT_TAG "release-3.4.7"
+        GIT_TAG "release-3.4.8"
         GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(SDL)
@@ -92,9 +92,19 @@ target_precompile_headers(Freya PUBLIC
         <Freya/Pch.hpp>
 )
 
+# ---------------------------------------------------------------------------
+# Shader compilation pipeline
+# ---------------------------------------------------------------------------
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+include(CompileShaders)
+
+find_glslc()
+add_shader_target(TARGET Shaders
+                  FROM  "${CMAKE_SOURCE_DIR}/Shaders"
+                  INTO  "${CMAKE_BINARY_DIR}/Resources/Shaders"
+)
+add_dependencies(Freya Shaders)
+
 if (FREYA_BUILD_EXAMPLES)
     add_subdirectory(Examples)
 endif (FREYA_BUILD_EXAMPLES)
-
-
-file(COPY Shaders DESTINATION ${CMAKE_BINARY_DIR}/Resources)

@@ -1,6 +1,7 @@
 #include "Renderer.hpp"
 
 #include "Freya/Builders/BufferBuilder.hpp"
+#include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/RenderPassBuilder.hpp"
 #include "Freya/Builders/SwapChainBuilder.hpp"
 #include "Freya/Core/Buffer.hpp"
@@ -11,18 +12,50 @@
 
 namespace FREYA_NAMESPACE
 {
+    Renderer::Renderer(
+        const Ref<Instance>&              instance,
+        const Ref<Surface>&               surface,
+        const Ref<PhysicalDevice>&        physicalDevice,
+        const Ref<Device>&                device,
+        const Ref<SwapChain>&             swapChain,
+        const Ref<RenderPass>&            forwardPass,
+        const Ref<DeferredCompressedPass>& deferredPass,
+        const Ref<CommandPool>&           commandPool,
+        const Ref<skr::ServiceProvider>&  serviceProvider,
+        const Ref<FreyaOptions>&          freyaOptions,
+        const Ref<EventManager>&          eventManager) :
+        mInstance(instance),
+        mSurface(surface),
+        mPhysicalDevice(physicalDevice),
+        mDevice(device),
+        mSwapChain(swapChain),
+        mForwardPass(forwardPass),
+        mDeferredPass(deferredPass),
+        mCommandPool(commandPool),
+        mServiceProvider(serviceProvider),
+        mFreyaOptions(freyaOptions),
+        mEventManager(eventManager),
+        mCurrentProjection({})
+    {
+        ClearProjections();
+
+        mEventManager->Subscribe<WindowResizeEvent>(
+            [this](WindowResizeEvent event) {
+                if (!event.handled)
+                {
+                    mResizeEvent = event;
+                }
+            });
+    }
+
     Renderer::~Renderer()
     {
         mSwapChain.reset();
-
         mSurface.reset();
-
-        mRenderPass.reset();
-
+        mForwardPass.reset();
+        mDeferredPass.reset();
         mCommandPool.reset();
-
         mDevice.reset();
-
         mInstance.reset();
     }
 
@@ -31,29 +64,43 @@ namespace FREYA_NAMESPACE
         mDevice->Get().waitIdle();
 
         mSwapChain.reset();
-
         mSwapChain = mServiceProvider->GetService<SwapChainBuilder>()->Build();
+
+        // For deferred mode, also recreate the deferred pass (which owns
+        // framebuffers referencing swapchain images)
+        if (IsDeferred())
+        {
+            mDeferredPass.reset();
+            mDeferredPass =
+                mServiceProvider->GetService<
+                    DeferredCompressedPassBuilder>()->Build(mSwapChain);
+        }
     }
 
-    void Renderer::SetVSync(bool vSync)
+    void Renderer::SetVSync(const bool vSync)
     {
         mFreyaOptions->vSync = vSync;
         RebuildSwapChain();
     }
 
-    void Renderer::SetSamples(std::uint32_t samples)
+    void Renderer::SetSamples(const std::uint32_t samples)
     {
         mFreyaOptions->sampleCount = samples;
-        const auto frameCount      = mSwapChain->GetFrames().size();
-        const auto extent          = mSurface->QueryExtent();
-
         mSwapChain.reset();
-        mRenderPass.reset();
+        mForwardPass.reset();
 
-        mRenderPass =
+        mForwardPass =
             mServiceProvider->GetService<RenderPassBuilder>()->Build();
 
         mSwapChain = mServiceProvider->GetService<SwapChainBuilder>()->Build();
+
+        if (IsDeferred())
+        {
+            mDeferredPass.reset();
+            mDeferredPass =
+                mServiceProvider->GetService<
+                    DeferredCompressedPassBuilder>()->Build(mSwapChain);
+        }
     }
 
     void Renderer::SetDrawDistance(const float drawDistance)
@@ -88,36 +135,38 @@ namespace FREYA_NAMESPACE
         const auto cameraUp =
             glm::normalize(glm::cross(cameraForward, cameraRight));
 
-        // Use a more reasonable near plane for planetary-scale scenes.
-        // With near=1.0 and reverse-Z, depth precision at far distances
-        // improves dramatically over the old near=0.1.
         const auto near = 1.0f;
         const auto far  = mFreyaOptions->drawDistance;
 
-        auto projectionUniformBuffer = ProjectionUniformBuffer {
-            .view       = glm::lookAt(cameraPosition,
-                                      cameraPosition + cameraForward,
-                                      cameraUp),
+        auto projectionUniformBuffer = ProjectionUniformBuffer{
+            .view = glm::lookAt(cameraPosition,
+                                cameraPosition + cameraForward,
+                                cameraUp),
             .projection = MakeProjection(glm::radians(45.0f),
                                          static_cast<float>(extent.width) /
                                              static_cast<float>(extent.height),
                                          near,
                                          far),
             .ambientLight =
-                glm::vec4(glm::normalize(glm::vec3(0.0f, 3.0f, 0.0f)), 0.5f)
-        };
+                glm::vec4(glm::normalize(glm::vec3(0.0f, 3.0f, 0.0f)), 0.5f)};
 
         for (auto frameIndex = 0; frameIndex < mFreyaOptions->frameCount;
              frameIndex++)
         {
-            mRenderPass->UpdateProjection(projectionUniformBuffer, frameIndex);
+            mForwardPass->UpdateProjection(projectionUniformBuffer,
+                                           frameIndex);
+            if (mDeferredPass)
+            {
+                mDeferredPass->UpdateProjection(projectionUniformBuffer,
+                                                frameIndex);
+            }
         }
 
         mCurrentProjection = projectionUniformBuffer;
     }
 
     glm::mat4 Renderer::CalculateProjectionMatrix(const float near,
-                                                  const float far) const
+                                                   const float far) const
     {
         const auto extent = mSurface->QueryExtent();
         return MakeProjection(glm::radians(75.0f),
@@ -130,8 +179,13 @@ namespace FREYA_NAMESPACE
     void Renderer::UpdateProjection(
         ProjectionUniformBuffer& projectionUniformBuffer)
     {
-        mRenderPass->UpdateProjection(projectionUniformBuffer,
-                                      mSwapChain->GetCurrentFrameIndex());
+        const auto frameIndex = mSwapChain->GetCurrentFrameIndex();
+        mForwardPass->UpdateProjection(projectionUniformBuffer, frameIndex);
+        if (mDeferredPass)
+        {
+            mDeferredPass->UpdateProjection(projectionUniformBuffer,
+                                            frameIndex);
+        }
         mCurrentProjection = projectionUniformBuffer;
     }
 
@@ -144,10 +198,29 @@ namespace FREYA_NAMESPACE
         UpdateProjection(projectionUniformBuffer);
     }
 
+    vk::PipelineLayout Renderer::GetActivePipelineLayout() const
+    {
+        if (IsDeferred() && mDeferredPass)
+        {
+            return mDeferredPass->GetVertexPipelineLayout();
+        }
+        return mForwardPass->GetPipelineLayout();
+    }
+
+    vk::RenderPass Renderer::GetActiveRenderPass() const
+    {
+        if (IsDeferred() && mDeferredPass)
+        {
+            return mDeferredPass->GetRenderPass();
+        }
+        return mForwardPass->Get();
+    }
+
     void Renderer::UpdateModel(const glm::mat4& model) const
     {
+        auto layout = GetActivePipelineLayout();
         mCommandPool->GetCommandBuffer().pushConstants(
-            mRenderPass->GetPipelineLayout(),
+            layout,
             vk::ShaderStageFlagBits::eVertex,
             0,
             sizeof(model),
@@ -173,7 +246,6 @@ namespace FREYA_NAMESPACE
             mFreyaOptions->width  = mResizeEvent->width;
             mFreyaOptions->height = mResizeEvent->height;
             RebuildSwapChain();
-
             mResizeEvent.reset();
         }
 
@@ -186,11 +258,10 @@ namespace FREYA_NAMESPACE
         }
 
         mSwapChain->BeginNextFrame();
-
-        mCommandPool->SetCommandBufferIndex(mSwapChain->GetCurrentFrameIndex());
+        mCommandPool->SetCommandBufferIndex(
+            mSwapChain->GetCurrentFrameIndex());
 
         const auto commandBuffer = mCommandPool->GetCommandBuffer();
-
         commandBuffer.reset();
 
         constexpr auto beginInfo = vk::CommandBufferBeginInfo().setFlags(
@@ -198,34 +269,53 @@ namespace FREYA_NAMESPACE
 
         commandBuffer.begin(beginInfo);
 
-        mRenderPass->Begin(mSwapChain, mCommandPool);
+        // Begin the active render pass
+        if (IsDeferred() && mDeferredPass)
+        {
+            mDeferredPass->Begin(mSwapChain, mCommandPool);
+        }
+        else
+        {
+            mForwardPass->Begin(mSwapChain, mCommandPool);
+        }
 
+        // Viewport and scissor are the same regardless of pass type
         const auto viewport =
             vk::Viewport()
                 .setX(0)
                 .setY(0)
-                .setWidth(static_cast<float>(mSwapChain->GetExtent().width))
-                .setHeight(static_cast<float>(mSwapChain->GetExtent().height))
+                .setWidth(
+                    static_cast<float>(mSwapChain->GetExtent().width))
+                .setHeight(
+                    static_cast<float>(mSwapChain->GetExtent().height))
                 .setMinDepth(0.0f)
                 .setMaxDepth(1.0f);
 
         commandBuffer.setViewport(0, 1, &viewport);
 
         const auto scissor =
-            vk::Rect2D().setOffset({ 0, 0 }).setExtent(mSwapChain->GetExtent());
+            vk::Rect2D()
+                .setOffset({0, 0})
+                .setExtent(mSwapChain->GetExtent());
 
         commandBuffer.setScissor(0, 1, &scissor);
     }
 
     void Renderer::EndFrame()
     {
-        mRenderPass->End(mCommandPool);
+        if (IsDeferred() && mDeferredPass)
+        {
+            mDeferredPass->End(mCommandPool);
+        }
+        else
+        {
+            mForwardPass->End(mCommandPool);
+        }
 
         auto commandBuffer = mCommandPool->GetCommandBuffer();
-
         commandBuffer.end();
 
-        std::vector<vk::CommandBuffer> commandBuffers = { commandBuffer };
+        std::vector<vk::CommandBuffer> commandBuffers = {commandBuffer};
 
         auto presentResult = mSwapChain->Present(commandBuffers);
 
@@ -237,6 +327,32 @@ namespace FREYA_NAMESPACE
         else if (presentResult != vk::Result::eSuccess)
         {
             throw std::runtime_error("failed to present swap chain image!");
+        }
+    }
+
+    void Renderer::NextSubpass()
+    {
+        if (IsDeferred() && mDeferredPass)
+        {
+            mDeferredPass->NextSubpass(mCommandPool);
+        }
+    }
+
+    void Renderer::BindSubpass(const std::uint32_t subpass)
+    {
+        if (IsDeferred() && mDeferredPass)
+        {
+            mDeferredPass->BindPipeline(subpass, mCommandPool,
+                                        mSwapChain->GetCurrentFrameIndex());
+        }
+    }
+
+    void Renderer::AdvanceSubpass(const std::uint32_t subpass)
+    {
+        if (IsDeferred() && mDeferredPass)
+        {
+            mDeferredPass->AdvanceSubpass(subpass, mCommandPool,
+                                          mSwapChain->GetCurrentFrameIndex());
         }
     }
 

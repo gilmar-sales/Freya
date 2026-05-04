@@ -1,54 +1,42 @@
 #pragma once
 
-#include "Freya/FreyaOptions.hpp"
-
+#include "Freya/Core/DeferredCompressedPass.hpp"
 #include "Freya/Core/Renderer.hpp"
 #include "Freya/Core/Window.hpp"
+#include "Freya/FreyaOptions.hpp"
 
 namespace FREYA_NAMESPACE
 {
     class InstanceBuilder;
+    class DeferredCompressedPassBuilder;
 
     /**
      * @brief Builder for creating Renderer objects.
      *
-     * @param instance       Instance reference
-     * @param surface        Surface reference
-     * @param physicalDevice  Physical device reference
-     * @param device          Device reference
-     * @param commandPool     Command pool reference
-     * @param swapChain       Swapchain reference
-     * @param renderPass      Render pass reference
-     * @param eventManager    Event manager reference
-     * @param window          Window reference
-     * @param freyaOptions     Freya options reference
-     * @param serviceProvider  Service provider reference
+     * Supports both Forward and Deferred rendering strategies.
+     * For deferred mode, constructs a DeferredCompressedPass internally
+     * using the same SwapChain that the Renderer will use.
      */
     class RendererBuilder
     {
       public:
-        RendererBuilder(const Ref<Instance>&             instance,
-                        const Ref<Surface>&              surface,
-                        const Ref<PhysicalDevice>&       physicalDevice,
-                        const Ref<Device>&               device,
-                        const Ref<CommandPool>&          commandPool,
-                        const Ref<SwapChain>&            swapChain,
-                        const Ref<RenderPass>&           renderPass,
-                        const Ref<EventManager>&         eventManager,
-                        const Ref<Window>&               window,
-                        const Ref<FreyaOptions>&         freyaOptions,
-                        const Ref<skr::ServiceProvider>& serviceProvider) :
-            mSurface(surface), mPhysicalDevice(physicalDevice), mDevice(device),
-            mCommandPool(commandPool), mSwapChain(swapChain),
-            mRenderPass(renderPass), mWindow(window),
-            mEventManager(eventManager), mInstance(instance),
-            mFreyaOptions(freyaOptions), mServiceProvider(serviceProvider),
-            mLogger(serviceProvider->GetService<skr::Logger<RendererBuilder>>())
-        {
-        }
+        RendererBuilder(
+            const Ref<Instance>&             instance,
+            const Ref<Surface>&              surface,
+            const Ref<PhysicalDevice>&       physicalDevice,
+            const Ref<Device>&               device,
+            const Ref<CommandPool>&          commandPool,
+            const Ref<SwapChain>&            swapChain,
+            const Ref<RenderPass>&           renderPass,
+            const Ref<EventManager>&         eventManager,
+            const Ref<Window>&               window,
+            const Ref<FreyaOptions>&         freyaOptions,
+            const Ref<skr::ServiceProvider>& serviceProvider);
 
         /**
          * @brief Builds and returns the Renderer object.
+         * For deferred mode, creates the DeferredCompressedPass with
+         * the current SwapChain.
          * @return Shared pointer to created Renderer
          */
         Ref<Renderer> Build();
@@ -56,20 +44,19 @@ namespace FREYA_NAMESPACE
       private:
         friend class ApplicationBuilder;
 
-        Ref<Instance>       mInstance;       ///< Instance reference
-        Ref<Surface>        mSurface;        ///< Surface reference
-        Ref<PhysicalDevice> mPhysicalDevice; ///< Physical device reference
-        Ref<Device>         mDevice;         ///< Device reference
-        Ref<CommandPool>    mCommandPool;    ///< Command pool reference
-        Ref<SwapChain>      mSwapChain;      ///< Swapchain reference
-        Ref<EventManager>   mEventManager;   ///< Event manager reference
-        Ref<RenderPass>     mRenderPass;     ///< Render pass reference
-        Ref<Window>         mWindow;         ///< Window reference
-        Ref<FreyaOptions>   mFreyaOptions;   ///< Freya options reference
+        Ref<Instance>             mInstance;
+        Ref<Surface>              mSurface;
+        Ref<PhysicalDevice>       mPhysicalDevice;
+        Ref<Device>               mDevice;
+        Ref<CommandPool>          mCommandPool;
+        Ref<SwapChain>            mSwapChain;
+        Ref<EventManager>         mEventManager;
+        Ref<RenderPass>           mRenderPass;
+        Ref<Window>               mWindow;
+        Ref<FreyaOptions>         mFreyaOptions;
 
-        Ref<skr::Logger<RendererBuilder>> mLogger; ///< Logger reference
-        Ref<skr::ServiceProvider>
-            mServiceProvider; ///< Service provider reference
+        Ref<skr::Logger<RendererBuilder>> mLogger;
+        Ref<skr::ServiceProvider>         mServiceProvider;
     };
 
 } // namespace FREYA_NAMESPACE

@@ -9,6 +9,16 @@ if (MSVC)
     target_link_options(Sofa PUBLIC "/INCREMENTAL")
 endif ()
 
+# Copy compiled shaders from the central build output to the example's
+# resource directory so the executable can find them at runtime via
+# ./Resources/Shaders/...
+add_dependencies(Sofa Shaders)
+add_custom_command(TARGET Sofa POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_BINARY_DIR}/Resources/Shaders"
+        "${CMAKE_BINARY_DIR}/Examples/Sofa/Resources/Shaders"
+    COMMENT "Copying compiled shaders to Sofa/Resources/Shaders"
+    VERBATIM
+)
 
-file(COPY ../../Shaders DESTINATION ${CMAKE_BINARY_DIR}/Examples/Sofa/Resources)
 file(COPY Resources DESTINATION ${CMAKE_BINARY_DIR}/Examples/Sofa)

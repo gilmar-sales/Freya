@@ -47,13 +47,16 @@ namespace FREYA_NAMESPACE
         switch (mUsage)
         {
             case ImageUsage::Color:
-                imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment|
-                                   vk::ImageUsageFlagBits::eSampled);
+                imageInfo.setUsage(
+                    vk::ImageUsageFlagBits::eColorAttachment |
+                    vk::ImageUsageFlagBits::eSampled |
+                    vk::ImageUsageFlagBits::eInputAttachment);
                 break;
             case ImageUsage::Depth:
                 imageInfo.setUsage(
-                vk::ImageUsageFlagBits::eDepthStencilAttachment|
-                               vk::ImageUsageFlagBits::eSampled);
+                    vk::ImageUsageFlagBits::eDepthStencilAttachment |
+                    vk::ImageUsageFlagBits::eSampled |
+                    vk::ImageUsageFlagBits::eInputAttachment);
                 break;
             case ImageUsage::Texture:
                 imageInfo.setUsage(vk::ImageUsageFlagBits::eTransferDst |
@@ -66,13 +69,11 @@ namespace FREYA_NAMESPACE
                     vk::ImageUsageFlagBits::eTransientAttachment);
                 break;
             case ImageUsage::GBufferPosition:
-                imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment);
-                break;
             case ImageUsage::GBufferNormal:
-                imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment);
-                break;
             case ImageUsage::GBufferAlbedo:
-                imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment);
+                imageInfo.setUsage(
+                    vk::ImageUsageFlagBits::eColorAttachment |
+                    vk::ImageUsageFlagBits::eInputAttachment);
                 break;
             default:
                 break;
@@ -350,6 +351,9 @@ namespace FREYA_NAMESPACE
             case ImageUsage::Color:
             case ImageUsage::Sampling:
             case ImageUsage::Texture:
+            case ImageUsage::GBufferPosition:
+            case ImageUsage::GBufferNormal:
+            case ImageUsage::GBufferAlbedo:
                 aspect = vk::ImageAspectFlagBits::eColor;
                 break;
             case ImageUsage::Depth:

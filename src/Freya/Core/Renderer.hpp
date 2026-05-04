@@ -3,6 +3,7 @@
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Core/CommandPool.hpp"
+#include "Freya/Core/DeferredCompressedPass.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/Instance.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
@@ -19,19 +20,8 @@ namespace FREYA_NAMESPACE
      * @brief Main rendering orchestrator managing frame lifecycle and state.
      *
      * Coordinates BeginFrame/EndFrame, manages swapchain rebuilds, projection
-     * matrices, and binds rendering resources. Subscribes to WindowResizeEvent
-     * for automatic swapchain rebuilding.
-     *
-     * @param instance        Vulkan instance
-     * @param surface         Surface reference
-     * @param physicalDevice  Physical device
-     * @param device          Logical device
-     * @param swapChain       Swapchain reference
-     * @param renderPass      Render pass reference
-     * @param commandPool     Command pool reference
-     * @param serviceProvider Service provider for builder access
-     * @param freyaOptions    Freya options reference
-     * @param eventManager    Event manager reference
+     * matrices, and binds rendering resources. Supports both Forward and
+     * Deferred rendering strategies.
      */
     class Renderer
     {
@@ -41,121 +31,110 @@ namespace FREYA_NAMESPACE
                  const Ref<PhysicalDevice>&       physicalDevice,
                  const Ref<Device>&               device,
                  const Ref<SwapChain>&            swapChain,
-                 const Ref<RenderPass>&           renderPass,
+                 const Ref<RenderPass>&           forwardPass,
+                 const Ref<DeferredCompressedPass>& deferredPass,
                  const Ref<CommandPool>&          commandPool,
                  const Ref<skr::ServiceProvider>& serviceProvider,
                  const Ref<FreyaOptions>&         freyaOptions,
-                 const Ref<EventManager>&         eventManager) :
-            mInstance(instance), mSurface(surface),
-            mPhysicalDevice(physicalDevice), mDevice(device),
-            mSwapChain(swapChain), mRenderPass(renderPass),
-            mCommandPool(commandPool), mServiceProvider(serviceProvider),
-            mFreyaOptions(freyaOptions), mEventManager(eventManager),
-            mCurrentProjection({})
-        {
-            ClearProjections();
-
-            mEventManager->Subscribe<WindowResizeEvent>(
-                [this](WindowResizeEvent event) {
-                    if (!event.handled)
-                    {
-                        mResizeEvent = event;
-                    }
-                });
-        }
+                 const Ref<EventManager>&         eventManager);
 
         ~Renderer();
 
         /**
-         * @brief Begins a new frame: acquires image, resets command buffer,
-         * begins render pass.
-         *
-         * Handles resize events by rebuilding swapchain before acquisition.
-         * @throws std::runtime_error if swapchain acquisition fails
+         * @brief Begins a new frame: acquires swapchain image, resets command
+         * buffer, begins the active render pass.
          */
         void BeginFrame();
 
         /**
          * @brief Ends the current frame: ends render pass, submits, presents.
-         *
-         * Rebuilds swapchain if presentation returns eErrorOutOfDateKHR or
-         * eSuboptimalKHR.
-         * @throws std::runtime_error if presentation fails
          */
         void EndFrame();
 
         /**
-         * @brief Rebuilds the entire swapchain (waits for device idle).
+         * @brief Rebuilds the entire swapchain and recreated deferred
+         * framebuffers (if needed).
          */
         void RebuildSwapChain();
 
         /**
-         * @brief Returns current vertical synchronization state.
+         * @brief Advances to the next subpass in a deferred render pass.
+         * No-op in forward mode.
          */
+        void NextSubpass();
+
+        /**
+         * @brief Binds the appropriate pipeline for the given subpass.
+         * No-op in forward mode.
+         * @param subpass Subpass index (e.g., DeferredGBufferPass)
+         */
+        void BindSubpass(std::uint32_t subpass);
+
+        /**
+         * @brief Convenience: NextSubpass + BindSubpass.
+         * @param subpass Target subpass index
+         */
+        void AdvanceSubpass(std::uint32_t subpass);
+
+        /**
+         * @brief Returns the currently active pipeline layout for push
+         * constants / descriptor binding.
+         */
+        vk::PipelineLayout GetActivePipelineLayout() const;
+
+        /**
+         * @brief Returns the currently active render pass (for forward) or
+         * the deferred render pass handle.
+         */
+        vk::RenderPass GetActiveRenderPass() const;
+
+        /**
+         * @brief Returns true if currently in deferred mode.
+         */
+        [[nodiscard]] bool IsDeferred() const
+        {
+            return mFreyaOptions->renderingStrategy ==
+                   RenderingStrategy::Deferred;
+        }
+
+        /** @name VSync control */
+        //@{
         [[nodiscard]] bool GetVSync() const { return mFreyaOptions->vSync; }
+        void               SetVSync(bool vSync);
+        //@}
 
-        /**
-         * @brief Sets vertical synchronization and rebuilds swapchain.
-         * @param vSync true for vsync on, false for off
-         */
-        void SetVSync(bool vSync);
-
-        /**
-         * @brief Sets MSAA sample count, rebuilds render pass and swapchain.
-         * @param samples Sample count (1, 2, 4, 8, 16, 32, 64)
-         */
-        void SetSamples(std::uint32_t samples);
-
-        /**
-         * @brief Returns current MSAA sample count.
-         */
+        /** @name MSAA control */
+        //@{
+        void                 SetSamples(std::uint32_t samples);
         [[nodiscard]] std::uint32_t GetSamples() const
         {
             return mFreyaOptions->sampleCount;
         }
+        //@}
 
-        /**
-         * @brief Returns the draw distance (far plane for frustum culling).
-         */
+        /** @name Draw distance */
+        //@{
         [[nodiscard]] float GetDrawDistance() const
         {
             return mFreyaOptions->drawDistance;
         }
-
-        /**
-         * @brief Sets the draw distance and clears cached projections.
-         * @param drawDistance New draw distance in world units
-         */
         void SetDrawDistance(float drawDistance);
+        //@}
 
         /**
-         * @brief Builds a reverse-Z Vulkan perspective projection matrix.
-         *
-         * Reverse-Z maps near→depth=1, far→depth=0, exploiting the fact that
-         * floating-point has higher precision near 0. This gives dramatically
-         * better depth precision at far distances compared to standard mapping.
-         *
-         * @param fovRadians  Field of view in radians
-         * @param aspect      Aspect ratio (width/height)
-         * @param near        Near clipping plane distance
-         * @param far         Far clipping plane distance
-         * @return Reverse-Z projection matrix (Vulkan NDC z ∈ [0,1])
+         * @brief Builds a reverse-Z perspective projection matrix.
          */
         glm::mat4 MakeProjection(float fovRadians, float aspect,
-                                         float near, float far) const;
+                                 float near, float far) const;
 
         /**
-         * @brief Clears all projection caches and recalculates from current
-         * camera. Camera position is fixed at (0, 0, -10.1) looking forward.
+         * @brief Clears cached projection and recalculates from current
+         * camera settings.
          */
         void ClearProjections();
 
         /**
-         * @brief Calculates a custom reverse-Z projection matrix with given
-         * near/far planes.
-         * @param near Near clipping plane
-         * @param far  Far clipping plane
-         * @return 4x4 perspective projection matrix
+         * @brief Calculates a custom reverse-Z projection matrix.
          */
         glm::mat4 CalculateProjectionMatrix(float near, float far) const;
 
@@ -170,28 +149,18 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief Updates projection uniform buffer for the current frame.
-         * @param projectionUniformBuffer Projection data to upload
          */
         void UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer);
 
         /**
-         * @brief Updates the camera view in the projection uniform buffer.
-         *
-         * Computes a view matrix from the camera position, target point,
-         * and up vector using glm::lookAt. Preserves the current projection
-         * matrix and ambient light settings.
-         *
-         * @param position Camera position in world space
-         * @param target   Point the camera is looking at in world space
-         * @param up       Up direction vector (typically {0,1,0})
+         * @brief Updates the camera view matrix.
          */
         void UpdateCamera(const glm::vec3& position,
                           const glm::vec3& target,
                           const glm::vec3& up);
 
         /**
-         * @brief Pushes model matrix as push constant to command buffer.
-         * @param model 4x4 model transformation matrix
+         * @brief Pushes model matrix as push constant to the active pipeline.
          */
         void UpdateModel(const glm::mat4& model) const;
 
@@ -202,37 +171,46 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief Binds a buffer to the current command buffer.
-         * @param buffer Buffer to bind (vertex, index, or instance)
          */
         void BindBuffer(const Ref<Buffer>& buffer) const;
 
-        /**
-         * @brief Returns the current frame index.
-         */
+        /** @name Frame index queries */
+        //@{
         std::uint32_t GetCurrentFrameIndex() const
         {
             return mSwapChain->GetCurrentFrameIndex();
         }
-
-        /**
-         * @brief Returns total frame count in swapchain.
-         */
         std::uint32_t GetFrameCount() const
         {
             return mSwapChain->GetFrameCount();
         }
+        //@}
+
+        /**
+         * @brief Returns the forward render pass (for outside use).
+         */
+        Ref<RenderPass> GetForwardPass() const { return mForwardPass; }
+
+        /**
+         * @brief Returns the deferred pass (may be null in forward mode).
+         */
+        Ref<DeferredCompressedPass> GetDeferredPass() const
+        {
+            return mDeferredPass;
+        }
 
       private:
-        Ref<skr::ServiceProvider> mServiceProvider;
-        Ref<Instance>             mInstance;
-        Ref<Surface>              mSurface;
-        Ref<PhysicalDevice>       mPhysicalDevice;
-        Ref<Device>               mDevice;
-        Ref<SwapChain>            mSwapChain;
-        Ref<RenderPass>           mRenderPass;
-        Ref<CommandPool>          mCommandPool;
-        Ref<EventManager>         mEventManager;
-        Ref<FreyaOptions>         mFreyaOptions;
+        Ref<skr::ServiceProvider>  mServiceProvider;
+        Ref<Instance>              mInstance;
+        Ref<Surface>               mSurface;
+        Ref<PhysicalDevice>        mPhysicalDevice;
+        Ref<Device>                mDevice;
+        Ref<SwapChain>             mSwapChain;
+        Ref<RenderPass>            mForwardPass;
+        Ref<DeferredCompressedPass> mDeferredPass;
+        Ref<CommandPool>           mCommandPool;
+        Ref<EventManager>          mEventManager;
+        Ref<FreyaOptions>          mFreyaOptions;
 
         std::optional<WindowResizeEvent> mResizeEvent;
 

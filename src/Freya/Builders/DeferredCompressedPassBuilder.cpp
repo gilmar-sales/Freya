@@ -1,212 +1,1005 @@
 #include "DeferredCompressedPassBuilder.hpp"
 
-#include "Freya/Builders/ShaderModuleBuilder.hpp"
+#include "Freya/Asset/Vertex.hpp"
+#include "Freya/Builders/ImageBuilder.hpp"
+#include "Freya/Core/ShaderModule.hpp"
 
 namespace FREYA_NAMESPACE
 {
-
-    Ref<DeferredCompressedPass> DeferredCompressedPassBuilder::Build() const
+    Ref<DeferredCompressedPass> DeferredCompressedPassBuilder::Build(
+        const Ref<SwapChain>& swapChain)
     {
         auto renderPass = createRenderPass();
 
-        const auto gBufferVertShaderModule =
-            mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath("./Shaders/Deferred/gbuffer.vert.spv")
+        // ------------------------------------------------------------------
+        // Load all shader modules
+        // ------------------------------------------------------------------
+        auto loadShader = [&](const std::string& path) {
+            return mServiceProvider->GetService<ShaderModuleBuilder>()
+                ->SetFilePath(path)
+                .Build();
+        };
+
+        auto depthVert   = loadShader("./Resources/Shaders/DeferredCompressed/depth.vert.spv");
+        auto depthFrag   = loadShader("./Resources/Shaders/DeferredCompressed/depth.frag.spv");
+        auto gbufVert    = loadShader("./Resources/Shaders/DeferredCompressed/gbuffer.vert.spv");
+        auto gbufFrag    = loadShader("./Resources/Shaders/DeferredCompressed/gbuffer.frag.spv");
+        auto lightVert   = loadShader("./Resources/Shaders/DeferredCompressed/lighting.vert.spv");
+        auto lightFrag   = loadShader("./Resources/Shaders/DeferredCompressed/lighting.frag.spv");
+        auto transVert   = loadShader("./Resources/Shaders/DeferredCompressed/translucency.vert.spv");
+        auto transFrag   = loadShader("./Resources/Shaders/DeferredCompressed/translucency.frag.spv");
+        auto compVert    = loadShader("./Resources/Shaders/DeferredCompressed/composing.vert.spv");
+        auto compFrag    = loadShader("./Resources/Shaders/DeferredCompressed/composing.frag.spv");
+
+        auto makeStage = [](vk::ShaderModule module, vk::ShaderStageFlagBits stage) {
+            return vk::PipelineShaderStageCreateInfo()
+                .setStage(stage)
+                .setModule(module)
+                .setPName("main");
+        };
+
+        // Per-subpass shader stages
+        auto depthStages = { makeStage(depthVert->Get(), vk::ShaderStageFlagBits::eVertex),
+                             makeStage(depthFrag->Get(), vk::ShaderStageFlagBits::eFragment) };
+        auto gbufStages  = { makeStage(gbufVert->Get(), vk::ShaderStageFlagBits::eVertex),
+                             makeStage(gbufFrag->Get(), vk::ShaderStageFlagBits::eFragment) };
+        auto lightStages = { makeStage(lightVert->Get(), vk::ShaderStageFlagBits::eVertex),
+                             makeStage(lightFrag->Get(), vk::ShaderStageFlagBits::eFragment) };
+        auto transStages = { makeStage(transVert->Get(), vk::ShaderStageFlagBits::eVertex),
+                             makeStage(transFrag->Get(), vk::ShaderStageFlagBits::eFragment) };
+        auto compStages  = { makeStage(compVert->Get(), vk::ShaderStageFlagBits::eVertex),
+                             makeStage(compFrag->Get(), vk::ShaderStageFlagBits::eFragment) };
+
+        // ------------------------------------------------------------------
+        // Vertex input descriptions (shared by depth, gbuffer, translucent)
+        // ------------------------------------------------------------------
+        auto vertexBinding    = Vertex::GetBindingDescription();
+        auto vertexAttributes = Vertex::GetAttributesDescription();
+
+        auto vertexInputInfo =
+            vk::PipelineVertexInputStateCreateInfo()
+                .setVertexBindingDescriptions(vertexBinding)
+                .setVertexAttributeDescriptions(vertexAttributes);
+
+        // Fullscreen passes (lighting, composite) have no vertex input
+        auto emptyVertexInputInfo =
+            vk::PipelineVertexInputStateCreateInfo()
+                .setVertexBindingDescriptions({})
+                .setVertexAttributeDescriptions({});
+
+        // ------------------------------------------------------------------
+        // Common pipeline state
+        // ------------------------------------------------------------------
+        auto inputAssembly =
+            vk::PipelineInputAssemblyStateCreateInfo()
+                .setTopology(vk::PrimitiveTopology::eTriangleList)
+                .setPrimitiveRestartEnable(false);
+
+        auto viewportState =
+            vk::PipelineViewportStateCreateInfo()
+                .setViewportCount(1)
+                .setScissorCount(1);
+
+        auto rasterizer =
+            vk::PipelineRasterizationStateCreateInfo()
+                .setDepthClampEnable(false)
+                .setRasterizerDiscardEnable(false)
+                .setPolygonMode(vk::PolygonMode::eFill)
+                .setCullMode(vk::CullModeFlagBits::eBack)
+                .setFrontFace(vk::FrontFace::eCounterClockwise)
+                .setLineWidth(1.0f)
+                .setDepthBiasEnable(false);
+
+        auto dynamicStates = std::vector{vk::DynamicState::eViewport,
+                                         vk::DynamicState::eScissor};
+
+        auto dynamicState =
+            vk::PipelineDynamicStateCreateInfo().setDynamicStates(dynamicStates);
+
+        auto vkSampleCount =
+            static_cast<vk::SampleCountFlagBits>(mFreyaOptions->sampleCount);
+
+        auto multisampling =
+            vk::PipelineMultisampleStateCreateInfo()
+                .setSampleShadingEnable(false)
+                .setRasterizationSamples(vkSampleCount);
+
+        // No color blend by default
+        auto noBlendAttachment =
+            vk::PipelineColorBlendAttachmentState()
+                .setColorWriteMask(vk::ColorComponentFlagBits::eR |
+                                   vk::ColorComponentFlagBits::eG |
+                                   vk::ColorComponentFlagBits::eB |
+                                   vk::ColorComponentFlagBits::eA)
+                .setBlendEnable(false);
+
+        auto colorBlending =
+            vk::PipelineColorBlendStateCreateInfo()
+                .setLogicOpEnable(false)
+                .setLogicOp(vk::LogicOp::eCopy)
+                .setBlendConstants({0.0f, 0.0f, 0.0f, 0.0f});
+
+        // ------------------------------------------------------------------
+        // Depth/stencil states
+        // ------------------------------------------------------------------
+        // Reverse-Z depth prepass: greater-or-equal, write enabled
+        auto depthPrepassDepthStencil =
+            vk::PipelineDepthStencilStateCreateInfo()
+                .setDepthTestEnable(true)
+                .setDepthWriteEnable(true)
+                .setDepthCompareOp(mFreyaOptions->ReverseZ
+                                       ? vk::CompareOp::eGreater
+                                       : vk::CompareOp::eLess)
+                .setDepthBoundsTestEnable(false)
+                .setStencilTestEnable(false);
+
+        // G-buffer pass: same depth settings (need depth write for subsequent
+        // subpasses)
+        auto gbufferDepthStencil = depthPrepassDepthStencil;
+
+        // Lighting/composite passes: depth test off (fullscreen quad)
+        auto noDepthStencil =
+            vk::PipelineDepthStencilStateCreateInfo()
+                .setDepthTestEnable(false)
+                .setDepthWriteEnable(false)
+                .setDepthBoundsTestEnable(false)
+                .setStencilTestEnable(false);
+
+        // Translucent pass: depth test on, write off
+        auto translucentDepthStencil =
+            vk::PipelineDepthStencilStateCreateInfo()
+                .setDepthTestEnable(true)
+                .setDepthWriteEnable(false)
+                .setDepthCompareOp(mFreyaOptions->ReverseZ
+                                       ? vk::CompareOp::eGreater
+                                       : vk::CompareOp::eLess)
+                .setDepthBoundsTestEnable(false)
+                .setStencilTestEnable(false);
+
+        // ------------------------------------------------------------------
+        // Color blend attachments per subpass
+        // ------------------------------------------------------------------
+        // Subpass 0 (depth prepass): no color attachments
+        // Subpass 1 (gbuffer): 3 color attachments (position, normal, albedo)
+        auto gbufferBlendAttachments = std::vector{
+            noBlendAttachment, // position
+            noBlendAttachment, // normal
+            noBlendAttachment  // albedo
+        };
+
+        // Subpass 2 (lighting): 1 color attachment (opaque)
+        // Subpass 3 (translucent): 1 color attachment (translucent) with alpha
+        // blending
+        auto translucentBlendAttachment =
+            vk::PipelineColorBlendAttachmentState()
+                .setColorWriteMask(vk::ColorComponentFlagBits::eR |
+                                   vk::ColorComponentFlagBits::eG |
+                                   vk::ColorComponentFlagBits::eB |
+                                   vk::ColorComponentFlagBits::eA)
+                .setBlendEnable(true)
+                .setSrcColorBlendFactor(vk::BlendFactor::eSrcAlpha)
+                .setDstColorBlendFactor(vk::BlendFactor::eOneMinusSrcAlpha)
+                .setColorBlendOp(vk::BlendOp::eAdd)
+                .setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
+                .setDstAlphaBlendFactor(vk::BlendFactor::eZero)
+                .setAlphaBlendOp(vk::BlendOp::eAdd);
+
+        // Subpass 4 (composite): 1 color attachment (backbuffer)
+
+        // ------------------------------------------------------------------
+        // Descriptor resources (UBO layout — shared with forward pass pattern)
+        // ------------------------------------------------------------------
+        auto poolSize = vk::DescriptorPoolSize()
+                            .setType(vk::DescriptorType::eUniformBuffer)
+                            .setDescriptorCount(mFreyaOptions->frameCount);
+
+        auto poolInfo = vk::DescriptorPoolCreateInfo()
+                            .setPoolSizeCount(1)
+                            .setPPoolSizes(&poolSize)
+                            .setMaxSets(mFreyaOptions->frameCount);
+
+        auto descriptorPool = mDevice->Get().createDescriptorPool(poolInfo);
+
+        // UBO layout binding at set 0, binding 0
+        auto uboLayoutBinding =
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(0)
+                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eVertex |
+                               vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr);
+
+        auto descriptorSetBindings = std::array{uboLayoutBinding};
+
+        auto descriptorSetLayoutCreateInfo =
+            vk::DescriptorSetLayoutCreateInfo().setBindings(
+                descriptorSetBindings);
+
+        auto frameLayouts = std::vector<vk::DescriptorSetLayout>{};
+        for (auto i = 0; i < mFreyaOptions->frameCount; i++)
+        {
+            frameLayouts.push_back(mDevice->Get().createDescriptorSetLayout(
+                descriptorSetLayoutCreateInfo));
+        }
+
+        // Allocate descriptor sets (one per frame)
+        auto descriptorSetAllocInfo =
+            vk::DescriptorSetAllocateInfo()
+                .setSetLayouts(frameLayouts)
+                .setDescriptorPool(descriptorPool);
+
+        auto descriptorSets =
+            mDevice->Get().allocateDescriptorSets(descriptorSetAllocInfo);
+
+        // ------------------------------------------------------------------
+        // Sampler descriptor pool and layout (shared with forward pass
+        // pattern)
+        // ------------------------------------------------------------------
+        auto samplerPoolSize =
+            vk::DescriptorPoolSize()
+                .setType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(2 << 16);
+
+        auto samplerPoolInfo =
+            vk::DescriptorPoolCreateInfo()
+                .setPoolSizeCount(1)
+                .setPPoolSizes(&samplerPoolSize)
+                .setMaxSets(2 << 16);
+
+        auto samplerDescriptorPool =
+            mDevice->Get().createDescriptorPool(samplerPoolInfo);
+
+        auto samplerDescriptorSetBindings = std::array{
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(0)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(1)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(2)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
+        };
+
+        auto samplerDescriptorSetCreateInfo =
+            vk::DescriptorSetLayoutCreateInfo().setBindings(
+                samplerDescriptorSetBindings);
+
+        auto samplerLayout = mDevice->Get().createDescriptorSetLayout(
+            samplerDescriptorSetCreateInfo);
+
+        // ------------------------------------------------------------------
+        // Uniform buffer (shared projection)
+        // ------------------------------------------------------------------
+        uint64_t minimumBufferSize = 1024 * 1024;
+        uint64_t bufferSize =
+            sizeof(ProjectionUniformBuffer) * mFreyaOptions->frameCount;
+
+        auto uniformBuffer =
+            BufferBuilder(mDevice)
+                .SetUsage(BufferUsage::Uniform)
+                .SetSize(std::max(bufferSize, minimumBufferSize))
                 .Build();
 
-        const auto gBufferFragShaderModule =
-            mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath("./Shaders/Deferred/gbuffer.frag.spv")
-                .Build();
+        for (auto i = 0; i < mFreyaOptions->frameCount; i++)
+        {
+            auto bufInfo =
+                vk::DescriptorBufferInfo()
+                    .setBuffer(uniformBuffer->Get())
+                    .setOffset(sizeof(ProjectionUniformBuffer) * i)
+                    .setRange(sizeof(ProjectionUniformBuffer));
 
-        const auto gBufferVertShaderStageInfo =
-            vk::PipelineShaderStageCreateInfo()
-                .setStage(vk::ShaderStageFlagBits::eVertex)
-                .setModule(gBufferVertShaderModule->Get())
-                .setPName("main");
+            auto writer =
+                vk::WriteDescriptorSet()
+                    .setDstSet(descriptorSets[i])
+                    .setDstBinding(0)
+                    .setDstArrayElement(0)
+                    .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                    .setDescriptorCount(1)
+                    .setBufferInfo(bufInfo);
 
-        const auto gBufferFragShaderStageInfo =
-            vk::PipelineShaderStageCreateInfo()
-                .setStage(vk::ShaderStageFlagBits::eFragment)
-                .setModule(gBufferFragShaderModule->Get())
-                .setPName("main");
+            mDevice->Get().updateDescriptorSets(1, &writer, 0, nullptr);
+        }
 
-        auto shaderStages = { gBufferVertShaderStageInfo,
-                              gBufferFragShaderStageInfo };
+        // ------------------------------------------------------------------
+        // Vertex pipeline layout (set 0 = UBO, set 1 = samplers)
+        // ------------------------------------------------------------------
+        const auto vertexPipelineSetLayouts =
+            std::array{frameLayouts[0], samplerLayout};
+
+        auto vertexPipelineLayoutInfo =
+            vk::PipelineLayoutCreateInfo().setSetLayouts(
+                vertexPipelineSetLayouts);
+
+        auto vertexPipelineLayout =
+            mDevice->Get().createPipelineLayout(vertexPipelineLayoutInfo);
+
+        // ------------------------------------------------------------------
+        // G-buffer, depth, and intermediate images
+        // ------------------------------------------------------------------
+        const auto extent = mSurface->QueryExtent();
+
+        auto createImage = [&](ImageUsage usage,
+                               std::optional<vk::Format> format = std::nullopt) {
+            auto builder = mServiceProvider->GetService<ImageBuilder>()
+                               ->SetUsage(usage)
+                               .SetWidth(extent.width)
+                               .SetHeight(extent.height)
+                               .SetSamples(vkSampleCount);
+            if (format.has_value())
+            {
+                builder.SetFormat(format.value());
+            }
+            return builder.Build();
+        };
+
+        auto positionImage   = createImage(ImageUsage::GBufferPosition);
+        auto normalImage     = createImage(ImageUsage::GBufferNormal);
+        auto albedoImage     = createImage(ImageUsage::GBufferAlbedo);
+        auto depthImage      = createImage(ImageUsage::Depth);
+        // Use fixed eR8G8B8A8Unorm for intermediate buffers so the format
+        // matches the render pass declaration regardless of surface format.
+        auto translucentImage = createImage(ImageUsage::Color,
+                                            vk::Format::eR8G8B8A8Unorm);
+        auto opaqueImage     = createImage(ImageUsage::Color,
+                                           vk::Format::eR8G8B8A8Unorm);
+
+        std::vector<Ref<Image>> gbufferImages = {positionImage, normalImage,
+                                                  albedoImage};
+
+        // ------------------------------------------------------------------
+        // Input attachment descriptor set layout and pool
+        // ------------------------------------------------------------------
+        // Lighting pass needs 4 input attachments (depth, position, normal,
+        // albedo) at bindings 0-3
+        // We allocate enough for the max needed across all fullscreen subpasses
+        auto inputBindings = std::array{
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(0)
+                .setDescriptorType(
+                    vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(1)
+                .setDescriptorType(
+                    vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(2)
+                .setDescriptorType(
+                    vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(3)
+                .setDescriptorType(
+                    vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
+        };
+
+        auto inputLayoutInfo =
+            vk::DescriptorSetLayoutCreateInfo().setBindings(inputBindings);
+
+        auto inputAttachmentLayout =
+            mDevice->Get().createDescriptorSetLayout(inputLayoutInfo);
+
+        // Pool for input attachment descriptor sets
+        // (at least 2 sets: lighting + composite)
+        auto inputPoolSize =
+            vk::DescriptorPoolSize()
+                .setType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(6); // 4 + 2 = 6 total attachments
+
+        auto inputPoolInfo =
+            vk::DescriptorPoolCreateInfo()
+                .setPoolSizeCount(1)
+                .setPPoolSizes(&inputPoolSize)
+                .setMaxSets(2);
+
+        auto inputAttachmentPool =
+            mDevice->Get().createDescriptorPool(inputPoolInfo);
+
+        // Allocate lighting input descriptor set (bindings 0-3: depth,
+        // position, normal, albedo)
+        auto lightingSetAlloc =
+            vk::DescriptorSetAllocateInfo()
+                .setDescriptorPool(inputAttachmentPool)
+                .setSetLayouts(inputAttachmentLayout);
+
+        auto lightingInputSets =
+            mDevice->Get().allocateDescriptorSets(lightingSetAlloc);
+        auto lightingInputSet = lightingInputSets[0];
+
+        // Allocate composite input descriptor set (bindings 0-1: opaque,
+        // translucent)
+        auto compositeInputSet = lightingInputSets.size() > 1
+                                     ? lightingInputSets[1]
+                                     : mDevice->Get().allocateDescriptorSets(
+                                           lightingSetAlloc)[0];
+
+        // --- Update lighting input descriptor set ---
+        auto depthAspect = vk::ImageAspectFlagBits::eDepth;
+        auto colorAspect = vk::ImageAspectFlagBits::eColor;
+
+        auto depthInputInfo =
+            vk::DescriptorImageInfo()
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setImageView(depthImage->GetImageView());
+
+        auto posInputInfo =
+            vk::DescriptorImageInfo()
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setImageView(positionImage->GetImageView());
+
+        auto normInputInfo =
+            vk::DescriptorImageInfo()
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setImageView(normalImage->GetImageView());
+
+        auto albedoInputInfo =
+            vk::DescriptorImageInfo()
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setImageView(albedoImage->GetImageView());
+
+        auto lightingInputWrites = std::array{
+            vk::WriteDescriptorSet()
+                .setDstSet(lightingInputSet)
+                .setDstBinding(0)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setImageInfo(depthInputInfo),
+            vk::WriteDescriptorSet()
+                .setDstSet(lightingInputSet)
+                .setDstBinding(1)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setImageInfo(posInputInfo),
+            vk::WriteDescriptorSet()
+                .setDstSet(lightingInputSet)
+                .setDstBinding(2)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setImageInfo(normInputInfo),
+            vk::WriteDescriptorSet()
+                .setDstSet(lightingInputSet)
+                .setDstBinding(3)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setImageInfo(albedoInputInfo),
+        };
+
+        mDevice->Get().updateDescriptorSets(
+            static_cast<uint32_t>(lightingInputWrites.size()),
+            lightingInputWrites.data(), 0, nullptr);
+
+        // --- Update composite input descriptor set ---
+        auto opaqueInputInfo =
+            vk::DescriptorImageInfo()
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setImageView(opaqueImage->GetImageView());
+
+        auto translInputInfo =
+            vk::DescriptorImageInfo()
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setImageView(translucentImage->GetImageView());
+
+        auto compositeInputWrites = std::array{
+            vk::WriteDescriptorSet()
+                .setDstSet(compositeInputSet)
+                .setDstBinding(0)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setImageInfo(opaqueInputInfo),
+            vk::WriteDescriptorSet()
+                .setDstSet(compositeInputSet)
+                .setDstBinding(1)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setImageInfo(translInputInfo),
+        };
+
+        mDevice->Get().updateDescriptorSets(
+            static_cast<uint32_t>(compositeInputWrites.size()),
+            compositeInputWrites.data(), 0, nullptr);
+
+        // ------------------------------------------------------------------
+        // Fullscreen pipeline layout (input attachments only)
+        // ------------------------------------------------------------------
+        auto fullscreenLayoutInfo =
+            vk::PipelineLayoutCreateInfo().setSetLayouts(
+                inputAttachmentLayout);
+
+        auto fullscreenPipelineLayout =
+            mDevice->Get().createPipelineLayout(fullscreenLayoutInfo);
+
+        // ------------------------------------------------------------------
+        // Create pipelines
+        // ------------------------------------------------------------------
+        auto depthInfo =
+            vk::GraphicsPipelineCreateInfo()
+                .setStages(depthStages)
+                .setPVertexInputState(&vertexInputInfo)
+                .setPInputAssemblyState(&inputAssembly)
+                .setPViewportState(&viewportState)
+                .setPRasterizationState(&rasterizer)
+                .setPDepthStencilState(&depthPrepassDepthStencil)
+                .setPMultisampleState(&multisampling)
+                .setPDynamicState(&dynamicState)
+                .setLayout(vertexPipelineLayout)
+                .setRenderPass(renderPass)
+                .setSubpass(DeferredDepthPrePass)
+                .setBasePipelineHandle(nullptr);
+
+        // GBuffer pass: 3 color attachments
+        auto gbufferBlendState = colorBlending;
+        gbufferBlendState.setAttachments(gbufferBlendAttachments);
+
+        auto gbufferInfo =
+            vk::GraphicsPipelineCreateInfo()
+                .setStages(gbufStages)
+                .setPVertexInputState(&vertexInputInfo)
+                .setPInputAssemblyState(&inputAssembly)
+                .setPViewportState(&viewportState)
+                .setPRasterizationState(&rasterizer)
+                .setPDepthStencilState(&gbufferDepthStencil)
+                .setPMultisampleState(&multisampling)
+                .setPColorBlendState(&gbufferBlendState)
+                .setPDynamicState(&dynamicState)
+                .setLayout(vertexPipelineLayout)
+                .setRenderPass(renderPass)
+                .setSubpass(DeferredGBufferPass)
+                .setBasePipelineHandle(nullptr);
+
+        // Lighting pass: no vertex input, fullscreen
+        auto lightingBlendAttachment = noBlendAttachment;
+        auto lightingBlendState =
+            vk::PipelineColorBlendStateCreateInfo()
+                .setLogicOpEnable(false)
+                .setLogicOp(vk::LogicOp::eCopy)
+                .setBlendConstants({0.0f, 0.0f, 0.0f, 0.0f})
+                .setAttachmentCount(1)
+                .setPAttachments(&lightingBlendAttachment);
+
+        auto lightingInfo =
+            vk::GraphicsPipelineCreateInfo()
+                .setStages(lightStages)
+                .setPVertexInputState(&emptyVertexInputInfo)
+                .setPInputAssemblyState(&inputAssembly)
+                .setPViewportState(&viewportState)
+                .setPRasterizationState(&rasterizer)
+                .setPDepthStencilState(&noDepthStencil)
+                .setPMultisampleState(&multisampling)
+                .setPColorBlendState(&lightingBlendState)
+                .setPDynamicState(&dynamicState)
+                .setLayout(fullscreenPipelineLayout)
+                .setRenderPass(renderPass)
+                .setSubpass(DeferredLightingPass)
+                .setBasePipelineHandle(nullptr);
+
+        // Translucent pass
+        auto transBlendAttachment = translucentBlendAttachment;
+        auto transBlendState =
+            vk::PipelineColorBlendStateCreateInfo()
+                .setLogicOpEnable(false)
+                .setLogicOp(vk::LogicOp::eCopy)
+                .setBlendConstants({0.0f, 0.0f, 0.0f, 0.0f})
+                .setAttachmentCount(1)
+                .setPAttachments(&transBlendAttachment);
+
+        auto translucentInfo =
+            vk::GraphicsPipelineCreateInfo()
+                .setStages(transStages)
+                .setPVertexInputState(&vertexInputInfo)
+                .setPInputAssemblyState(&inputAssembly)
+                .setPViewportState(&viewportState)
+                .setPRasterizationState(&rasterizer)
+                .setPDepthStencilState(&translucentDepthStencil)
+                .setPMultisampleState(&multisampling)
+                .setPColorBlendState(&transBlendState)
+                .setPDynamicState(&dynamicState)
+                .setLayout(vertexPipelineLayout)
+                .setRenderPass(renderPass)
+                .setSubpass(DeferredTranslucentPass)
+                .setBasePipelineHandle(nullptr);
+
+        // Composite pass: no vertex input, read opaque + translucent, write
+        // backbuffer
+        auto compositeBlendState =
+            vk::PipelineColorBlendStateCreateInfo()
+                .setLogicOpEnable(false)
+                .setLogicOp(vk::LogicOp::eCopy)
+                .setBlendConstants({0.0f, 0.0f, 0.0f, 0.0f})
+                .setAttachmentCount(1)
+                .setPAttachments(&noBlendAttachment);
+
+        auto compositeInfo =
+            vk::GraphicsPipelineCreateInfo()
+                .setStages(compStages)
+                .setPVertexInputState(&emptyVertexInputInfo)
+                .setPInputAssemblyState(&inputAssembly)
+                .setPViewportState(&viewportState)
+                .setPRasterizationState(&rasterizer)
+                .setPDepthStencilState(&noDepthStencil)
+                .setPMultisampleState(&multisampling)
+                .setPColorBlendState(&compositeBlendState)
+                .setPDynamicState(&dynamicState)
+                .setLayout(fullscreenPipelineLayout)
+                .setRenderPass(renderPass)
+                .setSubpass(DeferredCompositePass)
+                .setBasePipelineHandle(nullptr);
+
+        auto depthPipeline =
+            mDevice->Get().createGraphicsPipeline(nullptr, depthInfo).value;
+        auto gbufferPipeline =
+            mDevice->Get().createGraphicsPipeline(nullptr, gbufferInfo).value;
+        auto lightingPipeline =
+            mDevice->Get().createGraphicsPipeline(nullptr, lightingInfo).value;
+        auto translucentPipeline =
+            mDevice->Get().createGraphicsPipeline(nullptr, translucentInfo)
+                .value;
+        auto compositePipeline =
+            mDevice->Get().createGraphicsPipeline(nullptr, compositeInfo).value;
+
+        // Cleanup shader modules
+        auto destroyShader = [&](const Ref<ShaderModule>& mod) {
+            mDevice->Get().destroyShaderModule(mod->Get());
+        };
+        destroyShader(depthVert);
+        destroyShader(depthFrag);
+        destroyShader(gbufVert);
+        destroyShader(gbufFrag);
+        destroyShader(lightVert);
+        destroyShader(lightFrag);
+        destroyShader(transVert);
+        destroyShader(transFrag);
+        destroyShader(compVert);
+        destroyShader(compFrag);
+
+        // ------------------------------------------------------------------
+        // Framebuffers (one per swapchain image)
+        // ------------------------------------------------------------------
+        auto frames = swapChain->GetFrames();
+
+        auto framebuffers = std::vector<vk::Framebuffer>(frames.size());
+
+        for (std::size_t i = 0; i < frames.size(); i++)
+        {
+            auto fbAttachments = std::vector<vk::ImageView>{
+                frames[i].imageView,           // 0: backbuffer
+                depthImage->GetImageView(),     // 1: depth
+                positionImage->GetImageView(),  // 2: position
+                normalImage->GetImageView(),    // 3: normal
+                albedoImage->GetImageView(),    // 4: albedo
+                translucentImage->GetImageView(), // 5: translucent
+                opaqueImage->GetImageView()     // 6: opaque
+            };
+
+            auto fbInfo =
+                vk::FramebufferCreateInfo()
+                    .setRenderPass(renderPass)
+                    .setAttachments(fbAttachments)
+                    .setWidth(extent.width)
+                    .setHeight(extent.height)
+                    .setLayers(1);
+
+            framebuffers[i] = mDevice->Get().createFramebuffer(fbInfo);
+        }
 
         return skr::MakeRef<DeferredCompressedPass>(
-            mDevice, mSurface, renderPass);
+            mDevice,
+            mFreyaOptions,
+            mSurface,
+            renderPass,
+            vertexPipelineLayout,
+            fullscreenPipelineLayout,
+            depthPipeline,
+            gbufferPipeline,
+            lightingPipeline,
+            translucentPipeline,
+            compositePipeline,
+            uniformBuffer,
+            frameLayouts,
+            descriptorSets,
+            descriptorPool,
+            gbufferImages,
+            depthImage,
+            translucentImage,
+            opaqueImage,
+            framebuffers,
+            inputAttachmentLayout,
+            inputAttachmentPool,
+            lightingInputSet,
+            compositeInputSet,
+            samplerLayout,
+            samplerDescriptorPool);
     }
 
+    // ------------------------------------------------------------------
+    // createRenderPass
+    // ------------------------------------------------------------------
     vk::RenderPass DeferredCompressedPassBuilder::createRenderPass() const
     {
-        // const auto surfaceFormat = mSurface->QuerySurfaceFormat().format;
+        // 7 attachments:
+        //   0: Back buffer (eR8G8B8A8Unorm)
+        //   1: Depth (eD32Sfloat)
+        //   2: Position (eR16G16B16A16Sfloat)
+        //   3: Normal (eR16G16B16A16Sfloat)
+        //   4: Albedo (eR8G8B8A8Unorm)
+        //   5: Translucent (eR8G8B8A8Unorm)
+        //   6: Opaque (eR8G8B8A8Unorm)
 
-        auto attachments = {
-            // Back buffer
+        auto attachments = std::vector<vk::AttachmentDescription>{
+            // 0: Back buffer
             vk::AttachmentDescription()
                 .setFormat(vk::Format::eR8G8B8A8Unorm)
                 .setSamples(vk::SampleCountFlagBits::e1)
-                .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStoreOp(vk::AttachmentStoreOp::eStore)
                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
                 .setFinalLayout(vk::ImageLayout::ePresentSrcKHR),
-            // Depth buffer
+            // 1: Depth
             vk::AttachmentDescription()
-                .setFormat(vk::Format::eD32Sfloat)
+                .setFormat(mPhysicalDevice->GetDepthFormat())
                 .setSamples(vk::SampleCountFlagBits::e1)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
-                .setFinalLayout(vk::ImageLayout::eUndefined),
-            // G buffer
+                .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal),
+            // 2: Position G-buffer
             vk::AttachmentDescription()
-                .setFormat(vk::Format::eR32G32B32A32Uint)
+                .setFormat(vk::Format::eR16G16B16A16Sfloat)
                 .setSamples(vk::SampleCountFlagBits::e1)
-                .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
-                .setFinalLayout(vk::ImageLayout::eUndefined),
-            // Translucent buffer
+                .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            // 3: Normal G-buffer
+            vk::AttachmentDescription()
+                .setFormat(vk::Format::eR16G16B16A16Sfloat)
+                .setSamples(vk::SampleCountFlagBits::e1)
+                .setLoadOp(vk::AttachmentLoadOp::eClear)
+                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setInitialLayout(vk::ImageLayout::eUndefined)
+                .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            // 4: Albedo G-buffer
             vk::AttachmentDescription()
                 .setFormat(vk::Format::eR8G8B8A8Unorm)
                 .setSamples(vk::SampleCountFlagBits::e1)
-                .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
-                .setFinalLayout(vk::ImageLayout::eUndefined),
+                .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            // 5: Translucent buffer
+            vk::AttachmentDescription()
+                .setFormat(vk::Format::eR8G8B8A8Unorm)
+                .setSamples(vk::SampleCountFlagBits::e1)
+                .setLoadOp(vk::AttachmentLoadOp::eClear)
+                .setStoreOp(vk::AttachmentStoreOp::eStore)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setInitialLayout(vk::ImageLayout::eUndefined)
+                .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            // 6: Opaque buffer
+            vk::AttachmentDescription()
+                .setFormat(vk::Format::eR8G8B8A8Unorm)
+                .setSamples(vk::SampleCountFlagBits::e1)
+                .setLoadOp(vk::AttachmentLoadOp::eClear)
+                .setStoreOp(vk::AttachmentStoreOp::eStore)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setInitialLayout(vk::ImageLayout::eUndefined)
+                .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
         };
 
-        constexpr auto depthBufferReference =
+        // Attachment references
+        auto depthRef =
             vk::AttachmentReference()
                 .setAttachment(DeferredDepthAttachment)
                 .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
-        auto gBufferWriteReference =
+        // G-buffer color attachments (subpass 1 writes to 2, 3, 4)
+        auto gbufferColorRefs = std::vector{
             vk::AttachmentReference()
-                .setAttachment(DeferredGBufferAttachment)
-                .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+                .setAttachment(DeferredPositionAttachment)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
+            vk::AttachmentReference()
+                .setAttachment(DeferredNormalAttachment)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
+            vk::AttachmentReference()
+                .setAttachment(DeferredAlbedoAttachment)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
+        };
 
-        auto gBufferReadReference = {
+        // Lighting pass input attachments (read depth + g-buffer)
+        auto lightingInputRefs = std::vector{
             vk::AttachmentReference()
                 .setAttachment(DeferredDepthAttachment)
                 .setLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal),
             vk::AttachmentReference()
-                .setAttachment(DeferredGBufferAttachment)
-                .setLayout(vk::ImageLayout::eReadOnlyOptimal),
-        };
-
-        auto translucentBufferWriteReference = {
-            vk::AttachmentReference()
-                .setAttachment(DeferredTranslucentAttachment)
-                .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
-        };
-
-        auto opaqueBufferWriteReference = {
-            vk::AttachmentReference()
-                .setAttachment(DeferredOpaqueAttachment)
-                .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
-        };
-
-        auto compositeReadReference = {
-            vk::AttachmentReference()
-                .setAttachment(DeferredTranslucentAttachment)
+                .setAttachment(DeferredPositionAttachment)
                 .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
             vk::AttachmentReference()
-                .setAttachment(DeferredOpaqueAttachment)
+                .setAttachment(DeferredNormalAttachment)
+                .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            vk::AttachmentReference()
+                .setAttachment(DeferredAlbedoAttachment)
                 .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
         };
 
-        // Final pass-back buffer render reference
-        auto backBufferRenderReference = {
+        // Lighting writes to opaque
+        auto opaqueRef =
+            vk::AttachmentReference()
+                .setAttachment(DeferredOpaqueAttachment)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+        // Translucent writes to translucent buffer
+        auto translucentRef =
+            vk::AttachmentReference()
+                .setAttachment(DeferredTranslucentAttachment)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+        // Composite reads opaque + translucent
+        auto compositeInputRefs = std::vector{
+            vk::AttachmentReference()
+                .setAttachment(DeferredOpaqueAttachment)
+                .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            vk::AttachmentReference()
+                .setAttachment(DeferredTranslucentAttachment)
+                .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+        };
+
+        // Composite writes to back buffer
+        auto backbufferRef =
             vk::AttachmentReference()
                 .setAttachment(DeferredBackAttachment)
-                .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+        // Subpasses
+        auto subpasses = std::vector{
+            // Subpass 0: Depth pre-pass
+            vk::SubpassDescription()
+                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+                .setPDepthStencilAttachment(&depthRef),
+            // Subpass 1: G-buffer generation
+            vk::SubpassDescription()
+                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+                .setColorAttachments(gbufferColorRefs)
+                .setPDepthStencilAttachment(&depthRef),
+            // Subpass 2: Lighting
+            vk::SubpassDescription()
+                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+                .setInputAttachments(lightingInputRefs)
+                .setColorAttachments(opaqueRef),
+            // Subpass 3: Translucent
+            vk::SubpassDescription()
+                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+                .setColorAttachments(translucentRef),
+            // Subpass 4: Composite
+            vk::SubpassDescription()
+                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+                .setInputAttachments(compositeInputRefs)
+                .setColorAttachments(backbufferRef),
         };
 
-        auto subpasses = {
-            // Subpass 0 - depth prepass
-            vk::SubpassDescription()
-                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-                .setPDepthStencilAttachment(&depthBufferReference),
-            // Subpass 1 - g-buffer generation
-            vk::SubpassDescription()
-                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-                .setColorAttachments(gBufferWriteReference)
-                .setPDepthStencilAttachment(&depthBufferReference),
-            // Subpass 2 - lighting
-            vk::SubpassDescription()
-                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-                .setInputAttachments(gBufferReadReference)
-                .setColorAttachments(opaqueBufferWriteReference),
-            // Subpass 3 - translucents
-            vk::SubpassDescription()
-                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-                .setColorAttachments(translucentBufferWriteReference),
-            // Subpass 4 - composite
-            vk::SubpassDescription()
-                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-                .setInputAttachments(compositeReadReference)
-                .setColorAttachments(backBufferRenderReference),
-        };
-
-        auto dependencies = {
-            // G-buffer pass depends on depth prepass.
+        // Dependencies
+        auto dependencies = std::vector{
+            // External → Depth pre-pass (color + depth)
+            vk::SubpassDependency()
+                .setSrcSubpass(vk::SubpassExternal)
+                .setDstSubpass(DeferredDepthPrePass)
+                .setSrcStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                    vk::PipelineStageFlagBits::eEarlyFragmentTests)
+                .setDstStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                    vk::PipelineStageFlagBits::eEarlyFragmentTests)
+                .setSrcAccessMask(vk::AccessFlagBits::eNone)
+                .setDstAccessMask(
+                    vk::AccessFlagBits::eColorAttachmentWrite |
+                    vk::AccessFlagBits::eDepthStencilAttachmentWrite),
+            // Depth pre-pass → G-buffer (depth write done → gbuffer reads
+            // depth)
             vk::SubpassDependency()
                 .setSrcSubpass(DeferredDepthPrePass)
                 .setDstSubpass(DeferredGBufferPass)
                 .setSrcStageMask(
-                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
-                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                    vk::PipelineStageFlagBits::eLateFragmentTests)
+                .setDstStageMask(
+                    vk::PipelineStageFlagBits::eEarlyFragmentTests |
+                    vk::PipelineStageFlagBits::eFragmentShader)
+                .setSrcAccessMask(
+                    vk::AccessFlagBits::eDepthStencilAttachmentWrite)
+                .setDstAccessMask(
+                    vk::AccessFlagBits::eDepthStencilAttachmentRead |
+                    vk::AccessFlagBits::eShaderRead)
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
-            // Lighting pass depends on g-buffer.
+            // G-buffer → Lighting (color write → input read)
             vk::SubpassDependency()
                 .setSrcSubpass(DeferredGBufferPass)
                 .setDstSubpass(DeferredLightingPass)
                 .setSrcStageMask(
                     vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
-                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                .setDstStageMask(
+                    vk::PipelineStageFlagBits::eFragmentShader)
+                .setSrcAccessMask(
+                    vk::AccessFlagBits::eColorAttachmentWrite)
+                .setDstAccessMask(
+                    vk::AccessFlagBits::eInputAttachmentRead)
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
-            // Composite pass depends on translucent pass
+            // Lighting → Translucent
+            vk::SubpassDependency()
+                .setSrcSubpass(DeferredLightingPass)
+                .setDstSubpass(DeferredTranslucentPass)
+                .setSrcStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setDstStageMask(
+                    vk::PipelineStageFlagBits::eFragmentShader)
+                .setSrcAccessMask(
+                    vk::AccessFlagBits::eColorAttachmentWrite)
+                .setDstAccessMask(
+                    vk::AccessFlagBits::eShaderRead)
+                .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
+            // Translucent → Composite
             vk::SubpassDependency()
                 .setSrcSubpass(DeferredTranslucentPass)
                 .setDstSubpass(DeferredCompositePass)
                 .setSrcStageMask(
                     vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
-                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                .setDstStageMask(
+                    vk::PipelineStageFlagBits::eFragmentShader)
+                .setSrcAccessMask(
+                    vk::AccessFlagBits::eColorAttachmentWrite)
+                .setDstAccessMask(
+                    vk::AccessFlagBits::eInputAttachmentRead)
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
-            // Composite pass also depends on lightning
+            // Composite → External (presentation)
             vk::SubpassDependency()
-                .setSrcSubpass(DeferredLightingPass)
-                .setDstSubpass(DeferredCompositePass)
+                .setSrcSubpass(DeferredCompositePass)
+                .setDstSubpass(vk::SubpassExternal)
                 .setSrcStageMask(
                     vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
-                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                .setDstStageMask(
+                    vk::PipelineStageFlagBits::eBottomOfPipe)
+                .setSrcAccessMask(
+                    vk::AccessFlagBits::eColorAttachmentWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eNone)
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
         };
 
-        const auto renderPassCreateInfo =
+        auto renderPassInfo =
             vk::RenderPassCreateInfo()
                 .setAttachments(attachments)
                 .setSubpasses(subpasses)
                 .setDependencies(dependencies);
 
-        return mDevice->Get().createRenderPass(renderPassCreateInfo);
+        return mDevice->Get().createRenderPass(renderPassInfo);
     }
+
 } // namespace FREYA_NAMESPACE
