@@ -21,12 +21,12 @@ namespace FREYA_NAMESPACE
 
         auto vertShaderModule =
             mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath("./Resources/Shaders/Forward/Vert.spv")
+                ->SetFilePath("./Resources/Shaders/Forward/Vert.vert.spv")
                 .Build();
 
         auto fragShaderModule =
             mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath("./Resources/Shaders/Forward/Frag.spv")
+                ->SetFilePath("./Resources/Shaders/Forward/Frag.frag.spv")
                 .Build();
 
         auto vertShaderStageInfo =
