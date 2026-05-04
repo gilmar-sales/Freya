@@ -305,6 +305,31 @@ namespace FREYA_NAMESPACE
     {
         if (IsDeferred() && mDeferredPass)
         {
+            // Auto-advance through all subpasses that the user hasn't
+            // explicitly advanced through. For fullscreen subpasses
+            // (lighting and composite), draw a fullscreen triangle.
+            auto& cmd = mCommandPool->GetCommandBuffer();
+
+            // Advance to subpass 2 (lighting) — skip depth and g-buffer
+            mDeferredPass->AdvanceSubpass(DeferredGBufferPass,
+                                          mCommandPool,
+                                          mSwapChain->GetCurrentFrameIndex());
+            mDeferredPass->AdvanceSubpass(DeferredLightingPass,
+                                          mCommandPool,
+                                          mSwapChain->GetCurrentFrameIndex());
+            // Draw fullscreen triangle for lighting pass (3 vertices,
+            // no vertex buffer — shader uses gl_VertexIndex)
+            cmd.draw(3, 1, 0, 0);
+
+            // Advance through translucent (nothing to draw) to composite
+            mDeferredPass->AdvanceSubpass(DeferredTranslucentPass,
+                                          mCommandPool,
+                                          mSwapChain->GetCurrentFrameIndex());
+            mDeferredPass->AdvanceSubpass(DeferredCompositePass,
+                                          mCommandPool,
+                                          mSwapChain->GetCurrentFrameIndex());
+            cmd.draw(3, 1, 0, 0);
+
             mDeferredPass->End(mCommandPool);
         }
         else

@@ -96,8 +96,9 @@ namespace FREYA_NAMESPACE
         auto dynamicState =
             vk::PipelineDynamicStateCreateInfo().setDynamicStates(dynamicStates);
 
-        auto vkSampleCount =
-            static_cast<vk::SampleCountFlagBits>(mFreyaOptions->sampleCount);
+        // Deferred pipeline always uses single-sample attachments — MSAA is
+        // not supported in the deferred path (intermediate targets are 1x).
+        constexpr auto vkSampleCount = vk::SampleCountFlagBits::e1;
 
         auto multisampling =
             vk::PipelineMultisampleStateCreateInfo()
@@ -331,11 +332,12 @@ namespace FREYA_NAMESPACE
 
         auto createImage = [&](ImageUsage usage,
                                std::optional<vk::Format> format = std::nullopt) {
+            // Deferred intermediate targets are always single-sample
             auto builder = mServiceProvider->GetService<ImageBuilder>()
                                ->SetUsage(usage)
                                .SetWidth(extent.width)
                                .SetHeight(extent.height)
-                               .SetSamples(vkSampleCount);
+                               .SetSamples(vk::SampleCountFlagBits::e1);
             if (format.has_value())
             {
                 builder.SetFormat(format.value());
@@ -401,11 +403,11 @@ namespace FREYA_NAMESPACE
             mDevice->Get().createDescriptorSetLayout(inputLayoutInfo);
 
         // Pool for input attachment descriptor sets
-        // (at least 2 sets: lighting + composite)
+        // 2 sets × 4 bindings each = 8 descriptors total
         auto inputPoolSize =
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eInputAttachment)
-                .setDescriptorCount(6); // 4 + 2 = 6 total attachments
+                .setDescriptorCount(8);
 
         auto inputPoolInfo =
             vk::DescriptorPoolCreateInfo()
@@ -416,28 +418,23 @@ namespace FREYA_NAMESPACE
         auto inputAttachmentPool =
             mDevice->Get().createDescriptorPool(inputPoolInfo);
 
-        // Allocate lighting input descriptor set (bindings 0-3: depth,
-        // position, normal, albedo)
-        auto lightingSetAlloc =
+        // Allocate both descriptor sets in one call:
+        //   - set 0: lighting (bindings 0-3: depth, position, normal, albedo)
+        //   - set 1: composite (bindings 0-1: opaque, translucent)
+        auto inputSetLayouts = std::vector{inputAttachmentLayout,
+                                           inputAttachmentLayout};
+
+        auto inputSetAlloc =
             vk::DescriptorSetAllocateInfo()
                 .setDescriptorPool(inputAttachmentPool)
-                .setSetLayouts(inputAttachmentLayout);
+                .setSetLayouts(inputSetLayouts);
 
-        auto lightingInputSets =
-            mDevice->Get().allocateDescriptorSets(lightingSetAlloc);
-        auto lightingInputSet = lightingInputSets[0];
-
-        // Allocate composite input descriptor set (bindings 0-1: opaque,
-        // translucent)
-        auto compositeInputSet = lightingInputSets.size() > 1
-                                     ? lightingInputSets[1]
-                                     : mDevice->Get().allocateDescriptorSets(
-                                           lightingSetAlloc)[0];
+        auto inputSets =
+            mDevice->Get().allocateDescriptorSets(inputSetAlloc);
+        auto lightingInputSet  = inputSets[0];
+        auto compositeInputSet = inputSets[1];
 
         // --- Update lighting input descriptor set ---
-        auto depthAspect = vk::ImageAspectFlagBits::eDepth;
-        auto colorAspect = vk::ImageAspectFlagBits::eColor;
-
         auto depthInputInfo =
             vk::DescriptorImageInfo()
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
@@ -736,19 +733,22 @@ namespace FREYA_NAMESPACE
     // ------------------------------------------------------------------
     vk::RenderPass DeferredCompressedPassBuilder::createRenderPass() const
     {
-        // 7 attachments:
-        //   0: Back buffer (eR8G8B8A8Unorm)
-        //   1: Depth (eD32Sfloat)
-        //   2: Position (eR16G16B16A16Sfloat)
-        //   3: Normal (eR16G16B16A16Sfloat)
-        //   4: Albedo (eR8G8B8A8Unorm)
-        //   5: Translucent (eR8G8B8A8Unorm)
-        //   6: Opaque (eR8G8B8A8Unorm)
+        // 7 attachments (all VK_SAMPLE_COUNT_1_BIT — deferred uses dedicated
+        // intermediate targets, not MSAA):
+        //   0: Back buffer   (surface format, e.g. B8G8R8A8Unorm)
+        //   1: Depth         (D32Sfloat)
+        //   2: Position      (R16G16B16A16Sfloat)
+        //   3: Normal        (R16G16B16A16Sfloat)
+        //   4: Albedo        (R8G8B8A8Unorm)
+        //   5: Translucent   (R8G8B8A8Unorm)
+        //   6: Opaque        (R8G8B8A8Unorm)
+
+        const auto surfaceFormat = mSurface->QuerySurfaceFormat().format;
 
         auto attachments = std::vector<vk::AttachmentDescription>{
-            // 0: Back buffer
+            // 0: Back buffer — must match the swapchain image format
             vk::AttachmentDescription()
-                .setFormat(vk::Format::eR8G8B8A8Unorm)
+                .setFormat(surfaceFormat)
                 .setSamples(vk::SampleCountFlagBits::e1)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStoreOp(vk::AttachmentStoreOp::eStore)
