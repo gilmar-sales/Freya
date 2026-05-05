@@ -6,9 +6,16 @@ layout (input_attachment_index = 2, binding = 2) uniform subpassInput inNormal;
 layout (input_attachment_index = 3, binding = 3) uniform subpassInput inAlbedo;
 
 layout (location = 0) out vec4 outColor;
-layout (location = 0) in vec2 inUV;
 
 void main() {
+    float depth = subpassLoad(inDepthBuffer).r;
+
+    // Reverse-Z: depth clear is 0.0 (far plane). Pixels without geometry
+    // must be skipped to avoid normalize(zero) → NaN propagation.
+    if (depth == 0.0) {
+        discard;
+    }
+
     vec3 fragPos = subpassLoad(inPosition).xyz;
     vec3 normal = subpassLoad(inNormal).xyz;
     vec4 albedo = subpassLoad(inAlbedo);

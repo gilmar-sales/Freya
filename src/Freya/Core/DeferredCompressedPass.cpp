@@ -1,20 +1,55 @@
 #include "DeferredCompressedPass.hpp"
 
+#include <vulkan/vulkan.h>
+
+namespace
+{
+    // VK_EXT_debug_utils functions are not exported by the Vulkan loader on
+    // all platforms, so we load them dynamically via vkGetDeviceProcAddr.
+    // This follows the same pattern used in Instance.cpp for the debug
+    // messenger.
+
+    void beginDebugLabel(const vk::CommandBuffer& cmd,
+                         const char*              name,
+                         const vk::Device&        device)
+    {
+        auto func = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(
+            device.getProcAddr("vkCmdBeginDebugUtilsLabelEXT"));
+        if (!func)
+            return;
+
+        VkDebugUtilsLabelEXT label {};
+        label.sType      = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+        label.pLabelName = name;
+        func(static_cast<VkCommandBuffer>(cmd), &label);
+    }
+
+    void endDebugLabel(const vk::CommandBuffer& cmd, const vk::Device& device)
+    {
+        auto func = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(
+            device.getProcAddr("vkCmdEndDebugUtilsLabelEXT"));
+        if (!func)
+            return;
+
+        func(static_cast<VkCommandBuffer>(cmd));
+    }
+} // anonymous namespace
+
 namespace FREYA_NAMESPACE
 {
     DeferredCompressedPass::DeferredCompressedPass(
-        const Ref<Device>&               device,
-        const Ref<FreyaOptions>&         freyaOptions,
-        const Ref<Surface>&              surface,
-        const vk::RenderPass             renderPass,
-        const vk::PipelineLayout         vertexPipelineLayout,
-        const vk::PipelineLayout         fullscreenPipelineLayout,
-        const vk::Pipeline               depthPrepassPipeline,
-        const vk::Pipeline               gbufferPipeline,
-        const vk::Pipeline               lightingPipeline,
-        const vk::Pipeline               translucentPipeline,
-        const vk::Pipeline               compositePipeline,
-        const Ref<Buffer>&               uniformBuffer,
+        const Ref<Device>&                          device,
+        const Ref<FreyaOptions>&                    freyaOptions,
+        const Ref<Surface>&                         surface,
+        const vk::RenderPass                        renderPass,
+        const vk::PipelineLayout                    vertexPipelineLayout,
+        const vk::PipelineLayout                    fullscreenPipelineLayout,
+        const vk::Pipeline                          depthPrepassPipeline,
+        const vk::Pipeline                          gbufferPipeline,
+        const vk::Pipeline                          lightingPipeline,
+        const vk::Pipeline                          translucentPipeline,
+        const vk::Pipeline                          compositePipeline,
+        const Ref<Buffer>&                          uniformBuffer,
         const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
         const std::vector<vk::DescriptorSet>&       descriptorSets,
         const vk::DescriptorPool                    descriptorPool,
@@ -29,26 +64,19 @@ namespace FREYA_NAMESPACE
         const vk::DescriptorSet                     compositeInputSet,
         const vk::DescriptorSetLayout               samplerLayout,
         const vk::DescriptorPool                    samplerDescriptorPool) :
-        mDevice(device),
-        mFreyaOptions(freyaOptions),
-        mSurface(surface),
-        mRenderPass(renderPass),
-        mVertexPipelineLayout(vertexPipelineLayout),
+        mDevice(device), mFreyaOptions(freyaOptions), mSurface(surface),
+        mRenderPass(renderPass), mVertexPipelineLayout(vertexPipelineLayout),
         mFullscreenPipelineLayout(fullscreenPipelineLayout),
         mUniformBuffer(uniformBuffer),
         mDescriptorSetLayouts(descriptorSetLayouts),
-        mDescriptorSets(descriptorSets),
-        mDescriptorPool(descriptorPool),
-        mGBufferImages(gbufferImages),
-        mDepthImage(depthImage),
-        mTranslucentImage(translucentImage),
-        mOpaqueImage(opaqueImage),
+        mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool),
+        mGBufferImages(gbufferImages), mDepthImage(depthImage),
+        mTranslucentImage(translucentImage), mOpaqueImage(opaqueImage),
         mFramebuffers(framebuffers),
         mInputAttachmentLayout(inputAttachmentLayout),
         mInputAttachmentPool(inputAttachmentPool),
         mLightingInputSet(lightingInputSet),
-        mCompositeInputSet(compositeInputSet),
-        mSamplerLayout(samplerLayout),
+        mCompositeInputSet(compositeInputSet), mSamplerLayout(samplerLayout),
         mSamplerDescriptorPool(samplerDescriptorPool)
     {
         mPipelines[DeferredDepthPrePass]    = depthPrepassPipeline;
@@ -114,11 +142,13 @@ namespace FREYA_NAMESPACE
         return mPipelines[subpass];
     }
 
-    void DeferredCompressedPass::Begin(
-        const Ref<SwapChain>  swapChain,
-        const Ref<CommandPool> commandPool) const
+    void DeferredCompressedPass::Begin(const Ref<SwapChain>   swapChain,
+                                       const Ref<CommandPool> commandPool) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
+
+        // Debug label for the entire deferred render pass
+        beginDebugLabel(commandBuffer, "Deferred Render Pass", mDevice->Get());
 
         // All 7 attachments need clear values.
         // Depth: reverse-Z clears to 0.0 (far plane).
@@ -126,7 +156,7 @@ namespace FREYA_NAMESPACE
             vk::ClearValue().setColor(mFreyaOptions->clearColor), // backbuffer
             vk::ClearValue().setDepthStencil(
                 vk::ClearDepthStencilValue().setDepth(
-                    mFreyaOptions->ReverseZ ? 0.0f : 1.0f)), // depth
+                    mFreyaOptions->ReverseZ ? 0.0f : 1.0f)),       // depth
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // position
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // normal
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // albedo
@@ -144,14 +174,14 @@ namespace FREYA_NAMESPACE
             vk::RenderPassBeginInfo()
                 .setRenderPass(mRenderPass)
                 .setFramebuffer(mFramebuffers[imageIndex])
-                .setRenderArea(
-                    vk::Rect2D()
-                        .setOffset({ 0, 0 })
-                        .setExtent(swapChain->GetExtent()))
+                .setRenderArea(vk::Rect2D().setOffset({ 0, 0 }).setExtent(
+                    swapChain->GetExtent()))
                 .setClearValues(clearValues),
             vk::SubpassContents::eInline);
 
         // We are now in subpass 0 (depth pre-pass).
+        // BindPipeline will open the first subpass debug label.
+        mLabelActive = false;
         BindPipeline(DeferredDepthPrePass, commandPool, frameIndex);
     }
 
@@ -163,19 +193,30 @@ namespace FREYA_NAMESPACE
     }
 
     void DeferredCompressedPass::BindPipeline(
-        const std::uint32_t   subpass,
+        const std::uint32_t     subpass,
         const Ref<CommandPool>& commandPool,
-        const std::uint32_t   frameIndex) const
+        const std::uint32_t     frameIndex) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
+
+        // Close previous subpass debug label (if any) before binding
+        // the next subpass pipeline.
+        if (mLabelActive)
+        {
+            endDebugLabel(commandBuffer, mDevice->Get());
+        }
 
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                                    mPipelines[subpass]);
 
+        // Open a new subpass debug label for RenderDoc visualization
+        beginDebugLabel(commandBuffer, GetSubpassLabel(subpass),
+                        mDevice->Get());
+        mLabelActive = true;
+
         // Bind UBO descriptor set for subpasses that use it
         // (depth, gbuffer, translucent all use UBO at set 0 binding 0)
-        if (subpass == DeferredDepthPrePass ||
-            subpass == DeferredGBufferPass ||
+        if (subpass == DeferredDepthPrePass || subpass == DeferredGBufferPass ||
             subpass == DeferredTranslucentPass)
         {
             commandBuffer.bindDescriptorSets(
@@ -216,9 +257,9 @@ namespace FREYA_NAMESPACE
     }
 
     void DeferredCompressedPass::AdvanceSubpass(
-        const std::uint32_t   subpass,
+        const std::uint32_t     subpass,
         const Ref<CommandPool>& commandPool,
-        const std::uint32_t   frameIndex) const
+        const std::uint32_t     frameIndex) const
     {
         NextSubpass(commandPool);
         BindPipeline(subpass, commandPool, frameIndex);
@@ -230,10 +271,21 @@ namespace FREYA_NAMESPACE
         commandPool->GetCommandBuffer().draw(3, 1, 0, 0);
     }
 
-    void DeferredCompressedPass::End(
-        const Ref<CommandPool> commandPool) const
+    void DeferredCompressedPass::End(const Ref<CommandPool> commandPool) const
     {
-        commandPool->GetCommandBuffer().endRenderPass();
+        auto commandBuffer = commandPool->GetCommandBuffer();
+
+        // Close the current subpass debug label
+        if (mLabelActive)
+        {
+            endDebugLabel(commandBuffer, mDevice->Get());
+            mLabelActive = false;
+        }
+
+        commandBuffer.endRenderPass();
+
+        // Close the "Deferred Render Pass" label opened in Begin()
+        endDebugLabel(commandBuffer, mDevice->Get());
     }
 
     void DeferredCompressedPass::UpdateProjection(
@@ -259,6 +311,26 @@ namespace FREYA_NAMESPACE
                 .setBufferInfo(bufferInfo);
 
         mDevice->Get().updateDescriptorSets(1, &descriptorWriter, 0, nullptr);
+    }
+
+    const char* DeferredCompressedPass::GetSubpassLabel(
+        const std::uint32_t subpass)
+    {
+        switch (subpass)
+        {
+            case DeferredDepthPrePass:
+                return "Depth Pre-pass";
+            case DeferredGBufferPass:
+                return "G-buffer";
+            case DeferredLightingPass:
+                return "Lighting";
+            case DeferredTranslucentPass:
+                return "Translucent";
+            case DeferredCompositePass:
+                return "Composite";
+            default:
+                return "Unknown";
+        }
     }
 
 } // namespace FREYA_NAMESPACE

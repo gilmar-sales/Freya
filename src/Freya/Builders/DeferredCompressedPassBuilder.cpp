@@ -110,6 +110,17 @@ namespace FREYA_NAMESPACE
                 .setLineWidth(1.0f)
                 .setDepthBiasEnable(false);
 
+        // Fullscreen passes (lighting, composite) don't need culling
+        auto fullscreenRasterizer =
+            vk::PipelineRasterizationStateCreateInfo()
+                .setDepthClampEnable(false)
+                .setRasterizerDiscardEnable(false)
+                .setPolygonMode(vk::PolygonMode::eFill)
+                .setCullMode(vk::CullModeFlagBits::eNone)
+                .setFrontFace(vk::FrontFace::eCounterClockwise)
+                .setLineWidth(1.0f)
+                .setDepthBiasEnable(false);
+
         auto dynamicStates = std::vector { vk::DynamicState::eViewport,
                                            vk::DynamicState::eScissor };
 
@@ -459,9 +470,12 @@ namespace FREYA_NAMESPACE
         auto compositeInputSet = inputSets[1];
 
         // --- Update lighting input descriptor set ---
+        // Depth format images used as input attachments must use
+        // eDepthStencilReadOnlyOptimal layout to match the subpass
+        // attachment reference (Vulkan spec requirement).
         auto depthInputInfo =
             vk::DescriptorImageInfo()
-                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setImageLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal)
                 .setImageView(depthImage->GetImageView());
 
         auto posInputInfo =
@@ -603,7 +617,7 @@ namespace FREYA_NAMESPACE
                 .setPVertexInputState(&emptyVertexInputInfo)
                 .setPInputAssemblyState(&inputAssembly)
                 .setPViewportState(&viewportState)
-                .setPRasterizationState(&rasterizer)
+                .setPRasterizationState(&fullscreenRasterizer)
                 .setPDepthStencilState(&noDepthStencil)
                 .setPMultisampleState(&multisampling)
                 .setPColorBlendState(&lightingBlendState)
@@ -655,7 +669,7 @@ namespace FREYA_NAMESPACE
                 .setPVertexInputState(&emptyVertexInputInfo)
                 .setPInputAssemblyState(&inputAssembly)
                 .setPViewportState(&viewportState)
-                .setPRasterizationState(&rasterizer)
+                .setPRasterizationState(&fullscreenRasterizer)
                 .setPDepthStencilState(&noDepthStencil)
                 .setPMultisampleState(&multisampling)
                 .setPColorBlendState(&compositeBlendState)
@@ -964,15 +978,22 @@ namespace FREYA_NAMESPACE
                     vk::AccessFlagBits::eDepthStencilAttachmentRead |
                     vk::AccessFlagBits::eShaderRead)
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
-            // G-buffer → Lighting (color write → input read)
+            // G-buffer → Lighting (color write + depth read → input read)
+            // The depth attachment transitions from
+            // eDepthStencilAttachmentOptimal (subpass 1 depth test) to
+            // eDepthStencilReadOnlyOptimal (subpass 2 input attachment).
             vk::SubpassDependency()
                 .setSrcSubpass(DeferredGBufferPass)
                 .setDstSubpass(DeferredLightingPass)
                 .setSrcStageMask(
-                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                    vk::PipelineStageFlagBits::eEarlyFragmentTests)
                 .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
-                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-                .setDstAccessMask(vk::AccessFlagBits::eInputAttachmentRead)
+                .setSrcAccessMask(
+                    vk::AccessFlagBits::eColorAttachmentWrite |
+                    vk::AccessFlagBits::eDepthStencilAttachmentRead)
+                .setDstAccessMask(vk::AccessFlagBits::eInputAttachmentRead |
+                                  vk::AccessFlagBits::eShaderRead)
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
             // Lighting → Translucent
             vk::SubpassDependency()

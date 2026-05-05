@@ -18,13 +18,13 @@ namespace FREYA_NAMESPACE
      */
     enum : std::uint32_t
     {
-        DeferredBackAttachment,          ///< Back buffer color attachment
-        DeferredDepthAttachment,         ///< Depth attachment
-        DeferredPositionAttachment,      ///< G-buffer world position
-        DeferredNormalAttachment,        ///< G-buffer normal
-        DeferredAlbedoAttachment,        ///< G-buffer albedo + specular
-        DeferredTranslucentAttachment,   ///< Translucent objects buffer
-        DeferredOpaqueAttachment         ///< Opaque lit result buffer
+        DeferredBackAttachment,        ///< Back buffer color attachment
+        DeferredDepthAttachment,       ///< Depth attachment
+        DeferredPositionAttachment,    ///< G-buffer world position
+        DeferredNormalAttachment,      ///< G-buffer normal
+        DeferredAlbedoAttachment,      ///< G-buffer albedo + specular
+        DeferredTranslucentAttachment, ///< Translucent objects buffer
+        DeferredOpaqueAttachment       ///< Opaque lit result buffer
     };
 
     /**
@@ -51,18 +51,18 @@ namespace FREYA_NAMESPACE
     {
       public:
         DeferredCompressedPass(
-            const Ref<Device>&               device,
-            const Ref<FreyaOptions>&         freyaOptions,
-            const Ref<Surface>&              surface,
-            const vk::RenderPass             renderPass,
-            const vk::PipelineLayout         vertexPipelineLayout,
-            const vk::PipelineLayout         fullscreenPipelineLayout,
-            const vk::Pipeline               depthPrepassPipeline,
-            const vk::Pipeline               gbufferPipeline,
-            const vk::Pipeline               lightingPipeline,
-            const vk::Pipeline               translucentPipeline,
-            const vk::Pipeline               compositePipeline,
-            const Ref<Buffer>&               uniformBuffer,
+            const Ref<Device>&       device,
+            const Ref<FreyaOptions>& freyaOptions,
+            const Ref<Surface>&      surface,
+            const vk::RenderPass     renderPass,
+            const vk::PipelineLayout vertexPipelineLayout,
+            const vk::PipelineLayout fullscreenPipelineLayout,
+            const vk::Pipeline       depthPrepassPipeline,
+            const vk::Pipeline       gbufferPipeline,
+            const vk::Pipeline       lightingPipeline,
+            const vk::Pipeline       translucentPipeline,
+            const vk::Pipeline       compositePipeline,
+            const Ref<Buffer>&       uniformBuffer,
             const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
             const std::vector<vk::DescriptorSet>&       descriptorSets,
             const vk::DescriptorPool                    descriptorPool,
@@ -71,12 +71,12 @@ namespace FREYA_NAMESPACE
             const Ref<Image>&                           translucentImage,
             const Ref<Image>&                           opaqueImage,
             const std::vector<vk::Framebuffer>&         framebuffers,
-            const vk::DescriptorSetLayout inputAttachmentLayout,
-            const vk::DescriptorPool      inputAttachmentPool,
-            const vk::DescriptorSet       lightingInputSet,
-            const vk::DescriptorSet       compositeInputSet,
-            const vk::DescriptorSetLayout samplerLayout,
-            const vk::DescriptorPool      samplerDescriptorPool);
+            const vk::DescriptorSetLayout               inputAttachmentLayout,
+            const vk::DescriptorPool                    inputAttachmentPool,
+            const vk::DescriptorSet                     lightingInputSet,
+            const vk::DescriptorSet                     compositeInputSet,
+            const vk::DescriptorSetLayout               samplerLayout,
+            const vk::DescriptorPool                    samplerDescriptorPool);
 
         ~DeferredCompressedPass();
 
@@ -112,8 +112,9 @@ namespace FREYA_NAMESPACE
          * @brief Begins the deferred render pass with all clear values.
          * Puts the command buffer in subpass 0 (depth pre-pass).
          */
-        void Begin(const Ref<SwapChain>  swapChain,
-                   const Ref<CommandPool> commandPool) const;
+        void Begin(const Ref<SwapChain> swapChain,
+                   const Ref<CommandPool>
+                       commandPool) const;
 
         /**
          * @brief Advances to the next subpass.
@@ -124,9 +125,9 @@ namespace FREYA_NAMESPACE
          * @brief Binds the pipeline for the given subpass index.
          * Also binds the UBO descriptor set if applicable.
          */
-        void BindPipeline(std::uint32_t             subpass,
-                          const Ref<CommandPool>&   commandPool,
-                          std::uint32_t             frameIndex) const;
+        void BindPipeline(std::uint32_t           subpass,
+                          const Ref<CommandPool>& commandPool,
+                          std::uint32_t           frameIndex) const;
 
         /**
          * @brief Convenience: calls NextSubpass then BindPipeline.
@@ -139,8 +140,7 @@ namespace FREYA_NAMESPACE
          * @brief Draws a fullscreen triangle for lighting/composite passes.
          * Uses vertex-less draw (gl_VertexIndex in the vertex shader).
          */
-        void DrawFullscreenTriangle(
-            const Ref<CommandPool>& commandPool) const;
+        void DrawFullscreenTriangle(const Ref<CommandPool>& commandPool) const;
 
         /**
          * @brief Ends the render pass.
@@ -151,7 +151,7 @@ namespace FREYA_NAMESPACE
          * @brief Updates the projection uniform buffer for a frame index.
          */
         void UpdateProjection(const ProjectionUniformBuffer& buffer,
-                              std::uint32_t frameIndex) const;
+                              std::uint32_t                  frameIndex) const;
 
         /**
          * @brief Returns the UBO descriptor set for a given frame.
@@ -165,10 +165,7 @@ namespace FREYA_NAMESPACE
          * @brief Returns the sampler descriptor set layout (for external
          * texture binding).
          */
-        vk::DescriptorSetLayout& GetSamplerLayout()
-        {
-            return mSamplerLayout;
-        }
+        vk::DescriptorSetLayout& GetSamplerLayout() { return mSamplerLayout; }
 
         /**
          * @brief Returns the sampler descriptor pool (for external texture
@@ -217,9 +214,9 @@ namespace FREYA_NAMESPACE
 
         // G-buffer and intermediate images
         std::vector<Ref<Image>> mGBufferImages; // position, normal, albedo
-        Ref<Image> mDepthImage;
-        Ref<Image> mTranslucentImage;
-        Ref<Image> mOpaqueImage;
+        Ref<Image>              mDepthImage;
+        Ref<Image>              mTranslucentImage;
+        Ref<Image>              mOpaqueImage;
 
         // Framebuffers (one per swapchain image)
         std::vector<vk::Framebuffer> mFramebuffers;
@@ -233,6 +230,15 @@ namespace FREYA_NAMESPACE
         // Sampler descriptor resources (sampler pool shared with forward pass)
         vk::DescriptorSetLayout mSamplerLayout;
         vk::DescriptorPool      mSamplerDescriptorPool;
+
+        // Debug label state (mutable because BindPipeline is const)
+        mutable bool mLabelActive = false;
+
+        /**
+         * @brief Returns a human-readable label for a given subpass index,
+         * used for VK_EXT_debug_utils annotations in RenderDoc.
+         */
+        static const char* GetSubpassLabel(std::uint32_t subpass);
     };
 
 } // namespace FREYA_NAMESPACE
