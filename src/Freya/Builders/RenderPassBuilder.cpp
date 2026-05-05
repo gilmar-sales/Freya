@@ -225,6 +225,28 @@ namespace FREYA_NAMESPACE
                 1, &descriptorWriter, 0, nullptr);
         }
 
+        // Update light buffer descriptor sets (binding 1)
+        for (auto i = 0; i < mFreyaOptions->frameCount; i++)
+        {
+            auto lightBufferInfo =
+                vk::DescriptorBufferInfo()
+                    .setBuffer(mLightService->GetBuffer()->Get())
+                    .setOffset(i * sizeof(LightUniformBuffer))
+                    .setRange(sizeof(LightUniformBuffer));
+
+            auto lightBufferWriter =
+                vk::WriteDescriptorSet()
+                    .setDstSet(descriptorSets[i])
+                    .setDstBinding(1)
+                    .setDstArrayElement(0)
+                    .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                    .setDescriptorCount(1)
+                    .setBufferInfo(lightBufferInfo);
+
+            mDevice->Get().updateDescriptorSets(
+                1, &lightBufferWriter, 0, nullptr);
+        }
+
         auto pipelineLayout =
             mDevice->Get().createPipelineLayout(pipelineLayoutInfo);
 

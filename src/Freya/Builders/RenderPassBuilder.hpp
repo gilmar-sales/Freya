@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Core/LightService.hpp"
 #include "Freya/Core/RenderPass.hpp"
 #include "Freya/FreyaOptions.hpp"
 
@@ -31,10 +32,11 @@ namespace FREYA_NAMESPACE
                           const Ref<Surface>&        surface,
                           const Ref<FreyaOptions>&   freyaOptions,
                           const Ref<skr::Logger<RenderPassBuilder>>& logger,
-                          const Ref<skr::ServiceProvider>& serviceProvider) :
+                          const Ref<skr::ServiceProvider>& serviceProvider,
+                          const Ref<LightService>&         lightService) :
             mDevice(device), mPhysicalDevice(physicalDevice), mSurface(surface),
             mFreyaOptions(freyaOptions), mLogger(logger),
-            mServiceProvider(serviceProvider)
+            mServiceProvider(serviceProvider), mLightService(lightService)
         {
         }
 
@@ -67,10 +69,10 @@ namespace FREYA_NAMESPACE
 
         Ref<skr::Logger<RenderPassBuilder>> mLogger; ///< Logger reference
         Ref<Device>                         mDevice; ///< Device reference
-        Ref<PhysicalDevice> mPhysicalDevice; ///< Physical device reference
-        Ref<Surface>        mSurface;        ///< Surface reference
-        Ref<skr::ServiceProvider>
-                          mServiceProvider; ///< Service provider reference
-        Ref<FreyaOptions> mFreyaOptions;    ///< Freya options reference
+        Ref<PhysicalDevice>       mPhysicalDevice;   ///< Physical device
+        Ref<Surface>              mSurface;          ///< Surface reference
+        Ref<skr::ServiceProvider> mServiceProvider;  ///< Service provider
+        Ref<FreyaOptions>         mFreyaOptions;     ///< Freya options
+        Ref<LightService>         mLightService;     ///< Light service
     };
 } // namespace FREYA_NAMESPACE
