@@ -22,8 +22,8 @@ namespace FREYA_NAMESPACE
         if (mUsage == ImageUsage::Texture)
         {
             mMipLevels = static_cast<std::uint32_t>(
-                std::floor(std::log2(
-                    std::max(mWidth, mHeight)))) + 1;
+                             std::floor(std::log2(std::max(mWidth, mHeight)))) +
+                         1;
         }
 
         mLogger->LogTrace("\tMip levels: {}", mMipLevels);
@@ -47,10 +47,9 @@ namespace FREYA_NAMESPACE
         switch (mUsage)
         {
             case ImageUsage::Color:
-                imageInfo.setUsage(
-                    vk::ImageUsageFlagBits::eColorAttachment |
-                    vk::ImageUsageFlagBits::eSampled |
-                    vk::ImageUsageFlagBits::eInputAttachment);
+                imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment |
+                                   vk::ImageUsageFlagBits::eSampled |
+                                   vk::ImageUsageFlagBits::eInputAttachment);
                 break;
             case ImageUsage::Depth:
                 imageInfo.setUsage(
@@ -71,9 +70,8 @@ namespace FREYA_NAMESPACE
             case ImageUsage::GBufferPosition:
             case ImageUsage::GBufferNormal:
             case ImageUsage::GBufferAlbedo:
-                imageInfo.setUsage(
-                    vk::ImageUsageFlagBits::eColorAttachment |
-                    vk::ImageUsageFlagBits::eInputAttachment);
+                imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment |
+                                   vk::ImageUsageFlagBits::eInputAttachment);
                 break;
             default:
                 break;
@@ -140,11 +138,8 @@ namespace FREYA_NAMESPACE
 
             commandBuffer.pipelineBarrier(
                 vk::PipelineStageFlagBits::eTopOfPipe,
-                vk::PipelineStageFlagBits::eTransfer,
-                vk::DependencyFlags(),
-                0, nullptr,
-                0, nullptr,
-                1, &initBarrier);
+                vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(), 0,
+                nullptr, 0, nullptr, 1, &initBarrier);
 
             // 2. Copy base level (mip 0) from staging buffer
             const auto imageBufferCopy = {
@@ -181,24 +176,18 @@ namespace FREYA_NAMESPACE
                         .setImage(image)
                         .setSubresourceRange(
                             vk::ImageSubresourceRange()
-                                .setAspectMask(
-                                    vk::ImageAspectFlagBits::eColor)
+                                .setAspectMask(vk::ImageAspectFlagBits::eColor)
                                 .setBaseMipLevel(i - 1)
                                 .setLevelCount(1)
                                 .setBaseArrayLayer(0)
                                 .setLayerCount(1))
-                        .setSrcAccessMask(
-                            vk::AccessFlagBits::eTransferWrite)
-                        .setDstAccessMask(
-                            vk::AccessFlagBits::eTransferRead);
+                        .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
+                        .setDstAccessMask(vk::AccessFlagBits::eTransferRead);
 
                 commandBuffer.pipelineBarrier(
                     vk::PipelineStageFlagBits::eTransfer,
-                    vk::PipelineStageFlagBits::eTransfer,
-                    vk::DependencyFlags(),
-                    0, nullptr,
-                    0, nullptr,
-                    1, &srcBarrier);
+                    vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(),
+                    0, nullptr, 0, nullptr, 1, &srcBarrier);
 
                 // Blit from mip i-1 to mip i
                 const auto srcW =
@@ -212,31 +201,26 @@ namespace FREYA_NAMESPACE
 
                 const auto blitRegion =
                     vk::ImageBlit()
-                        .setSrcOffsets(
-                            { vk::Offset3D{0, 0, 0},
-                              vk::Offset3D{srcW, srcH, 1} })
+                        .setSrcOffsets({ vk::Offset3D { 0, 0, 0 },
+                                         vk::Offset3D { srcW, srcH, 1 } })
                         .setSrcSubresource(
                             vk::ImageSubresourceLayers()
-                                .setAspectMask(
-                                    vk::ImageAspectFlagBits::eColor)
+                                .setAspectMask(vk::ImageAspectFlagBits::eColor)
                                 .setMipLevel(i - 1)
                                 .setBaseArrayLayer(0)
                                 .setLayerCount(1))
-                        .setDstOffsets(
-                            { vk::Offset3D{0, 0, 0},
-                              vk::Offset3D{dstW, dstH, 1} })
+                        .setDstOffsets({ vk::Offset3D { 0, 0, 0 },
+                                         vk::Offset3D { dstW, dstH, 1 } })
                         .setDstSubresource(
                             vk::ImageSubresourceLayers()
-                                .setAspectMask(
-                                    vk::ImageAspectFlagBits::eColor)
+                                .setAspectMask(vk::ImageAspectFlagBits::eColor)
                                 .setMipLevel(i)
                                 .setBaseArrayLayer(0)
                                 .setLayerCount(1));
 
                 commandBuffer.blitImage(
-                    image, vk::ImageLayout::eTransferSrcOptimal,
-                    image, vk::ImageLayout::eTransferDstOptimal,
-                    blitRegion,
+                    image, vk::ImageLayout::eTransferSrcOptimal, image,
+                    vk::ImageLayout::eTransferDstOptimal, blitRegion,
                     vk::Filter::eLinear);
             }
 
@@ -247,31 +231,25 @@ namespace FREYA_NAMESPACE
                 auto finalBarrier =
                     vk::ImageMemoryBarrier()
                         .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
-                        .setNewLayout(
-                            vk::ImageLayout::eShaderReadOnlyOptimal)
+                        .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
                         .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
                         .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
                         .setImage(image)
                         .setSubresourceRange(
                             vk::ImageSubresourceRange()
-                                .setAspectMask(
-                                    vk::ImageAspectFlagBits::eColor)
+                                .setAspectMask(vk::ImageAspectFlagBits::eColor)
                                 .setBaseMipLevel(0)
                                 .setLevelCount(1)
                                 .setBaseArrayLayer(0)
                                 .setLayerCount(1))
-                        .setSrcAccessMask(
-                            vk::AccessFlagBits::eTransferWrite)
-                        .setDstAccessMask(
-                            vk::AccessFlagBits::eShaderRead);
+                        .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
+                        .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
 
                 commandBuffer.pipelineBarrier(
                     vk::PipelineStageFlagBits::eTransfer,
                     vk::PipelineStageFlagBits::eFragmentShader,
-                    vk::DependencyFlags(),
-                    0, nullptr,
-                    0, nullptr,
-                    1, &finalBarrier);
+                    vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1,
+                    &finalBarrier);
             }
             else
             {
@@ -279,45 +257,37 @@ namespace FREYA_NAMESPACE
                 auto srcFinalBarrier =
                     vk::ImageMemoryBarrier()
                         .setOldLayout(vk::ImageLayout::eTransferSrcOptimal)
-                        .setNewLayout(
-                            vk::ImageLayout::eShaderReadOnlyOptimal)
+                        .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
                         .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
                         .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
                         .setImage(image)
                         .setSubresourceRange(
                             vk::ImageSubresourceRange()
-                                .setAspectMask(
-                                    vk::ImageAspectFlagBits::eColor)
+                                .setAspectMask(vk::ImageAspectFlagBits::eColor)
                                 .setBaseMipLevel(0)
                                 .setLevelCount(mMipLevels - 1)
                                 .setBaseArrayLayer(0)
                                 .setLayerCount(1))
-                        .setSrcAccessMask(
-                            vk::AccessFlagBits::eTransferRead)
-                        .setDstAccessMask(
-                            vk::AccessFlagBits::eShaderRead);
+                        .setSrcAccessMask(vk::AccessFlagBits::eTransferRead)
+                        .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
 
                 // Mip mMipLevels-1 is in TransferDstOptimal
                 auto dstFinalBarrier =
                     vk::ImageMemoryBarrier()
                         .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
-                        .setNewLayout(
-                            vk::ImageLayout::eShaderReadOnlyOptimal)
+                        .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
                         .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
                         .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
                         .setImage(image)
                         .setSubresourceRange(
                             vk::ImageSubresourceRange()
-                                .setAspectMask(
-                                    vk::ImageAspectFlagBits::eColor)
+                                .setAspectMask(vk::ImageAspectFlagBits::eColor)
                                 .setBaseMipLevel(mMipLevels - 1)
                                 .setLevelCount(1)
                                 .setBaseArrayLayer(0)
                                 .setLayerCount(1))
-                        .setSrcAccessMask(
-                            vk::AccessFlagBits::eTransferWrite)
-                        .setDstAccessMask(
-                            vk::AccessFlagBits::eShaderRead);
+                        .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
+                        .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
 
                 const vk::ImageMemoryBarrier finalBarriers[] = {
                     srcFinalBarrier, dstFinalBarrier
@@ -326,10 +296,8 @@ namespace FREYA_NAMESPACE
                 commandBuffer.pipelineBarrier(
                     vk::PipelineStageFlagBits::eTransfer,
                     vk::PipelineStageFlagBits::eFragmentShader,
-                    vk::DependencyFlags(),
-                    0, nullptr,
-                    0, nullptr,
-                    2, finalBarriers);
+                    vk::DependencyFlags(), 0, nullptr, 0, nullptr, 2,
+                    finalBarriers);
             }
 
             commandBuffer.end();
@@ -414,7 +382,7 @@ namespace FREYA_NAMESPACE
                 mFormat = vk::Format::eR16G16B16A16Sfloat;
                 break;
             case ImageUsage::GBufferAlbedo:
-                mFormat = vk::Format::eR8G8B8A8Unorm;
+                mFormat = vk::Format::eR8G8B8A8Srgb;
                 break;
             default:
                 break;
@@ -423,12 +391,13 @@ namespace FREYA_NAMESPACE
         return vk::Format();
     }
 
-    void ImageBuilder::transitionLayout(const Ref<CommandPool>& commandPool,
-                                        const vk::Image         image,
-                                        const vk::ImageLayout   oldLayout,
-                                        const vk::ImageLayout   newLayout,
-                                        const std::uint32_t     baseMipLevel,
-                                        const std::uint32_t     levelCount) const
+    void ImageBuilder::transitionLayout(
+        const Ref<CommandPool>& commandPool,
+        const vk::Image         image,
+        const vk::ImageLayout   oldLayout,
+        const vk::ImageLayout   newLayout,
+        const std::uint32_t     baseMipLevel,
+        const std::uint32_t     levelCount) const
     {
         const auto commandBuffer = commandPool->CreateCommandBuffer();
 
