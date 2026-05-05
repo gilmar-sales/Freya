@@ -19,7 +19,8 @@ namespace FREYA_NAMESPACE
         Texture,         ///< Texture/sampled image
         GBufferPosition, ///< Deferred G-buffer position
         GBufferNormal,   ///< Deferred G-buffer normal
-        GBufferAlbedo    ///< Deferred G-buffer albedo
+        GBufferAlbedo,   ///< Deferred G-buffer albedo
+        GBufferEmissive  ///< Deferred G-buffer emissive (for bloom)
     };
 
     /**
@@ -164,11 +165,11 @@ namespace FREYA_NAMESPACE
          * @param oldLayout   Current layout
          * @param newLayout   Target layout
          */
-        void transitionLayout(const Ref<CommandPool>& commandPool,
-                              vk::Image image, vk::ImageLayout oldLayout,
-                              vk::ImageLayout newLayout,
-                              std::uint32_t baseMipLevel = 0,
-                              std::uint32_t levelCount = VK_REMAINING_MIP_LEVELS) const;
+        void transitionLayout(
+            const Ref<CommandPool>& commandPool, vk::Image image,
+            vk::ImageLayout oldLayout, vk::ImageLayout newLayout,
+            std::uint32_t baseMipLevel = 0,
+            std::uint32_t levelCount   = VK_REMAINING_MIP_LEVELS) const;
 
       private:
         Ref<skr::Logger<ImageBuilder>> mLogger;  ///< Logger reference
@@ -180,13 +181,13 @@ namespace FREYA_NAMESPACE
         Ref<Buffer> mStagingBuffer; ///< Optional pre-allocated staging buffer
         ImageUsage  mUsage;         ///< Image usage type
 
-        vk::Format              mFormat;   ///< Image format
-        vk::SampleCountFlagBits mSamples;  ///< MSAA sample count
-        std::uint32_t           mWidth;    ///< Image width
-        std::uint32_t           mHeight;   ///< Image height
-        std::uint32_t           mChannels; ///< Channel count
+        vk::Format              mFormat;    ///< Image format
+        vk::SampleCountFlagBits mSamples;   ///< MSAA sample count
+        std::uint32_t           mWidth;     ///< Image width
+        std::uint32_t           mHeight;    ///< Image height
+        std::uint32_t           mChannels;  ///< Channel count
         std::uint32_t           mMipLevels; ///< Number of mip levels
-        void*                   mData;     ///< Raw image data
+        void*                   mData;      ///< Raw image data
     };
 
 } // namespace FREYA_NAMESPACE

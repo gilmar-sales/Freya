@@ -24,6 +24,7 @@ namespace FREYA_NAMESPACE
         DeferredPositionAttachment,    ///< G-buffer world position
         DeferredNormalAttachment,      ///< G-buffer normal
         DeferredAlbedoAttachment,      ///< G-buffer albedo + specular
+        DeferredEmissiveAttachment,    ///< G-buffer emissive (for bloom)
         DeferredTranslucentAttachment, ///< Translucent objects buffer
         DeferredOpaqueAttachment       ///< Opaque lit result buffer
     };
@@ -68,6 +69,7 @@ namespace FREYA_NAMESPACE
             const std::vector<vk::DescriptorSet>&       descriptorSets,
             const vk::DescriptorPool                    descriptorPool,
             const std::vector<Ref<Image>>&              gbufferImages,
+            const Ref<Image>&                           emissiveImage,
             const Ref<Image>&                           depthImage,
             const Ref<Image>&                           translucentImage,
             const Ref<Image>&                           opaqueImage,
@@ -215,6 +217,7 @@ namespace FREYA_NAMESPACE
 
         // G-buffer and intermediate images
         std::vector<Ref<Image>> mGBufferImages; // position, normal, albedo
+        Ref<Image>              mEmissiveImage;
         Ref<Image>              mDepthImage;
         Ref<Image>              mTranslucentImage;
         Ref<Image>              mOpaqueImage;

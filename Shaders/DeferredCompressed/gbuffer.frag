@@ -7,10 +7,12 @@ layout (location = 2) in vec2 inTexCoord;
 layout (location = 0) out vec4 outPosition;
 layout (location = 1) out vec4 outNormal;
 layout (location = 2) out vec4 outAlbedo;
+layout (location = 3) out vec4 outEmissive;
 
 layout (set = 1, binding = 0) uniform sampler2D uAlbedoTexture;
 layout (set = 1, binding = 1) uniform sampler2D uNormalTexture;
 layout (set = 1, binding = 2) uniform sampler2D uSpecularTexture;
+layout (set = 1, binding = 3) uniform sampler2D uEmissiveTexture;
 
 void main() {
     outPosition = vec4(inPosition, 1.0);
@@ -22,4 +24,7 @@ void main() {
     vec4 albedo = texture(uAlbedoTexture, inTexCoord);
     float specular = texture(uSpecularTexture, inTexCoord).r;
     outAlbedo = vec4(albedo.rgb, specular);
+    
+    // Emissive stored in RGB, defaults to black if no emissive texture
+    outEmissive = vec4(texture(uEmissiveTexture, inTexCoord).rgb, 1.0);
 }

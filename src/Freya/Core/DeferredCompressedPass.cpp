@@ -54,6 +54,7 @@ namespace FREYA_NAMESPACE
         const std::vector<vk::DescriptorSet>&       descriptorSets,
         const vk::DescriptorPool                    descriptorPool,
         const std::vector<Ref<Image>>&              gbufferImages,
+        const Ref<Image>&                           emissiveImage,
         const Ref<Image>&                           depthImage,
         const Ref<Image>&                           translucentImage,
         const Ref<Image>&                           opaqueImage,
@@ -70,9 +71,9 @@ namespace FREYA_NAMESPACE
         mUniformBuffer(uniformBuffer),
         mDescriptorSetLayouts(descriptorSetLayouts),
         mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool),
-        mGBufferImages(gbufferImages), mDepthImage(depthImage),
-        mTranslucentImage(translucentImage), mOpaqueImage(opaqueImage),
-        mFramebuffers(framebuffers),
+        mGBufferImages(gbufferImages), mEmissiveImage(emissiveImage),
+        mDepthImage(depthImage), mTranslucentImage(translucentImage),
+        mOpaqueImage(opaqueImage), mFramebuffers(framebuffers),
         mInputAttachmentLayout(inputAttachmentLayout),
         mInputAttachmentPool(inputAttachmentPool),
         mLightingInputSet(lightingInputSet),
@@ -142,15 +143,16 @@ namespace FREYA_NAMESPACE
         return mPipelines[subpass];
     }
 
-    void DeferredCompressedPass::Begin(const Ref<SwapChain>   swapChain,
-                                       const Ref<CommandPool> commandPool) const
+    void DeferredCompressedPass::Begin(
+        const Ref<SwapChain> swapChain, const Ref<CommandPool> commandPool)
+        const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 
         // Debug label for the entire deferred render pass
         beginDebugLabel(commandBuffer, "Deferred Render Pass", mDevice->Get());
 
-        // All 7 attachments need clear values.
+        // All 8 attachments need clear values.
         // Depth: reverse-Z clears to 0.0 (far plane).
         auto clearValues = std::vector<vk::ClearValue> {
             vk::ClearValue().setColor(mFreyaOptions->clearColor), // backbuffer
@@ -160,6 +162,8 @@ namespace FREYA_NAMESPACE
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // position
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // normal
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // albedo
+            vk::ClearValue().setColor(
+                { 0.0f, 0.0f, 0.0f, 0.0f }), // emissive (black)
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // transl.
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f })  // opaque
         };

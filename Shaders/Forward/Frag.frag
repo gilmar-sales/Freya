@@ -18,6 +18,7 @@ layout(binding = 1) uniform LightBuffer {
 layout(set = 1, binding = 0) uniform sampler2D albedoSampler;
 layout(set = 1, binding = 1) uniform sampler2D normalSampler;
 layout(set = 1, binding = 2) uniform sampler2D roughnessSampler;
+layout(set = 1, binding = 3) uniform sampler2D emissiveSampler;
 
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec3 fragPosition;
@@ -85,6 +86,7 @@ void main()
     vec3 albedo = texture(albedoSampler, fragTexCoord).rgb;
     vec3 normal = getNormalFromMap();
     float roughness = texture(roughnessSampler, fragTexCoord).r;
+    vec3 emissive = texture(emissiveSampler, fragTexCoord).rgb;
 
     vec3 viewDir = normalize(lights.viewPosition.xyz - fragPosition);
 
@@ -123,5 +125,5 @@ void main()
         totalLighting = vec3(1.0, 1.0, 1.0) * (diff + spec);
     }
 
-    outColor = vec4(albedo * totalLighting, 1.0);
+    outColor = vec4(albedo * totalLighting + emissive, 1.0);
 }

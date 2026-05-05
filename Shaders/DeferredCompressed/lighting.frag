@@ -4,8 +4,9 @@ layout(input_attachment_index = 0, binding = 0) uniform subpassInput inDepthBuff
 layout(input_attachment_index = 1, binding = 1) uniform subpassInput inPosition;
 layout(input_attachment_index = 2, binding = 2) uniform subpassInput inNormal;
 layout(input_attachment_index = 3, binding = 3) uniform subpassInput inAlbedo;
+layout(input_attachment_index = 4, binding = 4) uniform subpassInput inEmissive;
 
-layout(binding = 4) uniform LightBuffer {
+layout(binding = 5) uniform LightBuffer {
     vec4 lightPositions[16];
     vec4 lightColorsAndRadius[16];
     vec4 lightDirectionsAndCutoff[16];
@@ -73,6 +74,7 @@ void main() {
     vec3 fragPos = subpassLoad(inPosition).xyz;
     vec3 normal = subpassLoad(inNormal).xyz;
     vec4 albedo = subpassLoad(inAlbedo);
+    vec3 emissive = subpassLoad(inEmissive).rgb;
 
     float specular = albedo.a;
 
@@ -114,5 +116,5 @@ void main() {
         totalLighting = vec3(1.0, 1.0, 1.0) * (diff + spec);
     }
 
-    outColor = vec4(albedo.rgb * totalLighting, 1.0);
+    outColor = vec4(albedo.rgb * totalLighting + emissive, 1.0);
 }

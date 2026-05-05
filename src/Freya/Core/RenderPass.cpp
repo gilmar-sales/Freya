@@ -13,6 +13,11 @@ namespace FREYA_NAMESPACE
         mDevice->Get().freeMemory(mFallbackImageMemory);
         mDevice->Get().destroyImage(mFallbackImage);
 
+        mDevice->Get().destroySampler(mEmissiveFallbackSampler);
+        mDevice->Get().destroyImageView(mEmissiveFallbackImageView);
+        mDevice->Get().freeMemory(mEmissiveFallbackMemory);
+        mDevice->Get().destroyImage(mEmissiveFallbackImage);
+
         mDevice->Get().destroyDescriptorPool(mSamplerDescriptorPool);
 
         mDevice->Get().destroyDescriptorPool(mDescriptorPool);

@@ -178,7 +178,13 @@ namespace FREYA_NAMESPACE
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
-                .setPImmutableSamplers(nullptr)
+                .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(3)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
         };
 
         auto samplerDescriptorSetCreateInfo =
@@ -221,8 +227,8 @@ namespace FREYA_NAMESPACE
                     .setDescriptorCount(1)
                     .setBufferInfo(bufferInfo);
 
-            mDevice->Get().updateDescriptorSets(
-                1, &descriptorWriter, 0, nullptr);
+            mDevice->Get()
+                .updateDescriptorSets(1, &descriptorWriter, 0, nullptr);
         }
 
         // Update light buffer descriptor sets (binding 1)
@@ -243,8 +249,8 @@ namespace FREYA_NAMESPACE
                     .setDescriptorCount(1)
                     .setBufferInfo(lightBufferInfo);
 
-            mDevice->Get().updateDescriptorSets(
-                1, &lightBufferWriter, 0, nullptr);
+            mDevice->Get()
+                .updateDescriptorSets(1, &lightBufferWriter, 0, nullptr);
         }
 
         auto pipelineLayout =
@@ -295,182 +301,210 @@ namespace FREYA_NAMESPACE
         mDevice->Get().destroyShaderModule(vertShaderModule->Get());
         mDevice->Get().destroyShaderModule(fragShaderModule->Get());
 
-        // ── Fallback 1×1 white texture descriptor set ──────────────────
-        // Bound at set 1 in RenderPass::Begin() so that pipelines which
-        // statically use sampler descriptors never find set 1 unbound.
-        mLogger->LogTrace("\tCreating fallback white texture...");
+        // ── Fallback textures ────────────────────────────────────────────────
+        // White texture for albedo/normal/roughness slots (bindings 0-2)
+        // Black texture for emissive slot (binding 3)
+        mLogger->LogTrace("\tCreating fallback textures...");
 
-        std::uint32_t            whitePixel = 0xFFFFFFFF;
-        constexpr vk::DeviceSize pixelSize  = sizeof(whitePixel);
-        constexpr std::uint32_t  texWidth   = 1;
-        constexpr std::uint32_t  texHeight  = 1;
+        std::uint32_t whitePixel =
+            0xFFFFFFFF; // RGBA: R=255, G=255, B=255, A=255 (white)
+        std::uint32_t blackPixel =
+            0xFF000000; // RGBA: R=0, G=0, B=0, A=255 (black)
+        constexpr vk::DeviceSize pixelSize = sizeof(whitePixel);
+        constexpr std::uint32_t  texWidth  = 1;
+        constexpr std::uint32_t  texHeight = 1;
 
-        // 1. Staging buffer
-        auto fbStaging =
-            BufferBuilder(mDevice)
-                .SetData(&whitePixel)
-                .SetSize(pixelSize)
-                .SetUsage(BufferUsage::Staging)
-                .Build();
+        // Helper to create a 1x1 texture with given pixel data
+        auto createFallbackTexture = [&](std::uint32_t pixel) {
+            // 1. Staging buffer
+            auto staging =
+                BufferBuilder(mDevice)
+                    .SetData(&pixel)
+                    .SetSize(pixelSize)
+                    .SetUsage(BufferUsage::Staging)
+                    .Build();
 
-        // 2. Image
-        auto fbImageInfo =
-            vk::ImageCreateInfo()
-                .setImageType(vk::ImageType::e2D)
-                .setFormat(vk::Format::eR8G8B8A8Unorm)
-                .setExtent({ texWidth, texHeight, 1 })
-                .setMipLevels(1)
-                .setArrayLayers(1)
-                .setSamples(vk::SampleCountFlagBits::e1)
-                .setTiling(vk::ImageTiling::eOptimal)
-                .setUsage(vk::ImageUsageFlagBits::eTransferDst |
-                          vk::ImageUsageFlagBits::eSampled)
-                .setSharingMode(vk::SharingMode::eExclusive)
-                .setInitialLayout(vk::ImageLayout::eUndefined);
-        auto fbImage = mDevice->Get().createImage(fbImageInfo);
+            // 2. Image
+            auto imgInfo =
+                vk::ImageCreateInfo()
+                    .setImageType(vk::ImageType::e2D)
+                    .setFormat(vk::Format::eR8G8B8A8Unorm)
+                    .setExtent({ texWidth, texHeight, 1 })
+                    .setMipLevels(1)
+                    .setArrayLayers(1)
+                    .setSamples(vk::SampleCountFlagBits::e1)
+                    .setTiling(vk::ImageTiling::eOptimal)
+                    .setUsage(vk::ImageUsageFlagBits::eTransferDst |
+                              vk::ImageUsageFlagBits::eSampled)
+                    .setSharingMode(vk::SharingMode::eExclusive)
+                    .setInitialLayout(vk::ImageLayout::eUndefined);
+            auto img = mDevice->Get().createImage(imgInfo);
 
-        // 3. Device-local memory
-        auto fbMemReqs = mDevice->Get().getImageMemoryRequirements(fbImage);
-        auto fbMemType = mPhysicalDevice->QueryCompatibleMemoryType(
-            fbMemReqs.memoryTypeBits,
-            vk::MemoryPropertyFlagBits::eDeviceLocal);
-        auto fbMemAlloc    = vk::MemoryAllocateInfo()
-                                 .setAllocationSize(fbMemReqs.size)
-                                 .setMemoryTypeIndex(fbMemType);
-        auto fbImageMemory = mDevice->Get().allocateMemory(fbMemAlloc);
-        mDevice->Get().bindImageMemory(fbImage, fbImageMemory, 0);
+            // 3. Device-local memory
+            auto memReqs = mDevice->Get().getImageMemoryRequirements(img);
+            auto memType = mPhysicalDevice->QueryCompatibleMemoryType(
+                memReqs.memoryTypeBits,
+                vk::MemoryPropertyFlagBits::eDeviceLocal);
+            auto memAlloc  = vk::MemoryAllocateInfo()
+                                 .setAllocationSize(memReqs.size)
+                                 .setMemoryTypeIndex(memType);
+            auto imgMemory = mDevice->Get().allocateMemory(memAlloc);
+            mDevice->Get().bindImageMemory(img, imgMemory, 0);
 
-        // 4. Temporary command pool + buffer (graphics queue)
-        const auto gfxFamily =
-            mDevice->GetQueueFamilyIndices().graphicsFamily.value();
-        auto fbPoolInfo =
-            vk::CommandPoolCreateInfo().setQueueFamilyIndex(gfxFamily).setFlags(
-                vk::CommandPoolCreateFlagBits::eTransient);
-        auto fbCmdPool = mDevice->Get().createCommandPool(fbPoolInfo);
+            // 4. Copy data
+            const auto gfxFamily =
+                mDevice->GetQueueFamilyIndices().graphicsFamily.value();
+            auto poolInfo =
+                vk::CommandPoolCreateInfo()
+                    .setQueueFamilyIndex(gfxFamily)
+                    .setFlags(vk::CommandPoolCreateFlagBits::eTransient);
+            auto cmdPool  = mDevice->Get().createCommandPool(poolInfo);
+            auto cmdAlloc = vk::CommandBufferAllocateInfo()
+                                .setCommandPool(cmdPool)
+                                .setLevel(vk::CommandBufferLevel::ePrimary)
+                                .setCommandBufferCount(1);
+            auto cmdBufs  = mDevice->Get().allocateCommandBuffers(cmdAlloc);
+            auto cmdBuf   = cmdBufs[0];
 
-        auto fbCmdAlloc =
-            vk::CommandBufferAllocateInfo()
-                .setCommandPool(fbCmdPool)
-                .setLevel(vk::CommandBufferLevel::ePrimary)
-                .setCommandBufferCount(1);
-        auto fbCmdBufs = mDevice->Get().allocateCommandBuffers(fbCmdAlloc);
-        auto fbCmdBuf  = fbCmdBufs[0];
+            cmdBuf.begin(vk::CommandBufferBeginInfo().setFlags(
+                vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
 
-        fbCmdBuf.begin(vk::CommandBufferBeginInfo().setFlags(
-            vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
+            auto bar1 =
+                vk::ImageMemoryBarrier()
+                    .setOldLayout(vk::ImageLayout::eUndefined)
+                    .setNewLayout(vk::ImageLayout::eTransferDstOptimal)
+                    .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                    .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                    .setImage(img)
+                    .setSubresourceRange(
+                        vk::ImageSubresourceRange()
+                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                            .setBaseMipLevel(0)
+                            .setLevelCount(1)
+                            .setBaseArrayLayer(0)
+                            .setLayerCount(1))
+                    .setSrcAccessMask({})
+                    .setDstAccessMask(vk::AccessFlagBits::eTransferWrite);
+            cmdBuf.pipelineBarrier(
+                vk::PipelineStageFlagBits::eTopOfPipe,
+                vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(), 0,
+                nullptr, 0, nullptr, 1, &bar1);
 
-        // Undefined → TransferDst
-        auto fbBar1 =
-            vk::ImageMemoryBarrier()
-                .setOldLayout(vk::ImageLayout::eUndefined)
-                .setNewLayout(vk::ImageLayout::eTransferDstOptimal)
-                .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-                .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-                .setImage(fbImage)
-                .setSubresourceRange(
-                    vk::ImageSubresourceRange()
-                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                        .setBaseMipLevel(0)
-                        .setLevelCount(1)
-                        .setBaseArrayLayer(0)
-                        .setLayerCount(1))
-                .setSrcAccessMask({})
-                .setDstAccessMask(vk::AccessFlagBits::eTransferWrite);
-        fbCmdBuf.pipelineBarrier(
-            vk::PipelineStageFlagBits::eTopOfPipe,
-            vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(), 0,
-            nullptr, 0, nullptr, 1, &fbBar1);
+            auto copy =
+                vk::BufferImageCopy()
+                    .setBufferOffset(0)
+                    .setBufferRowLength(0)
+                    .setBufferImageHeight(0)
+                    .setImageSubresource(
+                        vk::ImageSubresourceLayers()
+                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                            .setMipLevel(0)
+                            .setBaseArrayLayer(0)
+                            .setLayerCount(1))
+                    .setImageOffset({ 0, 0, 0 })
+                    .setImageExtent({ texWidth, texHeight, 1 });
+            cmdBuf.copyBufferToImage(
+                staging->Get(), img, vk::ImageLayout::eTransferDstOptimal,
+                copy);
 
-        // Copy staging → image
-        auto fbCopy =
-            vk::BufferImageCopy()
-                .setBufferOffset(0)
-                .setBufferRowLength(0)
-                .setBufferImageHeight(0)
-                .setImageSubresource(
-                    vk::ImageSubresourceLayers()
-                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                        .setMipLevel(0)
-                        .setBaseArrayLayer(0)
-                        .setLayerCount(1))
-                .setImageOffset({ 0, 0, 0 })
-                .setImageExtent({ texWidth, texHeight, 1 });
-        fbCmdBuf.copyBufferToImage(
-            fbStaging->Get(), fbImage, vk::ImageLayout::eTransferDstOptimal,
-            fbCopy);
+            auto bar2 =
+                vk::ImageMemoryBarrier()
+                    .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
+                    .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                    .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                    .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                    .setImage(img)
+                    .setSubresourceRange(
+                        vk::ImageSubresourceRange()
+                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                            .setBaseMipLevel(0)
+                            .setLevelCount(1)
+                            .setBaseArrayLayer(0)
+                            .setLayerCount(1))
+                    .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
+                    .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
+            cmdBuf.pipelineBarrier(
+                vk::PipelineStageFlagBits::eTransfer,
+                vk::PipelineStageFlagBits::eFragmentShader,
+                vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &bar2);
 
-        // TransferDst → ShaderReadOnly
-        auto fbBar2 =
-            vk::ImageMemoryBarrier()
-                .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
-                .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-                .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-                .setImage(fbImage)
-                .setSubresourceRange(
-                    vk::ImageSubresourceRange()
-                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                        .setBaseMipLevel(0)
-                        .setLevelCount(1)
-                        .setBaseArrayLayer(0)
-                        .setLayerCount(1))
-                .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
-                .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
-        fbCmdBuf.pipelineBarrier(
-            vk::PipelineStageFlagBits::eTransfer,
-            vk::PipelineStageFlagBits::eFragmentShader, vk::DependencyFlags(),
-            0, nullptr, 0, nullptr, 1, &fbBar2);
+            cmdBuf.end();
+            auto submit =
+                vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(
+                    &cmdBuf);
+            mDevice->GetGraphicsQueue().submit(submit);
+            mDevice->GetGraphicsQueue().waitIdle();
+            mDevice->Get().destroyCommandPool(cmdPool);
 
-        fbCmdBuf.end();
+            // 5. Image view
+            auto viewInfo =
+                vk::ImageViewCreateInfo()
+                    .setImage(img)
+                    .setViewType(vk::ImageViewType::e2D)
+                    .setFormat(vk::Format::eR8G8B8A8Unorm)
+                    .setComponents(vk::ComponentMapping()
+                                       .setR(vk::ComponentSwizzle::eIdentity)
+                                       .setG(vk::ComponentSwizzle::eIdentity)
+                                       .setB(vk::ComponentSwizzle::eIdentity)
+                                       .setA(vk::ComponentSwizzle::eIdentity))
+                    .setSubresourceRange(
+                        vk::ImageSubresourceRange()
+                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                            .setBaseMipLevel(0)
+                            .setLevelCount(1)
+                            .setBaseArrayLayer(0)
+                            .setLayerCount(1));
+            auto imgView = mDevice->Get().createImageView(viewInfo);
 
-        auto fbSubmit =
-            vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(
-                &fbCmdBuf);
-        mDevice->GetGraphicsQueue().submit(fbSubmit);
-        mDevice->GetGraphicsQueue().waitIdle();
+            // 6. Sampler
+            auto sampInfo =
+                vk::SamplerCreateInfo()
+                    .setMagFilter(vk::Filter::eLinear)
+                    .setMinFilter(vk::Filter::eLinear)
+                    .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+                    .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+                    .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+                    .setAnisotropyEnable(false)
+                    .setMaxAnisotropy(1.0f)
+                    .setBorderColor(vk::BorderColor::eFloatOpaqueWhite)
+                    .setUnnormalizedCoordinates(false)
+                    .setCompareEnable(false)
+                    .setCompareOp(vk::CompareOp::eAlways)
+                    .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+                    .setMipLodBias(0.0f)
+                    .setMinLod(0.0f)
+                    .setMaxLod(0.0f);
+            auto samp = mDevice->Get().createSampler(sampInfo);
 
-        mDevice->Get().destroyCommandPool(fbCmdPool);
-        fbStaging.reset();
+            return std::tuple { img, imgMemory, imgView, samp };
+        };
 
-        // 5. Image view
-        auto fbViewInfo =
-            vk::ImageViewCreateInfo()
-                .setImage(fbImage)
-                .setViewType(vk::ImageViewType::e2D)
-                .setFormat(vk::Format::eR8G8B8A8Unorm)
-                .setComponents(vk::ComponentMapping()
-                                   .setR(vk::ComponentSwizzle::eIdentity)
-                                   .setG(vk::ComponentSwizzle::eIdentity)
-                                   .setB(vk::ComponentSwizzle::eIdentity)
-                                   .setA(vk::ComponentSwizzle::eIdentity))
-                .setSubresourceRange(
-                    vk::ImageSubresourceRange()
-                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                        .setBaseMipLevel(0)
-                        .setLevelCount(1)
-                        .setBaseArrayLayer(0)
-                        .setLayerCount(1));
-        auto fbImageView = mDevice->Get().createImageView(fbViewInfo);
+        vk::Image        fbImage;
+        vk::DeviceMemory fbImageMemory;
+        vk::ImageView    fbImageView;
+        vk::Sampler      fbSampler;
+        vk::Image        fbEmissiveImage;
+        vk::DeviceMemory fbEmissiveMemory;
+        vk::ImageView    fbEmissiveView;
+        vk::Sampler      fbEmissiveSampler;
 
-        // 6. Sampler
-        auto fbSamplerInfo =
-            vk::SamplerCreateInfo()
-                .setMagFilter(vk::Filter::eLinear)
-                .setMinFilter(vk::Filter::eLinear)
-                .setAddressModeU(vk::SamplerAddressMode::eRepeat)
-                .setAddressModeV(vk::SamplerAddressMode::eRepeat)
-                .setAddressModeW(vk::SamplerAddressMode::eRepeat)
-                .setAnisotropyEnable(false)
-                .setMaxAnisotropy(1.0f)
-                .setBorderColor(vk::BorderColor::eFloatOpaqueWhite)
-                .setUnnormalizedCoordinates(false)
-                .setCompareEnable(false)
-                .setCompareOp(vk::CompareOp::eAlways)
-                .setMipmapMode(vk::SamplerMipmapMode::eLinear)
-                .setMipLodBias(0.0f)
-                .setMinLod(0.0f)
-                .setMaxLod(0.0f);
-        auto fbSampler = mDevice->Get().createSampler(fbSamplerInfo);
+        // Create white fallback (for albedo/normal/roughness)
+        {
+            auto result   = createFallbackTexture(whitePixel);
+            fbImage       = std::get<0>(result);
+            fbImageMemory = std::get<1>(result);
+            fbImageView   = std::get<2>(result);
+            fbSampler     = std::get<3>(result);
+        }
+
+        // Create black fallback for emissive (binding 3)
+        {
+            auto result       = createFallbackTexture(blackPixel);
+            fbEmissiveImage   = std::get<0>(result);
+            fbEmissiveMemory  = std::get<1>(result);
+            fbEmissiveView    = std::get<2>(result);
+            fbEmissiveSampler = std::get<3>(result);
+        }
 
         // 7. Descriptor set (allocated from the shared sampler pool)
         auto fbSetAlloc    = vk::DescriptorSetAllocateInfo()
@@ -485,6 +519,20 @@ namespace FREYA_NAMESPACE
                 .setImageView(fbImageView)
                 .setSampler(fbSampler);
 
+        // Separate image infos for fallback set - white for bindings 0-2, black
+        // for binding 3
+        auto fbWhiteImgInfoDesc =
+            vk::DescriptorImageInfo()
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setImageView(fbImageView)
+                .setSampler(fbSampler);
+
+        auto fbBlackImgInfoDesc =
+            vk::DescriptorImageInfo()
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setImageView(fbEmissiveView)
+                .setSampler(fbEmissiveSampler);
+
         const auto fbWrites = std::array {
             vk::WriteDescriptorSet()
                 .setDstSet(fbFallbackSet)
@@ -492,21 +540,28 @@ namespace FREYA_NAMESPACE
                 .setDstArrayElement(0)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1)
-                .setImageInfo(fbImgInfoDesc),
+                .setImageInfo(fbWhiteImgInfoDesc),
             vk::WriteDescriptorSet()
                 .setDstSet(fbFallbackSet)
                 .setDstBinding(1)
                 .setDstArrayElement(0)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1)
-                .setImageInfo(fbImgInfoDesc),
+                .setImageInfo(fbWhiteImgInfoDesc),
             vk::WriteDescriptorSet()
                 .setDstSet(fbFallbackSet)
                 .setDstBinding(2)
                 .setDstArrayElement(0)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1)
-                .setImageInfo(fbImgInfoDesc),
+                .setImageInfo(fbWhiteImgInfoDesc),
+            vk::WriteDescriptorSet()
+                .setDstSet(fbFallbackSet)
+                .setDstBinding(3)
+                .setDstArrayElement(0)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setImageInfo(fbBlackImgInfoDesc),
         };
         mDevice->Get().updateDescriptorSets(fbWrites, nullptr);
 
@@ -526,7 +581,11 @@ namespace FREYA_NAMESPACE
             fbImage,
             fbImageMemory,
             fbImageView,
-            fbSampler);
+            fbSampler,
+            fbEmissiveImage,
+            fbEmissiveMemory,
+            fbEmissiveView,
+            fbEmissiveSampler);
     }
 
     vk::RenderPass RenderPassBuilder::createRenderPass() const

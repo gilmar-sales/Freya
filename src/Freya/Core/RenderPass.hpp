@@ -62,7 +62,11 @@ namespace FREYA_NAMESPACE
             const vk::Image                             fallbackImage,
             const vk::DeviceMemory                      fallbackImageMemory,
             const vk::ImageView                         fallbackImageView,
-            const vk::Sampler                           fallbackSampler) :
+            const vk::Sampler                           fallbackSampler,
+            const vk::Image                             emissiveFallbackImage,
+            const vk::DeviceMemory                      emissiveFallbackMemory,
+            const vk::ImageView emissiveFallbackImageView,
+            const vk::Sampler   emissiveFallbackSampler) :
             mDevice(device), mFreyaOptions(freyaOptions),
             mRenderPass(renderPass), mPipelineLayout(pipelineLayout),
             mGraphicsPipeline(graphicsPipeline), mUniformBuffer(uniformBuffer),
@@ -74,7 +78,11 @@ namespace FREYA_NAMESPACE
             mFallbackImage(fallbackImage),
             mFallbackImageMemory(fallbackImageMemory),
             mFallbackImageView(fallbackImageView),
-            mFallbackSampler(fallbackSampler)
+            mFallbackSampler(fallbackSampler),
+            mEmissiveFallbackImage(emissiveFallbackImage),
+            mEmissiveFallbackMemory(emissiveFallbackMemory),
+            mEmissiveFallbackImageView(emissiveFallbackImageView),
+            mEmissiveFallbackSampler(emissiveFallbackSampler)
         {
         }
 
@@ -134,6 +142,41 @@ namespace FREYA_NAMESPACE
             return mSamplerDescriptorPool;
         }
 
+        /**
+         * @brief Returns the fallback sampler set (set 1) with all 4 bindings
+         * bound to the 1x1 white fallback texture.
+         */
+        vk::DescriptorSet& GetFallbackSamplerSet()
+        {
+            return mFallbackSamplerSet;
+        }
+
+        /**
+         * @brief Returns the fallback image view for default material binding.
+         */
+        vk::ImageView& GetFallbackImageView() { return mFallbackImageView; }
+
+        /**
+         * @brief Returns the fallback sampler for default material binding.
+         */
+        vk::Sampler& GetFallbackSampler() { return mFallbackSampler; }
+
+        /**
+         * @brief Returns the black emissive fallback image view.
+         */
+        vk::ImageView& GetEmissiveFallbackImageView()
+        {
+            return mEmissiveFallbackImageView;
+        }
+
+        /**
+         * @brief Returns the black emissive fallback sampler.
+         */
+        vk::Sampler& GetEmissiveFallbackSampler()
+        {
+            return mEmissiveFallbackSampler;
+        }
+
         Ref<Device>       mDevice;
         Ref<FreyaOptions> mFreyaOptions;
 
@@ -156,5 +199,11 @@ namespace FREYA_NAMESPACE
         vk::DeviceMemory  mFallbackImageMemory;
         vk::ImageView     mFallbackImageView;
         vk::Sampler       mFallbackSampler;
+
+        // Fallback 1x1 black emissive texture
+        vk::Image        mEmissiveFallbackImage;
+        vk::DeviceMemory mEmissiveFallbackMemory;
+        vk::ImageView    mEmissiveFallbackImageView;
+        vk::Sampler      mEmissiveFallbackSampler;
     };
 } // namespace FREYA_NAMESPACE
