@@ -21,7 +21,24 @@ void main() {
 
     vec3 N = normalize(inNormal);
     N.y = -N.y;
-    outNormal = vec4(N, 1.0);
+
+    // Sample and decode normal from normal map
+    vec3 normalTex = texture(uNormalTexture, inTexCoord).rgb * 2.0 - 1.0;
+    
+    // Compute TBN matrix from derivatives (no tangent attribute available)
+    vec3 Q1 = dFdx(outPosition.xyz);
+    vec3 Q2 = dFdy(outPosition.xyz);
+    vec2 UV1 = dFdx(inTexCoord);
+    vec2 UV2 = dFdy(inTexCoord);
+    
+    vec3 T = normalize(Q1 * UV2.y - Q2 * UV1.y);
+    vec3 B = normalize(Q2 * UV1.x - Q1 * UV2.x);
+    vec3 N_for_TBN = normalize(N);
+    
+    mat3 TBN = mat3(T, B, N_for_TBN);
+    vec3 worldNormal = normalize(TBN * normalTex);
+    
+    outNormal = vec4(worldNormal, 1.0);
 
     vec4 albedo = texture(uAlbedoTexture, inTexCoord);
     float roughness = texture(uRoughnessTexture, inTexCoord).r;

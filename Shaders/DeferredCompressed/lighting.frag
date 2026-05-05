@@ -18,6 +18,8 @@ layout(binding = 6) uniform LightBuffer {
 
 layout(location = 0) out vec4 outColor;
 
+const float bloomIntensity = 2.0; // multiplier to boost bloom effect
+
 // Returns color and alpha (intensity) for a single light
 vec4 calculateLight(vec3 lightPos, float lightType, vec3 lightColor, 
                    float radius, vec3 lightDir, float innerCutoff, 
@@ -121,5 +123,5 @@ void main() {
         totalLighting = vec3(1.0, 1.0, 1.0) * (diff + spec);
     }
 
-    outColor = vec4(albedo.rgb * totalLighting + emissive, 1.0);
+    outColor = vec4(albedo.rgb * totalLighting + emissive * bloomIntensity, 1.0);
 }
