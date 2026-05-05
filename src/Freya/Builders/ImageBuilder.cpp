@@ -71,6 +71,8 @@ namespace FREYA_NAMESPACE
             case ImageUsage::GBufferNormal:
             case ImageUsage::GBufferAlbedo:
             case ImageUsage::GBufferEmissive:
+            case ImageUsage::GBufferMetalness:
+            case ImageUsage::GBufferRoughness:
                 imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment |
                                    vk::ImageUsageFlagBits::eInputAttachment);
                 break;
@@ -324,6 +326,8 @@ namespace FREYA_NAMESPACE
             case ImageUsage::GBufferNormal:
             case ImageUsage::GBufferAlbedo:
             case ImageUsage::GBufferEmissive:
+            case ImageUsage::GBufferMetalness:
+            case ImageUsage::GBufferRoughness:
                 aspect = vk::ImageAspectFlagBits::eColor;
                 break;
             case ImageUsage::Depth:
@@ -388,6 +392,10 @@ namespace FREYA_NAMESPACE
                 break;
             case ImageUsage::GBufferEmissive:
                 mFormat = vk::Format::eR16G16B16A16Sfloat;
+                break;
+            case ImageUsage::GBufferMetalness:
+            case ImageUsage::GBufferRoughness:
+                mFormat = vk::Format::eR8Unorm;
                 break;
             default:
                 break;

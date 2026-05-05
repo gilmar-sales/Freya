@@ -45,9 +45,13 @@ namespace FREYA_NAMESPACE
                 .setImageView(emissiveFallbackImageView)
                 .setSampler(emissiveFallbackSampler);
 
-        // Bind textures to slots 0, 1, 2, 3. Slot 3 gets black emissive if no
-        // texture.
-        for (size_t binding = 0; binding < 4; binding++)
+        // Bind textures to slots 0-4:
+        // Slot 0 (albedo): white fallback if not provided
+        // Slot 1 (normal): white fallback if not provided
+        // Slot 2 (roughness): white fallback if not provided
+        // Slot 3 (emissive): black fallback if not provided
+        // Slot 4 (metalness): black fallback (0.0) if not provided
+        for (size_t binding = 0; binding < 5; binding++)
         {
             vk::DescriptorImageInfo imageInfo;
 
@@ -63,6 +67,11 @@ namespace FREYA_NAMESPACE
             else if (binding == 3)
             {
                 // Use black emissive fallback for missing emissive
+                imageInfo = emissiveFallbackImageInfo;
+            }
+            else if (binding == 4)
+            {
+                // Use black metalness fallback (0.0) for missing metalness
                 imageInfo = emissiveFallbackImageInfo;
             }
             else

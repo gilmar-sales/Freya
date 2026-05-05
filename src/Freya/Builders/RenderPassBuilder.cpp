@@ -185,6 +185,12 @@ namespace FREYA_NAMESPACE
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(4)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
         };
 
         auto samplerDescriptorSetCreateInfo =
@@ -562,6 +568,14 @@ namespace FREYA_NAMESPACE
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1)
                 .setImageInfo(fbBlackImgInfoDesc),
+            vk::WriteDescriptorSet()
+                .setDstSet(fbFallbackSet)
+                .setDstBinding(4)
+                .setDstArrayElement(0)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setImageInfo(
+                    fbBlackImgInfoDesc), // metalness fallback = 0.0 (black)
         };
         mDevice->Get().updateDescriptorSets(fbWrites, nullptr);
 

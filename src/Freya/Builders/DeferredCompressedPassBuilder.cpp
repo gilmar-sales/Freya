@@ -202,13 +202,14 @@ namespace FREYA_NAMESPACE
         // Color blend attachments per subpass
         // ------------------------------------------------------------------
         // Subpass 0 (depth prepass): no color attachments
-        // Subpass 1 (gbuffer): 4 color attachments (position, normal, albedo,
-        // emissive)
+        // Subpass 1 (gbuffer): 6 color attachments (position, normal, albedo,
+        // emissive, material)
         auto gbufferBlendAttachments = std::vector {
             noBlendAttachment, // position
             noBlendAttachment, // normal
             noBlendAttachment, // albedo
-            noBlendAttachment  // emissive
+            noBlendAttachment, // emissive
+            noBlendAttachment  // material
         };
 
         // Subpass 2 (lighting): 1 color attachment (opaque)
@@ -319,6 +320,12 @@ namespace FREYA_NAMESPACE
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(4)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
         };
 
         auto samplerDescriptorSetCreateInfo =
@@ -399,7 +406,9 @@ namespace FREYA_NAMESPACE
         auto normalImage   = createImage(ImageUsage::GBufferNormal);
         auto albedoImage   = createImage(ImageUsage::GBufferAlbedo);
         auto emissiveImage = createImage(ImageUsage::GBufferEmissive);
-        auto depthImage    = createImage(ImageUsage::Depth);
+        auto materialImage =
+            createImage(ImageUsage::GBufferMetalness); // uses R8 format
+        auto depthImage = createImage(ImageUsage::Depth);
         // Use fixed eR8G8B8A8Unorm for intermediate buffers so the format
         // matches the render pass declaration regardless of surface format.
         auto translucentImage =
@@ -407,8 +416,11 @@ namespace FREYA_NAMESPACE
         auto opaqueImage =
             createImage(ImageUsage::Color, vk::Format::eR8G8B8A8Unorm);
 
-        std::vector<Ref<Image>> gbufferImages = { positionImage, normalImage,
-                                                  albedoImage };
+        // G-buffer images: position, normal, albedo, emissive, material
+        std::vector<Ref<Image>> gbufferImages = {
+            positionImage, normalImage, albedoImage, emissiveImage,
+            materialImage
+        };
 
         // ------------------------------------------------------------------
         // Input attachment descriptor set layout and pool
@@ -450,6 +462,12 @@ namespace FREYA_NAMESPACE
                 .setPImmutableSamplers(nullptr),
             vk::DescriptorSetLayoutBinding()
                 .setBinding(5)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(6)
                 .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
@@ -463,12 +481,12 @@ namespace FREYA_NAMESPACE
             mDevice->Get().createDescriptorSetLayout(inputLayoutInfo);
 
         // Pool for input attachment descriptor sets
-        // 2 sets × 6 bindings each = 12 descriptors total (5 input + 1 uniform
+        // 2 sets × 7 bindings each = 14 descriptors total (6 input + 1 uniform
         // per set)
         std::array inputPoolSizes = {
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eInputAttachment)
-                .setDescriptorCount(10),
+                .setDescriptorCount(12),
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eUniformBuffer)
                 .setDescriptorCount(2),
@@ -527,6 +545,11 @@ namespace FREYA_NAMESPACE
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
                 .setImageView(emissiveImage->GetImageView());
 
+        auto materialInputInfo =
+            vk::DescriptorImageInfo()
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setImageView(materialImage->GetImageView());
+
         auto lightingInputWrites = std::array {
             vk::WriteDescriptorSet()
                 .setDstSet(lightingInputSet)
@@ -558,13 +581,19 @@ namespace FREYA_NAMESPACE
                 .setDescriptorType(vk::DescriptorType::eInputAttachment)
                 .setDescriptorCount(1)
                 .setImageInfo(emissiveInputInfo),
+            vk::WriteDescriptorSet()
+                .setDstSet(lightingInputSet)
+                .setDstBinding(5)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setImageInfo(materialInputInfo),
         };
 
         mDevice->Get().updateDescriptorSets(
             static_cast<uint32_t>(lightingInputWrites.size()),
             lightingInputWrites.data(), 0, nullptr);
 
-        // --- Update light buffer binding (binding 5) ---
+        // --- Update light buffer binding (binding 6) ---
         auto frameIndex = 0; // Will be updated per-frame at render time
         auto lightBufferInfo =
             vk::DescriptorBufferInfo()
@@ -575,7 +604,7 @@ namespace FREYA_NAMESPACE
         auto lightBufferWrite =
             vk::WriteDescriptorSet()
                 .setDstSet(lightingInputSet)
-                .setDstBinding(5)
+                .setDstBinding(6)
                 .setDstArrayElement(0)
                 .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                 .setDescriptorCount(1)
@@ -782,8 +811,9 @@ namespace FREYA_NAMESPACE
                 normalImage->GetImageView(),      // 3: normal
                 albedoImage->GetImageView(),      // 4: albedo
                 emissiveImage->GetImageView(),    // 5: emissive
-                translucentImage->GetImageView(), // 6: translucent
-                opaqueImage->GetImageView()       // 7: opaque
+                materialImage->GetImageView(),    // 6: material
+                translucentImage->GetImageView(), // 7: translucent
+                opaqueImage->GetImageView()       // 8: opaque
             };
 
             auto fbInfo =
@@ -832,7 +862,7 @@ namespace FREYA_NAMESPACE
     // ------------------------------------------------------------------
     vk::RenderPass DeferredCompressedPassBuilder::createRenderPass() const
     {
-        // 8 attachments (all VK_SAMPLE_COUNT_1_BIT — deferred uses dedicated
+        // 10 attachments (all VK_SAMPLE_COUNT_1_BIT — deferred uses dedicated
         // intermediate targets, not MSAA):
         //   0: Back buffer   (surface format, e.g. B8G8R8A8Unorm)
         //   1: Depth         (D32Sfloat)
@@ -840,8 +870,9 @@ namespace FREYA_NAMESPACE
         //   3: Normal        (R16G16B16A16Sfloat)
         //   4: Albedo        (R8G8B8A8Srgb)
         //   5: Emissive      (R16G16B16A16Sfloat) - for bloom
-        //   6: Translucent   (R8G8B8A8Unorm)
-        //   7: Opaque        (R8G8B8A8Unorm)
+        //   6: Material      (R8G8B8A8Unorm) - metalness(0)/roughness(1)
+        //   7: Translucent   (R8G8B8A8Unorm)
+        //   8: Opaque        (R8G8B8A8Unorm)
 
         const auto surfaceFormat = mSurface->QuerySurfaceFormat().format;
 
@@ -907,7 +938,17 @@ namespace FREYA_NAMESPACE
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
                 .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
-            // 6: Translucent buffer
+            // 6: Material buffer (R8 = metalness)
+            vk::AttachmentDescription()
+                .setFormat(vk::Format::eR8Unorm)
+                .setSamples(vk::SampleCountFlagBits::e1)
+                .setLoadOp(vk::AttachmentLoadOp::eClear)
+                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setInitialLayout(vk::ImageLayout::eUndefined)
+                .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            // 7: Translucent buffer
             vk::AttachmentDescription()
                 .setFormat(vk::Format::eR8G8B8A8Unorm)
                 .setSamples(vk::SampleCountFlagBits::e1)
@@ -917,7 +958,7 @@ namespace FREYA_NAMESPACE
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
                 .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
-            // 7: Opaque buffer
+            // 8: Opaque buffer
             vk::AttachmentDescription()
                 .setFormat(vk::Format::eR8G8B8A8Unorm)
                 .setSamples(vk::SampleCountFlagBits::e1)
@@ -949,9 +990,13 @@ namespace FREYA_NAMESPACE
             vk::AttachmentReference()
                 .setAttachment(DeferredEmissiveAttachment)
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
+            vk::AttachmentReference()
+                .setAttachment(DeferredMaterialAttachment)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
         };
 
-        // Lighting pass input attachments (read depth + g-buffer + emissive)
+        // Lighting pass input attachments (read depth + g-buffer + emissive +
+        // material)
         auto lightingInputRefs = std::vector {
             vk::AttachmentReference()
                 .setAttachment(DeferredDepthAttachment)
@@ -967,6 +1012,9 @@ namespace FREYA_NAMESPACE
                 .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
             vk::AttachmentReference()
                 .setAttachment(DeferredEmissiveAttachment)
+                .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            vk::AttachmentReference()
+                .setAttachment(DeferredMaterialAttachment)
                 .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
         };
 

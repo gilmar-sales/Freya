@@ -19,6 +19,7 @@ layout(set = 1, binding = 0) uniform sampler2D albedoSampler;
 layout(set = 1, binding = 1) uniform sampler2D normalSampler;
 layout(set = 1, binding = 2) uniform sampler2D roughnessSampler;
 layout(set = 1, binding = 3) uniform sampler2D emissiveSampler;
+layout(set = 1, binding = 4) uniform sampler2D metalnessSampler;
 
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec3 fragPosition;

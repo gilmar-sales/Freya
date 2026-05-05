@@ -25,23 +25,27 @@ class MainApp final : public fra::AbstractApplication
             glm::translate(glm::mat4(1), glm::vec3(3, 2, 0)), glm::vec3(0.3));
 
         mModelMatrix[2] = glm::scale(
-            glm::translate(glm::mat4(1), glm::vec3(-3, -2, 0)), glm::vec3(2));
+            glm::translate(glm::mat4(1), glm::vec3(-3, -2, 0)), glm::vec3(15));
 
         mModelMatrix[3] = glm::scale(
-            glm::translate(glm::mat4(1), glm::vec3(3, -2, 0)), glm::vec3(2));
+            glm::translate(glm::mat4(1), glm::vec3(3, -2, 0)), glm::vec3(15));
 
         mSofaAlbedo = mTexturePool->CreateTextureFromFile(
-            "./Resources/Textures/OfficeSofa_BaseColor.png");
+            "./Resources/Textures/industrial_pipe_lamp_diff_4k.jpg");
         mSofaNormal = mTexturePool->CreateTextureFromFile(
-            "./Resources/Textures/OfficeSofa_Normal.png");
+            "./Resources/Textures/industrial_pipe_lamp_nor_gl_4k.png");
         mSofaRoughness = mTexturePool->CreateTextureFromFile(
-            "./Resources/Textures/OfficeSofa_Roughness.png");
+        "./Resources/Textures/industrial_pipe_lamp_rough_4k.png");
+        mSofaEmissive = mTexturePool->CreateTextureFromFile(
+        "./Resources/Textures/industrial_pipe_lamp_emission_4k.png");
+        mSofaMetalness = mTexturePool->CreateTextureFromFile(
+            "./Resources/Textures/industrial_pipe_lamp_metal_4k.png");
 
         mSofaMaterial =
-            mMaterialPool->Create({ mSofaAlbedo, mSofaNormal, mSofaRoughness });
+            mMaterialPool->Create({ mSofaAlbedo, mSofaNormal, mSofaRoughness, mSofaEmissive, mSofaMetalness });
 
         mSofaModel =
-            mMeshPool->CreateMeshFromFile("./Resources/Models/OfficeSofa.fbx");
+            mMeshPool->CreateMeshFromFile("./Resources/Models/industrial_pipe_lamp_4k.glb");
 
         mSpaceShipAlbedo = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/SpaceShip_Base_color.jpg");
@@ -147,9 +151,9 @@ class MainApp final : public fra::AbstractApplication
             // Subpass 0: depth pre-pass (only writes depth, no material
             // needed)
             mRenderer->BindBuffer(mInstanceMatrixBuffers);
-
-            for (const auto& mesh : mSpaceShipModel)
-                mMeshPool->DrawInstanced(mesh, 2);
+            //
+            // for (const auto& mesh : mSpaceShipModel)
+            //     mMeshPool->DrawInstanced(mesh, 2);
             for (const auto& mesh : mSofaModel)
                 mMeshPool->DrawInstanced(mesh, 2, 2);
 
@@ -161,10 +165,10 @@ class MainApp final : public fra::AbstractApplication
         //   - Deferred: subpass 1 (G-buffer)
         //   - Forward:  single subpass (albedo, normal, roughness)
         mRenderer->BindBuffer(mInstanceMatrixBuffers);
-
-        mMaterialPool->Bind(mSpaceShipMaterial);
-        for (const auto& mesh : mSpaceShipModel)
-            mMeshPool->DrawInstanced(mesh, 2);
+        //
+        // mMaterialPool->Bind(mSpaceShipMaterial);
+        // for (const auto& mesh : mSpaceShipModel)
+        //     mMeshPool->DrawInstanced(mesh, 2);
 
         mMaterialPool->Bind(mSofaMaterial);
         for (const auto& mesh : mSofaModel)
@@ -188,6 +192,8 @@ class MainApp final : public fra::AbstractApplication
     std::uint32_t         mSofaAlbedo {};
     std::uint32_t         mSofaNormal {};
     std::uint32_t         mSofaRoughness {};
+    std::uint32_t         mSofaEmissive {};
+    std::uint32_t         mSofaMetalness {};
     std::uint32_t         mSofaMaterial {};
 
     std::vector<unsigned> mSpaceShipModel;

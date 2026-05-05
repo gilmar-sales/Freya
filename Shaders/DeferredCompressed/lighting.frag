@@ -5,8 +5,9 @@ layout(input_attachment_index = 1, binding = 1) uniform subpassInput inPosition;
 layout(input_attachment_index = 2, binding = 2) uniform subpassInput inNormal;
 layout(input_attachment_index = 3, binding = 3) uniform subpassInput inAlbedo;
 layout(input_attachment_index = 4, binding = 4) uniform subpassInput inEmissive;
+layout(input_attachment_index = 5, binding = 5) uniform subpassInput inMaterial;
 
-layout(binding = 5) uniform LightBuffer {
+layout(binding = 6) uniform LightBuffer {
     vec4 lightPositions[16];
     vec4 lightColorsAndRadius[16];
     vec4 lightDirectionsAndCutoff[16];
@@ -75,8 +76,12 @@ void main() {
     vec3 normal = subpassLoad(inNormal).xyz;
     vec4 albedo = subpassLoad(inAlbedo);
     vec3 emissive = subpassLoad(inEmissive).rgb;
+    vec4 material = subpassLoad(inMaterial);
 
-    float specular = albedo.a;
+    // roughness in .g (was albedo.a but now separated), metalness in .r
+    float roughness = material.g;
+    float metalness = material.r;
+    float specular = albedo.a; // still use albedo.a for now
 
     vec3 N = normalize(normal);
     vec3 V = normalize(lights.viewPosition.xyz - fragPos);
@@ -97,7 +102,7 @@ void main() {
                 lights.lightDirectionsAndCutoff[i].w,
                 lights.lightOuterCutoffAndIntensity[i].x,
                 lights.lightOuterCutoffAndIntensity[i].y,
-                fragPos, N, V, albedo.a, specular
+                fragPos, N, V, roughness, specular
             );
             totalLighting += lightResult.rgb;
             totalIntensity += lightResult.a;

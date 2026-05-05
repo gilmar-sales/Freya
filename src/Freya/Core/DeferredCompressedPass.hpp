@@ -23,8 +23,10 @@ namespace FREYA_NAMESPACE
         DeferredDepthAttachment,       ///< Depth attachment
         DeferredPositionAttachment,    ///< G-buffer world position
         DeferredNormalAttachment,      ///< G-buffer normal
-        DeferredAlbedoAttachment,      ///< G-buffer albedo + specular
+        DeferredAlbedoAttachment,      ///< G-buffer albedo + roughness
         DeferredEmissiveAttachment,    ///< G-buffer emissive (for bloom)
+        DeferredMaterialAttachment,    ///< G-buffer material (metalness +
+                                       ///< roughness)
         DeferredTranslucentAttachment, ///< Translucent objects buffer
         DeferredOpaqueAttachment       ///< Opaque lit result buffer
     };

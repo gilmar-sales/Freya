@@ -13,14 +13,16 @@ namespace FREYA_NAMESPACE
      */
     enum class ImageUsage
     {
-        Color,           ///< Color attachment image
-        Depth,           ///< Depth stencil attachment
-        Sampling,        ///< MSAA sampling target
-        Texture,         ///< Texture/sampled image
-        GBufferPosition, ///< Deferred G-buffer position
-        GBufferNormal,   ///< Deferred G-buffer normal
-        GBufferAlbedo,   ///< Deferred G-buffer albedo
-        GBufferEmissive  ///< Deferred G-buffer emissive (for bloom)
+        Color,            ///< Color attachment image
+        Depth,            ///< Depth stencil attachment
+        Sampling,         ///< MSAA sampling target
+        Texture,          ///< Texture/sampled image
+        GBufferPosition,  ///< Deferred G-buffer position
+        GBufferNormal,    ///< Deferred G-buffer normal
+        GBufferAlbedo,    ///< Deferred G-buffer albedo
+        GBufferEmissive,  ///< Deferred G-buffer emissive (for bloom)
+        GBufferMetalness, ///< Deferred G-buffer metalness (PBR)
+        GBufferRoughness  ///< Deferred G-buffer roughness (PBR)
     };
 
     /**
