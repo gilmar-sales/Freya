@@ -8,6 +8,11 @@ namespace FREYA_NAMESPACE
      */
     RenderPass::~RenderPass()
     {
+        mDevice->Get().destroySampler(mFallbackSampler);
+        mDevice->Get().destroyImageView(mFallbackImageView);
+        mDevice->Get().freeMemory(mFallbackImageMemory);
+        mDevice->Get().destroyImage(mFallbackImage);
+
         mDevice->Get().destroyDescriptorPool(mSamplerDescriptorPool);
 
         mDevice->Get().destroyDescriptorPool(mDescriptorPool);
@@ -60,7 +65,20 @@ namespace FREYA_NAMESPACE
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                                    mGraphicsPipeline);
 
-        BindDescriptorSet(commandPool, swapChain->GetCurrentFrameIndex());
+        // Bind descriptor set 0 (UBO) and fallback set 1 (samplers) so that
+        // draw calls without an explicit MaterialPool::Bind() still have valid
+        // texture descriptors. MaterialPool::Bind() overwrites set 1 later.
+        const auto frameIndex           = swapChain->GetCurrentFrameIndex();
+        const auto descriptorSetsToBind = std::array {
+            mDescriptorSets[frameIndex],
+            mFallbackSamplerSet,
+        };
+        commandBuffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics,
+            mPipelineLayout,
+            0,
+            descriptorSetsToBind,
+            nullptr);
     }
 
     /**

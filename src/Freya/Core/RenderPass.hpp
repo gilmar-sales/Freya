@@ -38,6 +38,11 @@ namespace FREYA_NAMESPACE
      * @param descriptorPool      Descriptor pool
      * @param samplerLayout       Sampler descriptor set layout
      * @param samplerDescriptorPool Sampler descriptor pool
+     * @param fallbackSamplerSet  Fallback descriptor set for set 1 (samplers)
+     * @param fallbackImage       Fallback 1x1 white image
+     * @param fallbackImageMemory Fallback image memory
+     * @param fallbackImageView   Fallback image view
+     * @param fallbackSampler     Fallback sampler
      */
     class RenderPass
     {
@@ -52,14 +57,24 @@ namespace FREYA_NAMESPACE
             const std::vector<vk::DescriptorSet>&       descriptorSets,
             const vk::DescriptorPool                    descriptorPool,
             const vk::DescriptorSetLayout               samplerLayout,
-            const vk::DescriptorPool                    samplerDescriptorPool) :
+            const vk::DescriptorPool                    samplerDescriptorPool,
+            const vk::DescriptorSet                     fallbackSamplerSet,
+            const vk::Image                             fallbackImage,
+            const vk::DeviceMemory                      fallbackImageMemory,
+            const vk::ImageView                         fallbackImageView,
+            const vk::Sampler                           fallbackSampler) :
             mDevice(device), mFreyaOptions(freyaOptions),
             mRenderPass(renderPass), mPipelineLayout(pipelineLayout),
             mGraphicsPipeline(graphicsPipeline), mUniformBuffer(uniformBuffer),
             mDescriptorSetLayouts(descriptorSetLayouts),
             mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool),
             mSamplerLayout(samplerLayout),
-            mSamplerDescriptorPool(samplerDescriptorPool)
+            mSamplerDescriptorPool(samplerDescriptorPool),
+            mFallbackSamplerSet(fallbackSamplerSet),
+            mFallbackImage(fallbackImage),
+            mFallbackImageMemory(fallbackImageMemory),
+            mFallbackImageView(fallbackImageView),
+            mFallbackSampler(fallbackSampler)
         {
         }
 
@@ -134,5 +149,12 @@ namespace FREYA_NAMESPACE
       private:
         vk::DescriptorSetLayout mSamplerLayout;
         vk::DescriptorPool      mSamplerDescriptorPool;
+
+        // Fallback 1x1 white texture descriptor set (bound at set 1 in Begin())
+        vk::DescriptorSet mFallbackSamplerSet;
+        vk::Image         mFallbackImage;
+        vk::DeviceMemory  mFallbackImageMemory;
+        vk::ImageView     mFallbackImageView;
+        vk::Sampler       mFallbackSampler;
     };
 } // namespace FREYA_NAMESPACE

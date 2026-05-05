@@ -61,10 +61,6 @@ namespace FREYA_NAMESPACE
 
         const auto& material = mMaterials[materialId];
 
-        // Use the Renderer's active pipeline layout — this correctly selects
-        // the forward or deferred vertex pipeline layout based on the current
-        // rendering strategy, ensuring compatibility with the currently bound
-        // graphics pipeline.
         mCommandPool->GetCommandBuffer().bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,
             mRenderer->GetActivePipelineLayout(),
