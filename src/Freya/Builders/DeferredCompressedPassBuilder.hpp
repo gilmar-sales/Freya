@@ -4,6 +4,7 @@
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
 #include "Freya/Core/DeferredCompressedPass.hpp"
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/LightService.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
 #include "Freya/Core/Surface.hpp"
 #include "Freya/FreyaOptions.hpp"
@@ -30,12 +31,11 @@ namespace FREYA_NAMESPACE
             const Ref<PhysicalDevice>&       physicalDevice,
             const Ref<Surface>&              surface,
             const Ref<FreyaOptions>&         freyaOptions,
-            const Ref<skr::ServiceProvider>& serviceProvider) :
-            mDevice(device),
-            mPhysicalDevice(physicalDevice),
-            mSurface(surface),
-            mFreyaOptions(freyaOptions),
-            mServiceProvider(serviceProvider)
+            const Ref<skr::ServiceProvider>& serviceProvider,
+            const Ref<LightService>&         lightService) :
+            mDevice(device), mPhysicalDevice(physicalDevice), mSurface(surface),
+            mFreyaOptions(freyaOptions), mServiceProvider(serviceProvider),
+            mLightService(lightService)
         {
         }
 
@@ -59,5 +59,6 @@ namespace FREYA_NAMESPACE
         Ref<Surface>              mSurface;
         Ref<FreyaOptions>         mFreyaOptions;
         Ref<skr::ServiceProvider> mServiceProvider;
+        Ref<LightService>         mLightService;
     };
 } // namespace FREYA_NAMESPACE

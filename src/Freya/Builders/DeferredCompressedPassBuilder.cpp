@@ -537,6 +537,25 @@ namespace FREYA_NAMESPACE
             static_cast<uint32_t>(lightingInputWrites.size()),
             lightingInputWrites.data(), 0, nullptr);
 
+        // --- Update light buffer binding (binding 4) ---
+        auto frameIndex = 0; // Will be updated per-frame at render time
+        auto lightBufferInfo =
+            vk::DescriptorBufferInfo()
+                .setBuffer(mLightService->GetBuffer()->Get())
+                .setOffset(frameIndex * sizeof(LightUniformBuffer))
+                .setRange(sizeof(LightUniformBuffer));
+
+        auto lightBufferWrite =
+            vk::WriteDescriptorSet()
+                .setDstSet(lightingInputSet)
+                .setDstBinding(4)
+                .setDstArrayElement(0)
+                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                .setDescriptorCount(1)
+                .setBufferInfo(lightBufferInfo);
+
+        mDevice->Get().updateDescriptorSets(1, &lightBufferWrite, 0, nullptr);
+
         // --- Update composite input descriptor set ---
         auto opaqueInputInfo =
             vk::DescriptorImageInfo()

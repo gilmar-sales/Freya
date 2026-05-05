@@ -14,29 +14,16 @@ namespace FREYA_NAMESPACE
      */
     struct Light
     {
-        glm::vec3 position;    ///< World position (for point/spot lights)
-        float     type;        ///< LightType (0=Point, 1=Directional, 2=Spot)
-        glm::vec3 color;       ///< RGB light color
-        float     radius;      ///< Attenuation radius (point/spot lights)
-        glm::vec3 direction;   ///< Direction (for directional/spot lights)
-        float     innerCutoff; ///< Inner spotlight cutoff cosine (spot only)
-        float     outerCutoff; ///< Outer spotlight cutoff cosine (spot only)
-        float     intensity;   ///< Light intensity multiplier
-
-        /**
-         * @brief Default constructor creates a directional light.
-         */
-        Light()
-        {
-            position    = glm::vec3(0.0f, 0.0f, 0.0f);
-            type        = static_cast<float>(LightType::Directional);
-            color       = glm::vec3(1.0f, 1.0f, 1.0f);
-            radius      = 10.0f;
-            direction   = glm::vec3(0.0f, -1.0f, 0.0f);
-            innerCutoff = 0.9f;
-            outerCutoff = 0.8f;
-            intensity   = 1.0f;
-        }
+        glm::vec3 position =
+            glm::vec3(0.0f);     ///< World position (for point/spot lights)
+        float     type   = 0.0f; ///< LightType (0=Point, 1=Directional, 2=Spot)
+        glm::vec3 color  = glm::vec3(1.0f); ///< RGB light color
+        float     radius = 10.0f; ///< Attenuation radius (point/spot lights)
+        glm::vec3 direction = glm::vec3(
+            0.0f, -1.0f, 0.0f);   ///< Direction (for directional/spot lights)
+        float innerCutoff = 0.9f; ///< Inner spotlight cutoff cosine (spot only)
+        float outerCutoff = 0.8f; ///< Outer spotlight cutoff cosine (spot only)
+        float intensity   = 1.0f; ///< Light intensity multiplier
     };
 
     /**
@@ -80,6 +67,14 @@ namespace FREYA_NAMESPACE
          * @param index Light index to remove
          */
         void RemoveLight(std::uint32_t index);
+
+        /**
+         * @brief Updates a light's position.
+         * @param index Light index to update
+         * @param position New position
+         */
+        void UpdateLightPosition(std::uint32_t    index,
+                                 const glm::vec3& position);
 
         /**
          * @brief Clears all lights.

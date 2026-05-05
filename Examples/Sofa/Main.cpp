@@ -8,10 +8,10 @@ class MainApp final : public fra::AbstractApplication
     explicit MainApp(const Ref<skr::ServiceProvider>& serviceProvider) :
         AbstractApplication(serviceProvider)
     {
-
         mMeshPool     = serviceProvider->GetService<fra::MeshPool>();
         mTexturePool  = serviceProvider->GetService<fra::TexturePool>();
         mMaterialPool = serviceProvider->GetService<fra::MaterialPool>();
+        mLightService = serviceProvider->GetService<fra::LightService>();
     }
 
     void StartUp() override
@@ -57,11 +57,69 @@ class MainApp final : public fra::AbstractApplication
 
         mSpaceShipModel =
             mMeshPool->CreateMeshFromFile("./Resources/Models/SpaceShip.fbx");
+
+        // Add 4 point lights with different colors and intensities
+        mLights.resize(4);
+        mLights[0].speed        = 1.0f;
+        mLights[0].phaseOffset  = 0.0f;
+        mLights[0].radiusOffset = 0.0f;
+        mLightService->AddLight(fra::Light {
+            glm::vec3(0.0f, 5.0f, 0.0f),
+            static_cast<float>(fra::LightType::Point),
+            glm::vec3(1.0f, 1.0f, 1.0f), 50.0f, glm::vec3(0.0f, -1.0f, 0.0f),
+            0.9f, 0.8f, 1.0f });
+
+        mLights[1].speed        = 1.2f;
+        mLights[1].phaseOffset  = 1.5f;
+        mLights[1].radiusOffset = 1.0f;
+        mLightService->AddLight(fra::Light {
+            glm::vec3(0.0f, 5.0f, 0.0f),
+            static_cast<float>(fra::LightType::Point),
+            glm::vec3(1.0f, 1.0f, 1.0f), 50.0f, glm::vec3(0.0f, -1.0f, 0.0f),
+            0.9f, 0.8f, 1.0f });
+
+        mLights[2].speed        = 0.8f;
+        mLights[2].phaseOffset  = 3.0f;
+        mLights[2].radiusOffset = -1.0f;
+        mLightService->AddLight(fra::Light {
+            glm::vec3(0.0f, 5.0f, 0.0f),
+            static_cast<float>(fra::LightType::Point),
+            glm::vec3(1.0f, 1.0f, 1.0f), 50.0f, glm::vec3(0.0f, -1.0f, 0.0f),
+            0.9f, 0.8f, 1.0f });
+
+        mLights[3].speed        = 1.5f;
+        mLights[3].phaseOffset  = 4.5f;
+        mLights[3].radiusOffset = 2.0f;
+        mLightService->AddLight(fra::Light {
+            glm::vec3(0.0f, 5.0f, 0.0f),
+            static_cast<float>(fra::LightType::Point),
+            glm::vec3(1.0f, 1.0f, 1.0f), 50.0f, glm::vec3(0.0f, -1.0f, 0.0f),
+            0.9f, 0.8f, 1.0f });
     }
 
     void Update() override
     {
         mCurrentTime += mWindow->GetDeltaTime();
+
+        // Update lights with random orbital movement
+        for (std::uint32_t i = 0; i < mLightService->GetLightCount(); ++i)
+        {
+            auto& light  = mLights[i];
+            float offset = light.phaseOffset;
+            float radius = 8.0f + light.radiusOffset;
+
+            // Orbital movement with noise-based variation
+            float x = radius * std::cos(light.speed * mCurrentTime + offset);
+            float z =
+                radius * std::sin(light.speed * mCurrentTime + offset * 1.3f);
+            float y =
+                3.0f +
+                2.0f * std::sin(light.speed * 0.7f * mCurrentTime + offset);
+
+            // Update light position in service and local cache
+            mLights[i].position = glm::vec3(x, y, z);
+            mLightService->UpdateLightPosition(i, glm::vec3(x, y, z));
+        }
 
         mRenderer->BeginFrame(); // subpass 0 (depth pre-pass in deferred)
 
@@ -118,6 +176,14 @@ class MainApp final : public fra::AbstractApplication
     }
 
   private:
+    struct AnimatedLight
+    {
+        glm::vec3 position     = glm::vec3(0.0f);
+        float     speed        = 1.0f;
+        float     radiusOffset = 0.0f;
+        float     phaseOffset  = 0.0f;
+    };
+
     std::vector<unsigned> mSofaModel;
     std::uint32_t         mSofaAlbedo {};
     std::uint32_t         mSofaNormal {};
@@ -130,11 +196,13 @@ class MainApp final : public fra::AbstractApplication
     std::uint32_t         mSpaceShipRoughness {};
     std::uint32_t         mSpaceShipMaterial {};
 
-    Ref<fra::MaterialPool> mMaterialPool;
-    Ref<fra::TexturePool>  mTexturePool;
-    Ref<fra::MeshPool>     mMeshPool;
-    glm::mat4              mModelMatrix[4] {};
-    float                  mCurrentTime {};
+    Ref<fra::MaterialPool>     mMaterialPool;
+    Ref<fra::TexturePool>      mTexturePool;
+    Ref<fra::MeshPool>         mMeshPool;
+    Ref<fra::LightService>     mLightService;
+    glm::mat4                  mModelMatrix[4] {};
+    float                      mCurrentTime {};
+    std::vector<AnimatedLight> mLights;
 
     Ref<fra::Buffer> mInstanceMatrixBuffers;
 };

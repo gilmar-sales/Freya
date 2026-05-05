@@ -115,6 +115,17 @@ namespace FREYA_NAMESPACE
         }
     }
 
+    void LightService::UpdateLightPosition(std::uint32_t    index,
+                                           const glm::vec3& position)
+    {
+        if (index >= mLights.size())
+        {
+            return;
+        }
+
+        mLights[index].position = position;
+    }
+
     void LightService::ClearLights()
     {
         mLights.clear();
