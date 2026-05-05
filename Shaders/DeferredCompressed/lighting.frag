@@ -24,7 +24,7 @@ void main() {
 
     // Directional light
     vec3 lightDir = normalize(vec3(0.0, -3.0, -1.0));
-    float ambientIntensity = 0.05;
+    float ambientIntensity = 0.5;
     float lightIntensity = 0.5;
 
     vec3 N = normalize(normal);
