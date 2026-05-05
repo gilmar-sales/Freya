@@ -147,7 +147,7 @@ namespace FREYA_NAMESPACE
             std::vector<vk::Semaphore>(mFreyaOptions->frameCount);
 
         auto renderFinishedSemaphores =
-            std::vector<vk::Semaphore>(mFreyaOptions->frameCount);
+            std::vector<vk::Semaphore>(swapChainImages.size());
 
         auto inFlightFences = std::vector<vk::Fence>(mFreyaOptions->frameCount);
 
@@ -156,15 +156,21 @@ namespace FREYA_NAMESPACE
         constexpr auto fenceInfo =
             vk::FenceCreateInfo().setFlags(vk::FenceCreateFlagBits::eSignaled);
 
+        // image-available semaphores and fences use frameCount (ring-buffer
+        // index); render-finished semaphores use swapchain image count so each
+        // image owns its own semaphore and avoids reuse-before-presentation.
         for (size_t i = 0; i < mFreyaOptions->frameCount; i++)
         {
             imageAvailableSemaphores[i] =
                 mDevice->Get().createSemaphore(semaphoreInfo);
 
+            inFlightFences[i] = mDevice->Get().createFence(fenceInfo);
+        }
+
+        for (size_t i = 0; i < swapChainImages.size(); i++)
+        {
             renderFinishedSemaphores[i] =
                 mDevice->Get().createSemaphore(semaphoreInfo);
-
-            inFlightFences[i] = mDevice->Get().createFence(fenceInfo);
 
             mLogger->Assert(
                 imageAvailableSemaphores[i] && renderFinishedSemaphores[i] &&

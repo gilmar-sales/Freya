@@ -9,6 +9,11 @@
 
 namespace FREYA_NAMESPACE
 {
+    class Renderer;
+}
+
+namespace FREYA_NAMESPACE
+{
     /**
      * @brief Type definition for Material SparseSet container.
      */
@@ -29,16 +34,16 @@ namespace FREYA_NAMESPACE
      */
     class MaterialPool
     {
-        using MaterialSet = SparseSet<Material>;
-
       public:
         MaterialPool(const Ref<Device>&                    device,
                      const Ref<CommandPool>&               commandPool,
                      const Ref<RenderPass>&                renderPass,
                      const Ref<TexturePool>&               texturePool,
-                     const Ref<skr::Logger<MaterialPool>>& logger) :
+                     const Ref<skr::Logger<MaterialPool>>& logger,
+                     const Ref<Renderer>&                  renderer) :
             mDevice(device), mCommandPool(commandPool), mRenderPass(renderPass),
-            mTexturePool(texturePool), mLogger(logger), mMaterials(4096) {};
+            mTexturePool(texturePool), mLogger(logger), mRenderer(renderer),
+            mMaterials(4096) {};
 
         ~MaterialPool() = default;
 
@@ -60,6 +65,8 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief Binds material's descriptor sets to the command buffer.
+         * Uses the active pipeline layout from the Renderer (supports both
+         * forward and deferred strategies automatically).
          * @param materialId Material identifier
          */
         void Bind(std::uint32_t materialId);
@@ -70,6 +77,7 @@ namespace FREYA_NAMESPACE
         Ref<RenderPass>                mRenderPass;
         Ref<TexturePool>               mTexturePool;
         Ref<skr::Logger<MaterialPool>> mLogger;
+        Ref<Renderer>                  mRenderer;
 
         MaterialSet mMaterials;
     };

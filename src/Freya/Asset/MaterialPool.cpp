@@ -1,5 +1,7 @@
 #include "MaterialPool.hpp"
 
+#include "Freya/Core/Renderer.hpp"
+
 namespace FREYA_NAMESPACE
 {
     std::uint32_t MaterialPool::CreateFromTextureFiles(
@@ -59,9 +61,13 @@ namespace FREYA_NAMESPACE
 
         const auto& material = mMaterials[materialId];
 
+        // Use the Renderer's active pipeline layout — this correctly selects
+        // the forward or deferred vertex pipeline layout based on the current
+        // rendering strategy, ensuring compatibility with the currently bound
+        // graphics pipeline.
         mCommandPool->GetCommandBuffer().bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,
-            mRenderPass->GetPipelineLayout(),
+            mRenderer->GetActivePipelineLayout(),
             1,
             material.descriptorSets,
             nullptr);

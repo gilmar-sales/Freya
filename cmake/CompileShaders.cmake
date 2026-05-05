@@ -25,7 +25,6 @@ macro(find_glslc)
     if(NOT GLSLC)
         find_program(GLSLC glslc
             PATHS "$ENV{VULKAN_SDK}/Bin"
-            NO_DEFAULT_PATH
         )
         if(GLSLC)
             message(STATUS "Found glslc: ${GLSLC}")

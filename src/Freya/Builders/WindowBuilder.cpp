@@ -13,7 +13,7 @@ namespace FREYA_NAMESPACE
 
         auto vulkanLoad = SDL_Vulkan_LoadLibrary(nullptr);
 
-        mLogger->Assert(vulkanLoad, "Failed to load Vulkan");
+        mLogger->LogWarning("Vulkan loaded: {}", vulkanLoad);
 
         auto windowFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
 

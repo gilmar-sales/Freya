@@ -20,18 +20,29 @@ namespace FREYA_NAMESPACE
                 .Build();
         };
 
-        auto depthVert   = loadShader("./Resources/Shaders/DeferredCompressed/depth.vert.spv");
-        auto depthFrag   = loadShader("./Resources/Shaders/DeferredCompressed/depth.frag.spv");
-        auto gbufVert    = loadShader("./Resources/Shaders/DeferredCompressed/gbuffer.vert.spv");
-        auto gbufFrag    = loadShader("./Resources/Shaders/DeferredCompressed/gbuffer.frag.spv");
-        auto lightVert   = loadShader("./Resources/Shaders/DeferredCompressed/lighting.vert.spv");
-        auto lightFrag   = loadShader("./Resources/Shaders/DeferredCompressed/lighting.frag.spv");
-        auto transVert   = loadShader("./Resources/Shaders/DeferredCompressed/translucency.vert.spv");
-        auto transFrag   = loadShader("./Resources/Shaders/DeferredCompressed/translucency.frag.spv");
-        auto compVert    = loadShader("./Resources/Shaders/DeferredCompressed/composing.vert.spv");
-        auto compFrag    = loadShader("./Resources/Shaders/DeferredCompressed/composing.frag.spv");
+        auto depthVert =
+            loadShader("./Resources/Shaders/DeferredCompressed/depth.vert.spv");
+        auto depthFrag =
+            loadShader("./Resources/Shaders/DeferredCompressed/depth.frag.spv");
+        auto gbufVert = loadShader(
+            "./Resources/Shaders/DeferredCompressed/gbuffer.vert.spv");
+        auto gbufFrag = loadShader(
+            "./Resources/Shaders/DeferredCompressed/gbuffer.frag.spv");
+        auto lightVert = loadShader(
+            "./Resources/Shaders/DeferredCompressed/lighting.vert.spv");
+        auto lightFrag = loadShader(
+            "./Resources/Shaders/DeferredCompressed/lighting.frag.spv");
+        auto transVert = loadShader(
+            "./Resources/Shaders/DeferredCompressed/translucency.vert.spv");
+        auto transFrag = loadShader(
+            "./Resources/Shaders/DeferredCompressed/translucency.frag.spv");
+        auto compVert = loadShader(
+            "./Resources/Shaders/DeferredCompressed/composing.vert.spv");
+        auto compFrag = loadShader(
+            "./Resources/Shaders/DeferredCompressed/composing.frag.spv");
 
-        auto makeStage = [](vk::ShaderModule module, vk::ShaderStageFlagBits stage) {
+        auto makeStage = [](vk::ShaderModule        module,
+                            vk::ShaderStageFlagBits stage) {
             return vk::PipelineShaderStageCreateInfo()
                 .setStage(stage)
                 .setModule(module)
@@ -39,16 +50,26 @@ namespace FREYA_NAMESPACE
         };
 
         // Per-subpass shader stages
-        auto depthStages = { makeStage(depthVert->Get(), vk::ShaderStageFlagBits::eVertex),
-                             makeStage(depthFrag->Get(), vk::ShaderStageFlagBits::eFragment) };
-        auto gbufStages  = { makeStage(gbufVert->Get(), vk::ShaderStageFlagBits::eVertex),
-                             makeStage(gbufFrag->Get(), vk::ShaderStageFlagBits::eFragment) };
-        auto lightStages = { makeStage(lightVert->Get(), vk::ShaderStageFlagBits::eVertex),
-                             makeStage(lightFrag->Get(), vk::ShaderStageFlagBits::eFragment) };
-        auto transStages = { makeStage(transVert->Get(), vk::ShaderStageFlagBits::eVertex),
-                             makeStage(transFrag->Get(), vk::ShaderStageFlagBits::eFragment) };
-        auto compStages  = { makeStage(compVert->Get(), vk::ShaderStageFlagBits::eVertex),
-                             makeStage(compFrag->Get(), vk::ShaderStageFlagBits::eFragment) };
+        auto depthStages = {
+            makeStage(depthVert->Get(), vk::ShaderStageFlagBits::eVertex),
+            makeStage(depthFrag->Get(), vk::ShaderStageFlagBits::eFragment)
+        };
+        auto gbufStages = {
+            makeStage(gbufVert->Get(), vk::ShaderStageFlagBits::eVertex),
+            makeStage(gbufFrag->Get(), vk::ShaderStageFlagBits::eFragment)
+        };
+        auto lightStages = {
+            makeStage(lightVert->Get(), vk::ShaderStageFlagBits::eVertex),
+            makeStage(lightFrag->Get(), vk::ShaderStageFlagBits::eFragment)
+        };
+        auto transStages = {
+            makeStage(transVert->Get(), vk::ShaderStageFlagBits::eVertex),
+            makeStage(transFrag->Get(), vk::ShaderStageFlagBits::eFragment)
+        };
+        auto compStages = {
+            makeStage(compVert->Get(), vk::ShaderStageFlagBits::eVertex),
+            makeStage(compFrag->Get(), vk::ShaderStageFlagBits::eFragment)
+        };
 
         // ------------------------------------------------------------------
         // Vertex input descriptions (shared by depth, gbuffer, translucent)
@@ -75,10 +96,9 @@ namespace FREYA_NAMESPACE
                 .setTopology(vk::PrimitiveTopology::eTriangleList)
                 .setPrimitiveRestartEnable(false);
 
-        auto viewportState =
-            vk::PipelineViewportStateCreateInfo()
-                .setViewportCount(1)
-                .setScissorCount(1);
+        auto viewportState = vk::PipelineViewportStateCreateInfo()
+                                 .setViewportCount(1)
+                                 .setScissorCount(1);
 
         auto rasterizer =
             vk::PipelineRasterizationStateCreateInfo()
@@ -90,20 +110,20 @@ namespace FREYA_NAMESPACE
                 .setLineWidth(1.0f)
                 .setDepthBiasEnable(false);
 
-        auto dynamicStates = std::vector{vk::DynamicState::eViewport,
-                                         vk::DynamicState::eScissor};
+        auto dynamicStates = std::vector { vk::DynamicState::eViewport,
+                                           vk::DynamicState::eScissor };
 
         auto dynamicState =
-            vk::PipelineDynamicStateCreateInfo().setDynamicStates(dynamicStates);
+            vk::PipelineDynamicStateCreateInfo().setDynamicStates(
+                dynamicStates);
 
         // Deferred pipeline always uses single-sample attachments — MSAA is
         // not supported in the deferred path (intermediate targets are 1x).
         constexpr auto vkSampleCount = vk::SampleCountFlagBits::e1;
 
-        auto multisampling =
-            vk::PipelineMultisampleStateCreateInfo()
-                .setSampleShadingEnable(false)
-                .setRasterizationSamples(vkSampleCount);
+        auto multisampling = vk::PipelineMultisampleStateCreateInfo()
+                                 .setSampleShadingEnable(false)
+                                 .setRasterizationSamples(vkSampleCount);
 
         // No color blend by default
         auto noBlendAttachment =
@@ -118,7 +138,7 @@ namespace FREYA_NAMESPACE
             vk::PipelineColorBlendStateCreateInfo()
                 .setLogicOpEnable(false)
                 .setLogicOp(vk::LogicOp::eCopy)
-                .setBlendConstants({0.0f, 0.0f, 0.0f, 0.0f});
+                .setBlendConstants({ 0.0f, 0.0f, 0.0f, 0.0f });
 
         // ------------------------------------------------------------------
         // Depth/stencil states
@@ -134,9 +154,19 @@ namespace FREYA_NAMESPACE
                 .setDepthBoundsTestEnable(false)
                 .setStencilTestEnable(false);
 
-        // G-buffer pass: same depth settings (need depth write for subsequent
-        // subpasses)
-        auto gbufferDepthStencil = depthPrepassDepthStencil;
+        // G-buffer pass: depth test must pass for fragments at the same
+        // depth written by the prepass. Use EQUAL or GREATER_OR_EQUAL
+        // (reverse-Z) / LESS_OR_EQUAL (normal-Z). Depth write is disabled
+        // since the prepass already wrote depth.
+        auto gbufferDepthStencil =
+            vk::PipelineDepthStencilStateCreateInfo()
+                .setDepthTestEnable(true)
+                .setDepthWriteEnable(false)
+                .setDepthCompareOp(mFreyaOptions->ReverseZ
+                                       ? vk::CompareOp::eGreaterOrEqual
+                                       : vk::CompareOp::eLessOrEqual)
+                .setDepthBoundsTestEnable(false)
+                .setStencilTestEnable(false);
 
         // Lighting/composite passes: depth test off (fullscreen quad)
         auto noDepthStencil =
@@ -162,7 +192,7 @@ namespace FREYA_NAMESPACE
         // ------------------------------------------------------------------
         // Subpass 0 (depth prepass): no color attachments
         // Subpass 1 (gbuffer): 3 color attachments (position, normal, albedo)
-        auto gbufferBlendAttachments = std::vector{
+        auto gbufferBlendAttachments = std::vector {
             noBlendAttachment, // position
             noBlendAttachment, // normal
             noBlendAttachment  // albedo
@@ -211,13 +241,13 @@ namespace FREYA_NAMESPACE
                                vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr);
 
-        auto descriptorSetBindings = std::array{uboLayoutBinding};
+        auto descriptorSetBindings = std::array { uboLayoutBinding };
 
         auto descriptorSetLayoutCreateInfo =
             vk::DescriptorSetLayoutCreateInfo().setBindings(
                 descriptorSetBindings);
 
-        auto frameLayouts = std::vector<vk::DescriptorSetLayout>{};
+        auto frameLayouts = std::vector<vk::DescriptorSetLayout> {};
         for (auto i = 0; i < mFreyaOptions->frameCount; i++)
         {
             frameLayouts.push_back(mDevice->Get().createDescriptorSetLayout(
@@ -251,7 +281,7 @@ namespace FREYA_NAMESPACE
         auto samplerDescriptorPool =
             mDevice->Get().createDescriptorPool(samplerPoolInfo);
 
-        auto samplerDescriptorSetBindings = std::array{
+        auto samplerDescriptorSetBindings = std::array {
             vk::DescriptorSetLayoutBinding()
                 .setBinding(0)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
@@ -294,11 +324,10 @@ namespace FREYA_NAMESPACE
 
         for (auto i = 0; i < mFreyaOptions->frameCount; i++)
         {
-            auto bufInfo =
-                vk::DescriptorBufferInfo()
-                    .setBuffer(uniformBuffer->Get())
-                    .setOffset(sizeof(ProjectionUniformBuffer) * i)
-                    .setRange(sizeof(ProjectionUniformBuffer));
+            auto bufInfo = vk::DescriptorBufferInfo()
+                               .setBuffer(uniformBuffer->Get())
+                               .setOffset(sizeof(ProjectionUniformBuffer) * i)
+                               .setRange(sizeof(ProjectionUniformBuffer));
 
             auto writer =
                 vk::WriteDescriptorSet()
@@ -316,7 +345,7 @@ namespace FREYA_NAMESPACE
         // Vertex pipeline layout (set 0 = UBO, set 1 = samplers)
         // ------------------------------------------------------------------
         const auto vertexPipelineSetLayouts =
-            std::array{frameLayouts[0], samplerLayout};
+            std::array { frameLayouts[0], samplerLayout };
 
         auto vertexPipelineLayoutInfo =
             vk::PipelineLayoutCreateInfo().setSetLayouts(
@@ -330,34 +359,36 @@ namespace FREYA_NAMESPACE
         // ------------------------------------------------------------------
         const auto extent = mSurface->QueryExtent();
 
-        auto createImage = [&](ImageUsage usage,
-                               std::optional<vk::Format> format = std::nullopt) {
-            // Deferred intermediate targets are always single-sample
-            auto builder = mServiceProvider->GetService<ImageBuilder>()
-                               ->SetUsage(usage)
-                               .SetWidth(extent.width)
-                               .SetHeight(extent.height)
-                               .SetSamples(vk::SampleCountFlagBits::e1);
-            if (format.has_value())
-            {
-                builder.SetFormat(format.value());
-            }
-            return builder.Build();
-        };
+        auto createImage =
+            [&](ImageUsage                usage,
+                std::optional<vk::Format> format = std::nullopt) {
+                // Deferred intermediate targets are always single-sample
+                auto builder =
+                    mServiceProvider->GetService<ImageBuilder>()
+                        ->SetUsage(usage)
+                        .SetWidth(extent.width)
+                        .SetHeight(extent.height)
+                        .SetSamples(vk::SampleCountFlagBits::e1);
+                if (format.has_value())
+                {
+                    builder.SetFormat(format.value());
+                }
+                return builder.Build();
+            };
 
-        auto positionImage   = createImage(ImageUsage::GBufferPosition);
-        auto normalImage     = createImage(ImageUsage::GBufferNormal);
-        auto albedoImage     = createImage(ImageUsage::GBufferAlbedo);
-        auto depthImage      = createImage(ImageUsage::Depth);
+        auto positionImage = createImage(ImageUsage::GBufferPosition);
+        auto normalImage   = createImage(ImageUsage::GBufferNormal);
+        auto albedoImage   = createImage(ImageUsage::GBufferAlbedo);
+        auto depthImage    = createImage(ImageUsage::Depth);
         // Use fixed eR8G8B8A8Unorm for intermediate buffers so the format
         // matches the render pass declaration regardless of surface format.
-        auto translucentImage = createImage(ImageUsage::Color,
-                                            vk::Format::eR8G8B8A8Unorm);
-        auto opaqueImage     = createImage(ImageUsage::Color,
-                                           vk::Format::eR8G8B8A8Unorm);
+        auto translucentImage =
+            createImage(ImageUsage::Color, vk::Format::eR8G8B8A8Unorm);
+        auto opaqueImage =
+            createImage(ImageUsage::Color, vk::Format::eR8G8B8A8Unorm);
 
-        std::vector<Ref<Image>> gbufferImages = {positionImage, normalImage,
-                                                  albedoImage};
+        std::vector<Ref<Image>> gbufferImages = { positionImage, normalImage,
+                                                  albedoImage };
 
         // ------------------------------------------------------------------
         // Input attachment descriptor set layout and pool
@@ -365,32 +396,28 @@ namespace FREYA_NAMESPACE
         // Lighting pass needs 4 input attachments (depth, position, normal,
         // albedo) at bindings 0-3
         // We allocate enough for the max needed across all fullscreen subpasses
-        auto inputBindings = std::array{
+        auto inputBindings = std::array {
             vk::DescriptorSetLayoutBinding()
                 .setBinding(0)
-                .setDescriptorType(
-                    vk::DescriptorType::eInputAttachment)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr),
             vk::DescriptorSetLayoutBinding()
                 .setBinding(1)
-                .setDescriptorType(
-                    vk::DescriptorType::eInputAttachment)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr),
             vk::DescriptorSetLayoutBinding()
                 .setBinding(2)
-                .setDescriptorType(
-                    vk::DescriptorType::eInputAttachment)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr),
             vk::DescriptorSetLayoutBinding()
                 .setBinding(3)
-                .setDescriptorType(
-                    vk::DescriptorType::eInputAttachment)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr),
@@ -404,10 +431,9 @@ namespace FREYA_NAMESPACE
 
         // Pool for input attachment descriptor sets
         // 2 sets × 4 bindings each = 8 descriptors total
-        auto inputPoolSize =
-            vk::DescriptorPoolSize()
-                .setType(vk::DescriptorType::eInputAttachment)
-                .setDescriptorCount(8);
+        auto inputPoolSize = vk::DescriptorPoolSize()
+                                 .setType(vk::DescriptorType::eInputAttachment)
+                                 .setDescriptorCount(8);
 
         auto inputPoolInfo =
             vk::DescriptorPoolCreateInfo()
@@ -421,16 +447,14 @@ namespace FREYA_NAMESPACE
         // Allocate both descriptor sets in one call:
         //   - set 0: lighting (bindings 0-3: depth, position, normal, albedo)
         //   - set 1: composite (bindings 0-1: opaque, translucent)
-        auto inputSetLayouts = std::vector{inputAttachmentLayout,
-                                           inputAttachmentLayout};
+        auto inputSetLayouts =
+            std::vector { inputAttachmentLayout, inputAttachmentLayout };
 
-        auto inputSetAlloc =
-            vk::DescriptorSetAllocateInfo()
-                .setDescriptorPool(inputAttachmentPool)
-                .setSetLayouts(inputSetLayouts);
+        auto inputSetAlloc = vk::DescriptorSetAllocateInfo()
+                                 .setDescriptorPool(inputAttachmentPool)
+                                 .setSetLayouts(inputSetLayouts);
 
-        auto inputSets =
-            mDevice->Get().allocateDescriptorSets(inputSetAlloc);
+        auto inputSets = mDevice->Get().allocateDescriptorSets(inputSetAlloc);
         auto lightingInputSet  = inputSets[0];
         auto compositeInputSet = inputSets[1];
 
@@ -455,7 +479,7 @@ namespace FREYA_NAMESPACE
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
                 .setImageView(albedoImage->GetImageView());
 
-        auto lightingInputWrites = std::array{
+        auto lightingInputWrites = std::array {
             vk::WriteDescriptorSet()
                 .setDstSet(lightingInputSet)
                 .setDstBinding(0)
@@ -497,7 +521,7 @@ namespace FREYA_NAMESPACE
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
                 .setImageView(translucentImage->GetImageView());
 
-        auto compositeInputWrites = std::array{
+        auto compositeInputWrites = std::array {
             vk::WriteDescriptorSet()
                 .setDstSet(compositeInputSet)
                 .setDstBinding(0)
@@ -520,8 +544,7 @@ namespace FREYA_NAMESPACE
         // Fullscreen pipeline layout (input attachments only)
         // ------------------------------------------------------------------
         auto fullscreenLayoutInfo =
-            vk::PipelineLayoutCreateInfo().setSetLayouts(
-                inputAttachmentLayout);
+            vk::PipelineLayoutCreateInfo().setSetLayouts(inputAttachmentLayout);
 
         auto fullscreenPipelineLayout =
             mDevice->Get().createPipelineLayout(fullscreenLayoutInfo);
@@ -570,7 +593,7 @@ namespace FREYA_NAMESPACE
             vk::PipelineColorBlendStateCreateInfo()
                 .setLogicOpEnable(false)
                 .setLogicOp(vk::LogicOp::eCopy)
-                .setBlendConstants({0.0f, 0.0f, 0.0f, 0.0f})
+                .setBlendConstants({ 0.0f, 0.0f, 0.0f, 0.0f })
                 .setAttachmentCount(1)
                 .setPAttachments(&lightingBlendAttachment);
 
@@ -596,7 +619,7 @@ namespace FREYA_NAMESPACE
             vk::PipelineColorBlendStateCreateInfo()
                 .setLogicOpEnable(false)
                 .setLogicOp(vk::LogicOp::eCopy)
-                .setBlendConstants({0.0f, 0.0f, 0.0f, 0.0f})
+                .setBlendConstants({ 0.0f, 0.0f, 0.0f, 0.0f })
                 .setAttachmentCount(1)
                 .setPAttachments(&transBlendAttachment);
 
@@ -622,7 +645,7 @@ namespace FREYA_NAMESPACE
             vk::PipelineColorBlendStateCreateInfo()
                 .setLogicOpEnable(false)
                 .setLogicOp(vk::LogicOp::eCopy)
-                .setBlendConstants({0.0f, 0.0f, 0.0f, 0.0f})
+                .setBlendConstants({ 0.0f, 0.0f, 0.0f, 0.0f })
                 .setAttachmentCount(1)
                 .setPAttachments(&noBlendAttachment);
 
@@ -649,7 +672,8 @@ namespace FREYA_NAMESPACE
         auto lightingPipeline =
             mDevice->Get().createGraphicsPipeline(nullptr, lightingInfo).value;
         auto translucentPipeline =
-            mDevice->Get().createGraphicsPipeline(nullptr, translucentInfo)
+            mDevice->Get()
+                .createGraphicsPipeline(nullptr, translucentInfo)
                 .value;
         auto compositePipeline =
             mDevice->Get().createGraphicsPipeline(nullptr, compositeInfo).value;
@@ -678,14 +702,14 @@ namespace FREYA_NAMESPACE
 
         for (std::size_t i = 0; i < frames.size(); i++)
         {
-            auto fbAttachments = std::vector<vk::ImageView>{
-                frames[i].imageView,           // 0: backbuffer
-                depthImage->GetImageView(),     // 1: depth
-                positionImage->GetImageView(),  // 2: position
-                normalImage->GetImageView(),    // 3: normal
-                albedoImage->GetImageView(),    // 4: albedo
+            auto fbAttachments = std::vector<vk::ImageView> {
+                frames[i].imageView,              // 0: backbuffer
+                depthImage->GetImageView(),       // 1: depth
+                positionImage->GetImageView(),    // 2: position
+                normalImage->GetImageView(),      // 3: normal
+                albedoImage->GetImageView(),      // 4: albedo
                 translucentImage->GetImageView(), // 5: translucent
-                opaqueImage->GetImageView()     // 6: opaque
+                opaqueImage->GetImageView()       // 6: opaque
             };
 
             auto fbInfo =
@@ -745,7 +769,7 @@ namespace FREYA_NAMESPACE
 
         const auto surfaceFormat = mSurface->QuerySurfaceFormat().format;
 
-        auto attachments = std::vector<vk::AttachmentDescription>{
+        auto attachments = std::vector<vk::AttachmentDescription> {
             // 0: Back buffer — must match the swapchain image format
             vk::AttachmentDescription()
                 .setFormat(surfaceFormat)
@@ -765,7 +789,8 @@ namespace FREYA_NAMESPACE
                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
-                .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal),
+                .setFinalLayout(
+                    vk::ImageLayout::eDepthStencilAttachmentOptimal),
             // 2: Position G-buffer
             vk::AttachmentDescription()
                 .setFormat(vk::Format::eR16G16B16A16Sfloat)
@@ -825,7 +850,7 @@ namespace FREYA_NAMESPACE
                 .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
         // G-buffer color attachments (subpass 1 writes to 2, 3, 4)
-        auto gbufferColorRefs = std::vector{
+        auto gbufferColorRefs = std::vector {
             vk::AttachmentReference()
                 .setAttachment(DeferredPositionAttachment)
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
@@ -838,7 +863,7 @@ namespace FREYA_NAMESPACE
         };
 
         // Lighting pass input attachments (read depth + g-buffer)
-        auto lightingInputRefs = std::vector{
+        auto lightingInputRefs = std::vector {
             vk::AttachmentReference()
                 .setAttachment(DeferredDepthAttachment)
                 .setLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal),
@@ -866,7 +891,7 @@ namespace FREYA_NAMESPACE
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
         // Composite reads opaque + translucent
-        auto compositeInputRefs = std::vector{
+        auto compositeInputRefs = std::vector {
             vk::AttachmentReference()
                 .setAttachment(DeferredOpaqueAttachment)
                 .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
@@ -882,7 +907,7 @@ namespace FREYA_NAMESPACE
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
         // Subpasses
-        auto subpasses = std::vector{
+        auto subpasses = std::vector {
             // Subpass 0: Depth pre-pass
             vk::SubpassDescription()
                 .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
@@ -909,7 +934,7 @@ namespace FREYA_NAMESPACE
         };
 
         // Dependencies
-        auto dependencies = std::vector{
+        auto dependencies = std::vector {
             // External → Depth pre-pass (color + depth)
             vk::SubpassDependency()
                 .setSrcSubpass(vk::SubpassExternal)
@@ -929,8 +954,7 @@ namespace FREYA_NAMESPACE
             vk::SubpassDependency()
                 .setSrcSubpass(DeferredDepthPrePass)
                 .setDstSubpass(DeferredGBufferPass)
-                .setSrcStageMask(
-                    vk::PipelineStageFlagBits::eLateFragmentTests)
+                .setSrcStageMask(vk::PipelineStageFlagBits::eLateFragmentTests)
                 .setDstStageMask(
                     vk::PipelineStageFlagBits::eEarlyFragmentTests |
                     vk::PipelineStageFlagBits::eFragmentShader)
@@ -946,12 +970,9 @@ namespace FREYA_NAMESPACE
                 .setDstSubpass(DeferredLightingPass)
                 .setSrcStageMask(
                     vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstStageMask(
-                    vk::PipelineStageFlagBits::eFragmentShader)
-                .setSrcAccessMask(
-                    vk::AccessFlagBits::eColorAttachmentWrite)
-                .setDstAccessMask(
-                    vk::AccessFlagBits::eInputAttachmentRead)
+                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
+                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eInputAttachmentRead)
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
             // Lighting → Translucent
             vk::SubpassDependency()
@@ -959,12 +980,9 @@ namespace FREYA_NAMESPACE
                 .setDstSubpass(DeferredTranslucentPass)
                 .setSrcStageMask(
                     vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstStageMask(
-                    vk::PipelineStageFlagBits::eFragmentShader)
-                .setSrcAccessMask(
-                    vk::AccessFlagBits::eColorAttachmentWrite)
-                .setDstAccessMask(
-                    vk::AccessFlagBits::eShaderRead)
+                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
+                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
             // Translucent → Composite
             vk::SubpassDependency()
@@ -972,12 +990,9 @@ namespace FREYA_NAMESPACE
                 .setDstSubpass(DeferredCompositePass)
                 .setSrcStageMask(
                     vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstStageMask(
-                    vk::PipelineStageFlagBits::eFragmentShader)
-                .setSrcAccessMask(
-                    vk::AccessFlagBits::eColorAttachmentWrite)
-                .setDstAccessMask(
-                    vk::AccessFlagBits::eInputAttachmentRead)
+                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
+                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eInputAttachmentRead)
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
             // Composite → External (presentation)
             vk::SubpassDependency()
@@ -985,10 +1000,8 @@ namespace FREYA_NAMESPACE
                 .setDstSubpass(vk::SubpassExternal)
                 .setSrcStageMask(
                     vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstStageMask(
-                    vk::PipelineStageFlagBits::eBottomOfPipe)
-                .setSrcAccessMask(
-                    vk::AccessFlagBits::eColorAttachmentWrite)
+                .setDstStageMask(vk::PipelineStageFlagBits::eBottomOfPipe)
+                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
                 .setDstAccessMask(vk::AccessFlagBits::eNone)
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
         };
