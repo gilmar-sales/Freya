@@ -777,7 +777,7 @@ namespace FREYA_NAMESPACE
         //   1: Depth         (D32Sfloat)
         //   2: Position      (R16G16B16A16Sfloat)
         //   3: Normal        (R16G16B16A16Sfloat)
-        //   4: Albedo        (R8G8B8A8Unorm)
+        //   4: Albedo        (R8G8B8A8Srgb)
         //   5: Translucent   (R8G8B8A8Unorm)
         //   6: Opaque        (R8G8B8A8Unorm)
 
@@ -825,9 +825,9 @@ namespace FREYA_NAMESPACE
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
                 .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
-            // 4: Albedo G-buffer
+            // 4: Albedo G-buffer (SRGB for proper gamma handling)
             vk::AttachmentDescription()
-                .setFormat(vk::Format::eR8G8B8A8Unorm)
+                .setFormat(vk::Format::eR8G8B8A8Srgb)
                 .setSamples(vk::SampleCountFlagBits::e1)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStoreOp(vk::AttachmentStoreOp::eDontCare)
