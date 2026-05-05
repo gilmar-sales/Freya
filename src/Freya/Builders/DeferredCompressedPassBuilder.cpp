@@ -405,7 +405,7 @@ namespace FREYA_NAMESPACE
         // Input attachment descriptor set layout and pool
         // ------------------------------------------------------------------
         // Lighting pass needs 4 input attachments (depth, position, normal,
-        // albedo) at bindings 0-3
+        // albedo) at bindings 0-3, plus 1 light buffer uniform at binding 4
         // We allocate enough for the max needed across all fullscreen subpasses
         auto inputBindings = std::array {
             vk::DescriptorSetLayoutBinding()
@@ -432,6 +432,12 @@ namespace FREYA_NAMESPACE
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(4)
+                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
         };
 
         auto inputLayoutInfo =
@@ -441,15 +447,22 @@ namespace FREYA_NAMESPACE
             mDevice->Get().createDescriptorSetLayout(inputLayoutInfo);
 
         // Pool for input attachment descriptor sets
-        // 2 sets × 4 bindings each = 8 descriptors total
-        auto inputPoolSize = vk::DescriptorPoolSize()
-                                 .setType(vk::DescriptorType::eInputAttachment)
-                                 .setDescriptorCount(8);
+        // 2 sets × 5 bindings each = 10 descriptors total (4 input + 1 uniform
+        // per set)
+        std::array inputPoolSizes = {
+            vk::DescriptorPoolSize()
+                .setType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(8),
+            vk::DescriptorPoolSize()
+                .setType(vk::DescriptorType::eUniformBuffer)
+                .setDescriptorCount(2),
+        };
 
         auto inputPoolInfo =
             vk::DescriptorPoolCreateInfo()
-                .setPoolSizeCount(1)
-                .setPPoolSizes(&inputPoolSize)
+                .setPoolSizeCount(
+                    static_cast<std::uint32_t>(inputPoolSizes.size()))
+                .setPPoolSizes(inputPoolSizes.data())
                 .setMaxSets(2);
 
         auto inputAttachmentPool =

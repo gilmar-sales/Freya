@@ -6,6 +6,7 @@
 #include "Freya/Core/DeferredCompressedPass.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/Instance.hpp"
+#include "Freya/Core/LightService.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
 #include "Freya/Core/RenderPass.hpp"
 #include "Freya/Core/Surface.hpp"
@@ -26,17 +27,18 @@ namespace FREYA_NAMESPACE
     class Renderer
     {
       public:
-        Renderer(const Ref<Instance>&             instance,
-                 const Ref<Surface>&              surface,
-                 const Ref<PhysicalDevice>&       physicalDevice,
-                 const Ref<Device>&               device,
-                 const Ref<SwapChain>&            swapChain,
-                 const Ref<RenderPass>&           forwardPass,
+        Renderer(const Ref<Instance>&               instance,
+                 const Ref<Surface>&                surface,
+                 const Ref<PhysicalDevice>&         physicalDevice,
+                 const Ref<Device>&                 device,
+                 const Ref<SwapChain>&              swapChain,
+                 const Ref<RenderPass>&             forwardPass,
                  const Ref<DeferredCompressedPass>& deferredPass,
-                 const Ref<CommandPool>&          commandPool,
-                 const Ref<skr::ServiceProvider>& serviceProvider,
-                 const Ref<FreyaOptions>&         freyaOptions,
-                 const Ref<EventManager>&         eventManager);
+                 const Ref<CommandPool>&            commandPool,
+                 const Ref<LightService>&           lightService,
+                 const Ref<skr::ServiceProvider>&   serviceProvider,
+                 const Ref<FreyaOptions>&           freyaOptions,
+                 const Ref<EventManager>&           eventManager);
 
         ~Renderer();
 
@@ -105,7 +107,7 @@ namespace FREYA_NAMESPACE
 
         /** @name MSAA control */
         //@{
-        void                 SetSamples(std::uint32_t samples);
+        void                        SetSamples(std::uint32_t samples);
         [[nodiscard]] std::uint32_t GetSamples() const
         {
             return mFreyaOptions->sampleCount;
@@ -124,8 +126,8 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Builds a reverse-Z perspective projection matrix.
          */
-        glm::mat4 MakeProjection(float fovRadians, float aspect,
-                                 float near, float far) const;
+        glm::mat4 MakeProjection(float fovRadians, float aspect, float near,
+                                 float far) const;
 
         /**
          * @brief Clears cached projection and recalculates from current
@@ -200,17 +202,18 @@ namespace FREYA_NAMESPACE
         }
 
       private:
-        Ref<skr::ServiceProvider>  mServiceProvider;
-        Ref<Instance>              mInstance;
-        Ref<Surface>               mSurface;
-        Ref<PhysicalDevice>        mPhysicalDevice;
-        Ref<Device>                mDevice;
-        Ref<SwapChain>             mSwapChain;
-        Ref<RenderPass>            mForwardPass;
+        Ref<skr::ServiceProvider>   mServiceProvider;
+        Ref<Instance>               mInstance;
+        Ref<Surface>                mSurface;
+        Ref<PhysicalDevice>         mPhysicalDevice;
+        Ref<Device>                 mDevice;
+        Ref<SwapChain>              mSwapChain;
+        Ref<RenderPass>             mForwardPass;
         Ref<DeferredCompressedPass> mDeferredPass;
-        Ref<CommandPool>           mCommandPool;
-        Ref<EventManager>          mEventManager;
-        Ref<FreyaOptions>          mFreyaOptions;
+        Ref<CommandPool>            mCommandPool;
+        Ref<LightService>           mLightService;
+        Ref<EventManager>           mEventManager;
+        Ref<FreyaOptions>           mFreyaOptions;
 
         std::optional<WindowResizeEvent> mResizeEvent;
 

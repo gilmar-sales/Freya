@@ -8,6 +8,8 @@
 #include "Freya/Builders/SurfaceBuilder.hpp"
 #include "Freya/Builders/SwapChainBuilder.hpp"
 
+#include "Freya/Core/LightService.hpp"
+
 namespace FREYA_NAMESPACE
 {
     RendererBuilder::RendererBuilder(
@@ -22,19 +24,11 @@ namespace FREYA_NAMESPACE
         const Ref<Window>&               window,
         const Ref<FreyaOptions>&         freyaOptions,
         const Ref<skr::ServiceProvider>& serviceProvider) :
-        mInstance(instance),
-        mSurface(surface),
-        mPhysicalDevice(physicalDevice),
-        mDevice(device),
-        mCommandPool(commandPool),
-        mSwapChain(swapChain),
-        mRenderPass(renderPass),
-        mEventManager(eventManager),
-        mWindow(window),
-        mFreyaOptions(freyaOptions),
-        mServiceProvider(serviceProvider),
-        mLogger(
-            serviceProvider->GetService<skr::Logger<RendererBuilder>>())
+        mInstance(instance), mSurface(surface), mPhysicalDevice(physicalDevice),
+        mDevice(device), mCommandPool(commandPool), mSwapChain(swapChain),
+        mRenderPass(renderPass), mEventManager(eventManager), mWindow(window),
+        mFreyaOptions(freyaOptions), mServiceProvider(serviceProvider),
+        mLogger(serviceProvider->GetService<skr::Logger<RendererBuilder>>())
     {
     }
 
@@ -44,11 +38,11 @@ namespace FREYA_NAMESPACE
                           mFreyaOptions->frameCount,
                           static_cast<int>(mFreyaOptions->sampleCount));
 
-        mLogger->LogTrace("Rendering strategy: {}",
-                          mFreyaOptions->renderingStrategy ==
-                                  RenderingStrategy::Deferred
-                              ? "Deferred"
-                              : "Forward");
+        mLogger->LogTrace(
+            "Rendering strategy: {}",
+            mFreyaOptions->renderingStrategy == RenderingStrategy::Deferred
+                ? "Deferred"
+                : "Forward");
 
         // For deferred mode, build the DeferredCompressedPass with the
         // SAME SwapChain that the Renderer will use, ensuring framebuffers
@@ -61,17 +55,22 @@ namespace FREYA_NAMESPACE
                     ->Build(mSwapChain);
         }
 
-        return skr::MakeRef<Renderer>(mInstance,
-                                      mSurface,
-                                      mPhysicalDevice,
-                                      mDevice,
-                                      mSwapChain,
-                                      mRenderPass,
-                                      deferredPass,
-                                      mCommandPool,
-                                      mServiceProvider,
-                                      mFreyaOptions,
-                                      mEventManager);
+        // Get light service
+        auto lightService = mServiceProvider->GetService<LightService>();
+
+        return skr::MakeRef<Renderer>(
+            mInstance,
+            mSurface,
+            mPhysicalDevice,
+            mDevice,
+            mSwapChain,
+            mRenderPass,
+            deferredPass,
+            mCommandPool,
+            lightService,
+            mServiceProvider,
+            mFreyaOptions,
+            mEventManager);
     }
 
 } // namespace FREYA_NAMESPACE

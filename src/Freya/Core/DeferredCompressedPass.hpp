@@ -4,6 +4,7 @@
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/Image.hpp"
+#include "Freya/Core/LightService.hpp"
 #include "Freya/Core/Surface.hpp"
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Core/UniformBuffer.hpp"

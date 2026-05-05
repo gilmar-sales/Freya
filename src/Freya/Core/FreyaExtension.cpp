@@ -4,6 +4,7 @@
 #include "Freya/Builders/DeviceBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/InstanceBuilder.hpp"
+#include "Freya/Builders/LightServiceBuilder.hpp"
 #include "Freya/Builders/PhysicalDeviceBuilder.hpp"
 #include "Freya/Builders/RenderPassBuilder.hpp"
 #include "Freya/Builders/RendererBuilder.hpp"
@@ -15,6 +16,7 @@
 #include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Asset/TexturePool.hpp"
+#include "Freya/Core/LightService.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -92,6 +94,17 @@ namespace FREYA_NAMESPACE
         services.AddSingleton<MeshPool>();
         services.AddSingleton<TexturePool>();
         services.AddSingleton<MaterialPool>();
+
+        // LightService singleton - uses IoC to resolve FreyaOptions dependency
+        services.AddSingleton<LightService>(
+            [](skr::ServiceProvider& serviceProvider) {
+                auto device       = serviceProvider.GetService<Device>();
+                auto freyaOptions = serviceProvider.GetService<FreyaOptions>();
+
+                return skr::MakeRef<LightService>(device,
+                                                  freyaOptions->frameCount,
+                                                  freyaOptions->maxLights);
+            });
 
         services.AddSingleton<Window>(
             [](skr::ServiceProvider& serviceProvider) {

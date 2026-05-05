@@ -118,6 +118,17 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        /**
+         * @brief Sets maximum number of lights.
+         * @param maxLights Maximum light count (default 16)
+         * @return Reference to this for chaining
+         */
+        FreyaOptionsBuilder& SetMaxLights(std::uint32_t maxLights)
+        {
+            mFreyaOptions->maxLights = maxLights;
+            return *this;
+        }
+
         FreyaOptionsBuilder& WithReverseZ(bool value = true)
         {
             mFreyaOptions->ReverseZ = value;

@@ -38,6 +38,7 @@ namespace FREYA_NAMESPACE
         vk::ClearColorValue clearColor  = { 0.0f, 0.0f, 0.0f,
                                             0.0f }; ///< Render pass clear color
         float             drawDistance = 1000.0f; ///< View distance for culling
+        std::uint32_t     maxLights    = 16;      ///< Maximum lights in scene
         RenderingStrategy renderingStrategy =
             RenderingStrategy::Forward; ///< Rendering strategy
         bool ReverseZ;

@@ -95,7 +95,7 @@ namespace FREYA_NAMESPACE
 
         auto poolSize = vk::DescriptorPoolSize()
                             .setType(vk::DescriptorType::eUniformBuffer)
-                            .setDescriptorCount(mFreyaOptions->frameCount);
+                            .setDescriptorCount(mFreyaOptions->frameCount * 2);
 
         auto poolInfo = vk::DescriptorPoolCreateInfo()
                             .setPoolSizeCount(1)
@@ -113,8 +113,17 @@ namespace FREYA_NAMESPACE
                                vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr);
 
+        auto lightBufferLayoutBinding =
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(1)
+                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr);
+
         auto descriptorSetBindings = std::array {
             uboLayoutBinding,
+            lightBufferLayoutBinding,
         };
 
         auto descriptorSetLayoutCreateInfo =
