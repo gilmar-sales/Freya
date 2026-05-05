@@ -9,9 +9,5 @@ layout (location = 0) in vec2 inUV;
 
 void main() {
     vec4 opaqueColor = subpassLoad(inOpaque);
-    vec4 transColor = subpassLoad(inTranslucent);
-
-    // Alpha-blend translucent over opaque
-    vec3 finalColor = mix(opaqueColor.rgb, transColor.rgb, transColor.a);
-    outColor = vec4(finalColor, 1.0);
+    outColor = vec4(opaqueColor.rgb, 1.0);
 }

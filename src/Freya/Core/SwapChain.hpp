@@ -141,6 +141,17 @@ namespace FREYA_NAMESPACE
         }
 
         /**
+         * @brief Returns the acquired swapchain image index for this frame.
+         * This is the actual image that was acquired by GetNextFrame()
+         * and will be presented by Present(). The framebuffer for this
+         * frame should be selected using this index, not GetCurrentFrameIndex().
+         */
+        [[nodiscard]] std::uint32_t GetCurrentImageIndex() const
+        {
+            return mCurrentImageIndex;
+        }
+
+        /**
          * @brief Returns the swapchain extent (width/height).
          */
         [[nodiscard]] vk::Extent2D GetExtent() const { return mExtent; }

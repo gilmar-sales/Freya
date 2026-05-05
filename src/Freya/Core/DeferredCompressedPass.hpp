@@ -136,6 +136,13 @@ namespace FREYA_NAMESPACE
                             std::uint32_t           frameIndex) const;
 
         /**
+         * @brief Draws a fullscreen triangle for lighting/composite passes.
+         * Uses vertex-less draw (gl_VertexIndex in the vertex shader).
+         */
+        void DrawFullscreenTriangle(
+            const Ref<CommandPool>& commandPool) const;
+
+        /**
          * @brief Ends the render pass.
          */
         void End(const Ref<CommandPool> commandPool) const;

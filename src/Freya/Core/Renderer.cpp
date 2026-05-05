@@ -305,30 +305,24 @@ namespace FREYA_NAMESPACE
     {
         if (IsDeferred() && mDeferredPass)
         {
-            // Auto-advance through all subpasses that the user hasn't
-            // explicitly advanced through. For fullscreen subpasses
-            // (lighting and composite), draw a fullscreen triangle.
-            auto& cmd = mCommandPool->GetCommandBuffer();
+            // The user drew in subpass 0 (depth pre-pass) and should have
+            // advanced to subpass 1 (G-buffer) and drawn there too.
+            // EndFrame handles the remaining subpasses:
+            //   subpass 2 (lighting)   — fullscreen triangle
+            //   subpass 3 (translucent) — skip (no translucent geometry)
+            //   subpass 4 (composite)  — fullscreen triangle
 
-            // Advance to subpass 2 (lighting) — skip depth and g-buffer
-            mDeferredPass->AdvanceSubpass(DeferredGBufferPass,
-                                          mCommandPool,
-                                          mSwapChain->GetCurrentFrameIndex());
+            auto frameIndex = mSwapChain->GetCurrentFrameIndex();
+
             mDeferredPass->AdvanceSubpass(DeferredLightingPass,
-                                          mCommandPool,
-                                          mSwapChain->GetCurrentFrameIndex());
-            // Draw fullscreen triangle for lighting pass (3 vertices,
-            // no vertex buffer — shader uses gl_VertexIndex)
-            cmd.draw(3, 1, 0, 0);
+                                          mCommandPool, frameIndex);
+            mDeferredPass->DrawFullscreenTriangle(mCommandPool);
 
-            // Advance through translucent (nothing to draw) to composite
             mDeferredPass->AdvanceSubpass(DeferredTranslucentPass,
-                                          mCommandPool,
-                                          mSwapChain->GetCurrentFrameIndex());
+                                          mCommandPool, frameIndex);
             mDeferredPass->AdvanceSubpass(DeferredCompositePass,
-                                          mCommandPool,
-                                          mSwapChain->GetCurrentFrameIndex());
-            cmd.draw(3, 1, 0, 0);
+                                          mCommandPool, frameIndex);
+            mDeferredPass->DrawFullscreenTriangle(mCommandPool);
 
             mDeferredPass->End(mCommandPool);
         }

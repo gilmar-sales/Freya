@@ -134,12 +134,16 @@ namespace FREYA_NAMESPACE
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f })  // opaque
         };
 
+        // Framebuffer must be selected by the acquired swapchain image index
+        // (not the ring-buffer frame index) so we render to the same image
+        // that will be presented.
+        const auto imageIndex = swapChain->GetCurrentImageIndex();
         const auto frameIndex = swapChain->GetCurrentFrameIndex();
 
         commandBuffer.beginRenderPass(
             vk::RenderPassBeginInfo()
                 .setRenderPass(mRenderPass)
-                .setFramebuffer(mFramebuffers[frameIndex])
+                .setFramebuffer(mFramebuffers[imageIndex])
                 .setRenderArea(
                     vk::Rect2D()
                         .setOffset({ 0, 0 })
@@ -218,6 +222,12 @@ namespace FREYA_NAMESPACE
     {
         NextSubpass(commandPool);
         BindPipeline(subpass, commandPool, frameIndex);
+    }
+
+    void DeferredCompressedPass::DrawFullscreenTriangle(
+        const Ref<CommandPool>& commandPool) const
+    {
+        commandPool->GetCommandBuffer().draw(3, 1, 0, 0);
     }
 
     void DeferredCompressedPass::End(

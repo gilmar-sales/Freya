@@ -63,7 +63,7 @@ class MainApp final : public fra::AbstractApplication
     {
         mCurrentTime += mWindow->GetDeltaTime();
 
-        mRenderer->BeginFrame();
+        mRenderer->BeginFrame(); // subpass 0 (depth pre-pass)
 
         // Orbit camera around the origin
         constexpr float radius = 15.0f;
@@ -84,22 +84,29 @@ class MainApp final : public fra::AbstractApplication
             mInstanceMatrixBuffers->Copy(
                 &mModelMatrix[0][0], sizeof(glm::mat4) * 4);
 
+        // Subpass 0: depth pre-pass (only writes depth, no material needed)
+        mRenderer->BindBuffer(mInstanceMatrixBuffers);
+
+        for (const auto& mesh : mSpaceShipModel)
+            mMeshPool->DrawInstanced(mesh, 2);
+        for (const auto& mesh : mSofaModel)
+            mMeshPool->DrawInstanced(mesh, 2, 2);
+
+        // Subpass 1: G-buffer (writes position, normal, albedo)
+        mRenderer->AdvanceSubpass(fra::DeferredGBufferPass);
+
         mRenderer->BindBuffer(mInstanceMatrixBuffers);
 
         mMaterialPool->Bind(mSpaceShipMaterial);
-
         for (const auto& mesh : mSpaceShipModel)
-        {
             mMeshPool->DrawInstanced(mesh, 2);
-        }
 
         mMaterialPool->Bind(mSofaMaterial);
-
         for (const auto& mesh : mSofaModel)
-        {
             mMeshPool->DrawInstanced(mesh, 2, 2);
-        }
 
+        // EndFrame advances to lighting → translucent → composite
+        // and draws the fullscreen triangles for lighting + composite.
         mRenderer->EndFrame();
     }
 
