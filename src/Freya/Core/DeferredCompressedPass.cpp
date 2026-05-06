@@ -44,6 +44,7 @@ namespace FREYA_NAMESPACE
         const vk::RenderPass                        renderPass,
         const vk::PipelineLayout                    vertexPipelineLayout,
         const vk::PipelineLayout                    fullscreenPipelineLayout,
+        const vk::PipelineLayout                    bloomPipelineLayout,
         const vk::Pipeline                          depthPrepassPipeline,
         const vk::Pipeline                          gbufferPipeline,
         const vk::Pipeline                          lightingPipeline,
@@ -71,10 +72,17 @@ namespace FREYA_NAMESPACE
         const vk::DescriptorSet                     lightingInputSet,
         const vk::DescriptorSet                     compositeInputSet,
         const vk::DescriptorSetLayout               samplerLayout,
-        const vk::DescriptorPool                    samplerDescriptorPool) :
+        const vk::DescriptorPool                    samplerDescriptorPool,
+        const vk::DescriptorSetLayout               bloomAttachmentLayout,
+        const vk::DescriptorPool                    bloomDescriptorPool,
+        const vk::DescriptorSet                     bloomThresholdInputSet,
+        const vk::DescriptorSet                     bloomDownsampleInputSet,
+        const vk::DescriptorSet                     bloomUpsampleInputSet) :
         mDevice(device), mFreyaOptions(freyaOptions), mSurface(surface),
         mRenderPass(renderPass), mVertexPipelineLayout(vertexPipelineLayout),
         mFullscreenPipelineLayout(fullscreenPipelineLayout),
+        mBloomPipelineLayout(bloomPipelineLayout),
+        mBloomAttachmentLayout(bloomAttachmentLayout),
         mUniformBuffer(uniformBuffer),
         mDescriptorSetLayouts(descriptorSetLayouts),
         mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool),
@@ -87,7 +95,11 @@ namespace FREYA_NAMESPACE
         mInputAttachmentPool(inputAttachmentPool),
         mLightingInputSet(lightingInputSet),
         mCompositeInputSet(compositeInputSet), mSamplerLayout(samplerLayout),
-        mSamplerDescriptorPool(samplerDescriptorPool)
+        mSamplerDescriptorPool(samplerDescriptorPool),
+        mBloomDescriptorPool(bloomDescriptorPool),
+        mBloomThresholdInputSet(bloomThresholdInputSet),
+        mBloomDownsampleInputSet(bloomDownsampleInputSet),
+        mBloomUpsampleInputSet(bloomUpsampleInputSet)
     {
         mPipelines[DeferredDepthPrePass]    = depthPrepassPipeline;
         mPipelines[DeferredGBufferPass]     = gbufferPipeline;
@@ -112,6 +124,11 @@ namespace FREYA_NAMESPACE
         // Destroy input attachment resources
         vkDevice.destroyDescriptorPool(mInputAttachmentPool);
         vkDevice.destroyDescriptorSetLayout(mInputAttachmentLayout);
+
+        // Destroy bloom descriptor resources
+        vkDevice.destroyDescriptorPool(mBloomDescriptorPool);
+        vkDevice.destroyDescriptorSetLayout(mBloomAttachmentLayout);
+        vkDevice.destroyPipelineLayout(mBloomPipelineLayout);
 
         // Destroy sampler pool/layout
         vkDevice.destroyDescriptorPool(mSamplerDescriptorPool);
@@ -159,8 +176,9 @@ namespace FREYA_NAMESPACE
         return mPipelines[subpass];
     }
 
-    void DeferredCompressedPass::Begin(const Ref<SwapChain>   swapChain,
-                                       const Ref<CommandPool> commandPool) const
+    void DeferredCompressedPass::Begin(
+        const Ref<SwapChain> swapChain, const Ref<CommandPool> commandPool)
+        const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 
@@ -282,6 +300,45 @@ namespace FREYA_NAMESPACE
                 0,
                 nullptr);
         }
+
+        // Bind input attachment descriptor set for bloom threshold pass
+        if (subpass == DeferredThresholdPass)
+        {
+            commandBuffer.bindDescriptorSets(
+                vk::PipelineBindPoint::eGraphics,
+                mBloomPipelineLayout,
+                0,
+                1,
+                &mBloomThresholdInputSet,
+                0,
+                nullptr);
+        }
+
+        // Bind input attachment descriptor set for bloom downsample pass
+        if (subpass == DeferredDownsamplePass)
+        {
+            commandBuffer.bindDescriptorSets(
+                vk::PipelineBindPoint::eGraphics,
+                mBloomPipelineLayout,
+                0,
+                1,
+                &mBloomDownsampleInputSet,
+                0,
+                nullptr);
+        }
+
+        // Bind input attachment descriptor set for bloom upsample pass
+        if (subpass == DeferredUpsamplePass)
+        {
+            commandBuffer.bindDescriptorSets(
+                vk::PipelineBindPoint::eGraphics,
+                mBloomPipelineLayout,
+                0,
+                1,
+                &mBloomUpsampleInputSet,
+                0,
+                nullptr);
+        }
     }
 
     void DeferredCompressedPass::AdvanceSubpass(
@@ -354,6 +411,12 @@ namespace FREYA_NAMESPACE
                 return "Lighting";
             case DeferredTranslucentPass:
                 return "Translucent";
+            case DeferredThresholdPass:
+                return "Bloom Threshold";
+            case DeferredDownsamplePass:
+                return "Bloom Downsample";
+            case DeferredUpsamplePass:
+                return "Bloom Upsample";
             case DeferredCompositePass:
                 return "Composite";
             default:

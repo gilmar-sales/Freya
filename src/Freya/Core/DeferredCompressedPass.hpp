@@ -67,6 +67,7 @@ namespace FREYA_NAMESPACE
             const vk::RenderPass     renderPass,
             const vk::PipelineLayout vertexPipelineLayout,
             const vk::PipelineLayout fullscreenPipelineLayout,
+            const vk::PipelineLayout bloomPipelineLayout,
             const vk::Pipeline       depthPrepassPipeline,
             const vk::Pipeline       gbufferPipeline,
             const vk::Pipeline       lightingPipeline,
@@ -94,7 +95,12 @@ namespace FREYA_NAMESPACE
             const vk::DescriptorSet                     lightingInputSet,
             const vk::DescriptorSet                     compositeInputSet,
             const vk::DescriptorSetLayout               samplerLayout,
-            const vk::DescriptorPool                    samplerDescriptorPool);
+            const vk::DescriptorPool                    samplerDescriptorPool,
+            const vk::DescriptorSetLayout               bloomAttachmentLayout,
+            const vk::DescriptorPool                    bloomDescriptorPool,
+            const vk::DescriptorSet                     bloomThresholdInputSet,
+            const vk::DescriptorSet                     bloomDownsampleInputSet,
+            const vk::DescriptorSet                     bloomUpsampleInputSet);
 
         ~DeferredCompressedPass();
 
@@ -249,6 +255,14 @@ namespace FREYA_NAMESPACE
         vk::DescriptorPool      mInputAttachmentPool;
         vk::DescriptorSet       mLightingInputSet;
         vk::DescriptorSet       mCompositeInputSet;
+
+        // Bloom descriptor resources
+        vk::DescriptorSetLayout mBloomAttachmentLayout;
+        vk::PipelineLayout      mBloomPipelineLayout;
+        vk::DescriptorPool      mBloomDescriptorPool;
+        vk::DescriptorSet       mBloomThresholdInputSet;
+        vk::DescriptorSet       mBloomDownsampleInputSet;
+        vk::DescriptorSet       mBloomUpsampleInputSet;
 
         // Sampler descriptor resources (sampler pool shared with forward pass)
         vk::DescriptorSetLayout mSamplerLayout;

@@ -722,6 +722,103 @@ namespace FREYA_NAMESPACE
             mDevice->Get().createPipelineLayout(fullscreenLayoutInfo);
 
         // ------------------------------------------------------------------
+        // Bloom descriptor set layout, pool, and sets
+        // ------------------------------------------------------------------
+        // Each bloom pass reads one input attachment (binding 0).
+        auto bloomLayoutBinding =
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(0)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr);
+
+        auto bloomLayoutInfo =
+            vk::DescriptorSetLayoutCreateInfo().setBindings(bloomLayoutBinding);
+
+        auto bloomAttachmentLayout =
+            mDevice->Get().createDescriptorSetLayout(bloomLayoutInfo);
+
+        // Pool for 3 bloom descriptor sets (1 input attachment each)
+        auto bloomPoolSize = vk::DescriptorPoolSize()
+                                 .setType(vk::DescriptorType::eInputAttachment)
+                                 .setDescriptorCount(3);
+
+        auto bloomPoolInfo =
+            vk::DescriptorPoolCreateInfo()
+                .setPoolSizeCount(1)
+                .setPPoolSizes(&bloomPoolSize)
+                .setMaxSets(3);
+
+        auto bloomDescriptorPool =
+            mDevice->Get().createDescriptorPool(bloomPoolInfo);
+
+        // Allocate 3 bloom descriptor sets (threshold, downsample, upsample)
+        auto bloomSetLayouts =
+            std::vector { bloomAttachmentLayout, bloomAttachmentLayout,
+                          bloomAttachmentLayout };
+
+        auto bloomSetAlloc = vk::DescriptorSetAllocateInfo()
+                                 .setDescriptorPool(bloomDescriptorPool)
+                                 .setSetLayouts(bloomSetLayouts);
+
+        auto bloomSets = mDevice->Get().allocateDescriptorSets(bloomSetAlloc);
+        auto thresholdInputSet  = bloomSets[0];
+        auto downsampleInputSet = bloomSets[1];
+        auto upsampleInputSet   = bloomSets[2];
+
+        // Write image views for each bloom input set
+        auto emissiveInputInfoForBloom =
+            vk::DescriptorImageInfo()
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setImageView(emissiveImage->GetImageView());
+
+        auto thresholdInputInfo =
+            vk::DescriptorImageInfo()
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setImageView(bloomThresholdImage->GetImageView());
+
+        auto downInputInfo =
+            vk::DescriptorImageInfo()
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setImageView(bloomDownImage->GetImageView());
+
+        auto threshWrite =
+            vk::WriteDescriptorSet()
+                .setDstSet(thresholdInputSet)
+                .setDstBinding(0)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setImageInfo(emissiveInputInfoForBloom);
+
+        auto downWrite =
+            vk::WriteDescriptorSet()
+                .setDstSet(downsampleInputSet)
+                .setDstBinding(0)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setImageInfo(thresholdInputInfo);
+
+        auto upWrite =
+            vk::WriteDescriptorSet()
+                .setDstSet(upsampleInputSet)
+                .setDstBinding(0)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setImageInfo(downInputInfo);
+
+        mDevice->Get().updateDescriptorSets(1, &threshWrite, 0, nullptr);
+        mDevice->Get().updateDescriptorSets(1, &downWrite, 0, nullptr);
+        mDevice->Get().updateDescriptorSets(1, &upWrite, 0, nullptr);
+
+        // Bloom pipeline layout (just the input attachment layout)
+        auto bloomPipelineLayoutInfo =
+            vk::PipelineLayoutCreateInfo().setSetLayouts(bloomAttachmentLayout);
+
+        auto bloomPipelineLayout =
+            mDevice->Get().createPipelineLayout(bloomPipelineLayoutInfo);
+
+        // ------------------------------------------------------------------
         // Create pipelines
         // ------------------------------------------------------------------
         auto depthInfo =
@@ -841,7 +938,7 @@ namespace FREYA_NAMESPACE
                 .setPMultisampleState(&multisampling)
                 .setPColorBlendState(&thresholdBlendState)
                 .setPDynamicState(&dynamicState)
-                .setLayout(fullscreenPipelineLayout)
+                .setLayout(bloomPipelineLayout)
                 .setRenderPass(renderPass)
                 .setSubpass(DeferredThresholdPass)
                 .setBasePipelineHandle(nullptr);
@@ -866,7 +963,7 @@ namespace FREYA_NAMESPACE
                 .setPMultisampleState(&multisampling)
                 .setPColorBlendState(&downsampleBlendState)
                 .setPDynamicState(&dynamicState)
-                .setLayout(fullscreenPipelineLayout)
+                .setLayout(bloomPipelineLayout)
                 .setRenderPass(renderPass)
                 .setSubpass(DeferredDownsamplePass)
                 .setBasePipelineHandle(nullptr);
@@ -891,7 +988,7 @@ namespace FREYA_NAMESPACE
                 .setPMultisampleState(&multisampling)
                 .setPColorBlendState(&upsampleBlendState)
                 .setPDynamicState(&dynamicState)
-                .setLayout(fullscreenPipelineLayout)
+                .setLayout(bloomPipelineLayout)
                 .setRenderPass(renderPass)
                 .setSubpass(DeferredUpsamplePass)
                 .setBasePipelineHandle(nullptr);
@@ -997,6 +1094,7 @@ namespace FREYA_NAMESPACE
             renderPass,
             vertexPipelineLayout,
             fullscreenPipelineLayout,
+            bloomPipelineLayout,
             depthPipeline,
             gbufferPipeline,
             lightingPipeline,
@@ -1024,7 +1122,12 @@ namespace FREYA_NAMESPACE
             lightingInputSet,
             compositeInputSet,
             samplerLayout,
-            samplerDescriptorPool);
+            samplerDescriptorPool,
+            bloomAttachmentLayout,
+            bloomDescriptorPool,
+            thresholdInputSet,
+            downsampleInputSet,
+            upsampleInputSet);
     }
 
     // ------------------------------------------------------------------
@@ -1167,7 +1270,7 @@ namespace FREYA_NAMESPACE
                 .setFormat(vk::Format::eR16G16B16A16Sfloat)
                 .setSamples(vk::SampleCountFlagBits::e1)
                 .setLoadOp(vk::AttachmentLoadOp::eDontCare)
-                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setStoreOp(vk::AttachmentStoreOp::eStore)
                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
@@ -1177,7 +1280,7 @@ namespace FREYA_NAMESPACE
                 .setFormat(vk::Format::eR16G16B16A16Sfloat)
                 .setSamples(vk::SampleCountFlagBits::e1)
                 .setLoadOp(vk::AttachmentLoadOp::eDontCare)
-                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setStoreOp(vk::AttachmentStoreOp::eStore)
                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
@@ -1253,7 +1356,7 @@ namespace FREYA_NAMESPACE
                 .setAttachment(DeferredTranslucentAttachment)
                 .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
             vk::AttachmentReference()
-                .setAttachment(DeferredBloomResultAttachment)
+                .setAttachment(DeferredBloomUpAttachment)
                 .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
         };
 
@@ -1396,9 +1499,39 @@ namespace FREYA_NAMESPACE
                 .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
                 .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
-            // Translucent → Composite
+            // Translucent → Threshold
             vk::SubpassDependency()
                 .setSrcSubpass(DeferredTranslucentPass)
+                .setDstSubpass(DeferredThresholdPass)
+                .setSrcStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
+                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
+            // Threshold → Downsample
+            vk::SubpassDependency()
+                .setSrcSubpass(DeferredThresholdPass)
+                .setDstSubpass(DeferredDownsamplePass)
+                .setSrcStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
+                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
+            // Downsample → Upsample
+            vk::SubpassDependency()
+                .setSrcSubpass(DeferredDownsamplePass)
+                .setDstSubpass(DeferredUpsamplePass)
+                .setSrcStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
+                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
+            // Upsample → Composite
+            vk::SubpassDependency()
+                .setSrcSubpass(DeferredUpsamplePass)
                 .setDstSubpass(DeferredCompositePass)
                 .setSrcStageMask(
                     vk::PipelineStageFlagBits::eColorAttachmentOutput)
