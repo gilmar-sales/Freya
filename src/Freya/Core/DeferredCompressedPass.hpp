@@ -19,16 +19,19 @@ namespace FREYA_NAMESPACE
      */
     enum : std::uint32_t
     {
-        DeferredBackAttachment,        ///< Back buffer color attachment
-        DeferredDepthAttachment,       ///< Depth attachment
-        DeferredPositionAttachment,    ///< G-buffer world position
-        DeferredNormalAttachment,      ///< G-buffer normal
-        DeferredAlbedoAttachment,      ///< G-buffer albedo + roughness
-        DeferredEmissiveAttachment,    ///< G-buffer emissive (for bloom)
-        DeferredMaterialAttachment,    ///< G-buffer material (metalness +
-                                       ///< roughness)
-        DeferredTranslucentAttachment, ///< Translucent objects buffer
-        DeferredOpaqueAttachment       ///< Opaque lit result buffer
+        DeferredBackAttachment,           ///< Back buffer color attachment
+        DeferredDepthAttachment,          ///< Depth attachment
+        DeferredPositionAttachment,       ///< G-buffer world position
+        DeferredNormalAttachment,         ///< G-buffer normal
+        DeferredAlbedoAttachment,         ///< G-buffer albedo + roughness
+        DeferredEmissiveAttachment,       ///< G-buffer emissive (for bloom)
+        DeferredMaterialAttachment,       ///< G-buffer material (metalness)
+        DeferredTranslucentAttachment,    ///< Translucent objects buffer
+        DeferredOpaqueAttachment,         ///< Opaque lit result buffer
+        DeferredBloomThresholdAttachment, ///< Bloom threshold extraction output
+        DeferredBloomDownAttachment,      ///< Half-resolution bloom buffer
+        DeferredBloomUpAttachment,        ///< Upsampled bloom result
+        DeferredBloomResultAttachment ///< Final bloom result before composite
     };
 
     /**
@@ -40,7 +43,10 @@ namespace FREYA_NAMESPACE
         DeferredGBufferPass,     ///< G-buffer generation (subpass 1)
         DeferredLightingPass,    ///< Lighting calculation (subpass 2)
         DeferredTranslucentPass, ///< Translucent rendering (subpass 3)
-        DeferredCompositePass    ///< Final compositing (subpass 4)
+        DeferredThresholdPass,   ///< Bloom threshold extraction (subpass 4)
+        DeferredDownsamplePass,  ///< Kawase downsample (subpass 5)
+        DeferredUpsamplePass,    ///< Kawase upsample (subpass 6)
+        DeferredCompositePass    ///< Final compositing (subpass 7)
     };
 
     /**
@@ -65,6 +71,9 @@ namespace FREYA_NAMESPACE
             const vk::Pipeline       gbufferPipeline,
             const vk::Pipeline       lightingPipeline,
             const vk::Pipeline       translucentPipeline,
+            const vk::Pipeline       thresholdPipeline,
+            const vk::Pipeline       downsamplePipeline,
+            const vk::Pipeline       upsamplePipeline,
             const vk::Pipeline       compositePipeline,
             const Ref<Buffer>&       uniformBuffer,
             const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
@@ -75,6 +84,10 @@ namespace FREYA_NAMESPACE
             const Ref<Image>&                           depthImage,
             const Ref<Image>&                           translucentImage,
             const Ref<Image>&                           opaqueImage,
+            const Ref<Image>&                           bloomThresholdImage,
+            const Ref<Image>&                           bloomDownImage,
+            const Ref<Image>&                           bloomUpImage,
+            const Ref<Image>&                           bloomResultImage,
             const std::vector<vk::Framebuffer>&         framebuffers,
             const vk::DescriptorSetLayout               inputAttachmentLayout,
             const vk::DescriptorPool                    inputAttachmentPool,
@@ -209,7 +222,7 @@ namespace FREYA_NAMESPACE
         vk::PipelineLayout mVertexPipelineLayout;
         vk::PipelineLayout mFullscreenPipelineLayout;
 
-        std::array<vk::Pipeline, 5> mPipelines;
+        std::array<vk::Pipeline, 8> mPipelines;
 
         Ref<Buffer> mUniformBuffer;
 
@@ -223,6 +236,10 @@ namespace FREYA_NAMESPACE
         Ref<Image>              mDepthImage;
         Ref<Image>              mTranslucentImage;
         Ref<Image>              mOpaqueImage;
+        Ref<Image>              mBloomThresholdImage;
+        Ref<Image>              mBloomDownImage;
+        Ref<Image>              mBloomUpImage;
+        Ref<Image>              mBloomResultImage;
 
         // Framebuffers (one per swapchain image)
         std::vector<vk::Framebuffer> mFramebuffers;

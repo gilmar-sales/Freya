@@ -40,6 +40,19 @@ namespace FREYA_NAMESPACE
             "./Resources/Shaders/DeferredCompressed/composing.vert.spv");
         auto compFrag = loadShader(
             "./Resources/Shaders/DeferredCompressed/composing.frag.spv");
+        // Bloom shaders
+        auto threshVert = loadShader(
+            "./Resources/Shaders/DeferredCompressed/composing.vert.spv");
+        auto threshFrag = loadShader(
+            "./Resources/Shaders/DeferredCompressed/threshold.frag.spv");
+        auto downVert = loadShader(
+            "./Resources/Shaders/DeferredCompressed/composing.vert.spv");
+        auto downFrag = loadShader(
+            "./Resources/Shaders/DeferredCompressed/downsample.frag.spv");
+        auto upVert = loadShader(
+            "./Resources/Shaders/DeferredCompressed/composing.vert.spv");
+        auto upFrag = loadShader(
+            "./Resources/Shaders/DeferredCompressed/upsample.frag.spv");
 
         auto makeStage = [](vk::ShaderModule        module,
                             vk::ShaderStageFlagBits stage) {
@@ -69,6 +82,18 @@ namespace FREYA_NAMESPACE
         auto compStages = {
             makeStage(compVert->Get(), vk::ShaderStageFlagBits::eVertex),
             makeStage(compFrag->Get(), vk::ShaderStageFlagBits::eFragment)
+        };
+        auto threshStages = {
+            makeStage(threshVert->Get(), vk::ShaderStageFlagBits::eVertex),
+            makeStage(threshFrag->Get(), vk::ShaderStageFlagBits::eFragment)
+        };
+        auto downStages = {
+            makeStage(downVert->Get(), vk::ShaderStageFlagBits::eVertex),
+            makeStage(downFrag->Get(), vk::ShaderStageFlagBits::eFragment)
+        };
+        auto upStages = {
+            makeStage(upVert->Get(), vk::ShaderStageFlagBits::eVertex),
+            makeStage(upFrag->Get(), vk::ShaderStageFlagBits::eFragment)
         };
 
         // ------------------------------------------------------------------
@@ -416,6 +441,40 @@ namespace FREYA_NAMESPACE
         auto opaqueImage =
             createImage(ImageUsage::Color, vk::Format::eR8G8B8A8Unorm);
 
+        // Bloom target images (full resolution for framebuffer compatibility)
+        auto bloomThresholdImage =
+            mServiceProvider->GetService<ImageBuilder>()
+                ->SetUsage(ImageUsage::Color)
+                .SetFormat(vk::Format::eR16G16B16A16Sfloat)
+                .SetWidth(extent.width)
+                .SetHeight(extent.height)
+                .SetSamples(vk::SampleCountFlagBits::e1)
+                .Build();
+        auto bloomDownImage =
+            mServiceProvider->GetService<ImageBuilder>()
+                ->SetUsage(ImageUsage::Color)
+                .SetFormat(vk::Format::eR16G16B16A16Sfloat)
+                .SetWidth(extent.width)
+                .SetHeight(extent.height)
+                .SetSamples(vk::SampleCountFlagBits::e1)
+                .Build();
+        auto bloomUpImage =
+            mServiceProvider->GetService<ImageBuilder>()
+                ->SetUsage(ImageUsage::Color)
+                .SetFormat(vk::Format::eR16G16B16A16Sfloat)
+                .SetWidth(extent.width)
+                .SetHeight(extent.height)
+                .SetSamples(vk::SampleCountFlagBits::e1)
+                .Build();
+        auto bloomResultImage =
+            mServiceProvider->GetService<ImageBuilder>()
+                ->SetUsage(ImageUsage::Color)
+                .SetFormat(vk::Format::eR16G16B16A16Sfloat)
+                .SetWidth(extent.width)
+                .SetHeight(extent.height)
+                .SetSamples(vk::SampleCountFlagBits::e1)
+                .Build();
+
         // G-buffer images: position, normal, albedo, emissive, material
         std::vector<Ref<Image>> gbufferImages = {
             positionImage, normalImage, albedoImage, emissiveImage,
@@ -623,6 +682,11 @@ namespace FREYA_NAMESPACE
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
                 .setImageView(translucentImage->GetImageView());
 
+        auto bloomUpInputInfo =
+            vk::DescriptorImageInfo()
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setImageView(bloomUpImage->GetImageView());
+
         auto compositeInputWrites = std::array {
             vk::WriteDescriptorSet()
                 .setDstSet(compositeInputSet)
@@ -636,6 +700,12 @@ namespace FREYA_NAMESPACE
                 .setDescriptorType(vk::DescriptorType::eInputAttachment)
                 .setDescriptorCount(1)
                 .setImageInfo(translInputInfo),
+            vk::WriteDescriptorSet()
+                .setDstSet(compositeInputSet)
+                .setDstBinding(2)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setImageInfo(bloomUpInputInfo),
         };
 
         mDevice->Get().updateDescriptorSets(
@@ -751,6 +821,81 @@ namespace FREYA_NAMESPACE
                 .setAttachmentCount(1)
                 .setPAttachments(&noBlendAttachment);
 
+        // Threshold pass
+        auto thresholdBlendState =
+            vk::PipelineColorBlendStateCreateInfo()
+                .setLogicOpEnable(false)
+                .setLogicOp(vk::LogicOp::eCopy)
+                .setBlendConstants({ 0.0f, 0.0f, 0.0f, 0.0f })
+                .setAttachmentCount(1)
+                .setPAttachments(&noBlendAttachment);
+
+        auto thresholdInfo =
+            vk::GraphicsPipelineCreateInfo()
+                .setStages(threshStages)
+                .setPVertexInputState(&emptyVertexInputInfo)
+                .setPInputAssemblyState(&inputAssembly)
+                .setPViewportState(&viewportState)
+                .setPRasterizationState(&fullscreenRasterizer)
+                .setPDepthStencilState(&noDepthStencil)
+                .setPMultisampleState(&multisampling)
+                .setPColorBlendState(&thresholdBlendState)
+                .setPDynamicState(&dynamicState)
+                .setLayout(fullscreenPipelineLayout)
+                .setRenderPass(renderPass)
+                .setSubpass(DeferredThresholdPass)
+                .setBasePipelineHandle(nullptr);
+
+        // Downsample pass
+        auto downsampleBlendState =
+            vk::PipelineColorBlendStateCreateInfo()
+                .setLogicOpEnable(false)
+                .setLogicOp(vk::LogicOp::eCopy)
+                .setBlendConstants({ 0.0f, 0.0f, 0.0f, 0.0f })
+                .setAttachmentCount(1)
+                .setPAttachments(&noBlendAttachment);
+
+        auto downsampleInfo =
+            vk::GraphicsPipelineCreateInfo()
+                .setStages(downStages)
+                .setPVertexInputState(&emptyVertexInputInfo)
+                .setPInputAssemblyState(&inputAssembly)
+                .setPViewportState(&viewportState)
+                .setPRasterizationState(&fullscreenRasterizer)
+                .setPDepthStencilState(&noDepthStencil)
+                .setPMultisampleState(&multisampling)
+                .setPColorBlendState(&downsampleBlendState)
+                .setPDynamicState(&dynamicState)
+                .setLayout(fullscreenPipelineLayout)
+                .setRenderPass(renderPass)
+                .setSubpass(DeferredDownsamplePass)
+                .setBasePipelineHandle(nullptr);
+
+        // Upsample pass
+        auto upsampleBlendState =
+            vk::PipelineColorBlendStateCreateInfo()
+                .setLogicOpEnable(false)
+                .setLogicOp(vk::LogicOp::eCopy)
+                .setBlendConstants({ 0.0f, 0.0f, 0.0f, 0.0f })
+                .setAttachmentCount(1)
+                .setPAttachments(&noBlendAttachment);
+
+        auto upsampleInfo =
+            vk::GraphicsPipelineCreateInfo()
+                .setStages(upStages)
+                .setPVertexInputState(&emptyVertexInputInfo)
+                .setPInputAssemblyState(&inputAssembly)
+                .setPViewportState(&viewportState)
+                .setPRasterizationState(&fullscreenRasterizer)
+                .setPDepthStencilState(&noDepthStencil)
+                .setPMultisampleState(&multisampling)
+                .setPColorBlendState(&upsampleBlendState)
+                .setPDynamicState(&dynamicState)
+                .setLayout(fullscreenPipelineLayout)
+                .setRenderPass(renderPass)
+                .setSubpass(DeferredUpsamplePass)
+                .setBasePipelineHandle(nullptr);
+
         auto compositeInfo =
             vk::GraphicsPipelineCreateInfo()
                 .setStages(compStages)
@@ -779,6 +924,14 @@ namespace FREYA_NAMESPACE
                 .value;
         auto compositePipeline =
             mDevice->Get().createGraphicsPipeline(nullptr, compositeInfo).value;
+        auto thresholdPipeline =
+            mDevice->Get().createGraphicsPipeline(nullptr, thresholdInfo).value;
+        auto downsamplePipeline =
+            mDevice->Get()
+                .createGraphicsPipeline(nullptr, downsampleInfo)
+                .value;
+        auto upsamplePipeline =
+            mDevice->Get().createGraphicsPipeline(nullptr, upsampleInfo).value;
 
         // Cleanup shader modules
         auto destroyShader = [&](const Ref<ShaderModule>& mod) {
@@ -794,6 +947,12 @@ namespace FREYA_NAMESPACE
         destroyShader(transFrag);
         destroyShader(compVert);
         destroyShader(compFrag);
+        destroyShader(threshVert);
+        destroyShader(threshFrag);
+        destroyShader(downVert);
+        destroyShader(downFrag);
+        destroyShader(upVert);
+        destroyShader(upFrag);
 
         // ------------------------------------------------------------------
         // Framebuffers (one per swapchain image)
@@ -805,15 +964,19 @@ namespace FREYA_NAMESPACE
         for (std::size_t i = 0; i < frames.size(); i++)
         {
             auto fbAttachments = std::vector<vk::ImageView> {
-                frames[i].imageView,              // 0: backbuffer
-                depthImage->GetImageView(),       // 1: depth
-                positionImage->GetImageView(),    // 2: position
-                normalImage->GetImageView(),      // 3: normal
-                albedoImage->GetImageView(),      // 4: albedo
-                emissiveImage->GetImageView(),    // 5: emissive
-                materialImage->GetImageView(),    // 6: material
-                translucentImage->GetImageView(), // 7: translucent
-                opaqueImage->GetImageView()       // 8: opaque
+                frames[i].imageView,                 // 0: backbuffer
+                depthImage->GetImageView(),          // 1: depth
+                positionImage->GetImageView(),       // 2: position
+                normalImage->GetImageView(),         // 3: normal
+                albedoImage->GetImageView(),         // 4: albedo
+                emissiveImage->GetImageView(),       // 5: emissive
+                materialImage->GetImageView(),       // 6: material
+                translucentImage->GetImageView(),    // 7: translucent
+                opaqueImage->GetImageView(),         // 8: opaque
+                bloomThresholdImage->GetImageView(), // 9: bloom threshold
+                bloomDownImage->GetImageView(),      // 10: bloom down
+                bloomUpImage->GetImageView(),        // 11: bloom up
+                bloomResultImage->GetImageView()     // 12: bloom result
             };
 
             auto fbInfo =
@@ -838,6 +1001,9 @@ namespace FREYA_NAMESPACE
             gbufferPipeline,
             lightingPipeline,
             translucentPipeline,
+            thresholdPipeline,
+            downsamplePipeline,
+            upsamplePipeline,
             compositePipeline,
             uniformBuffer,
             frameLayouts,
@@ -848,6 +1014,10 @@ namespace FREYA_NAMESPACE
             depthImage,
             translucentImage,
             opaqueImage,
+            bloomThresholdImage,
+            bloomDownImage,
+            bloomUpImage,
+            bloomResultImage,
             framebuffers,
             inputAttachmentLayout,
             inputAttachmentPool,
@@ -862,7 +1032,7 @@ namespace FREYA_NAMESPACE
     // ------------------------------------------------------------------
     vk::RenderPass DeferredCompressedPassBuilder::createRenderPass() const
     {
-        // 10 attachments (all VK_SAMPLE_COUNT_1_BIT — deferred uses dedicated
+        // 13 attachments (all VK_SAMPLE_COUNT_1_BIT — deferred uses dedicated
         // intermediate targets, not MSAA):
         //   0: Back buffer   (surface format, e.g. B8G8R8A8Unorm)
         //   1: Depth         (D32Sfloat)
@@ -870,9 +1040,13 @@ namespace FREYA_NAMESPACE
         //   3: Normal        (R16G16B16A16Sfloat)
         //   4: Albedo        (R8G8B8A8Srgb)
         //   5: Emissive      (R16G16B16A16Sfloat) - for bloom
-        //   6: Material      (R8G8B8A8Unorm) - metalness(0)/roughness(1)
+        //   6: Material      (R8Unorm) - metalness
         //   7: Translucent   (R8G8B8A8Unorm)
         //   8: Opaque        (R8G8B8A8Unorm)
+        //   9: Bloom threshold
+        //  10: Bloom downsample
+        //  11: Bloom upsample
+        //  12: Bloom result
 
         const auto surfaceFormat = mSurface->QuerySurfaceFormat().format;
 
@@ -963,7 +1137,47 @@ namespace FREYA_NAMESPACE
                 .setFormat(vk::Format::eR8G8B8A8Unorm)
                 .setSamples(vk::SampleCountFlagBits::e1)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
-                .setStoreOp(vk::AttachmentStoreOp::eStore)
+                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setInitialLayout(vk::ImageLayout::eUndefined)
+                .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            // 9: Bloom threshold
+            vk::AttachmentDescription()
+                .setFormat(vk::Format::eR16G16B16A16Sfloat)
+                .setSamples(vk::SampleCountFlagBits::e1)
+                .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setInitialLayout(vk::ImageLayout::eUndefined)
+                .setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal),
+            // 10: Bloom downsample
+            vk::AttachmentDescription()
+                .setFormat(vk::Format::eR16G16B16A16Sfloat)
+                .setSamples(vk::SampleCountFlagBits::e1)
+                .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setInitialLayout(vk::ImageLayout::eUndefined)
+                .setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal),
+            // 11: Bloom upsample
+            vk::AttachmentDescription()
+                .setFormat(vk::Format::eR16G16B16A16Sfloat)
+                .setSamples(vk::SampleCountFlagBits::e1)
+                .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setInitialLayout(vk::ImageLayout::eUndefined)
+                .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            // 12: Bloom result
+            vk::AttachmentDescription()
+                .setFormat(vk::Format::eR16G16B16A16Sfloat)
+                .setSamples(vk::SampleCountFlagBits::e1)
+                .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
@@ -1030,7 +1244,7 @@ namespace FREYA_NAMESPACE
                 .setAttachment(DeferredTranslucentAttachment)
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
-        // Composite reads opaque + translucent
+        // Composite reads opaque + translucent + bloom
         auto compositeInputRefs = std::vector {
             vk::AttachmentReference()
                 .setAttachment(DeferredOpaqueAttachment)
@@ -1038,12 +1252,48 @@ namespace FREYA_NAMESPACE
             vk::AttachmentReference()
                 .setAttachment(DeferredTranslucentAttachment)
                 .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            vk::AttachmentReference()
+                .setAttachment(DeferredBloomResultAttachment)
+                .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
         };
 
         // Composite writes to back buffer
         auto backbufferRef =
             vk::AttachmentReference()
                 .setAttachment(DeferredBackAttachment)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+        // Threshold pass references (reads emissive, writes threshold)
+        auto thresholdInputRefs = std::vector {
+            vk::AttachmentReference()
+                .setAttachment(DeferredEmissiveAttachment)
+                .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+        };
+        auto thresholdOutRef =
+            vk::AttachmentReference()
+                .setAttachment(DeferredBloomThresholdAttachment)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+        // Downsample pass references (reads threshold, writes down)
+        auto downsampleInputRefs = std::vector {
+            vk::AttachmentReference()
+                .setAttachment(DeferredBloomThresholdAttachment)
+                .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+        };
+        auto downsampleOutRef =
+            vk::AttachmentReference()
+                .setAttachment(DeferredBloomDownAttachment)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+        // Upsample pass references (reads down, writes up)
+        auto upsampleInputRefs = std::vector {
+            vk::AttachmentReference()
+                .setAttachment(DeferredBloomDownAttachment)
+                .setLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+        };
+        auto upsampleOutRef =
+            vk::AttachmentReference()
+                .setAttachment(DeferredBloomUpAttachment)
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
         // Subpasses
@@ -1066,7 +1316,22 @@ namespace FREYA_NAMESPACE
             vk::SubpassDescription()
                 .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
                 .setColorAttachments(translucentRef),
-            // Subpass 4: Composite
+            // Subpass 4: Bloom threshold extraction
+            vk::SubpassDescription()
+                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+                .setInputAttachments(thresholdInputRefs)
+                .setColorAttachments(thresholdOutRef),
+            // Subpass 5: Kawase downsample
+            vk::SubpassDescription()
+                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+                .setInputAttachments(downsampleInputRefs)
+                .setColorAttachments(downsampleOutRef),
+            // Subpass 6: Kawase upsample
+            vk::SubpassDescription()
+                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+                .setInputAttachments(upsampleInputRefs)
+                .setColorAttachments(upsampleOutRef),
+            // Subpass 7: Composite (with bloom)
             vk::SubpassDescription()
                 .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
                 .setInputAttachments(compositeInputRefs)

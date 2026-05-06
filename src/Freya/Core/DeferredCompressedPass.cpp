@@ -48,6 +48,9 @@ namespace FREYA_NAMESPACE
         const vk::Pipeline                          gbufferPipeline,
         const vk::Pipeline                          lightingPipeline,
         const vk::Pipeline                          translucentPipeline,
+        const vk::Pipeline                          thresholdPipeline,
+        const vk::Pipeline                          downsamplePipeline,
+        const vk::Pipeline                          upsamplePipeline,
         const vk::Pipeline                          compositePipeline,
         const Ref<Buffer>&                          uniformBuffer,
         const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
@@ -58,6 +61,10 @@ namespace FREYA_NAMESPACE
         const Ref<Image>&                           depthImage,
         const Ref<Image>&                           translucentImage,
         const Ref<Image>&                           opaqueImage,
+        const Ref<Image>&                           bloomThresholdImage,
+        const Ref<Image>&                           bloomDownImage,
+        const Ref<Image>&                           bloomUpImage,
+        const Ref<Image>&                           bloomResultImage,
         const std::vector<vk::Framebuffer>&         framebuffers,
         const vk::DescriptorSetLayout               inputAttachmentLayout,
         const vk::DescriptorPool                    inputAttachmentPool,
@@ -73,7 +80,9 @@ namespace FREYA_NAMESPACE
         mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool),
         mGBufferImages(gbufferImages), mEmissiveImage(emissiveImage),
         mDepthImage(depthImage), mTranslucentImage(translucentImage),
-        mOpaqueImage(opaqueImage), mFramebuffers(framebuffers),
+        mOpaqueImage(opaqueImage), mBloomThresholdImage(bloomThresholdImage),
+        mBloomDownImage(bloomDownImage), mBloomUpImage(bloomUpImage),
+        mBloomResultImage(bloomResultImage), mFramebuffers(framebuffers),
         mInputAttachmentLayout(inputAttachmentLayout),
         mInputAttachmentPool(inputAttachmentPool),
         mLightingInputSet(lightingInputSet),
@@ -84,6 +93,9 @@ namespace FREYA_NAMESPACE
         mPipelines[DeferredGBufferPass]     = gbufferPipeline;
         mPipelines[DeferredLightingPass]    = lightingPipeline;
         mPipelines[DeferredTranslucentPass] = translucentPipeline;
+        mPipelines[DeferredThresholdPass]   = thresholdPipeline;
+        mPipelines[DeferredDownsamplePass]  = downsamplePipeline;
+        mPipelines[DeferredUpsamplePass]    = upsamplePipeline;
         mPipelines[DeferredCompositePass]   = compositePipeline;
     }
 
@@ -132,6 +144,10 @@ namespace FREYA_NAMESPACE
         mDepthImage.reset();
         mTranslucentImage.reset();
         mOpaqueImage.reset();
+        mBloomThresholdImage.reset();
+        mBloomDownImage.reset();
+        mBloomUpImage.reset();
+        mBloomResultImage.reset();
 
         // Destroy uniform buffer
         mUniformBuffer.reset();
@@ -151,7 +167,7 @@ namespace FREYA_NAMESPACE
         // Debug label for the entire deferred render pass
         beginDebugLabel(commandBuffer, "Deferred Render Pass", mDevice->Get());
 
-        // All 10 attachments need clear values.
+        // 13 attachments need clear values.
         // Depth: reverse-Z clears to 0.0 (far plane).
         auto clearValues = std::vector<vk::ClearValue> {
             vk::ClearValue().setColor(mFreyaOptions->clearColor), // backbuffer
@@ -167,7 +183,13 @@ namespace FREYA_NAMESPACE
                 { 0.0f, 0.5f, 0.0f,
                   0.0f }), // material (metalness=0, roughness=0.5)
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // transl.
-            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f })  // opaque
+            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // opaque
+            vk::ClearValue().setColor(
+                { 0.0f, 0.0f, 0.0f, 0.0f }), // bloom thresh
+            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // bloom down
+            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // bloom up
+            vk::ClearValue().setColor(
+                { 0.0f, 0.0f, 0.0f, 0.0f }) // bloom result
         };
 
         // Framebuffer must be selected by the acquired swapchain image index

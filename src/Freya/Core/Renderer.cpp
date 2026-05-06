@@ -306,18 +306,41 @@ namespace FREYA_NAMESPACE
             // EndFrame handles the remaining subpasses:
             //   subpass 2 (lighting)   — fullscreen triangle
             //   subpass 3 (translucent) — skip (no translucent geometry)
-            //   subpass 4 (composite)  — fullscreen triangle
+            //   subpass 4 (threshold) — bloom threshold extraction
+            //   subpass 5 (downsample) — half-resolution blur
+            //   subpass 6 (upsample) — restore to full resolution
+            //   subpass 7 (composite) — fullscreen triangle with bloom
 
             auto frameIndex = mSwapChain->GetCurrentFrameIndex();
 
+            // Lighting pass
             mDeferredPass->AdvanceSubpass(DeferredLightingPass,
                                           mCommandPool,
                                           frameIndex);
             mDeferredPass->DrawFullscreenTriangle(mCommandPool);
 
+            // Skip translucent pass (no translucent geometry)
             mDeferredPass->AdvanceSubpass(DeferredTranslucentPass,
                                           mCommandPool,
                                           frameIndex);
+
+            // Bloom passes: threshold -> downsample -> upsample
+            mDeferredPass->AdvanceSubpass(DeferredThresholdPass,
+                                          mCommandPool,
+                                          frameIndex);
+            mDeferredPass->DrawFullscreenTriangle(mCommandPool);
+
+            mDeferredPass->AdvanceSubpass(DeferredDownsamplePass,
+                                          mCommandPool,
+                                          frameIndex);
+            mDeferredPass->DrawFullscreenTriangle(mCommandPool);
+
+            mDeferredPass->AdvanceSubpass(DeferredUpsamplePass,
+                                          mCommandPool,
+                                          frameIndex);
+            mDeferredPass->DrawFullscreenTriangle(mCommandPool);
+
+            // Final composite
             mDeferredPass->AdvanceSubpass(DeferredCompositePass,
                                           mCommandPool,
                                           frameIndex);

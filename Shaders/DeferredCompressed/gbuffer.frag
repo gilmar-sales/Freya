@@ -36,7 +36,11 @@ void main() {
     vec3 N_for_TBN = normalize(N);
     
     mat3 TBN = mat3(T, B, N_for_TBN);
-    vec3 worldNormal = normalize(TBN * normalTex);
+    vec3 normalMapNormal = normalTex * 2.0 - 1.0;
+    
+    // normalStrength: 0.0 = use only geometric normal, 1.0 = full normal map influence
+    float normalStrength = 1.0;
+    vec3 worldNormal = normalize(mix(N, TBN * normalMapNormal, normalStrength));
     
     outNormal = vec4(worldNormal, 1.0);
 
