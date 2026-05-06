@@ -25,27 +25,27 @@ class MainApp final : public fra::AbstractApplication
             glm::translate(glm::mat4(1), glm::vec3(3, 2, 0)), glm::vec3(0.3));
 
         mModelMatrix[2] = glm::scale(
-            glm::translate(glm::mat4(1), glm::vec3(-3, -2, 0)), glm::vec3(15));
+            glm::translate(glm::mat4(1), glm::vec3(-3, -6, 0)), glm::vec3(28));
 
         mModelMatrix[3] = glm::scale(
-            glm::translate(glm::mat4(1), glm::vec3(3, -2, 0)), glm::vec3(15));
+            glm::translate(glm::mat4(1), glm::vec3(3, -6, 0)), glm::vec3(28));
 
         mSofaAlbedo = mTexturePool->CreateTextureFromFile(
-            "./Resources/Textures/industrial_pipe_lamp_diff_4k.jpg");
+            "./Resources/Textures/industrial_pipe_lamp_diff.jpg");
         mSofaNormal = mTexturePool->CreateTextureFromFile(
-            "./Resources/Textures/industrial_pipe_lamp_nor_gl_4k.png");
+            "./Resources/Textures/industrial_pipe_lamp_nor_gl.png");
         mSofaRoughness = mTexturePool->CreateTextureFromFile(
-        "./Resources/Textures/industrial_pipe_lamp_rough_4k.png");
+        "./Resources/Textures/industrial_pipe_lamp_rough.png");
         mSofaEmissive = mTexturePool->CreateTextureFromFile(
-        "./Resources/Textures/industrial_pipe_lamp_emission_4k.png");
+        "./Resources/Textures/industrial_pipe_lamp_emission.png");
         mSofaMetalness = mTexturePool->CreateTextureFromFile(
-            "./Resources/Textures/industrial_pipe_lamp_metal_4k.png");
+            "./Resources/Textures/industrial_pipe_lamp_metal.png");
 
         mSofaMaterial =
             mMaterialPool->Create({ mSofaAlbedo, mSofaNormal, mSofaRoughness, mSofaEmissive, mSofaMetalness });
 
         mSofaModel =
-            mMeshPool->CreateMeshFromFile("./Resources/Models/industrial_pipe_lamp_4k.glb");
+            mMeshPool->CreateMeshFromFile("./Resources/Models/industrial_pipe_lamp.glb");
 
         mSpaceShipAlbedo = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/SpaceShip_Base_color.jpg");
@@ -71,7 +71,7 @@ class MainApp final : public fra::AbstractApplication
             glm::vec3(0.0f, 5.0f, 0.0f),
             static_cast<float>(fra::LightType::Point),
             glm::vec3(1.0f, 1.0f, 1.0f), 50.0f, glm::vec3(0.0f, -1.0f, 0.0f),
-            0.9f, 0.8f, 1.0f });
+            0.9f, 0.8f, 0.2f });
 
         mLights[1].speed        = 1.2f;
         mLights[1].phaseOffset  = 1.5f;
@@ -80,7 +80,7 @@ class MainApp final : public fra::AbstractApplication
             glm::vec3(0.0f, 5.0f, 0.0f),
             static_cast<float>(fra::LightType::Point),
             glm::vec3(1.0f, 1.0f, 1.0f), 50.0f, glm::vec3(0.0f, -1.0f, 0.0f),
-            0.9f, 0.8f, 1.0f });
+            0.9f, 0.8f, 0.2f });
 
         mLights[2].speed        = 0.8f;
         mLights[2].phaseOffset  = 3.0f;
@@ -89,7 +89,7 @@ class MainApp final : public fra::AbstractApplication
             glm::vec3(0.0f, 5.0f, 0.0f),
             static_cast<float>(fra::LightType::Point),
             glm::vec3(1.0f, 1.0f, 1.0f), 50.0f, glm::vec3(0.0f, -1.0f, 0.0f),
-            0.9f, 0.8f, 1.0f });
+            0.9f, 0.8f, 0.2f });
 
         mLights[3].speed        = 1.5f;
         mLights[3].phaseOffset  = 4.5f;
@@ -98,7 +98,7 @@ class MainApp final : public fra::AbstractApplication
             glm::vec3(0.0f, 5.0f, 0.0f),
             static_cast<float>(fra::LightType::Point),
             glm::vec3(1.0f, 1.0f, 1.0f), 50.0f, glm::vec3(0.0f, -1.0f, 0.0f),
-            0.9f, 0.8f, 1.0f });
+            0.9f, 0.8f, 0.2f });
     }
 
     void Update() override
@@ -226,7 +226,7 @@ int main(int argc, const char** argv)
                         .SetSampleCount(8)
                         .WithReverseZ()
                         .SetFullscreen(false)
-                        .SetRenderingStrategy(fra::RenderingStrategy::Deferred);
+                        .SetRenderingStrategy(fra::RenderingStrategy::Forward);
                 });
             })
             .Build<MainApp>();
