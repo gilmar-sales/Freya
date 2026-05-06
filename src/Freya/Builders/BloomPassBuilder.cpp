@@ -89,47 +89,34 @@ namespace FREYA_NAMESPACE
 
         // ------------------------------------------------------------------
         // Descriptor set layout:
-        //   binding 0 = combined image sampler (threshold reads emissive)
-        //   binding 1 = input attachment (down/up read within-pass)
+        //   binding 0 = combined image sampler (all subpasses read via sampler)
+        //   Input attachment refs in subpass descriptions handle layout
+        //   transitions; the shader reads via texture() with offsets.
         // ------------------------------------------------------------------
-        auto bindings = std::array {
+        auto samplerBinding =
             vk::DescriptorSetLayoutBinding()
                 .setBinding(0)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
-                .setPImmutableSamplers(nullptr),
-            vk::DescriptorSetLayoutBinding()
-                .setBinding(1)
-                .setDescriptorType(vk::DescriptorType::eInputAttachment)
-                .setDescriptorCount(1)
-                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
-                .setPImmutableSamplers(nullptr),
-        };
+                .setPImmutableSamplers(nullptr);
 
         auto layoutInfo =
-            vk::DescriptorSetLayoutCreateInfo().setBindings(bindings);
+            vk::DescriptorSetLayoutCreateInfo().setBindings(samplerBinding);
         auto descriptorSetLayout =
             mDevice->Get().createDescriptorSetLayout(layoutInfo);
 
         // ------------------------------------------------------------------
-        // Descriptor pool: 3 subpasses × frameCount sets with 2 descriptors
-        // each
+        // Descriptor pool: 3 subpasses × frameCount sets, 1 sampler each
         // ------------------------------------------------------------------
-        std::array poolSizes = {
-            vk::DescriptorPoolSize()
-                .setType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(3 * mFreyaOptions->frameCount),
-            vk::DescriptorPoolSize()
-                .setType(vk::DescriptorType::eInputAttachment)
-                .setDescriptorCount(3 * mFreyaOptions->frameCount),
-        };
+        auto poolSize = vk::DescriptorPoolSize()
+                            .setType(vk::DescriptorType::eCombinedImageSampler)
+                            .setDescriptorCount(3 * mFreyaOptions->frameCount);
 
-        auto poolInfo =
-            vk::DescriptorPoolCreateInfo()
-                .setPoolSizeCount(static_cast<uint32_t>(poolSizes.size()))
-                .setPPoolSizes(poolSizes.data())
-                .setMaxSets(3 * mFreyaOptions->frameCount);
+        auto poolInfo = vk::DescriptorPoolCreateInfo()
+                            .setPoolSizeCount(1)
+                            .setPPoolSizes(&poolSize)
+                            .setMaxSets(3 * mFreyaOptions->frameCount);
 
         auto descriptorPool = mDevice->Get().createDescriptorPool(poolInfo);
 
@@ -176,34 +163,38 @@ namespace FREYA_NAMESPACE
                     .setImageInfo(emissiveInfo),
                 nullptr);
 
-            // Downsample set: binding 1 = threshold input attachment
-            auto thresholdInputInfo =
+            // Downsample set: binding 0 = threshold texture (via sampler)
+            auto thresholdSamplerInfo =
                 vk::DescriptorImageInfo()
                     .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                    .setImageView(bloomThresholdImage->GetImageView());
+                    .setImageView(bloomThresholdImage->GetImageView())
+                    .setSampler(defaultSampler);
 
             mDevice->Get().updateDescriptorSets(
                 vk::WriteDescriptorSet()
                     .setDstSet(allSets[baseIdx + BloomDownsampleSubpass])
-                    .setDstBinding(1)
-                    .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                    .setDstBinding(0)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
                     .setDescriptorCount(1)
-                    .setImageInfo(thresholdInputInfo),
+                    .setImageInfo(thresholdSamplerInfo),
                 nullptr);
 
-            // Upsample set: binding 1 = down input attachment
-            auto downInputInfo =
+            // Upsample set: binding 0 = down texture (via sampler)
+            auto downSamplerInfo =
                 vk::DescriptorImageInfo()
                     .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                    .setImageView(bloomDownImage->GetImageView());
+                    .setImageView(bloomDownImage->GetImageView())
+                    .setSampler(defaultSampler);
 
             mDevice->Get().updateDescriptorSets(
                 vk::WriteDescriptorSet()
                     .setDstSet(allSets[baseIdx + BloomUpsampleSubpass])
-                    .setDstBinding(1)
-                    .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                    .setDstBinding(0)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
                     .setDescriptorCount(1)
-                    .setImageInfo(downInputInfo),
+                    .setImageInfo(downSamplerInfo),
                 nullptr);
         }
 

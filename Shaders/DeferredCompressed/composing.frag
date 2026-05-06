@@ -11,7 +11,7 @@ layout(binding = 2) uniform sampler2D inBloom;
 layout(location = 0) in vec2 inTexCoord;
 layout(location = 0) out vec4 outColor;
 
-const float bloomStrength = 1.5; // Bloom intensity multiplier
+const float bloomStrength = 2.5; // Bloom intensity multiplier
 
 void main() {
     vec4 opaqueColor  = texture(inOpaque, inTexCoord);
