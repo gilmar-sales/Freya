@@ -1,5 +1,7 @@
 #include "FreyaExtension.hpp"
 
+#include "Freya/Builders/BloomPassBuilder.hpp"
+#include "Freya/Builders/CompositePassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/DeviceBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
@@ -39,6 +41,8 @@ namespace FREYA_NAMESPACE
         services.AddTransient<ShaderModuleBuilder>();
         services.AddTransient<CommandPoolBuilder>();
         services.AddTransient<DeferredCompressedPassBuilder>();
+        services.AddTransient<BloomPassBuilder>();
+        services.AddTransient<CompositePassBuilder>();
 
         services.AddSingleton<Instance>(
             [](skr::ServiceProvider& serviceProvider) {

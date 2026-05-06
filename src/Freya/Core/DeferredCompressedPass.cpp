@@ -4,11 +4,6 @@
 
 namespace
 {
-    // VK_EXT_debug_utils functions are not exported by the Vulkan loader on
-    // all platforms, so we load them dynamically via vkGetDeviceProcAddr.
-    // This follows the same pattern used in Instance.cpp for the debug
-    // messenger.
-
     void beginDebugLabel(const vk::CommandBuffer& cmd,
                          const char*              name,
                          const vk::Device&        device)
@@ -44,15 +39,10 @@ namespace FREYA_NAMESPACE
         const vk::RenderPass                        renderPass,
         const vk::PipelineLayout                    vertexPipelineLayout,
         const vk::PipelineLayout                    fullscreenPipelineLayout,
-        const vk::PipelineLayout                    bloomPipelineLayout,
         const vk::Pipeline                          depthPrepassPipeline,
         const vk::Pipeline                          gbufferPipeline,
         const vk::Pipeline                          lightingPipeline,
         const vk::Pipeline                          translucentPipeline,
-        const vk::Pipeline                          thresholdPipeline,
-        const vk::Pipeline                          downsamplePipeline,
-        const vk::Pipeline                          upsamplePipeline,
-        const vk::Pipeline                          compositePipeline,
         const Ref<Buffer>&                          uniformBuffer,
         const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
         const std::vector<vk::DescriptorSet>&       descriptorSets,
@@ -62,111 +52,64 @@ namespace FREYA_NAMESPACE
         const Ref<Image>&                           depthImage,
         const Ref<Image>&                           translucentImage,
         const Ref<Image>&                           opaqueImage,
-        const Ref<Image>&                           bloomThresholdImage,
-        const Ref<Image>&                           bloomDownImage,
-        const Ref<Image>&                           bloomUpImage,
-        const Ref<Image>&                           bloomResultImage,
         const std::vector<vk::Framebuffer>&         framebuffers,
         const vk::DescriptorSetLayout               inputAttachmentLayout,
         const vk::DescriptorPool                    inputAttachmentPool,
         const vk::DescriptorSet                     lightingInputSet,
-        const vk::DescriptorSet                     compositeInputSet,
         const vk::DescriptorSetLayout               samplerLayout,
-        const vk::DescriptorPool                    samplerDescriptorPool,
-        const vk::DescriptorSetLayout               bloomAttachmentLayout,
-        const vk::DescriptorPool                    bloomDescriptorPool,
-        const vk::DescriptorSet                     bloomThresholdInputSet,
-        const vk::DescriptorSet                     bloomDownsampleInputSet,
-        const vk::DescriptorSet                     bloomUpsampleInputSet) :
+        const vk::DescriptorPool                    samplerDescriptorPool) :
         mDevice(device), mFreyaOptions(freyaOptions), mSurface(surface),
         mRenderPass(renderPass), mVertexPipelineLayout(vertexPipelineLayout),
         mFullscreenPipelineLayout(fullscreenPipelineLayout),
-        mBloomPipelineLayout(bloomPipelineLayout),
-        mBloomAttachmentLayout(bloomAttachmentLayout),
         mUniformBuffer(uniformBuffer),
         mDescriptorSetLayouts(descriptorSetLayouts),
         mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool),
         mGBufferImages(gbufferImages), mEmissiveImage(emissiveImage),
         mDepthImage(depthImage), mTranslucentImage(translucentImage),
-        mOpaqueImage(opaqueImage), mBloomThresholdImage(bloomThresholdImage),
-        mBloomDownImage(bloomDownImage), mBloomUpImage(bloomUpImage),
-        mBloomResultImage(bloomResultImage), mFramebuffers(framebuffers),
+        mOpaqueImage(opaqueImage), mFramebuffers(framebuffers),
         mInputAttachmentLayout(inputAttachmentLayout),
         mInputAttachmentPool(inputAttachmentPool),
-        mLightingInputSet(lightingInputSet),
-        mCompositeInputSet(compositeInputSet), mSamplerLayout(samplerLayout),
-        mSamplerDescriptorPool(samplerDescriptorPool),
-        mBloomDescriptorPool(bloomDescriptorPool),
-        mBloomThresholdInputSet(bloomThresholdInputSet),
-        mBloomDownsampleInputSet(bloomDownsampleInputSet),
-        mBloomUpsampleInputSet(bloomUpsampleInputSet)
+        mLightingInputSet(lightingInputSet), mSamplerLayout(samplerLayout),
+        mSamplerDescriptorPool(samplerDescriptorPool)
     {
-        mPipelines[DeferredDepthPrePass]    = depthPrepassPipeline;
-        mPipelines[DeferredGBufferPass]     = gbufferPipeline;
-        mPipelines[DeferredLightingPass]    = lightingPipeline;
-        mPipelines[DeferredTranslucentPass] = translucentPipeline;
-        mPipelines[DeferredThresholdPass]   = thresholdPipeline;
-        mPipelines[DeferredDownsamplePass]  = downsamplePipeline;
-        mPipelines[DeferredUpsamplePass]    = upsamplePipeline;
-        mPipelines[DeferredCompositePass]   = compositePipeline;
+        mPipelines[DefDepthPrePass]    = depthPrepassPipeline;
+        mPipelines[DefGBufferPass]     = gbufferPipeline;
+        mPipelines[DefLightingPass]    = lightingPipeline;
+        mPipelines[DefTranslucentPass] = translucentPipeline;
     }
 
     DeferredCompressedPass::~DeferredCompressedPass()
     {
         auto& vkDevice = mDevice->Get();
 
-        // Destroy framebuffers
         for (auto& fb : mFramebuffers)
-        {
             vkDevice.destroyFramebuffer(fb);
-        }
 
-        // Destroy input attachment resources
         vkDevice.destroyDescriptorPool(mInputAttachmentPool);
         vkDevice.destroyDescriptorSetLayout(mInputAttachmentLayout);
 
-        // Destroy bloom descriptor resources
-        vkDevice.destroyDescriptorPool(mBloomDescriptorPool);
-        vkDevice.destroyDescriptorSetLayout(mBloomAttachmentLayout);
-        vkDevice.destroyPipelineLayout(mBloomPipelineLayout);
-
-        // Destroy sampler pool/layout
         vkDevice.destroyDescriptorPool(mSamplerDescriptorPool);
         vkDevice.destroyDescriptorSetLayout(mSamplerLayout);
 
-        // Destroy descriptor pool
         vkDevice.destroyDescriptorPool(mDescriptorPool);
 
-        // Destroy descriptor set layouts
         for (const auto& layout : mDescriptorSetLayouts)
-        {
             vkDevice.destroyDescriptorSetLayout(layout);
-        }
 
-        // Destroy pipelines
         for (auto& pipeline : mPipelines)
-        {
             vkDevice.destroyPipeline(pipeline);
-        }
 
-        // Destroy pipeline layouts
         vkDevice.destroyPipelineLayout(mVertexPipelineLayout);
         vkDevice.destroyPipelineLayout(mFullscreenPipelineLayout);
 
-        // Destroy render pass
         vkDevice.destroyRenderPass(mRenderPass);
 
-        // Destroy G-buffer and intermediate images (their Ref<> will release)
         mGBufferImages.clear();
         mDepthImage.reset();
+        mEmissiveImage.reset();
         mTranslucentImage.reset();
         mOpaqueImage.reset();
-        mBloomThresholdImage.reset();
-        mBloomDownImage.reset();
-        mBloomUpImage.reset();
-        mBloomResultImage.reset();
 
-        // Destroy uniform buffer
         mUniformBuffer.reset();
     }
 
@@ -177,42 +120,28 @@ namespace FREYA_NAMESPACE
     }
 
     void DeferredCompressedPass::Begin(
-        const Ref<SwapChain> swapChain, const Ref<CommandPool> commandPool)
-        const
+        const Ref<SwapChain>    swapChain,
+        const Ref<CommandPool>& commandPool) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 
-        // Debug label for the entire deferred render pass
-        beginDebugLabel(commandBuffer, "Deferred Render Pass", mDevice->Get());
+        beginDebugLabel(commandBuffer, "Gbuffer+Lighting Pass", mDevice->Get());
 
-        // 13 attachments need clear values.
-        // Depth: reverse-Z clears to 0.0 (far plane).
+        // 8 clear values (no backbuffer — composite pass handles it)
         auto clearValues = std::vector<vk::ClearValue> {
-            vk::ClearValue().setColor(mFreyaOptions->clearColor), // backbuffer
             vk::ClearValue().setDepthStencil(
                 vk::ClearDepthStencilValue().setDepth(
                     mFreyaOptions->ReverseZ ? 0.0f : 1.0f)),       // depth
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // position
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // normal
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // albedo
+            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // emissive
             vk::ClearValue().setColor(
-                { 0.0f, 0.0f, 0.0f, 0.0f }), // emissive (black)
-            vk::ClearValue().setColor(
-                { 0.0f, 0.5f, 0.0f,
-                  0.0f }), // material (metalness=0, roughness=0.5)
+                { 0.0f, 0.5f, 0.0f, 0.0f }), // material (metalness, roughness)
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // transl.
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // opaque
-            vk::ClearValue().setColor(
-                { 0.0f, 0.0f, 0.0f, 0.0f }), // bloom thresh
-            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // bloom down
-            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // bloom up
-            vk::ClearValue().setColor(
-                { 0.0f, 0.0f, 0.0f, 0.0f }) // bloom result
         };
 
-        // Framebuffer must be selected by the acquired swapchain image index
-        // (not the ring-buffer frame index) so we render to the same image
-        // that will be presented.
         const auto imageIndex = swapChain->GetCurrentImageIndex();
         const auto frameIndex = swapChain->GetCurrentFrameIndex();
 
@@ -225,14 +154,12 @@ namespace FREYA_NAMESPACE
                 .setClearValues(clearValues),
             vk::SubpassContents::eInline);
 
-        // We are now in subpass 0 (depth pre-pass).
-        // BindPipeline will open the first subpass debug label.
         mLabelActive = false;
-        BindPipeline(DeferredDepthPrePass, commandPool, frameIndex);
+        BindPipeline(DefDepthPrePass, commandPool, frameIndex);
     }
 
     void DeferredCompressedPass::NextSubpass(
-        const Ref<CommandPool> commandPool) const
+        const Ref<CommandPool>& commandPool) const
     {
         commandPool->GetCommandBuffer().nextSubpass(
             vk::SubpassContents::eInline);
@@ -245,8 +172,6 @@ namespace FREYA_NAMESPACE
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 
-        // Close previous subpass debug label (if any) before binding
-        // the next subpass pipeline.
         if (mLabelActive)
         {
             endDebugLabel(commandBuffer, mDevice->Get());
@@ -255,15 +180,12 @@ namespace FREYA_NAMESPACE
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                                    mPipelines[subpass]);
 
-        // Open a new subpass debug label for RenderDoc visualization
         beginDebugLabel(commandBuffer, GetSubpassLabel(subpass),
                         mDevice->Get());
         mLabelActive = true;
 
-        // Bind UBO descriptor set for subpasses that use it
-        // (depth, gbuffer, translucent all use UBO at set 0 binding 0)
-        if (subpass == DeferredDepthPrePass || subpass == DeferredGBufferPass ||
-            subpass == DeferredTranslucentPass)
+        if (subpass == DefDepthPrePass || subpass == DefGBufferPass ||
+            subpass == DefTranslucentPass)
         {
             commandBuffer.bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics,
@@ -275,8 +197,7 @@ namespace FREYA_NAMESPACE
                 nullptr);
         }
 
-        // Bind input attachment descriptor set for lighting subpass
-        if (subpass == DeferredLightingPass)
+        if (subpass == DefLightingPass)
         {
             commandBuffer.bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics,
@@ -284,58 +205,6 @@ namespace FREYA_NAMESPACE
                 0,
                 1,
                 &mLightingInputSet,
-                0,
-                nullptr);
-        }
-
-        // Bind input attachment descriptor set for composite subpass
-        if (subpass == DeferredCompositePass)
-        {
-            commandBuffer.bindDescriptorSets(
-                vk::PipelineBindPoint::eGraphics,
-                mFullscreenPipelineLayout,
-                0,
-                1,
-                &mCompositeInputSet,
-                0,
-                nullptr);
-        }
-
-        // Bind input attachment descriptor set for bloom threshold pass
-        if (subpass == DeferredThresholdPass)
-        {
-            commandBuffer.bindDescriptorSets(
-                vk::PipelineBindPoint::eGraphics,
-                mBloomPipelineLayout,
-                0,
-                1,
-                &mBloomThresholdInputSet,
-                0,
-                nullptr);
-        }
-
-        // Bind input attachment descriptor set for bloom downsample pass
-        if (subpass == DeferredDownsamplePass)
-        {
-            commandBuffer.bindDescriptorSets(
-                vk::PipelineBindPoint::eGraphics,
-                mBloomPipelineLayout,
-                0,
-                1,
-                &mBloomDownsampleInputSet,
-                0,
-                nullptr);
-        }
-
-        // Bind input attachment descriptor set for bloom upsample pass
-        if (subpass == DeferredUpsamplePass)
-        {
-            commandBuffer.bindDescriptorSets(
-                vk::PipelineBindPoint::eGraphics,
-                mBloomPipelineLayout,
-                0,
-                1,
-                &mBloomUpsampleInputSet,
                 0,
                 nullptr);
         }
@@ -360,7 +229,6 @@ namespace FREYA_NAMESPACE
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 
-        // Close the current subpass debug label
         if (mLabelActive)
         {
             endDebugLabel(commandBuffer, mDevice->Get());
@@ -369,7 +237,6 @@ namespace FREYA_NAMESPACE
 
         commandBuffer.endRenderPass();
 
-        // Close the "Deferred Render Pass" label opened in Begin()
         endDebugLabel(commandBuffer, mDevice->Get());
     }
 
@@ -403,22 +270,14 @@ namespace FREYA_NAMESPACE
     {
         switch (subpass)
         {
-            case DeferredDepthPrePass:
+            case DefDepthPrePass:
                 return "Depth Pre-pass";
-            case DeferredGBufferPass:
+            case DefGBufferPass:
                 return "G-buffer";
-            case DeferredLightingPass:
+            case DefLightingPass:
                 return "Lighting";
-            case DeferredTranslucentPass:
+            case DefTranslucentPass:
                 return "Translucent";
-            case DeferredThresholdPass:
-                return "Bloom Threshold";
-            case DeferredDownsamplePass:
-                return "Bloom Downsample";
-            case DeferredUpsamplePass:
-                return "Bloom Upsample";
-            case DeferredCompositePass:
-                return "Composite";
             default:
                 return "Unknown";
         }

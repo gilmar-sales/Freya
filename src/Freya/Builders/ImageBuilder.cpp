@@ -49,7 +49,9 @@ namespace FREYA_NAMESPACE
             case ImageUsage::Color:
                 imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment |
                                    vk::ImageUsageFlagBits::eSampled |
-                                   vk::ImageUsageFlagBits::eInputAttachment);
+                                   vk::ImageUsageFlagBits::eInputAttachment |
+                                   vk::ImageUsageFlagBits::eTransferSrc |
+                                   vk::ImageUsageFlagBits::eTransferDst);
                 break;
             case ImageUsage::Depth:
                 imageInfo.setUsage(
@@ -70,11 +72,16 @@ namespace FREYA_NAMESPACE
             case ImageUsage::GBufferPosition:
             case ImageUsage::GBufferNormal:
             case ImageUsage::GBufferAlbedo:
-            case ImageUsage::GBufferEmissive:
             case ImageUsage::GBufferMetalness:
             case ImageUsage::GBufferRoughness:
                 imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment |
                                    vk::ImageUsageFlagBits::eInputAttachment);
+                break;
+            case ImageUsage::GBufferEmissive:
+                // Need eSampled for cross-pass bloom read
+                imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment |
+                                   vk::ImageUsageFlagBits::eInputAttachment |
+                                   vk::ImageUsageFlagBits::eSampled);
                 break;
             default:
                 break;

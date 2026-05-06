@@ -1,6 +1,8 @@
 #include "RendererBuilder.hpp"
 
+#include "Freya/Builders/BloomPassBuilder.hpp"
 #include "Freya/Builders/CommandPoolBuilder.hpp"
+#include "Freya/Builders/CompositePassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/DeviceBuilder.hpp"
 #include "Freya/Builders/PhysicalDeviceBuilder.hpp"
@@ -44,18 +46,27 @@ namespace FREYA_NAMESPACE
                 ? "Deferred"
                 : "Forward");
 
-        // For deferred mode, build the DeferredCompressedPass with the
-        // SAME SwapChain that the Renderer will use, ensuring framebuffers
-        // reference the correct swapchain images.
         Ref<DeferredCompressedPass> deferredPass;
+        Ref<BloomPass>              bloomPass;
+        Ref<CompositePass>          compositePass;
+
         if (mFreyaOptions->renderingStrategy == RenderingStrategy::Deferred)
         {
             deferredPass =
                 mServiceProvider->GetService<DeferredCompressedPassBuilder>()
                     ->Build(mSwapChain);
+
+            // Bloom pass reads the emissive from deferred pass
+            bloomPass = mServiceProvider->GetService<BloomPassBuilder>()->Build(
+                mSwapChain,
+                deferredPass->GetEmissiveImage());
+
+            // Composite pass reads opaque, translucent from deferred pass
+            compositePass =
+                mServiceProvider->GetService<CompositePassBuilder>()->Build(
+                    mSwapChain);
         }
 
-        // Get light service
         auto lightService = mServiceProvider->GetService<LightService>();
 
         return skr::MakeRef<Renderer>(
@@ -66,6 +77,8 @@ namespace FREYA_NAMESPACE
             mSwapChain,
             mRenderPass,
             deferredPass,
+            bloomPass,
+            compositePass,
             mCommandPool,
             lightService,
             mServiceProvider,

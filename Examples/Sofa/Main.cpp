@@ -35,17 +35,18 @@ class MainApp final : public fra::AbstractApplication
         mSofaNormal = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/industrial_pipe_lamp_nor_gl.png");
         mSofaRoughness = mTexturePool->CreateTextureFromFile(
-        "./Resources/Textures/industrial_pipe_lamp_rough.png");
+            "./Resources/Textures/industrial_pipe_lamp_rough.png");
         mSofaEmissive = mTexturePool->CreateTextureFromFile(
-        "./Resources/Textures/industrial_pipe_lamp_emission.png");
+            "./Resources/Textures/industrial_pipe_lamp_emission.png");
         mSofaMetalness = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/industrial_pipe_lamp_metal.png");
 
         mSofaMaterial =
-            mMaterialPool->Create({ mSofaAlbedo, mSofaNormal, mSofaRoughness, mSofaEmissive, mSofaMetalness });
+            mMaterialPool->Create({ mSofaAlbedo, mSofaNormal, mSofaRoughness,
+                                    mSofaEmissive, mSofaMetalness });
 
-        mSofaModel =
-            mMeshPool->CreateMeshFromFile("./Resources/Models/industrial_pipe_lamp.glb");
+        mSofaModel = mMeshPool->CreateMeshFromFile(
+            "./Resources/Models/industrial_pipe_lamp.glb");
 
         mSpaceShipAlbedo = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/SpaceShip_Base_color.jpg");
@@ -158,7 +159,7 @@ class MainApp final : public fra::AbstractApplication
                 mMeshPool->DrawInstanced(mesh, 2, 2);
 
             // Subpass 1: G-buffer (writes position, normal, albedo)
-            mRenderer->AdvanceSubpass(fra::DeferredGBufferPass);
+            mRenderer->AdvanceSubpass(fra::DefGBufferPass);
         }
 
         // Draw with materials:

@@ -1,7 +1,10 @@
 #include "Renderer.hpp"
 
+#include "Freya/Builders/BloomPassBuilder.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
+#include "Freya/Builders/CompositePassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
+#include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/RenderPassBuilder.hpp"
 #include "Freya/Builders/SwapChainBuilder.hpp"
 #include "Freya/Core/Buffer.hpp"
@@ -20,6 +23,8 @@ namespace FREYA_NAMESPACE
         const Ref<SwapChain>&              swapChain,
         const Ref<RenderPass>&             forwardPass,
         const Ref<DeferredCompressedPass>& deferredPass,
+        const Ref<BloomPass>&              bloomPass,
+        const Ref<CompositePass>&          compositePass,
         const Ref<CommandPool>&            commandPool,
         const Ref<LightService>&           lightService,
         const Ref<skr::ServiceProvider>&   serviceProvider,
@@ -27,7 +32,8 @@ namespace FREYA_NAMESPACE
         const Ref<EventManager>&           eventManager) :
         mInstance(instance), mSurface(surface), mPhysicalDevice(physicalDevice),
         mDevice(device), mSwapChain(swapChain), mForwardPass(forwardPass),
-        mDeferredPass(deferredPass), mCommandPool(commandPool),
+        mDeferredPass(deferredPass), mBloomPass(bloomPass),
+        mCompositePass(compositePass), mCommandPool(commandPool),
         mLightService(lightService), mServiceProvider(serviceProvider),
         mFreyaOptions(freyaOptions), mEventManager(eventManager),
         mCurrentProjection({})
@@ -41,14 +47,48 @@ namespace FREYA_NAMESPACE
                     mResizeEvent = event;
                 }
             });
+
+        // Create bloom result image (full-res blit target)
+        const auto extent = mSwapChain->GetExtent();
+        mBloomResultImage =
+            mServiceProvider->GetService<ImageBuilder>()
+                ->SetUsage(ImageUsage::Color)
+                .SetFormat(vk::Format::eR16G16B16A16Sfloat)
+                .SetWidth(extent.width)
+                .SetHeight(extent.height)
+                .SetSamples(vk::SampleCountFlagBits::e1)
+                .Build();
+
+        // Create a linear sampler for bloom result
+        mBloomResultSampler = mDevice->Get().createSampler(
+            vk::SamplerCreateInfo()
+                .setMagFilter(vk::Filter::eLinear)
+                .setMinFilter(vk::Filter::eLinear)
+                .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+                .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
+                .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
+                .setAddressModeW(vk::SamplerAddressMode::eClampToEdge));
+
+        // Initialize composite descriptor sets for all frames
+        for (auto frame = 0; frame < mFreyaOptions->frameCount; frame++)
+        {
+            mCompositePass->UpdateDescriptorSet(
+                frame, mDeferredPass->GetOpaqueImage(),
+                mDeferredPass->GetTranslucentImage(), mBloomResultImage,
+                mBloomResultSampler);
+        }
     }
 
     Renderer::~Renderer()
     {
+        mDevice->Get().destroySampler(mBloomResultSampler);
+        mBloomResultImage.reset();
+        mBloomPass.reset();
+        mCompositePass.reset();
         mSwapChain.reset();
         mSurface.reset();
-        mForwardPass.reset();
         mDeferredPass.reset();
+        mForwardPass.reset();
         mCommandPool.reset();
         mDevice.reset();
         mInstance.reset();
@@ -61,14 +101,31 @@ namespace FREYA_NAMESPACE
         mSwapChain.reset();
         mSwapChain = mServiceProvider->GetService<SwapChainBuilder>()->Build();
 
-        // For deferred mode, also recreate the deferred pass (which owns
-        // framebuffers referencing swapchain images)
         if (IsDeferred())
         {
             mDeferredPass.reset();
             mDeferredPass =
                 mServiceProvider->GetService<DeferredCompressedPassBuilder>()
                     ->Build(mSwapChain);
+
+            mBloomPass.reset();
+            mBloomPass =
+                mServiceProvider->GetService<BloomPassBuilder>()->Build(
+                    mSwapChain, mDeferredPass->GetEmissiveImage());
+
+            mCompositePass.reset();
+            mCompositePass =
+                mServiceProvider->GetService<CompositePassBuilder>()->Build(
+                    mSwapChain);
+
+            // Reinitialize composite descriptor sets with new images
+            for (auto frame = 0; frame < mFreyaOptions->frameCount; frame++)
+            {
+                mCompositePass->UpdateDescriptorSet(
+                    frame, mDeferredPass->GetOpaqueImage(),
+                    mDeferredPass->GetTranslucentImage(), mBloomResultImage,
+                    mBloomResultSampler);
+            }
         }
     }
 
@@ -95,6 +152,24 @@ namespace FREYA_NAMESPACE
             mDeferredPass =
                 mServiceProvider->GetService<DeferredCompressedPassBuilder>()
                     ->Build(mSwapChain);
+
+            mBloomPass.reset();
+            mBloomPass =
+                mServiceProvider->GetService<BloomPassBuilder>()->Build(
+                    mSwapChain, mDeferredPass->GetEmissiveImage());
+
+            mCompositePass.reset();
+            mCompositePass =
+                mServiceProvider->GetService<CompositePassBuilder>()->Build(
+                    mSwapChain);
+
+            for (auto frame = 0; frame < mFreyaOptions->frameCount; frame++)
+            {
+                mCompositePass->UpdateDescriptorSet(
+                    frame, mDeferredPass->GetOpaqueImage(),
+                    mDeferredPass->GetTranslucentImage(), mBloomResultImage,
+                    mBloomResultSampler);
+            }
         }
     }
 
@@ -192,11 +267,117 @@ namespace FREYA_NAMESPACE
         projectionUniformBuffer.view = glm::lookAt(position, target, up);
         UpdateProjection(projectionUniformBuffer);
 
-        // Update light service with camera position for attenuation
         if (mLightService && mLightService->HasLights())
         {
             mLightService->Update(mSwapChain->GetCurrentFrameIndex(), position);
         }
+    }
+
+    void Renderer::blitBloomToFullRes(const Ref<CommandPool>& commandPool) const
+    {
+        auto commandBuffer = commandPool->GetCommandBuffer();
+
+        auto       bloomUpImage = mBloomPass->GetBloomUpImage();
+        const auto extent       = mSwapChain->GetExtent();
+        const auto halfW        = static_cast<int32_t>(extent.width / 2);
+        const auto halfH        = static_cast<int32_t>(extent.height / 2);
+
+        // Transition bloom up to transfer source
+        auto srcBarrier =
+            vk::ImageMemoryBarrier()
+                .setImage(bloomUpImage->GetImage())
+                .setSrcAccessMask(vk::AccessFlagBits::eShaderRead)
+                .setDstAccessMask(vk::AccessFlagBits::eTransferRead)
+                .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setNewLayout(vk::ImageLayout::eTransferSrcOptimal)
+                .setSubresourceRange(
+                    vk::ImageSubresourceRange()
+                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                        .setBaseMipLevel(0)
+                        .setLevelCount(1)
+                        .setBaseArrayLayer(0)
+                        .setLayerCount(1));
+
+        commandBuffer.pipelineBarrier(
+            vk::PipelineStageFlagBits::eFragmentShader,
+            vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(),
+            nullptr, nullptr, srcBarrier);
+
+        // Transition bloom result to transfer destination
+        auto dstBarrier =
+            vk::ImageMemoryBarrier()
+                .setImage(mBloomResultImage->GetImage())
+                .setSrcAccessMask(vk::AccessFlagBits::eNone)
+                .setDstAccessMask(vk::AccessFlagBits::eTransferWrite)
+                .setOldLayout(vk::ImageLayout::eUndefined)
+                .setNewLayout(vk::ImageLayout::eTransferDstOptimal)
+                .setSubresourceRange(
+                    vk::ImageSubresourceRange()
+                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                        .setBaseMipLevel(0)
+                        .setLevelCount(1)
+                        .setBaseArrayLayer(0)
+                        .setLayerCount(1));
+
+        commandBuffer.pipelineBarrier(
+            vk::PipelineStageFlagBits::eTopOfPipe,
+            vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(),
+            nullptr, nullptr, dstBarrier);
+
+        // Blit: half-res bloom up → full-res bloom result
+        auto blitRegion =
+            vk::ImageBlit {}
+                .setSrcSubresource(
+                    vk::ImageSubresourceLayers {}
+                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                        .setMipLevel(0)
+                        .setBaseArrayLayer(0)
+                        .setLayerCount(1))
+                .setDstSubresource(
+                    vk::ImageSubresourceLayers {}
+                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                        .setMipLevel(0)
+                        .setBaseArrayLayer(0)
+                        .setLayerCount(1));
+
+        auto srcOffsets = std::array { vk::Offset3D { 0, 0, 0 },
+                                       vk::Offset3D { halfW, halfH, 1 } };
+        auto dstOffsets = std::array {
+            vk::Offset3D { 0, 0, 0 },
+            vk::Offset3D { static_cast<int32_t>(extent.width),
+                           static_cast<int32_t>(extent.height), 1 }
+        };
+
+        blitRegion.setSrcOffsets(srcOffsets);
+        blitRegion.setDstOffsets(dstOffsets);
+
+        auto blitRegions = std::array { blitRegion };
+
+        commandBuffer.blitImage(
+            bloomUpImage->GetImage(), vk::ImageLayout::eTransferSrcOptimal,
+            mBloomResultImage->GetImage(), vk::ImageLayout::eTransferDstOptimal,
+            blitRegions, vk::Filter::eLinear);
+
+        // Transition bloom result to shader read-only
+        auto finalBarrier =
+            vk::ImageMemoryBarrier()
+                .setImage(mBloomResultImage->GetImage())
+                .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
+                .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setSubresourceRange(
+                    vk::ImageSubresourceRange()
+                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                        .setBaseMipLevel(0)
+                        .setLevelCount(1)
+                        .setBaseArrayLayer(0)
+                        .setLayerCount(1));
+
+        commandBuffer.pipelineBarrier(
+            vk::PipelineStageFlagBits::eTransfer,
+            vk::PipelineStageFlagBits::eFragmentShader, vk::DependencyFlags(),
+            nullptr, nullptr, finalBarrier);
     }
 
     vk::PipelineLayout Renderer::GetActivePipelineLayout() const
@@ -269,7 +450,7 @@ namespace FREYA_NAMESPACE
 
         commandBuffer.begin(beginInfo);
 
-        // Begin the active render pass
+        // Begin the Gbuffer+Lighting pass (deferred) or forward pass
         if (IsDeferred() && mDeferredPass)
         {
             mDeferredPass->Begin(mSwapChain, mCommandPool);
@@ -279,7 +460,7 @@ namespace FREYA_NAMESPACE
             mForwardPass->Begin(mSwapChain, mCommandPool);
         }
 
-        // Viewport and scissor are the same regardless of pass type
+        // Viewport and scissor
         const auto viewport =
             vk::Viewport()
                 .setX(0)
@@ -301,52 +482,94 @@ namespace FREYA_NAMESPACE
     {
         if (IsDeferred() && mDeferredPass)
         {
-            // The user drew in subpass 0 (depth pre-pass) and should have
-            // advanced to subpass 1 (G-buffer) and drawn there too.
-            // EndFrame handles the remaining subpasses:
-            //   subpass 2 (lighting)   — fullscreen triangle
-            //   subpass 3 (translucent) — skip (no translucent geometry)
-            //   subpass 4 (threshold) — bloom threshold extraction
-            //   subpass 5 (downsample) — half-resolution blur
-            //   subpass 6 (upsample) — restore to full resolution
-            //   subpass 7 (composite) — fullscreen triangle with bloom
-
             auto frameIndex = mSwapChain->GetCurrentFrameIndex();
 
-            // Lighting pass
-            mDeferredPass->AdvanceSubpass(DeferredLightingPass,
+            // Subpass 2: lighting (fullscreen triangle)
+            mDeferredPass->AdvanceSubpass(DefLightingPass,
                                           mCommandPool,
                                           frameIndex);
             mDeferredPass->DrawFullscreenTriangle(mCommandPool);
 
-            // Skip translucent pass (no translucent geometry)
-            mDeferredPass->AdvanceSubpass(DeferredTranslucentPass,
+            // Subpass 3: translucent (skip — no translucent geometry)
+            mDeferredPass->AdvanceSubpass(DefTranslucentPass,
                                           mCommandPool,
                                           frameIndex);
 
-            // Bloom passes: threshold -> downsample -> upsample
-            mDeferredPass->AdvanceSubpass(DeferredThresholdPass,
-                                          mCommandPool,
-                                          frameIndex);
-            mDeferredPass->DrawFullscreenTriangle(mCommandPool);
-
-            mDeferredPass->AdvanceSubpass(DeferredDownsamplePass,
-                                          mCommandPool,
-                                          frameIndex);
-            mDeferredPass->DrawFullscreenTriangle(mCommandPool);
-
-            mDeferredPass->AdvanceSubpass(DeferredUpsamplePass,
-                                          mCommandPool,
-                                          frameIndex);
-            mDeferredPass->DrawFullscreenTriangle(mCommandPool);
-
-            // Final composite
-            mDeferredPass->AdvanceSubpass(DeferredCompositePass,
-                                          mCommandPool,
-                                          frameIndex);
-            mDeferredPass->DrawFullscreenTriangle(mCommandPool);
-
+            // End deferred Gbuffer+Lighting pass
             mDeferredPass->End(mCommandPool);
+
+            // --- Bloom pass (half resolution) ---
+            const auto extent        = mSwapChain->GetExtent();
+            const auto halfW         = std::max(1u, extent.width / 2);
+            const auto halfH         = std::max(1u, extent.height / 2);
+            const auto commandBuffer = mCommandPool->GetCommandBuffer();
+
+            // Viewport for half-res bloom
+            auto bloomViewport =
+                vk::Viewport()
+                    .setX(0)
+                    .setY(0)
+                    .setWidth(static_cast<float>(halfW))
+                    .setHeight(static_cast<float>(halfH))
+                    .setMinDepth(0.0f)
+                    .setMaxDepth(1.0f);
+
+            auto bloomScissor = vk::Rect2D().setOffset({ 0, 0 }).setExtent(
+                vk::Extent2D { halfW, halfH });
+
+            commandBuffer.setViewport(0, 1, &bloomViewport);
+            commandBuffer.setScissor(0, 1, &bloomScissor);
+
+            mBloomPass->Begin(mSwapChain, mCommandPool);
+
+            // Subpass 0: threshold
+            // Already bound in Begin()
+            mBloomPass->DrawFullscreenTriangle(mCommandPool);
+
+            // Subpass 1: downsample
+            mBloomPass->AdvanceSubpass(
+                BloomDownsampleSubpass, mCommandPool, frameIndex);
+            mBloomPass->DrawFullscreenTriangle(mCommandPool);
+
+            // Subpass 2: upsample
+            mBloomPass->AdvanceSubpass(
+                BloomUpsampleSubpass, mCommandPool, frameIndex);
+            mBloomPass->DrawFullscreenTriangle(mCommandPool);
+
+            mBloomPass->End(mCommandPool);
+
+            // --- Blit bloom up (half res) → bloom result (full res) ---
+            blitBloomToFullRes(mCommandPool);
+
+            // --- Composite pass (full resolution) ---
+            auto fullViewport =
+                vk::Viewport()
+                    .setX(0)
+                    .setY(0)
+                    .setWidth(static_cast<float>(extent.width))
+                    .setHeight(static_cast<float>(extent.height))
+                    .setMinDepth(0.0f)
+                    .setMaxDepth(1.0f);
+
+            auto fullScissor =
+                vk::Rect2D().setOffset({ 0, 0 }).setExtent(extent);
+
+            commandBuffer.setViewport(0, 1, &fullViewport);
+            commandBuffer.setScissor(0, 1, &fullScissor);
+
+            // Update descriptor set for this frame (images persist, but
+            // ensure the correct frame's descriptor set points to valid
+            // images)
+            mCompositePass->UpdateDescriptorSet(
+                frameIndex, mDeferredPass->GetOpaqueImage(),
+                mDeferredPass->GetTranslucentImage(), mBloomResultImage,
+                mBloomResultSampler);
+
+            mCompositePass->Begin(mSwapChain, mCommandPool,
+                                  mFreyaOptions->clearColor);
+            mCompositePass->BindPipeline(mCommandPool, frameIndex);
+            mCompositePass->DrawFullscreenTriangle(mCommandPool);
+            mCompositePass->End(mCommandPool);
         }
         else
         {
@@ -383,9 +606,8 @@ namespace FREYA_NAMESPACE
     {
         if (IsDeferred() && mDeferredPass)
         {
-            mDeferredPass->BindPipeline(subpass,
-                                        mCommandPool,
-                                        mSwapChain->GetCurrentFrameIndex());
+            mDeferredPass->BindPipeline(
+                subpass, mCommandPool, mSwapChain->GetCurrentFrameIndex());
         }
     }
 
@@ -393,9 +615,8 @@ namespace FREYA_NAMESPACE
     {
         if (IsDeferred() && mDeferredPass)
         {
-            mDeferredPass->AdvanceSubpass(subpass,
-                                          mCommandPool,
-                                          mSwapChain->GetCurrentFrameIndex());
+            mDeferredPass->AdvanceSubpass(
+                subpass, mCommandPool, mSwapChain->GetCurrentFrameIndex());
         }
     }
 
