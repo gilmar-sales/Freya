@@ -23,9 +23,7 @@
 # Find path to glslc from the Vulkan SDK.
 macro(find_glslc)
     if(NOT GLSLC)
-        find_program(GLSLC glslc
-            PATHS "$ENV{VULKAN_SDK}/Bin"
-        )
+        find_program(GLSLC glslc)
         if(GLSLC)
             message(STATUS "Found glslc: ${GLSLC}")
         else()
