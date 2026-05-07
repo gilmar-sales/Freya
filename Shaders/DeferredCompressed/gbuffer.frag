@@ -20,7 +20,6 @@ void main() {
     outPosition = vec4(inPosition, 1.0);
 
     vec3 N = normalize(inNormal);
-    N.y = -N.y;
 
     // Sample and decode normal from normal map
     vec3 normalTex = texture(uNormalTexture, inTexCoord).rgb * 2.0 - 1.0;
@@ -36,7 +35,7 @@ void main() {
     vec3 N_for_TBN = normalize(N);
     
     mat3 TBN = mat3(T, B, N_for_TBN);
-    vec3 normalMapNormal = normalTex * 2.0 - 1.0;
+    vec3 normalMapNormal = normalTex;
     
     // normalStrength: 0.0 = use only geometric normal, 1.0 = full normal map influence
     float normalStrength = 1.0;
