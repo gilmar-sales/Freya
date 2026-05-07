@@ -126,7 +126,7 @@ class MainApp final : public fra::AbstractApplication
             mLightService->UpdateLightPosition(i, glm::vec3(x, y, z));
         }
 
-        mRenderer->BeginFrame(); // subpass 0 (depth pre-pass in deferred)
+        mRenderer->BeginFrame();
 
         // Orbit camera around the origin
         constexpr float radius = 15.0f;
@@ -147,24 +147,18 @@ class MainApp final : public fra::AbstractApplication
             mInstanceMatrixBuffers->Copy(
                 &mModelMatrix[0][0], sizeof(glm::mat4) * 4);
 
-        if (mRenderer->IsDeferred())
-        {
-            // Subpass 0: depth pre-pass (only writes depth, no material
-            // needed)
-            mRenderer->BindBuffer(mInstanceMatrixBuffers);
-            for (const auto& mesh : mSofaModel)
-                mRenderer->DrawInstanced(mesh, mSofaMaterial, 2, 2);
-
-            // Subpass 1: G-buffer (writes position, normal, albedo)
-            mRenderer->AdvanceSubpass(fra::DefGBufferPass);
-        }
-
-        // Draw with materials:
-        //   - Deferred: subpass 1 (G-buffer)
-        //   - Forward:  single subpass (albedo, normal, roughness)
         mRenderer->BindBuffer(mInstanceMatrixBuffers);
+
+        // Queue draw commands (stored in Renderer, reused for depth pre-pass
+        // and gbuffer)
         for (const auto& mesh : mSofaModel)
             mRenderer->DrawInstanced(mesh, mSofaMaterial, 2, 2);
+
+        // In deferred mode, Renderer automatically:
+        //   1. Executes draw commands in depth pre-pass (no material binding)
+        //   2. Advances to G-buffer subpass
+        //   3. Executes draw commands with materials for G-buffer
+        // In forward mode, executes draw commands once with materials.
 
         // EndFrame advances to lighting → translucent → composite
         // and draws the fullscreen triangles for lighting + composite.

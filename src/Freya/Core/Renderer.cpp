@@ -796,8 +796,7 @@ namespace FREYA_NAMESPACE
     void Renderer::Draw(const std::uint32_t meshId,
                         const std::uint32_t materialId)
     {
-        BindMaterial(materialId);
-        mMeshPool->Draw(meshId);
+        mDrawCommands.push_back({ meshId, materialId, 1, 0 });
     }
 
     void Renderer::DrawInstanced(const std::uint32_t meshId,
@@ -805,13 +804,33 @@ namespace FREYA_NAMESPACE
                                  const size_t        instanceCount,
                                  const size_t        firstInstance)
     {
-        BindMaterial(materialId);
-        mMeshPool->DrawInstanced(meshId, instanceCount, firstInstance);
+        mDrawCommands.push_back(
+            { meshId, materialId, static_cast<std::uint32_t>(instanceCount),
+              static_cast<std::uint32_t>(firstInstance) });
+    }
+
+    void Renderer::ClearDrawCommands()
+    {
+        mDrawCommands.clear();
+    }
+
+    void Renderer::ExecuteDrawCommands(const bool bindMaterials)
+    {
+        for (const auto& cmd : mDrawCommands)
+        {
+            if (bindMaterials)
+            {
+                BindMaterial(cmd.materialId);
+            }
+            mMeshPool->DrawInstanced(
+                cmd.meshId, cmd.instanceCount, cmd.firstInstance);
+        }
     }
 
     void Renderer::BeginFrame()
     {
         mSwapChain->WaitNextFrame();
+        mDrawCommands.clear();
 
         if (mResizeEvent.has_value())
         {
@@ -879,7 +898,24 @@ namespace FREYA_NAMESPACE
     {
         if (IsDeferred() && mDeferredPass)
         {
-            auto frameIndex = mSwapChain->GetCurrentFrameIndex();
+            auto frameIndex     = mSwapChain->GetCurrentFrameIndex();
+            auto currentSubpass = mDeferredPass->GetCurrentSubpass();
+
+            // Handle stored draw commands for depth pre-pass and gbuffer
+            if (currentSubpass == DefDepthPrePass)
+            {
+                // Execute depth pre-pass draws (no material binding needed)
+                ExecuteDrawCommands(false);
+                // Advance to G-buffer and execute with materials
+                mDeferredPass->AdvanceSubpass(
+                    DefGBufferPass, mCommandPool, frameIndex);
+                ExecuteDrawCommands(true);
+            }
+            else if (currentSubpass == DefGBufferPass)
+            {
+                // Execute gbuffer draws with materials
+                ExecuteDrawCommands(true);
+            }
 
             // Subpass 2: lighting (fullscreen triangle)
             mDeferredPass->AdvanceSubpass(DefLightingPass,

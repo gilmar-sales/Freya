@@ -138,6 +138,8 @@ namespace FREYA_NAMESPACE
             return mFramebuffers[index];
         }
 
+        std::uint32_t GetCurrentSubpass() const { return mCurrentSubpass; }
+
         Ref<Device>       mDevice;
         Ref<FreyaOptions> mFreyaOptions;
         Ref<Surface>      mSurface;
@@ -177,6 +179,9 @@ namespace FREYA_NAMESPACE
 
         // Debug label state
         mutable bool mLabelActive = false;
+
+        // Current subpass tracking
+        mutable std::uint32_t mCurrentSubpass = DefDepthPrePass;
 
         static const char* GetSubpassLabel(std::uint32_t subpass);
     };

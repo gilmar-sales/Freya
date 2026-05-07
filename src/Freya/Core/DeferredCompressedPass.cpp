@@ -154,7 +154,8 @@ namespace FREYA_NAMESPACE
                 .setClearValues(clearValues),
             vk::SubpassContents::eInline);
 
-        mLabelActive = false;
+        mLabelActive    = false;
+        mCurrentSubpass = DefDepthPrePass;
         BindPipeline(DefDepthPrePass, commandPool, frameIndex);
     }
 
@@ -182,7 +183,8 @@ namespace FREYA_NAMESPACE
 
         beginDebugLabel(commandBuffer, GetSubpassLabel(subpass),
                         mDevice->Get());
-        mLabelActive = true;
+        mLabelActive    = true;
+        mCurrentSubpass = subpass;
 
         if (subpass == DefDepthPrePass || subpass == DefGBufferPass ||
             subpass == DefTranslucentPass)

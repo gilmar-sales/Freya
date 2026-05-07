@@ -20,6 +20,17 @@ namespace FREYA_NAMESPACE
 {
     class Buffer;
 
+    /**
+     * @brief Stored draw command for reuse across rendering passes.
+     */
+    struct DrawCommand
+    {
+        std::uint32_t meshId;
+        std::uint32_t materialId;
+        std::uint32_t instanceCount;
+        std::uint32_t firstInstance;
+    };
+
     class Renderer
     {
       public:
@@ -80,6 +91,10 @@ namespace FREYA_NAMESPACE
                            std::uint32_t materialId,
                            size_t        instanceCount,
                            size_t        firstInstance = 0);
+
+        // Stored draw command management
+        void ClearDrawCommands();
+        void ExecuteDrawCommands(bool bindMaterials = true);
 
         glm::mat4 MakeProjection(float fovRadians, float aspect, float near,
                                  float far) const;
@@ -168,6 +183,10 @@ namespace FREYA_NAMESPACE
         Ref<Image>                   mForwardDepthImage;
         vk::RenderPass               mForwardOffscreenRenderPass;
         std::vector<vk::Framebuffer> mForwardOffscreenFramebuffers;
+
+        // Stored draw commands for reuse across passes (depth pre-pass,
+        // gbuffer)
+        std::vector<DrawCommand> mDrawCommands;
     };
 
 } // namespace FREYA_NAMESPACE
