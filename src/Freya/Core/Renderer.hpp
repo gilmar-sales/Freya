@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Core/BloomPass.hpp"
@@ -73,6 +74,13 @@ namespace FREYA_NAMESPACE
         }
         void SetDrawDistance(float drawDistance);
 
+        // Draw commands with material binding
+        void Draw(std::uint32_t meshId, std::uint32_t materialId);
+        void DrawInstanced(std::uint32_t meshId,
+                           std::uint32_t materialId,
+                           size_t        instanceCount,
+                           size_t        firstInstance = 0);
+
         glm::mat4 MakeProjection(float fovRadians, float aspect, float near,
                                  float far) const;
 
@@ -95,6 +103,7 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] BufferBuilder GetBufferBuilder() const;
         void                        BindBuffer(const Ref<Buffer>& buffer) const;
+        void                        BindMaterial(std::uint32_t materialId);
 
         std::uint32_t GetCurrentFrameIndex() const
         {
@@ -140,6 +149,10 @@ namespace FREYA_NAMESPACE
         Ref<LightService>           mLightService;
         Ref<EventManager>           mEventManager;
         Ref<FreyaOptions>           mFreyaOptions;
+
+        // Mesh and Material pools for draw commands
+        Ref<MeshPool>     mMeshPool;
+        Ref<MaterialPool> mMaterialPool;
 
         std::optional<WindowResizeEvent> mResizeEvent;
 

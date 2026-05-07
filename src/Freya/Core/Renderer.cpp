@@ -1,5 +1,6 @@
 #include "Renderer.hpp"
 
+#include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Builders/BloomPassBuilder.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/CompositePassBuilder.hpp"
@@ -40,7 +41,9 @@ namespace FREYA_NAMESPACE
         mFreyaOptions(freyaOptions), mEventManager(eventManager),
         mCurrentProjection({}), mForwardColorImage(forwardColorImage),
         mForwardResolveImage(forwardResolveImage),
-        mForwardOffscreenRenderPass(VK_NULL_HANDLE)
+        mForwardOffscreenRenderPass(VK_NULL_HANDLE),
+        mMeshPool(serviceProvider->GetService<MeshPool>()),
+        mMaterialPool(serviceProvider->GetService<MaterialPool>())
     {
         ClearProjections();
 
@@ -776,6 +779,34 @@ namespace FREYA_NAMESPACE
     void Renderer::BindBuffer(const Ref<Buffer>& buffer) const
     {
         buffer->Bind(mCommandPool);
+    }
+
+    void Renderer::BindMaterial(const std::uint32_t materialId)
+    {
+        auto material = mMaterialPool->GetMaterial(materialId);
+
+        mCommandPool->GetCommandBuffer().bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics,
+            GetActivePipelineLayout(),
+            1,
+            material.descriptorSets,
+            nullptr);
+    }
+
+    void Renderer::Draw(const std::uint32_t meshId,
+                        const std::uint32_t materialId)
+    {
+        BindMaterial(materialId);
+        mMeshPool->Draw(meshId);
+    }
+
+    void Renderer::DrawInstanced(const std::uint32_t meshId,
+                                 const std::uint32_t materialId,
+                                 const size_t        instanceCount,
+                                 const size_t        firstInstance)
+    {
+        BindMaterial(materialId);
+        mMeshPool->DrawInstanced(meshId, instanceCount, firstInstance);
     }
 
     void Renderer::BeginFrame()

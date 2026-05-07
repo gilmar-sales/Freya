@@ -90,8 +90,8 @@ namespace FREYA_NAMESPACE
                     .setDescriptorCount(1)
                     .setImageInfo(imageInfo);
 
-            mDevice->Get()
-                .updateDescriptorSets(1, &samplerDescriptorWriter, 0, nullptr);
+            mDevice->Get().updateDescriptorSets(
+                1, &samplerDescriptorWriter, 0, nullptr);
         }
 
         mMaterials.insert(material);
@@ -99,18 +99,8 @@ namespace FREYA_NAMESPACE
         return material.id;
     }
 
-    void MaterialPool::Bind(std::uint32_t materialId)
+    Material& MaterialPool::GetMaterial(uint32_t materialId)
     {
-        if (!mMaterials.contains(materialId))
-            return;
-
-        const auto& material = mMaterials[materialId];
-
-        mCommandPool->GetCommandBuffer().bindDescriptorSets(
-            vk::PipelineBindPoint::eGraphics,
-            mRenderer->GetActivePipelineLayout(),
-            1,
-            material.descriptorSets,
-            nullptr);
+        return mMaterials[materialId];
     }
 } // namespace FREYA_NAMESPACE

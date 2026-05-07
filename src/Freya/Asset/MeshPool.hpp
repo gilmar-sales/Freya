@@ -13,6 +13,8 @@
 
 namespace FREYA_NAMESPACE
 {
+    class Renderer;
+
     /**
      * @brief Manages mesh buffers and GPU-side mesh storage.
      *
@@ -35,22 +37,6 @@ namespace FREYA_NAMESPACE
                  const Ref<skr::Logger<MeshPool>>& logger);
 
         /**
-         * @brief Draws a single mesh by ID.
-         * @param meshId Mesh identifier returned from CreateMesh
-         */
-        void Draw(std::uint32_t meshId);
-
-        /**
-         * @brief Draws multiple instances of a mesh.
-         * @param meshId       Mesh identifier
-         * @param instanceCount Number of instances to draw
-         * @param firstInstance First instance index (default 0)
-         */
-        void DrawInstanced(std::uint32_t meshId,
-                           size_t        instanceCount,
-                           size_t        firstInstance = 0);
-
-        /**
          * @brief Creates a mesh from CPU vertex/index data.
          * @param vertices Vector of Vertex structures
          * @param indices  Vector of 16-bit indices
@@ -67,6 +53,7 @@ namespace FREYA_NAMESPACE
         std::vector<std::uint32_t> CreateMeshFromFile(const std::string& path);
 
       protected:
+        friend class FREYA_NAMESPACE::Renderer;
         /**
          * @brief Creates a new vertex buffer of given size.
          * @param size Buffer size in bytes
@@ -129,6 +116,22 @@ namespace FREYA_NAMESPACE
          * @return Staging buffer reference
          */
         Ref<Buffer> createStagingBuffer(std::uint32_t size);
+
+        /**
+         * @brief Draws a single mesh by ID.
+         * @param meshId Mesh identifier returned from CreateMesh
+         */
+        void Draw(std::uint32_t meshId);
+
+        /**
+         * @brief Draws multiple instances of a mesh.
+         * @param meshId       Mesh identifier
+         * @param instanceCount Number of instances to draw
+         * @param firstInstance First instance index (default 0)
+         */
+        void DrawInstanced(std::uint32_t meshId,
+                           size_t        instanceCount,
+                           size_t        firstInstance = 0);
 
       private:
         Ref<Device>                mDevice;

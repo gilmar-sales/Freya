@@ -152,11 +152,8 @@ class MainApp final : public fra::AbstractApplication
             // Subpass 0: depth pre-pass (only writes depth, no material
             // needed)
             mRenderer->BindBuffer(mInstanceMatrixBuffers);
-            //
-            // for (const auto& mesh : mSpaceShipModel)
-            //     mMeshPool->DrawInstanced(mesh, 2);
             for (const auto& mesh : mSofaModel)
-                mMeshPool->DrawInstanced(mesh, 2, 2);
+                mRenderer->DrawInstanced(mesh, mSofaMaterial, 2, 2);
 
             // Subpass 1: G-buffer (writes position, normal, albedo)
             mRenderer->AdvanceSubpass(fra::DefGBufferPass);
@@ -166,14 +163,8 @@ class MainApp final : public fra::AbstractApplication
         //   - Deferred: subpass 1 (G-buffer)
         //   - Forward:  single subpass (albedo, normal, roughness)
         mRenderer->BindBuffer(mInstanceMatrixBuffers);
-        //
-        // mMaterialPool->Bind(mSpaceShipMaterial);
-        // for (const auto& mesh : mSpaceShipModel)
-        //     mMeshPool->DrawInstanced(mesh, 2);
-
-        mMaterialPool->Bind(mSofaMaterial);
         for (const auto& mesh : mSofaModel)
-            mMeshPool->DrawInstanced(mesh, 2, 2);
+            mRenderer->DrawInstanced(mesh, mSofaMaterial, 2, 2);
 
         // EndFrame advances to lighting → translucent → composite
         // and draws the fullscreen triangles for lighting + composite.

@@ -39,11 +39,9 @@ namespace FREYA_NAMESPACE
                      const Ref<CommandPool>&               commandPool,
                      const Ref<RenderPass>&                renderPass,
                      const Ref<TexturePool>&               texturePool,
-                     const Ref<skr::Logger<MaterialPool>>& logger,
-                     const Ref<Renderer>&                  renderer) :
+                     const Ref<skr::Logger<MaterialPool>>& logger) :
             mDevice(device), mCommandPool(commandPool), mRenderPass(renderPass),
-            mTexturePool(texturePool), mLogger(logger), mRenderer(renderer),
-            mMaterials(4096) {};
+            mTexturePool(texturePool), mLogger(logger), mMaterials(4096) {};
 
         ~MaterialPool() = default;
 
@@ -63,13 +61,9 @@ namespace FREYA_NAMESPACE
          */
         std::uint32_t Create(std::vector<std::uint32_t> textures);
 
-        /**
-         * @brief Binds material's descriptor sets to the command buffer.
-         * Uses the active pipeline layout from the Renderer (supports both
-         * forward and deferred strategies automatically).
-         * @param materialId Material identifier
-         */
-        void Bind(std::uint32_t materialId);
+      protected:
+        friend class FREYA_NAMESPACE::Renderer;
+        Material& GetMaterial(uint32_t uint32);
 
       private:
         Ref<Device>                    mDevice;
@@ -77,7 +71,6 @@ namespace FREYA_NAMESPACE
         Ref<RenderPass>                mRenderPass;
         Ref<TexturePool>               mTexturePool;
         Ref<skr::Logger<MaterialPool>> mLogger;
-        Ref<Renderer>                  mRenderer;
 
         MaterialSet mMaterials;
     };
