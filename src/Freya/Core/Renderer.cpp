@@ -341,7 +341,17 @@ namespace FREYA_NAMESPACE
         destroyForwardOffscreenResources();
         mSwapChain.reset();
         mSwapChain = mServiceProvider->GetService<SwapChainBuilder>()->Build();
-
+        // Recreate bloom result image at new full resolution
+        mBloomResultImage.reset();
+        const auto bloomExtent = mSwapChain->GetExtent();
+        mBloomResultImage =
+            mServiceProvider->GetService<ImageBuilder>()
+                ->SetUsage(ImageUsage::Color)
+                .SetFormat(vk::Format::eR16G16B16A16Sfloat)
+                .SetWidth(bloomExtent.width)
+                .SetHeight(bloomExtent.height)
+                .SetSamples(vk::SampleCountFlagBits::e1)
+                .Build();
         if (IsDeferred())
         {
             mDeferredPass.reset();
