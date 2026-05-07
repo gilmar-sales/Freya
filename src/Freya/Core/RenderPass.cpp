@@ -47,6 +47,34 @@ namespace FREYA_NAMESPACE
                                commandPool) const
 
     {
+        const auto frameIndex = swapChain->GetCurrentFrameIndex();
+        Begin(mRenderPass,
+              swapChain->GetCurrentFrame().frameBuffer,
+              swapChain->GetExtent(),
+              frameIndex,
+              commandPool);
+    }
+
+    /**
+     * @brief Begins render pass with a custom render pass and framebuffer.
+     *
+     * Useful for offscreen forward rendering where the swapchain is not
+     * the direct target. The render pass must be compatible (same
+     * attachment formats, sample counts, subpass structure) so that
+     * this forward pass's pipeline can be bound.
+     *
+     * @param renderPass  Compatible render pass handle
+     * @param framebuffer Framebuffer handle (offscreen or swapchain)
+     * @param extent      Render area extent
+     * @param frameIndex  Frame index for descriptor set selection
+     * @param commandPool Command pool for current command buffer
+     */
+    void RenderPass::Begin(const vk::RenderPass&   renderPass,
+                           const vk::Framebuffer&  framebuffer,
+                           const vk::Extent2D&     extent,
+                           const std::uint32_t     frameIndex,
+                           const Ref<CommandPool>& commandPool) const
+    {
         auto commandBuffer = commandPool->GetCommandBuffer();
 
         // Reverse-Z: clear depth to 0.0 (far plane) so that nearer fragments
@@ -60,10 +88,10 @@ namespace FREYA_NAMESPACE
 
         commandBuffer.beginRenderPass(
             vk::RenderPassBeginInfo()
-                .setRenderPass(mRenderPass)
-                .setFramebuffer(swapChain->GetCurrentFrame().frameBuffer)
-                .setRenderArea(vk::Rect2D().setOffset({ 0, 0 }).setExtent(
-                    swapChain->GetExtent()))
+                .setRenderPass(renderPass)
+                .setFramebuffer(framebuffer)
+                .setRenderArea(
+                    vk::Rect2D().setOffset({ 0, 0 }).setExtent(extent))
                 .setClearValues(clearValues),
             vk::SubpassContents::eInline);
 
@@ -73,7 +101,6 @@ namespace FREYA_NAMESPACE
         // Bind descriptor set 0 (UBO) and fallback set 1 (samplers) so that
         // draw calls without an explicit MaterialPool::Bind() still have valid
         // texture descriptors. MaterialPool::Bind() overwrites set 1 later.
-        const auto frameIndex           = swapChain->GetCurrentFrameIndex();
         const auto descriptorSetsToBind = std::array {
             mDescriptorSets[frameIndex],
             mFallbackSamplerSet,

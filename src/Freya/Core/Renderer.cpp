@@ -29,14 +29,18 @@ namespace FREYA_NAMESPACE
         const Ref<LightService>&           lightService,
         const Ref<skr::ServiceProvider>&   serviceProvider,
         const Ref<FreyaOptions>&           freyaOptions,
-        const Ref<EventManager>&           eventManager) :
+        const Ref<EventManager>&           eventManager,
+        const Ref<Image>&                  forwardColorImage,
+        const Ref<Image>&                  forwardResolveImage) :
         mInstance(instance), mSurface(surface), mPhysicalDevice(physicalDevice),
         mDevice(device), mSwapChain(swapChain), mForwardPass(forwardPass),
         mDeferredPass(deferredPass), mBloomPass(bloomPass),
         mCompositePass(compositePass), mCommandPool(commandPool),
         mLightService(lightService), mServiceProvider(serviceProvider),
         mFreyaOptions(freyaOptions), mEventManager(eventManager),
-        mCurrentProjection({})
+        mCurrentProjection({}), mForwardColorImage(forwardColorImage),
+        mForwardResolveImage(forwardResolveImage),
+        mForwardOffscreenRenderPass(VK_NULL_HANDLE)
     {
         ClearProjections();
 
@@ -69,18 +73,44 @@ namespace FREYA_NAMESPACE
                 .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
                 .setAddressModeW(vk::SamplerAddressMode::eClampToEdge));
 
-        // Initialize composite descriptor sets for all frames
-        for (auto frame = 0; frame < mFreyaOptions->frameCount; frame++)
+        if (IsDeferred())
         {
-            mCompositePass->UpdateDescriptorSet(
-                frame, mDeferredPass->GetOpaqueImage(),
-                mDeferredPass->GetTranslucentImage(), mBloomResultImage,
-                mBloomResultSampler);
+            // Initialize composite descriptor sets for deferred
+            for (auto frame = 0; frame < mFreyaOptions->frameCount; frame++)
+            {
+                mCompositePass->UpdateDescriptorSet(
+                    frame, mDeferredPass->GetOpaqueImage(),
+                    mDeferredPass->GetTranslucentImage(), mBloomResultImage,
+                    mBloomResultSampler);
+            }
+        }
+        else
+        {
+            // Create offscreen resources (depth image, render pass,
+            // framebuffers)
+            createForwardOffscreenResources();
+
+            // Determine the bloom/composite input image:
+            //   MSAA → use the resolve image (single sample)
+            //   no MSAA → use the color image directly
+            const auto compositeInput =
+                mForwardResolveImage ? mForwardResolveImage
+                                     : mForwardColorImage;
+
+            // Initialize composite descriptor sets for forward
+            for (auto frame = 0; frame < mFreyaOptions->frameCount; frame++)
+            {
+                mCompositePass->UpdateDescriptorSet(
+                    frame, compositeInput, compositeInput, mBloomResultImage,
+                    mBloomResultSampler);
+            }
         }
     }
 
     Renderer::~Renderer()
     {
+        destroyForwardOffscreenResources();
+
         mDevice->Get().destroySampler(mBloomResultSampler);
         mBloomResultImage.reset();
         mBloomPass.reset();
@@ -94,10 +124,218 @@ namespace FREYA_NAMESPACE
         mInstance.reset();
     }
 
+    void Renderer::createForwardOffscreenResources()
+    {
+        if (!IsDeferred())
+        {
+            const auto extent    = mSwapChain->GetExtent();
+            const auto format    = mSurface->QuerySurfaceFormat().format;
+            const auto depthFmt  = mPhysicalDevice->GetDepthFormat();
+            const auto vkSamples = static_cast<vk::SampleCountFlagBits>(
+                mFreyaOptions->sampleCount);
+            const bool msaa = vkSamples != vk::SampleCountFlagBits::e1;
+
+            // Create forward depth image (matching MSAA setting for pipeline
+            // compatibility)
+            mForwardDepthImage =
+                mServiceProvider->GetService<ImageBuilder>()
+                    ->SetUsage(ImageUsage::Depth)
+                    .SetFormat(depthFmt)
+                    .SetWidth(extent.width)
+                    .SetHeight(extent.height)
+                    .SetSamples(vkSamples)
+                    .Build();
+
+            // Build compatible offscreen render pass.
+            // Same attachment formats & sample counts as the forward render
+            // pass, but color/resolve final layout is eShaderReadOnlyOptimal
+            // so bloom can sample it.
+            auto attachments = std::vector<vk::AttachmentDescription> {};
+
+            if (msaa)
+            {
+                attachments = {
+                    // 0: MSAA color (written by pipeline)
+                    vk::AttachmentDescription()
+                        .setFormat(format)
+                        .setSamples(vkSamples)
+                        .setLoadOp(vk::AttachmentLoadOp::eClear)
+                        .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                        .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                        .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                        .setInitialLayout(vk::ImageLayout::eUndefined)
+                        .setFinalLayout(
+                            vk::ImageLayout::eColorAttachmentOptimal),
+                    // 1: MSAA depth
+                    vk::AttachmentDescription()
+                        .setFormat(depthFmt)
+                        .setSamples(vkSamples)
+                        .setLoadOp(vk::AttachmentLoadOp::eClear)
+                        .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                        .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                        .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                        .setInitialLayout(vk::ImageLayout::eUndefined)
+                        .setFinalLayout(
+                            vk::ImageLayout::eDepthStencilAttachmentOptimal),
+                    // 2: Single-sample resolve (readable by bloom)
+                    vk::AttachmentDescription()
+                        .setFormat(format)
+                        .setSamples(vk::SampleCountFlagBits::e1)
+                        .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+                        .setStoreOp(vk::AttachmentStoreOp::eStore)
+                        .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                        .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                        .setInitialLayout(vk::ImageLayout::eUndefined)
+                        .setFinalLayout(
+                            vk::ImageLayout::eShaderReadOnlyOptimal),
+                };
+            }
+            else
+            {
+                attachments = {
+                    // 0: Single-sample color (readable by bloom)
+                    vk::AttachmentDescription()
+                        .setFormat(format)
+                        .setSamples(vk::SampleCountFlagBits::e1)
+                        .setLoadOp(vk::AttachmentLoadOp::eClear)
+                        .setStoreOp(vk::AttachmentStoreOp::eStore)
+                        .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                        .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                        .setInitialLayout(vk::ImageLayout::eUndefined)
+                        .setFinalLayout(
+                            vk::ImageLayout::eShaderReadOnlyOptimal),
+                    // 1: Depth
+                    vk::AttachmentDescription()
+                        .setFormat(depthFmt)
+                        .setSamples(vk::SampleCountFlagBits::e1)
+                        .setLoadOp(vk::AttachmentLoadOp::eClear)
+                        .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                        .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                        .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                        .setInitialLayout(vk::ImageLayout::eUndefined)
+                        .setFinalLayout(
+                            vk::ImageLayout::eDepthStencilAttachmentOptimal),
+                };
+            }
+
+            auto colorRef =
+                vk::AttachmentReference().setAttachment(0).setLayout(
+                    vk::ImageLayout::eColorAttachmentOptimal);
+
+            auto depthRef =
+                vk::AttachmentReference().setAttachment(1).setLayout(
+                    vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+            // Must live at this scope — subpassDesc stores a pointer to it
+            auto resolveRef = vk::AttachmentReference();
+
+            auto subpassDesc =
+                vk::SubpassDescription()
+                    .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+                    .setColorAttachments(colorRef)
+                    .setPDepthStencilAttachment(&depthRef);
+
+            if (msaa)
+            {
+                resolveRef.setAttachment(2).setLayout(
+                    vk::ImageLayout::eColorAttachmentOptimal);
+                subpassDesc.setPResolveAttachments(&resolveRef);
+            }
+
+            auto subpasses = std::vector { subpassDesc };
+
+            // Must match the forward render pass exactly (1 dependency) for
+            // pipeline compatibility, even though the spec says dependency
+            // count should not affect compatibility — validation layers check
+            // it anyway.
+            auto dependencies = std::vector<vk::SubpassDependency> {
+                vk::SubpassDependency()
+                    .setSrcSubpass(vk::SubpassExternal)
+                    .setDstSubpass(0)
+                    .setSrcStageMask(
+                        vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                        vk::PipelineStageFlagBits::eEarlyFragmentTests)
+                    .setDstStageMask(
+                        vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                        vk::PipelineStageFlagBits::eEarlyFragmentTests)
+                    .setSrcAccessMask(vk::AccessFlagBits::eNone)
+                    .setDstAccessMask(
+                        vk::AccessFlagBits::eColorAttachmentWrite |
+                        vk::AccessFlagBits::eDepthStencilAttachmentWrite),
+            };
+
+            auto renderPassInfo =
+                vk::RenderPassCreateInfo()
+                    .setAttachments(attachments)
+                    .setSubpasses(subpasses)
+                    .setDependencies(dependencies);
+
+            mForwardOffscreenRenderPass =
+                mDevice->Get().createRenderPass(renderPassInfo);
+
+            // Create framebuffers (one per swapchain image index,
+            // though they're all identical since the images are
+            // fixed-size, not per-swapchain-image)
+            const auto frames = mSwapChain->GetFrames();
+            mForwardOffscreenFramebuffers.resize(frames.size());
+
+            for (std::size_t i = 0; i < frames.size(); i++)
+            {
+                std::vector<vk::ImageView> fbViews;
+                if (msaa)
+                {
+                    fbViews = {
+                        mForwardColorImage->GetImageView(),
+                        mForwardDepthImage->GetImageView(),
+                        mForwardResolveImage->GetImageView(),
+                    };
+                }
+                else
+                {
+                    fbViews = {
+                        mForwardColorImage->GetImageView(),
+                        mForwardDepthImage->GetImageView(),
+                    };
+                }
+
+                auto fbInfo =
+                    vk::FramebufferCreateInfo()
+                        .setRenderPass(mForwardOffscreenRenderPass)
+                        .setAttachments(fbViews)
+                        .setWidth(extent.width)
+                        .setHeight(extent.height)
+                        .setLayers(1);
+
+                mForwardOffscreenFramebuffers[i] =
+                    mDevice->Get().createFramebuffer(fbInfo);
+            }
+        }
+    }
+
+    void Renderer::destroyForwardOffscreenResources()
+    {
+        if (mForwardOffscreenRenderPass)
+        {
+            mDevice->Get().destroyRenderPass(mForwardOffscreenRenderPass);
+            mForwardOffscreenRenderPass = VK_NULL_HANDLE;
+        }
+
+        for (auto& fb : mForwardOffscreenFramebuffers)
+        {
+            mDevice->Get().destroyFramebuffer(fb);
+        }
+        mForwardOffscreenFramebuffers.clear();
+
+        mForwardColorImage.reset();
+        mForwardResolveImage.reset();
+        mForwardDepthImage.reset();
+    }
+
     void Renderer::RebuildSwapChain()
     {
         mDevice->Get().waitIdle();
 
+        destroyForwardOffscreenResources();
         mSwapChain.reset();
         mSwapChain = mServiceProvider->GetService<SwapChainBuilder>()->Build();
 
@@ -127,6 +365,67 @@ namespace FREYA_NAMESPACE
                     mBloomResultSampler);
             }
         }
+        else
+        {
+            // Recreate forward offscreen images
+            const auto extent    = mSwapChain->GetExtent();
+            const auto format    = mSurface->QuerySurfaceFormat().format;
+            const auto vkSamples = static_cast<vk::SampleCountFlagBits>(
+                mFreyaOptions->sampleCount);
+            const bool msaa = vkSamples != vk::SampleCountFlagBits::e1;
+
+            mForwardColorImage =
+                mServiceProvider->GetService<ImageBuilder>()
+                    ->SetUsage(ImageUsage::Color)
+                    .SetFormat(format)
+                    .SetWidth(extent.width)
+                    .SetHeight(extent.height)
+                    .SetSamples(vkSamples)
+                    .Build();
+
+            if (msaa)
+            {
+                mForwardResolveImage =
+                    mServiceProvider->GetService<ImageBuilder>()
+                        ->SetUsage(ImageUsage::Color)
+                        .SetFormat(format)
+                        .SetWidth(extent.width)
+                        .SetHeight(extent.height)
+                        .SetSamples(vk::SampleCountFlagBits::e1)
+                        .Build();
+            }
+            else
+            {
+                mForwardResolveImage.reset();
+            }
+
+            // Recreate bloom and composite passes
+            const auto bloomInput =
+                msaa ? mForwardResolveImage : mForwardColorImage;
+            mBloomPass.reset();
+            mBloomPass =
+                mServiceProvider->GetService<BloomPassBuilder>()->Build(
+                    mSwapChain, bloomInput);
+
+            mCompositePass.reset();
+            mCompositePass =
+                mServiceProvider->GetService<CompositePassBuilder>()->Build(
+                    mSwapChain);
+
+            // Create depth image, offscreen render pass, and framebuffers
+            createForwardOffscreenResources();
+
+            // Reinitialize composite descriptors
+            const auto compositeInput =
+                mForwardResolveImage ? mForwardResolveImage
+                                     : mForwardColorImage;
+            for (auto frame = 0; frame < mFreyaOptions->frameCount; frame++)
+            {
+                mCompositePass->UpdateDescriptorSet(
+                    frame, compositeInput, compositeInput, mBloomResultImage,
+                    mBloomResultSampler);
+            }
+        }
     }
 
     void Renderer::SetVSync(const bool vSync)
@@ -140,6 +439,8 @@ namespace FREYA_NAMESPACE
         mFreyaOptions->sampleCount = samples;
         mSwapChain.reset();
         mForwardPass.reset();
+
+        destroyForwardOffscreenResources();
 
         mForwardPass =
             mServiceProvider->GetService<RenderPassBuilder>()->Build();
@@ -168,6 +469,64 @@ namespace FREYA_NAMESPACE
                 mCompositePass->UpdateDescriptorSet(
                     frame, mDeferredPass->GetOpaqueImage(),
                     mDeferredPass->GetTranslucentImage(), mBloomResultImage,
+                    mBloomResultSampler);
+            }
+        }
+        else
+        {
+            // Recreate forward offscreen images
+            const auto extent    = mSwapChain->GetExtent();
+            const auto format    = mSurface->QuerySurfaceFormat().format;
+            const auto vkSamples = static_cast<vk::SampleCountFlagBits>(
+                mFreyaOptions->sampleCount);
+            const bool msaa = vkSamples != vk::SampleCountFlagBits::e1;
+
+            mForwardColorImage =
+                mServiceProvider->GetService<ImageBuilder>()
+                    ->SetUsage(ImageUsage::Color)
+                    .SetFormat(format)
+                    .SetWidth(extent.width)
+                    .SetHeight(extent.height)
+                    .SetSamples(vkSamples)
+                    .Build();
+
+            if (msaa)
+            {
+                mForwardResolveImage =
+                    mServiceProvider->GetService<ImageBuilder>()
+                        ->SetUsage(ImageUsage::Color)
+                        .SetFormat(format)
+                        .SetWidth(extent.width)
+                        .SetHeight(extent.height)
+                        .SetSamples(vk::SampleCountFlagBits::e1)
+                        .Build();
+            }
+            else
+            {
+                mForwardResolveImage.reset();
+            }
+
+            const auto bloomInput =
+                msaa ? mForwardResolveImage : mForwardColorImage;
+            mBloomPass.reset();
+            mBloomPass =
+                mServiceProvider->GetService<BloomPassBuilder>()->Build(
+                    mSwapChain, bloomInput);
+
+            mCompositePass.reset();
+            mCompositePass =
+                mServiceProvider->GetService<CompositePassBuilder>()->Build(
+                    mSwapChain);
+
+            createForwardOffscreenResources();
+
+            const auto compositeInput =
+                mForwardResolveImage ? mForwardResolveImage
+                                     : mForwardColorImage;
+            for (auto frame = 0; frame < mFreyaOptions->frameCount; frame++)
+            {
+                mCompositePass->UpdateDescriptorSet(
+                    frame, compositeInput, compositeInput, mBloomResultImage,
                     mBloomResultSampler);
             }
         }
@@ -253,8 +612,8 @@ namespace FREYA_NAMESPACE
         mForwardPass->UpdateProjection(projectionUniformBuffer, frameIndex);
         if (mDeferredPass)
         {
-            mDeferredPass->UpdateProjection(projectionUniformBuffer,
-                                            frameIndex);
+            mDeferredPass->UpdateProjection(
+                projectionUniformBuffer, frameIndex);
         }
         mCurrentProjection = projectionUniformBuffer;
     }
@@ -457,7 +816,14 @@ namespace FREYA_NAMESPACE
         }
         else
         {
-            mForwardPass->Begin(mSwapChain, mCommandPool);
+            // Forward mode: render offscreen (for bloom+composite)
+            mForwardPass->Begin(
+                mForwardOffscreenRenderPass,
+                mForwardOffscreenFramebuffers[mSwapChain
+                                                  ->GetCurrentImageIndex()],
+                mSwapChain->GetExtent(),
+                mSwapChain->GetCurrentFrameIndex(),
+                mCommandPool);
         }
 
         // Viewport and scissor
@@ -573,7 +939,79 @@ namespace FREYA_NAMESPACE
         }
         else
         {
+            // Forward mode: end offscreen render pass, then bloom -> composite
+            auto frameIndex = mSwapChain->GetCurrentFrameIndex();
+
             mForwardPass->End(mCommandPool);
+
+            // --- Bloom pass (half resolution) ---
+            const auto extent        = mSwapChain->GetExtent();
+            const auto halfW         = std::max(1u, extent.width / 2);
+            const auto halfH         = std::max(1u, extent.height / 2);
+            const auto commandBuffer = mCommandPool->GetCommandBuffer();
+
+            auto bloomViewport =
+                vk::Viewport()
+                    .setX(0)
+                    .setY(0)
+                    .setWidth(static_cast<float>(halfW))
+                    .setHeight(static_cast<float>(halfH))
+                    .setMinDepth(0.0f)
+                    .setMaxDepth(1.0f);
+
+            auto bloomScissor = vk::Rect2D().setOffset({ 0, 0 }).setExtent(
+                vk::Extent2D { halfW, halfH });
+
+            commandBuffer.setViewport(0, 1, &bloomViewport);
+            commandBuffer.setScissor(0, 1, &bloomScissor);
+
+            mBloomPass->Begin(mSwapChain, mCommandPool);
+
+            mBloomPass->DrawFullscreenTriangle(mCommandPool); // threshold
+
+            mBloomPass->AdvanceSubpass(
+                BloomDownsampleSubpass, mCommandPool, frameIndex);
+            mBloomPass->DrawFullscreenTriangle(mCommandPool); // downsample
+
+            mBloomPass->AdvanceSubpass(
+                BloomUpsampleSubpass, mCommandPool, frameIndex);
+            mBloomPass->DrawFullscreenTriangle(mCommandPool); // upsample
+
+            mBloomPass->End(mCommandPool);
+
+            // --- Blit bloom up (half res) -> bloom result (full res) ---
+            blitBloomToFullRes(mCommandPool);
+
+            // --- Composite pass (full resolution) ---
+            auto fullViewport =
+                vk::Viewport()
+                    .setX(0)
+                    .setY(0)
+                    .setWidth(static_cast<float>(extent.width))
+                    .setHeight(static_cast<float>(extent.height))
+                    .setMinDepth(0.0f)
+                    .setMaxDepth(1.0f);
+
+            auto fullScissor =
+                vk::Rect2D().setOffset({ 0, 0 }).setExtent(extent);
+
+            commandBuffer.setViewport(0, 1, &fullViewport);
+            commandBuffer.setScissor(0, 1, &fullScissor);
+
+            // Composite input: resolve if MSAA, color otherwise
+            const auto compositeInput =
+                mForwardResolveImage ? mForwardResolveImage
+                                     : mForwardColorImage;
+
+            mCompositePass->UpdateDescriptorSet(
+                frameIndex, compositeInput, compositeInput, mBloomResultImage,
+                mBloomResultSampler);
+
+            mCompositePass->Begin(mSwapChain, mCommandPool,
+                                  mFreyaOptions->clearColor);
+            mCompositePass->BindPipeline(mCommandPool, frameIndex);
+            mCompositePass->DrawFullscreenTriangle(mCommandPool);
+            mCompositePass->End(mCommandPool);
         }
 
         auto commandBuffer = mCommandPool->GetCommandBuffer();

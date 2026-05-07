@@ -108,6 +108,27 @@ namespace FREYA_NAMESPACE
                        commandPool) const;
 
         /**
+         * @brief Begins the render pass with a custom render pass and
+         * framebuffer.
+         *
+         * Useful for offscreen rendering where the forward pass targets
+         * an intermediate image instead of the swapchain directly.
+         * The render pass must be compatible (same attachment formats, sample
+         * counts, subpass structure) so the same pipeline can be bound.
+         *
+         * @param renderPass  Compatible render pass handle
+         * @param framebuffer Framebuffer for the offscreen target
+         * @param extent      Render area extent
+         * @param frameIndex  Frame index for descriptor set selection
+         * @param commandPool Command pool for current command buffer
+         */
+        void Begin(const vk::RenderPass&   renderPass,
+                   const vk::Framebuffer&  framebuffer,
+                   const vk::Extent2D&     extent,
+                   std::uint32_t           frameIndex,
+                   const Ref<CommandPool>& commandPool) const;
+
+        /**
          * @brief Ends the render pass.
          * @param commandPool Command pool for current command buffer
          */

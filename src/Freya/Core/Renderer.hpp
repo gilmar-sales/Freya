@@ -35,7 +35,9 @@ namespace FREYA_NAMESPACE
                  const Ref<LightService>&           lightService,
                  const Ref<skr::ServiceProvider>&   serviceProvider,
                  const Ref<FreyaOptions>&           freyaOptions,
-                 const Ref<EventManager>&           eventManager);
+                 const Ref<EventManager>&           eventManager,
+                 const Ref<Image>&                  forwardColorImage = nullptr,
+                 const Ref<Image>& forwardResolveImage = nullptr);
 
         ~Renderer();
 
@@ -113,6 +115,17 @@ namespace FREYA_NAMESPACE
       private:
         void blitBloomToFullRes(const Ref<CommandPool>& commandPool) const;
 
+        /**
+         * @brief Creates forward offscreen render pass and resources.
+         * Called during construction and swapchain rebuild.
+         */
+        void createForwardOffscreenResources();
+
+        /**
+         * @brief Destroys forward offscreen resources.
+         */
+        void destroyForwardOffscreenResources();
+
         Ref<skr::ServiceProvider>   mServiceProvider;
         Ref<Instance>               mInstance;
         Ref<Surface>                mSurface;
@@ -135,6 +148,13 @@ namespace FREYA_NAMESPACE
 
         // Full-res bloom result image (blit target from half-res bloom up)
         Ref<Image> mBloomResultImage;
+
+        // Forward offscreen resources (for bloom+composite in forward mode)
+        Ref<Image>                   mForwardColorImage;
+        Ref<Image>                   mForwardResolveImage;
+        Ref<Image>                   mForwardDepthImage;
+        vk::RenderPass               mForwardOffscreenRenderPass;
+        std::vector<vk::Framebuffer> mForwardOffscreenFramebuffers;
     };
 
 } // namespace FREYA_NAMESPACE
