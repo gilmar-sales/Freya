@@ -1019,6 +1019,7 @@ namespace FREYA_NAMESPACE
             // Forward mode: end offscreen render pass, then bloom -> composite
             auto frameIndex = mSwapChain->GetCurrentFrameIndex();
 
+            ExecuteDrawCommands(true);
             mForwardPass->End(mCommandPool);
 
             // --- Bloom pass (half resolution) ---
