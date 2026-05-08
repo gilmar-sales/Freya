@@ -56,10 +56,10 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief Creates a material from existing texture IDs.
-         * @param textures Vector of texture IDs
+         * @param createInfo Material creation parameters
          * @return Material ID for later binding
          */
-        std::uint32_t Create(std::vector<std::uint32_t> textures);
+        std::uint32_t Create(const MaterialCreateInfo& createInfo);
 
       protected:
         friend class FREYA_NAMESPACE::Renderer;

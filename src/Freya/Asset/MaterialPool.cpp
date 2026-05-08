@@ -10,7 +10,7 @@ namespace FREYA_NAMESPACE
         return 0;
     }
 
-    std::uint32_t MaterialPool::Create(std::vector<std::uint32_t> textures)
+    std::uint32_t MaterialPool::Create(const MaterialCreateInfo& createInfo)
     {
         auto material = Material {
             .id = static_cast<std::uint32_t>(mMaterials.size()),
@@ -25,7 +25,7 @@ namespace FREYA_NAMESPACE
             std::move(mDevice->Get().allocateDescriptorSets(
                 samplerDescriptorSetAllocInfo));
 
-        // Get white fallback info for albedo/normal/roughness slots
+        // Get white fallback for albedo/normal/roughness slots
         auto& fallbackImageView = mRenderPass->GetFallbackImageView();
         auto& fallbackSampler   = mRenderPass->GetFallbackSampler();
         auto  fallbackImageInfo =
@@ -34,7 +34,7 @@ namespace FREYA_NAMESPACE
                 .setImageView(fallbackImageView)
                 .setSampler(fallbackSampler);
 
-        // Get black emissive fallback for binding 3 when no emissive texture
+        // Get black emissive fallback
         auto& emissiveFallbackImageView =
             mRenderPass->GetEmissiveFallbackImageView();
         auto& emissiveFallbackSampler =
@@ -45,45 +45,151 @@ namespace FREYA_NAMESPACE
                 .setImageView(emissiveFallbackImageView)
                 .setSampler(emissiveFallbackSampler);
 
-        // Bind textures to slots 0-4:
-        // Slot 0 (albedo): white fallback if not provided
-        // Slot 1 (normal): white fallback if not provided
-        // Slot 2 (roughness): white fallback if not provided
-        // Slot 3 (emissive): black fallback if not provided
-        // Slot 4 (metalness): black fallback (0.0) if not provided
-        for (size_t binding = 0; binding < 5; binding++)
+        // Slot 0: albedo
         {
             vk::DescriptorImageInfo imageInfo;
-
-            if (binding < textures.size())
+            if (createInfo.albedo)
             {
-                auto& texture = mTexturePool->GetTexture(textures[binding]);
+                auto& texture = mTexturePool->GetTexture(*createInfo.albedo);
                 imageInfo =
                     vk::DescriptorImageInfo()
                         .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
                         .setSampler(texture.sampler)
                         .setImageView(texture.image->GetImageView());
             }
-            else if (binding == 3)
-            {
-                // Use black emissive fallback for missing emissive
-                imageInfo = emissiveFallbackImageInfo;
-            }
-            else if (binding == 4)
-            {
-                // Use black metalness fallback (0.0) for missing metalness
-                imageInfo = emissiveFallbackImageInfo;
-            }
             else
             {
-                // Use white fallback for other missing bindings
                 imageInfo = fallbackImageInfo;
             }
 
             auto samplerDescriptorWriter =
                 vk::WriteDescriptorSet()
                     .setDstSet(material.descriptorSets[0])
-                    .setDstBinding(static_cast<uint32_t>(binding))
+                    .setDstBinding(0)
+                    .setDstArrayElement(0)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(imageInfo);
+
+            mDevice->Get().updateDescriptorSets(
+                1, &samplerDescriptorWriter, 0, nullptr);
+        }
+
+        // Slot 1: normal
+        {
+            vk::DescriptorImageInfo imageInfo;
+            if (createInfo.normal)
+            {
+                auto& texture = mTexturePool->GetTexture(*createInfo.normal);
+                imageInfo =
+                    vk::DescriptorImageInfo()
+                        .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                        .setSampler(texture.sampler)
+                        .setImageView(texture.image->GetImageView());
+            }
+            else
+            {
+                imageInfo = fallbackImageInfo;
+            }
+
+            auto samplerDescriptorWriter =
+                vk::WriteDescriptorSet()
+                    .setDstSet(material.descriptorSets[0])
+                    .setDstBinding(1)
+                    .setDstArrayElement(0)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(imageInfo);
+
+            mDevice->Get().updateDescriptorSets(
+                1, &samplerDescriptorWriter, 0, nullptr);
+        }
+
+        // Slot 2: roughness
+        {
+            vk::DescriptorImageInfo imageInfo;
+            if (createInfo.roughness)
+            {
+                auto& texture = mTexturePool->GetTexture(*createInfo.roughness);
+                imageInfo =
+                    vk::DescriptorImageInfo()
+                        .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                        .setSampler(texture.sampler)
+                        .setImageView(texture.image->GetImageView());
+            }
+            else
+            {
+                imageInfo = fallbackImageInfo;
+            }
+
+            auto samplerDescriptorWriter =
+                vk::WriteDescriptorSet()
+                    .setDstSet(material.descriptorSets[0])
+                    .setDstBinding(2)
+                    .setDstArrayElement(0)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(imageInfo);
+
+            mDevice->Get().updateDescriptorSets(
+                1, &samplerDescriptorWriter, 0, nullptr);
+        }
+
+        // Slot 3: emissive
+        {
+            vk::DescriptorImageInfo imageInfo;
+            if (createInfo.emissive)
+            {
+                auto& texture = mTexturePool->GetTexture(*createInfo.emissive);
+                imageInfo =
+                    vk::DescriptorImageInfo()
+                        .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                        .setSampler(texture.sampler)
+                        .setImageView(texture.image->GetImageView());
+            }
+            else
+            {
+                imageInfo = emissiveFallbackImageInfo;
+            }
+
+            auto samplerDescriptorWriter =
+                vk::WriteDescriptorSet()
+                    .setDstSet(material.descriptorSets[0])
+                    .setDstBinding(3)
+                    .setDstArrayElement(0)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(imageInfo);
+
+            mDevice->Get().updateDescriptorSets(
+                1, &samplerDescriptorWriter, 0, nullptr);
+        }
+
+        // Slot 4: metalness
+        {
+            vk::DescriptorImageInfo imageInfo;
+            if (createInfo.metalness)
+            {
+                auto& texture = mTexturePool->GetTexture(*createInfo.metalness);
+                imageInfo =
+                    vk::DescriptorImageInfo()
+                        .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                        .setSampler(texture.sampler)
+                        .setImageView(texture.image->GetImageView());
+            }
+            else
+            {
+                imageInfo = emissiveFallbackImageInfo;
+            }
+
+            auto samplerDescriptorWriter =
+                vk::WriteDescriptorSet()
+                    .setDstSet(material.descriptorSets[0])
+                    .setDstBinding(4)
                     .setDstArrayElement(0)
                     .setDescriptorType(
                         vk::DescriptorType::eCombinedImageSampler)

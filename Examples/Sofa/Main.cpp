@@ -41,9 +41,12 @@ class MainApp final : public fra::AbstractApplication
         mSofaMetalness = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/industrial_pipe_lamp_metal.png");
 
-        mSofaMaterial =
-            mMaterialPool->Create({ mSofaAlbedo, mSofaNormal, mSofaRoughness,
-                                    mSofaEmissive, mSofaMetalness });
+        mSofaMaterial = mMaterialPool->Create(
+            { .albedo    = mSofaAlbedo,
+              .normal    = mSofaNormal,
+              .roughness = mSofaRoughness,
+              .emissive  = mSofaEmissive,
+              .metalness = mSofaMetalness });
 
         mSofaModel = mMeshPool->CreateMeshFromFile(
             "./Resources/Models/industrial_pipe_lamp.glb");
@@ -58,7 +61,9 @@ class MainApp final : public fra::AbstractApplication
             "./Resources/Textures/SpaceShip_Roughness.jpg");
 
         mSpaceShipMaterial = mMaterialPool->Create(
-            { mSpaceShipAlbedo, mSpaceShipNormal, mSpaceShipRoughness });
+            { .albedo    = mSpaceShipAlbedo,
+              .normal    = mSpaceShipNormal,
+              .roughness = mSpaceShipRoughness });
 
         mSpaceShipModel =
             mMeshPool->CreateMeshFromFile("./Resources/Models/SpaceShip.fbx");
