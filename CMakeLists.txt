@@ -95,13 +95,15 @@ target_precompile_headers(Freya PUBLIC
 # ---------------------------------------------------------------------------
 # Shader compilation pipeline
 # ---------------------------------------------------------------------------
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" PARENT_SCOPE)
+
 include(CompileShaders)
 
 find_glslc()
 add_shader_target(TARGET Shaders
-                  FROM  "${CMAKE_SOURCE_DIR}/Shaders"
-                  INTO  "${CMAKE_BINARY_DIR}/Resources/Shaders"
+        FROM "${CMAKE_SOURCE_DIR}/Shaders"
+        INTO "${CMAKE_BINARY_DIR}/Resources/Shaders"
 )
 add_dependencies(Freya Shaders)
 
