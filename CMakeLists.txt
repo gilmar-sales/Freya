@@ -102,7 +102,7 @@ include(CompileShaders)
 
 find_glslc()
 add_shader_target(TARGET Shaders
-        FROM "${CMAKE_SOURCE_DIR}/Shaders"
+        FROM "${CMAKE_CURRENT_SOURCE_DIR}/Shaders"
         INTO "${CMAKE_BINARY_DIR}/Resources/Shaders"
 )
 add_dependencies(Freya Shaders)
