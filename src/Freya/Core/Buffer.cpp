@@ -1,5 +1,6 @@
 #include "Freya/Core/Buffer.hpp"
 
+#include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
 
@@ -23,23 +24,22 @@ namespace FREYA_NAMESPACE
      * - Index: bindIndexBuffer
      * - Instance: bindVertexBuffers at binding 1
      *
-     * @param commandPool Command pool with current command buffer
      */
-    void Buffer::Bind(const Ref<CommandPool>& commandPool) const
+    void Buffer::Bind() const
     {
         constexpr vk::DeviceSize offsets[] = { 0 };
         switch (mUsage)
         {
             case BufferUsage::Vertex:
-                commandPool->GetCommandBuffer().bindVertexBuffers(
+                mCommandPool->GetCommandBuffer().bindVertexBuffers(
                     0, 1, &mBuffer, offsets);
                 break;
             case BufferUsage::Index:
-                commandPool->GetCommandBuffer().bindIndexBuffer(
+                mCommandPool->GetCommandBuffer().bindIndexBuffer(
                     mBuffer, 0, vk::IndexType::eUint16);
                 break;
             case BufferUsage::Instance: {
-                commandPool->GetCommandBuffer().bindVertexBuffers(
+                mCommandPool->GetCommandBuffer().bindVertexBuffers(
                     1, 1, &mBuffer, offsets);
             }
             default:
@@ -60,7 +60,10 @@ namespace FREYA_NAMESPACE
     void Buffer::Copy(const void* data, const std::uint64_t size,
                       const std::uint64_t offset)
     {
-        if (mSize >= size && data != nullptr)
+        // Only Staging and Uniform buffers have HOST_VISIBLE memory that can
+        // be mapped. Vertex, Index, Instance buffers are DEVICE_LOCAL only.
+        if (mSize >= size && data != nullptr &&
+            (mUsage == BufferUsage::Staging || mUsage == BufferUsage::Uniform))
         {
             void* deviceData = mDevice->Get().mapMemory(
                 mMemory, offset, size, vk::MemoryMapFlagBits {});
@@ -68,7 +71,40 @@ namespace FREYA_NAMESPACE
             memcpy(deviceData, data, size);
 
             mDevice->Get().unmapMemory(mMemory);
+            return;
         }
+
+        const auto copyRegion =
+            vk::BufferCopy().setSrcOffset(0).setDstOffset(offset).setSize(size);
+
+        auto stagingBuffer =
+            mServiceProvider->GetService<BufferBuilder>()
+                ->SetData(data)
+                .SetSize(size)
+                .SetUsage(BufferUsage::Staging)
+                .Build();
+        constexpr auto beginInfo = vk::CommandBufferBeginInfo().setFlags(
+            vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+
+        const auto copyCmd = mCommandPool->CreateCommandBuffer();
+
+        copyCmd.begin(beginInfo);
+        copyCmd.copyBuffer(
+            stagingBuffer->Get(), // src (HOST_VISIBLE staging)
+            mBuffer,              // dst (DEVICE_LOCAL)
+            1,
+            &copyRegion);
+        copyCmd.end();
+
+        const auto submitInfo = vk::SubmitInfo().setCommandBuffers(copyCmd);
+
+        if (mDevice->GetGraphicsQueue().submit(1, &submitInfo, nullptr) !=
+            vk::Result::eSuccess)
+            throw std::runtime_error("failed to submit buffer copy!");
+
+        mDevice->GetGraphicsQueue().waitIdle();
+
+        mCommandPool->FreeCommandBuffer(copyCmd);
     }
 
 } // namespace FREYA_NAMESPACE

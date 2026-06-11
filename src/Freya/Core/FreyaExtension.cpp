@@ -40,6 +40,7 @@ namespace FREYA_NAMESPACE
         services.AddTransient<RendererBuilder>();
         services.AddTransient<ShaderModuleBuilder>();
         services.AddTransient<CommandPoolBuilder>();
+        services.AddTransient<BufferBuilder>();
         services.AddTransient<DeferredCompressedPassBuilder>();
         services.AddTransient<BloomPassBuilder>();
         services.AddTransient<CompositePassBuilder>();
@@ -105,9 +106,11 @@ namespace FREYA_NAMESPACE
                 auto device       = serviceProvider.GetService<Device>();
                 auto freyaOptions = serviceProvider.GetService<FreyaOptions>();
 
-                return skr::MakeRef<LightService>(device,
-                                                  freyaOptions->frameCount,
-                                                  freyaOptions->maxLights);
+                return skr::MakeRef<LightService>(
+                    device,
+                    serviceProvider.GetService<BufferBuilder>(),
+                    freyaOptions->frameCount,
+                    freyaOptions->maxLights);
             });
 
         services.AddSingleton<Window>(

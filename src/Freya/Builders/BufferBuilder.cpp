@@ -1,6 +1,7 @@
 #include "Freya/Builders/BufferBuilder.hpp"
 
 #include "Freya/Core/Buffer.hpp"
+#include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
 
@@ -72,10 +73,12 @@ namespace FREYA_NAMESPACE
                 break;
             case BufferUsage::Vertex:
             case BufferUsage::Index:
-            case BufferUsage::Uniform:
             case BufferUsage::Instance:
+                memoryProperties = vk::MemoryPropertyFlagBits::eDeviceLocal;
+                break;
+            case BufferUsage::Uniform:
                 memoryProperties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                   vk::MemoryPropertyFlagBits::eDeviceLocal;
+                                   vk::MemoryPropertyFlagBits::eHostCoherent;
                 break;
             default:
                 break;
@@ -113,7 +116,8 @@ namespace FREYA_NAMESPACE
 
         mDevice->Get().bindBufferMemory(buffer, memory, 0);
 
-        if (mData != nullptr)
+        if (mData != nullptr &&
+            (mUsage == BufferUsage::Staging || mUsage == BufferUsage::Uniform))
         {
             void* data = mDevice->Get().mapMemory(
                 memory,
@@ -126,7 +130,14 @@ namespace FREYA_NAMESPACE
             mDevice->Get().unmapMemory(memory);
         }
 
-        return skr::MakeRef<Buffer>(mDevice, mUsage, mSize, buffer, memory);
+        return skr::MakeRef<Buffer>(
+            mDevice,
+            mServiceProvider->GetService<CommandPool>(),
+            mServiceProvider,
+            mUsage,
+            mSize,
+            buffer,
+            memory);
     };
 
 } // namespace FREYA_NAMESPACE

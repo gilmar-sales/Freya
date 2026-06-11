@@ -20,7 +20,12 @@ namespace FREYA_NAMESPACE
          * @brief Constructs builder with device reference.
          * @param device Device reference
          */
-        explicit BufferBuilder(const Ref<Device>& device) : mDevice(device) {}
+        explicit BufferBuilder(
+            const Ref<Device>&               device,
+            const Ref<skr::ServiceProvider>& serviceProvider) :
+            mDevice(device), mServiceProvider(serviceProvider)
+        {
+        }
 
         /**
          * @brief Sets buffer size in bytes.
@@ -41,9 +46,9 @@ namespace FREYA_NAMESPACE
          * @return Reference to this for chaining
          */
         template <typename T>
-        BufferBuilder& SetData(T* data)
+        BufferBuilder& SetData(const T* data)
         {
-            mData = static_cast<void*>(data);
+            mData = static_cast<void*>(const_cast<T*>(data));
 
             return *this;
         }
@@ -66,7 +71,8 @@ namespace FREYA_NAMESPACE
         Ref<Buffer> Build();
 
       private:
-        Ref<Device> mDevice; ///< Device reference
+        Ref<Device>               mDevice;          ///< Device reference
+        Ref<skr::ServiceProvider> mServiceProvider; ///< Device reference
 
         std::uint64_t mSize  = 0;                    ///< Buffer size in bytes
         void*         mData  = nullptr;              ///< Initial data to upload

@@ -115,8 +115,8 @@ namespace FREYA_NAMESPACE
 
             if (mStagingBuffer == nullptr)
                 mStagingBuffer =
-                    BufferBuilder(mDevice)
-                        .SetData(mData)
+                    mServiceProvider->GetService<BufferBuilder>()
+                        ->SetData(mData)
                         .SetSize(mWidth * mHeight * mChannels)
                         .SetUsage(BufferUsage::Staging)
                         .Build();

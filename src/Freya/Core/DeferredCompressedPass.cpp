@@ -243,7 +243,7 @@ namespace FREYA_NAMESPACE
     }
 
     void DeferredCompressedPass::UpdateProjection(
-        const ProjectionUniformBuffer& buffer,
+         ProjectionUniformBuffer& buffer,
         const std::uint32_t            frameIndex) const
     {
         const auto offset = frameIndex * sizeof(ProjectionUniformBuffer);

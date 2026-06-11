@@ -12,9 +12,11 @@ namespace FREYA_NAMESPACE
     MeshPool::MeshPool(const Ref<Device>&                device,
                        const Ref<PhysicalDevice>&        physicalDevice,
                        const Ref<CommandPool>&           commandPool,
-                       const Ref<skr::Logger<MeshPool>>& logger) :
+                       const Ref<skr::Logger<MeshPool>>& logger,
+                       const Ref<skr::ServiceProvider>&  serviceProvider) :
         mDevice(device), mPhysicalDevice(physicalDevice),
-        mCommandPool(commandPool), mLogger(logger), mMeshes(4096)
+        mCommandPool(commandPool), mLogger(logger),
+        mServiceProvider(serviceProvider), mMeshes(4096)
     {
         mVertexBuffers.reserve(1024);
         mIndexBuffers.reserve(1024);
@@ -195,8 +197,8 @@ namespace FREYA_NAMESPACE
     std::uint32_t MeshPool::createVertexBuffer(const std::uint32_t size)
     {
         const auto vertexBuffer =
-            BufferBuilder(mDevice)
-                .SetSize(size)
+            mServiceProvider->GetService<BufferBuilder>()
+                ->SetSize(size)
                 .SetUsage(BufferUsage::Vertex)
                 .Build();
 
@@ -225,8 +227,8 @@ namespace FREYA_NAMESPACE
     std::uint32_t MeshPool::createIndexBuffer(const std::uint32_t size)
     {
         const auto indexBuffer =
-            BufferBuilder(mDevice)
-                .SetSize(size)
+            mServiceProvider->GetService<BufferBuilder>()
+                ->SetSize(size)
                 .SetUsage(BufferUsage::Index)
                 .Build();
 
@@ -373,8 +375,8 @@ namespace FREYA_NAMESPACE
         const auto bufferSize = (size / MegaBytes + 4) * MegaBytes;
 
         auto stagingBuffer =
-            BufferBuilder(mDevice)
-                .SetSize(bufferSize)
+            mServiceProvider->GetService<BufferBuilder>()
+                ->SetSize(bufferSize)
                 .SetUsage(BufferUsage::Staging)
                 .Build();
 

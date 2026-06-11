@@ -781,14 +781,14 @@ namespace FREYA_NAMESPACE
             &model);
     }
 
-    BufferBuilder Renderer::GetBufferBuilder() const
+    Ref<BufferBuilder> Renderer::GetBufferBuilder() const
     {
-        return BufferBuilder(mDevice);
+        return mServiceProvider->GetService<BufferBuilder>();
     }
 
     void Renderer::BindBuffer(const Ref<Buffer>& buffer) const
     {
-        buffer->Bind(mCommandPool);
+        buffer->Bind();
     }
 
     void Renderer::BindMaterial(const std::uint32_t materialId)

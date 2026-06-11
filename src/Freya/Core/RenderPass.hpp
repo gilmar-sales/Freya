@@ -147,7 +147,7 @@ namespace FREYA_NAMESPACE
          * @param buffer     Projection data to upload
          * @param frameIndex Frame index for offset calculation
          */
-        void UpdateProjection(const ProjectionUniformBuffer& buffer,
+        void UpdateProjection( ProjectionUniformBuffer& buffer,
                               std::uint32_t                  frameIndex) const;
 
         /**

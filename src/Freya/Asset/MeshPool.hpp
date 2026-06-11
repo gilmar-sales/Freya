@@ -34,7 +34,8 @@ namespace FREYA_NAMESPACE
         MeshPool(const Ref<Device>&                device,
                  const Ref<PhysicalDevice>&        physicalDevice,
                  const Ref<CommandPool>&           commandPool,
-                 const Ref<skr::Logger<MeshPool>>& logger);
+                 const Ref<skr::Logger<MeshPool>>& logger,
+                 const Ref<skr::ServiceProvider>&  serviceProvider);
 
         /**
          * @brief Creates a mesh from CPU vertex/index data.
@@ -146,6 +147,7 @@ namespace FREYA_NAMESPACE
         std::vector<Ref<Buffer>>   mIndexBuffers;
         std::vector<std::uint32_t> mIndexBuffersOffsets;
         MeshSet                    mMeshes;
+        Ref<skr::ServiceProvider>  mServiceProvider;
     };
 
 } // namespace FREYA_NAMESPACE

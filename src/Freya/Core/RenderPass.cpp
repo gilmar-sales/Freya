@@ -152,8 +152,8 @@ namespace FREYA_NAMESPACE
      * @param buffer     Projection data to upload
      * @param frameIndex Frame index for offset and descriptor set selection
      */
-    void RenderPass::UpdateProjection(const ProjectionUniformBuffer& buffer,
-                                      const std::uint32_t frameIndex) const
+    void RenderPass::UpdateProjection(ProjectionUniformBuffer& buffer,
+                                      const std::uint32_t      frameIndex) const
     {
         const auto offset = frameIndex * sizeof(ProjectionUniformBuffer);
         mUniformBuffer->Copy(&buffer, sizeof(ProjectionUniformBuffer), offset);

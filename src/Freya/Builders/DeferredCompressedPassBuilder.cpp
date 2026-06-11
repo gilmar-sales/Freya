@@ -314,8 +314,8 @@ namespace FREYA_NAMESPACE
             sizeof(ProjectionUniformBuffer) * mFreyaOptions->frameCount;
 
         auto uniformBuffer =
-            BufferBuilder(mDevice)
-                .SetUsage(BufferUsage::Uniform)
+            mServiceProvider->GetService<BufferBuilder>()
+                ->SetUsage(BufferUsage::Uniform)
                 .SetSize(std::max(bufferSize, minimumBufferSize))
                 .Build();
 

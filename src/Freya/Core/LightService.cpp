@@ -1,20 +1,18 @@
 #include "Freya/Core/LightService.hpp"
 
-#include "Freya/Builders/BufferBuilder.hpp"
-
 namespace FREYA_NAMESPACE
 {
-    LightService::LightService(const Ref<Device>& device,
-                               std::uint32_t      frameCount,
-                               std::uint32_t      maxLights) :
+    LightService::LightService(const Ref<Device>&        device,
+                               const Ref<BufferBuilder>& bufferBuilder,
+                               std::uint32_t             frameCount,
+                               std::uint32_t             maxLights) :
         mDevice(device), mFrameCount(frameCount), mMaxLights(maxLights),
         mLightCount(0), mLights(), mLayout(nullptr), mPool(nullptr)
     {
         // Create light buffer with std140 layout
         const auto bufferSize = sizeof(LightUniformBuffer) * frameCount;
 
-        mBuffer = BufferBuilder(mDevice)
-                      .SetUsage(BufferUsage::Uniform)
+        mBuffer = bufferBuilder->SetUsage(BufferUsage::Uniform)
                       .SetSize(bufferSize)
                       .Build();
 

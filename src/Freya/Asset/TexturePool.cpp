@@ -121,8 +121,8 @@ namespace FREYA_NAMESPACE
         const auto bufferSize = (size / MegaBytes + 4) * MegaBytes;
 
         auto stagingBuffer =
-            BufferBuilder(mDevice)
-                .SetSize(bufferSize)
+            mServiceProvider->GetService<BufferBuilder>()
+                ->SetSize(bufferSize)
                 .SetUsage(BufferUsage::Staging)
                 .Build();
 

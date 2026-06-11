@@ -112,10 +112,10 @@ namespace FREYA_NAMESPACE
 
         void DrawFullscreenTriangle(const Ref<CommandPool>& commandPool) const;
 
-        void End(const Ref<CommandPool> commandPool) const;
+        void End(Ref<CommandPool> commandPool) const;
 
-        void UpdateProjection(const ProjectionUniformBuffer& buffer,
-                              std::uint32_t                  frameIndex) const;
+        void UpdateProjection(ProjectionUniformBuffer& buffer,
+                              std::uint32_t            frameIndex) const;
 
         vk::DescriptorSet& GetDescriptorSet(std::uint32_t frameIndex)
         {

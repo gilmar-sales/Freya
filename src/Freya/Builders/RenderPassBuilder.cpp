@@ -211,8 +211,8 @@ namespace FREYA_NAMESPACE
             sizeof(ProjectionUniformBuffer) * mFreyaOptions->frameCount;
 
         auto uniformBuffer =
-            BufferBuilder(mDevice)
-                .SetUsage(BufferUsage::Uniform)
+            mServiceProvider->GetService<BufferBuilder>()
+                ->SetUsage(BufferUsage::Uniform)
                 .SetSize(std::max(bufferSize, minimumBufferSize))
                 .Build();
 
@@ -324,8 +324,8 @@ namespace FREYA_NAMESPACE
         auto createFallbackTexture = [&](std::uint32_t pixel) {
             // 1. Staging buffer
             auto staging =
-                BufferBuilder(mDevice)
-                    .SetData(&pixel)
+                mServiceProvider->GetService<BufferBuilder>()
+                    ->SetData(&pixel)
                     .SetSize(pixelSize)
                     .SetUsage(BufferUsage::Staging)
                     .Build();
@@ -351,9 +351,9 @@ namespace FREYA_NAMESPACE
             auto memType = mPhysicalDevice->QueryCompatibleMemoryType(
                 memReqs.memoryTypeBits,
                 vk::MemoryPropertyFlagBits::eDeviceLocal);
-            auto memAlloc  = vk::MemoryAllocateInfo()
-                                 .setAllocationSize(memReqs.size)
-                                 .setMemoryTypeIndex(memType);
+            auto memAlloc = vk::MemoryAllocateInfo()
+                                .setAllocationSize(memReqs.size)
+                                .setMemoryTypeIndex(memType);
             auto imgMemory = mDevice->Get().allocateMemory(memAlloc);
             mDevice->Get().bindImageMemory(img, imgMemory, 0);
 
@@ -369,8 +369,8 @@ namespace FREYA_NAMESPACE
                                 .setCommandPool(cmdPool)
                                 .setLevel(vk::CommandBufferLevel::ePrimary)
                                 .setCommandBufferCount(1);
-            auto cmdBufs  = mDevice->Get().allocateCommandBuffers(cmdAlloc);
-            auto cmdBuf   = cmdBufs[0];
+            auto cmdBufs = mDevice->Get().allocateCommandBuffers(cmdAlloc);
+            auto cmdBuf  = cmdBufs[0];
 
             cmdBuf.begin(vk::CommandBufferBeginInfo().setFlags(
                 vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
@@ -513,9 +513,9 @@ namespace FREYA_NAMESPACE
         }
 
         // 7. Descriptor set (allocated from the shared sampler pool)
-        auto fbSetAlloc    = vk::DescriptorSetAllocateInfo()
-                                 .setDescriptorPool(samplerDescriptorPool)
-                                 .setSetLayouts(samplerLayout);
+        auto fbSetAlloc = vk::DescriptorSetAllocateInfo()
+                              .setDescriptorPool(samplerDescriptorPool)
+                              .setSetLayouts(samplerLayout);
         auto fbSamplerSets = mDevice->Get().allocateDescriptorSets(fbSetAlloc);
         auto fbFallbackSet = fbSamplerSets[0];
 

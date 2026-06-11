@@ -131,6 +131,17 @@ class MainApp final : public fra::AbstractApplication
             mLightService->UpdateLightPosition(i, glm::vec3(x, y, z));
         }
 
+        if (mInstanceMatrixBuffers == nullptr)
+            mInstanceMatrixBuffers =
+                mRenderer->GetBufferBuilder()
+                    ->SetData(&mModelMatrix[0][0])
+                    .SetSize(sizeof(glm::mat4) * 4)
+                    .SetUsage(fra::BufferUsage::Instance)
+                    .Build();
+        else
+            mInstanceMatrixBuffers->Copy(
+                &mModelMatrix[0][0], sizeof(glm::mat4) * 4);
+
         mRenderer->BeginFrame();
 
         // Orbit camera around the origin
@@ -140,17 +151,6 @@ class MainApp final : public fra::AbstractApplication
                                  radius * std::sin(speed * mCurrentTime));
         mRenderer->UpdateCamera(
             position, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f });
-
-        if (mInstanceMatrixBuffers == nullptr)
-            mInstanceMatrixBuffers =
-                mRenderer->GetBufferBuilder()
-                    .SetData(&mModelMatrix[0][0])
-                    .SetSize(sizeof(glm::mat4) * 4)
-                    .SetUsage(fra::BufferUsage::Instance)
-                    .Build();
-        else
-            mInstanceMatrixBuffers->Copy(
-                &mModelMatrix[0][0], sizeof(glm::mat4) * 4);
 
         mRenderer->BindBuffer(mInstanceMatrixBuffers);
 

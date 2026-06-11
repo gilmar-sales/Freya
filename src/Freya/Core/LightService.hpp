@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
@@ -41,9 +42,10 @@ namespace FREYA_NAMESPACE
          * @param frameCount Number of frames (for ring-buffer descriptor sets)
          * @param maxLights  Maximum number of lights (default: MAX_LIGHTS)
          */
-        LightService(const Ref<Device>& device,
-                     std::uint32_t      frameCount,
-                     std::uint32_t      maxLights = MAX_LIGHTS);
+        LightService(const Ref<Device>&        device,
+                     const Ref<BufferBuilder>& bufferBuilder,
+                     std::uint32_t             frameCount,
+                     std::uint32_t             maxLights = MAX_LIGHTS);
 
         ~LightService();
 

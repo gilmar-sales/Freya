@@ -20,9 +20,11 @@ namespace FREYA_NAMESPACE
          * @param device     Vulkan device reference
          * @param freyaOptions Freya options containing frameCount
          */
-        LightServiceBuilder(const Ref<Device>&       device,
-                            const Ref<FreyaOptions>& freyaOptions) :
-            mDevice(device), mFreyaOptions(freyaOptions)
+        LightServiceBuilder(const Ref<Device>&               device,
+                            const Ref<skr::ServiceProvider>& serviceProvider,
+                            const Ref<FreyaOptions>&         freyaOptions) :
+            mDevice(device), mServiceProvider(serviceProvider),
+            mFreyaOptions(freyaOptions)
         {
         }
 
@@ -43,15 +45,18 @@ namespace FREYA_NAMESPACE
          */
         Ref<LightService> Build()
         {
-            return skr::MakeRef<LightService>(mDevice,
-                                              mFreyaOptions->frameCount,
-                                              mMaxLights);
+            return skr::MakeRef<LightService>(
+                mDevice,
+                mServiceProvider->GetService<BufferBuilder>(),
+                mFreyaOptions->frameCount,
+                mMaxLights);
         }
 
       private:
-        Ref<Device>       mDevice;
-        Ref<FreyaOptions> mFreyaOptions;
-        std::uint32_t     mMaxLights = MAX_LIGHTS;
+        Ref<Device>               mDevice;
+        Ref<FreyaOptions>         mFreyaOptions;
+        std::uint32_t             mMaxLights = MAX_LIGHTS;
+        Ref<skr::ServiceProvider> mServiceProvider;
     };
 
 } // namespace FREYA_NAMESPACE

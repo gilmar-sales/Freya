@@ -1,4 +1,5 @@
 #pragma once
+#include "Freya/Asset/Vertex.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -34,13 +35,16 @@ namespace FREYA_NAMESPACE
     class Buffer
     {
       public:
-        Buffer(const Ref<Device>&     device,
-               const BufferUsage      usage,
-               const std::uint64_t    size,
-               const vk::Buffer       buffer,
-               const vk::DeviceMemory memory) :
-            mDevice(device), mBuffer(buffer), mMemory(memory), mUsage(usage),
-            mSize(size)
+        Buffer(const Ref<Device>&               device,
+               const Ref<CommandPool>&          commandPool,
+               const Ref<skr::ServiceProvider>& serviceProvider,
+               const BufferUsage                usage,
+               const std::uint64_t              size,
+               const vk::Buffer                 buffer,
+               const vk::DeviceMemory           memory) :
+            mDevice(device), mCommandPool(commandPool),
+            mServiceProvider(serviceProvider), mBuffer(buffer), mMemory(memory),
+            mUsage(usage), mSize(size)
         {
         }
 
@@ -48,10 +52,9 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief Binds this buffer to the current command buffer.
-         * @param commandPool Command pool with current command buffer
          * @note Uses usage type to determine binding (vertex/index/instance)
          */
-        void Bind(const Ref<CommandPool>& commandPool) const;
+        void Bind() const;
 
         /**
          * @brief Returns the underlying buffer handle.
@@ -75,12 +78,12 @@ namespace FREYA_NAMESPACE
          * @param offset Offset into buffer memory (default 0)
          * @note Only copies if size fits within buffer and data is not null
          */
-        void Copy(const void*   data,
-                  std::uint64_t size,
-                  std::uint64_t offset = 0);
+        void Copy(const void* data, std::uint64_t size, std::uint64_t offset = 0);
 
       private:
-        Ref<Device> mDevice;
+        Ref<Device>               mDevice;
+        Ref<CommandPool>          mCommandPool;
+        Ref<skr::ServiceProvider> mServiceProvider;
 
         vk::Buffer       mBuffer;
         vk::DeviceMemory mMemory;

@@ -116,7 +116,7 @@ namespace FREYA_NAMESPACE
 
         void UpdateModel(const glm::mat4& model) const;
 
-        [[nodiscard]] BufferBuilder GetBufferBuilder() const;
+        [[nodiscard]] Ref<BufferBuilder> GetBufferBuilder() const;
         void                        BindBuffer(const Ref<Buffer>& buffer) const;
         void                        BindMaterial(std::uint32_t materialId);
 
