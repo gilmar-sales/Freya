@@ -144,7 +144,8 @@ namespace FREYA_NAMESPACE
          * @brief Returns the acquired swapchain image index for this frame.
          * This is the actual image that was acquired by GetNextFrame()
          * and will be presented by Present(). The framebuffer for this
-         * frame should be selected using this index, not GetCurrentFrameIndex().
+         * frame should be selected using this index, not
+         * GetCurrentFrameIndex().
          */
         [[nodiscard]] std::uint32_t GetCurrentImageIndex() const
         {

@@ -15,30 +15,34 @@ namespace FREYA_NAMESPACE
 
         mLogger->LogWarning("Vulkan loaded: {}", vulkanLoad);
 
-        auto windowFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+        auto windowFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE |
+                           SDL_WINDOW_HIGH_PIXEL_DENSITY;
 
         if (mFreyaOptions->fullscreen)
         {
             windowFlags |= SDL_WINDOW_FULLSCREEN;
-        } else {
-            auto displayId = SDL_GetPrimaryDisplay();
+        }
+        else
+        {
+            auto                   displayId = SDL_GetPrimaryDisplay();
             const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(displayId);
-            
-            if (mode &&
-                !mFreyaOptions->fullscreen &&
-                mFreyaOptions->width  == static_cast<uint32_t>(mode->w) &&
+
+            if (mode && !mFreyaOptions->fullscreen &&
+                mFreyaOptions->width == static_cast<uint32_t>(mode->w) &&
                 mFreyaOptions->height == static_cast<uint32_t>(mode->h))
             {
-                mLogger->LogWarning("\tWindow size matches display resolution, "
-                                  "reducing resolution to avoid forced fullscreen");
+                mLogger->LogWarning(
+                    "\tWindow size matches display resolution, "
+                    "reducing resolution to avoid forced fullscreen");
 
                 SDL_Rect usableBounds;
                 if (SDL_GetDisplayUsableBounds(displayId, &usableBounds))
                 {
-                    mFreyaOptions->width = usableBounds.w;
+                    mFreyaOptions->width  = usableBounds.w;
                     mFreyaOptions->height = usableBounds.h - 46;
                 }
-                else {
+                else
+                {
                     mFreyaOptions->width -= 10;
                     mFreyaOptions->height -= 60;
                 }
@@ -53,7 +57,6 @@ namespace FREYA_NAMESPACE
 
         mLogger->Assert(window != nullptr, "Failed to create SDL3 Window");
 
-        
         mLogger->LogTrace("\tSize:{}x{}",
                           mFreyaOptions->width,
                           mFreyaOptions->height);
@@ -63,7 +66,10 @@ namespace FREYA_NAMESPACE
             "\tFullscreen: {}",
             (bool) (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN));
 
-        return skr::MakeRef<Window>(window, mEventManager, mFreyaOptions, mWindowLogger);
+        return skr::MakeRef<Window>(window,
+                                    mEventManager,
+                                    mFreyaOptions,
+                                    mWindowLogger);
     }
 
 } // namespace FREYA_NAMESPACE

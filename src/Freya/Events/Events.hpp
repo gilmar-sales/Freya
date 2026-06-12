@@ -1,6 +1,6 @@
 #pragma once
 
+#include "Gamepad.hpp"
 #include "Keyboard.hpp"
 #include "Mouse.hpp"
-#include "Gamepad.hpp"
 #include "Window.hpp"

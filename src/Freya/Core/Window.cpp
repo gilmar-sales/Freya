@@ -82,7 +82,8 @@ namespace FREYA_NAMESPACE
                     int width, height;
                     SDL_GetWindowSizeInPixels(mWindow, &width, &height);
 
-                    mLogger->LogInformation("Window size: {}, {}", width, height);
+                    mLogger->LogInformation(
+                        "Window size: {}, {}", width, height);
 
                     const auto resizeEvent =
                         WindowResizeEvent { .width = width, .height = height };
