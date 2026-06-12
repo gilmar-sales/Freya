@@ -1,8 +1,6 @@
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 
-#include <meshoptimizer.h>
-
 namespace FREYA_NAMESPACE
 {
     constexpr auto MegaBytes           = 1024 * 1024;
@@ -174,8 +172,9 @@ namespace FREYA_NAMESPACE
         const aiScene*   scene = import.ReadFile(
             path,
             aiProcess_CalcTangentSpace | aiProcess_Triangulate |
-                aiProcess_SortByPType | aiProcess_GenSmoothNormals |
-                aiProcess_GenUVCoords | aiProcess_GlobalScale |
+                aiProcess_SortByPType | aiProcess_GenNormals |
+                aiProcess_GenUVCoords | aiProcess_OptimizeMeshes |
+                aiProcess_JoinIdenticalVertices | aiProcess_GlobalScale |
                 aiProcess_ValidateDataStructure);
 
         if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE ||
@@ -291,45 +290,6 @@ namespace FREYA_NAMESPACE
                 indices.push_back(face.mIndices[j]);
             }
         }
-
-        std::vector<unsigned int> remap(indices.size());
-        const size_t uniqueVertexCount = meshopt_generateVertexRemap(
-            remap.data(),
-            indices.data(),
-            indices.size(),
-            vertices.data(),
-            vertices.size(),
-            sizeof(Vertex));
-
-        // Apply remap to indices and vertices (removes duplicates, compacts)
-        meshopt_remapIndexBuffer(indices.data(),
-                                 indices.data(),
-                                 indices.size(),
-                                 remap.data());
-
-        meshopt_remapVertexBuffer(
-            vertices.data(),
-            vertices.data(),
-            vertices.size(),
-            sizeof(Vertex),
-            remap.data());
-
-        vertices.resize(uniqueVertexCount);
-
-        // 2. Optimize index buffer for GPU vertex cache
-        meshopt_optimizeVertexCache(indices.data(),
-                                    indices.data(),
-                                    indices.size(),
-                                    vertices.size());
-
-        // 3. Reorder vertex buffer to match the optimized index order
-        meshopt_optimizeVertexFetch(
-            vertices.data(),
-            indices.data(),
-            indices.size(),
-            vertices.data(),
-            vertices.size(),
-            sizeof(Vertex));
 
         return CreateMesh(vertices, indices);
     }

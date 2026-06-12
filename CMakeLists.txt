@@ -19,7 +19,7 @@ include(FetchContent)
 FetchContent_Declare(
         SDL
         GIT_REPOSITORY "https://github.com/libsdl-org/SDL.git"
-        GIT_TAG "release-3.4.8"
+        GIT_TAG "release-3.4.10"
         GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(SDL)
@@ -48,19 +48,11 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(skirnir)
 
-FetchContent_Declare(
-        meshoptimizer
-        GIT_REPOSITORY "https://github.com/zeux/meshoptimizer.git"
-        GIT_TAG "v1.1"
-        GIT_SHALLOW TRUE
-)
-FetchContent_MakeAvailable(meshoptimizer)
-
-option(FREYA_BUILD_EXAMPLES "Build freyr examples" OFF)
-
-if (${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
-    set(FREYA_BUILD_EXAMPLES ON)
-endif ()
+if(${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
+        option(FREYA_BUILD_EXAMPLES "Build freyr examples" ON)
+else()
+        option(FREYA_BUILD_EXAMPLES "Build freyr examples" OFF)
+endif()
 
 
 file(GLOB_RECURSE Freya_SRCS src/**.cpp)
@@ -72,7 +64,7 @@ add_library(Freya::Freya ALIAS Freya)
 target_compile_features(Freya PUBLIC cxx_std_23)
 target_include_directories(Freya PUBLIC include src ${Vulkan_INCLUDE_DIRS})
 target_link_libraries(Freya PUBLIC
-        SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES} skirnir::skirnir meshoptimizer)
+        SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES} skirnir::skirnir)
 
 target_precompile_headers(Freya PUBLIC
         <memory>
@@ -96,7 +88,6 @@ target_precompile_headers(Freya PUBLIC
 # Shader compilation pipeline
 # ---------------------------------------------------------------------------
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" PARENT_SCOPE)
 
 include(CompileShaders)
 
@@ -107,6 +98,6 @@ add_shader_target(TARGET Shaders
 )
 add_dependencies(Freya Shaders)
 
-if (FREYA_BUILD_EXAMPLES)
-    add_subdirectory(Examples)
-endif (FREYA_BUILD_EXAMPLES)
+if(FREYA_BUILD_EXAMPLES)
+        add_subdirectory(Examples)
+endif(FREYA_BUILD_EXAMPLES)
