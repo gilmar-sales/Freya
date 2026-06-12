@@ -2,10 +2,20 @@
 
 ## Build
 
-- CMake 3.29+, requires Vulkan SDK. All deps fetched via `FetchContent`: SDL3, glm, assimp, skirnir, meshoptimizer.
+- CMake 3.29+, requires Vulkan SDK. All deps fetched via `FetchContent`: SDL3, glm, assimp, skirnir.
+- Pinned dependency versions:
+
+  | Dependency  | Version / Tag    |
+  |-------------|------------------|
+  | SDL3        | `release-3.4.10` |
+  | glm         | `1.0.3`          |
+  | assimp      | `v6.0.5`         |
+  | skirnir     | `v0.16.1`        |
+  | stb_image.h | `v2.30` (vendored in `src/Freya/Vendor/`) |
 - Static lib only (`BUILD_SHARED_LIBS OFF`).
 - `build/` is the active build directory (Ninja, used by CI). `.gitignore` patterns `cmake-build-*/` and `build/` (but `build/` is committed — do not delete it).
-- `cmake -B build -S . && cmake --build build --parallel`
+- **Generator: Ninja is mandatory.** Always pass `-G Ninja` when configuring (CI uses Ninja, and the shader copy targets in `cmake/CompileShaders.cmake` rely on Ninja generator behavior). Do not use the default generator.
+- `cmake -B build -S . -G Ninja && cmake --build build --parallel`
 - Examples auto-enable when building from root (detected via `CMAKE_SOURCE_DIR == CMAKE_CURRENT_SOURCE_DIR`);
   disable with `-DFREYA_BUILD_EXAMPLES=OFF`.
 - CI builds on ubuntu/windows/macos with **Debug only**; Linux requires `xorg` dev packages (see CI workflow).
@@ -60,6 +70,19 @@ The CI `ctest` step runs against an empty suite.
 - `Pch.hpp` defines `FREYA_NAMESPACE`, GLM config (`GLM_FORCE_RADIANS`, `GLM_FORCE_DEPTH_ZERO_TO_ONE`, `GLM_ENABLE_EXPERIMENTAL`), and the validation layer flag.
 - Column limit: 80 (`.clang-format` — Microsoft base style, `NamespaceIndentation: All`).
 - C++23 throughout (`cxx_std_23`).
+
+## Code Formatting
+
+- Style is enforced by `.clang-format` at the repo root.
+- Format every tracked C/C++ file: `bash scripts/format.sh` (PowerShell: `scripts/format.ps1`).
+- Verify without modifying: `bash scripts/format.sh --check`. The CI workflow
+  `.github/workflows/format-check.yml` runs this on every push/PR that touches
+  `src/`, `include/`, `Examples/`, `CMakeLists.txt`, `.clang-format`, or the script
+  itself.
+- Excluded paths are listed in `.clang-ignore` (build outputs, `Shaders/`,
+  `src/Freya/Vendor/`, `.cache/`).
+- Optional local pre-commit hook: `pip install pre-commit && pre-commit install`
+  (uses `.pre-commit-config.yaml`, local hook that shells out to the format script).
 
 ## Application Structure
 

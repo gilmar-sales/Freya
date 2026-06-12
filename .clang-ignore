@@ -1,0 +1,6 @@
+build/
+.cache/
+cmake-build-*/
+.kilo/node_modules/
+Shaders/
+src/Freya/Vendor/

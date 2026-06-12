@@ -1,0 +1,17 @@
+repos:
+  - repo: local
+    hooks:
+      - id: clang-format
+        name: clang-format (project style)
+        description: Enforce .clang-format on staged C/C++ files.
+        entry: bash scripts/format.sh --check
+        language: system
+        types_or: [c, c++]
+        exclude: |
+          (?x)^(
+              Shaders/.* |
+              src/Freya/Vendor/.* |
+              build/.* |
+              cmake-build-.*/.* |
+              \.cache/.*
+          )$
