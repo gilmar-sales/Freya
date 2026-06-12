@@ -9,6 +9,9 @@ if (MSVC)
     target_link_options(IndustrialPipeLamp PUBLIC "/INCREMENTAL")
 endif ()
 
-add_dependencies(IndustrialPipeLamp Shaders)
+add_shader_outputs(Shaders
+    "${CMAKE_BINARY_DIR}/Examples/IndustrialPipeLamp/Resources/Shaders"
+)
+add_dependencies(IndustrialPipeLamp ${Shaders_OUTPUT_TARGETS})
 
 file(COPY Resources DESTINATION ${CMAKE_BINARY_DIR}/Examples/IndustrialPipeLamp)
