@@ -4,9 +4,8 @@
 
 - CMake 3.29+, requires Vulkan SDK. All deps fetched via `FetchContent`: SDL3, glm, assimp, skirnir, meshoptimizer.
 - Static lib only (`BUILD_SHARED_LIBS OFF`).
-- Two active build dirs exist: `build/` (Makefiles) and `cmake-build-debug/` (Ninja).
-  When in doubt, use `cmake-build-debug/` (it's in `.gitignore` as `cmake-build-*/`).
-- `cmake -B cmake-build-debug -S . && cmake --build cmake-build-debug`
+- `build/` is the active build directory (Ninja, used by CI). `.gitignore` patterns `cmake-build-*/` and `build/` (but `build/` is committed — do not delete it).
+- `cmake -B build -S . && cmake --build build --parallel`
 - Examples auto-enable when building from root (detected via `CMAKE_SOURCE_DIR == CMAKE_CURRENT_SOURCE_DIR`);
   disable with `-DFREYA_BUILD_EXAMPLES=OFF`.
 - CI builds on ubuntu/windows/macos with **Debug only**; Linux requires `xorg` dev packages (see CI workflow).
@@ -19,18 +18,23 @@
   shaders/textures/models via relative paths (`./Resources/Shaders/...`, `./Resources/Textures/...`,
   `./Resources/Models/...`), so the working directory must be the executable's own directory.
   ```sh
-  cd cmake-build-debug/Examples/Sofa
-  ./Sofa
+  cd build/Examples/IndustrialPipeLamp
+  ./IndustrialPipeLamp
   ```
 
 ## Shaders
 
 - **Do NOT manually compile with glslc.** The build system (`cmake/CompileShaders.cmake`)
-  compiles every `.vert`/`.frag` from `Shaders/<variant>/` to `.spv` at build time.
-  Only changed sources are recompiled (timestamp check). Edit the `.vert`/`.frag` and rebuild.
+  compiles every `.vert`/`.frag` from `Shaders/<variant>/` to `.spv` at build time
+  (staging dir: `${CMAKE_BINARY_DIR}/Resources/Shaders`). Only changed sources are
+  recompiled (timestamp check). Edit the `.vert`/`.frag` and rebuild.
 - If `glslc` is missing, a warning is emitted and pre-compiled `.spv` files are copied as fallback.
 - The `Shaders` CMake target is a dependency of `Freya`, so shaders compile before the library.
-- Examples receive compiled shaders via `POST_BUILD` `copy_directory`.
+- Each example opts in to receiving compiled shaders by calling
+  `add_shader_outputs(Shaders <example_binary_dir>/Resources/Shaders)` in its
+  `CMakeLists.txt`, then `add_dependencies(<ExampleTarget> ${Shaders_OUTPUT_TARGETS})`.
+  This creates a per-example copy target that lands `.spv` files in the example's
+  binary dir, preserving the `<variant>/` sub-directory layout.
 
 ## Tests
 
@@ -43,9 +47,9 @@ The CI `ctest` step runs against an empty suite.
 |---|---|
 | `src/Freya/` | Library source: `Core/` (Renderer, Window, RenderPass, DeferredCompressedPass, etc.), `Builders/` (builder for every core object), `Asset/` (MeshPool, TexturePool, MaterialPool), `Containers/` (SparseSet, MeshSet), `Events/` (input event system), `Vendor/` (stb_image.h). Also `Pch.hpp`, `FreyaOptions.hpp`. |
 | `include/Freya/` | Public headers — umbrella `Freya.hpp` pulls in all public types. |
-| `Examples/Sofa/` | Only example; binary lands at `cmake-build-debug/Examples/Sofa/Sofa`. |
+| `Examples/IndustrialPipeLamp/` | Only example; binary lands at `build/Examples/IndustrialPipeLamp/IndustrialPipeLamp`. |
 | `Shaders/` | GLSL sources in three variants: `Forward/`, `Deferred/`, `DeferredCompressed/`. |
-| `textures/` | Root-level texture (not used by Sofa example, which uses its own `Examples/Sofa/Resources/Textures/`). |
+| `textures/` | Root-level texture (not used by the IndustrialPipeLamp example, which uses its own `Examples/IndustrialPipeLamp/Resources/Textures/`). |
 | `docs/` | MkDocs-material documentation, deployed via `mkdocs gh-deploy`. |
 | `.kilo/` | Kilo CLI config: agent definitions (`.kilo/agent/`) and plans (`.kilo/plans/`). |
 
