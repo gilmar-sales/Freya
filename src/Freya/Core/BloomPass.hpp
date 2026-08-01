@@ -29,18 +29,18 @@ namespace FREYA_NAMESPACE
     {
       public:
         BloomPass(
-            const Ref<Device>&                          device,
-            const Ref<FreyaOptions>&                    freyaOptions,
-            const Ref<Surface>&                         surface,
+            const skr::Arc<Device>&                          device,
+            const skr::Arc<FreyaOptions>&                    freyaOptions,
+            const skr::Arc<Surface>&                         surface,
             vk::Extent2D                                halfExtent,
             vk::RenderPass                              renderPass,
             vk::PipelineLayout                          pipelineLayout,
             vk::Pipeline                                thresholdPipeline,
             vk::Pipeline                                downsamplePipeline,
             vk::Pipeline                                upsamplePipeline,
-            const Ref<Image>&                           bloomThresholdImage,
-            const Ref<Image>&                           bloomDownImage,
-            const Ref<Image>&                           bloomUpImage,
+            const skr::Arc<Image>&                           bloomThresholdImage,
+            const skr::Arc<Image>&                           bloomDownImage,
+            const skr::Arc<Image>&                           bloomUpImage,
             const std::vector<vk::Framebuffer>&         framebuffers,
             vk::DescriptorPool                          descriptorPool,
             const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
@@ -52,7 +52,7 @@ namespace FREYA_NAMESPACE
 
         vk::Pipeline& GetPipeline(std::uint32_t subpass);
 
-        Ref<Image> GetBloomUpImage() const { return mBloomUpImage; }
+        skr::Arc<Image> GetBloomUpImage() const { return mBloomUpImage; }
 
         std::size_t GetFramebufferCount() const { return mFramebuffers.size(); }
         vk::Framebuffer& GetFramebuffer(std::size_t index)
@@ -60,27 +60,27 @@ namespace FREYA_NAMESPACE
             return mFramebuffers[index];
         }
 
-        void Begin(const Ref<SwapChain>    swapChain,
-                   const Ref<CommandPool>& commandPool) const;
+        void Begin(const skr::Arc<SwapChain>    swapChain,
+                   const skr::Arc<CommandPool>& commandPool) const;
 
-        void NextSubpass(const Ref<CommandPool>& commandPool) const;
+        void NextSubpass(const skr::Arc<CommandPool>& commandPool) const;
 
         void BindPipeline(std::uint32_t           subpass,
-                          const Ref<CommandPool>& commandPool,
+                          const skr::Arc<CommandPool>& commandPool,
                           std::uint32_t           frameIndex) const;
 
         void AdvanceSubpass(std::uint32_t           subpass,
-                            const Ref<CommandPool>& commandPool,
+                            const skr::Arc<CommandPool>& commandPool,
                             std::uint32_t           frameIndex) const;
 
-        void DrawFullscreenTriangle(const Ref<CommandPool>& commandPool) const;
+        void DrawFullscreenTriangle(const skr::Arc<CommandPool>& commandPool) const;
 
-        void End(const Ref<CommandPool> commandPool) const;
+        void End(const skr::Arc<CommandPool> commandPool) const;
 
       private:
-        Ref<Device>       mDevice;
-        Ref<FreyaOptions> mFreyaOptions;
-        Ref<Surface>      mSurface;
+        skr::Arc<Device>       mDevice;
+        skr::Arc<FreyaOptions> mFreyaOptions;
+        skr::Arc<Surface>      mSurface;
 
         vk::Extent2D mHalfExtent; ///< Half-resolution extent for bloom
 
@@ -89,9 +89,9 @@ namespace FREYA_NAMESPACE
 
         std::array<vk::Pipeline, 3> mPipelines;
 
-        Ref<Image> mBloomThresholdImage;
-        Ref<Image> mBloomDownImage;
-        Ref<Image> mBloomUpImage;
+        skr::Arc<Image> mBloomThresholdImage;
+        skr::Arc<Image> mBloomDownImage;
+        skr::Arc<Image> mBloomUpImage;
 
         std::vector<vk::Framebuffer> mFramebuffers;
 

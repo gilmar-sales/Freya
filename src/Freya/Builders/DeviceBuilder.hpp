@@ -22,10 +22,10 @@ namespace FREYA_NAMESPACE
     class DeviceBuilder
     {
       public:
-        DeviceBuilder(const Ref<Instance>&                   instance,
-                      const Ref<PhysicalDevice>&             physicalDevice,
-                      const Ref<Surface>&                    surface,
-                      const Ref<skr::Logger<DeviceBuilder>>& logger) :
+        DeviceBuilder(const skr::Arc<Instance>&                   instance,
+                      const skr::Arc<PhysicalDevice>&             physicalDevice,
+                      const skr::Arc<Surface>&                    surface,
+                      const skr::Arc<skr::Logger<DeviceBuilder>>& logger) :
             mInstance(instance), mPhysicalDevice(physicalDevice),
             mSurface(surface), mLogger(logger),
             mDeviceExtensions({ VK_KHR_SWAPCHAIN_EXTENSION_NAME })
@@ -36,7 +36,7 @@ namespace FREYA_NAMESPACE
          * @brief Builds and returns the Device object.
          * @return Shared pointer to created Device
          */
-        Ref<Device> Build();
+        skr::Arc<Device> Build();
 
       protected:
         /**
@@ -53,10 +53,10 @@ namespace FREYA_NAMESPACE
         static std::vector<const char*> OptionalExtensions;
 
       private:
-        Ref<skr::Logger<DeviceBuilder>> mLogger;   ///< Logger reference
-        Ref<Instance>                   mInstance; ///< Instance reference
-        Ref<PhysicalDevice> mPhysicalDevice; ///< Physical device reference
-        Ref<Surface>        mSurface;        ///< Surface reference
+        skr::Arc<skr::Logger<DeviceBuilder>> mLogger;   ///< Logger reference
+        skr::Arc<Instance>                   mInstance; ///< Instance reference
+        skr::Arc<PhysicalDevice> mPhysicalDevice; ///< Physical device reference
+        skr::Arc<Surface>        mSurface;        ///< Surface reference
         std::vector<const char*>
             mDeviceExtensions; ///< Enabled device extensions
     };

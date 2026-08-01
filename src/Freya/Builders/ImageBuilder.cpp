@@ -7,7 +7,7 @@
 
 namespace FREYA_NAMESPACE
 {
-    Ref<Image> ImageBuilder::Build()
+    skr::Arc<Image> ImageBuilder::Build()
     {
         mLogger->LogTrace("Building 'fra::Image'");
 
@@ -363,7 +363,7 @@ namespace FREYA_NAMESPACE
 
         auto imageView = mDevice->Get().createImageView(imageViewInfo);
 
-        return skr::MakeRef<Image>(
+        return skr::MakeArc<Image>(
             mDevice,
             image,
             imageView,
@@ -412,7 +412,7 @@ namespace FREYA_NAMESPACE
     }
 
     void ImageBuilder::transitionLayout(
-        const Ref<CommandPool>& commandPool,
+        const skr::Arc<CommandPool>& commandPool,
         const vk::Image         image,
         const vk::ImageLayout   oldLayout,
         const vk::ImageLayout   newLayout,

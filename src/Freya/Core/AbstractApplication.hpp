@@ -23,7 +23,7 @@ namespace FREYA_NAMESPACE
          * @param serviceProvider Service provider reference
          */
         explicit AbstractApplication(
-            const Ref<skr::ServiceProvider>& serviceProvider) :
+            const skr::Arc<skr::ServiceProvider>& serviceProvider) :
             IApplication(serviceProvider), mDeltaTime(0)
         {
             mEventManager = mRootServiceProvider->GetService<EventManager>();
@@ -57,8 +57,8 @@ namespace FREYA_NAMESPACE
         friend class ApplicationBuilder;
 
         float             mDeltaTime;    ///< Time since last frame in seconds
-        Ref<Window>       mWindow;       ///< Window service reference
-        Ref<Renderer>     mRenderer;     ///< Renderer service reference
-        Ref<EventManager> mEventManager; ///< Event manager service reference
+        skr::Arc<Window>       mWindow;       ///< Window service reference
+        skr::Arc<Renderer>     mRenderer;     ///< Renderer service reference
+        skr::Arc<EventManager> mEventManager; ///< Event manager service reference
     };
 } // namespace FREYA_NAMESPACE

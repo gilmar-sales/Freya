@@ -26,11 +26,11 @@ namespace FREYA_NAMESPACE
     class SurfaceBuilder
     {
       public:
-        SurfaceBuilder(const Ref<Instance>&                    instance,
-                       const Ref<PhysicalDevice>&              physicalDevice,
-                       const Ref<Window>&                      window,
-                       const Ref<FreyaOptions>&                freyaOptions,
-                       const Ref<skr::Logger<SurfaceBuilder>>& logger) :
+        SurfaceBuilder(const skr::Arc<Instance>&                    instance,
+                       const skr::Arc<PhysicalDevice>&              physicalDevice,
+                       const skr::Arc<Window>&                      window,
+                       const skr::Arc<FreyaOptions>&                freyaOptions,
+                       const skr::Arc<skr::Logger<SurfaceBuilder>>& logger) :
             mInstance(instance), mPhysicalDevice(physicalDevice),
             mWindow(window), mFreyaOptions(freyaOptions), mLogger(logger)
         {
@@ -40,14 +40,14 @@ namespace FREYA_NAMESPACE
          * @brief Builds and returns the Surface object.
          * @return Shared pointer to created Surface
          */
-        Ref<Surface> Build();
+        skr::Arc<Surface> Build();
 
       private:
-        Ref<skr::Logger<SurfaceBuilder>> mLogger;   ///< Logger reference
-        Ref<Window>                      mWindow;   ///< Window reference
-        Ref<Instance>                    mInstance; ///< Instance reference
-        Ref<PhysicalDevice> mPhysicalDevice; ///< Physical device reference
-        Ref<FreyaOptions>   mFreyaOptions;   ///< Freya options reference
+        skr::Arc<skr::Logger<SurfaceBuilder>> mLogger;   ///< Logger reference
+        skr::Arc<Window>                      mWindow;   ///< Window reference
+        skr::Arc<Instance>                    mInstance; ///< Instance reference
+        skr::Arc<PhysicalDevice> mPhysicalDevice; ///< Physical device reference
+        skr::Arc<FreyaOptions>   mFreyaOptions;   ///< Freya options reference
     };
 
 } // namespace FREYA_NAMESPACE

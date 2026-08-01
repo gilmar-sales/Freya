@@ -34,7 +34,7 @@ namespace FREYA_NAMESPACE
     class Buffer
     {
       public:
-        Buffer(const Ref<Device>&     device,
+        Buffer(const skr::Arc<Device>&     device,
                const BufferUsage      usage,
                const std::uint64_t    size,
                const vk::Buffer       buffer,
@@ -51,7 +51,7 @@ namespace FREYA_NAMESPACE
          * @param commandPool Command pool with current command buffer
          * @note Uses usage type to determine binding (vertex/index/instance)
          */
-        void Bind(const Ref<CommandPool>& commandPool) const;
+        void Bind(const skr::Arc<CommandPool>& commandPool) const;
 
         /**
          * @brief Returns the underlying buffer handle.
@@ -80,7 +80,7 @@ namespace FREYA_NAMESPACE
                   std::uint64_t offset = 0);
 
       private:
-        Ref<Device> mDevice;
+        skr::Arc<Device> mDevice;
 
         vk::Buffer       mBuffer;
         vk::DeviceMemory mMemory;

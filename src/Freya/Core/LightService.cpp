@@ -4,7 +4,7 @@
 
 namespace FREYA_NAMESPACE
 {
-    LightService::LightService(const Ref<Device>& device,
+    LightService::LightService(const skr::Arc<Device>& device,
                                std::uint32_t      frameCount,
                                std::uint32_t      maxLights) :
         mDevice(device), mFrameCount(frameCount), mMaxLights(maxLights),

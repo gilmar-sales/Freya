@@ -6,7 +6,7 @@
 
 namespace FREYA_NAMESPACE
 {
-    Ref<ShaderModule> ShaderModuleBuilder::Build() const
+    skr::Arc<ShaderModule> ShaderModuleBuilder::Build() const
     {
         mLogger->LogTrace("Creating shader module with file: {}",
                           mFilePath.data());
@@ -35,7 +35,7 @@ namespace FREYA_NAMESPACE
         //
         //     assert(shaderModule && "Failed to create shader module.");
         //
-        //     return MakeRef<ShaderModule>(shaderModule);
+        //     return MakeArc<ShaderModule>(shaderModule);
         // }
 
         const auto createInfo =
@@ -47,7 +47,7 @@ namespace FREYA_NAMESPACE
 
         mLogger->Assert(shaderModule, "Failed to create shader module.");
 
-        return skr::MakeRef<ShaderModule>(shaderModule);
+        return skr::MakeArc<ShaderModule>(shaderModule);
     }
 
     std::vector<char> ShaderModuleBuilder::readFile(

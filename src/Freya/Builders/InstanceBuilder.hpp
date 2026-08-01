@@ -20,7 +20,7 @@ namespace FREYA_NAMESPACE
          * @brief Constructs builder, queries SDL3 Vulkan extensions.
          * @param logger Logger for build operations
          */
-        InstanceBuilder(const Ref<skr::Logger<InstanceBuilder>>& logger) :
+        InstanceBuilder(const skr::Arc<skr::Logger<InstanceBuilder>>& logger) :
             mLogger(logger),
             mApplicationVersion(VK_MAKE_API_VERSION(0, 0, 0, 1)),
             mApplicationName("Freya Application"), mEngineName("Freya Engine"),
@@ -133,7 +133,7 @@ namespace FREYA_NAMESPACE
          * @return Shared pointer to created Instance
          * @note Creates Vulkan instance with configured layers/extensions
          */
-        Ref<Instance> Build();
+        skr::Arc<Instance> Build();
 
       protected:
         /**
@@ -144,7 +144,7 @@ namespace FREYA_NAMESPACE
         static bool checkLayerSupport(const char* layer);
 
       private:
-        Ref<skr::Logger<InstanceBuilder>> mLogger; ///< Logger reference
+        skr::Arc<skr::Logger<InstanceBuilder>> mLogger; ///< Logger reference
 
         std::vector<const char*> mLayers;     ///< Enabled validation layers
         std::vector<const char*> mExtensions; ///< Enabled extensions

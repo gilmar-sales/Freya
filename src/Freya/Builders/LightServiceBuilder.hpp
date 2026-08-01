@@ -20,8 +20,8 @@ namespace FREYA_NAMESPACE
          * @param device     Vulkan device reference
          * @param freyaOptions Freya options containing frameCount
          */
-        LightServiceBuilder(const Ref<Device>&       device,
-                            const Ref<FreyaOptions>& freyaOptions) :
+        LightServiceBuilder(const skr::Arc<Device>&       device,
+                            const skr::Arc<FreyaOptions>& freyaOptions) :
             mDevice(device), mFreyaOptions(freyaOptions)
         {
         }
@@ -41,16 +41,16 @@ namespace FREYA_NAMESPACE
          * @brief Builds and returns the LightService object.
          * @return Shared pointer to created LightService
          */
-        Ref<LightService> Build()
+        skr::Arc<LightService> Build()
         {
-            return skr::MakeRef<LightService>(mDevice,
+            return skr::MakeArc<LightService>(mDevice,
                                               mFreyaOptions->frameCount,
                                               mMaxLights);
         }
 
       private:
-        Ref<Device>       mDevice;
-        Ref<FreyaOptions> mFreyaOptions;
+        skr::Arc<Device>       mDevice;
+        skr::Arc<FreyaOptions> mFreyaOptions;
         std::uint32_t     mMaxLights = MAX_LIGHTS;
     };
 

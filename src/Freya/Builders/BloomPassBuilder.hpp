@@ -17,22 +17,22 @@ namespace FREYA_NAMESPACE
     class BloomPassBuilder
     {
       public:
-        BloomPassBuilder(const Ref<Device>&               device,
-                         const Ref<PhysicalDevice>&       physicalDevice,
-                         const Ref<Surface>&              surface,
-                         const Ref<FreyaOptions>&         freyaOptions,
-                         const Ref<skr::ServiceProvider>& serviceProvider);
+        BloomPassBuilder(const skr::Arc<Device>&               device,
+                         const skr::Arc<PhysicalDevice>&       physicalDevice,
+                         const skr::Arc<Surface>&              surface,
+                         const skr::Arc<FreyaOptions>&         freyaOptions,
+                         const skr::Arc<skr::ServiceProvider>& serviceProvider);
 
-        Ref<BloomPass> Build(const Ref<SwapChain>& swapChain,
-                             const Ref<Image>&     emissiveImage);
+        skr::Arc<BloomPass> Build(const skr::Arc<SwapChain>& swapChain,
+                             const skr::Arc<Image>&     emissiveImage);
 
       private:
         vk::RenderPass createRenderPass() const;
 
-        Ref<Device>               mDevice;
-        Ref<PhysicalDevice>       mPhysicalDevice;
-        Ref<Surface>              mSurface;
-        Ref<FreyaOptions>         mFreyaOptions;
-        Ref<skr::ServiceProvider> mServiceProvider;
+        skr::Arc<Device>               mDevice;
+        skr::Arc<PhysicalDevice>       mPhysicalDevice;
+        skr::Arc<Surface>              mSurface;
+        skr::Arc<FreyaOptions>         mFreyaOptions;
+        skr::Arc<skr::ServiceProvider> mServiceProvider;
     };
 } // namespace FREYA_NAMESPACE

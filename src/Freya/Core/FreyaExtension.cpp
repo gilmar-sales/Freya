@@ -105,7 +105,7 @@ namespace FREYA_NAMESPACE
                 auto device       = serviceProvider.GetService<Device>();
                 auto freyaOptions = serviceProvider.GetService<FreyaOptions>();
 
-                return skr::MakeRef<LightService>(device,
+                return skr::MakeArc<LightService>(device,
                                                   freyaOptions->frameCount,
                                                   freyaOptions->maxLights);
             });

@@ -9,7 +9,7 @@ namespace FREYA_NAMESPACE
         "VK_EXT_memory_priority", "VK_EXT_pageable_device_local_memory"
     };
 
-    Ref<Device> DeviceBuilder::Build()
+    skr::Arc<Device> DeviceBuilder::Build()
     {
         mLogger->Assert(mInstance != nullptr,
                         "Could not create an 'fra::Device' "
@@ -89,7 +89,7 @@ namespace FREYA_NAMESPACE
         mLogger->LogTrace("\tTransferQueue: {}",
                           indices.transferFamily.value());
 
-        return skr::MakeRef<Device>(
+        return skr::MakeArc<Device>(
             mPhysicalDevice,
             device,
             graphicsQueue,

@@ -100,7 +100,7 @@ namespace FREYA_NAMESPACE
         return *this;
     }
 
-    Ref<Instance> InstanceBuilder::Build()
+    skr::Arc<Instance> InstanceBuilder::Build()
     {
         auto appInfo =
             vk::ApplicationInfo()
@@ -182,7 +182,7 @@ namespace FREYA_NAMESPACE
             mLogger->LogTrace("\t\t{}", layer);
         }
 
-        return skr::MakeRef<Instance>(instance, debugMessenger);
+        return skr::MakeArc<Instance>(instance, debugMessenger);
     }
 
     bool InstanceBuilder::checkLayerSupport(const char* layer)

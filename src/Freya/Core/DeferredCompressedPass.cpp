@@ -33,9 +33,9 @@ namespace
 namespace FREYA_NAMESPACE
 {
     DeferredCompressedPass::DeferredCompressedPass(
-        const Ref<Device>&                          device,
-        const Ref<FreyaOptions>&                    freyaOptions,
-        const Ref<Surface>&                         surface,
+        const skr::Arc<Device>&                          device,
+        const skr::Arc<FreyaOptions>&                    freyaOptions,
+        const skr::Arc<Surface>&                         surface,
         const vk::RenderPass                        renderPass,
         const vk::PipelineLayout                    vertexPipelineLayout,
         const vk::PipelineLayout                    fullscreenPipelineLayout,
@@ -43,15 +43,15 @@ namespace FREYA_NAMESPACE
         const vk::Pipeline                          gbufferPipeline,
         const vk::Pipeline                          lightingPipeline,
         const vk::Pipeline                          translucentPipeline,
-        const Ref<Buffer>&                          uniformBuffer,
+        const skr::Arc<Buffer>&                          uniformBuffer,
         const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
         const std::vector<vk::DescriptorSet>&       descriptorSets,
         const vk::DescriptorPool                    descriptorPool,
-        const std::vector<Ref<Image>>&              gbufferImages,
-        const Ref<Image>&                           emissiveImage,
-        const Ref<Image>&                           depthImage,
-        const Ref<Image>&                           translucentImage,
-        const Ref<Image>&                           opaqueImage,
+        const std::vector<skr::Arc<Image>>&              gbufferImages,
+        const skr::Arc<Image>&                           emissiveImage,
+        const skr::Arc<Image>&                           depthImage,
+        const skr::Arc<Image>&                           translucentImage,
+        const skr::Arc<Image>&                           opaqueImage,
         const std::vector<vk::Framebuffer>&         framebuffers,
         const vk::DescriptorSetLayout               inputAttachmentLayout,
         const vk::DescriptorPool                    inputAttachmentPool,
@@ -120,8 +120,8 @@ namespace FREYA_NAMESPACE
     }
 
     void DeferredCompressedPass::Begin(
-        const Ref<SwapChain>    swapChain,
-        const Ref<CommandPool>& commandPool) const
+        const skr::Arc<SwapChain>    swapChain,
+        const skr::Arc<CommandPool>& commandPool) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 
@@ -160,7 +160,7 @@ namespace FREYA_NAMESPACE
     }
 
     void DeferredCompressedPass::NextSubpass(
-        const Ref<CommandPool>& commandPool) const
+        const skr::Arc<CommandPool>& commandPool) const
     {
         commandPool->GetCommandBuffer().nextSubpass(
             vk::SubpassContents::eInline);
@@ -168,7 +168,7 @@ namespace FREYA_NAMESPACE
 
     void DeferredCompressedPass::BindPipeline(
         const std::uint32_t     subpass,
-        const Ref<CommandPool>& commandPool,
+        const skr::Arc<CommandPool>& commandPool,
         const std::uint32_t     frameIndex) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
@@ -214,7 +214,7 @@ namespace FREYA_NAMESPACE
 
     void DeferredCompressedPass::AdvanceSubpass(
         const std::uint32_t     subpass,
-        const Ref<CommandPool>& commandPool,
+        const skr::Arc<CommandPool>& commandPool,
         const std::uint32_t     frameIndex) const
     {
         NextSubpass(commandPool);
@@ -222,12 +222,12 @@ namespace FREYA_NAMESPACE
     }
 
     void DeferredCompressedPass::DrawFullscreenTriangle(
-        const Ref<CommandPool>& commandPool) const
+        const skr::Arc<CommandPool>& commandPool) const
     {
         commandPool->GetCommandBuffer().draw(3, 1, 0, 0);
     }
 
-    void DeferredCompressedPass::End(const Ref<CommandPool> commandPool) const
+    void DeferredCompressedPass::End(const skr::Arc<CommandPool> commandPool) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 

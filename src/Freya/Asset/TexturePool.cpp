@@ -17,10 +17,10 @@ namespace FREYA_NAMESPACE
 {
     constexpr auto MegaBytes = 1024 * 1024;
 
-    TexturePool::TexturePool(const Ref<skr::ServiceProvider>& serviceProvider,
-                             const Ref<Device>&               device,
-                             const Ref<CommandPool>&          commandPool,
-                             const Ref<RenderPass>&           renderPass) :
+    TexturePool::TexturePool(const skr::Arc<skr::ServiceProvider>& serviceProvider,
+                             const skr::Arc<Device>&               device,
+                             const skr::Arc<CommandPool>&          commandPool,
+                             const skr::Arc<RenderPass>&           renderPass) :
         mServiceProvider(serviceProvider), mDevice(device),
         mCommandPool(commandPool), mRenderPass(renderPass)
     {
@@ -105,7 +105,7 @@ namespace FREYA_NAMESPACE
         return texture.id;
     }
 
-    Ref<Buffer> TexturePool::queryStagingBuffer(std::uint32_t size)
+    skr::Arc<Buffer> TexturePool::queryStagingBuffer(std::uint32_t size)
     {
         for (auto stagingBuffer : mStagingBuffers)
         {
@@ -116,7 +116,7 @@ namespace FREYA_NAMESPACE
         return createStagingBuffer(size);
     }
 
-    Ref<Buffer> TexturePool::createStagingBuffer(std::uint32_t size)
+    skr::Arc<Buffer> TexturePool::createStagingBuffer(std::uint32_t size)
     {
         const auto bufferSize = (size / MegaBytes + 4) * MegaBytes;
 

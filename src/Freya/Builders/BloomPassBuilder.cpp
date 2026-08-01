@@ -7,18 +7,18 @@
 namespace FREYA_NAMESPACE
 {
     BloomPassBuilder::BloomPassBuilder(
-        const Ref<Device>&               device,
-        const Ref<PhysicalDevice>&       physicalDevice,
-        const Ref<Surface>&              surface,
-        const Ref<FreyaOptions>&         freyaOptions,
-        const Ref<skr::ServiceProvider>& serviceProvider) :
+        const skr::Arc<Device>&               device,
+        const skr::Arc<PhysicalDevice>&       physicalDevice,
+        const skr::Arc<Surface>&              surface,
+        const skr::Arc<FreyaOptions>&         freyaOptions,
+        const skr::Arc<skr::ServiceProvider>& serviceProvider) :
         mDevice(device), mPhysicalDevice(physicalDevice), mSurface(surface),
         mFreyaOptions(freyaOptions), mServiceProvider(serviceProvider)
     {
     }
 
-    Ref<BloomPass> BloomPassBuilder::Build(const Ref<SwapChain>& swapChain,
-                                           const Ref<Image>&     emissiveImage)
+    skr::Arc<BloomPass> BloomPassBuilder::Build(const skr::Arc<SwapChain>& swapChain,
+                                           const skr::Arc<Image>&     emissiveImage)
     {
         auto renderPass = createRenderPass();
 
@@ -335,7 +335,7 @@ namespace FREYA_NAMESPACE
 
         auto finalSets = std::vector<vk::DescriptorSet>(allSets);
 
-        return skr::MakeRef<BloomPass>(
+        return skr::MakeArc<BloomPass>(
             mDevice, mFreyaOptions, mSurface, halfExtent, renderPass,
             pipelineLayout, thresholdPipeline, downsamplePipeline,
             upsamplePipeline, bloomThresholdImage, bloomDownImage, bloomUpImage,

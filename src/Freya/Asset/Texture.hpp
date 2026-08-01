@@ -20,7 +20,7 @@ namespace FREYA_NAMESPACE
          */
         operator std::uint32_t() const { return id; }
 
-        Ref<Image>    image;   ///< Vulkan image and memory
+        skr::Arc<Image>    image;   ///< Vulkan image and memory
         vk::Sampler   sampler; ///< Sampler state (filtering, addressing)
         std::uint32_t width;   ///< Width in pixels
         std::uint32_t height;  ///< Height in pixels

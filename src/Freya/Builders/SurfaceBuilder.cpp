@@ -3,7 +3,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    Ref<Surface> SurfaceBuilder::Build()
+    skr::Arc<Surface> SurfaceBuilder::Build()
     {
         mLogger->Assert(
             mInstance != nullptr,
@@ -21,7 +21,7 @@ namespace FREYA_NAMESPACE
         mLogger->LogTrace("Building 'fra::Surface'.");
 
         auto fraSurface =
-            skr::MakeRef<Surface>(mInstance, mPhysicalDevice, mWindow, surface);
+            skr::MakeArc<Surface>(mInstance, mPhysicalDevice, mWindow, surface);
 
         mFreyaOptions->frameCount =
             fraSurface->QueryFrameCountSupport(mFreyaOptions->frameCount);

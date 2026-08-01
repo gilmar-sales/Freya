@@ -26,7 +26,7 @@ cmake --build .
 class MainApp final : public fra::AbstractApplication
 {
   public:
-    explicit MainApp(const Ref<skr::ServiceProvider>& serviceProvider)
+    explicit MainApp(const skr::Arc<skr::ServiceProvider>& serviceProvider)
         : AbstractApplication(serviceProvider)
     {
         mMeshPool     = serviceProvider->GetService<fra::MeshPool>();

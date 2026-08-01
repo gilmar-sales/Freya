@@ -13,7 +13,7 @@
 
 namespace FREYA_NAMESPACE
 {
-    Ref<RenderPass> RenderPassBuilder::Build()
+    skr::Arc<RenderPass> RenderPassBuilder::Build()
     {
         mLogger->LogTrace("Building 'fra::RenderPass':");
 
@@ -579,7 +579,7 @@ namespace FREYA_NAMESPACE
         };
         mDevice->Get().updateDescriptorSets(fbWrites, nullptr);
 
-        return skr::MakeRef<RenderPass>(
+        return skr::MakeArc<RenderPass>(
             mDevice,
             mFreyaOptions,
             renderPass,

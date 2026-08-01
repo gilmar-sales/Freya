@@ -31,10 +31,10 @@ namespace FREYA_NAMESPACE
     class MeshPool
     {
       public:
-        MeshPool(const Ref<Device>&                device,
-                 const Ref<PhysicalDevice>&        physicalDevice,
-                 const Ref<CommandPool>&           commandPool,
-                 const Ref<skr::Logger<MeshPool>>& logger);
+        MeshPool(const skr::Arc<Device>&                device,
+                 const skr::Arc<PhysicalDevice>&        physicalDevice,
+                 const skr::Arc<CommandPool>&           commandPool,
+                 const skr::Arc<skr::Logger<MeshPool>>& logger);
 
         /**
          * @brief Creates a mesh from CPU vertex/index data.
@@ -108,14 +108,14 @@ namespace FREYA_NAMESPACE
          * @param size Required size in bytes
          * @return Staging buffer reference
          */
-        Ref<Buffer> queryStagingBuffer(std::uint32_t size);
+        skr::Arc<Buffer> queryStagingBuffer(std::uint32_t size);
 
         /**
          * @brief Creates a new staging buffer.
          * @param size Buffer size in bytes
          * @return Staging buffer reference
          */
-        Ref<Buffer> createStagingBuffer(std::uint32_t size);
+        skr::Arc<Buffer> createStagingBuffer(std::uint32_t size);
 
         /**
          * @brief Draws a single mesh by ID.
@@ -134,16 +134,16 @@ namespace FREYA_NAMESPACE
                            size_t        firstInstance = 0);
 
       private:
-        Ref<Device>                mDevice;
-        Ref<PhysicalDevice>        mPhysicalDevice;
-        Ref<CommandPool>           mCommandPool;
-        Ref<skr::Logger<MeshPool>> mLogger;
+        skr::Arc<Device>                mDevice;
+        skr::Arc<PhysicalDevice>        mPhysicalDevice;
+        skr::Arc<CommandPool>           mCommandPool;
+        skr::Arc<skr::Logger<MeshPool>> mLogger;
 
-        std::vector<Ref<Buffer>>   mStagingBuffers;
-        std::vector<Ref<Buffer>>   mVertexBuffers;
+        std::vector<skr::Arc<Buffer>>   mStagingBuffers;
+        std::vector<skr::Arc<Buffer>>   mVertexBuffers;
         std::vector<std::uint32_t> mVertexBuffersOffsets;
 
-        std::vector<Ref<Buffer>>   mIndexBuffers;
+        std::vector<skr::Arc<Buffer>>   mIndexBuffers;
         std::vector<std::uint32_t> mIndexBuffersOffsets;
         MeshSet                    mMeshes;
     };

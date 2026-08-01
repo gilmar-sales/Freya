@@ -25,7 +25,7 @@ namespace FREYA_NAMESPACE
      *
      * @param commandPool Command pool with current command buffer
      */
-    void Buffer::Bind(const Ref<CommandPool>& commandPool) const
+    void Buffer::Bind(const skr::Arc<CommandPool>& commandPool) const
     {
         constexpr vk::DeviceSize offsets[] = { 0 };
         switch (mUsage)

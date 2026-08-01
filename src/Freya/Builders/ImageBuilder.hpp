@@ -47,10 +47,10 @@ namespace FREYA_NAMESPACE
          * @param serviceProvider Service provider reference
          */
         explicit ImageBuilder(
-            const Ref<Surface>&                   surface,
-            const Ref<Device>&                    device,
-            const Ref<skr::Logger<ImageBuilder>>& logger,
-            const Ref<skr::ServiceProvider>&      serviceProvider) :
+            const skr::Arc<Surface>&                   surface,
+            const skr::Arc<Device>&                    device,
+            const skr::Arc<skr::Logger<ImageBuilder>>& logger,
+            const skr::Arc<skr::ServiceProvider>&      serviceProvider) :
             mSurface(surface), mDevice(device), mLogger(logger),
             mServiceProvider(serviceProvider), mUsage(ImageUsage::Texture),
             mFormat(vk::Format::eUndefined),
@@ -141,7 +141,7 @@ namespace FREYA_NAMESPACE
          * @param stagingBuffer Staging buffer reference
          * @return Reference to this for chaining
          */
-        ImageBuilder& SetStagingBuffer(const Ref<Buffer>& stagingBuffer)
+        ImageBuilder& SetStagingBuffer(const skr::Arc<Buffer>& stagingBuffer)
         {
             mStagingBuffer = stagingBuffer;
             return *this;
@@ -151,7 +151,7 @@ namespace FREYA_NAMESPACE
          * @brief Builds and returns the Image object.
          * @return Shared pointer to created Image
          */
-        Ref<Image> Build();
+        skr::Arc<Image> Build();
 
       protected:
         /**
@@ -168,19 +168,19 @@ namespace FREYA_NAMESPACE
          * @param newLayout   Target layout
          */
         void transitionLayout(
-            const Ref<CommandPool>& commandPool, vk::Image image,
+            const skr::Arc<CommandPool>& commandPool, vk::Image image,
             vk::ImageLayout oldLayout, vk::ImageLayout newLayout,
             std::uint32_t baseMipLevel = 0,
             std::uint32_t levelCount   = VK_REMAINING_MIP_LEVELS) const;
 
       private:
-        Ref<skr::Logger<ImageBuilder>> mLogger;  ///< Logger reference
-        Ref<Surface>                   mSurface; ///< Surface reference
-        Ref<Device>                    mDevice;  ///< Device reference
-        Ref<skr::ServiceProvider>
+        skr::Arc<skr::Logger<ImageBuilder>> mLogger;  ///< Logger reference
+        skr::Arc<Surface>                   mSurface; ///< Surface reference
+        skr::Arc<Device>                    mDevice;  ///< Device reference
+        skr::Arc<skr::ServiceProvider>
             mServiceProvider; ///< Service provider reference
 
-        Ref<Buffer> mStagingBuffer; ///< Optional pre-allocated staging buffer
+        skr::Arc<Buffer> mStagingBuffer; ///< Optional pre-allocated staging buffer
         ImageUsage  mUsage;         ///< Image usage type
 
         vk::Format              mFormat;    ///< Image format

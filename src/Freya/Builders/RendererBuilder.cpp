@@ -16,17 +16,17 @@
 namespace FREYA_NAMESPACE
 {
     RendererBuilder::RendererBuilder(
-        const Ref<Instance>&             instance,
-        const Ref<Surface>&              surface,
-        const Ref<PhysicalDevice>&       physicalDevice,
-        const Ref<Device>&               device,
-        const Ref<CommandPool>&          commandPool,
-        const Ref<SwapChain>&            swapChain,
-        const Ref<RenderPass>&           renderPass,
-        const Ref<EventManager>&         eventManager,
-        const Ref<Window>&               window,
-        const Ref<FreyaOptions>&         freyaOptions,
-        const Ref<skr::ServiceProvider>& serviceProvider) :
+        const skr::Arc<Instance>&             instance,
+        const skr::Arc<Surface>&              surface,
+        const skr::Arc<PhysicalDevice>&       physicalDevice,
+        const skr::Arc<Device>&               device,
+        const skr::Arc<CommandPool>&          commandPool,
+        const skr::Arc<SwapChain>&            swapChain,
+        const skr::Arc<RenderPass>&           renderPass,
+        const skr::Arc<EventManager>&         eventManager,
+        const skr::Arc<Window>&               window,
+        const skr::Arc<FreyaOptions>&         freyaOptions,
+        const skr::Arc<skr::ServiceProvider>& serviceProvider) :
         mInstance(instance), mSurface(surface), mPhysicalDevice(physicalDevice),
         mDevice(device), mCommandPool(commandPool), mSwapChain(swapChain),
         mRenderPass(renderPass), mEventManager(eventManager), mWindow(window),
@@ -35,7 +35,7 @@ namespace FREYA_NAMESPACE
     {
     }
 
-    Ref<Renderer> RendererBuilder::Build()
+    skr::Arc<Renderer> RendererBuilder::Build()
     {
         mLogger->LogTrace("Creating renderer - Frame count: {} - Samples: {}",
                           mFreyaOptions->frameCount,
@@ -47,11 +47,11 @@ namespace FREYA_NAMESPACE
                 ? "Deferred"
                 : "Forward");
 
-        Ref<DeferredCompressedPass> deferredPass;
-        Ref<BloomPass>              bloomPass;
-        Ref<CompositePass>          compositePass;
-        Ref<Image>                  forwardColorImage;
-        Ref<Image>                  bloomInputImage;
+        skr::Arc<DeferredCompressedPass> deferredPass;
+        skr::Arc<BloomPass>              bloomPass;
+        skr::Arc<CompositePass>          compositePass;
+        skr::Arc<Image>                  forwardColorImage;
+        skr::Arc<Image>                  bloomInputImage;
 
         if (mFreyaOptions->renderingStrategy == RenderingStrategy::Deferred)
         {
@@ -123,7 +123,7 @@ namespace FREYA_NAMESPACE
 
         auto lightService = mServiceProvider->GetService<LightService>();
 
-        return skr::MakeRef<Renderer>(
+        return skr::MakeArc<Renderer>(
             mInstance,
             mSurface,
             mPhysicalDevice,

@@ -51,9 +51,9 @@ namespace FREYA_NAMESPACE
     {
       public:
         DeferredCompressedPass(
-            const Ref<Device>&       device,
-            const Ref<FreyaOptions>& freyaOptions,
-            const Ref<Surface>&      surface,
+            const skr::Arc<Device>&       device,
+            const skr::Arc<FreyaOptions>& freyaOptions,
+            const skr::Arc<Surface>&      surface,
             const vk::RenderPass     renderPass,
             const vk::PipelineLayout vertexPipelineLayout,
             const vk::PipelineLayout fullscreenPipelineLayout,
@@ -61,15 +61,15 @@ namespace FREYA_NAMESPACE
             const vk::Pipeline       gbufferPipeline,
             const vk::Pipeline       lightingPipeline,
             const vk::Pipeline       translucentPipeline,
-            const Ref<Buffer>&       uniformBuffer,
+            const skr::Arc<Buffer>&       uniformBuffer,
             const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
             const std::vector<vk::DescriptorSet>&       descriptorSets,
             const vk::DescriptorPool                    descriptorPool,
-            const std::vector<Ref<Image>>&              gbufferImages,
-            const Ref<Image>&                           emissiveImage,
-            const Ref<Image>&                           depthImage,
-            const Ref<Image>&                           translucentImage,
-            const Ref<Image>&                           opaqueImage,
+            const std::vector<skr::Arc<Image>>&              gbufferImages,
+            const skr::Arc<Image>&                           emissiveImage,
+            const skr::Arc<Image>&                           depthImage,
+            const skr::Arc<Image>&                           translucentImage,
+            const skr::Arc<Image>&                           opaqueImage,
             const std::vector<vk::Framebuffer>&         framebuffers,
             const vk::DescriptorSetLayout               inputAttachmentLayout,
             const vk::DescriptorPool                    inputAttachmentPool,
@@ -93,26 +93,26 @@ namespace FREYA_NAMESPACE
 
         vk::Pipeline& GetPipeline(std::uint32_t subpass);
 
-        Ref<Image> GetOpaqueImage() const { return mOpaqueImage; }
-        Ref<Image> GetTranslucentImage() const { return mTranslucentImage; }
-        Ref<Image> GetEmissiveImage() const { return mEmissiveImage; }
+        skr::Arc<Image> GetOpaqueImage() const { return mOpaqueImage; }
+        skr::Arc<Image> GetTranslucentImage() const { return mTranslucentImage; }
+        skr::Arc<Image> GetEmissiveImage() const { return mEmissiveImage; }
 
-        void Begin(const Ref<SwapChain>    swapChain,
-                   const Ref<CommandPool>& commandPool) const;
+        void Begin(const skr::Arc<SwapChain>    swapChain,
+                   const skr::Arc<CommandPool>& commandPool) const;
 
-        void NextSubpass(const Ref<CommandPool>& commandPool) const;
+        void NextSubpass(const skr::Arc<CommandPool>& commandPool) const;
 
         void BindPipeline(std::uint32_t           subpass,
-                          const Ref<CommandPool>& commandPool,
+                          const skr::Arc<CommandPool>& commandPool,
                           std::uint32_t           frameIndex) const;
 
         void AdvanceSubpass(std::uint32_t           subpass,
-                            const Ref<CommandPool>& commandPool,
+                            const skr::Arc<CommandPool>& commandPool,
                             std::uint32_t           frameIndex) const;
 
-        void DrawFullscreenTriangle(const Ref<CommandPool>& commandPool) const;
+        void DrawFullscreenTriangle(const skr::Arc<CommandPool>& commandPool) const;
 
-        void End(const Ref<CommandPool> commandPool) const;
+        void End(const skr::Arc<CommandPool> commandPool) const;
 
         void UpdateProjection(const ProjectionUniformBuffer& buffer,
                               std::uint32_t                  frameIndex) const;
@@ -129,7 +129,7 @@ namespace FREYA_NAMESPACE
             return mSamplerDescriptorPool;
         }
 
-        Ref<Buffer> GetUniformBuffer() { return mUniformBuffer; }
+        skr::Arc<Buffer> GetUniformBuffer() { return mUniformBuffer; }
 
         std::size_t GetFramebufferCount() const { return mFramebuffers.size(); }
 
@@ -140,9 +140,9 @@ namespace FREYA_NAMESPACE
 
         std::uint32_t GetCurrentSubpass() const { return mCurrentSubpass; }
 
-        Ref<Device>       mDevice;
-        Ref<FreyaOptions> mFreyaOptions;
-        Ref<Surface>      mSurface;
+        skr::Arc<Device>       mDevice;
+        skr::Arc<FreyaOptions> mFreyaOptions;
+        skr::Arc<Surface>      mSurface;
 
         vk::RenderPass mRenderPass;
 
@@ -152,18 +152,18 @@ namespace FREYA_NAMESPACE
 
         std::array<vk::Pipeline, 4> mPipelines;
 
-        Ref<Buffer> mUniformBuffer;
+        skr::Arc<Buffer> mUniformBuffer;
 
         std::vector<vk::DescriptorSetLayout> mDescriptorSetLayouts;
         std::vector<vk::DescriptorSet>       mDescriptorSets;
         vk::DescriptorPool                   mDescriptorPool;
 
         // G-buffer and intermediate images
-        std::vector<Ref<Image>> mGBufferImages;
-        Ref<Image>              mEmissiveImage;
-        Ref<Image>              mDepthImage;
-        Ref<Image>              mTranslucentImage;
-        Ref<Image>              mOpaqueImage;
+        std::vector<skr::Arc<Image>> mGBufferImages;
+        skr::Arc<Image>              mEmissiveImage;
+        skr::Arc<Image>              mDepthImage;
+        skr::Arc<Image>              mTranslucentImage;
+        skr::Arc<Image>              mOpaqueImage;
 
         // Framebuffers (one per swapchain image)
         std::vector<vk::Framebuffer> mFramebuffers;

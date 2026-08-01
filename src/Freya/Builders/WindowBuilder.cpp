@@ -3,7 +3,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    Ref<Window> WindowBuilder::Build()
+    skr::Arc<Window> WindowBuilder::Build()
     {
         mLogger->LogTrace("Building 'fra::Window':");
 
@@ -32,7 +32,7 @@ namespace FREYA_NAMESPACE
                 mFreyaOptions->height == static_cast<uint32_t>(mode->h))
             {
                 mLogger->LogWarning(
-                    "\tWindow size matches display resolution, "
+                    "Window size matches display resolution, "
                     "reducing resolution to avoid forced fullscreen");
 
                 SDL_Rect usableBounds;
@@ -66,7 +66,7 @@ namespace FREYA_NAMESPACE
             "\tFullscreen: {}",
             (bool) (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN));
 
-        return skr::MakeRef<Window>(window,
+        return skr::MakeArc<Window>(window,
                                     mEventManager,
                                     mFreyaOptions,
                                     mWindowLogger);

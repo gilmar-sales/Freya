@@ -35,11 +35,11 @@ namespace FREYA_NAMESPACE
     class MaterialPool
     {
       public:
-        MaterialPool(const Ref<Device>&                    device,
-                     const Ref<CommandPool>&               commandPool,
-                     const Ref<RenderPass>&                renderPass,
-                     const Ref<TexturePool>&               texturePool,
-                     const Ref<skr::Logger<MaterialPool>>& logger) :
+        MaterialPool(const skr::Arc<Device>&                    device,
+                     const skr::Arc<CommandPool>&               commandPool,
+                     const skr::Arc<RenderPass>&                renderPass,
+                     const skr::Arc<TexturePool>&               texturePool,
+                     const skr::Arc<skr::Logger<MaterialPool>>& logger) :
             mDevice(device), mCommandPool(commandPool), mRenderPass(renderPass),
             mTexturePool(texturePool), mLogger(logger), mMaterials(4096) {};
 
@@ -66,11 +66,11 @@ namespace FREYA_NAMESPACE
         Material& GetMaterial(uint32_t uint32);
 
       private:
-        Ref<Device>                    mDevice;
-        Ref<CommandPool>               mCommandPool;
-        Ref<RenderPass>                mRenderPass;
-        Ref<TexturePool>               mTexturePool;
-        Ref<skr::Logger<MaterialPool>> mLogger;
+        skr::Arc<Device>                    mDevice;
+        skr::Arc<CommandPool>               mCommandPool;
+        skr::Arc<RenderPass>                mRenderPass;
+        skr::Arc<TexturePool>               mTexturePool;
+        skr::Arc<skr::Logger<MaterialPool>> mLogger;
 
         MaterialSet mMaterials;
     };

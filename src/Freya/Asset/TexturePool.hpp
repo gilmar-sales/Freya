@@ -30,10 +30,10 @@ namespace FREYA_NAMESPACE
       public:
         using TextureSet = SparseSet<Texture>;
 
-        TexturePool(const Ref<skr::ServiceProvider>& serviceProvider,
-                    const Ref<Device>&               device,
-                    const Ref<CommandPool>&          commandPool,
-                    const Ref<RenderPass>&           renderPass);
+        TexturePool(const skr::Arc<skr::ServiceProvider>& serviceProvider,
+                    const skr::Arc<Device>&               device,
+                    const skr::Arc<CommandPool>&          commandPool,
+                    const skr::Arc<RenderPass>&           renderPass);
 
         ~TexturePool();
 
@@ -65,22 +65,22 @@ namespace FREYA_NAMESPACE
          * @param size Required size in bytes
          * @return Staging buffer reference
          */
-        Ref<Buffer> queryStagingBuffer(std::uint32_t size);
+        skr::Arc<Buffer> queryStagingBuffer(std::uint32_t size);
 
         /**
          * @brief Creates a new staging buffer.
          * @param size Buffer size in bytes
          * @return Staging buffer reference
          */
-        Ref<Buffer> createStagingBuffer(std::uint32_t size);
+        skr::Arc<Buffer> createStagingBuffer(std::uint32_t size);
 
       private:
-        Ref<skr::Logger<TexturePool>> mLogger;
-        Ref<skr::ServiceProvider>     mServiceProvider;
-        Ref<Device>                   mDevice;
-        Ref<CommandPool>              mCommandPool;
-        Ref<RenderPass>               mRenderPass;
-        std::vector<Ref<Buffer>>      mStagingBuffers;
+        skr::Arc<skr::Logger<TexturePool>> mLogger;
+        skr::Arc<skr::ServiceProvider>     mServiceProvider;
+        skr::Arc<Device>                   mDevice;
+        skr::Arc<CommandPool>              mCommandPool;
+        skr::Arc<RenderPass>               mRenderPass;
+        std::vector<skr::Arc<Buffer>>      mStagingBuffers;
         vk::DescriptorSet             mTextureDescriptorSet;
 
         TextureSet mTextures;

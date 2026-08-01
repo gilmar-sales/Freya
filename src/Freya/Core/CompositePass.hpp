@@ -15,9 +15,9 @@ namespace FREYA_NAMESPACE
     class CompositePass
     {
       public:
-        CompositePass(const Ref<Device>&                    device,
-                      const Ref<FreyaOptions>&              freyaOptions,
-                      const Ref<Surface>&                   surface,
+        CompositePass(const skr::Arc<Device>&                    device,
+                      const skr::Arc<FreyaOptions>&              freyaOptions,
+                      const skr::Arc<Surface>&                   surface,
                       vk::RenderPass                        renderPass,
                       vk::PipelineLayout                    pipelineLayout,
                       vk::Pipeline                          compositePipeline,
@@ -38,27 +38,27 @@ namespace FREYA_NAMESPACE
             return mFramebuffers[index];
         }
 
-        void Begin(const Ref<SwapChain>    swapChain,
-                   const Ref<CommandPool>& commandPool,
+        void Begin(const skr::Arc<SwapChain>    swapChain,
+                   const skr::Arc<CommandPool>& commandPool,
                    const vk::ClearValue&   clearColor) const;
 
-        void BindPipeline(const Ref<CommandPool>& commandPool,
+        void BindPipeline(const skr::Arc<CommandPool>& commandPool,
                           std::uint32_t           frameIndex) const;
 
-        void DrawFullscreenTriangle(const Ref<CommandPool>& commandPool) const;
+        void DrawFullscreenTriangle(const skr::Arc<CommandPool>& commandPool) const;
 
-        void End(const Ref<CommandPool> commandPool) const;
+        void End(const skr::Arc<CommandPool> commandPool) const;
 
         void UpdateDescriptorSet(std::uint32_t     frameIndex,
-                                 const Ref<Image>& opaqueImage,
-                                 const Ref<Image>& translucentImage,
-                                 const Ref<Image>& bloomResultImage,
+                                 const skr::Arc<Image>& opaqueImage,
+                                 const skr::Arc<Image>& translucentImage,
+                                 const skr::Arc<Image>& bloomResultImage,
                                  vk::Sampler       sampler) const;
 
       private:
-        Ref<Device>       mDevice;
-        Ref<FreyaOptions> mFreyaOptions;
-        Ref<Surface>      mSurface;
+        skr::Arc<Device>       mDevice;
+        skr::Arc<FreyaOptions> mFreyaOptions;
+        skr::Arc<Surface>      mSurface;
 
         vk::RenderPass     mRenderPass;
         vk::PipelineLayout mPipelineLayout;

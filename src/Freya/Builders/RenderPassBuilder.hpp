@@ -27,13 +27,13 @@ namespace FREYA_NAMESPACE
     class RenderPassBuilder
     {
       public:
-        RenderPassBuilder(const Ref<Device>&         device,
-                          const Ref<PhysicalDevice>& physicalDevice,
-                          const Ref<Surface>&        surface,
-                          const Ref<FreyaOptions>&   freyaOptions,
-                          const Ref<skr::Logger<RenderPassBuilder>>& logger,
-                          const Ref<skr::ServiceProvider>& serviceProvider,
-                          const Ref<LightService>&         lightService) :
+        RenderPassBuilder(const skr::Arc<Device>&         device,
+                          const skr::Arc<PhysicalDevice>& physicalDevice,
+                          const skr::Arc<Surface>&        surface,
+                          const skr::Arc<FreyaOptions>&   freyaOptions,
+                          const skr::Arc<skr::Logger<RenderPassBuilder>>& logger,
+                          const skr::Arc<skr::ServiceProvider>& serviceProvider,
+                          const skr::Arc<LightService>&         lightService) :
             mDevice(device), mPhysicalDevice(physicalDevice), mSurface(surface),
             mFreyaOptions(freyaOptions), mLogger(logger),
             mServiceProvider(serviceProvider), mLightService(lightService)
@@ -44,7 +44,7 @@ namespace FREYA_NAMESPACE
          * @brief Builds and returns the RenderPass object.
          * @return Shared pointer to created RenderPass
          */
-        Ref<RenderPass> Build();
+        skr::Arc<RenderPass> Build();
 
       private:
         /**
@@ -67,12 +67,12 @@ namespace FREYA_NAMESPACE
          */
         std::vector<vk::SubpassDependency> createDependencies() const;
 
-        Ref<skr::Logger<RenderPassBuilder>> mLogger; ///< Logger reference
-        Ref<Device>                         mDevice; ///< Device reference
-        Ref<PhysicalDevice>       mPhysicalDevice;   ///< Physical device
-        Ref<Surface>              mSurface;          ///< Surface reference
-        Ref<skr::ServiceProvider> mServiceProvider;  ///< Service provider
-        Ref<FreyaOptions>         mFreyaOptions;     ///< Freya options
-        Ref<LightService>         mLightService;     ///< Light service
+        skr::Arc<skr::Logger<RenderPassBuilder>> mLogger; ///< Logger reference
+        skr::Arc<Device>                         mDevice; ///< Device reference
+        skr::Arc<PhysicalDevice>       mPhysicalDevice;   ///< Physical device
+        skr::Arc<Surface>              mSurface;          ///< Surface reference
+        skr::Arc<skr::ServiceProvider> mServiceProvider;  ///< Service provider
+        skr::Arc<FreyaOptions>         mFreyaOptions;     ///< Freya options
+        skr::Arc<LightService>         mLightService;     ///< Light service
     };
 } // namespace FREYA_NAMESPACE

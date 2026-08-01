@@ -19,7 +19,7 @@ namespace FREYA_NAMESPACE
     class Image
     {
       public:
-        Image(const Ref<Device>&     device,
+        Image(const skr::Arc<Device>&     device,
               const vk::Image        image,
               const vk::ImageView    imageView,
               const vk::DeviceMemory memory,
@@ -55,7 +55,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t GetMipLevels() const { return mMipLevels; }
 
       private:
-        Ref<Device> mDevice;
+        skr::Arc<Device> mDevice;
 
         vk::Image        mImage;
         vk::ImageView    mImageView;

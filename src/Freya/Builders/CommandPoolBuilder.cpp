@@ -6,7 +6,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    Ref<CommandPool> CommandPoolBuilder::Build()
+    skr::Arc<CommandPool> CommandPoolBuilder::Build()
     {
         const auto queueFamilyIndices = mDevice->GetQueueFamilyIndices();
 
@@ -30,7 +30,7 @@ namespace FREYA_NAMESPACE
 
         assert(!commandBuffers.empty() && "Failed to allocate command buffers");
 
-        return skr::MakeRef<CommandPool>(mDevice, commandPool, commandBuffers);
+        return skr::MakeArc<CommandPool>(mDevice, commandPool, commandBuffers);
     }
 
 } // namespace FREYA_NAMESPACE

@@ -5,9 +5,9 @@
 namespace FREYA_NAMESPACE
 {
     CompositePass::CompositePass(
-        const Ref<Device>&                    device,
-        const Ref<FreyaOptions>&              freyaOptions,
-        const Ref<Surface>&                   surface,
+        const skr::Arc<Device>&                    device,
+        const skr::Arc<FreyaOptions>&              freyaOptions,
+        const skr::Arc<Surface>&                   surface,
         vk::RenderPass                        renderPass,
         vk::PipelineLayout                    pipelineLayout,
         vk::Pipeline                          compositePipeline,
@@ -38,8 +38,8 @@ namespace FREYA_NAMESPACE
         vkDevice.destroyRenderPass(mRenderPass);
     }
 
-    void CompositePass::Begin(const Ref<SwapChain>    swapChain,
-                              const Ref<CommandPool>& commandPool,
+    void CompositePass::Begin(const skr::Arc<SwapChain>    swapChain,
+                              const skr::Arc<CommandPool>& commandPool,
                               const vk::ClearValue&   clearColor) const
     {
         auto       commandBuffer = commandPool->GetCommandBuffer();
@@ -57,7 +57,7 @@ namespace FREYA_NAMESPACE
             vk::SubpassContents::eInline);
     }
 
-    void CompositePass::BindPipeline(const Ref<CommandPool>& commandPool,
+    void CompositePass::BindPipeline(const skr::Arc<CommandPool>& commandPool,
                                      const std::uint32_t     frameIndex) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
@@ -75,19 +75,19 @@ namespace FREYA_NAMESPACE
     }
 
     void CompositePass::DrawFullscreenTriangle(
-        const Ref<CommandPool>& commandPool) const
+        const skr::Arc<CommandPool>& commandPool) const
     {
         commandPool->GetCommandBuffer().draw(3, 1, 0, 0);
     }
 
-    void CompositePass::End(const Ref<CommandPool> commandPool) const
+    void CompositePass::End(const skr::Arc<CommandPool> commandPool) const
     {
         commandPool->GetCommandBuffer().endRenderPass();
     }
 
     void CompositePass::UpdateDescriptorSet(
-        const std::uint32_t frameIndex, const Ref<Image>& opaqueImage,
-        const Ref<Image>& translucentImage, const Ref<Image>& bloomResultImage,
+        const std::uint32_t frameIndex, const skr::Arc<Image>& opaqueImage,
+        const skr::Arc<Image>& translucentImage, const skr::Arc<Image>& bloomResultImage,
         vk::Sampler sampler) const
     {
         auto opaqueInfo =

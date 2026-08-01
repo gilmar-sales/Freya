@@ -22,10 +22,10 @@ namespace FREYA_NAMESPACE
     {
       public:
         PhysicalDeviceBuilder(
-            const Ref<Instance>& instance,
-            const Ref<FreyaOptions>
+            const skr::Arc<Instance>& instance,
+            const skr::Arc<FreyaOptions>
                                                            freyaOptions,
-            const Ref<skr::Logger<PhysicalDeviceBuilder>>& logger) :
+            const skr::Arc<skr::Logger<PhysicalDeviceBuilder>>& logger) :
             mInstance(instance), mFreyaOptions(freyaOptions), mLogger(logger),
             mPhysicalDeviceTypePriorities(
                 { vk::PhysicalDeviceType::eDiscreteGpu,
@@ -40,13 +40,13 @@ namespace FREYA_NAMESPACE
          * @brief Builds and returns the PhysicalDevice object.
          * @return Shared pointer to created PhysicalDevice
          */
-        Ref<PhysicalDevice> Build() const;
+        skr::Arc<PhysicalDevice> Build() const;
 
       private:
-        Ref<Instance>     mInstance;     ///< Instance reference
-        Ref<FreyaOptions> mFreyaOptions; ///< Freya options reference
+        skr::Arc<Instance>     mInstance;     ///< Instance reference
+        skr::Arc<FreyaOptions> mFreyaOptions; ///< Freya options reference
 
-        Ref<skr::Logger<PhysicalDeviceBuilder>> mLogger; ///< Logger reference
+        skr::Arc<skr::Logger<PhysicalDeviceBuilder>> mLogger; ///< Logger reference
 
         std::vector<vk::PhysicalDeviceType>
             mPhysicalDeviceTypePriorities; ///< Device type selection priority

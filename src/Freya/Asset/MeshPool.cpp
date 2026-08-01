@@ -7,10 +7,10 @@ namespace FREYA_NAMESPACE
     constexpr auto MinVertexBufferSize = 1 * MegaBytes;
     constexpr auto MinIndexBufferSize  = 2 * MegaBytes;
 
-    MeshPool::MeshPool(const Ref<Device>&                device,
-                       const Ref<PhysicalDevice>&        physicalDevice,
-                       const Ref<CommandPool>&           commandPool,
-                       const Ref<skr::Logger<MeshPool>>& logger) :
+    MeshPool::MeshPool(const skr::Arc<Device>&                device,
+                       const skr::Arc<PhysicalDevice>&        physicalDevice,
+                       const skr::Arc<CommandPool>&           commandPool,
+                       const skr::Arc<skr::Logger<MeshPool>>& logger) :
         mDevice(device), mPhysicalDevice(physicalDevice),
         mCommandPool(commandPool), mLogger(logger), mMeshes(4096)
     {
@@ -315,7 +315,7 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    Ref<Buffer> MeshPool::queryStagingBuffer(const std::uint32_t size)
+    skr::Arc<Buffer> MeshPool::queryStagingBuffer(const std::uint32_t size)
     {
         for (auto stagingBuffer : mStagingBuffers)
         {
@@ -328,7 +328,7 @@ namespace FREYA_NAMESPACE
         return createStagingBuffer(size);
     }
 
-    Ref<Buffer> MeshPool::createStagingBuffer(const std::uint32_t size)
+    skr::Arc<Buffer> MeshPool::createStagingBuffer(const std::uint32_t size)
     {
         const auto bufferSize = (size / MegaBytes + 4) * MegaBytes;
 

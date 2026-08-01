@@ -20,9 +20,9 @@ namespace FREYA_NAMESPACE
     {
       public:
         Window(SDL_Window*                     window,
-               const Ref<EventManager>&        eventManager,
-               const Ref<FreyaOptions>&        freyaOptions,
-               const Ref<skr::Logger<Window>>& logger) :
+               const skr::Arc<EventManager>&        eventManager,
+               const skr::Arc<FreyaOptions>&        freyaOptions,
+               const skr::Arc<skr::Logger<Window>>& logger) :
             mEventManager(eventManager), mFreyaOptions(freyaOptions),
             mWindow(window), mRunning(true), mDeltaTime(0), mLogger(logger)
         {
@@ -159,9 +159,9 @@ namespace FREYA_NAMESPACE
         friend class ApplicationBuilder;
         void pollEvents();
 
-        Ref<EventManager>        mEventManager;
-        Ref<FreyaOptions>        mFreyaOptions;
-        Ref<skr::Logger<Window>> mLogger;
+        skr::Arc<EventManager>        mEventManager;
+        skr::Arc<FreyaOptions>        mFreyaOptions;
+        skr::Arc<skr::Logger<Window>> mLogger;
 
         std::vector<SDL_Gamepad*>                   mGamepads;
         std::vector<std::function<void(SDL_Event)>> mEventPollCallbacks;

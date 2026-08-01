@@ -7,7 +7,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    Ref<Buffer> BufferBuilder::Build()
+    skr::Arc<Buffer> BufferBuilder::Build()
     {
         assert(mDevice.get() &&
                "Cannot create fra::Buffer with an invalid fra::Device");
@@ -126,7 +126,7 @@ namespace FREYA_NAMESPACE
             mDevice->Get().unmapMemory(memory);
         }
 
-        return skr::MakeRef<Buffer>(mDevice, mUsage, mSize, buffer, memory);
+        return skr::MakeArc<Buffer>(mDevice, mUsage, mSize, buffer, memory);
     };
 
 } // namespace FREYA_NAMESPACE

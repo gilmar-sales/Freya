@@ -19,10 +19,10 @@ namespace FREYA_NAMESPACE
     class WindowBuilder
     {
       public:
-        WindowBuilder(const Ref<EventManager>&               eventManager,
-                      const Ref<FreyaOptions>&               freyaOptions,
-                      const Ref<skr::Logger<WindowBuilder>>& logger,
-                      const Ref<skr::Logger<Window>>&        windowLogger) :
+        WindowBuilder(const skr::Arc<EventManager>&               eventManager,
+                      const skr::Arc<FreyaOptions>&               freyaOptions,
+                      const skr::Arc<skr::Logger<WindowBuilder>>& logger,
+                      const skr::Arc<skr::Logger<Window>>&        windowLogger) :
             mEventManager(eventManager), mFreyaOptions(freyaOptions),
             mLogger(logger), mWindowLogger(windowLogger)
         {
@@ -32,13 +32,13 @@ namespace FREYA_NAMESPACE
          * @brief Builds and returns the Window object.
          * @return Shared pointer to created Window
          */
-        Ref<Window> Build();
+        skr::Arc<Window> Build();
 
       private:
-        Ref<EventManager> mEventManager;         ///< Event manager reference
-        Ref<FreyaOptions> mFreyaOptions;         ///< Freya options reference
-        Ref<skr::Logger<WindowBuilder>> mLogger; ///< Logger reference
-        Ref<skr::Logger<Window>> mWindowLogger;  ///< Window operation logger
+        skr::Arc<EventManager> mEventManager;         ///< Event manager reference
+        skr::Arc<FreyaOptions> mFreyaOptions;         ///< Freya options reference
+        skr::Arc<skr::Logger<WindowBuilder>> mLogger; ///< Logger reference
+        skr::Arc<skr::Logger<Window>> mWindowLogger;  ///< Window operation logger
     };
 
 } // namespace FREYA_NAMESPACE

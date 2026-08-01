@@ -17,22 +17,22 @@
 namespace FREYA_NAMESPACE
 {
     Renderer::Renderer(
-        const Ref<Instance>&               instance,
-        const Ref<Surface>&                surface,
-        const Ref<PhysicalDevice>&         physicalDevice,
-        const Ref<Device>&                 device,
-        const Ref<SwapChain>&              swapChain,
-        const Ref<RenderPass>&             forwardPass,
-        const Ref<DeferredCompressedPass>& deferredPass,
-        const Ref<BloomPass>&              bloomPass,
-        const Ref<CompositePass>&          compositePass,
-        const Ref<CommandPool>&            commandPool,
-        const Ref<LightService>&           lightService,
-        const Ref<skr::ServiceProvider>&   serviceProvider,
-        const Ref<FreyaOptions>&           freyaOptions,
-        const Ref<EventManager>&           eventManager,
-        const Ref<Image>&                  forwardColorImage,
-        const Ref<Image>&                  forwardResolveImage) :
+        const skr::Arc<Instance>&               instance,
+        const skr::Arc<Surface>&                surface,
+        const skr::Arc<PhysicalDevice>&         physicalDevice,
+        const skr::Arc<Device>&                 device,
+        const skr::Arc<SwapChain>&              swapChain,
+        const skr::Arc<RenderPass>&             forwardPass,
+        const skr::Arc<DeferredCompressedPass>& deferredPass,
+        const skr::Arc<BloomPass>&              bloomPass,
+        const skr::Arc<CompositePass>&          compositePass,
+        const skr::Arc<CommandPool>&            commandPool,
+        const skr::Arc<LightService>&           lightService,
+        const skr::Arc<skr::ServiceProvider>&   serviceProvider,
+        const skr::Arc<FreyaOptions>&           freyaOptions,
+        const skr::Arc<EventManager>&           eventManager,
+        const skr::Arc<Image>&                  forwardColorImage,
+        const skr::Arc<Image>&                  forwardResolveImage) :
         mInstance(instance), mSurface(surface), mPhysicalDevice(physicalDevice),
         mDevice(device), mSwapChain(swapChain), mForwardPass(forwardPass),
         mDeferredPass(deferredPass), mBloomPass(bloomPass),
@@ -645,7 +645,7 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void Renderer::blitBloomToFullRes(const Ref<CommandPool>& commandPool) const
+    void Renderer::blitBloomToFullRes(const skr::Arc<CommandPool>& commandPool) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 
@@ -786,7 +786,7 @@ namespace FREYA_NAMESPACE
         return BufferBuilder(mDevice);
     }
 
-    void Renderer::BindBuffer(const Ref<Buffer>& buffer) const
+    void Renderer::BindBuffer(const skr::Arc<Buffer>& buffer) const
     {
         buffer->Bind(mCommandPool);
     }

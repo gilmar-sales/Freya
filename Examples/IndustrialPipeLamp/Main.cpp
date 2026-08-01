@@ -5,7 +5,7 @@
 class MainApp final : public fra::AbstractApplication
 {
   public:
-    explicit MainApp(const Ref<skr::ServiceProvider>& serviceProvider) :
+    explicit MainApp(const skr::Arc<skr::ServiceProvider>& serviceProvider) :
         AbstractApplication(serviceProvider)
     {
         mMeshPool     = serviceProvider->GetService<fra::MeshPool>();
@@ -193,15 +193,15 @@ class MainApp final : public fra::AbstractApplication
     std::uint32_t         mSpaceShipRoughness {};
     std::uint32_t         mSpaceShipMaterial {};
 
-    Ref<fra::MaterialPool>     mMaterialPool;
-    Ref<fra::TexturePool>      mTexturePool;
-    Ref<fra::MeshPool>         mMeshPool;
-    Ref<fra::LightService>     mLightService;
+    skr::Arc<fra::MaterialPool>     mMaterialPool;
+    skr::Arc<fra::TexturePool>      mTexturePool;
+    skr::Arc<fra::MeshPool>         mMeshPool;
+    skr::Arc<fra::LightService>     mLightService;
     glm::mat4                  mModelMatrix[4] {};
     float                      mCurrentTime {};
     std::vector<AnimatedLight> mLights;
 
-    Ref<fra::Buffer> mInstanceMatrixBuffers;
+    skr::Arc<fra::Buffer> mInstanceMatrixBuffers;
 };
 
 int main(int argc, const char** argv)

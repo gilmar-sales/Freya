@@ -5,7 +5,7 @@
 namespace FREYA_NAMESPACE
 {
 
-    Ref<PhysicalDevice> PhysicalDeviceBuilder::Build() const
+    skr::Arc<PhysicalDevice> PhysicalDeviceBuilder::Build() const
     {
         mLogger->Assert(mInstance != nullptr && mInstance->Get(),
                         "Could not build 'fra::PhysicalDevice' with an invalid "
@@ -48,7 +48,7 @@ namespace FREYA_NAMESPACE
                           VK_API_VERSION_MINOR(properties.driverVersion),
                           VK_API_VERSION_PATCH(properties.driverVersion));
 
-        auto fraPhysicalDevice = skr::MakeRef<PhysicalDevice>(physicalDevice);
+        auto fraPhysicalDevice = skr::MakeArc<PhysicalDevice>(physicalDevice);
 
         mFreyaOptions->sampleCount =
             fraPhysicalDevice->QuerySamplesSupport(mFreyaOptions->sampleCount);

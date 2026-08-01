@@ -7,18 +7,18 @@
 namespace FREYA_NAMESPACE
 {
     CompositePassBuilder::CompositePassBuilder(
-        const Ref<Device>&               device,
-        const Ref<PhysicalDevice>&       physicalDevice,
-        const Ref<Surface>&              surface,
-        const Ref<FreyaOptions>&         freyaOptions,
-        const Ref<skr::ServiceProvider>& serviceProvider) :
+        const skr::Arc<Device>&               device,
+        const skr::Arc<PhysicalDevice>&       physicalDevice,
+        const skr::Arc<Surface>&              surface,
+        const skr::Arc<FreyaOptions>&         freyaOptions,
+        const skr::Arc<skr::ServiceProvider>& serviceProvider) :
         mDevice(device), mPhysicalDevice(physicalDevice), mSurface(surface),
         mFreyaOptions(freyaOptions), mServiceProvider(serviceProvider)
     {
     }
 
-    Ref<CompositePass> CompositePassBuilder::Build(
-        const Ref<SwapChain>& swapChain)
+    skr::Arc<CompositePass> CompositePassBuilder::Build(
+        const skr::Arc<SwapChain>& swapChain)
     {
         auto renderPass = createRenderPass();
 
@@ -230,7 +230,7 @@ namespace FREYA_NAMESPACE
             framebuffers[i] = mDevice->Get().createFramebuffer(fbInfo);
         }
 
-        return skr::MakeRef<CompositePass>(
+        return skr::MakeArc<CompositePass>(
             mDevice,
             mFreyaOptions,
             mSurface,

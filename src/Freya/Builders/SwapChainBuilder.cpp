@@ -10,7 +10,7 @@
 
 namespace FREYA_NAMESPACE
 {
-    Ref<SwapChain> SwapChainBuilder::Build()
+    skr::Arc<SwapChain> SwapChainBuilder::Build()
     {
         mLogger->LogTrace("Building 'fra::SwapChain':");
 
@@ -178,7 +178,7 @@ namespace FREYA_NAMESPACE
                 "\tFailed to create synchronization objects for a frame");
         }
 
-        return skr::MakeRef<SwapChain>(
+        return skr::MakeArc<SwapChain>(
             mDevice,
             mInstance,
             mSurface,

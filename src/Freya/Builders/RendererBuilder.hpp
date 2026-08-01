@@ -21,17 +21,17 @@ namespace FREYA_NAMESPACE
     class RendererBuilder
     {
       public:
-        RendererBuilder(const Ref<Instance>&             instance,
-                        const Ref<Surface>&              surface,
-                        const Ref<PhysicalDevice>&       physicalDevice,
-                        const Ref<Device>&               device,
-                        const Ref<CommandPool>&          commandPool,
-                        const Ref<SwapChain>&            swapChain,
-                        const Ref<RenderPass>&           renderPass,
-                        const Ref<EventManager>&         eventManager,
-                        const Ref<Window>&               window,
-                        const Ref<FreyaOptions>&         freyaOptions,
-                        const Ref<skr::ServiceProvider>& serviceProvider);
+        RendererBuilder(const skr::Arc<Instance>&             instance,
+                        const skr::Arc<Surface>&              surface,
+                        const skr::Arc<PhysicalDevice>&       physicalDevice,
+                        const skr::Arc<Device>&               device,
+                        const skr::Arc<CommandPool>&          commandPool,
+                        const skr::Arc<SwapChain>&            swapChain,
+                        const skr::Arc<RenderPass>&           renderPass,
+                        const skr::Arc<EventManager>&         eventManager,
+                        const skr::Arc<Window>&               window,
+                        const skr::Arc<FreyaOptions>&         freyaOptions,
+                        const skr::Arc<skr::ServiceProvider>& serviceProvider);
 
         /**
          * @brief Builds and returns the Renderer object.
@@ -39,24 +39,24 @@ namespace FREYA_NAMESPACE
          * the current SwapChain.
          * @return Shared pointer to created Renderer
          */
-        Ref<Renderer> Build();
+        skr::Arc<Renderer> Build();
 
       private:
         friend class ApplicationBuilder;
 
-        Ref<Instance>       mInstance;
-        Ref<Surface>        mSurface;
-        Ref<PhysicalDevice> mPhysicalDevice;
-        Ref<Device>         mDevice;
-        Ref<CommandPool>    mCommandPool;
-        Ref<SwapChain>      mSwapChain;
-        Ref<EventManager>   mEventManager;
-        Ref<RenderPass>     mRenderPass;
-        Ref<Window>         mWindow;
-        Ref<FreyaOptions>   mFreyaOptions;
+        skr::Arc<Instance>       mInstance;
+        skr::Arc<Surface>        mSurface;
+        skr::Arc<PhysicalDevice> mPhysicalDevice;
+        skr::Arc<Device>         mDevice;
+        skr::Arc<CommandPool>    mCommandPool;
+        skr::Arc<SwapChain>      mSwapChain;
+        skr::Arc<EventManager>   mEventManager;
+        skr::Arc<RenderPass>     mRenderPass;
+        skr::Arc<Window>         mWindow;
+        skr::Arc<FreyaOptions>   mFreyaOptions;
 
-        Ref<skr::Logger<RendererBuilder>> mLogger;
-        Ref<skr::ServiceProvider>         mServiceProvider;
+        skr::Arc<skr::Logger<RendererBuilder>> mLogger;
+        skr::Arc<skr::ServiceProvider>         mServiceProvider;
     };
 
 } // namespace FREYA_NAMESPACE

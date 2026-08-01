@@ -31,18 +31,18 @@ namespace
 namespace FREYA_NAMESPACE
 {
     BloomPass::BloomPass(
-        const Ref<Device>&                          device,
-        const Ref<FreyaOptions>&                    freyaOptions,
-        const Ref<Surface>&                         surface,
+        const skr::Arc<Device>&                          device,
+        const skr::Arc<FreyaOptions>&                    freyaOptions,
+        const skr::Arc<Surface>&                         surface,
         vk::Extent2D                                halfExtent,
         vk::RenderPass                              renderPass,
         vk::PipelineLayout                          pipelineLayout,
         vk::Pipeline                                thresholdPipeline,
         vk::Pipeline                                downsamplePipeline,
         vk::Pipeline                                upsamplePipeline,
-        const Ref<Image>&                           bloomThresholdImage,
-        const Ref<Image>&                           bloomDownImage,
-        const Ref<Image>&                           bloomUpImage,
+        const skr::Arc<Image>&                           bloomThresholdImage,
+        const skr::Arc<Image>&                           bloomDownImage,
+        const skr::Arc<Image>&                           bloomUpImage,
         const std::vector<vk::Framebuffer>&         framebuffers,
         vk::DescriptorPool                          descriptorPool,
         const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
@@ -90,8 +90,8 @@ namespace FREYA_NAMESPACE
         return mPipelines[subpass];
     }
 
-    void BloomPass::Begin(const Ref<SwapChain>    swapChain,
-                          const Ref<CommandPool>& commandPool) const
+    void BloomPass::Begin(const skr::Arc<SwapChain>    swapChain,
+                          const skr::Arc<CommandPool>& commandPool) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
         beginDebugLabel(commandBuffer, "Bloom Render Pass", mDevice->Get());
@@ -117,14 +117,14 @@ namespace FREYA_NAMESPACE
         BindPipeline(BloomThresholdSubpass, commandPool, 0);
     }
 
-    void BloomPass::NextSubpass(const Ref<CommandPool>& commandPool) const
+    void BloomPass::NextSubpass(const skr::Arc<CommandPool>& commandPool) const
     {
         commandPool->GetCommandBuffer().nextSubpass(
             vk::SubpassContents::eInline);
     }
 
     void BloomPass::BindPipeline(const std::uint32_t     subpass,
-                                 const Ref<CommandPool>& commandPool,
+                                 const skr::Arc<CommandPool>& commandPool,
                                  const std::uint32_t     frameIndex) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
@@ -157,7 +157,7 @@ namespace FREYA_NAMESPACE
     }
 
     void BloomPass::AdvanceSubpass(const std::uint32_t     subpass,
-                                   const Ref<CommandPool>& commandPool,
+                                   const skr::Arc<CommandPool>& commandPool,
                                    const std::uint32_t     frameIndex) const
     {
         NextSubpass(commandPool);
@@ -166,12 +166,12 @@ namespace FREYA_NAMESPACE
     }
 
     void BloomPass::DrawFullscreenTriangle(
-        const Ref<CommandPool>& commandPool) const
+        const skr::Arc<CommandPool>& commandPool) const
     {
         commandPool->GetCommandBuffer().draw(3, 1, 0, 0);
     }
 
-    void BloomPass::End(const Ref<CommandPool> commandPool) const
+    void BloomPass::End(const skr::Arc<CommandPool> commandPool) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 

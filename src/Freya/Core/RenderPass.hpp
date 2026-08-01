@@ -48,11 +48,11 @@ namespace FREYA_NAMESPACE
     {
       public:
         RenderPass(
-            const Ref<Device>& device, const Ref<FreyaOptions>& freyaOptions,
+            const skr::Arc<Device>& device, const skr::Arc<FreyaOptions>& freyaOptions,
             const vk::RenderPass                        renderPass,
             const vk::PipelineLayout                    pipelineLayout,
             const vk::Pipeline                          graphicsPipeline,
-            const Ref<Buffer>&                          uniformBuffer,
+            const skr::Arc<Buffer>&                          uniformBuffer,
             const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
             const std::vector<vk::DescriptorSet>&       descriptorSets,
             const vk::DescriptorPool                    descriptorPool,
@@ -103,8 +103,8 @@ namespace FREYA_NAMESPACE
          * @param swapChain   Swapchain for framebuffer access
          * @param commandPool Command pool for current command buffer
          */
-        void Begin(const Ref<SwapChain> swapChain,
-                   const Ref<CommandPool>
+        void Begin(const skr::Arc<SwapChain> swapChain,
+                   const skr::Arc<CommandPool>
                        commandPool) const;
 
         /**
@@ -126,20 +126,20 @@ namespace FREYA_NAMESPACE
                    const vk::Framebuffer&  framebuffer,
                    const vk::Extent2D&     extent,
                    std::uint32_t           frameIndex,
-                   const Ref<CommandPool>& commandPool) const;
+                   const skr::Arc<CommandPool>& commandPool) const;
 
         /**
          * @brief Ends the render pass.
          * @param commandPool Command pool for current command buffer
          */
-        void End(const Ref<CommandPool> commandPool) const;
+        void End(const skr::Arc<CommandPool> commandPool) const;
 
         /**
          * @brief Binds descriptor set at pipeline layout binding 0.
          * @param commandPool Command pool for current command buffer
          * @param frameIndex  Frame index for descriptor set selection
          */
-        void BindDescriptorSet(const Ref<CommandPool>& commandPool,
+        void BindDescriptorSet(const skr::Arc<CommandPool>& commandPool,
                                std::uint32_t           frameIndex) const;
 
         /**
@@ -198,13 +198,13 @@ namespace FREYA_NAMESPACE
             return mEmissiveFallbackSampler;
         }
 
-        Ref<Device>       mDevice;
-        Ref<FreyaOptions> mFreyaOptions;
+        skr::Arc<Device>       mDevice;
+        skr::Arc<FreyaOptions> mFreyaOptions;
 
         vk::RenderPass     mRenderPass;
         vk::PipelineLayout mPipelineLayout;
         vk::Pipeline       mGraphicsPipeline;
-        Ref<Buffer>        mUniformBuffer;
+        skr::Arc<Buffer>        mUniformBuffer;
 
         std::vector<vk::DescriptorSetLayout> mDescriptorSetLayouts;
         std::vector<vk::DescriptorSet>       mDescriptorSets;

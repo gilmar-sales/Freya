@@ -42,8 +42,8 @@ namespace FREYA_NAMESPACE
      * @param swapChain   Swapchain for framebuffer access
      * @param commandPool Command pool for current command buffer
      */
-    void RenderPass::Begin(const Ref<SwapChain> swapChain,
-                           const Ref<CommandPool>
+    void RenderPass::Begin(const skr::Arc<SwapChain> swapChain,
+                           const skr::Arc<CommandPool>
                                commandPool) const
 
     {
@@ -73,7 +73,7 @@ namespace FREYA_NAMESPACE
                            const vk::Framebuffer&  framebuffer,
                            const vk::Extent2D&     extent,
                            const std::uint32_t     frameIndex,
-                           const Ref<CommandPool>& commandPool) const
+                           const skr::Arc<CommandPool>& commandPool) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 
@@ -117,7 +117,7 @@ namespace FREYA_NAMESPACE
      * @brief Ends the render pass.
      * @param commandPool Command pool for current command buffer
      */
-    void RenderPass::End(const Ref<CommandPool> commandPool) const
+    void RenderPass::End(const skr::Arc<CommandPool> commandPool) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 
@@ -130,7 +130,7 @@ namespace FREYA_NAMESPACE
      * @param commandPool Command pool for current command buffer
      * @param frameIndex  Frame index for descriptor set selection
      */
-    void RenderPass::BindDescriptorSet(const Ref<CommandPool>& commandPool,
+    void RenderPass::BindDescriptorSet(const skr::Arc<CommandPool>& commandPool,
                                        const std::uint32_t     frameIndex) const
     {
         commandPool->GetCommandBuffer().bindDescriptorSets(

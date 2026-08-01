@@ -26,9 +26,9 @@ class MyApp final : public fra::AbstractApplication
 
 | Member | Type | Description |
 |--------|------|-------------|
-| `mWindow` | `Ref<Window>` | Window instance |
-| `mRenderer` | `Ref<Renderer>` | Renderer instance |
-| `mEventManager` | `Ref<EventManager>` | Event manager instance |
+| `mWindow` | `skr::Arc<Window>` | Window instance |
+| `mRenderer` | `skr::Arc<Renderer>` | Renderer instance |
+| `mEventManager` | `skr::Arc<EventManager>` | Event manager instance |
 | `mDeltaTime` | `float` | Time since last frame (seconds) |
 
 ## Renderer

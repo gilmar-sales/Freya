@@ -48,13 +48,13 @@ namespace FREYA_NAMESPACE
     class SwapChain
     {
       public:
-        SwapChain(const Ref<Device>&                 device,
-                  const Ref<Instance>&               instance,
-                  const Ref<Surface>&                surface,
+        SwapChain(const skr::Arc<Device>&                 device,
+                  const skr::Arc<Instance>&               instance,
+                  const skr::Arc<Surface>&                surface,
                   const vk::SwapchainKHR             swapChain,
                   const std::vector<SwapChainFrame>& frames,
-                  const Ref<Image>&                  depthImage,
-                  const Ref<Image>&                  sampleImage,
+                  const skr::Arc<Image>&                  depthImage,
+                  const skr::Arc<Image>&                  sampleImage,
                   const std::vector<vk::Semaphore>&  imageAvailableSemaphores,
                   const std::vector<vk::Semaphore>&  renderFinishedSemaphores,
                   const std::vector<vk::Fence>&      inFlightFences) :
@@ -78,7 +78,7 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Returns the surface associated with this swapchain.
          */
-        Ref<Surface> GetSurface() { return mSurface; }
+        skr::Arc<Surface> GetSurface() { return mSurface; }
 
         /**
          * @brief Returns all swapchain frames.
@@ -158,9 +158,9 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] vk::Extent2D GetExtent() const { return mExtent; }
 
       private:
-        Ref<Device>   mDevice;
-        Ref<Instance> mInstance;
-        Ref<Surface>  mSurface;
+        skr::Arc<Device>   mDevice;
+        skr::Arc<Instance> mInstance;
+        skr::Arc<Surface>  mSurface;
 
         vk::SwapchainKHR            mSwapChain;
         vk::Extent2D                mExtent;
@@ -173,8 +173,8 @@ namespace FREYA_NAMESPACE
         std::uint32_t mCurrentFrameIndex;
         std::uint32_t mCurrentImageIndex;
 
-        Ref<Image> mDepthImage;
-        Ref<Image> mSampleImage;
+        skr::Arc<Image> mDepthImage;
+        skr::Arc<Image> mSampleImage;
     };
 
 } // namespace FREYA_NAMESPACE

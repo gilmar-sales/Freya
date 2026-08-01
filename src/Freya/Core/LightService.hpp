@@ -41,7 +41,7 @@ namespace FREYA_NAMESPACE
          * @param frameCount Number of frames (for ring-buffer descriptor sets)
          * @param maxLights  Maximum number of lights (default: MAX_LIGHTS)
          */
-        LightService(const Ref<Device>& device,
+        LightService(const skr::Arc<Device>& device,
                      std::uint32_t      frameCount,
                      std::uint32_t      maxLights = MAX_LIGHTS);
 
@@ -96,7 +96,7 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Returns the light buffer.
          */
-        Ref<Buffer> GetBuffer() const { return mBuffer; }
+        skr::Arc<Buffer> GetBuffer() const { return mBuffer; }
 
         /**
          * @brief Returns the light descriptor set layout.
@@ -139,13 +139,13 @@ namespace FREYA_NAMESPACE
          */
         void updateDescriptorSets();
 
-        Ref<Device>   mDevice;
+        skr::Arc<Device>   mDevice;
         std::uint32_t mFrameCount;
         std::uint32_t mMaxLights;
         std::uint32_t mLightCount;
 
         std::vector<Light> mLights;
-        Ref<Buffer>        mBuffer;
+        skr::Arc<Buffer>        mBuffer;
 
         vk::DescriptorSetLayout        mLayout;
         vk::DescriptorPool             mPool;

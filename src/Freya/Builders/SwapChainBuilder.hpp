@@ -31,14 +31,14 @@ namespace FREYA_NAMESPACE
     class SwapChainBuilder
     {
       public:
-        SwapChainBuilder(const Ref<Instance>&       instance,
-                         const Ref<PhysicalDevice>& physicalDevice,
-                         const Ref<Device>&         device,
-                         const Ref<Surface>&        surface,
-                         const Ref<RenderPass>&     renderPass,
-                         const Ref<FreyaOptions>&   freyaOptions,
-                         const Ref<skr::Logger<SwapChainBuilder>>& logger,
-                         const Ref<skr::ServiceProvider>& serviceProvider) :
+        SwapChainBuilder(const skr::Arc<Instance>&       instance,
+                         const skr::Arc<PhysicalDevice>& physicalDevice,
+                         const skr::Arc<Device>&         device,
+                         const skr::Arc<Surface>&        surface,
+                         const skr::Arc<RenderPass>&     renderPass,
+                         const skr::Arc<FreyaOptions>&   freyaOptions,
+                         const skr::Arc<skr::Logger<SwapChainBuilder>>& logger,
+                         const skr::Arc<skr::ServiceProvider>& serviceProvider) :
             mInstance(instance), mPhysicalDevice(physicalDevice),
             mDevice(device), mSurface(surface), mRenderPass(renderPass),
             mFreyaOptions(freyaOptions), mLogger(logger),
@@ -50,7 +50,7 @@ namespace FREYA_NAMESPACE
          * @brief Builds and returns the SwapChain object.
          * @return Shared pointer to created SwapChain
          */
-        Ref<SwapChain> Build();
+        skr::Arc<SwapChain> Build();
 
       protected:
         /**
@@ -60,15 +60,15 @@ namespace FREYA_NAMESPACE
         vk::PresentModeKHR choosePresentMode();
 
       private:
-        Ref<Instance>       mInstance;       ///< Instance reference
-        Ref<PhysicalDevice> mPhysicalDevice; ///< Physical device reference
-        Ref<Device>         mDevice;         ///< Device reference
-        Ref<Surface>        mSurface;        ///< Surface reference
-        Ref<RenderPass>     mRenderPass;     ///< Render pass reference
-        Ref<FreyaOptions>   mFreyaOptions;   ///< Freya options reference
+        skr::Arc<Instance>       mInstance;       ///< Instance reference
+        skr::Arc<PhysicalDevice> mPhysicalDevice; ///< Physical device reference
+        skr::Arc<Device>         mDevice;         ///< Device reference
+        skr::Arc<Surface>        mSurface;        ///< Surface reference
+        skr::Arc<RenderPass>     mRenderPass;     ///< Render pass reference
+        skr::Arc<FreyaOptions>   mFreyaOptions;   ///< Freya options reference
 
-        Ref<skr::Logger<SwapChainBuilder>> mLogger; ///< Logger reference
-        Ref<skr::ServiceProvider>
+        skr::Arc<skr::Logger<SwapChainBuilder>> mLogger; ///< Logger reference
+        skr::Arc<skr::ServiceProvider>
             mServiceProvider; ///< Service provider reference
     };
 

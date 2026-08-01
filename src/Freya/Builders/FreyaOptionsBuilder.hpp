@@ -15,7 +15,7 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Constructs builder with default options.
          */
-        FreyaOptionsBuilder() : mFreyaOptions(skr::MakeRef<FreyaOptions>()) {};
+        FreyaOptionsBuilder() : mFreyaOptions(skr::MakeArc<FreyaOptions>()) {};
         ~FreyaOptionsBuilder() = default;
 
         /**
@@ -151,10 +151,10 @@ namespace FREYA_NAMESPACE
          * @brief Builds and returns the FreyaOptions object.
          * @return Shared pointer to configured FreyaOptions
          */
-        Ref<FreyaOptions> Build() { return mFreyaOptions; }
+        skr::Arc<FreyaOptions> Build() { return mFreyaOptions; }
 
       private:
-        Ref<FreyaOptions> mFreyaOptions; ///< FreyaOptions instance being built
+        skr::Arc<FreyaOptions> mFreyaOptions; ///< FreyaOptions instance being built
     };
 
 } // namespace FREYA_NAMESPACE

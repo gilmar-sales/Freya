@@ -6,8 +6,8 @@
 
 namespace FREYA_NAMESPACE
 {
-    Ref<DeferredCompressedPass> DeferredCompressedPassBuilder::Build(
-        const Ref<SwapChain>& swapChain)
+    skr::Arc<DeferredCompressedPass> DeferredCompressedPassBuilder::Build(
+        const skr::Arc<SwapChain>& swapChain)
     {
         auto renderPass = createRenderPass();
 
@@ -381,7 +381,7 @@ namespace FREYA_NAMESPACE
         auto opaqueImage =
             createImage(ImageUsage::Color, vk::Format::eR8G8B8A8Unorm);
 
-        std::vector<Ref<Image>> gbufferImages = {
+        std::vector<skr::Arc<Image>> gbufferImages = {
             positionImage, normalImage, albedoImage, emissiveImage,
             materialImage
         };
@@ -670,7 +670,7 @@ namespace FREYA_NAMESPACE
                 .value;
 
         // Cleanup shader modules
-        auto destroyShader = [&](const Ref<ShaderModule>& mod) {
+        auto destroyShader = [&](const skr::Arc<ShaderModule>& mod) {
             mDevice->Get().destroyShaderModule(mod->Get());
         };
         destroyShader(depthVert);
@@ -713,7 +713,7 @@ namespace FREYA_NAMESPACE
             framebuffers[i] = mDevice->Get().createFramebuffer(fbInfo);
         }
 
-        return skr::MakeRef<DeferredCompressedPass>(
+        return skr::MakeArc<DeferredCompressedPass>(
             mDevice,
             mFreyaOptions,
             mSurface,

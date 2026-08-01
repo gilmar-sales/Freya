@@ -60,7 +60,7 @@ namespace FREYA_NAMESPACE
     class Device
     {
       public:
-        Device(const Ref<PhysicalDevice>& physicalDevice,
+        Device(const skr::Arc<PhysicalDevice>& physicalDevice,
                const vk::Device           device,
                const vk::Queue            graphicsQueue,
                const vk::Queue            presentQueue,
@@ -109,7 +109,7 @@ namespace FREYA_NAMESPACE
          * @brief Returns the physical device reference.
          * @return Reference to PhysicalDevice
          */
-        Ref<PhysicalDevice> GetPhysicalDevice() { return mPhysicalDevice; }
+        skr::Arc<PhysicalDevice> GetPhysicalDevice() { return mPhysicalDevice; }
 
         /**
          * @brief Returns the queue family indices structure.
@@ -121,7 +121,7 @@ namespace FREYA_NAMESPACE
         }
 
       private:
-        Ref<PhysicalDevice> mPhysicalDevice;
+        skr::Arc<PhysicalDevice> mPhysicalDevice;
 
         QueueFamilyIndices mQueueFamilyIndices;
 

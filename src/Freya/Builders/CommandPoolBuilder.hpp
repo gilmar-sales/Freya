@@ -18,7 +18,7 @@ namespace FREYA_NAMESPACE
          * @brief Constructs builder with device reference.
          * @param device Device reference
          */
-        explicit CommandPoolBuilder(const Ref<Device>& device) :
+        explicit CommandPoolBuilder(const skr::Arc<Device>& device) :
             mDevice(device), mCount(0)
         {
         }
@@ -38,10 +38,10 @@ namespace FREYA_NAMESPACE
          * @brief Builds and returns the CommandPool object.
          * @return Shared pointer to created CommandPool
          */
-        Ref<CommandPool> Build();
+        skr::Arc<CommandPool> Build();
 
       private:
-        Ref<Device> mDevice; ///< Device reference
+        skr::Arc<Device> mDevice; ///< Device reference
 
         std::uint32_t mCount; ///< Number of command buffers to allocate
     };

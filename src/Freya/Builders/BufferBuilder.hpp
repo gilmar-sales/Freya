@@ -20,7 +20,7 @@ namespace FREYA_NAMESPACE
          * @brief Constructs builder with device reference.
          * @param device Device reference
          */
-        explicit BufferBuilder(const Ref<Device>& device) : mDevice(device) {}
+        explicit BufferBuilder(const skr::Arc<Device>& device) : mDevice(device) {}
 
         /**
          * @brief Sets buffer size in bytes.
@@ -63,10 +63,10 @@ namespace FREYA_NAMESPACE
          * @brief Builds and returns the Buffer object.
          * @return Shared pointer to created Buffer
          */
-        Ref<Buffer> Build();
+        skr::Arc<Buffer> Build();
 
       private:
-        Ref<Device> mDevice; ///< Device reference
+        skr::Arc<Device> mDevice; ///< Device reference
 
         std::uint64_t mSize  = 0;                    ///< Buffer size in bytes
         void*         mData  = nullptr;              ///< Initial data to upload

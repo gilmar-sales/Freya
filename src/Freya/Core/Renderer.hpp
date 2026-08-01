@@ -34,22 +34,22 @@ namespace FREYA_NAMESPACE
     class Renderer
     {
       public:
-        Renderer(const Ref<Instance>&               instance,
-                 const Ref<Surface>&                surface,
-                 const Ref<PhysicalDevice>&         physicalDevice,
-                 const Ref<Device>&                 device,
-                 const Ref<SwapChain>&              swapChain,
-                 const Ref<RenderPass>&             forwardPass,
-                 const Ref<DeferredCompressedPass>& deferredPass,
-                 const Ref<BloomPass>&              bloomPass,
-                 const Ref<CompositePass>&          compositePass,
-                 const Ref<CommandPool>&            commandPool,
-                 const Ref<LightService>&           lightService,
-                 const Ref<skr::ServiceProvider>&   serviceProvider,
-                 const Ref<FreyaOptions>&           freyaOptions,
-                 const Ref<EventManager>&           eventManager,
-                 const Ref<Image>&                  forwardColorImage = nullptr,
-                 const Ref<Image>& forwardResolveImage = nullptr);
+        Renderer(const skr::Arc<Instance>&               instance,
+                 const skr::Arc<Surface>&                surface,
+                 const skr::Arc<PhysicalDevice>&         physicalDevice,
+                 const skr::Arc<Device>&                 device,
+                 const skr::Arc<SwapChain>&              swapChain,
+                 const skr::Arc<RenderPass>&             forwardPass,
+                 const skr::Arc<DeferredCompressedPass>& deferredPass,
+                 const skr::Arc<BloomPass>&              bloomPass,
+                 const skr::Arc<CompositePass>&          compositePass,
+                 const skr::Arc<CommandPool>&            commandPool,
+                 const skr::Arc<LightService>&           lightService,
+                 const skr::Arc<skr::ServiceProvider>&   serviceProvider,
+                 const skr::Arc<FreyaOptions>&           freyaOptions,
+                 const skr::Arc<EventManager>&           eventManager,
+                 const skr::Arc<Image>&                  forwardColorImage = nullptr,
+                 const skr::Arc<Image>& forwardResolveImage = nullptr);
 
         ~Renderer();
 
@@ -117,7 +117,7 @@ namespace FREYA_NAMESPACE
         void UpdateModel(const glm::mat4& model) const;
 
         [[nodiscard]] BufferBuilder GetBufferBuilder() const;
-        void                        BindBuffer(const Ref<Buffer>& buffer) const;
+        void                        BindBuffer(const skr::Arc<Buffer>& buffer) const;
         void                        BindMaterial(std::uint32_t materialId);
 
         std::uint32_t GetCurrentFrameIndex() const
@@ -129,15 +129,15 @@ namespace FREYA_NAMESPACE
             return mSwapChain->GetFrameCount();
         }
 
-        Ref<RenderPass> GetForwardPass() const { return mForwardPass; }
+        skr::Arc<RenderPass> GetForwardPass() const { return mForwardPass; }
 
-        Ref<DeferredCompressedPass> GetDeferredPass() const
+        skr::Arc<DeferredCompressedPass> GetDeferredPass() const
         {
             return mDeferredPass;
         }
 
       private:
-        void blitBloomToFullRes(const Ref<CommandPool>& commandPool) const;
+        void blitBloomToFullRes(const skr::Arc<CommandPool>& commandPool) const;
 
         /**
          * @brief Creates forward offscreen render pass and resources.
@@ -150,24 +150,24 @@ namespace FREYA_NAMESPACE
          */
         void destroyForwardOffscreenResources();
 
-        Ref<skr::ServiceProvider>   mServiceProvider;
-        Ref<Instance>               mInstance;
-        Ref<Surface>                mSurface;
-        Ref<PhysicalDevice>         mPhysicalDevice;
-        Ref<Device>                 mDevice;
-        Ref<SwapChain>              mSwapChain;
-        Ref<RenderPass>             mForwardPass;
-        Ref<DeferredCompressedPass> mDeferredPass;
-        Ref<BloomPass>              mBloomPass;
-        Ref<CompositePass>          mCompositePass;
-        Ref<CommandPool>            mCommandPool;
-        Ref<LightService>           mLightService;
-        Ref<EventManager>           mEventManager;
-        Ref<FreyaOptions>           mFreyaOptions;
+        skr::Arc<skr::ServiceProvider>   mServiceProvider;
+        skr::Arc<Instance>               mInstance;
+        skr::Arc<Surface>                mSurface;
+        skr::Arc<PhysicalDevice>         mPhysicalDevice;
+        skr::Arc<Device>                 mDevice;
+        skr::Arc<SwapChain>              mSwapChain;
+        skr::Arc<RenderPass>             mForwardPass;
+        skr::Arc<DeferredCompressedPass> mDeferredPass;
+        skr::Arc<BloomPass>              mBloomPass;
+        skr::Arc<CompositePass>          mCompositePass;
+        skr::Arc<CommandPool>            mCommandPool;
+        skr::Arc<LightService>           mLightService;
+        skr::Arc<EventManager>           mEventManager;
+        skr::Arc<FreyaOptions>           mFreyaOptions;
 
         // Mesh and Material pools for draw commands
-        Ref<MeshPool>     mMeshPool;
-        Ref<MaterialPool> mMaterialPool;
+        skr::Arc<MeshPool>     mMeshPool;
+        skr::Arc<MaterialPool> mMaterialPool;
 
         std::optional<WindowResizeEvent> mResizeEvent;
 
@@ -175,12 +175,12 @@ namespace FREYA_NAMESPACE
         vk::Sampler             mBloomResultSampler;
 
         // Full-res bloom result image (blit target from half-res bloom up)
-        Ref<Image> mBloomResultImage;
+        skr::Arc<Image> mBloomResultImage;
 
         // Forward offscreen resources (for bloom+composite in forward mode)
-        Ref<Image>                   mForwardColorImage;
-        Ref<Image>                   mForwardResolveImage;
-        Ref<Image>                   mForwardDepthImage;
+        skr::Arc<Image>                   mForwardColorImage;
+        skr::Arc<Image>                   mForwardResolveImage;
+        skr::Arc<Image>                   mForwardDepthImage;
         vk::RenderPass               mForwardOffscreenRenderPass;
         std::vector<vk::Framebuffer> mForwardOffscreenFramebuffers;
 

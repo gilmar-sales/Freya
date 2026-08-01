@@ -27,12 +27,12 @@ namespace FREYA_NAMESPACE
     {
       public:
         DeferredCompressedPassBuilder(
-            const Ref<Device>&               device,
-            const Ref<PhysicalDevice>&       physicalDevice,
-            const Ref<Surface>&              surface,
-            const Ref<FreyaOptions>&         freyaOptions,
-            const Ref<skr::ServiceProvider>& serviceProvider,
-            const Ref<LightService>&         lightService) :
+            const skr::Arc<Device>&               device,
+            const skr::Arc<PhysicalDevice>&       physicalDevice,
+            const skr::Arc<Surface>&              surface,
+            const skr::Arc<FreyaOptions>&         freyaOptions,
+            const skr::Arc<skr::ServiceProvider>& serviceProvider,
+            const skr::Arc<LightService>&         lightService) :
             mDevice(device), mPhysicalDevice(physicalDevice), mSurface(surface),
             mFreyaOptions(freyaOptions), mServiceProvider(serviceProvider),
             mLightService(lightService)
@@ -45,7 +45,7 @@ namespace FREYA_NAMESPACE
          * creation)
          * @return Shared pointer to created DeferredCompressedPass
          */
-        Ref<DeferredCompressedPass> Build(const Ref<SwapChain>& swapChain);
+        skr::Arc<DeferredCompressedPass> Build(const skr::Arc<SwapChain>& swapChain);
 
         /**
          * @brief Creates the Vulkan render pass for deferred rendering.
@@ -54,11 +54,11 @@ namespace FREYA_NAMESPACE
         vk::RenderPass createRenderPass() const;
 
       private:
-        Ref<Device>               mDevice;
-        Ref<PhysicalDevice>       mPhysicalDevice;
-        Ref<Surface>              mSurface;
-        Ref<FreyaOptions>         mFreyaOptions;
-        Ref<skr::ServiceProvider> mServiceProvider;
-        Ref<LightService>         mLightService;
+        skr::Arc<Device>               mDevice;
+        skr::Arc<PhysicalDevice>       mPhysicalDevice;
+        skr::Arc<Surface>              mSurface;
+        skr::Arc<FreyaOptions>         mFreyaOptions;
+        skr::Arc<skr::ServiceProvider> mServiceProvider;
+        skr::Arc<LightService>         mLightService;
     };
 } // namespace FREYA_NAMESPACE

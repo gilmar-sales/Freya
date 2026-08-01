@@ -27,7 +27,7 @@ A Vulkan-based rendering engine powered by [Skirnir](https://github.com/gilmar-s
 class MainApp final : public fra::AbstractApplication
 {
   public:
-    explicit MainApp(const Ref<skr::ServiceProvider>& serviceProvider)
+    explicit MainApp(const skr::Arc<skr::ServiceProvider>& serviceProvider)
         : AbstractApplication(serviceProvider)
     {
         mMeshPool     = serviceProvider->GetService<fra::MeshPool>();
@@ -53,7 +53,7 @@ int main(int argc, const char** argv)
 {
     const auto app =
         skr::ApplicationBuilder()
-            .AddExtension<fra::FreyaExtension>([](fra::FreyaExtension& freya) {
+            .WithExtension<fra::FreyaExtension>([](fra::FreyaExtension& freya) {
                 freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
                     freyaOptions.SetTitle("My App")
                         .SetWidth(1920)
@@ -122,9 +122,9 @@ Freya provides the following services via Skirnir's service provider:
 
 | Service | Type | Description |
 |---------|------|-------------|
-| `Window` | `Ref<Window>` | Window management |
-| `Renderer` | `Ref<Renderer>` | Main renderer |
-| `EventManager` | `Ref<EventManager>` | Event system |
-| `MeshPool` | `Ref<MeshPool>` | Mesh asset management |
-| `TexturePool` | `Ref<TexturePool>` | Texture asset management |
-| `MaterialPool` | `Ref<MaterialPool>` | Material asset management |
+| `Window` | `skr::Arc<Window>` | Window management |
+| `Renderer` | `skr::Arc<Renderer>` | Main renderer |
+| `EventManager` | `skr::Arc<EventManager>` | Event system |
+| `MeshPool` | `skr::Arc<MeshPool>` | Mesh asset management |
+| `TexturePool` | `skr::Arc<TexturePool>` | Texture asset management |
+| `MaterialPool` | `skr::Arc<MaterialPool>` | Material asset management |

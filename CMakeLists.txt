@@ -43,7 +43,7 @@ FetchContent_MakeAvailable(assimp)
 FetchContent_Declare(
         skirnir
         GIT_REPOSITORY "https://github.com/gilmar-sales/Skirnir.git"
-        GIT_TAG "v0.16.1"
+        GIT_TAG "v0.22.1"
         GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(skirnir)
@@ -61,7 +61,7 @@ add_library(Freya ${Freya_SRCS})
 
 add_library(Freya::Freya ALIAS Freya)
 
-target_compile_features(Freya PUBLIC cxx_std_23)
+target_compile_features(Freya PUBLIC cxx_std_26)
 target_include_directories(Freya PUBLIC include src ${Vulkan_INCLUDE_DIRS})
 target_link_libraries(Freya PUBLIC
         SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES} skirnir::skirnir)

@@ -1,8 +1,10 @@
-# Freya — C++23 Vulkan Rendering Framework
+# Freya — C++26 Vulkan Rendering Framework
 
 ## Build
 
-- CMake 3.29+, requires Vulkan SDK. All deps fetched via `FetchContent`: SDL3, glm, assimp, skirnir.
+- CMake 3.29+, requires Vulkan SDK and **GCC 16+** (C++26 reflection via
+  `-freflection`; Clang/MSVC are not supported yet). All deps fetched via
+  `FetchContent`: SDL3, glm, assimp, skirnir.
 - Pinned dependency versions:
 
   | Dependency  | Version / Tag    |
@@ -10,7 +12,7 @@
   | SDL3        | `release-3.4.10` |
   | glm         | `1.0.3`          |
   | assimp      | `v6.0.5`         |
-  | skirnir     | `v0.16.1`        |
+  | skirnir     | `v0.22.1`        |
   | stb_image.h | `v2.30` (vendored in `src/Freya/Vendor/`) |
 - Static lib only (`BUILD_SHARED_LIBS OFF`).
 - `build/` is the active build directory (Ninja, used by CI). `.gitignore` patterns `cmake-build-*/` and `build/` (but `build/` is committed — do not delete it).
@@ -18,7 +20,8 @@
 - `cmake -B build -S . -G Ninja && cmake --build build --parallel`
 - Examples auto-enable when building from root (detected via `CMAKE_SOURCE_DIR == CMAKE_CURRENT_SOURCE_DIR`);
   disable with `-DFREYA_BUILD_EXAMPLES=OFF`.
-- CI builds on ubuntu/windows/macos with **Debug only**; Linux requires `xorg` dev packages (see CI workflow).
+- CI builds on ubuntu/windows (GCC 16) with **Debug only**; Linux requires `xorg`/Wayland
+  dev packages (see CI workflow). macOS/Clang/MSVC are excluded (no C++26 reflection).
 - `compile_commands.json` generated in both build dirs for IDE tooling.
 - Validation layers: enabled in Debug, disabled in Release (`NDEBUG` guard in `Pch.hpp`).
 
@@ -69,7 +72,8 @@ The CI `ctest` step runs against an empty suite.
 - Builder pattern for all objects (WindowBuilder, InstanceBuilder, RendererBuilder, etc.).
 - `Pch.hpp` defines `FREYA_NAMESPACE`, GLM config (`GLM_FORCE_RADIANS`, `GLM_FORCE_DEPTH_ZERO_TO_ONE`, `GLM_ENABLE_EXPERIMENTAL`), and the validation layer flag.
 - Column limit: 80 (`.clang-format` — Microsoft base style, `NamespaceIndentation: All`).
-- C++23 throughout (`cxx_std_23`).
+- C++26 throughout (`cxx_std_26`); required by Skirnir (compile-time
+  reflection via `-freflection`).
 
 ## Code Formatting
 
@@ -87,6 +91,6 @@ The CI `ctest` step runs against an empty suite.
 ## Application Structure
 
 - Extend `fra::AbstractApplication`; implement `StartUp()` and `Update()`.
-- Use `skr::ApplicationBuilder` with `AddExtension<fra::FreyaExtension>()` to configure.
+- Use `skr::ApplicationBuilder` with `WithExtension<fra::FreyaExtension>()` to configure.
 - Services (Renderer, Window, MeshPool, TexturePool, MaterialPool, LightService) obtained via `serviceProvider->GetService<T>()`.
 - FreyaOptions: title, dimensions, vSync, fullscreen, sampleCount, frameCount, clearColor, drawDistance, maxLights, ReverseZ, renderingStrategy (`Forward` | `Deferred`).
