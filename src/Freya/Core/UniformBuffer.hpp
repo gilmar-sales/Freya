@@ -57,7 +57,7 @@ namespace FREYA_NAMESPACE
         // std140: lightCount + iblIntensity + exposure pack into 16 bytes
         std::uint32_t lightCount   = 0;
         float         iblIntensity = 1.0f;
-        float         exposure     = 1.0f;
+        float         exposure     = 0.8f;
         float         _pad0        = 0.0f;
     };
 

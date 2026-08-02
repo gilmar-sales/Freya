@@ -69,10 +69,11 @@ class MainApp final : public fra::AbstractApplication
             mMeshPool->CreateMeshFromFile("./Resources/Models/SpaceShip.fbx");
 
         // Classic light trio: directional key + colored points + a spot
+        // Classic light trio tuned for PBR + ACES @ exposure 0.8 / IBL 1.0
         mLightService->AddLight(fra::MakeDirectionalLight(
             glm::vec3(-0.4f, -1.0f, -0.3f),
             glm::vec3(1.0f, 0.95f, 0.85f),
-            2.5f));
+            1.5f));
 
         mAnimatedLights.resize(3);
 
@@ -85,7 +86,7 @@ class MainApp final : public fra::AbstractApplication
                 glm::vec3(8.0f, 5.0f, 0.0f),
                 glm::vec3(1.0f, 0.35f, 0.25f),
                 50.0f,
-                4.0f)));
+                2.5f)));
 
         mAnimatedLights[1].speed        = 1.2f;
         mAnimatedLights[1].phaseOffset  = 2.1f;
@@ -96,7 +97,7 @@ class MainApp final : public fra::AbstractApplication
                 glm::vec3(-8.0f, 5.0f, 0.0f),
                 glm::vec3(0.25f, 0.45f, 1.0f),
                 50.0f,
-                4.0f)));
+                2.5f)));
 
         mAnimatedLights[2].speed        = 0.9f;
         mAnimatedLights[2].phaseOffset  = 4.0f;
@@ -110,7 +111,7 @@ class MainApp final : public fra::AbstractApplication
                 60.0f,
                 glm::radians(12.0f),
                 glm::radians(22.0f),
-                8.0f)));
+                5.0f)));
     }
 
     void Update() override
@@ -248,8 +249,6 @@ int main(int argc, const char** argv)
                         .SetSampleCount(8)
                         .WithReverseZ()
                         .SetFullscreen(false)
-                        .SetIblIntensity(1.2f)
-                        .SetExposure(1.8f)
                         .SetRenderingStrategy(fra::RenderingStrategy::Forward);
                 });
             })
