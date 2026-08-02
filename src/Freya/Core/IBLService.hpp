@@ -57,6 +57,8 @@ namespace FREYA_NAMESPACE
                                    int height) const;
         bool loadHdrFile(const std::string& path, std::vector<float>& out,
                          int& width, int& height) const;
+        void downsampleEquirect(std::vector<float>& data, int& width,
+                                int& height, int maxWidth) const;
         void convolveIrradiance(const std::vector<float>& src, int srcW,
                                 int srcH, std::vector<float>& dst, int dstW,
                                 int dstH) const;

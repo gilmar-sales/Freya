@@ -40,8 +40,11 @@ namespace FREYA_NAMESPACE
         float             drawDistance = 1000.0f; ///< View distance for culling
         std::uint32_t     maxLights    = 16;      ///< Maximum lights in scene
         float             iblIntensity = 1.0f; ///< Image-based lighting scale
-        std::string environmentMapPath; ///< Optional Radiance .hdr path (empty =
-                                        ///< procedural sky)
+        /// Radiance `.hdr` path relative to the process working directory.
+        /// Empty string forces the procedural sky. Default file is copied next
+        /// to examples under Resources/Environments/.
+        std::string environmentMapPath =
+            "./Resources/Environments/studio_small_09_4k.hdr";
         RenderingStrategy renderingStrategy =
             RenderingStrategy::Forward; ///< Rendering strategy
         bool ReverseZ;

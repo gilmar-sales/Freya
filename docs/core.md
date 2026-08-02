@@ -227,8 +227,11 @@ the light service is present (also uploads `iblIntensity` for IBL).
 
 Provides split-sum image-based lighting: an equirectangular environment map
 (specular + mip LOD prefilter stand-in), a convolved irradiance map, and a
-BRDF integration LUT. Built at startup from `FreyaOptions::environmentMapPath`
-(Radiance `.hdr` via `stbi_loadf`) or a procedural sky when the path is empty.
+BRDF integration LUT. Built at startup from `FreyaOptions::environmentMapPath` (Radiance `.hdr` via
+`stbi_loadf`; maps wider than 1024px are downsampled). Default path is
+`./Resources/Environments/studio_small_09_4k.hdr` (copied from the repo-root
+`Resources/` into example binary dirs). Set the path to empty to force the
+procedural sky; if the file is missing, the procedural sky is used as well.
 
 | Resource | Role |
 |----------|------|

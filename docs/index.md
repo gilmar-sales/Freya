@@ -118,7 +118,7 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `drawDistance` | `float` | `1000.0f` | Render distance |
 | `maxLights` | `std::uint32_t` | `16` | Max analytical lights (`MAX_LIGHTS`) |
 | `iblIntensity` | `float` | `1.0f` | Image-based lighting scale |
-| `environmentMapPath` | `std::string` | `""` | Optional Radiance `.hdr` (empty = procedural sky) |
+| `environmentMapPath` | `std::string` | `./Resources/Environments/studio_small_09_4k.hdr` | Radiance `.hdr` (empty = procedural sky) |
 | `renderingStrategy` | `RenderingStrategy` | `Forward` | Forward or Deferred |
 
 ## Services

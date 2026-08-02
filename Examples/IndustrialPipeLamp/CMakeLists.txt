@@ -15,3 +15,15 @@ add_shader_outputs(Shaders
 add_dependencies(IndustrialPipeLamp ${Shaders_OUTPUT_TARGETS})
 
 file(COPY Resources DESTINATION ${CMAKE_BINARY_DIR}/Examples/IndustrialPipeLamp)
+
+# Engine default IBL environment (repo-root Resources/)
+set(_freya_default_ibl
+    "${CMAKE_SOURCE_DIR}/Resources/studio_small_09_4k.hdr")
+if(EXISTS "${_freya_default_ibl}")
+    file(MAKE_DIRECTORY
+        "${CMAKE_BINARY_DIR}/Examples/IndustrialPipeLamp/Resources/Environments")
+    file(COPY "${_freya_default_ibl}"
+         DESTINATION
+         "${CMAKE_BINARY_DIR}/Examples/IndustrialPipeLamp/Resources/Environments")
+endif()
+

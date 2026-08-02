@@ -127,7 +127,8 @@ namespace FREYA_NAMESPACE
         if (!options->environmentMapPath.empty() &&
             loadHdrFile(options->environmentMapPath, env, width, height))
         {
-            // loaded
+            // Cap resolution for upload / CPU convolution cost (4k → 1k).
+            downsampleEquirect(env, width, height, 1024);
         }
         else
         {
@@ -243,6 +244,57 @@ namespace FREYA_NAMESPACE
         out.assign(pixels, pixels + count);
         stbi_image_free(pixels);
         return true;
+    }
+
+    void IBLService::downsampleEquirect(std::vector<float>& data, int& width,
+                                        int& height, int maxWidth) const
+    {
+        if (width <= maxWidth)
+        {
+            return;
+        }
+
+        const int dstW = maxWidth;
+        const int dstH = std::max(1, (height * dstW) / width);
+        std::vector<float> dst(static_cast<std::size_t>(dstW) * dstH * 4);
+
+        for (int y = 0; y < dstH; ++y)
+        {
+            for (int x = 0; x < dstW; ++x)
+            {
+                const float u = (x + 0.5f) / dstW;
+                const float v = (y + 0.5f) / dstH;
+                const float sx = u * static_cast<float>(width - 1);
+                const float sy = v * static_cast<float>(height - 1);
+                const int   x0 = static_cast<int>(sx);
+                const int   y0 = static_cast<int>(sy);
+                const int   x1 = std::min(x0 + 1, width - 1);
+                const int   y1 = std::min(y0 + 1, height - 1);
+                const float fx = sx - static_cast<float>(x0);
+                const float fy = sy - static_cast<float>(y0);
+
+                auto fetch = [&](int px, int py) {
+                    const std::size_t i =
+                        (static_cast<std::size_t>(py) * width + px) * 4;
+                    return glm::vec4(data[i], data[i + 1], data[i + 2],
+                                     data[i + 3]);
+                };
+
+                const glm::vec4 c = glm::mix(glm::mix(fetch(x0, y0), fetch(x1, y0), fx),
+                                             glm::mix(fetch(x0, y1), fetch(x1, y1), fx),
+                                             fy);
+                const std::size_t i =
+                    (static_cast<std::size_t>(y) * dstW + x) * 4;
+                dst[i]     = c.r;
+                dst[i + 1] = c.g;
+                dst[i + 2] = c.b;
+                dst[i + 3] = c.a;
+            }
+        }
+
+        data   = std::move(dst);
+        width  = dstW;
+        height = dstH;
     }
 
     void IBLService::convolveIrradiance(const std::vector<float>& src, int srcW,
