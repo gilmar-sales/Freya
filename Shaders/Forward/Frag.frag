@@ -159,6 +159,10 @@ vec3 calculateIBL(vec3 N, vec3 V, vec3 albedo, float roughness, float metalness,
     return (kD * diffuse + specular) * lights.iblIntensity;
 }
 
+vec3 srgbToLinear(vec3 c) {
+    return pow(c, vec3(2.2));
+}
+
 vec3 ACESFilm(vec3 x) {
     const float a = 2.51;
     const float b = 0.03;
@@ -170,12 +174,13 @@ vec3 ACESFilm(vec3 x) {
 
 void main()
 {
-    vec3 albedo = texture(albedoSampler, fragTexCoord).rgb;
+    // Albedo/emissive textures are authored in sRGB; lighting is linear.
+    vec3 albedo = srgbToLinear(texture(albedoSampler, fragTexCoord).rgb);
     vec3 normal = getNormalFromMap();
     float roughness =
         max(texture(roughnessSampler, fragTexCoord).r, 0.045);
     float metalness = texture(metalnessSampler, fragTexCoord).r;
-    vec3 emissive = texture(emissiveSampler, fragTexCoord).rgb;
+    vec3 emissive = srgbToLinear(texture(emissiveSampler, fragTexCoord).rgb);
 
     vec3 N = normalize(normal);
     vec3 V = normalize(lights.viewPosition.xyz - fragPosition);
@@ -200,8 +205,10 @@ void main()
             fragPosition, N, V, albedo, roughness, metalness, F0);
     }
 
-    vec3 color = (totalLighting + emissive) * lights.exposure;
+    // Exposure applies to lit terms; emissive stays in absolute linear range.
+    vec3 color = totalLighting * lights.exposure + emissive;
     color = ACESFilm(color);
+    // Encode for UNORM swapchain + VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
     color = pow(color, vec3(1.0 / 2.2));
     outColor = vec4(color, 1.0);
 }

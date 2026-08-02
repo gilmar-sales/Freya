@@ -190,7 +190,8 @@ void main() {
             fragPos, N, V, albedo, roughness, metalness, F0);
     }
 
-    vec3 color = (totalLighting + emissive * bloomIntensity) * lights.exposure;
+    vec3 color =
+        totalLighting * lights.exposure + emissive * bloomIntensity;
     color = ACESFilm(color);
     color = pow(color, vec3(1.0 / 2.2));
     outColor = vec4(color, 1.0);

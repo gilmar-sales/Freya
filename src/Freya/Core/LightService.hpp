@@ -230,8 +230,8 @@ namespace FREYA_NAMESPACE
         std::uint32_t    mFrameCount;
         std::uint32_t    mMaxLights;
         std::uint32_t    mLightCount;
-        float            mIblIntensity = 1.0f;
-        float            mExposure     = 0.8f;
+        float            mIblIntensity = 0.7f;
+        float            mExposure     = 0.7f;
 
         std::vector<Light> mLights;
         skr::Arc<Buffer>   mBuffer;

@@ -41,8 +41,8 @@ namespace FREYA_NAMESPACE
                                             0.0f }; ///< Render pass clear color
         float             drawDistance = 1000.0f; ///< View distance for culling
         std::uint32_t     maxLights    = 16;      ///< Maximum lights in scene
-        float             iblIntensity = 1.0f; ///< Image-based lighting scale
-        float             exposure     = 0.8f; ///< HDR exposure before tonemap
+        float             iblIntensity = 0.7f; ///< Image-based lighting scale
+        float             exposure     = 0.7f; ///< HDR exposure before tonemap
         /// Radiance `.hdr` path relative to the process working directory.
         /// Empty string forces the procedural sky. Default file is copied next
         /// to examples under Resources/Environments/.

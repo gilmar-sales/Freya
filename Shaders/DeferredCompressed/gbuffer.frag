@@ -16,6 +16,10 @@ layout (set = 1, binding = 2) uniform sampler2D uRoughnessTexture;
 layout (set = 1, binding = 3) uniform sampler2D uEmissiveTexture;
 layout (set = 1, binding = 4) uniform sampler2D uMetalnessTexture;
 
+vec3 srgbToLinear(vec3 c) {
+    return pow(c, vec3(2.2));
+}
+
 void main() {
     outPosition = vec4(inPosition, 1.0);
 
@@ -43,12 +47,14 @@ void main() {
     
     outNormal = vec4(worldNormal, 1.0);
 
-    vec4 albedo = texture(uAlbedoTexture, inTexCoord);
+    // Write linear albedo into sRGB G-buffer (HW encodes on store).
+    vec3 albedoLin = srgbToLinear(texture(uAlbedoTexture, inTexCoord).rgb);
     float roughness = texture(uRoughnessTexture, inTexCoord).r;
-    outAlbedo = vec4(albedo.rgb, roughness);
+    outAlbedo = vec4(albedoLin, roughness);
     
-    // Emissive stored in RGB, defaults to black if no emissive texture
-    outEmissive = vec4(texture(uEmissiveTexture, inTexCoord).rgb, 1.0);
+    // Emissive G-buffer is float — store linear
+    outEmissive =
+        vec4(srgbToLinear(texture(uEmissiveTexture, inTexCoord).rgb), 1.0);
     
     // Metalness defaults to 0.0, roughness defaults to 0.5
     float metalness = texture(uMetalnessTexture, inTexCoord).r;

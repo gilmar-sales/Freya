@@ -1,6 +1,7 @@
 #include <Freya/Freya.hpp>
 
 #include <cmath>
+#include <iostream>
 
 class MainApp final : public fra::AbstractApplication
 {
@@ -12,10 +13,30 @@ class MainApp final : public fra::AbstractApplication
         mTexturePool  = serviceProvider->GetService<fra::TexturePool>();
         mMaterialPool = serviceProvider->GetService<fra::MaterialPool>();
         mLightService = serviceProvider->GetService<fra::LightService>();
+        mFreyaOptions = serviceProvider->GetService<fra::FreyaOptions>();
     }
 
     void StartUp() override
     {
+        mEventManager->Subscribe<fra::KeyReleasedEvent>(
+            [this](const fra::KeyReleasedEvent& event) {
+                if (event.key != fra::KeyCode::Tab)
+                {
+                    return;
+                }
+
+                const auto next =
+                    mRenderer->IsDeferred() ? fra::RenderingStrategy::Forward
+                                            : fra::RenderingStrategy::Deferred;
+                mRenderer->SetRenderingStrategy(next);
+                updateTitle();
+
+                std::cout << "Rendering strategy: "
+                          << (mRenderer->IsDeferred() ? "Deferred" : "Forward")
+                          << '\n';
+            });
+
+        updateTitle();
         mRenderer->ClearProjections();
 
         mModelMatrix[0] = glm::scale(
@@ -68,8 +89,7 @@ class MainApp final : public fra::AbstractApplication
         mSpaceShipModel =
             mMeshPool->CreateMeshFromFile("./Resources/Models/SpaceShip.fbx");
 
-        // Classic light trio: directional key + colored points + a spot
-        // Classic light trio tuned for PBR + ACES @ exposure 0.8 / IBL 1.0
+        // Classic light trio tuned for PBR + ACES
         mLightService->AddLight(fra::MakeDirectionalLight(
             glm::vec3(-0.4f, -1.0f, -0.3f),
             glm::vec3(1.0f, 0.95f, 0.85f),
@@ -184,18 +204,19 @@ class MainApp final : public fra::AbstractApplication
         for (const auto& mesh : mSofaModel)
             mRenderer->DrawInstanced(mesh, mSofaMaterial, 2, 2);
 
-        // In deferred mode, Renderer automatically:
-        //   1. Executes draw commands in depth pre-pass (no material binding)
-        //   2. Advances to G-buffer subpass
-        //   3. Executes draw commands with materials for G-buffer
-        // In forward mode, executes draw commands once with materials.
-
         // EndFrame advances to lighting → translucent → composite
         // and draws the fullscreen triangles for lighting + composite.
         mRenderer->EndFrame();
     }
 
   private:
+    void updateTitle()
+    {
+        const char* mode = mRenderer->IsDeferred() ? "Deferred" : "Forward";
+        mFreyaOptions->title =
+            std::string("Industrial Pipe Lamp — ") + mode + " [Tab]";
+    }
+
     enum class AnimatedLightKind
     {
         Point,
@@ -229,6 +250,7 @@ class MainApp final : public fra::AbstractApplication
     skr::Arc<fra::TexturePool>  mTexturePool;
     skr::Arc<fra::MeshPool>     mMeshPool;
     skr::Arc<fra::LightService> mLightService;
+    skr::Arc<fra::FreyaOptions> mFreyaOptions;
     glm::mat4                   mModelMatrix[4] {};
     float                       mCurrentTime {};
     std::vector<AnimatedLight>  mAnimatedLights;
@@ -242,7 +264,7 @@ int main(int argc, const char** argv)
         skr::ApplicationBuilder()
             .WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
                 freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
-                    freyaOptions.SetTitle("Industrial Pipe Lamp — Lights")
+                    freyaOptions.SetTitle("Industrial Pipe Lamp — Forward [Tab]")
                         .SetWidth(1920)
                         .SetHeight(1080)
                         .SetVSync(false)

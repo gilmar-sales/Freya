@@ -357,6 +357,14 @@ namespace FREYA_NAMESPACE
     {
         const auto extent = getRenderExtent();
 
+        // Tear down path-specific resources so strategy switches are clean.
+        destroyForwardOffscreenResources();
+        mForwardColorImage.reset();
+        mForwardResolveImage.reset();
+        mDeferredPass.reset();
+        mBloomPass.reset();
+        mCompositePass.reset();
+
         mBloomResultImage.reset();
         mBloomResultImage =
             mServiceProvider->GetService<ImageBuilder>()
@@ -369,17 +377,14 @@ namespace FREYA_NAMESPACE
 
         if (IsDeferred())
         {
-            mDeferredPass.reset();
             mDeferredPass =
                 mServiceProvider->GetService<DeferredCompressedPassBuilder>()
                     ->Build(mSwapChain, extent);
 
-            mBloomPass.reset();
             mBloomPass =
                 mServiceProvider->GetService<BloomPassBuilder>()->Build(
                     mSwapChain, mDeferredPass->GetEmissiveImage(), extent);
 
-            mCompositePass.reset();
             mCompositePass =
                 mServiceProvider->GetService<CompositePassBuilder>()->Build(
                     mSwapChain);
@@ -419,19 +424,13 @@ namespace FREYA_NAMESPACE
                         .SetSamples(vk::SampleCountFlagBits::e1)
                         .Build();
             }
-            else
-            {
-                mForwardResolveImage.reset();
-            }
 
             const auto bloomInput =
                 msaa ? mForwardResolveImage : mForwardColorImage;
-            mBloomPass.reset();
             mBloomPass =
                 mServiceProvider->GetService<BloomPassBuilder>()->Build(
                     mSwapChain, bloomInput, extent);
 
-            mCompositePass.reset();
             mCompositePass =
                 mServiceProvider->GetService<CompositePassBuilder>()->Build(
                     mSwapChain);
@@ -446,6 +445,29 @@ namespace FREYA_NAMESPACE
                 mCompositePass->UpdateDescriptorSet(
                     frame, compositeInput, compositeInput, mBloomResultImage,
                     mBloomResultSampler);
+            }
+        }
+    }
+
+    void Renderer::SetRenderingStrategy(const RenderingStrategy strategy)
+    {
+        if (mFreyaOptions->renderingStrategy == strategy)
+        {
+            return;
+        }
+
+        mDevice->Get().waitIdle();
+        mFreyaOptions->renderingStrategy = strategy;
+        rebuildSceneResources();
+
+        // Refresh projection/ambient UBOs into the newly built passes.
+        for (std::uint32_t frameIndex = 0;
+             frameIndex < mFreyaOptions->frameCount; ++frameIndex)
+        {
+            mForwardPass->UpdateProjection(mCurrentProjection, frameIndex);
+            if (mDeferredPass)
+            {
+                mDeferredPass->UpdateProjection(mCurrentProjection, frameIndex);
             }
         }
     }

@@ -99,6 +99,16 @@ namespace FREYA_NAMESPACE
                    RenderingStrategy::Deferred;
         }
 
+        /**
+         * @brief Switches Forward/Deferred and rebuilds scene passes.
+         */
+        void SetRenderingStrategy(RenderingStrategy strategy);
+
+        [[nodiscard]] RenderingStrategy GetRenderingStrategy() const
+        {
+            return mFreyaOptions->renderingStrategy;
+        }
+
         [[nodiscard]] bool GetVSync() const { return mFreyaOptions->vSync; }
         void               SetVSync(bool vSync);
 

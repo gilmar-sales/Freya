@@ -56,8 +56,8 @@ namespace FREYA_NAMESPACE
         alignas(16) glm::vec4 viewPosition; // Camera position for attenuation
         // std140: lightCount + iblIntensity + exposure pack into 16 bytes
         std::uint32_t lightCount   = 0;
-        float         iblIntensity = 1.0f;
-        float         exposure     = 0.8f;
+        float         iblIntensity = 0.7f;
+        float         exposure     = 0.7f;
         float         _pad0        = 0.0f;
     };
 
