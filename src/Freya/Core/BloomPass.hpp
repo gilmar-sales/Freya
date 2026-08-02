@@ -29,18 +29,18 @@ namespace FREYA_NAMESPACE
     {
       public:
         BloomPass(
-            const skr::Arc<Device>&                          device,
-            const skr::Arc<FreyaOptions>&                    freyaOptions,
-            const skr::Arc<Surface>&                         surface,
+            const skr::Arc<Device>&                     device,
+            const skr::Arc<FreyaOptions>&               freyaOptions,
+            const skr::Arc<Surface>&                    surface,
             vk::Extent2D                                halfExtent,
             vk::RenderPass                              renderPass,
             vk::PipelineLayout                          pipelineLayout,
             vk::Pipeline                                thresholdPipeline,
             vk::Pipeline                                downsamplePipeline,
             vk::Pipeline                                upsamplePipeline,
-            const skr::Arc<Image>&                           bloomThresholdImage,
-            const skr::Arc<Image>&                           bloomDownImage,
-            const skr::Arc<Image>&                           bloomUpImage,
+            const skr::Arc<Image>&                      bloomThresholdImage,
+            const skr::Arc<Image>&                      bloomDownImage,
+            const skr::Arc<Image>&                      bloomUpImage,
             const std::vector<vk::Framebuffer>&         framebuffers,
             vk::DescriptorPool                          descriptorPool,
             const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
@@ -65,15 +65,16 @@ namespace FREYA_NAMESPACE
 
         void NextSubpass(const skr::Arc<CommandPool>& commandPool) const;
 
-        void BindPipeline(std::uint32_t           subpass,
+        void BindPipeline(std::uint32_t                subpass,
                           const skr::Arc<CommandPool>& commandPool,
-                          std::uint32_t           frameIndex) const;
+                          std::uint32_t                frameIndex) const;
 
-        void AdvanceSubpass(std::uint32_t           subpass,
+        void AdvanceSubpass(std::uint32_t                subpass,
                             const skr::Arc<CommandPool>& commandPool,
-                            std::uint32_t           frameIndex) const;
+                            std::uint32_t                frameIndex) const;
 
-        void DrawFullscreenTriangle(const skr::Arc<CommandPool>& commandPool) const;
+        void DrawFullscreenTriangle(
+            const skr::Arc<CommandPool>& commandPool) const;
 
         void End(const skr::Arc<CommandPool> commandPool) const;
 

@@ -27,13 +27,14 @@ namespace FREYA_NAMESPACE
     class RenderPassBuilder
     {
       public:
-        RenderPassBuilder(const skr::Arc<Device>&         device,
-                          const skr::Arc<PhysicalDevice>& physicalDevice,
-                          const skr::Arc<Surface>&        surface,
-                          const skr::Arc<FreyaOptions>&   freyaOptions,
-                          const skr::Arc<skr::Logger<RenderPassBuilder>>& logger,
-                          const skr::Arc<skr::ServiceProvider>& serviceProvider,
-                          const skr::Arc<LightService>&         lightService) :
+        RenderPassBuilder(
+            const skr::Arc<Device>&                         device,
+            const skr::Arc<PhysicalDevice>&                 physicalDevice,
+            const skr::Arc<Surface>&                        surface,
+            const skr::Arc<FreyaOptions>&                   freyaOptions,
+            const skr::Arc<skr::Logger<RenderPassBuilder>>& logger,
+            const skr::Arc<skr::ServiceProvider>&           serviceProvider,
+            const skr::Arc<LightService>&                   lightService) :
             mDevice(device), mPhysicalDevice(physicalDevice), mSurface(surface),
             mFreyaOptions(freyaOptions), mLogger(logger),
             mServiceProvider(serviceProvider), mLightService(lightService)

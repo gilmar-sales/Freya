@@ -13,11 +13,12 @@ namespace FREYA_NAMESPACE
     class CompositePassBuilder
     {
       public:
-        CompositePassBuilder(const skr::Arc<Device>&               device,
-                             const skr::Arc<PhysicalDevice>&       physicalDevice,
-                             const skr::Arc<Surface>&              surface,
-                             const skr::Arc<FreyaOptions>&         freyaOptions,
-                             const skr::Arc<skr::ServiceProvider>& serviceProvider);
+        CompositePassBuilder(
+            const skr::Arc<Device>&               device,
+            const skr::Arc<PhysicalDevice>&       physicalDevice,
+            const skr::Arc<Surface>&              surface,
+            const skr::Arc<FreyaOptions>&         freyaOptions,
+            const skr::Arc<skr::ServiceProvider>& serviceProvider);
 
         skr::Arc<CompositePass> Build(const skr::Arc<SwapChain>& swapChain);
 

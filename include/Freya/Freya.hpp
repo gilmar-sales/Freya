@@ -9,11 +9,11 @@
 #include "Freya/Builders/RenderPassBuilder.hpp"
 #include "Freya/Builders/RenderTargetBuilder.hpp"
 #include "Freya/Builders/RendererBuilder.hpp"
-#include "Freya/Core/RenderTarget.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
 #include "Freya/Builders/SurfaceBuilder.hpp"
 #include "Freya/Builders/SwapChainBuilder.hpp"
 #include "Freya/Builders/WindowBuilder.hpp"
+#include "Freya/Core/RenderTarget.hpp"
 
 #include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"

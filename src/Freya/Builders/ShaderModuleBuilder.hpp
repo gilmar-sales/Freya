@@ -19,9 +19,10 @@ namespace FREYA_NAMESPACE
     class ShaderModuleBuilder
     {
       public:
-        ShaderModuleBuilder(const skr::Arc<Device>&                           device,
-                            const skr::Arc<skr::Logger<ShaderModuleBuilder>>& logger,
-                            const skr::Arc<skr::ServiceProvider>& serviceProvider) :
+        ShaderModuleBuilder(
+            const skr::Arc<Device>&                           device,
+            const skr::Arc<skr::Logger<ShaderModuleBuilder>>& logger,
+            const skr::Arc<skr::ServiceProvider>&             serviceProvider) :
             mDevice(device), mLogger(logger), mServiceProvider(serviceProvider)
         {
         }
@@ -52,8 +53,9 @@ namespace FREYA_NAMESPACE
         std::vector<char> readFile(const std::string& filename) const;
 
       private:
-        skr::Arc<Device>                           mDevice; ///< Device reference
-        skr::Arc<skr::Logger<ShaderModuleBuilder>> mLogger; ///< Logger reference
+        skr::Arc<Device> mDevice; ///< Device reference
+        skr::Arc<skr::Logger<ShaderModuleBuilder>>
+            mLogger; ///< Logger reference
         skr::Arc<skr::ServiceProvider>
                     mServiceProvider; ///< Service provider reference
         std::string mFilePath;        ///< Shader file path

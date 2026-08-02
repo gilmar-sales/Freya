@@ -51,7 +51,7 @@ namespace FREYA_NAMESPACE
       private:
         skr::Arc<Device>       mDevice;
         skr::Arc<FreyaOptions> mFreyaOptions;
-        std::uint32_t     mMaxLights = MAX_LIGHTS;
+        std::uint32_t          mMaxLights = MAX_LIGHTS;
     };
 
 } // namespace FREYA_NAMESPACE

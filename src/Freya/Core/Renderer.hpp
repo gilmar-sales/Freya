@@ -3,6 +3,7 @@
 #include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
+#include "Freya/Builders/RenderTargetBuilder.hpp"
 #include "Freya/Core/BloomPass.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/CompositePass.hpp"
@@ -15,7 +16,6 @@
 #include "Freya/Core/RenderTarget.hpp"
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Events/EventManager.hpp"
-#include "Freya/Builders/RenderTargetBuilder.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -49,7 +49,7 @@ namespace FREYA_NAMESPACE
                  const skr::Arc<skr::ServiceProvider>&   serviceProvider,
                  const skr::Arc<FreyaOptions>&           freyaOptions,
                  const skr::Arc<EventManager>&           eventManager,
-                 const skr::Arc<Image>&                  forwardColorImage = nullptr,
+                 const skr::Arc<Image>& forwardColorImage   = nullptr,
                  const skr::Arc<Image>& forwardResolveImage = nullptr);
 
         ~Renderer();
@@ -179,10 +179,10 @@ namespace FREYA_NAMESPACE
 
         void UpdateModel(const glm::mat4& model) const;
 
-        [[nodiscard]] BufferBuilder GetBufferBuilder() const;
+        [[nodiscard]] BufferBuilder       GetBufferBuilder() const;
         [[nodiscard]] RenderTargetBuilder GetRenderTargetBuilder() const;
-        void                        BindBuffer(const skr::Arc<Buffer>& buffer) const;
-        void                        BindMaterial(std::uint32_t materialId);
+        void BindBuffer(const skr::Arc<Buffer>& buffer) const;
+        void BindMaterial(std::uint32_t materialId);
 
         std::uint32_t GetCurrentFrameIndex() const
         {
@@ -265,9 +265,9 @@ namespace FREYA_NAMESPACE
         skr::Arc<Image> mBloomResultImage;
 
         // Forward offscreen resources (for bloom+composite in forward mode)
-        skr::Arc<Image>                   mForwardColorImage;
-        skr::Arc<Image>                   mForwardResolveImage;
-        skr::Arc<Image>                   mForwardDepthImage;
+        skr::Arc<Image>              mForwardColorImage;
+        skr::Arc<Image>              mForwardResolveImage;
+        skr::Arc<Image>              mForwardDepthImage;
         vk::RenderPass               mForwardOffscreenRenderPass;
         std::vector<vk::Framebuffer> mForwardOffscreenFramebuffers;
 

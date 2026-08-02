@@ -26,10 +26,10 @@ namespace FREYA_NAMESPACE
     class SurfaceBuilder
     {
       public:
-        SurfaceBuilder(const skr::Arc<Instance>&                    instance,
-                       const skr::Arc<PhysicalDevice>&              physicalDevice,
-                       const skr::Arc<Window>&                      window,
-                       const skr::Arc<FreyaOptions>&                freyaOptions,
+        SurfaceBuilder(const skr::Arc<Instance>&       instance,
+                       const skr::Arc<PhysicalDevice>& physicalDevice,
+                       const skr::Arc<Window>&         window,
+                       const skr::Arc<FreyaOptions>&   freyaOptions,
                        const skr::Arc<skr::Logger<SurfaceBuilder>>& logger) :
             mInstance(instance), mPhysicalDevice(physicalDevice),
             mWindow(window), mFreyaOptions(freyaOptions), mLogger(logger)

@@ -20,7 +20,9 @@ namespace FREYA_NAMESPACE
          * @brief Constructs builder with device reference.
          * @param device Device reference
          */
-        explicit BufferBuilder(const skr::Arc<Device>& device) : mDevice(device) {}
+        explicit BufferBuilder(const skr::Arc<Device>& device) : mDevice(device)
+        {
+        }
 
         /**
          * @brief Sets buffer size in bytes.

@@ -481,8 +481,7 @@ namespace FREYA_NAMESPACE
                 .setMinDepth(0.0f)
                 .setMaxDepth(1.0f);
 
-        auto scissor =
-            vk::Rect2D().setOffset({ 0, 0 }).setExtent(extent);
+        auto scissor = vk::Rect2D().setOffset({ 0, 0 }).setExtent(extent);
 
         commandBuffer.setViewport(0, 1, &viewport);
         commandBuffer.setScissor(0, 1, &scissor);
@@ -494,11 +493,12 @@ namespace FREYA_NAMESPACE
                                   const skr::Arc<Image>& opaqueImage,
                                   const skr::Arc<Image>& translucentImage)
     {
-        mCompositePass->UpdateDescriptorSet(frameIndex,
-                                            opaqueImage,
-                                            translucentImage,
-                                            mBloomResultImage,
-                                            mBloomResultSampler);
+        mCompositePass->UpdateDescriptorSet(
+            frameIndex,
+            opaqueImage,
+            translucentImage,
+            mBloomResultImage,
+            mBloomResultSampler);
 
         if (mOutputTarget)
         {
@@ -655,7 +655,8 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void Renderer::blitBloomToFullRes(const skr::Arc<CommandPool>& commandPool) const
+    void Renderer::blitBloomToFullRes(
+        const skr::Arc<CommandPool>& commandPool) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 

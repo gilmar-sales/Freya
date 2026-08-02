@@ -81,7 +81,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<CommandPool>              mCommandPool;
         skr::Arc<RenderPass>               mRenderPass;
         std::vector<skr::Arc<Buffer>>      mStagingBuffers;
-        vk::DescriptorSet             mTextureDescriptorSet;
+        vk::DescriptorSet                  mTextureDescriptorSet;
 
         TextureSet mTextures;
     };

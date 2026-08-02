@@ -5,9 +5,9 @@
 namespace FREYA_NAMESPACE
 {
     CompositePass::CompositePass(
-        const skr::Arc<Device>&                    device,
-        const skr::Arc<FreyaOptions>&              freyaOptions,
-        const skr::Arc<Surface>&                   surface,
+        const skr::Arc<Device>&               device,
+        const skr::Arc<FreyaOptions>&         freyaOptions,
+        const skr::Arc<Surface>&              surface,
         vk::RenderPass                        renderPass,
         vk::PipelineLayout                    pipelineLayout,
         vk::Pipeline                          compositePipeline,
@@ -57,11 +57,11 @@ namespace FREYA_NAMESPACE
             vk::SubpassContents::eInline);
     }
 
-    void CompositePass::Begin(const vk::RenderPass          renderPass,
-                              const vk::Framebuffer         framebuffer,
-                              const vk::Extent2D            extent,
-                              const skr::Arc<CommandPool>&  commandPool,
-                              const vk::ClearValue&         clearColor) const
+    void CompositePass::Begin(const vk::RenderPass         renderPass,
+                              const vk::Framebuffer        framebuffer,
+                              const vk::Extent2D           extent,
+                              const skr::Arc<CommandPool>& commandPool,
+                              const vk::ClearValue&        clearColor) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
         auto clearValues   = std::vector<vk::ClearValue> { clearColor };
@@ -77,7 +77,7 @@ namespace FREYA_NAMESPACE
     }
 
     void CompositePass::BindPipeline(const skr::Arc<CommandPool>& commandPool,
-                                     const std::uint32_t     frameIndex) const
+                                     const std::uint32_t frameIndex) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
@@ -106,8 +106,8 @@ namespace FREYA_NAMESPACE
 
     void CompositePass::UpdateDescriptorSet(
         const std::uint32_t frameIndex, const skr::Arc<Image>& opaqueImage,
-        const skr::Arc<Image>& translucentImage, const skr::Arc<Image>& bloomResultImage,
-        vk::Sampler sampler) const
+        const skr::Arc<Image>& translucentImage,
+        const skr::Arc<Image>& bloomResultImage, vk::Sampler sampler) const
     {
         auto opaqueInfo =
             vk::DescriptorImageInfo()

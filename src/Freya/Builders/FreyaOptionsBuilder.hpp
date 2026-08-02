@@ -154,7 +154,8 @@ namespace FREYA_NAMESPACE
         skr::Arc<FreyaOptions> Build() { return mFreyaOptions; }
 
       private:
-        skr::Arc<FreyaOptions> mFreyaOptions; ///< FreyaOptions instance being built
+        skr::Arc<FreyaOptions>
+            mFreyaOptions; ///< FreyaOptions instance being built
     };
 
 } // namespace FREYA_NAMESPACE

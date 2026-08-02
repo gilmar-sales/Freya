@@ -31,14 +31,15 @@ namespace FREYA_NAMESPACE
     class SwapChainBuilder
     {
       public:
-        SwapChainBuilder(const skr::Arc<Instance>&       instance,
-                         const skr::Arc<PhysicalDevice>& physicalDevice,
-                         const skr::Arc<Device>&         device,
-                         const skr::Arc<Surface>&        surface,
-                         const skr::Arc<RenderPass>&     renderPass,
-                         const skr::Arc<FreyaOptions>&   freyaOptions,
-                         const skr::Arc<skr::Logger<SwapChainBuilder>>& logger,
-                         const skr::Arc<skr::ServiceProvider>& serviceProvider) :
+        SwapChainBuilder(
+            const skr::Arc<Instance>&                      instance,
+            const skr::Arc<PhysicalDevice>&                physicalDevice,
+            const skr::Arc<Device>&                        device,
+            const skr::Arc<Surface>&                       surface,
+            const skr::Arc<RenderPass>&                    renderPass,
+            const skr::Arc<FreyaOptions>&                  freyaOptions,
+            const skr::Arc<skr::Logger<SwapChainBuilder>>& logger,
+            const skr::Arc<skr::ServiceProvider>&          serviceProvider) :
             mInstance(instance), mPhysicalDevice(physicalDevice),
             mDevice(device), mSurface(surface), mRenderPass(renderPass),
             mFreyaOptions(freyaOptions), mLogger(logger),

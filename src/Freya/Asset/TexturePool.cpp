@@ -17,10 +17,11 @@ namespace FREYA_NAMESPACE
 {
     constexpr auto MegaBytes = 1024 * 1024;
 
-    TexturePool::TexturePool(const skr::Arc<skr::ServiceProvider>& serviceProvider,
-                             const skr::Arc<Device>&               device,
-                             const skr::Arc<CommandPool>&          commandPool,
-                             const skr::Arc<RenderPass>&           renderPass) :
+    TexturePool::TexturePool(
+        const skr::Arc<skr::ServiceProvider>& serviceProvider,
+        const skr::Arc<Device>&               device,
+        const skr::Arc<CommandPool>&          commandPool,
+        const skr::Arc<RenderPass>&           renderPass) :
         mServiceProvider(serviceProvider), mDevice(device),
         mCommandPool(commandPool), mRenderPass(renderPass)
     {

@@ -19,7 +19,7 @@ namespace FREYA_NAMESPACE
     class CommandPool
     {
       public:
-        CommandPool(const skr::Arc<Device>&                    device,
+        CommandPool(const skr::Arc<Device>&               device,
                     const vk::CommandPool                 commandPool,
                     const std::vector<vk::CommandBuffer>& commandBuffers) :
             mDevice(device), mCommandPool(commandPool),

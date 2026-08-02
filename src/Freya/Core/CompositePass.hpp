@@ -15,9 +15,9 @@ namespace FREYA_NAMESPACE
     class CompositePass
     {
       public:
-        CompositePass(const skr::Arc<Device>&                    device,
-                      const skr::Arc<FreyaOptions>&              freyaOptions,
-                      const skr::Arc<Surface>&                   surface,
+        CompositePass(const skr::Arc<Device>&               device,
+                      const skr::Arc<FreyaOptions>&         freyaOptions,
+                      const skr::Arc<Surface>&              surface,
                       vk::RenderPass                        renderPass,
                       vk::PipelineLayout                    pipelineLayout,
                       vk::Pipeline                          compositePipeline,
@@ -56,17 +56,18 @@ namespace FREYA_NAMESPACE
                    const vk::ClearValue&        clearColor) const;
 
         void BindPipeline(const skr::Arc<CommandPool>& commandPool,
-                          std::uint32_t           frameIndex) const;
+                          std::uint32_t                frameIndex) const;
 
-        void DrawFullscreenTriangle(const skr::Arc<CommandPool>& commandPool) const;
+        void DrawFullscreenTriangle(
+            const skr::Arc<CommandPool>& commandPool) const;
 
         void End(const skr::Arc<CommandPool> commandPool) const;
 
-        void UpdateDescriptorSet(std::uint32_t     frameIndex,
+        void UpdateDescriptorSet(std::uint32_t          frameIndex,
                                  const skr::Arc<Image>& opaqueImage,
                                  const skr::Arc<Image>& translucentImage,
                                  const skr::Arc<Image>& bloomResultImage,
-                                 vk::Sampler       sampler) const;
+                                 vk::Sampler            sampler) const;
 
       private:
         skr::Arc<Device>       mDevice;

@@ -139,13 +139,13 @@ namespace FREYA_NAMESPACE
         skr::Arc<CommandPool>           mCommandPool;
         skr::Arc<skr::Logger<MeshPool>> mLogger;
 
-        std::vector<skr::Arc<Buffer>>   mStagingBuffers;
-        std::vector<skr::Arc<Buffer>>   mVertexBuffers;
-        std::vector<std::uint32_t> mVertexBuffersOffsets;
+        std::vector<skr::Arc<Buffer>> mStagingBuffers;
+        std::vector<skr::Arc<Buffer>> mVertexBuffers;
+        std::vector<std::uint32_t>    mVertexBuffersOffsets;
 
-        std::vector<skr::Arc<Buffer>>   mIndexBuffers;
-        std::vector<std::uint32_t> mIndexBuffersOffsets;
-        MeshSet                    mMeshes;
+        std::vector<skr::Arc<Buffer>> mIndexBuffers;
+        std::vector<std::uint32_t>    mIndexBuffersOffsets;
+        MeshSet                       mMeshes;
     };
 
 } // namespace FREYA_NAMESPACE

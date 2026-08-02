@@ -5,8 +5,8 @@
 namespace FREYA_NAMESPACE
 {
     LightService::LightService(const skr::Arc<Device>& device,
-                               std::uint32_t      frameCount,
-                               std::uint32_t      maxLights) :
+                               std::uint32_t           frameCount,
+                               std::uint32_t           maxLights) :
         mDevice(device), mFrameCount(frameCount), mMaxLights(maxLights),
         mLightCount(0), mLights(), mLayout(nullptr), mPool(nullptr)
     {
@@ -124,6 +124,26 @@ namespace FREYA_NAMESPACE
         }
 
         mLights[index].position = position;
+    }
+
+    void LightService::UpdateLight(std::uint32_t index, const Light& light)
+    {
+        if (index >= mLights.size())
+        {
+            return;
+        }
+
+        mLights[index] = light;
+    }
+
+    const Light* LightService::GetLight(const std::uint32_t index) const
+    {
+        if (index >= mLights.size())
+        {
+            return nullptr;
+        }
+
+        return &mLights[index];
     }
 
     void LightService::ClearLights()

@@ -25,7 +25,7 @@ namespace FREYA_NAMESPACE
 
         skr::Arc<BloomPass> Build(const skr::Arc<SwapChain>& swapChain,
                                   const skr::Arc<Image>&     emissiveImage,
-                                  vk::Extent2D fullExtent = {});
+                                  vk::Extent2D               fullExtent = {});
 
       private:
         vk::RenderPass createRenderPass() const;

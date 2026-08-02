@@ -19,12 +19,12 @@ namespace FREYA_NAMESPACE
     class Image
     {
       public:
-        Image(const skr::Arc<Device>&     device,
-              const vk::Image        image,
-              const vk::ImageView    imageView,
-              const vk::DeviceMemory memory,
-              const vk::Format       format,
-              const std::uint32_t    mipLevels = 1) :
+        Image(const skr::Arc<Device>& device,
+              const vk::Image         image,
+              const vk::ImageView     imageView,
+              const vk::DeviceMemory  memory,
+              const vk::Format        format,
+              const std::uint32_t     mipLevels = 1) :
             mDevice(device), mImage(image), mImageView(imageView),
             mMemory(memory), mFormat(format), mMipLevels(mipLevels)
         {

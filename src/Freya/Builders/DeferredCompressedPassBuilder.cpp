@@ -7,8 +7,7 @@
 namespace FREYA_NAMESPACE
 {
     skr::Arc<DeferredCompressedPass> DeferredCompressedPassBuilder::Build(
-        const skr::Arc<SwapChain>& swapChain,
-        vk::Extent2D               extent)
+        const skr::Arc<SwapChain>& swapChain, vk::Extent2D extent)
     {
         auto renderPass = createRenderPass();
 

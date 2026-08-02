@@ -56,9 +56,10 @@ namespace FREYA_NAMESPACE
       protected:
         friend class ApplicationBuilder;
 
-        float             mDeltaTime;    ///< Time since last frame in seconds
-        skr::Arc<Window>       mWindow;       ///< Window service reference
-        skr::Arc<Renderer>     mRenderer;     ///< Renderer service reference
-        skr::Arc<EventManager> mEventManager; ///< Event manager service reference
+        float              mDeltaTime; ///< Time since last frame in seconds
+        skr::Arc<Window>   mWindow;    ///< Window service reference
+        skr::Arc<Renderer> mRenderer;  ///< Renderer service reference
+        skr::Arc<EventManager>
+            mEventManager; ///< Event manager service reference
     };
 } // namespace FREYA_NAMESPACE

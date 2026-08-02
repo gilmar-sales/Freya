@@ -31,18 +31,18 @@ namespace
 namespace FREYA_NAMESPACE
 {
     BloomPass::BloomPass(
-        const skr::Arc<Device>&                          device,
-        const skr::Arc<FreyaOptions>&                    freyaOptions,
-        const skr::Arc<Surface>&                         surface,
+        const skr::Arc<Device>&                     device,
+        const skr::Arc<FreyaOptions>&               freyaOptions,
+        const skr::Arc<Surface>&                    surface,
         vk::Extent2D                                halfExtent,
         vk::RenderPass                              renderPass,
         vk::PipelineLayout                          pipelineLayout,
         vk::Pipeline                                thresholdPipeline,
         vk::Pipeline                                downsamplePipeline,
         vk::Pipeline                                upsamplePipeline,
-        const skr::Arc<Image>&                           bloomThresholdImage,
-        const skr::Arc<Image>&                           bloomDownImage,
-        const skr::Arc<Image>&                           bloomUpImage,
+        const skr::Arc<Image>&                      bloomThresholdImage,
+        const skr::Arc<Image>&                      bloomDownImage,
+        const skr::Arc<Image>&                      bloomUpImage,
         const std::vector<vk::Framebuffer>&         framebuffers,
         vk::DescriptorPool                          descriptorPool,
         const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
@@ -123,9 +123,9 @@ namespace FREYA_NAMESPACE
             vk::SubpassContents::eInline);
     }
 
-    void BloomPass::BindPipeline(const std::uint32_t     subpass,
+    void BloomPass::BindPipeline(const std::uint32_t          subpass,
                                  const skr::Arc<CommandPool>& commandPool,
-                                 const std::uint32_t     frameIndex) const
+                                 const std::uint32_t          frameIndex) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 
@@ -156,9 +156,9 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void BloomPass::AdvanceSubpass(const std::uint32_t     subpass,
+    void BloomPass::AdvanceSubpass(const std::uint32_t          subpass,
                                    const skr::Arc<CommandPool>& commandPool,
-                                   const std::uint32_t     frameIndex) const
+                                   const std::uint32_t frameIndex) const
     {
         NextSubpass(commandPool);
 

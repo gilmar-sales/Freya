@@ -24,7 +24,7 @@ namespace FREYA_NAMESPACE
         PhysicalDeviceBuilder(
             const skr::Arc<Instance>& instance,
             const skr::Arc<FreyaOptions>
-                                                           freyaOptions,
+                                                                freyaOptions,
             const skr::Arc<skr::Logger<PhysicalDeviceBuilder>>& logger) :
             mInstance(instance), mFreyaOptions(freyaOptions), mLogger(logger),
             mPhysicalDeviceTypePriorities(
@@ -46,7 +46,8 @@ namespace FREYA_NAMESPACE
         skr::Arc<Instance>     mInstance;     ///< Instance reference
         skr::Arc<FreyaOptions> mFreyaOptions; ///< Freya options reference
 
-        skr::Arc<skr::Logger<PhysicalDeviceBuilder>> mLogger; ///< Logger reference
+        skr::Arc<skr::Logger<PhysicalDeviceBuilder>>
+            mLogger; ///< Logger reference
 
         std::vector<vk::PhysicalDeviceType>
             mPhysicalDeviceTypePriorities; ///< Device type selection priority

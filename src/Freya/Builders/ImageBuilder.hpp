@@ -180,8 +180,9 @@ namespace FREYA_NAMESPACE
         skr::Arc<skr::ServiceProvider>
             mServiceProvider; ///< Service provider reference
 
-        skr::Arc<Buffer> mStagingBuffer; ///< Optional pre-allocated staging buffer
-        ImageUsage  mUsage;         ///< Image usage type
+        skr::Arc<Buffer>
+                   mStagingBuffer; ///< Optional pre-allocated staging buffer
+        ImageUsage mUsage;         ///< Image usage type
 
         vk::Format              mFormat;    ///< Image format
         vk::SampleCountFlagBits mSamples;   ///< MSAA sample count

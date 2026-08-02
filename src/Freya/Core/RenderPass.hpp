@@ -48,11 +48,12 @@ namespace FREYA_NAMESPACE
     {
       public:
         RenderPass(
-            const skr::Arc<Device>& device, const skr::Arc<FreyaOptions>& freyaOptions,
+            const skr::Arc<Device>&                     device,
+            const skr::Arc<FreyaOptions>&               freyaOptions,
             const vk::RenderPass                        renderPass,
             const vk::PipelineLayout                    pipelineLayout,
             const vk::Pipeline                          graphicsPipeline,
-            const skr::Arc<Buffer>&                          uniformBuffer,
+            const skr::Arc<Buffer>&                     uniformBuffer,
             const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
             const std::vector<vk::DescriptorSet>&       descriptorSets,
             const vk::DescriptorPool                    descriptorPool,
@@ -122,10 +123,10 @@ namespace FREYA_NAMESPACE
          * @param frameIndex  Frame index for descriptor set selection
          * @param commandPool Command pool for current command buffer
          */
-        void Begin(const vk::RenderPass&   renderPass,
-                   const vk::Framebuffer&  framebuffer,
-                   const vk::Extent2D&     extent,
-                   std::uint32_t           frameIndex,
+        void Begin(const vk::RenderPass&        renderPass,
+                   const vk::Framebuffer&       framebuffer,
+                   const vk::Extent2D&          extent,
+                   std::uint32_t                frameIndex,
                    const skr::Arc<CommandPool>& commandPool) const;
 
         /**
@@ -140,7 +141,7 @@ namespace FREYA_NAMESPACE
          * @param frameIndex  Frame index for descriptor set selection
          */
         void BindDescriptorSet(const skr::Arc<CommandPool>& commandPool,
-                               std::uint32_t           frameIndex) const;
+                               std::uint32_t                frameIndex) const;
 
         /**
          * @brief Updates projection uniform buffer for a given frame index.
@@ -204,7 +205,7 @@ namespace FREYA_NAMESPACE
         vk::RenderPass     mRenderPass;
         vk::PipelineLayout mPipelineLayout;
         vk::Pipeline       mGraphicsPipeline;
-        skr::Arc<Buffer>        mUniformBuffer;
+        skr::Arc<Buffer>   mUniformBuffer;
 
         std::vector<vk::DescriptorSetLayout> mDescriptorSetLayouts;
         std::vector<vk::DescriptorSet>       mDescriptorSets;

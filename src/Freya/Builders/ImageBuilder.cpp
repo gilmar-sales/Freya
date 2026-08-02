@@ -413,11 +413,11 @@ namespace FREYA_NAMESPACE
 
     void ImageBuilder::transitionLayout(
         const skr::Arc<CommandPool>& commandPool,
-        const vk::Image         image,
-        const vk::ImageLayout   oldLayout,
-        const vk::ImageLayout   newLayout,
-        const std::uint32_t     baseMipLevel,
-        const std::uint32_t     levelCount) const
+        const vk::Image              image,
+        const vk::ImageLayout        oldLayout,
+        const vk::ImageLayout        newLayout,
+        const std::uint32_t          baseMipLevel,
+        const std::uint32_t          levelCount) const
     {
         const auto commandBuffer = commandPool->CreateCommandBuffer();
 

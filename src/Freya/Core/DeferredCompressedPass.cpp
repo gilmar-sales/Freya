@@ -33,9 +33,9 @@ namespace
 namespace FREYA_NAMESPACE
 {
     DeferredCompressedPass::DeferredCompressedPass(
-        const skr::Arc<Device>&                          device,
-        const skr::Arc<FreyaOptions>&                    freyaOptions,
-        const skr::Arc<Surface>&                         surface,
+        const skr::Arc<Device>&                     device,
+        const skr::Arc<FreyaOptions>&               freyaOptions,
+        const skr::Arc<Surface>&                    surface,
         const vk::RenderPass                        renderPass,
         const vk::PipelineLayout                    vertexPipelineLayout,
         const vk::PipelineLayout                    fullscreenPipelineLayout,
@@ -43,15 +43,15 @@ namespace FREYA_NAMESPACE
         const vk::Pipeline                          gbufferPipeline,
         const vk::Pipeline                          lightingPipeline,
         const vk::Pipeline                          translucentPipeline,
-        const skr::Arc<Buffer>&                          uniformBuffer,
+        const skr::Arc<Buffer>&                     uniformBuffer,
         const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
         const std::vector<vk::DescriptorSet>&       descriptorSets,
         const vk::DescriptorPool                    descriptorPool,
-        const std::vector<skr::Arc<Image>>&              gbufferImages,
-        const skr::Arc<Image>&                           emissiveImage,
-        const skr::Arc<Image>&                           depthImage,
-        const skr::Arc<Image>&                           translucentImage,
-        const skr::Arc<Image>&                           opaqueImage,
+        const std::vector<skr::Arc<Image>>&         gbufferImages,
+        const skr::Arc<Image>&                      emissiveImage,
+        const skr::Arc<Image>&                      depthImage,
+        const skr::Arc<Image>&                      translucentImage,
+        const skr::Arc<Image>&                      opaqueImage,
         const std::vector<vk::Framebuffer>&         framebuffers,
         const vk::DescriptorSetLayout               inputAttachmentLayout,
         const vk::DescriptorPool                    inputAttachmentPool,
@@ -67,8 +67,8 @@ namespace FREYA_NAMESPACE
         mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool),
         mGBufferImages(gbufferImages), mEmissiveImage(emissiveImage),
         mDepthImage(depthImage), mTranslucentImage(translucentImage),
-        mOpaqueImage(opaqueImage), mFramebuffers(framebuffers),
-        mExtent(extent), mInputAttachmentLayout(inputAttachmentLayout),
+        mOpaqueImage(opaqueImage), mFramebuffers(framebuffers), mExtent(extent),
+        mInputAttachmentLayout(inputAttachmentLayout),
         mInputAttachmentPool(inputAttachmentPool),
         mLightingInputSet(lightingInputSet), mSamplerLayout(samplerLayout),
         mSamplerDescriptorPool(samplerDescriptorPool)
@@ -150,8 +150,8 @@ namespace FREYA_NAMESPACE
             vk::RenderPassBeginInfo()
                 .setRenderPass(mRenderPass)
                 .setFramebuffer(mFramebuffers[imageIndex])
-                .setRenderArea(vk::Rect2D().setOffset({ 0, 0 }).setExtent(
-                    mExtent))
+                .setRenderArea(
+                    vk::Rect2D().setOffset({ 0, 0 }).setExtent(mExtent))
                 .setClearValues(clearValues),
             vk::SubpassContents::eInline);
 
@@ -168,9 +168,9 @@ namespace FREYA_NAMESPACE
     }
 
     void DeferredCompressedPass::BindPipeline(
-        const std::uint32_t     subpass,
+        const std::uint32_t          subpass,
         const skr::Arc<CommandPool>& commandPool,
-        const std::uint32_t     frameIndex) const
+        const std::uint32_t          frameIndex) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 
@@ -214,9 +214,9 @@ namespace FREYA_NAMESPACE
     }
 
     void DeferredCompressedPass::AdvanceSubpass(
-        const std::uint32_t     subpass,
+        const std::uint32_t          subpass,
         const skr::Arc<CommandPool>& commandPool,
-        const std::uint32_t     frameIndex) const
+        const std::uint32_t          frameIndex) const
     {
         NextSubpass(commandPool);
         BindPipeline(subpass, commandPool, frameIndex);
@@ -228,7 +228,8 @@ namespace FREYA_NAMESPACE
         commandPool->GetCommandBuffer().draw(3, 1, 0, 0);
     }
 
-    void DeferredCompressedPass::End(const skr::Arc<CommandPool> commandPool) const
+    void DeferredCompressedPass::End(
+        const skr::Arc<CommandPool> commandPool) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 

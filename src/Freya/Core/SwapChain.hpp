@@ -48,13 +48,13 @@ namespace FREYA_NAMESPACE
     class SwapChain
     {
       public:
-        SwapChain(const skr::Arc<Device>&                 device,
-                  const skr::Arc<Instance>&               instance,
-                  const skr::Arc<Surface>&                surface,
+        SwapChain(const skr::Arc<Device>&            device,
+                  const skr::Arc<Instance>&          instance,
+                  const skr::Arc<Surface>&           surface,
                   const vk::SwapchainKHR             swapChain,
                   const std::vector<SwapChainFrame>& frames,
-                  const skr::Arc<Image>&                  depthImage,
-                  const skr::Arc<Image>&                  sampleImage,
+                  const skr::Arc<Image>&             depthImage,
+                  const skr::Arc<Image>&             sampleImage,
                   const std::vector<vk::Semaphore>&  imageAvailableSemaphores,
                   const std::vector<vk::Semaphore>&  renderFinishedSemaphores,
                   const std::vector<vk::Fence>&      inFlightFences) :

@@ -38,10 +38,10 @@ namespace FREYA_NAMESPACE
                 commandPool->GetCommandBuffer().bindIndexBuffer(
                     mBuffer, 0, vk::IndexType::eUint16);
                 break;
-            case BufferUsage::Instance: {
+            case BufferUsage::Instance:
                 commandPool->GetCommandBuffer().bindVertexBuffers(
                     1, 1, &mBuffer, offsets);
-            }
+                break;
             default:
                 break;
         }

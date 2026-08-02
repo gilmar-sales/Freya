@@ -156,6 +156,73 @@ GPU image/texture abstraction.
 
 Uniform buffer for shader data.
 
+## LightService
+
+Manages analytical lights (point, directional, spot) and uploads them to a
+shared UBO used by Forward and DeferredCompressed lighting.
+
+`FreyaOptions::maxLights` (default 16, see `MAX_LIGHTS`) caps how many lights
+`AddLight` accepts. Shader arrays are fixed at 16 entries.
+
+### Light types
+
+| Type | Factory | Notes |
+|------|---------|--------|
+| Point | `MakePointLight(pos, color, radius, intensity)` | Attenuates by distance |
+| Directional | `MakeDirectionalLight(dir, color, intensity)` | Direction is normalized |
+| Spot | `MakeSpotLight(pos, dir, color, radius, innerRad, outerRad, intensity)` | Cone angles in radians; stored as cosines |
+
+Spot/inner and outer cutoffs on `Light` are **cosines** of the cone half-angles.
+The spot factory converts radians for you.
+
+### GPU packing (`LightUniformBuffer`, std140 SoA)
+
+- `lightPositions[i]` — xyz position, **w = LightType**
+- `lightColorsAndRadius[i]` — rgb color, w radius
+- `lightDirectionsAndCutoff[i]` — xyz direction, w innerCutoff (cos)
+- `lightOuterCutoffAndIntensity[i]` — x outerCutoff (cos), y intensity
+- `viewPosition`, `lightCount`
+
+### Usage
+
+```cpp
+auto lights = serviceProvider->GetService<fra::LightService>();
+
+lights->AddLight(fra::MakeDirectionalLight(
+    glm::vec3(-0.4f, -1.0f, -0.3f), glm::vec3(1.0f), 0.4f));
+
+const auto point =
+    lights->AddLight(fra::MakePointLight(
+        glm::vec3(0.0f, 5.0f, 0.0f),
+        glm::vec3(1.0f, 0.4f, 0.3f),
+        50.0f,
+        0.5f));
+
+lights->AddLight(fra::MakeSpotLight(
+    glm::vec3(0.0f, 8.0f, 4.0f),
+    glm::vec3(0.0f, -1.0f, -0.5f),
+    glm::vec3(0.9f, 0.95f, 1.0f),
+    60.0f,
+    glm::radians(12.0f),
+    glm::radians(22.0f),
+    1.0f));
+
+// Per-frame: position-only or full replace
+lights->UpdateLightPosition(static_cast<std::uint32_t>(point),
+                            glm::vec3(2.0f, 5.0f, 0.0f));
+
+if (const auto* spot = lights->GetLight(2))
+{
+    fra::Light updated = *spot;
+    updated.position   = glm::vec3(1.0f, 6.0f, 2.0f);
+    updated.direction  = glm::normalize(-updated.position);
+    lights->UpdateLight(2, updated);
+}
+```
+
+`Renderer::UpdateCamera` refreshes the light UBO for the current frame when
+lights are present.
+
 ## DeferredCompressedPass
 
 Deferred rendering pass with G-buffer compression.

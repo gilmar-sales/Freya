@@ -19,7 +19,7 @@ namespace FREYA_NAMESPACE
     class Window
     {
       public:
-        Window(SDL_Window*                     window,
+        Window(SDL_Window*                          window,
                const skr::Arc<EventManager>&        eventManager,
                const skr::Arc<FreyaOptions>&        freyaOptions,
                const skr::Arc<skr::Logger<Window>>& logger) :

@@ -22,7 +22,7 @@ namespace FREYA_NAMESPACE
         WindowBuilder(const skr::Arc<EventManager>&               eventManager,
                       const skr::Arc<FreyaOptions>&               freyaOptions,
                       const skr::Arc<skr::Logger<WindowBuilder>>& logger,
-                      const skr::Arc<skr::Logger<Window>>&        windowLogger) :
+                      const skr::Arc<skr::Logger<Window>>& windowLogger) :
             mEventManager(eventManager), mFreyaOptions(freyaOptions),
             mLogger(logger), mWindowLogger(windowLogger)
         {
@@ -35,10 +35,11 @@ namespace FREYA_NAMESPACE
         skr::Arc<Window> Build();
 
       private:
-        skr::Arc<EventManager> mEventManager;         ///< Event manager reference
-        skr::Arc<FreyaOptions> mFreyaOptions;         ///< Freya options reference
+        skr::Arc<EventManager> mEventManager; ///< Event manager reference
+        skr::Arc<FreyaOptions> mFreyaOptions; ///< Freya options reference
         skr::Arc<skr::Logger<WindowBuilder>> mLogger; ///< Logger reference
-        skr::Arc<skr::Logger<Window>> mWindowLogger;  ///< Window operation logger
+        skr::Arc<skr::Logger<Window>>
+            mWindowLogger; ///< Window operation logger
     };
 
 } // namespace FREYA_NAMESPACE

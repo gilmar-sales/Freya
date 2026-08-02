@@ -4,13 +4,16 @@
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 
+#include <cmath>
+
 namespace FREYA_NAMESPACE
 {
     /**
      * @brief Light source data structure for the lighting system.
      *
      * Represents a single light with position, color, and type-specific
-     * parameters.
+     * parameters. Packed into LightUniformBuffer as SoA (std140): type lives
+     * in lightPositions[i].w; spot cutoffs are stored as cosines.
      */
     struct Light
     {
@@ -25,6 +28,64 @@ namespace FREYA_NAMESPACE
         float outerCutoff = 0.8f; ///< Outer spotlight cutoff cosine (spot only)
         float intensity   = 1.0f; ///< Light intensity multiplier
     };
+
+    /**
+     * @brief Creates a point light.
+     */
+    inline Light MakePointLight(const glm::vec3& position,
+                                const glm::vec3& color,
+                                float            radius,
+                                float            intensity = 1.0f)
+    {
+        Light light {};
+        light.position  = position;
+        light.type      = static_cast<float>(LightType::Point);
+        light.color     = color;
+        light.radius    = radius;
+        light.intensity = intensity;
+        return light;
+    }
+
+    /**
+     * @brief Creates a directional light. Direction is normalized.
+     */
+    inline Light MakeDirectionalLight(const glm::vec3& direction,
+                                      const glm::vec3& color,
+                                      float            intensity = 1.0f)
+    {
+        Light light {};
+        light.type      = static_cast<float>(LightType::Directional);
+        light.color     = color;
+        light.direction = glm::normalize(direction);
+        light.intensity = intensity;
+        return light;
+    }
+
+    /**
+     * @brief Creates a spot light.
+     * @param innerAngleRad Inner cone half-angle in radians (full intensity).
+     * @param outerAngleRad Outer cone half-angle in radians (falloff end).
+     *        Stored as cosines in Light::innerCutoff / outerCutoff.
+     */
+    inline Light MakeSpotLight(const glm::vec3& position,
+                               const glm::vec3& direction,
+                               const glm::vec3& color,
+                               float            radius,
+                               float            innerAngleRad,
+                               float            outerAngleRad,
+                               float            intensity = 1.0f)
+    {
+        Light light {};
+        light.position    = position;
+        light.type        = static_cast<float>(LightType::Spot);
+        light.color       = color;
+        light.radius      = radius;
+        light.direction   = glm::normalize(direction);
+        light.innerCutoff = std::cos(innerAngleRad);
+        light.outerCutoff = std::cos(outerAngleRad);
+        light.intensity   = intensity;
+        return light;
+    }
 
     /**
      * @brief Service for managing lights and updating the light uniform buffer.
@@ -42,8 +103,8 @@ namespace FREYA_NAMESPACE
          * @param maxLights  Maximum number of lights (default: MAX_LIGHTS)
          */
         LightService(const skr::Arc<Device>& device,
-                     std::uint32_t      frameCount,
-                     std::uint32_t      maxLights = MAX_LIGHTS);
+                     std::uint32_t           frameCount,
+                     std::uint32_t           maxLights = MAX_LIGHTS);
 
         ~LightService();
 
@@ -75,6 +136,18 @@ namespace FREYA_NAMESPACE
          */
         void UpdateLightPosition(std::uint32_t    index,
                                  const glm::vec3& position);
+
+        /**
+         * @brief Replaces all parameters of a light.
+         * @param index Light index to update
+         * @param light New light data
+         */
+        void UpdateLight(std::uint32_t index, const Light& light);
+
+        /**
+         * @brief Returns a light by index, or nullptr if out of range.
+         */
+        const Light* GetLight(std::uint32_t index) const;
 
         /**
          * @brief Clears all lights.
@@ -139,13 +212,13 @@ namespace FREYA_NAMESPACE
          */
         void updateDescriptorSets();
 
-        skr::Arc<Device>   mDevice;
-        std::uint32_t mFrameCount;
-        std::uint32_t mMaxLights;
-        std::uint32_t mLightCount;
+        skr::Arc<Device> mDevice;
+        std::uint32_t    mFrameCount;
+        std::uint32_t    mMaxLights;
+        std::uint32_t    mLightCount;
 
         std::vector<Light> mLights;
-        skr::Arc<Buffer>        mBuffer;
+        skr::Arc<Buffer>   mBuffer;
 
         vk::DescriptorSetLayout        mLayout;
         vk::DescriptorPool             mPool;

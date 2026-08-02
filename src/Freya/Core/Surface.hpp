@@ -24,7 +24,7 @@ namespace FREYA_NAMESPACE
         Surface(const skr::Arc<Instance>&       instance,
                 const skr::Arc<PhysicalDevice>& physicalDevice,
                 const skr::Arc<Window>&         window,
-                const vk::SurfaceKHR       surface) :
+                const vk::SurfaceKHR            surface) :
             mInstance(instance), mPhysicalDevice(physicalDevice),
             mSurface(surface), mWindow(window)
         {
@@ -64,9 +64,9 @@ namespace FREYA_NAMESPACE
             std::uint32_t desired) const;
 
       private:
-        skr::Arc<Instance>              mInstance;
-        skr::Arc<PhysicalDevice>        mPhysicalDevice;
-        skr::Arc<Window>                mWindow;
+        skr::Arc<Instance>         mInstance;
+        skr::Arc<PhysicalDevice>   mPhysicalDevice;
+        skr::Arc<Window>           mWindow;
         vk::SurfaceKHR             mSurface;
         vk::SurfaceCapabilitiesKHR mCapabilities;
     };

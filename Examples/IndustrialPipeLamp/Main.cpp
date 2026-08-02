@@ -68,67 +68,91 @@ class MainApp final : public fra::AbstractApplication
         mSpaceShipModel =
             mMeshPool->CreateMeshFromFile("./Resources/Models/SpaceShip.fbx");
 
-        // Add 4 point lights with different colors and intensities
-        mLights.resize(4);
-        mLights[0].speed        = 1.0f;
-        mLights[0].phaseOffset  = 0.0f;
-        mLights[0].radiusOffset = 0.0f;
-        mLightService->AddLight(fra::Light {
-            glm::vec3(0.0f, 5.0f, 0.0f),
-            static_cast<float>(fra::LightType::Point),
-            glm::vec3(1.0f, 1.0f, 1.0f), 50.0f, glm::vec3(0.0f, -1.0f, 0.0f),
-            0.9f, 0.8f, 0.2f });
+        // Classic light trio: directional key + colored points + a spot
+        mLightService->AddLight(fra::MakeDirectionalLight(
+            glm::vec3(-0.4f, -1.0f, -0.3f),
+            glm::vec3(1.0f, 0.95f, 0.85f),
+            0.35f));
 
-        mLights[1].speed        = 1.2f;
-        mLights[1].phaseOffset  = 1.5f;
-        mLights[1].radiusOffset = 1.0f;
-        mLightService->AddLight(fra::Light {
-            glm::vec3(0.0f, 5.0f, 0.0f),
-            static_cast<float>(fra::LightType::Point),
-            glm::vec3(1.0f, 1.0f, 1.0f), 50.0f, glm::vec3(0.0f, -1.0f, 0.0f),
-            0.9f, 0.8f, 0.2f });
+        mAnimatedLights.resize(3);
 
-        mLights[2].speed        = 0.8f;
-        mLights[2].phaseOffset  = 3.0f;
-        mLights[2].radiusOffset = -1.0f;
-        mLightService->AddLight(fra::Light {
-            glm::vec3(0.0f, 5.0f, 0.0f),
-            static_cast<float>(fra::LightType::Point),
-            glm::vec3(1.0f, 1.0f, 1.0f), 50.0f, glm::vec3(0.0f, -1.0f, 0.0f),
-            0.9f, 0.8f, 0.2f });
+        mAnimatedLights[0].speed        = 1.0f;
+        mAnimatedLights[0].phaseOffset  = 0.0f;
+        mAnimatedLights[0].radiusOffset = 0.0f;
+        mAnimatedLights[0].kind         = AnimatedLightKind::Point;
+        mAnimatedLights[0].index        = static_cast<std::uint32_t>(
+            mLightService->AddLight(fra::MakePointLight(
+                glm::vec3(8.0f, 5.0f, 0.0f),
+                glm::vec3(1.0f, 0.35f, 0.25f),
+                50.0f,
+                0.45f)));
 
-        mLights[3].speed        = 1.5f;
-        mLights[3].phaseOffset  = 4.5f;
-        mLights[3].radiusOffset = 2.0f;
-        mLightService->AddLight(fra::Light {
-            glm::vec3(0.0f, 5.0f, 0.0f),
-            static_cast<float>(fra::LightType::Point),
-            glm::vec3(1.0f, 1.0f, 1.0f), 50.0f, glm::vec3(0.0f, -1.0f, 0.0f),
-            0.9f, 0.8f, 0.2f });
+        mAnimatedLights[1].speed        = 1.2f;
+        mAnimatedLights[1].phaseOffset  = 2.1f;
+        mAnimatedLights[1].radiusOffset = 1.5f;
+        mAnimatedLights[1].kind         = AnimatedLightKind::Point;
+        mAnimatedLights[1].index        = static_cast<std::uint32_t>(
+            mLightService->AddLight(fra::MakePointLight(
+                glm::vec3(-8.0f, 5.0f, 0.0f),
+                glm::vec3(0.25f, 0.45f, 1.0f),
+                50.0f,
+                0.45f)));
+
+        mAnimatedLights[2].speed        = 0.9f;
+        mAnimatedLights[2].phaseOffset  = 4.0f;
+        mAnimatedLights[2].radiusOffset = -0.5f;
+        mAnimatedLights[2].kind         = AnimatedLightKind::Spot;
+        mAnimatedLights[2].index        = static_cast<std::uint32_t>(
+            mLightService->AddLight(fra::MakeSpotLight(
+                glm::vec3(0.0f, 8.0f, 6.0f),
+                glm::vec3(0.0f, -1.0f, -0.5f),
+                glm::vec3(0.9f, 0.95f, 1.0f),
+                60.0f,
+                glm::radians(12.0f),
+                glm::radians(22.0f),
+                1.2f)));
     }
 
     void Update() override
     {
         mCurrentTime += mWindow->GetDeltaTime();
 
-        // Update lights with random orbital movement
-        for (std::uint32_t i = 0; i < mLightService->GetLightCount(); ++i)
+        for (auto& animated : mAnimatedLights)
         {
-            auto& light  = mLights[i];
-            float offset = light.phaseOffset;
-            float radius = 8.0f + light.radiusOffset;
+            const float offset = animated.phaseOffset;
+            const float radius = 8.0f + animated.radiusOffset;
 
-            // Orbital movement with noise-based variation
-            float x = radius * std::cos(light.speed * mCurrentTime + offset);
-            float z =
-                radius * std::sin(light.speed * mCurrentTime + offset * 1.3f);
-            float y =
+            const float x =
+                radius * std::cos(animated.speed * mCurrentTime + offset);
+            const float z =
+                radius *
+                std::sin(animated.speed * mCurrentTime + offset * 1.3f);
+            const float y =
                 3.0f +
-                2.0f * std::sin(light.speed * 0.7f * mCurrentTime + offset);
+                2.0f * std::sin(animated.speed * 0.7f * mCurrentTime + offset);
+            const glm::vec3 position(x, y, z);
 
-            // Update light position in service and local cache
-            mLights[i].position = glm::vec3(x, y, z);
-            mLightService->UpdateLightPosition(i, glm::vec3(x, y, z));
+            if (animated.kind == AnimatedLightKind::Point)
+            {
+                mLightService->UpdateLightPosition(animated.index, position);
+                continue;
+            }
+
+            const auto* current = mLightService->GetLight(animated.index);
+            if (current == nullptr)
+            {
+                continue;
+            }
+
+            fra::Light spot = *current;
+            spot.position   = position;
+            // Spot aims at the origin (sofa cluster)
+            const glm::vec3 toOrigin = glm::vec3(0.0f) - position;
+            if (glm::length(toOrigin) > 1e-4f)
+            {
+                spot.direction = glm::normalize(toOrigin);
+            }
+            mLightService->UpdateLight(animated.index, spot);
         }
 
         mRenderer->BeginFrame();
@@ -171,12 +195,19 @@ class MainApp final : public fra::AbstractApplication
     }
 
   private:
+    enum class AnimatedLightKind
+    {
+        Point,
+        Spot
+    };
+
     struct AnimatedLight
     {
-        glm::vec3 position     = glm::vec3(0.0f);
-        float     speed        = 1.0f;
-        float     radiusOffset = 0.0f;
-        float     phaseOffset  = 0.0f;
+        std::uint32_t     index        = 0;
+        AnimatedLightKind kind         = AnimatedLightKind::Point;
+        float             speed        = 1.0f;
+        float             radiusOffset = 0.0f;
+        float             phaseOffset  = 0.0f;
     };
 
     std::vector<unsigned> mSofaModel;
@@ -193,13 +224,13 @@ class MainApp final : public fra::AbstractApplication
     std::uint32_t         mSpaceShipRoughness {};
     std::uint32_t         mSpaceShipMaterial {};
 
-    skr::Arc<fra::MaterialPool>     mMaterialPool;
-    skr::Arc<fra::TexturePool>      mTexturePool;
-    skr::Arc<fra::MeshPool>         mMeshPool;
-    skr::Arc<fra::LightService>     mLightService;
-    glm::mat4                  mModelMatrix[4] {};
-    float                      mCurrentTime {};
-    std::vector<AnimatedLight> mLights;
+    skr::Arc<fra::MaterialPool> mMaterialPool;
+    skr::Arc<fra::TexturePool>  mTexturePool;
+    skr::Arc<fra::MeshPool>     mMeshPool;
+    skr::Arc<fra::LightService> mLightService;
+    glm::mat4                   mModelMatrix[4] {};
+    float                       mCurrentTime {};
+    std::vector<AnimatedLight>  mAnimatedLights;
 
     skr::Arc<fra::Buffer> mInstanceMatrixBuffers;
 };
@@ -210,7 +241,7 @@ int main(int argc, const char** argv)
         skr::ApplicationBuilder()
             .WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
                 freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
-                    freyaOptions.SetTitle("Sofa example")
+                    freyaOptions.SetTitle("Industrial Pipe Lamp — Lights")
                         .SetWidth(1920)
                         .SetHeight(1080)
                         .SetVSync(false)

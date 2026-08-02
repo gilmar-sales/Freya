@@ -14,13 +14,12 @@ namespace FREYA_NAMESPACE
 
     skr::Arc<RenderTarget> RenderTargetBuilder::Build()
     {
-        const auto format =
-            mFormat == vk::Format::eUndefined
-                ? mSurface->QuerySurfaceFormat().format
-                : mFormat;
+        const auto format = mFormat == vk::Format::eUndefined
+                                ? mSurface->QuerySurfaceFormat().format
+                                : mFormat;
 
-        const auto extent = vk::Extent2D { std::max(1u, mWidth),
-                                           std::max(1u, mHeight) };
+        const auto extent =
+            vk::Extent2D { std::max(1u, mWidth), std::max(1u, mHeight) };
 
         auto colorImage =
             mServiceProvider->GetService<ImageBuilder>()
@@ -52,13 +51,14 @@ namespace FREYA_NAMESPACE
                 .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
                 .setAddressModeW(vk::SamplerAddressMode::eClampToEdge));
 
-        return skr::MakeArc<RenderTarget>(mDevice,
-                                          colorImage,
-                                          extent,
-                                          format,
-                                          renderPass,
-                                          framebuffer,
-                                          sampler);
+        return skr::MakeArc<RenderTarget>(
+            mDevice,
+            colorImage,
+            extent,
+            format,
+            renderPass,
+            framebuffer,
+            sampler);
     }
 
     vk::RenderPass RenderTargetBuilder::createRenderPass(

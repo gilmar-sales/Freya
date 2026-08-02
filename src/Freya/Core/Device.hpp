@@ -61,11 +61,11 @@ namespace FREYA_NAMESPACE
     {
       public:
         Device(const skr::Arc<PhysicalDevice>& physicalDevice,
-               const vk::Device           device,
-               const vk::Queue            graphicsQueue,
-               const vk::Queue            presentQueue,
-               const vk::Queue            transferQueue,
-               const QueueFamilyIndices&  queueFamilyIndices) :
+               const vk::Device                device,
+               const vk::Queue                 graphicsQueue,
+               const vk::Queue                 presentQueue,
+               const vk::Queue                 transferQueue,
+               const QueueFamilyIndices&       queueFamilyIndices) :
             mPhysicalDevice(physicalDevice), mDevice(device),
             mGraphicsQueue(graphicsQueue), mPresentQueue(presentQueue),
             mTransferQueue(transferQueue),

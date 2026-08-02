@@ -69,10 +69,10 @@ namespace FREYA_NAMESPACE
      * @param frameIndex  Frame index for descriptor set selection
      * @param commandPool Command pool for current command buffer
      */
-    void RenderPass::Begin(const vk::RenderPass&   renderPass,
-                           const vk::Framebuffer&  framebuffer,
-                           const vk::Extent2D&     extent,
-                           const std::uint32_t     frameIndex,
+    void RenderPass::Begin(const vk::RenderPass&        renderPass,
+                           const vk::Framebuffer&       framebuffer,
+                           const vk::Extent2D&          extent,
+                           const std::uint32_t          frameIndex,
                            const skr::Arc<CommandPool>& commandPool) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
@@ -131,7 +131,7 @@ namespace FREYA_NAMESPACE
      * @param frameIndex  Frame index for descriptor set selection
      */
     void RenderPass::BindDescriptorSet(const skr::Arc<CommandPool>& commandPool,
-                                       const std::uint32_t     frameIndex) const
+                                       const std::uint32_t frameIndex) const
     {
         commandPool->GetCommandBuffer().bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,

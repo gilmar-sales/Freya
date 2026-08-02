@@ -116,6 +116,7 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `sampleCount` | `std::uint32_t` | `8` | MSAA sample count |
 | `frameCount` | `std::uint32_t` | `4` | Number of frames in flight |
 | `drawDistance` | `float` | `1000.0f` | Render distance |
+| `maxLights` | `std::uint32_t` | `16` | Max analytical lights (`MAX_LIGHTS`) |
 | `renderingStrategy` | `RenderingStrategy` | `Forward` | Forward or Deferred |
 
 ## Services
@@ -130,3 +131,4 @@ Freya provides the following services via Skirnir's service provider:
 | `MeshPool` | `skr::Arc<MeshPool>` | Mesh asset management |
 | `TexturePool` | `skr::Arc<TexturePool>` | Texture asset management |
 | `MaterialPool` | `skr::Arc<MaterialPool>` | Material asset management |
+| `LightService` | `skr::Arc<LightService>` | Point / directional / spot lights |

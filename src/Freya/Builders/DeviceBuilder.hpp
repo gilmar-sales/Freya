@@ -22,9 +22,9 @@ namespace FREYA_NAMESPACE
     class DeviceBuilder
     {
       public:
-        DeviceBuilder(const skr::Arc<Instance>&                   instance,
-                      const skr::Arc<PhysicalDevice>&             physicalDevice,
-                      const skr::Arc<Surface>&                    surface,
+        DeviceBuilder(const skr::Arc<Instance>&       instance,
+                      const skr::Arc<PhysicalDevice>& physicalDevice,
+                      const skr::Arc<Surface>&        surface,
                       const skr::Arc<skr::Logger<DeviceBuilder>>& logger) :
             mInstance(instance), mPhysicalDevice(physicalDevice),
             mSurface(surface), mLogger(logger),

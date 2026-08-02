@@ -34,11 +34,11 @@ namespace FREYA_NAMESPACE
     class Buffer
     {
       public:
-        Buffer(const skr::Arc<Device>&     device,
-               const BufferUsage      usage,
-               const std::uint64_t    size,
-               const vk::Buffer       buffer,
-               const vk::DeviceMemory memory) :
+        Buffer(const skr::Arc<Device>& device,
+               const BufferUsage       usage,
+               const std::uint64_t     size,
+               const vk::Buffer        buffer,
+               const vk::DeviceMemory  memory) :
             mDevice(device), mBuffer(buffer), mMemory(memory), mUsage(usage),
             mSize(size)
         {

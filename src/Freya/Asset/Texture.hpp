@@ -20,11 +20,11 @@ namespace FREYA_NAMESPACE
          */
         operator std::uint32_t() const { return id; }
 
-        skr::Arc<Image>    image;   ///< Vulkan image and memory
-        vk::Sampler   sampler; ///< Sampler state (filtering, addressing)
-        std::uint32_t width;   ///< Width in pixels
-        std::uint32_t height;  ///< Height in pixels
-        std::uint32_t id;      ///< Unique texture identifier
+        skr::Arc<Image> image;   ///< Vulkan image and memory
+        vk::Sampler     sampler; ///< Sampler state (filtering, addressing)
+        std::uint32_t   width;   ///< Width in pixels
+        std::uint32_t   height;  ///< Height in pixels
+        std::uint32_t   id;      ///< Unique texture identifier
     };
 
 } // namespace FREYA_NAMESPACE
