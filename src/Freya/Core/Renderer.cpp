@@ -599,8 +599,8 @@ namespace FREYA_NAMESPACE
                                              static_cast<float>(extent.height),
                                          near,
                                          far),
-            .ambientLight =
-                glm::vec4(glm::normalize(glm::vec3(0.0f, 3.0f, 0.0f)), 0.5f)
+            .ambientLight = glm::vec4(mFreyaOptions->ambientColor,
+                                      mFreyaOptions->ambientIntensity)
         };
 
         for (auto frameIndex = 0; frameIndex < mFreyaOptions->frameCount;
@@ -652,6 +652,20 @@ namespace FREYA_NAMESPACE
         if (mLightService)
         {
             mLightService->Update(mSwapChain->GetCurrentFrameIndex(), position);
+        }
+    }
+
+    void Renderer::SetAmbient(const glm::vec3& color, float intensity)
+    {
+        mCurrentProjection.ambientLight = glm::vec4(color, intensity);
+        for (std::uint32_t frameIndex = 0;
+             frameIndex < mFreyaOptions->frameCount; ++frameIndex)
+        {
+            mForwardPass->UpdateProjection(mCurrentProjection, frameIndex);
+            if (mDeferredPass)
+            {
+                mDeferredPass->UpdateProjection(mCurrentProjection, frameIndex);
+            }
         }
     }
 

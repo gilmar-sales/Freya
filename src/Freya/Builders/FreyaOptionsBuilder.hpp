@@ -135,6 +135,19 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        FreyaOptionsBuilder& SetExposure(float exposure)
+        {
+            mFreyaOptions->exposure = exposure;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetAmbient(const glm::vec3& color, float intensity)
+        {
+            mFreyaOptions->ambientColor     = color;
+            mFreyaOptions->ambientIntensity = intensity;
+            return *this;
+        }
+
         FreyaOptionsBuilder& SetEnvironmentMapPath(const std::string& path)
         {
             mFreyaOptions->environmentMapPath = path;

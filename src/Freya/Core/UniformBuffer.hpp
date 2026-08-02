@@ -54,11 +54,11 @@ namespace FREYA_NAMESPACE
             [MAX_LIGHTS]; // x = outer spotlight cutoff (cosine), y = intensity
 
         alignas(16) glm::vec4 viewPosition; // Camera position for attenuation
-        // std140: lightCount + iblIntensity pack into one 16-byte slot
+        // std140: lightCount + iblIntensity + exposure pack into 16 bytes
         std::uint32_t lightCount   = 0;
         float         iblIntensity = 1.0f;
+        float         exposure     = 1.0f;
         float         _pad0        = 0.0f;
-        float         _pad1        = 0.0f;
     };
 
 } // namespace FREYA_NAMESPACE

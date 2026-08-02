@@ -1,5 +1,7 @@
 #pragma once
 
+#include <glm/glm.hpp>
+
 namespace FREYA_NAMESPACE
 {
     /**
@@ -40,11 +42,16 @@ namespace FREYA_NAMESPACE
         float             drawDistance = 1000.0f; ///< View distance for culling
         std::uint32_t     maxLights    = 16;      ///< Maximum lights in scene
         float             iblIntensity = 1.0f; ///< Image-based lighting scale
+        float             exposure     = 1.8f; ///< HDR exposure before tonemap
         /// Radiance `.hdr` path relative to the process working directory.
         /// Empty string forces the procedural sky. Default file is copied next
         /// to examples under Resources/Environments/.
         std::string environmentMapPath =
             "./Resources/Environments/studio_small_09_4k.hdr";
+        glm::vec3 ambientColor =
+            glm::vec3(1.0f); ///< Flat ambient tint (legacy / fill)
+        float ambientIntensity =
+            0.05f; ///< Flat ambient intensity (legacy / fill)
         RenderingStrategy renderingStrategy =
             RenderingStrategy::Forward; ///< Rendering strategy
         bool ReverseZ;

@@ -177,6 +177,11 @@ namespace FREYA_NAMESPACE
                           const glm::vec3& target,
                           const glm::vec3& up);
 
+        /**
+         * @brief Sets flat ambient fill stored in ProjectionUniformBuffer.
+         */
+        void SetAmbient(const glm::vec3& color, float intensity);
+
         void UpdateModel(const glm::mat4& model) const;
 
         [[nodiscard]] BufferBuilder       GetBufferBuilder() const;

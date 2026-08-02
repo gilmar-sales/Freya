@@ -204,6 +204,13 @@ namespace FREYA_NAMESPACE
         float GetIblIntensity() const { return mIblIntensity; }
 
         /**
+         * @brief Sets exposure written into the light UBO each Update.
+         */
+        void SetExposure(float exposure) { mExposure = exposure; }
+
+        float GetExposure() const { return mExposure; }
+
+        /**
          * @brief Returns whether the service has any lights.
          */
         bool HasLights() const { return mLightCount > 0; }
@@ -224,6 +231,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t    mMaxLights;
         std::uint32_t    mLightCount;
         float            mIblIntensity = 1.0f;
+        float            mExposure     = 1.0f;
 
         std::vector<Light> mLights;
         skr::Arc<Buffer>   mBuffer;

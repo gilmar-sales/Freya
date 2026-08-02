@@ -14,6 +14,7 @@ layout(binding = 1) uniform LightBuffer {
     vec4 viewPosition;
     uint lightCount;
     float iblIntensity;
+    float exposure;
 } lights;
 
 layout(binding = 2) uniform sampler2D irradianceMap;
@@ -158,6 +159,15 @@ vec3 calculateIBL(vec3 N, vec3 V, vec3 albedo, float roughness, float metalness,
     return (kD * diffuse + specular) * lights.iblIntensity;
 }
 
+vec3 ACESFilm(vec3 x) {
+    const float a = 2.51;
+    const float b = 0.03;
+    const float c = 2.43;
+    const float d = 0.59;
+    const float e = 0.14;
+    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+}
+
 void main()
 {
     vec3 albedo = texture(albedoSampler, fragTexCoord).rgb;
@@ -173,6 +183,10 @@ void main()
 
     vec3 totalLighting = calculateIBL(N, V, albedo, roughness, metalness, F0);
 
+    // Small flat fill from ProjectionUniformBuffer.ambientLight
+    totalLighting +=
+        albedo * pub.ambientLight.rgb * pub.ambientLight.w * (1.0 - metalness);
+
     for (int i = 0; i < int(lights.lightCount); i++) {
         totalLighting += calculateLight(
             lights.lightPositions[i].xyz,
@@ -186,5 +200,8 @@ void main()
             fragPosition, N, V, albedo, roughness, metalness, F0);
     }
 
-    outColor = vec4(totalLighting + emissive, 1.0);
+    vec3 color = (totalLighting + emissive) * lights.exposure;
+    color = ACESFilm(color);
+    color = pow(color, vec3(1.0 / 2.2));
+    outColor = vec4(color, 1.0);
 }

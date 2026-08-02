@@ -15,6 +15,7 @@ layout(binding = 6) uniform LightBuffer {
     vec4 viewPosition;
     uint lightCount;
     float iblIntensity;
+    float exposure;
 } lights;
 
 layout(binding = 7) uniform sampler2D irradianceMap;
@@ -144,6 +145,15 @@ vec3 calculateIBL(vec3 N, vec3 V, vec3 albedo, float roughness, float metalness,
     return (kD * diffuse + specular) * lights.iblIntensity;
 }
 
+vec3 ACESFilm(vec3 x) {
+    const float a = 2.51;
+    const float b = 0.03;
+    const float c = 2.43;
+    const float d = 0.59;
+    const float e = 0.14;
+    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+}
+
 void main() {
     float depth = subpassLoad(inDepthBuffer).r;
 
@@ -180,6 +190,8 @@ void main() {
             fragPos, N, V, albedo, roughness, metalness, F0);
     }
 
-    outColor =
-        vec4(totalLighting + emissive * bloomIntensity, 1.0);
+    vec3 color = (totalLighting + emissive * bloomIntensity) * lights.exposure;
+    color = ACESFilm(color);
+    color = pow(color, vec3(1.0 / 2.2));
+    outColor = vec4(color, 1.0);
 }

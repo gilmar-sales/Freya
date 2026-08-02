@@ -55,7 +55,7 @@ namespace FREYA_NAMESPACE
         const std::vector<vk::Framebuffer>&         framebuffers,
         const vk::DescriptorSetLayout               inputAttachmentLayout,
         const vk::DescriptorPool                    inputAttachmentPool,
-        const vk::DescriptorSet                     lightingInputSet,
+        const std::vector<vk::DescriptorSet>&       lightingInputSets,
         const vk::DescriptorSetLayout               samplerLayout,
         const vk::DescriptorPool                    samplerDescriptorPool,
         const vk::Extent2D                          extent) :
@@ -70,7 +70,7 @@ namespace FREYA_NAMESPACE
         mOpaqueImage(opaqueImage), mFramebuffers(framebuffers), mExtent(extent),
         mInputAttachmentLayout(inputAttachmentLayout),
         mInputAttachmentPool(inputAttachmentPool),
-        mLightingInputSet(lightingInputSet), mSamplerLayout(samplerLayout),
+        mLightingInputSets(lightingInputSets), mSamplerLayout(samplerLayout),
         mSamplerDescriptorPool(samplerDescriptorPool)
     {
         mPipelines[DefDepthPrePass]    = depthPrepassPipeline;
@@ -207,7 +207,7 @@ namespace FREYA_NAMESPACE
                 mFullscreenPipelineLayout,
                 0,
                 1,
-                &mLightingInputSet,
+                &mLightingInputSets[frameIndex],
                 0,
                 nullptr);
         }

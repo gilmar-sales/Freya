@@ -118,6 +118,8 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `drawDistance` | `float` | `1000.0f` | Render distance |
 | `maxLights` | `std::uint32_t` | `16` | Max analytical lights (`MAX_LIGHTS`) |
 | `iblIntensity` | `float` | `1.0f` | Image-based lighting scale |
+| `exposure` | `float` | `1.8f` | HDR exposure before ACES tonemap |
+| `ambientIntensity` | `float` | `0.05f` | Flat ambient fill |
 | `environmentMapPath` | `std::string` | `./Resources/Environments/studio_small_09_4k.hdr` | Radiance `.hdr` (empty = procedural sky) |
 | `renderingStrategy` | `RenderingStrategy` | `Forward` | Forward or Deferred |
 

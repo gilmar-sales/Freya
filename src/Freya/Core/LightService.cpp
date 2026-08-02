@@ -2,13 +2,16 @@
 
 #include "Freya/Builders/BufferBuilder.hpp"
 
+#include <algorithm>
+
 namespace FREYA_NAMESPACE
 {
     LightService::LightService(const skr::Arc<Device>& device,
                                std::uint32_t           frameCount,
                                std::uint32_t           maxLights) :
-        mDevice(device), mFrameCount(frameCount), mMaxLights(maxLights),
-        mLightCount(0), mLights(), mLayout(nullptr), mPool(nullptr)
+        mDevice(device), mFrameCount(frameCount),
+        mMaxLights(std::min(maxLights, MAX_LIGHTS)), mLightCount(0), mLights(),
+        mLayout(nullptr), mPool(nullptr)
     {
         // Create light buffer with std140 layout
         const auto bufferSize = sizeof(LightUniformBuffer) * frameCount;
@@ -168,6 +171,7 @@ namespace FREYA_NAMESPACE
 
         data.lightCount   = mLightCount;
         data.iblIntensity = mIblIntensity;
+        data.exposure     = mExposure;
         data.viewPosition = glm::vec4(viewPosition, 1.0f);
 
         for (std::uint32_t i = 0; i < mLightCount; ++i)

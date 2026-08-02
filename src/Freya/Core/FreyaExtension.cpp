@@ -111,6 +111,7 @@ namespace FREYA_NAMESPACE
                 auto lights = skr::MakeArc<LightService>(
                     device, freyaOptions->frameCount, freyaOptions->maxLights);
                 lights->SetIblIntensity(freyaOptions->iblIntensity);
+                lights->SetExposure(freyaOptions->exposure);
                 return lights;
             });
 

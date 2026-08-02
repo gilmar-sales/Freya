@@ -462,13 +462,13 @@ namespace FREYA_NAMESPACE
         std::array inputPoolSizes = {
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eInputAttachment)
-                .setDescriptorCount(12),
+                .setDescriptorCount(6 * mFreyaOptions->frameCount),
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eUniformBuffer)
-                .setDescriptorCount(1),
+                .setDescriptorCount(mFreyaOptions->frameCount),
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(3),
+                .setDescriptorCount(3 * mFreyaOptions->frameCount),
         };
 
         auto inputPoolInfo =
@@ -476,22 +476,23 @@ namespace FREYA_NAMESPACE
                 .setPoolSizeCount(
                     static_cast<std::uint32_t>(inputPoolSizes.size()))
                 .setPPoolSizes(inputPoolSizes.data())
-                .setMaxSets(1);
+                .setMaxSets(mFreyaOptions->frameCount);
 
         auto inputAttachmentPool =
             mDevice->Get().createDescriptorPool(inputPoolInfo);
 
-        // Allocate lighting input descriptor set
-        auto inputSetLayouts = std::vector { inputAttachmentLayout };
+        // Allocate one lighting input descriptor set per frame in flight
+        auto inputSetLayouts = std::vector<vk::DescriptorSetLayout>(
+            mFreyaOptions->frameCount, inputAttachmentLayout);
 
         auto inputSetAlloc = vk::DescriptorSetAllocateInfo()
                                  .setDescriptorPool(inputAttachmentPool)
                                  .setSetLayouts(inputSetLayouts);
 
-        auto lightingInputSet =
-            mDevice->Get().allocateDescriptorSets(inputSetAlloc)[0];
+        auto lightingInputSets =
+            mDevice->Get().allocateDescriptorSets(inputSetAlloc);
 
-        // --- Update lighting input descriptor set ---
+        // --- Update lighting input descriptor sets (per frame) ---
         auto depthInputInfo =
             vk::DescriptorImageInfo()
                 .setImageLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal)
@@ -522,69 +523,6 @@ namespace FREYA_NAMESPACE
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
                 .setImageView(materialImage->GetImageView());
 
-        auto lightingInputWrites = std::array {
-            vk::WriteDescriptorSet()
-                .setDstSet(lightingInputSet)
-                .setDstBinding(0)
-                .setDescriptorType(vk::DescriptorType::eInputAttachment)
-                .setDescriptorCount(1)
-                .setImageInfo(depthInputInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(lightingInputSet)
-                .setDstBinding(1)
-                .setDescriptorType(vk::DescriptorType::eInputAttachment)
-                .setDescriptorCount(1)
-                .setImageInfo(posInputInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(lightingInputSet)
-                .setDstBinding(2)
-                .setDescriptorType(vk::DescriptorType::eInputAttachment)
-                .setDescriptorCount(1)
-                .setImageInfo(normInputInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(lightingInputSet)
-                .setDstBinding(3)
-                .setDescriptorType(vk::DescriptorType::eInputAttachment)
-                .setDescriptorCount(1)
-                .setImageInfo(albedoInputInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(lightingInputSet)
-                .setDstBinding(4)
-                .setDescriptorType(vk::DescriptorType::eInputAttachment)
-                .setDescriptorCount(1)
-                .setImageInfo(emissiveInputInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(lightingInputSet)
-                .setDstBinding(5)
-                .setDescriptorType(vk::DescriptorType::eInputAttachment)
-                .setDescriptorCount(1)
-                .setImageInfo(materialInputInfo),
-        };
-
-        mDevice->Get().updateDescriptorSets(
-            static_cast<uint32_t>(lightingInputWrites.size()),
-            lightingInputWrites.data(), 0, nullptr);
-
-        // --- Update light buffer binding (binding 6) ---
-        auto frameIndex = 0;
-        auto lightBufferInfo =
-            vk::DescriptorBufferInfo()
-                .setBuffer(mLightService->GetBuffer()->Get())
-                .setOffset(frameIndex * sizeof(LightUniformBuffer))
-                .setRange(sizeof(LightUniformBuffer));
-
-        auto lightBufferWrite =
-            vk::WriteDescriptorSet()
-                .setDstSet(lightingInputSet)
-                .setDstBinding(6)
-                .setDstArrayElement(0)
-                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-                .setDescriptorCount(1)
-                .setBufferInfo(lightBufferInfo);
-
-        mDevice->Get().updateDescriptorSets(1, &lightBufferWrite, 0, nullptr);
-
-        // IBL samplers (bindings 7-9)
         auto irradianceInfo =
             vk::DescriptorImageInfo()
                 .setSampler(mIblService->GetIrradianceSampler())
@@ -603,30 +541,100 @@ namespace FREYA_NAMESPACE
                 .setImageView(mIblService->GetBrdfLut()->GetImageView())
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 
-        auto iblWrites = std::array {
-            vk::WriteDescriptorSet()
-                .setDstSet(lightingInputSet)
-                .setDstBinding(7)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setImageInfo(irradianceInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(lightingInputSet)
-                .setDstBinding(8)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setImageInfo(prefilterInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(lightingInputSet)
-                .setDstBinding(9)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setImageInfo(brdfInfo),
-        };
+        for (std::uint32_t frameIndex = 0;
+             frameIndex < mFreyaOptions->frameCount; ++frameIndex)
+        {
+            const auto set = lightingInputSets[frameIndex];
 
-        mDevice->Get().updateDescriptorSets(
-            static_cast<std::uint32_t>(iblWrites.size()), iblWrites.data(), 0,
-            nullptr);
+            auto lightingInputWrites = std::array {
+                vk::WriteDescriptorSet()
+                    .setDstSet(set)
+                    .setDstBinding(0)
+                    .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                    .setDescriptorCount(1)
+                    .setImageInfo(depthInputInfo),
+                vk::WriteDescriptorSet()
+                    .setDstSet(set)
+                    .setDstBinding(1)
+                    .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                    .setDescriptorCount(1)
+                    .setImageInfo(posInputInfo),
+                vk::WriteDescriptorSet()
+                    .setDstSet(set)
+                    .setDstBinding(2)
+                    .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                    .setDescriptorCount(1)
+                    .setImageInfo(normInputInfo),
+                vk::WriteDescriptorSet()
+                    .setDstSet(set)
+                    .setDstBinding(3)
+                    .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                    .setDescriptorCount(1)
+                    .setImageInfo(albedoInputInfo),
+                vk::WriteDescriptorSet()
+                    .setDstSet(set)
+                    .setDstBinding(4)
+                    .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                    .setDescriptorCount(1)
+                    .setImageInfo(emissiveInputInfo),
+                vk::WriteDescriptorSet()
+                    .setDstSet(set)
+                    .setDstBinding(5)
+                    .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                    .setDescriptorCount(1)
+                    .setImageInfo(materialInputInfo),
+            };
+
+            mDevice->Get().updateDescriptorSets(
+                static_cast<uint32_t>(lightingInputWrites.size()),
+                lightingInputWrites.data(), 0, nullptr);
+
+            auto lightBufferInfo =
+                vk::DescriptorBufferInfo()
+                    .setBuffer(mLightService->GetBuffer()->Get())
+                    .setOffset(frameIndex * sizeof(LightUniformBuffer))
+                    .setRange(sizeof(LightUniformBuffer));
+
+            auto lightBufferWrite =
+                vk::WriteDescriptorSet()
+                    .setDstSet(set)
+                    .setDstBinding(6)
+                    .setDstArrayElement(0)
+                    .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                    .setDescriptorCount(1)
+                    .setBufferInfo(lightBufferInfo);
+
+            mDevice->Get().updateDescriptorSets(1, &lightBufferWrite, 0,
+                                                nullptr);
+
+            auto iblWrites = std::array {
+                vk::WriteDescriptorSet()
+                    .setDstSet(set)
+                    .setDstBinding(7)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(irradianceInfo),
+                vk::WriteDescriptorSet()
+                    .setDstSet(set)
+                    .setDstBinding(8)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(prefilterInfo),
+                vk::WriteDescriptorSet()
+                    .setDstSet(set)
+                    .setDstBinding(9)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(brdfInfo),
+            };
+
+            mDevice->Get().updateDescriptorSets(
+                static_cast<std::uint32_t>(iblWrites.size()), iblWrites.data(),
+                0, nullptr);
+        }
 
         // ------------------------------------------------------------------
         // Fullscreen pipeline layout (input attachments only)
@@ -802,7 +810,7 @@ namespace FREYA_NAMESPACE
             framebuffers,
             inputAttachmentLayout,
             inputAttachmentPool,
-            lightingInputSet,
+            lightingInputSets,
             samplerLayout,
             samplerDescriptorPool,
             extent);
