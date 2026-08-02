@@ -55,7 +55,35 @@ namespace FREYA_NAMESPACE
         ~Renderer();
 
         void BeginFrame();
+
+        /**
+         * @brief Finish scene rendering (deferred/forward, bloom, composite).
+         *
+         * With an output target bound, begins a cleared swapchain UI render
+         * pass and leaves the command buffer open for application drawing
+         * (e.g. ImGui). Call Present() afterward. Without an output target,
+         * the scene is already on the swapchain; Present() submits and
+         * presents.
+         */
+        void EndScene();
+
+        /**
+         * @brief End any open UI pass, submit the command buffer, and present.
+         *
+         * Must be called once per BeginFrame (after EndScene, and after any
+         * UI recording into GetCommandBuffer()).
+         */
+        void Present();
+
+        /**
+         * @brief EndScene() followed by Present().
+         *
+         * Convenience for apps that do not record UI between scene and
+         * present. With an output target, the UI pass is begun and ended
+         * empty (cleared swapchain).
+         */
         void EndFrame();
+
         void RebuildSwapChain();
 
         void NextSubpass();
@@ -89,8 +117,9 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Redirect scene composite output to an offscreen target.
          *
-         * Scene/bloom size to the target extent. Swapchain is still acquired
-         * and presented cleared for the app to draw UI (e.g. ImGui).
+         * Scene/bloom size to the target extent. After EndScene the swapchain
+         * UI pass is open for the app to draw (e.g. ImGui); call Present to
+         * submit.
          */
         void SetOutputTarget(const skr::Arc<RenderTarget>& target);
 
@@ -103,6 +132,21 @@ namespace FREYA_NAMESPACE
         {
             return mOutputTarget;
         }
+
+        /**
+         * @brief Swapchain render pass used for UI after EndScene with an
+         * output target (Clear → ColorAttachment → PresentSrc).
+         *
+         * Use this when initializing ImGui (or another UI backend) so its
+         * pipeline matches the open pass between EndScene and Present.
+         */
+        [[nodiscard]] vk::RenderPass GetUIRenderPass();
+
+        /**
+         * @brief Current frame command buffer (valid between BeginFrame and
+         * Present).
+         */
+        [[nodiscard]] vk::CommandBuffer GetCommandBuffer();
 
         // Draw commands with material binding
         void Draw(std::uint32_t meshId, std::uint32_t materialId);
@@ -185,7 +229,11 @@ namespace FREYA_NAMESPACE
                             const skr::Arc<Image>& opaqueImage,
                             const skr::Arc<Image>& translucentImage);
 
-        void clearSwapchainImage();
+        /**
+         * @brief Begin a cleared swapchain render pass for application UI.
+         * Leaves the pass open until Present().
+         */
+        void beginUIPass();
 
         skr::Arc<skr::ServiceProvider>   mServiceProvider;
         skr::Arc<Instance>               mInstance;
@@ -202,6 +250,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<EventManager>           mEventManager;
         skr::Arc<FreyaOptions>           mFreyaOptions;
         skr::Arc<RenderTarget>           mOutputTarget;
+        bool                             mUIPassOpen = false;
 
         // Mesh and Material pools for draw commands
         skr::Arc<MeshPool>     mMeshPool;

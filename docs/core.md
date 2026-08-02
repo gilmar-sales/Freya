@@ -46,7 +46,9 @@ mRenderer->EndFrame();
 | Method | Description |
 |--------|-------------|
 | `BeginFrame()` | Start a new frame |
-| `EndFrame()` | End and present the current frame |
+| `EndScene()` | Finish scene/bloom/composite; with an output target, begin the UI swapchain pass |
+| `Present()` | End UI pass (if open), submit the command buffer, and present |
+| `EndFrame()` | `EndScene()` + `Present()` (no mid-frame UI) |
 | `RebuildSwapChain()` | Recreate swap chain (e.g., on resize) |
 | `SetVSync(bool)` | Enable/disable vertical sync |
 | `SetSamples(uint32_t)` | Set MSAA sample count |
@@ -56,6 +58,8 @@ mRenderer->EndFrame();
 | `SetOutputTarget(RenderTarget)` | Redirect scene composite to an offscreen target |
 | `ClearOutputTarget()` | Restore composite destination to the swapchain |
 | `GetOutputTarget()` | Current output target, or null if swapchain |
+| `GetUIRenderPass()` | Swapchain render pass for UI (ImGui pipeline init) |
+| `GetCommandBuffer()` | Current-frame command buffer |
 | `BindBuffer(Buffer)` | Bind a buffer for rendering |
 | `GetCurrentFrameIndex()` | Get current frame index |
 | `GetFrameCount()` | Get total frame count |
@@ -70,8 +74,8 @@ By default the scene composites onto the window swapchain. To render into a
 sampled texture (for example an ImGui viewport), build a `RenderTarget` and bind
 it on the renderer. Scene, bloom, and composite then use the target extent
 (independent of the window size). Freya does not integrate ImGui; it only
-produces the texture. With an output target bound, `EndFrame` still presents a
-cleared swapchain so the application can draw UI afterward.
+produces the texture and leaves a cleared swapchain UI pass open after
+`EndScene` so the application can record UI before `Present`.
 
 ```cpp
 auto viewport = mRenderer->GetRenderTargetBuilder()
@@ -81,13 +85,24 @@ auto viewport = mRenderer->GetRenderTargetBuilder()
 
 mRenderer->SetOutputTarget(viewport);
 
+// ImGui init once: use mRenderer->GetUIRenderPass() as the Vulkan render pass
+
 mRenderer->BeginFrame();
 // ... draw scene ...
-mRenderer->EndFrame();
+mRenderer->EndScene();
 
-// Sample in UI (e.g. ImGui) via viewport->GetColorImageView()
-// and viewport->GetSampler()
+// UI pass is open on the swapchain; sample the viewport texture
+ImGui_ImplVulkan_RenderDrawData(
+    ImGui::GetDrawData(), mRenderer->GetCommandBuffer());
+
+mRenderer->Present();
+
+// Sampling: viewport->GetColorImageView() + viewport->GetSampler()
 ```
+
+Apps that do not draw UI can keep calling `EndFrame()` (equivalent to
+`EndScene()` + `Present()`). With an output target and no mid-frame UI
+draws, that still presents a cleared swapchain.
 
 Call `ClearOutputTarget()` to restore composite-to-swapchain behavior.
 

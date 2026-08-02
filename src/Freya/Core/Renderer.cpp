@@ -464,52 +464,30 @@ namespace FREYA_NAMESPACE
         rebuildSceneResources();
     }
 
-    void Renderer::clearSwapchainImage()
+    void Renderer::beginUIPass()
     {
-        const auto  commandBuffer = mCommandPool->GetCommandBuffer();
-        const auto& frame =
-            mSwapChain->GetFrames()[mSwapChain->GetCurrentImageIndex()];
+        mCompositePass->Begin(mSwapChain, mCommandPool,
+                              mFreyaOptions->clearColor);
 
-        auto subresource =
-            vk::ImageSubresourceRange()
-                .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                .setBaseMipLevel(0)
-                .setLevelCount(1)
-                .setBaseArrayLayer(0)
-                .setLayerCount(1);
+        const auto extent        = mSwapChain->GetExtent();
+        const auto commandBuffer = mCommandPool->GetCommandBuffer();
 
-        auto toTransfer =
-            vk::ImageMemoryBarrier()
-                .setOldLayout(vk::ImageLayout::eUndefined)
-                .setNewLayout(vk::ImageLayout::eTransferDstOptimal)
-                .setSrcAccessMask(vk::AccessFlagBits::eNone)
-                .setDstAccessMask(vk::AccessFlagBits::eTransferWrite)
-                .setImage(frame.image)
-                .setSubresourceRange(subresource);
+        auto viewport =
+            vk::Viewport()
+                .setX(0)
+                .setY(0)
+                .setWidth(static_cast<float>(extent.width))
+                .setHeight(static_cast<float>(extent.height))
+                .setMinDepth(0.0f)
+                .setMaxDepth(1.0f);
 
-        commandBuffer.pipelineBarrier(
-            vk::PipelineStageFlagBits::eTopOfPipe,
-            vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(),
-            nullptr, nullptr, toTransfer);
+        auto scissor =
+            vk::Rect2D().setOffset({ 0, 0 }).setExtent(extent);
 
-        const auto& clear = mFreyaOptions->clearColor;
-        commandBuffer.clearColorImage(
-            frame.image, vk::ImageLayout::eTransferDstOptimal, clear,
-            subresource);
+        commandBuffer.setViewport(0, 1, &viewport);
+        commandBuffer.setScissor(0, 1, &scissor);
 
-        auto toPresent =
-            vk::ImageMemoryBarrier()
-                .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
-                .setNewLayout(vk::ImageLayout::ePresentSrcKHR)
-                .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
-                .setDstAccessMask(vk::AccessFlagBits::eNone)
-                .setImage(frame.image)
-                .setSubresourceRange(subresource);
-
-        commandBuffer.pipelineBarrier(
-            vk::PipelineStageFlagBits::eTransfer,
-            vk::PipelineStageFlagBits::eBottomOfPipe, vk::DependencyFlags(),
-            nullptr, nullptr, toPresent);
+        mUIPassOpen = true;
     }
 
     void Renderer::beginComposite(const std::uint32_t    frameIndex,
@@ -541,7 +519,17 @@ namespace FREYA_NAMESPACE
         mCompositePass->End(mCommandPool);
 
         if (mOutputTarget)
-            clearSwapchainImage();
+            beginUIPass();
+    }
+
+    vk::RenderPass Renderer::GetUIRenderPass()
+    {
+        return mCompositePass->GetRenderPass();
+    }
+
+    vk::CommandBuffer Renderer::GetCommandBuffer()
+    {
+        return mCommandPool->GetCommandBuffer();
     }
 
     void Renderer::SetVSync(const bool vSync)
@@ -932,7 +920,7 @@ namespace FREYA_NAMESPACE
         commandBuffer.setScissor(0, 1, &scissor);
     }
 
-    void Renderer::EndFrame()
+    void Renderer::EndScene()
     {
         if (IsDeferred() && mDeferredPass)
         {
@@ -1100,6 +1088,15 @@ namespace FREYA_NAMESPACE
 
             beginComposite(frameIndex, compositeInput, compositeInput);
         }
+    }
+
+    void Renderer::Present()
+    {
+        if (mUIPassOpen)
+        {
+            mCompositePass->End(mCommandPool);
+            mUIPassOpen = false;
+        }
 
         auto commandBuffer = mCommandPool->GetCommandBuffer();
         commandBuffer.end();
@@ -1117,6 +1114,12 @@ namespace FREYA_NAMESPACE
         {
             throw std::runtime_error("failed to present swap chain image!");
         }
+    }
+
+    void Renderer::EndFrame()
+    {
+        EndScene();
+        Present();
     }
 
     void Renderer::NextSubpass()
