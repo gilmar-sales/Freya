@@ -40,7 +40,20 @@ namespace FREYA_NAMESPACE
 
         void Begin(const skr::Arc<SwapChain>    swapChain,
                    const skr::Arc<CommandPool>& commandPool,
-                   const vk::ClearValue&   clearColor) const;
+                   const vk::ClearValue&        clearColor) const;
+
+        /**
+         * @brief Begin composite into a custom framebuffer (e.g. RenderTarget).
+         *
+         * @param renderPass Compatible with this pass's pipeline render pass
+         * @param framebuffer Destination framebuffer
+         * @param extent      Render area extent
+         */
+        void Begin(vk::RenderPass               renderPass,
+                   vk::Framebuffer              framebuffer,
+                   vk::Extent2D                 extent,
+                   const skr::Arc<CommandPool>& commandPool,
+                   const vk::ClearValue&        clearColor) const;
 
         void BindPipeline(const skr::Arc<CommandPool>& commandPool,
                           std::uint32_t           frameIndex) const;

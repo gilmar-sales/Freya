@@ -12,9 +12,10 @@
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
 #include "Freya/Core/RenderPass.hpp"
-#include "Freya/Core/Surface.hpp"
+#include "Freya/Core/RenderTarget.hpp"
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Events/EventManager.hpp"
+#include "Freya/Builders/RenderTargetBuilder.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -85,6 +86,24 @@ namespace FREYA_NAMESPACE
         }
         void SetDrawDistance(float drawDistance);
 
+        /**
+         * @brief Redirect scene composite output to an offscreen target.
+         *
+         * Scene/bloom size to the target extent. Swapchain is still acquired
+         * and presented cleared for the app to draw UI (e.g. ImGui).
+         */
+        void SetOutputTarget(const skr::Arc<RenderTarget>& target);
+
+        /**
+         * @brief Restore default composite destination (swapchain).
+         */
+        void ClearOutputTarget();
+
+        [[nodiscard]] skr::Arc<RenderTarget> GetOutputTarget() const
+        {
+            return mOutputTarget;
+        }
+
         // Draw commands with material binding
         void Draw(std::uint32_t meshId, std::uint32_t materialId);
         void DrawInstanced(std::uint32_t meshId,
@@ -117,6 +136,7 @@ namespace FREYA_NAMESPACE
         void UpdateModel(const glm::mat4& model) const;
 
         [[nodiscard]] BufferBuilder GetBufferBuilder() const;
+        [[nodiscard]] RenderTargetBuilder GetRenderTargetBuilder() const;
         void                        BindBuffer(const skr::Arc<Buffer>& buffer) const;
         void                        BindMaterial(std::uint32_t materialId);
 
@@ -150,6 +170,23 @@ namespace FREYA_NAMESPACE
          */
         void destroyForwardOffscreenResources();
 
+        /**
+         * @brief Extent used for scene/bloom/composite sizing.
+         */
+        [[nodiscard]] vk::Extent2D getRenderExtent() const;
+
+        /**
+         * @brief Rebuild bloom/deferred/forward scene resources at render
+         * extent (keeps current swapchain).
+         */
+        void rebuildSceneResources();
+
+        void beginComposite(std::uint32_t          frameIndex,
+                            const skr::Arc<Image>& opaqueImage,
+                            const skr::Arc<Image>& translucentImage);
+
+        void clearSwapchainImage();
+
         skr::Arc<skr::ServiceProvider>   mServiceProvider;
         skr::Arc<Instance>               mInstance;
         skr::Arc<Surface>                mSurface;
@@ -164,6 +201,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<LightService>           mLightService;
         skr::Arc<EventManager>           mEventManager;
         skr::Arc<FreyaOptions>           mFreyaOptions;
+        skr::Arc<RenderTarget>           mOutputTarget;
 
         // Mesh and Material pools for draw commands
         skr::Arc<MeshPool>     mMeshPool;

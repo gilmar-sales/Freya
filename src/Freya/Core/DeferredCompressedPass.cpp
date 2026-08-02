@@ -57,7 +57,8 @@ namespace FREYA_NAMESPACE
         const vk::DescriptorPool                    inputAttachmentPool,
         const vk::DescriptorSet                     lightingInputSet,
         const vk::DescriptorSetLayout               samplerLayout,
-        const vk::DescriptorPool                    samplerDescriptorPool) :
+        const vk::DescriptorPool                    samplerDescriptorPool,
+        const vk::Extent2D                          extent) :
         mDevice(device), mFreyaOptions(freyaOptions), mSurface(surface),
         mRenderPass(renderPass), mVertexPipelineLayout(vertexPipelineLayout),
         mFullscreenPipelineLayout(fullscreenPipelineLayout),
@@ -67,7 +68,7 @@ namespace FREYA_NAMESPACE
         mGBufferImages(gbufferImages), mEmissiveImage(emissiveImage),
         mDepthImage(depthImage), mTranslucentImage(translucentImage),
         mOpaqueImage(opaqueImage), mFramebuffers(framebuffers),
-        mInputAttachmentLayout(inputAttachmentLayout),
+        mExtent(extent), mInputAttachmentLayout(inputAttachmentLayout),
         mInputAttachmentPool(inputAttachmentPool),
         mLightingInputSet(lightingInputSet), mSamplerLayout(samplerLayout),
         mSamplerDescriptorPool(samplerDescriptorPool)
@@ -150,7 +151,7 @@ namespace FREYA_NAMESPACE
                 .setRenderPass(mRenderPass)
                 .setFramebuffer(mFramebuffers[imageIndex])
                 .setRenderArea(vk::Rect2D().setOffset({ 0, 0 }).setExtent(
-                    swapChain->GetExtent()))
+                    mExtent))
                 .setClearValues(clearValues),
             vk::SubpassContents::eInline);
 

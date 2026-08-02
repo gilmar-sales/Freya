@@ -6,6 +6,8 @@ A Vulkan-based rendering engine powered by [Skirnir](https://github.com/gilmar-s
 
 - **Vulkan-backed rendering** - Modern graphics API with high performance
 - **Deferred & Forward rendering** - Choose between rendering strategies
+- **Custom render targets** - Redirect scene output to an offscreen
+  `RenderTarget` at runtime (see [Core](core.md)); not configured via FreyaOptions
 - **Asset management** - Built-in support for meshes, textures, and materials
 - **Event system** - Flexible pub/sub event handling for window, keyboard, mouse, and gamepad
 - **Builder pattern** - Fluent API for constructing renderer components

@@ -17,8 +17,10 @@ namespace FREYA_NAMESPACE
     {
     }
 
-    skr::Arc<BloomPass> BloomPassBuilder::Build(const skr::Arc<SwapChain>& swapChain,
-                                           const skr::Arc<Image>&     emissiveImage)
+    skr::Arc<BloomPass> BloomPassBuilder::Build(
+        const skr::Arc<SwapChain>& swapChain,
+        const skr::Arc<Image>&     emissiveImage,
+        vk::Extent2D               fullExtent)
     {
         auto renderPass = createRenderPass();
 
@@ -65,7 +67,8 @@ namespace FREYA_NAMESPACE
         // ------------------------------------------------------------------
         // Half-resolution extent
         // ------------------------------------------------------------------
-        const auto fullExtent = mSurface->QueryExtent();
+        if (fullExtent.width == 0 || fullExtent.height == 0)
+            fullExtent = mSurface->QueryExtent();
         const auto halfExtent =
             vk::Extent2D { std::max(1u, fullExtent.width / 2),
                            std::max(1u, fullExtent.height / 2) };

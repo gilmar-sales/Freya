@@ -154,6 +154,24 @@ auto buffer = BufferBuilder(device)
 | `Instance` | Per-instance data buffer |
 | `Image` | Image buffer |
 
+## RenderTargetBuilder
+
+Creates offscreen `RenderTarget` objects for redirecting scene composite output
+(for example to sample in an ImGui panel). Prefer obtaining the builder from
+`Renderer::GetRenderTargetBuilder()`.
+
+```cpp
+auto target = mRenderer->GetRenderTargetBuilder()
+    .SetWidth(1280)
+    .SetHeight(720)
+    .Build();
+
+mRenderer->SetOutputTarget(target);
+```
+
+Optional `SetFormat` overrides the surface format (default). Bind or clear the
+target via `Renderer::SetOutputTarget` / `ClearOutputTarget` (see [Core](core.md)).
+
 ## ImageBuilder
 
 Creates `Image` objects (textures, render targets).

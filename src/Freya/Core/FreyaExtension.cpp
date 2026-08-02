@@ -9,6 +9,7 @@
 #include "Freya/Builders/LightServiceBuilder.hpp"
 #include "Freya/Builders/PhysicalDeviceBuilder.hpp"
 #include "Freya/Builders/RenderPassBuilder.hpp"
+#include "Freya/Builders/RenderTargetBuilder.hpp"
 #include "Freya/Builders/RendererBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
 #include "Freya/Builders/SurfaceBuilder.hpp"
@@ -37,6 +38,7 @@ namespace FREYA_NAMESPACE
         services.AddTransient<RenderPassBuilder>();
         services.AddTransient<SwapChainBuilder>();
         services.AddTransient<ImageBuilder>();
+        services.AddTransient<RenderTargetBuilder>();
         services.AddTransient<RendererBuilder>();
         services.AddTransient<ShaderModuleBuilder>();
         services.AddTransient<CommandPoolBuilder>();

@@ -41,11 +41,13 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief Builds and returns the DeferredCompressedPass object.
-         * @param swapChain The current swapchain (used for framebuffer
-         * creation)
+         * @param swapChain The current swapchain (used for framebuffer count)
+         * @param extent Optional render extent; empty uses surface extent
          * @return Shared pointer to created DeferredCompressedPass
          */
-        skr::Arc<DeferredCompressedPass> Build(const skr::Arc<SwapChain>& swapChain);
+        skr::Arc<DeferredCompressedPass> Build(
+            const skr::Arc<SwapChain>& swapChain,
+            vk::Extent2D               extent = {});
 
         /**
          * @brief Creates the Vulkan render pass for deferred rendering.

@@ -40,7 +40,7 @@ namespace FREYA_NAMESPACE
 
     void CompositePass::Begin(const skr::Arc<SwapChain>    swapChain,
                               const skr::Arc<CommandPool>& commandPool,
-                              const vk::ClearValue&   clearColor) const
+                              const vk::ClearValue&        clearColor) const
     {
         auto       commandBuffer = commandPool->GetCommandBuffer();
         const auto imageIndex    = swapChain->GetCurrentImageIndex();
@@ -53,6 +53,25 @@ namespace FREYA_NAMESPACE
                 .setFramebuffer(mFramebuffers[imageIndex])
                 .setRenderArea(vk::Rect2D().setOffset({ 0, 0 }).setExtent(
                     swapChain->GetExtent()))
+                .setClearValues(clearValues),
+            vk::SubpassContents::eInline);
+    }
+
+    void CompositePass::Begin(const vk::RenderPass          renderPass,
+                              const vk::Framebuffer         framebuffer,
+                              const vk::Extent2D            extent,
+                              const skr::Arc<CommandPool>&  commandPool,
+                              const vk::ClearValue&         clearColor) const
+    {
+        auto commandBuffer = commandPool->GetCommandBuffer();
+        auto clearValues   = std::vector<vk::ClearValue> { clearColor };
+
+        commandBuffer.beginRenderPass(
+            vk::RenderPassBeginInfo()
+                .setRenderPass(renderPass)
+                .setFramebuffer(framebuffer)
+                .setRenderArea(
+                    vk::Rect2D().setOffset({ 0, 0 }).setExtent(extent))
                 .setClearValues(clearValues),
             vk::SubpassContents::eInline);
     }

@@ -75,7 +75,8 @@ namespace FREYA_NAMESPACE
             const vk::DescriptorPool                    inputAttachmentPool,
             const vk::DescriptorSet                     lightingInputSet,
             const vk::DescriptorSetLayout               samplerLayout,
-            const vk::DescriptorPool                    samplerDescriptorPool);
+            const vk::DescriptorPool                    samplerDescriptorPool,
+            vk::Extent2D                                extent);
 
         ~DeferredCompressedPass();
 
@@ -167,6 +168,8 @@ namespace FREYA_NAMESPACE
 
         // Framebuffers (one per swapchain image)
         std::vector<vk::Framebuffer> mFramebuffers;
+
+        vk::Extent2D mExtent;
 
         // Input attachment descriptor resources (for lighting)
         vk::DescriptorSetLayout mInputAttachmentLayout;

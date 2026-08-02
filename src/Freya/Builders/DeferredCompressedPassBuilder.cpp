@@ -7,9 +7,13 @@
 namespace FREYA_NAMESPACE
 {
     skr::Arc<DeferredCompressedPass> DeferredCompressedPassBuilder::Build(
-        const skr::Arc<SwapChain>& swapChain)
+        const skr::Arc<SwapChain>& swapChain,
+        vk::Extent2D               extent)
     {
         auto renderPass = createRenderPass();
+
+        if (extent.width == 0 || extent.height == 0)
+            extent = mSurface->QueryExtent();
 
         // ------------------------------------------------------------------
         // Load all shader modules
@@ -354,8 +358,6 @@ namespace FREYA_NAMESPACE
         // ------------------------------------------------------------------
         // G-buffer and intermediate images
         // ------------------------------------------------------------------
-        const auto extent = mSurface->QueryExtent();
-
         auto createImage =
             [&](ImageUsage                usage,
                 std::optional<vk::Format> format = std::nullopt) {
@@ -738,7 +740,8 @@ namespace FREYA_NAMESPACE
             inputAttachmentPool,
             lightingInputSet,
             samplerLayout,
-            samplerDescriptorPool);
+            samplerDescriptorPool,
+            extent);
     }
 
     // ------------------------------------------------------------------
