@@ -89,49 +89,49 @@ class MainApp final : public fra::AbstractApplication
         mSpaceShipModel =
             mMeshPool->CreateMeshFromFile("./Resources/Models/SpaceShip.fbx");
 
-        // Classic light trio tuned for PBR + ACES
+        // Classic light trio: cooler key, softer points farther from the mesh
         mLightService->AddLight(fra::MakeDirectionalLight(
             glm::vec3(-0.4f, -1.0f, -0.3f),
-            glm::vec3(1.0f, 0.95f, 0.85f),
-            1.5f));
+            glm::vec3(1.0f, 0.96f, 0.9f),
+            1.0f));
 
         mAnimatedLights.resize(3);
 
         mAnimatedLights[0].speed        = 1.0f;
         mAnimatedLights[0].phaseOffset  = 0.0f;
-        mAnimatedLights[0].radiusOffset = 0.0f;
+        mAnimatedLights[0].radiusOffset = 4.0f;
         mAnimatedLights[0].kind         = AnimatedLightKind::Point;
         mAnimatedLights[0].index        = static_cast<std::uint32_t>(
             mLightService->AddLight(fra::MakePointLight(
-                glm::vec3(8.0f, 5.0f, 0.0f),
-                glm::vec3(1.0f, 0.35f, 0.25f),
-                50.0f,
-                2.5f)));
+                glm::vec3(12.0f, 6.0f, 0.0f),
+                glm::vec3(1.0f, 0.45f, 0.3f),
+                40.0f,
+                1.8f)));
 
         mAnimatedLights[1].speed        = 1.2f;
         mAnimatedLights[1].phaseOffset  = 2.1f;
-        mAnimatedLights[1].radiusOffset = 1.5f;
+        mAnimatedLights[1].radiusOffset = 5.0f;
         mAnimatedLights[1].kind         = AnimatedLightKind::Point;
         mAnimatedLights[1].index        = static_cast<std::uint32_t>(
             mLightService->AddLight(fra::MakePointLight(
-                glm::vec3(-8.0f, 5.0f, 0.0f),
-                glm::vec3(0.25f, 0.45f, 1.0f),
-                50.0f,
-                2.5f)));
+                glm::vec3(-12.0f, 6.0f, 0.0f),
+                glm::vec3(0.3f, 0.5f, 1.0f),
+                40.0f,
+                1.8f)));
 
         mAnimatedLights[2].speed        = 0.9f;
         mAnimatedLights[2].phaseOffset  = 4.0f;
-        mAnimatedLights[2].radiusOffset = -0.5f;
+        mAnimatedLights[2].radiusOffset = 3.0f;
         mAnimatedLights[2].kind         = AnimatedLightKind::Spot;
         mAnimatedLights[2].index        = static_cast<std::uint32_t>(
             mLightService->AddLight(fra::MakeSpotLight(
-                glm::vec3(0.0f, 8.0f, 6.0f),
+                glm::vec3(0.0f, 12.0f, 10.0f),
                 glm::vec3(0.0f, -1.0f, -0.5f),
-                glm::vec3(0.9f, 0.95f, 1.0f),
-                60.0f,
-                glm::radians(12.0f),
-                glm::radians(22.0f),
-                5.0f)));
+                glm::vec3(0.95f, 0.95f, 1.0f),
+                45.0f,
+                glm::radians(10.0f),
+                glm::radians(18.0f),
+                3.0f)));
     }
 
     void Update() override
@@ -141,7 +141,7 @@ class MainApp final : public fra::AbstractApplication
         for (auto& animated : mAnimatedLights)
         {
             const float offset = animated.phaseOffset;
-            const float radius = 8.0f + animated.radiusOffset;
+            const float radius = 14.0f + animated.radiusOffset;
 
             const float x =
                 radius * std::cos(animated.speed * mCurrentTime + offset);

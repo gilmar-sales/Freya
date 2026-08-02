@@ -8,7 +8,8 @@ layout(binding = 0) uniform sampler2D inEmissive;
 layout(location = 0) in vec2 inTexCoord;
 layout(location = 0) out vec4 outColor;
 
-const float bloomThreshold = 0.0;
+const float bloomThreshold = 0.75;
+const float bloomExtractScale = 1.0;
 
 void main() {
     vec4 emissive = texture(inEmissive, inTexCoord);
@@ -16,5 +17,5 @@ void main() {
     float luminance = dot(emissive.rgb, vec3(0.299, 0.587, 0.114));
     float extraction = max(luminance - bloomThreshold, 0.0);
 
-    outColor = vec4(emissive.rgb * extraction * 2.0, 1.0);
+    outColor = vec4(emissive.rgb * extraction * bloomExtractScale, 1.0);
 }
