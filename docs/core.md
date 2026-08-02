@@ -221,7 +221,24 @@ if (const auto* spot = lights->GetLight(2))
 ```
 
 `Renderer::UpdateCamera` refreshes the light UBO for the current frame when
-lights are present.
+the light service is present (also uploads `iblIntensity` for IBL).
+
+## IBLService
+
+Provides split-sum image-based lighting: an equirectangular environment map
+(specular + mip LOD prefilter stand-in), a convolved irradiance map, and a
+BRDF integration LUT. Built at startup from `FreyaOptions::environmentMapPath`
+(Radiance `.hdr` via `stbi_loadf`) or a procedural sky when the path is empty.
+
+| Resource | Role |
+|----------|------|
+| Environment | Specular IBL via `textureLod` (mip ≈ roughness) |
+| Irradiance | Diffuse IBL (CPU hemisphere convolution) |
+| BRDF LUT | Scale/bias for specular split-sum |
+
+Configure with `SetIblIntensity` / `SetEnvironmentMapPath` on
+`FreyaOptionsBuilder`. Forward set 0 bindings 2–4 and deferred lighting
+bindings 7–9 sample these maps.
 
 ## DeferredCompressedPass
 

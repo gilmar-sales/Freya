@@ -129,6 +129,18 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        FreyaOptionsBuilder& SetIblIntensity(float intensity)
+        {
+            mFreyaOptions->iblIntensity = intensity;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetEnvironmentMapPath(const std::string& path)
+        {
+            mFreyaOptions->environmentMapPath = path;
+            return *this;
+        }
+
         FreyaOptionsBuilder& WithReverseZ(bool value = true)
         {
             mFreyaOptions->ReverseZ = value;

@@ -4,6 +4,7 @@
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
 #include "Freya/Core/DeferredCompressedPass.hpp"
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/IBLService.hpp"
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
 #include "Freya/Core/Surface.hpp"
@@ -15,13 +16,6 @@ namespace FREYA_NAMESPACE
 
     /**
      * @brief Builder for DeferredCompressedPass objects.
-     *
-     * Creates the full deferred rendering pipeline including:
-     * - Vulkan render pass with 7 attachments and 5 subpasses
-     * - 5 graphics pipelines (one per subpass)
-     * - G-buffer, depth, translucent, and opaque images
-     * - Framebuffers for each swapchain image
-     * - Descriptor sets for UBO, input attachments, and samplers
      */
     class DeferredCompressedPassBuilder
     {
@@ -32,26 +26,17 @@ namespace FREYA_NAMESPACE
             const skr::Arc<Surface>&              surface,
             const skr::Arc<FreyaOptions>&         freyaOptions,
             const skr::Arc<skr::ServiceProvider>& serviceProvider,
-            const skr::Arc<LightService>&         lightService) :
+            const skr::Arc<LightService>&         lightService,
+            const skr::Arc<IBLService>&           iblService) :
             mDevice(device), mPhysicalDevice(physicalDevice), mSurface(surface),
             mFreyaOptions(freyaOptions), mServiceProvider(serviceProvider),
-            mLightService(lightService)
+            mLightService(lightService), mIblService(iblService)
         {
         }
 
-        /**
-         * @brief Builds and returns the DeferredCompressedPass object.
-         * @param swapChain The current swapchain (used for framebuffer count)
-         * @param extent Optional render extent; empty uses surface extent
-         * @return Shared pointer to created DeferredCompressedPass
-         */
         skr::Arc<DeferredCompressedPass> Build(
             const skr::Arc<SwapChain>& swapChain, vk::Extent2D extent = {});
 
-        /**
-         * @brief Creates the Vulkan render pass for deferred rendering.
-         * @return Vulkan render pass handle
-         */
         vk::RenderPass createRenderPass() const;
 
       private:
@@ -61,5 +46,6 @@ namespace FREYA_NAMESPACE
         skr::Arc<FreyaOptions>         mFreyaOptions;
         skr::Arc<skr::ServiceProvider> mServiceProvider;
         skr::Arc<LightService>         mLightService;
+        skr::Arc<IBLService>           mIblService;
     };
 } // namespace FREYA_NAMESPACE

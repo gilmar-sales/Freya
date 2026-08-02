@@ -117,6 +117,8 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `frameCount` | `std::uint32_t` | `4` | Number of frames in flight |
 | `drawDistance` | `float` | `1000.0f` | Render distance |
 | `maxLights` | `std::uint32_t` | `16` | Max analytical lights (`MAX_LIGHTS`) |
+| `iblIntensity` | `float` | `1.0f` | Image-based lighting scale |
+| `environmentMapPath` | `std::string` | `""` | Optional Radiance `.hdr` (empty = procedural sky) |
 | `renderingStrategy` | `RenderingStrategy` | `Forward` | Forward or Deferred |
 
 ## Services
@@ -132,3 +134,4 @@ Freya provides the following services via Skirnir's service provider:
 | `TexturePool` | `skr::Arc<TexturePool>` | Texture asset management |
 | `MaterialPool` | `skr::Arc<MaterialPool>` | Material asset management |
 | `LightService` | `skr::Arc<LightService>` | Point / directional / spot lights |
+| `IBLService` | `skr::Arc<IBLService>` | Environment / irradiance / BRDF LUT |

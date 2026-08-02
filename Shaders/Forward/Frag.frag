@@ -13,7 +13,12 @@ layout(binding = 1) uniform LightBuffer {
     vec4 lightOuterCutoffAndIntensity[16];
     vec4 viewPosition;
     uint lightCount;
+    float iblIntensity;
 } lights;
+
+layout(binding = 2) uniform sampler2D irradianceMap;
+layout(binding = 3) uniform sampler2D prefilterMap;
+layout(binding = 4) uniform sampler2D brdfLUT;
 
 layout(set = 1, binding = 0) uniform sampler2D albedoSampler;
 layout(set = 1, binding = 1) uniform sampler2D normalSampler;
@@ -33,6 +38,13 @@ const float PI = 3.14159265359;
 vec3 getNormalFromMap() {
     vec3 normal = texture(normalSampler, fragTexCoord).rgb * 2.0 - 1.0;
     return normalize(TBN * normal);
+}
+
+vec2 SampleSphericalMap(vec3 v) {
+    vec2 uv = vec2(atan(v.z, v.x), asin(clamp(v.y, -1.0, 1.0)));
+    uv *= vec2(0.15915494309, 0.31830988618);
+    uv += 0.5;
+    return uv;
 }
 
 float DistributionGGX(vec3 N, vec3 H, float roughness) {
@@ -63,7 +75,11 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
-// Resolve light direction + attenuation for Point / Directional / Spot.
+vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) *
+                    pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
 void resolveLight(vec3 lightPos, float lightType, float radius, vec3 lightDir,
                   float innerCutoff, float outerCutoff, vec3 worldPos,
                   out vec3 L, out float attenuation) {
@@ -89,7 +105,6 @@ void resolveLight(vec3 lightPos, float lightType, float radius, vec3 lightDir,
     }
 }
 
-// Cook-Torrance GGX contribution for one light (albedo already applied).
 vec3 calculateLight(vec3 lightPos, float lightType, vec3 lightColor,
                     float radius, vec3 lightDir, float innerCutoff,
                     float outerCutoff, float intensity, vec3 worldPos,
@@ -121,6 +136,28 @@ vec3 calculateLight(vec3 lightPos, float lightType, vec3 lightColor,
     return (kD * albedo / PI + specular) * radiance * NdotL;
 }
 
+vec3 calculateIBL(vec3 N, vec3 V, vec3 albedo, float roughness, float metalness,
+                  vec3 F0) {
+    float NdotV = max(dot(N, V), 0.0);
+    vec3 R = reflect(-V, N);
+
+    vec3 F = fresnelSchlickRoughness(NdotV, F0, roughness);
+    vec3 kS = F;
+    vec3 kD = (1.0 - kS) * (1.0 - metalness);
+
+    vec3 irradiance = texture(irradianceMap, SampleSphericalMap(N)).rgb;
+    vec3 diffuse = irradiance * albedo;
+
+    float maxLod = float(textureQueryLevels(prefilterMap) - 1);
+    vec3 prefilteredColor =
+        textureLod(prefilterMap, SampleSphericalMap(R), roughness * maxLod)
+            .rgb;
+    vec2 brdf = texture(brdfLUT, vec2(NdotV, roughness)).rg;
+    vec3 specular = prefilteredColor * (F * brdf.x + brdf.y);
+
+    return (kD * diffuse + specular) * lights.iblIntensity;
+}
+
 void main()
 {
     vec3 albedo = texture(albedoSampler, fragTexCoord).rgb;
@@ -134,28 +171,19 @@ void main()
     vec3 V = normalize(lights.viewPosition.xyz - fragPosition);
     vec3 F0 = mix(vec3(0.04), albedo, metalness);
 
-    vec3 totalLighting = vec3(0.0);
+    vec3 totalLighting = calculateIBL(N, V, albedo, roughness, metalness, F0);
 
-    if (lights.lightCount > 0) {
-        for (int i = 0; i < int(lights.lightCount); i++) {
-            totalLighting += calculateLight(
-                lights.lightPositions[i].xyz,
-                lights.lightPositions[i].w,
-                lights.lightColorsAndRadius[i].rgb,
-                lights.lightColorsAndRadius[i].w,
-                lights.lightDirectionsAndCutoff[i].xyz,
-                lights.lightDirectionsAndCutoff[i].w,
-                lights.lightOuterCutoffAndIntensity[i].x,
-                lights.lightOuterCutoffAndIntensity[i].y,
-                fragPosition, N, V, albedo, roughness, metalness, F0);
-        }
-    } else {
-        // Fallback: treat ambientLight as a dim directional + ambient fill
+    for (int i = 0; i < int(lights.lightCount); i++) {
         totalLighting += calculateLight(
-            vec3(0.0), 1.0, vec3(1.0), 1.0, pub.ambientLight.xyz, 0.0, 0.0,
-            1.0, fragPosition, N, V, albedo, roughness, metalness, F0);
-        totalLighting +=
-            albedo * pub.ambientLight.w * (1.0 - metalness);
+            lights.lightPositions[i].xyz,
+            lights.lightPositions[i].w,
+            lights.lightColorsAndRadius[i].rgb,
+            lights.lightColorsAndRadius[i].w,
+            lights.lightDirectionsAndCutoff[i].xyz,
+            lights.lightDirectionsAndCutoff[i].w,
+            lights.lightOuterCutoffAndIntensity[i].x,
+            lights.lightOuterCutoffAndIntensity[i].y,
+            fragPosition, N, V, albedo, roughness, metalness, F0);
     }
 
     outColor = vec4(totalLighting + emissive, 1.0);

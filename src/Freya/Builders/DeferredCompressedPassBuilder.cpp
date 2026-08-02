@@ -433,6 +433,24 @@ namespace FREYA_NAMESPACE
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(7)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(8)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(9)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
         };
 
         auto inputLayoutInfo =
@@ -448,6 +466,9 @@ namespace FREYA_NAMESPACE
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eUniformBuffer)
                 .setDescriptorCount(1),
+            vk::DescriptorPoolSize()
+                .setType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(3),
         };
 
         auto inputPoolInfo =
@@ -562,6 +583,50 @@ namespace FREYA_NAMESPACE
                 .setBufferInfo(lightBufferInfo);
 
         mDevice->Get().updateDescriptorSets(1, &lightBufferWrite, 0, nullptr);
+
+        // IBL samplers (bindings 7-9)
+        auto irradianceInfo =
+            vk::DescriptorImageInfo()
+                .setSampler(mIblService->GetIrradianceSampler())
+                .setImageView(mIblService->GetIrradianceMap()->GetImageView())
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+
+        auto prefilterInfo =
+            vk::DescriptorImageInfo()
+                .setSampler(mIblService->GetEnvironmentSampler())
+                .setImageView(mIblService->GetEnvironmentMap()->GetImageView())
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+
+        auto brdfInfo =
+            vk::DescriptorImageInfo()
+                .setSampler(mIblService->GetBrdfSampler())
+                .setImageView(mIblService->GetBrdfLut()->GetImageView())
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+
+        auto iblWrites = std::array {
+            vk::WriteDescriptorSet()
+                .setDstSet(lightingInputSet)
+                .setDstBinding(7)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setImageInfo(irradianceInfo),
+            vk::WriteDescriptorSet()
+                .setDstSet(lightingInputSet)
+                .setDstBinding(8)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setImageInfo(prefilterInfo),
+            vk::WriteDescriptorSet()
+                .setDstSet(lightingInputSet)
+                .setDstBinding(9)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setImageInfo(brdfInfo),
+        };
+
+        mDevice->Get().updateDescriptorSets(
+            static_cast<std::uint32_t>(iblWrites.size()), iblWrites.data(), 0,
+            nullptr);
 
         // ------------------------------------------------------------------
         // Fullscreen pipeline layout (input attachments only)

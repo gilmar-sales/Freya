@@ -18,8 +18,8 @@ namespace FREYA_NAMESPACE
             chooseFormat();
         }
 
-        // Compute full mip chain for textures
-        if (mUsage == ImageUsage::Texture)
+        // Compute full mip chain for textures unless overridden
+        if (mUsage == ImageUsage::Texture && !mMipLevelsOverride)
         {
             mMipLevels = static_cast<std::uint32_t>(
                              std::floor(std::log2(std::max(mWidth, mHeight)))) +

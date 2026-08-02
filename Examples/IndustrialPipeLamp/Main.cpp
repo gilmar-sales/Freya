@@ -248,6 +248,7 @@ int main(int argc, const char** argv)
                         .SetSampleCount(8)
                         .WithReverseZ()
                         .SetFullscreen(false)
+                        .SetIblIntensity(0.6f)
                         .SetRenderingStrategy(fra::RenderingStrategy::Forward);
                 });
             })

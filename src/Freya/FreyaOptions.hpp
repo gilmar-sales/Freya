@@ -39,6 +39,9 @@ namespace FREYA_NAMESPACE
                                             0.0f }; ///< Render pass clear color
         float             drawDistance = 1000.0f; ///< View distance for culling
         std::uint32_t     maxLights    = 16;      ///< Maximum lights in scene
+        float             iblIntensity = 1.0f; ///< Image-based lighting scale
+        std::string environmentMapPath; ///< Optional Radiance .hdr path (empty =
+                                        ///< procedural sky)
         RenderingStrategy renderingStrategy =
             RenderingStrategy::Forward; ///< Rendering strategy
         bool ReverseZ;

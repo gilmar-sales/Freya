@@ -20,6 +20,7 @@
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Asset/TexturePool.hpp"
 #include "Freya/Core/LightService.hpp"
+#include "Freya/Core/IBLService.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -107,10 +108,14 @@ namespace FREYA_NAMESPACE
                 auto device       = serviceProvider.GetService<Device>();
                 auto freyaOptions = serviceProvider.GetService<FreyaOptions>();
 
-                return skr::MakeArc<LightService>(device,
-                                                  freyaOptions->frameCount,
-                                                  freyaOptions->maxLights);
+                auto lights = skr::MakeArc<LightService>(
+                    device, freyaOptions->frameCount, freyaOptions->maxLights);
+                lights->SetIblIntensity(freyaOptions->iblIntensity);
+                return lights;
             });
+
+        // IBL maps are baked at construction (procedural sky or HDR path)
+        services.AddSingleton<IBLService>();
 
         services.AddSingleton<Window>(
             [](skr::ServiceProvider& serviceProvider) {

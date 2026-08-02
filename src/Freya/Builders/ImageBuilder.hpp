@@ -55,7 +55,8 @@ namespace FREYA_NAMESPACE
             mServiceProvider(serviceProvider), mUsage(ImageUsage::Texture),
             mFormat(vk::Format::eUndefined),
             mSamples(vk::SampleCountFlagBits::e1), mWidth(1024), mHeight(1024),
-            mChannels(0), mMipLevels(1), mData(nullptr)
+            mChannels(0), mMipLevels(1), mMipLevelsOverride(false),
+            mData(nullptr)
         {
         }
 
@@ -137,6 +138,17 @@ namespace FREYA_NAMESPACE
         }
 
         /**
+         * @brief Overrides automatic mip-chain length for textures.
+         * @param mipLevels Number of mip levels (minimum 1)
+         */
+        ImageBuilder& SetMipLevels(const std::uint32_t mipLevels)
+        {
+            mMipLevels         = mipLevels == 0 ? 1u : mipLevels;
+            mMipLevelsOverride = true;
+            return *this;
+        }
+
+        /**
          * @brief Sets pre-allocated staging buffer.
          * @param stagingBuffer Staging buffer reference
          * @return Reference to this for chaining
@@ -188,8 +200,9 @@ namespace FREYA_NAMESPACE
         vk::SampleCountFlagBits mSamples;   ///< MSAA sample count
         std::uint32_t           mWidth;     ///< Image width
         std::uint32_t           mHeight;    ///< Image height
-        std::uint32_t           mChannels;  ///< Channel count
+        std::uint32_t           mChannels;  ///< Bytes per pixel (upload size)
         std::uint32_t           mMipLevels; ///< Number of mip levels
+        bool mMipLevelsOverride; ///< True when SetMipLevels was called
         void*                   mData;      ///< Raw image data
     };
 

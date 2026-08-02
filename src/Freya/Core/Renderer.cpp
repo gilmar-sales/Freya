@@ -649,7 +649,7 @@ namespace FREYA_NAMESPACE
         projectionUniformBuffer.view = glm::lookAt(position, target, up);
         UpdateProjection(projectionUniformBuffer);
 
-        if (mLightService && mLightService->HasLights())
+        if (mLightService)
         {
             mLightService->Update(mSwapChain->GetCurrentFrameIndex(), position);
         }

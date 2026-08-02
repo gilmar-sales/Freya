@@ -197,6 +197,13 @@ namespace FREYA_NAMESPACE
         std::uint32_t GetMaxLights() const { return mMaxLights; }
 
         /**
+         * @brief Sets IBL intensity written into the light UBO each Update.
+         */
+        void SetIblIntensity(float intensity) { mIblIntensity = intensity; }
+
+        float GetIblIntensity() const { return mIblIntensity; }
+
+        /**
          * @brief Returns whether the service has any lights.
          */
         bool HasLights() const { return mLightCount > 0; }
@@ -216,6 +223,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t    mFrameCount;
         std::uint32_t    mMaxLights;
         std::uint32_t    mLightCount;
+        float            mIblIntensity = 1.0f;
 
         std::vector<Light> mLights;
         skr::Arc<Buffer>   mBuffer;

@@ -167,6 +167,7 @@ namespace FREYA_NAMESPACE
         LightUniformBuffer data = {};
 
         data.lightCount   = mLightCount;
+        data.iblIntensity = mIblIntensity;
         data.viewPosition = glm::vec4(viewPosition, 1.0f);
 
         for (std::uint32_t i = 0; i < mLightCount; ++i)
