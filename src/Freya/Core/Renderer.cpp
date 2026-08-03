@@ -116,6 +116,8 @@ namespace FREYA_NAMESPACE
 
     Renderer::~Renderer()
     {
+        mDevice->Get().waitIdle();
+
         destroyForwardOffscreenResources();
 
         mDevice->Get().destroySampler(mBloomResultSampler);

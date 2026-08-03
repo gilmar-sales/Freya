@@ -97,14 +97,16 @@ namespace FREYA_NAMESPACE
                     vk::PipelineStageFlagBits::eColorAttachmentOutput)
                 .setSrcAccessMask(vk::AccessFlagBits::eNone)
                 .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite),
+            // Match CompositePass: pipelines created against that RP must be
+            // reference-compatible when drawn into this RenderTarget RP.
             vk::SubpassDependency()
                 .setSrcSubpass(0)
                 .setDstSubpass(vk::SubpassExternal)
                 .setSrcStageMask(
                     vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
+                .setDstStageMask(vk::PipelineStageFlagBits::eBottomOfPipe)
                 .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-                .setDstAccessMask(vk::AccessFlagBits::eShaderRead),
+                .setDstAccessMask(vk::AccessFlagBits::eNone),
         };
 
         auto renderPassInfo =

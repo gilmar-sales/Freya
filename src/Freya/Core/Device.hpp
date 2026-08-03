@@ -73,7 +73,11 @@ namespace FREYA_NAMESPACE
         {
         }
 
-        ~Device() { mDevice.destroy(); }
+        ~Device()
+        {
+            mDevice.waitIdle();
+            mDevice.destroy();
+        }
 
         /**
          * @brief Conversion operator to check if device is valid.
