@@ -51,8 +51,38 @@ namespace FREYA_NAMESPACE
                 .setPName("main"),
         };
 
-        auto vertexBinding    = Vertex::GetBindingDescription();
-        auto vertexAttributes = Vertex::GetAttributesDescription();
+        // Depth.vert only consumes position (loc 0) and instance
+        // mat4 (loc 5–8). Declaring unused mesh attrs triggers
+        // validation warnings.
+        auto vertexBinding = Vertex::GetBindingDescription();
+        auto vertexAttributes =
+            std::vector<vk::VertexInputAttributeDescription> {
+                vk::VertexInputAttributeDescription()
+                    .setBinding(0)
+                    .setLocation(0)
+                    .setFormat(vk::Format::eR32G32B32Sfloat)
+                    .setOffset(offsetof(Vertex, position)),
+                vk::VertexInputAttributeDescription()
+                    .setBinding(1)
+                    .setLocation(5)
+                    .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                    .setOffset(0),
+                vk::VertexInputAttributeDescription()
+                    .setBinding(1)
+                    .setLocation(6)
+                    .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                    .setOffset(sizeof(glm::vec4)),
+                vk::VertexInputAttributeDescription()
+                    .setBinding(1)
+                    .setLocation(7)
+                    .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                    .setOffset(sizeof(glm::vec4) * 2),
+                vk::VertexInputAttributeDescription()
+                    .setBinding(1)
+                    .setLocation(8)
+                    .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                    .setOffset(sizeof(glm::vec4) * 3),
+            };
 
         auto vertexInputInfo =
             vk::PipelineVertexInputStateCreateInfo()

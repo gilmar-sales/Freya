@@ -43,11 +43,16 @@ namespace FREYA_NAMESPACE
 
         auto physicalDeviceFeatures = mPhysicalDevice->Get().getFeatures();
 
+        mLogger->Assert(physicalDeviceFeatures.imageCubeArray,
+                        "Physical device does not support imageCubeArray "
+                        "(required for point shadow maps)");
+
         auto deviceFeatures =
             vk::PhysicalDeviceFeatures()
                 .setDepthClamp(physicalDeviceFeatures.depthClamp)
                 .setDepthBounds(false)
-                .setSamplerAnisotropy(physicalDeviceFeatures.samplerAnisotropy);
+                .setSamplerAnisotropy(physicalDeviceFeatures.samplerAnisotropy)
+                .setImageCubeArray(true);
 
         // TODO: use optional extensions for memory priority
         auto optionalExtensions =
