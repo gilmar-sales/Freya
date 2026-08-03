@@ -412,7 +412,9 @@ namespace FREYA_NAMESPACE
     void ShadowPass::renderSpots(const skr::Arc<CommandPool>& commandPool,
                                  const std::function<void()>& drawScene) const
     {
-        if (mActiveSpotCount == 0)
+        // Clear every allocated layer every frame so unused slots leave
+        // SHADER_READ_ONLY_OPTIMAL (descriptor samples the full array).
+        if (mSpotFramebuffers.empty())
             return;
 
         auto commandBuffer = commandPool->GetCommandBuffer();
@@ -433,7 +435,7 @@ namespace FREYA_NAMESPACE
             vk::ClearDepthStencilValue().setDepth(
                 mFreyaOptions->ReverseZ ? 0.0f : 1.0f));
 
-        for (std::uint32_t i = 0; i < mActiveSpotCount; ++i)
+        for (std::uint32_t i = 0; i < mSpotFramebuffers.size(); ++i)
         {
             commandBuffer.beginRenderPass(
                 vk::RenderPassBeginInfo()
@@ -443,20 +445,23 @@ namespace FREYA_NAMESPACE
                     .setClearValues(clearValue),
                 vk::SubpassContents::eInline);
 
-            commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
-                                       mPipeline);
-            commandBuffer.setViewport(0, 1, &viewport);
-            commandBuffer.setScissor(0, 1, &scissor);
+            if (i < mActiveSpotCount)
+            {
+                commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+                                           mPipeline);
+                commandBuffer.setViewport(0, 1, &viewport);
+                commandBuffer.setScissor(0, 1, &scissor);
 
-            const auto lightVP = mShadowData.spotViewProj[i];
-            commandBuffer.pushConstants(
-                mPipelineLayout,
-                vk::ShaderStageFlagBits::eVertex,
-                0,
-                sizeof(glm::mat4),
-                &lightVP);
+                const auto lightVP = mShadowData.spotViewProj[i];
+                commandBuffer.pushConstants(
+                    mPipelineLayout,
+                    vk::ShaderStageFlagBits::eVertex,
+                    0,
+                    sizeof(glm::mat4),
+                    &lightVP);
 
-            drawScene();
+                drawScene();
+            }
 
             commandBuffer.endRenderPass();
         }
@@ -465,7 +470,9 @@ namespace FREYA_NAMESPACE
     void ShadowPass::renderPoints(const skr::Arc<CommandPool>& commandPool,
                                   const std::function<void()>& drawScene) const
     {
-        if (mActivePointCount == 0)
+        // Same as spots: clear every cube face so unused point slots are
+        // not left in UNDEFINED when the cube-array is sampled.
+        if (mPointFramebuffers.empty())
             return;
 
         auto commandBuffer = commandPool->GetCommandBuffer();
@@ -486,11 +493,15 @@ namespace FREYA_NAMESPACE
             vk::ClearDepthStencilValue().setDepth(
                 mFreyaOptions->ReverseZ ? 0.0f : 1.0f));
 
-        for (std::uint32_t p = 0; p < mActivePointCount; ++p)
+        const auto pointSlotCount = static_cast<std::uint32_t>(
+            mPointFramebuffers.size() / 6);
+
+        for (std::uint32_t p = 0; p < pointSlotCount; ++p)
         {
             const auto      posFar = mShadowData.pointLightPosFar[p];
             const glm::vec3 position(posFar);
             const auto      far = posFar.w;
+            const bool      active = p < mActivePointCount;
 
             for (std::uint32_t face = 0; face < 6; ++face)
             {
@@ -504,21 +515,24 @@ namespace FREYA_NAMESPACE
                         .setClearValues(clearValue),
                     vk::SubpassContents::eInline);
 
-                commandBuffer.bindPipeline(
-                    vk::PipelineBindPoint::eGraphics, mPipeline);
-                commandBuffer.setViewport(0, 1, &viewport);
-                commandBuffer.setScissor(0, 1, &scissor);
+                if (active)
+                {
+                    commandBuffer.bindPipeline(
+                        vk::PipelineBindPoint::eGraphics, mPipeline);
+                    commandBuffer.setViewport(0, 1, &viewport);
+                    commandBuffer.setScissor(0, 1, &scissor);
 
-                const auto lightVP =
-                    computePointFaceViewProj(position, far, face);
-                commandBuffer.pushConstants(
-                    mPipelineLayout,
-                    vk::ShaderStageFlagBits::eVertex,
-                    0,
-                    sizeof(glm::mat4),
-                    &lightVP);
+                    const auto lightVP =
+                        computePointFaceViewProj(position, far, face);
+                    commandBuffer.pushConstants(
+                        mPipelineLayout,
+                        vk::ShaderStageFlagBits::eVertex,
+                        0,
+                        sizeof(glm::mat4),
+                        &lightVP);
 
-                drawScene();
+                    drawScene();
+                }
 
                 commandBuffer.endRenderPass();
             }

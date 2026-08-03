@@ -88,14 +88,12 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Renders every active shadow target.
          *
-         * For each cascade layer, active spot slot, and active point
-         * light face: begins the depth-only render pass on the
-         * corresponding framebuffer, binds the depth pipeline, sets the
-         * viewport/scissor to the shadow map resolution, pushes the
-         * light view-projection matrix, invokes `drawScene`, then ends
-         * the render pass. `drawScene` is expected to bind vertex/index
-         * buffers and issue draw calls only (pipeline and push constants
-         * are already bound).
+         * For each cascade layer, every allocated spot slot, and every
+         * allocated point cube face: begins the depth-only render pass
+         * (clear → `SHADER_READ_ONLY_OPTIMAL` so unused layers are safe
+         * to sample), and for active lights binds the depth pipeline,
+         * sets viewport/scissor, pushes the light VP, and invokes
+         * `drawScene`. `drawScene` should bind VB/IB and draw only.
          *
          * @param commandPool Command pool with the currently recording
          *                    primary command buffer
