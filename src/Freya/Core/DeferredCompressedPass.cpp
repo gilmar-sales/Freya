@@ -138,7 +138,7 @@ namespace FREYA_NAMESPACE
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // albedo
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // emissive
             vk::ClearValue().setColor(
-                { 0.0f, 0.5f, 0.0f, 0.0f }), // material (metalness, roughness)
+                { 0.0f, 0.5f, 0.0f, 0.0f }), // material RG (metal, rough)
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // transl.
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // opaque
         };

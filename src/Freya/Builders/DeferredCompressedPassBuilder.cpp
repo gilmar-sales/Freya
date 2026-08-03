@@ -1012,9 +1012,9 @@ namespace FREYA_NAMESPACE
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
                 .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
-            // Material buffer
+            // Material buffer (R = metalness, G = roughness)
             vk::AttachmentDescription()
-                .setFormat(vk::Format::eR8Unorm)
+                .setFormat(vk::Format::eR8G8Unorm)
                 .setSamples(vk::SampleCountFlagBits::e1)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStoreOp(vk::AttachmentStoreOp::eDontCare)

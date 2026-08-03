@@ -21,8 +21,8 @@ namespace FREYA_NAMESPACE
         GBufferNormal,    ///< Deferred G-buffer normal
         GBufferAlbedo,    ///< Deferred G-buffer albedo
         GBufferEmissive,  ///< Deferred G-buffer emissive (for bloom)
-        GBufferMetalness, ///< Deferred G-buffer metalness (PBR)
-        GBufferRoughness  ///< Deferred G-buffer roughness (PBR)
+        GBufferMetalness, ///< Deferred material RT (RG8: metalness, roughness)
+        GBufferRoughness  ///< Deferred roughness-only RT (unused if packed)
     };
 
     /**

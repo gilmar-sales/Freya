@@ -14,8 +14,8 @@ layout (location = 4) in vec2 inTexCoord;
 layout (location = 5) in mat4 inModel;
 
 layout (location = 0) out vec3 outPosition;
-layout (location = 1) out vec3 outNormal;
-layout (location = 2) out vec2 outTexCoord;
+layout (location = 1) out vec2 outTexCoord;
+layout (location = 2) out mat3 outTBN;
 
 void main() {
     vec4 worldPos = inModel * vec4(inPosition, 1.0);
@@ -23,6 +23,12 @@ void main() {
     outPosition = worldPos.xyz;
     outTexCoord = inTexCoord;
 
-    mat3 mNormal = transpose(inverse(mat3(inModel)));
-    outNormal = mNormal * normalize(inNormal);
+    // Match Forward/Vert.vert so normal maps share the same
+    // world-space basis (derivative TBN often flips B under Vulkan).
+    vec3 T = normalize(vec3(inModel * vec4(inTangent, 0.0)));
+    vec3 N = normalize(vec3(inModel * vec4(inNormal, 0.0)));
+    T = normalize(T - N * dot(N, T));
+    vec3 B = cross(N, T);
+
+    outTBN = mat3(T, B, N);
 }

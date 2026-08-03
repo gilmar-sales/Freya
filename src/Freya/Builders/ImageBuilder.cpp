@@ -401,6 +401,9 @@ namespace FREYA_NAMESPACE
                 mFormat = vk::Format::eR16G16B16A16Sfloat;
                 break;
             case ImageUsage::GBufferMetalness:
+                // RG: metalness + roughness (see gbuffer outMaterial)
+                mFormat = vk::Format::eR8G8Unorm;
+                break;
             case ImageUsage::GBufferRoughness:
                 mFormat = vk::Format::eR8Unorm;
                 break;

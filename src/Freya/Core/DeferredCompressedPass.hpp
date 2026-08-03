@@ -24,7 +24,7 @@ namespace FREYA_NAMESPACE
         DefNormalAttachment,      ///< G-buffer normal
         DefAlbedoAttachment,      ///< G-buffer albedo
         DefEmissiveAttachment,    ///< G-buffer emissive (for bloom)
-        DefMaterialAttachment,    ///< G-buffer material (metalness)
+        DefMaterialAttachment,    ///< G-buffer material (RG: metalness, roughness)
         DefTranslucentAttachment, ///< Translucent objects buffer
         DefOpaqueAttachment,      ///< Opaque lit result buffer
     };
