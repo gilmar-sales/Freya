@@ -31,7 +31,8 @@ namespace FREYA_NAMESPACE
     {
         Point       = 0,
         Directional = 1,
-        Spot        = 2
+        Spot        = 2,
+        Area        = 3, ///< Rectangular area light (LTC)
     };
 
     /**
@@ -40,6 +41,12 @@ namespace FREYA_NAMESPACE
      * Uses std140-friendly packing. alignas(256) ensures descriptor offsets
      * frameIndex * sizeof(LightUniformBuffer) are always valid for UBO
      * dynamic offsets across vendors.
+     *
+     * Area lights (type 3) reuse:
+     * - position = rect center
+     * - direction = rect normal
+     * - outerCutoff = half-width, lightOuterCutoffAndIntensity.z = half-height
+     * - lightAreaTangents = rect tangent (bitangent = cross(N, T))
      */
     struct alignas(256) LightUniformBuffer
     {
@@ -52,7 +59,11 @@ namespace FREYA_NAMESPACE
             lightDirectionsAndCutoff[MAX_LIGHTS]; // xyz = direction, w = inner
                                                   // spotlight cutoff (cosine)
         alignas(64) glm::vec4 lightOuterCutoffAndIntensity
-            [MAX_LIGHTS]; // x = outer spotlight cutoff (cosine), y = intensity
+            [MAX_LIGHTS]; // x = outerCutoff (spot cos) or halfWidth (area),
+                          // y = intensity, z = halfHeight (area)
+        alignas(64) glm::vec4
+            lightAreaTangents[MAX_LIGHTS]; // xyz = rect tangent (area), w
+                                           // unused
 
         alignas(16) glm::vec4 viewPosition; // Camera position for attenuation
         // std140: lightCount + iblIntensity + exposure pack into 16 bytes

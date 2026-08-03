@@ -451,6 +451,18 @@ namespace FREYA_NAMESPACE
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(10)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(11)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
         };
 
         auto inputLayoutInfo =
@@ -468,7 +480,7 @@ namespace FREYA_NAMESPACE
                 .setDescriptorCount(mFreyaOptions->frameCount),
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(3 * mFreyaOptions->frameCount),
+                .setDescriptorCount(5 * mFreyaOptions->frameCount),
         };
 
         auto inputPoolInfo =
@@ -541,8 +553,21 @@ namespace FREYA_NAMESPACE
                 .setImageView(mIblService->GetBrdfLut()->GetImageView())
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 
+        auto ltcMatInfo =
+            vk::DescriptorImageInfo()
+                .setSampler(mIblService->GetLtcSampler())
+                .setImageView(mIblService->GetLtcMatrixMap()->GetImageView())
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+
+        auto ltcAmplInfo =
+            vk::DescriptorImageInfo()
+                .setSampler(mIblService->GetLtcSampler())
+                .setImageView(mIblService->GetLtcAmplMap()->GetImageView())
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+
         for (std::uint32_t frameIndex = 0;
-             frameIndex < mFreyaOptions->frameCount; ++frameIndex)
+             frameIndex < mFreyaOptions->frameCount;
+             ++frameIndex)
         {
             const auto set = lightingInputSets[frameIndex];
 
@@ -604,8 +629,8 @@ namespace FREYA_NAMESPACE
                     .setDescriptorCount(1)
                     .setBufferInfo(lightBufferInfo);
 
-            mDevice->Get().updateDescriptorSets(1, &lightBufferWrite, 0,
-                                                nullptr);
+            mDevice->Get().updateDescriptorSets(
+                1, &lightBufferWrite, 0, nullptr);
 
             auto iblWrites = std::array {
                 vk::WriteDescriptorSet()
@@ -629,6 +654,20 @@ namespace FREYA_NAMESPACE
                         vk::DescriptorType::eCombinedImageSampler)
                     .setDescriptorCount(1)
                     .setImageInfo(brdfInfo),
+                vk::WriteDescriptorSet()
+                    .setDstSet(set)
+                    .setDstBinding(10)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(ltcMatInfo),
+                vk::WriteDescriptorSet()
+                    .setDstSet(set)
+                    .setDstBinding(11)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(ltcAmplInfo),
             };
 
             mDevice->Get().updateDescriptorSets(

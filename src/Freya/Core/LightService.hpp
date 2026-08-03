@@ -4,6 +4,7 @@
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace FREYA_NAMESPACE
@@ -18,15 +19,18 @@ namespace FREYA_NAMESPACE
     struct Light
     {
         glm::vec3 position =
-            glm::vec3(0.0f);     ///< World position (for point/spot lights)
-        float     type   = 0.0f; ///< LightType (0=Point, 1=Directional, 2=Spot)
+            glm::vec3(0.0f);     ///< World position / area rect center
+        float     type   = 0.0f; ///< LightType (0..3 Point/Dir/Spot/Area)
         glm::vec3 color  = glm::vec3(1.0f); ///< RGB light color
         float     radius = 10.0f; ///< Attenuation radius (point/spot lights)
-        glm::vec3 direction = glm::vec3(
-            0.0f, -1.0f, 0.0f);   ///< Direction (for directional/spot lights)
-        float innerCutoff = 0.9f; ///< Inner spotlight cutoff cosine (spot only)
-        float outerCutoff = 0.8f; ///< Outer spotlight cutoff cosine (spot only)
-        float intensity   = 1.0f; ///< Light intensity multiplier
+        glm::vec3 direction =
+            glm::vec3(0.0f, -1.0f, 0.0f); ///< Dir / spot aim / area rect normal
+        float     innerCutoff = 0.9f; ///< Spot inner cosine (unused for area)
+        float     outerCutoff = 0.8f; ///< Spot outer cosine, or area half-width
+        float     intensity   = 1.0f; ///< Light intensity multiplier
+        glm::vec3 tangent =
+            glm::vec3(1.0f, 0.0f, 0.0f); ///< Area rect tangent (U axis)
+        float halfHeight = 0.0f; ///< Area rect half-height along bitangent
     };
 
     /**
@@ -84,6 +88,43 @@ namespace FREYA_NAMESPACE
         light.innerCutoff = std::cos(innerAngleRad);
         light.outerCutoff = std::cos(outerAngleRad);
         light.intensity   = intensity;
+        return light;
+    }
+
+    /**
+     * @brief Creates a rectangular area light (LTC).
+     * @param center     Rectangle center in world space
+     * @param normal     Outward normal (normalized)
+     * @param tangent    Approximate U axis; orthonormalized against normal
+     * @param halfWidth  Half-extent along tangent
+     * @param halfHeight Half-extent along bitangent (cross(N, T))
+     */
+    inline Light MakeAreaLight(const glm::vec3& center,
+                               const glm::vec3& normal,
+                               const glm::vec3& tangent,
+                               float            halfWidth,
+                               float            halfHeight,
+                               const glm::vec3& color,
+                               float            intensity = 1.0f)
+    {
+        Light light {};
+        light.position    = center;
+        light.type        = static_cast<float>(LightType::Area);
+        light.color       = color;
+        light.direction   = glm::normalize(normal);
+        light.intensity   = intensity;
+        light.outerCutoff = std::max(halfWidth, 1e-4f);
+        light.halfHeight  = std::max(halfHeight, 1e-4f);
+
+        auto T = tangent - light.direction * glm::dot(tangent, light.direction);
+        if (glm::dot(T, T) < 1e-8f)
+        {
+            const glm::vec3 up = (std::abs(light.direction.y) < 0.99f)
+                                     ? glm::vec3(0.0f, 1.0f, 0.0f)
+                                     : glm::vec3(1.0f, 0.0f, 0.0f);
+            T                  = glm::cross(up, light.direction);
+        }
+        light.tangent = glm::normalize(T);
         return light;
     }
 

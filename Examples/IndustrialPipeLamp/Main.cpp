@@ -25,9 +25,9 @@ class MainApp final : public fra::AbstractApplication
                     return;
                 }
 
-                const auto next =
-                    mRenderer->IsDeferred() ? fra::RenderingStrategy::Forward
-                                            : fra::RenderingStrategy::Deferred;
+                const auto next = mRenderer->IsDeferred()
+                                      ? fra::RenderingStrategy::Forward
+                                      : fra::RenderingStrategy::Deferred;
                 mRenderer->SetRenderingStrategy(next);
                 updateTitle();
 
@@ -132,6 +132,16 @@ class MainApp final : public fra::AbstractApplication
                 glm::radians(10.0f),
                 glm::radians(18.0f),
                 3.0f)));
+
+        // Soft rectangular fill light above the cluster
+        mLightService->AddLight(fra::MakeAreaLight(
+            glm::vec3(0.0f, 10.0f, 0.0f),
+            glm::vec3(0.0f, -1.0f, 0.0f),
+            glm::vec3(1.0f, 0.0f, 0.0f),
+            4.0f,
+            2.5f,
+            glm::vec3(1.0f, 0.92f, 0.85f),
+            6.0f));
     }
 
     void Update() override
@@ -264,7 +274,8 @@ int main(int argc, const char** argv)
         skr::ApplicationBuilder()
             .WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
                 freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
-                    freyaOptions.SetTitle("Industrial Pipe Lamp — Forward [Tab]")
+                    freyaOptions
+                        .SetTitle("Industrial Pipe Lamp — Forward [Tab]")
                         .SetWidth(1920)
                         .SetHeight(1080)
                         .SetVSync(false)

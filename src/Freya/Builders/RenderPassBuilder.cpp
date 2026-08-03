@@ -99,7 +99,7 @@ namespace FREYA_NAMESPACE
                 .setDescriptorCount(mFreyaOptions->frameCount * 2),
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(mFreyaOptions->frameCount * 3),
+                .setDescriptorCount(mFreyaOptions->frameCount * 5),
         };
 
         auto poolInfo =
@@ -151,9 +151,27 @@ namespace FREYA_NAMESPACE
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr);
 
+        auto ltcMatrixBinding =
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(5)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr);
+
+        auto ltcAmplBinding =
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(6)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr);
+
         auto descriptorSetBindings = std::array {
-            uboLayoutBinding,    lightBufferLayoutBinding, irradianceBinding,
-            prefilterBinding,    brdfBinding,
+            uboLayoutBinding,  lightBufferLayoutBinding,
+            irradianceBinding, prefilterBinding,
+            brdfBinding,       ltcMatrixBinding,
+            ltcAmplBinding,
         };
 
         auto descriptorSetLayoutCreateInfo =
@@ -263,8 +281,8 @@ namespace FREYA_NAMESPACE
                     .setDescriptorCount(1)
                     .setBufferInfo(bufferInfo);
 
-            mDevice->Get()
-                .updateDescriptorSets(1, &descriptorWriter, 0, nullptr);
+            mDevice->Get().updateDescriptorSets(
+                1, &descriptorWriter, 0, nullptr);
         }
 
         // Update light buffer descriptor sets (binding 1)
@@ -285,8 +303,8 @@ namespace FREYA_NAMESPACE
                     .setDescriptorCount(1)
                     .setBufferInfo(lightBufferInfo);
 
-            mDevice->Get()
-                .updateDescriptorSets(1, &lightBufferWriter, 0, nullptr);
+            mDevice->Get().updateDescriptorSets(
+                1, &lightBufferWriter, 0, nullptr);
         }
 
         // IBL samplers (bindings 2-4) — static for all frames
@@ -312,6 +330,19 @@ namespace FREYA_NAMESPACE
                     .setImageView(mIblService->GetBrdfLut()->GetImageView())
                     .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 
+            auto ltcMatInfo =
+                vk::DescriptorImageInfo()
+                    .setSampler(mIblService->GetLtcSampler())
+                    .setImageView(
+                        mIblService->GetLtcMatrixMap()->GetImageView())
+                    .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+
+            auto ltcAmplInfo =
+                vk::DescriptorImageInfo()
+                    .setSampler(mIblService->GetLtcSampler())
+                    .setImageView(mIblService->GetLtcAmplMap()->GetImageView())
+                    .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+
             auto iblWrites = std::array {
                 vk::WriteDescriptorSet()
                     .setDstSet(descriptorSets[i])
@@ -334,6 +365,20 @@ namespace FREYA_NAMESPACE
                         vk::DescriptorType::eCombinedImageSampler)
                     .setDescriptorCount(1)
                     .setImageInfo(brdfInfo),
+                vk::WriteDescriptorSet()
+                    .setDstSet(descriptorSets[i])
+                    .setDstBinding(5)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(ltcMatInfo),
+                vk::WriteDescriptorSet()
+                    .setDstSet(descriptorSets[i])
+                    .setDstBinding(6)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(ltcAmplInfo),
             };
 
             mDevice->Get().updateDescriptorSets(

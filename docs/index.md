@@ -135,5 +135,5 @@ Freya provides the following services via Skirnir's service provider:
 | `MeshPool` | `skr::Arc<MeshPool>` | Mesh asset management |
 | `TexturePool` | `skr::Arc<TexturePool>` | Texture asset management |
 | `MaterialPool` | `skr::Arc<MaterialPool>` | Material asset management |
-| `LightService` | `skr::Arc<LightService>` | Point / directional / spot lights |
+| `LightService` | `skr::Arc<LightService>` | Point / directional / spot / area lights |
 | `IBLService` | `skr::Arc<IBLService>` | Environment / irradiance / BRDF LUT |

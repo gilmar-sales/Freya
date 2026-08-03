@@ -7,12 +7,12 @@
 namespace FREYA_NAMESPACE
 {
     /**
-     * @brief Image-based lighting resources (split-sum approximation).
+     * @brief Image-based lighting + LTC LUT resources.
      *
-     * Owns equirectangular HDR environment / irradiance maps and a BRDF
-     * integration LUT. Specular uses environment mip LODs as a prefilter
-     * approximation. Built at construction from FreyaOptions
-     * (procedural sky or Radiance .hdr path).
+     * Owns equirectangular HDR environment / irradiance maps, a BRDF
+     * integration LUT, and LTC matrices for rectangular area lights.
+     * Built at construction from FreyaOptions (procedural sky or Radiance
+     * .hdr path).
      */
     class IBLService
     {
@@ -29,6 +29,8 @@ namespace FREYA_NAMESPACE
         skr::Arc<Image> GetEnvironmentMap() const { return mEnvironment; }
         skr::Arc<Image> GetIrradianceMap() const { return mIrradiance; }
         skr::Arc<Image> GetBrdfLut() const { return mBrdfLut; }
+        skr::Arc<Image> GetLtcMatrixMap() const { return mLtcMatrix; }
+        skr::Arc<Image> GetLtcAmplMap() const { return mLtcAmpl; }
 
         vk::Sampler GetEnvironmentSampler() const
         {
@@ -36,6 +38,7 @@ namespace FREYA_NAMESPACE
         }
         vk::Sampler GetIrradianceSampler() const { return mIrradianceSampler; }
         vk::Sampler GetBrdfSampler() const { return mBrdfSampler; }
+        vk::Sampler GetLtcSampler() const { return mLtcSampler; }
 
         float         GetIntensity() const { return mIntensity; }
         void          SetIntensity(float intensity) { mIntensity = intensity; }
@@ -46,7 +49,8 @@ namespace FREYA_NAMESPACE
 
         bool IsReady() const
         {
-            return mEnvironment && mIrradiance && mBrdfLut;
+            return mEnvironment && mIrradiance && mBrdfLut && mLtcMatrix &&
+                   mLtcAmpl;
         }
 
       private:
@@ -63,6 +67,8 @@ namespace FREYA_NAMESPACE
                                 int srcH, std::vector<float>& dst, int dstW,
                                 int dstH) const;
         void generateBrdfLut(std::vector<float>& out, int size) const;
+        void generateLtcLuts(std::vector<float>& ltc1, std::vector<float>& ltc2,
+                             int size) const;
         skr::Arc<Image> uploadFloatRgb(const std::vector<float>& rgba,
                                        int width, int height,
                                        bool generateMips) const;
@@ -74,10 +80,13 @@ namespace FREYA_NAMESPACE
         skr::Arc<Image> mEnvironment;
         skr::Arc<Image> mIrradiance;
         skr::Arc<Image> mBrdfLut;
+        skr::Arc<Image> mLtcMatrix;
+        skr::Arc<Image> mLtcAmpl;
 
         vk::Sampler mEnvironmentSampler = nullptr;
         vk::Sampler mIrradianceSampler  = nullptr;
         vk::Sampler mBrdfSampler        = nullptr;
+        vk::Sampler mLtcSampler         = nullptr;
     };
 
 } // namespace FREYA_NAMESPACE

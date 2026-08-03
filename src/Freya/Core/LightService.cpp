@@ -106,8 +106,9 @@ namespace FREYA_NAMESPACE
             data.lightOuterCutoffAndIntensity[i] =
                 glm::vec4(mLights[i].outerCutoff,
                           mLights[i].intensity,
-                          0.0f,
+                          mLights[i].halfHeight,
                           0.0f);
+            data.lightAreaTangents[i] = glm::vec4(mLights[i].tangent, 0.0f);
         }
 
         for (std::uint32_t f = 0; f < mFrameCount; ++f)
@@ -185,8 +186,9 @@ namespace FREYA_NAMESPACE
             data.lightOuterCutoffAndIntensity[i] =
                 glm::vec4(mLights[i].outerCutoff,
                           mLights[i].intensity,
-                          0.0f,
+                          mLights[i].halfHeight,
                           0.0f);
+            data.lightAreaTangents[i] = glm::vec4(mLights[i].tangent, 0.0f);
         }
 
         // Copy to ring-buffer offset for this frame

@@ -26,9 +26,8 @@ namespace FREYA_NAMESPACE
         glm::vec2 EquirectFromDirection(const glm::vec3& dir)
         {
             const glm::vec3 n = glm::normalize(dir);
-            float           u =
-                std::atan2(n.z, n.x) / (2.0f * kPi) + 0.5f;
-            float v = std::acos(std::clamp(n.y, -1.0f, 1.0f)) / kPi;
+            float           u = std::atan2(n.z, n.x) / (2.0f * kPi) + 0.5f;
+            float           v = std::acos(std::clamp(n.y, -1.0f, 1.0f)) / kPi;
             return { u, v };
         }
 
@@ -36,14 +35,14 @@ namespace FREYA_NAMESPACE
                                  int height, const glm::vec3& dir)
         {
             const glm::vec2 uv = EquirectFromDirection(dir);
-            const float     x = uv.x * static_cast<float>(width - 1);
-            const float     y = uv.y * static_cast<float>(height - 1);
+            const float     x  = uv.x * static_cast<float>(width - 1);
+            const float     y  = uv.y * static_cast<float>(height - 1);
             const int       x0 = static_cast<int>(x);
             const int       y0 = static_cast<int>(y);
-            const int x1 = std::min(x0 + 1, width - 1);
-            const int y1 = std::min(y0 + 1, height - 1);
-            const float fx = x - static_cast<float>(x0);
-            const float fy = y - static_cast<float>(y0);
+            const int       x1 = std::min(x0 + 1, width - 1);
+            const int       y1 = std::min(y0 + 1, height - 1);
+            const float     fx = x - static_cast<float>(x0);
+            const float     fy = y - static_cast<float>(y0);
 
             auto fetch = [&](int px, int py) {
                 const std::size_t i =
@@ -61,14 +60,10 @@ namespace FREYA_NAMESPACE
         float RadicalInverseVanDerCorput(std::uint32_t bits)
         {
             bits = (bits << 16u) | (bits >> 16u);
-            bits = ((bits & 0x55555555u) << 1u) |
-                   ((bits & 0xAAAAAAAAu) >> 1u);
-            bits = ((bits & 0x33333333u) << 2u) |
-                   ((bits & 0xCCCCCCCCu) >> 2u);
-            bits = ((bits & 0x0F0F0F0Fu) << 4u) |
-                   ((bits & 0xF0F0F0F0u) >> 4u);
-            bits = ((bits & 0x00FF00FFu) << 8u) |
-                   ((bits & 0xFF00FF00u) >> 8u);
+            bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+            bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+            bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+            bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
             return static_cast<float>(bits) * 2.3283064365386963e-10f;
         }
 
@@ -81,17 +76,17 @@ namespace FREYA_NAMESPACE
         glm::vec3 ImportanceSampleGGX(glm::vec2 Xi, glm::vec3 N,
                                       float roughness)
         {
-            const float a = roughness * roughness;
+            const float a   = roughness * roughness;
             const float phi = 2.0f * kPi * Xi.x;
             const float cosTheta =
                 std::sqrt((1.0f - Xi.y) / (1.0f + (a * a - 1.0f) * Xi.y));
             const float sinTheta = std::sqrt(1.0f - cosTheta * cosTheta);
 
-            const glm::vec3 H(std::cos(phi) * sinTheta, std::sin(phi) * sinTheta,
-                              cosTheta);
+            const glm::vec3 H(std::cos(phi) * sinTheta,
+                              std::sin(phi) * sinTheta, cosTheta);
 
-            const glm::vec3 up =
-                std::abs(N.z) < 0.999f ? glm::vec3(0, 0, 1) : glm::vec3(1, 0, 0);
+            const glm::vec3 up = std::abs(N.z) < 0.999f ? glm::vec3(0, 0, 1)
+                                                        : glm::vec3(1, 0, 0);
             const glm::vec3 tangent   = glm::normalize(glm::cross(up, N));
             const glm::vec3 bitangent = glm::cross(N, tangent);
             return glm::normalize(tangent * H.x + bitangent * H.y + N * H.z);
@@ -111,9 +106,10 @@ namespace FREYA_NAMESPACE
         }
     } // namespace
 
-    IBLService::IBLService(const skr::Arc<Device>&               device,
-                           const skr::Arc<skr::ServiceProvider>& serviceProvider,
-                           const skr::Arc<FreyaOptions>& options) :
+    IBLService::IBLService(
+        const skr::Arc<Device>&               device,
+        const skr::Arc<skr::ServiceProvider>& serviceProvider,
+        const skr::Arc<FreyaOptions>&         options) :
         mDevice(device), mServiceProvider(serviceProvider),
         mIntensity(options->iblIntensity)
     {
@@ -156,6 +152,10 @@ namespace FREYA_NAMESPACE
         {
             vkDevice.destroySampler(mBrdfSampler);
         }
+        if (mLtcSampler)
+        {
+            vkDevice.destroySampler(mLtcSampler);
+        }
     }
 
     void IBLService::createSamplers()
@@ -183,6 +183,59 @@ namespace FREYA_NAMESPACE
         mEnvironmentSampler = makeSampler(true);
         mIrradianceSampler  = makeSampler(false);
         mBrdfSampler        = makeSampler(false);
+        mLtcSampler         = makeSampler(false);
+    }
+
+    void IBLService::generateLtcLuts(std::vector<float>& ltc1,
+                                     std::vector<float>& ltc2, int size) const
+    {
+        // Parametric GGX→LTC approximation (inverse matrix packing matches
+        // LearnOpenGL / Heitz layout). Sufficient for soft rect area lights;
+        // can be swapped for tabulated Heitz fits later.
+        ltc1.assign(static_cast<std::size_t>(size) * size * 4, 0.0f);
+        ltc2.assign(static_cast<std::size_t>(size) * size * 4, 0.0f);
+
+        for (int y = 0; y < size; ++y)
+        {
+            const float roughness =
+                std::max((y + 0.5f) / static_cast<float>(size), 1e-3f);
+            const float alpha  = std::max(roughness * roughness, 1e-4f);
+            const float invA   = 1.0f / alpha;
+            const float invASq = invA * invA;
+
+            for (int x = 0; x < size; ++x)
+            {
+                // Sample as in the shader: uv = (roughness, sqrt(1-NdotV))
+                const float ut    = (x + 0.5f) / static_cast<float>(size);
+                const float NdotV = std::clamp(1.0f - ut * ut, 0.0f, 1.0f);
+                const float theta = std::acos(NdotV);
+                const float sinT  = std::sin(theta);
+
+                // Stretch lobe with roughness; slight view-dependent skew.
+                const float m00 =
+                    std::clamp(invA + (1.0f - NdotV) * invA * 0.35f,
+                               1.0f,
+                               100.0f);
+                const float m20 = sinT * (1.0f - alpha) * 0.15f;
+                const float m02 = -m20 * 0.5f;
+                const float m22 =
+                    std::clamp(1.0f + (1.0f - alpha) * NdotV, 0.2f, 4.0f);
+
+                const std::size_t i =
+                    (static_cast<std::size_t>(y) * size + x) * 4;
+                ltc1[i + 0] = m00;
+                ltc1[i + 1] = m20;
+                ltc1[i + 2] = m02;
+                ltc1[i + 3] = m22;
+
+                // Amplitude / fresnel helpers + horizon form-factor scale.
+                const float fresnelBias = std::pow(1.0f - NdotV, 5.0f);
+                ltc2[i + 0]             = 1.0f - fresnelBias * 0.5f;
+                ltc2[i + 1]             = std::max(NdotV, 0.05f);
+                ltc2[i + 2]             = invASq * 0.01f;
+                ltc2[i + 3]             = 1.0f;
+            }
+        }
     }
 
     void IBLService::generateProceduralSky(std::vector<float>& out, int width,
@@ -227,11 +280,11 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    bool IBLService::loadHdrFile(const std::string&   path,
-                                 std::vector<float>&  out, int& width,
-                                 int&                 height) const
+    bool IBLService::loadHdrFile(const std::string&  path,
+                                 std::vector<float>& out, int& width,
+                                 int& height) const
     {
-        int   components = 0;
+        int    components = 0;
         float* pixels =
             stbi_loadf(path.c_str(), &width, &height, &components, 4);
         if (pixels == nullptr || width <= 0 || height <= 0)
@@ -239,8 +292,7 @@ namespace FREYA_NAMESPACE
             return false;
         }
 
-        const std::size_t count =
-            static_cast<std::size_t>(width) * height * 4;
+        const std::size_t count = static_cast<std::size_t>(width) * height * 4;
         out.assign(pixels, pixels + count);
         stbi_image_free(pixels);
         return true;
@@ -254,16 +306,16 @@ namespace FREYA_NAMESPACE
             return;
         }
 
-        const int dstW = maxWidth;
-        const int dstH = std::max(1, (height * dstW) / width);
+        const int          dstW = maxWidth;
+        const int          dstH = std::max(1, (height * dstW) / width);
         std::vector<float> dst(static_cast<std::size_t>(dstW) * dstH * 4);
 
         for (int y = 0; y < dstH; ++y)
         {
             for (int x = 0; x < dstW; ++x)
             {
-                const float u = (x + 0.5f) / dstW;
-                const float v = (y + 0.5f) / dstH;
+                const float u  = (x + 0.5f) / dstW;
+                const float v  = (y + 0.5f) / dstH;
                 const float sx = u * static_cast<float>(width - 1);
                 const float sy = v * static_cast<float>(height - 1);
                 const int   x0 = static_cast<int>(sx);
@@ -280,9 +332,10 @@ namespace FREYA_NAMESPACE
                                      data[i + 3]);
                 };
 
-                const glm::vec4 c = glm::mix(glm::mix(fetch(x0, y0), fetch(x1, y0), fx),
-                                             glm::mix(fetch(x0, y1), fetch(x1, y1), fx),
-                                             fy);
+                const glm::vec4 c =
+                    glm::mix(glm::mix(fetch(x0, y0), fetch(x1, y0), fx),
+                             glm::mix(fetch(x0, y1), fetch(x1, y1), fx),
+                             fy);
                 const std::size_t i =
                     (static_cast<std::size_t>(y) * dstW + x) * 4;
                 dst[i]     = c.r;
@@ -314,8 +367,8 @@ namespace FREYA_NAMESPACE
                 const float     v = (y + 0.5f) / dstH;
                 const glm::vec3 N = DirectionFromEquirect(u, v);
 
-                glm::vec3 up =
-                    std::abs(N.z) < 0.999f ? glm::vec3(0, 0, 1) : glm::vec3(1, 0, 0);
+                glm::vec3 up = std::abs(N.z) < 0.999f ? glm::vec3(0, 0, 1)
+                                                      : glm::vec3(1, 0, 0);
                 const glm::vec3 tangent   = glm::normalize(glm::cross(up, N));
                 const glm::vec3 bitangent = glm::cross(N, tangent);
 
@@ -324,8 +377,7 @@ namespace FREYA_NAMESPACE
 
                 for (int phiI = 0; phiI < kPhiSamples; ++phiI)
                 {
-                    const float phi =
-                        (phiI + 0.5f) / kPhiSamples * 2.0f * kPi;
+                    const float phi = (phiI + 0.5f) / kPhiSamples * 2.0f * kPi;
                     for (int thetaI = 0; thetaI < kThetaSamples; ++thetaI)
                     {
                         const float theta =
@@ -369,8 +421,7 @@ namespace FREYA_NAMESPACE
         {
             for (int x = 0; x < size; ++x)
             {
-                const float NdotV =
-                    std::max((x + 0.5f) / size, 1e-3f);
+                const float NdotV     = std::max((x + 0.5f) / size, 1e-3f);
                 const float roughness = std::max((y + 0.5f) / size, 0.045f);
 
                 const glm::vec3 V(std::sqrt(1.0f - NdotV * NdotV), 0.0f, NdotV);
@@ -392,8 +443,7 @@ namespace FREYA_NAMESPACE
 
                     if (NdotL > 0.0f)
                     {
-                        const float G =
-                            GeometrySmith(NdotV, NdotL, roughness);
+                        const float G = GeometrySmith(NdotV, NdotL, roughness);
                         const float G_Vis =
                             (G * VdotH) / std::max(NdotH * NdotV, 1e-4f);
                         const float Fc = std::pow(1.0f - VdotH, 5.0f);
@@ -443,8 +493,8 @@ namespace FREYA_NAMESPACE
         // Specular IBL uses this map's mip chain as a prefilter stand-in.
         mEnvironment = uploadFloatRgb(src, width, height, true);
 
-        constexpr int kIrrW = 64;
-        constexpr int kIrrH = 32;
+        constexpr int      kIrrW = 64;
+        constexpr int      kIrrH = 32;
         std::vector<float> irradiance;
         convolveIrradiance(src, width, height, irradiance, kIrrW, kIrrH);
         mIrradiance = uploadFloatRgb(irradiance, kIrrW, kIrrH, false);
@@ -453,6 +503,13 @@ namespace FREYA_NAMESPACE
         std::vector<float> lut;
         generateBrdfLut(lut, kLutSize);
         mBrdfLut = uploadFloatRgb(lut, kLutSize, kLutSize, false);
+
+        constexpr int      kLtcSize = 64;
+        std::vector<float> ltc1;
+        std::vector<float> ltc2;
+        generateLtcLuts(ltc1, ltc2, kLtcSize);
+        mLtcMatrix = uploadFloatRgb(ltc1, kLtcSize, kLtcSize, false);
+        mLtcAmpl   = uploadFloatRgb(ltc2, kLtcSize, kLtcSize, false);
     }
 
 } // namespace FREYA_NAMESPACE

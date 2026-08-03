@@ -158,8 +158,8 @@ Uniform buffer for shader data.
 
 ## LightService
 
-Manages analytical lights (point, directional, spot) and uploads them to a
-shared UBO used by Forward and DeferredCompressed lighting.
+Manages analytical lights (point, directional, spot, area) and uploads them
+to a shared UBO used by Forward and DeferredCompressed lighting.
 
 `FreyaOptions::maxLights` (default 16, see `MAX_LIGHTS`) caps how many lights
 `AddLight` accepts. Shader arrays are fixed at 16 entries.
@@ -171,16 +171,21 @@ shared UBO used by Forward and DeferredCompressed lighting.
 | Point | `MakePointLight(pos, color, radius, intensity)` | Attenuates by distance |
 | Directional | `MakeDirectionalLight(dir, color, intensity)` | Direction is normalized |
 | Spot | `MakeSpotLight(pos, dir, color, radius, innerRad, outerRad, intensity)` | Cone angles in radians; stored as cosines |
+| Area | `MakeAreaLight(center, normal, tangent, halfW, halfH, color, intensity)` | Rect panel; LTC in Forward + Deferred |
 
 Spot/inner and outer cutoffs on `Light` are **cosines** of the cone half-angles.
 The spot factory converts radians for you.
 
+For area lights, `outerCutoff` stores half-width and `halfHeight` the half-extent
+along the bitangent (`cross(normal, tangent)`).
+
 ### GPU packing (`LightUniformBuffer`, std140 SoA)
 
-- `lightPositions[i]` — xyz position, **w = LightType**
+- `lightPositions[i]` — xyz position / area center, **w = LightType**
 - `lightColorsAndRadius[i]` — rgb color, w radius
-- `lightDirectionsAndCutoff[i]` — xyz direction, w innerCutoff (cos)
-- `lightOuterCutoffAndIntensity[i]` — x outerCutoff (cos), y intensity
+- `lightDirectionsAndCutoff[i]` — xyz direction / area normal, w innerCutoff (cos)
+- `lightOuterCutoffAndIntensity[i]` — x outerCutoff (spot cos) or halfWidth (area), y intensity, z halfHeight (area)
+- `lightAreaTangents[i]` — xyz area tangent
 - `viewPosition`, `lightCount`
 
 ### Usage
@@ -207,6 +212,15 @@ lights->AddLight(fra::MakeSpotLight(
     glm::radians(22.0f),
     1.0f));
 
+lights->AddLight(fra::MakeAreaLight(
+    glm::vec3(0.0f, 6.0f, 0.0f),
+    glm::vec3(0.0f, -1.0f, 0.0f),
+    glm::vec3(1.0f, 0.0f, 0.0f),
+    3.0f,
+    1.5f,
+    glm::vec3(1.0f, 0.95f, 0.9f),
+    4.0f));
+
 // Per-frame: position-only or full replace
 lights->UpdateLightPosition(static_cast<std::uint32_t>(point),
                             glm::vec3(2.0f, 5.0f, 0.0f));
@@ -226,8 +240,9 @@ the light service is present (also uploads `iblIntensity` for IBL).
 ## IBLService
 
 Provides split-sum image-based lighting: an equirectangular environment map
-(specular + mip LOD prefilter stand-in), a convolved irradiance map, and a
-BRDF integration LUT. Built at startup from `FreyaOptions::environmentMapPath` (Radiance `.hdr` via
+(specular + mip LOD prefilter stand-in), a convolved irradiance map, a
+BRDF integration LUT, and parametric LTC LUTs used by rectangular area lights.
+Built at startup from `FreyaOptions::environmentMapPath` (Radiance `.hdr` via
 `stbi_loadf`; maps wider than 1024px are downsampled). Default path is
 `./Resources/Environments/studio_small_09_4k.hdr` (copied from the repo-root
 `Resources/` into example binary dirs). Set the path to empty to force the
@@ -237,11 +252,12 @@ procedural sky; if the file is missing, the procedural sky is used as well.
 |----------|------|
 | Environment | Specular IBL via `textureLod` (mip ≈ roughness) |
 | Irradiance | Diffuse IBL (CPU hemisphere convolution) |
-| BRDF LUT | Scale/bias for specular split-sum |
+| BRDF LUT | Specular split-sum scale/bias |
+| LTC matrix/ampl | Linearly Transformed Cosines for area lights |
 
 Configure with `SetIblIntensity` / `SetEnvironmentMapPath` on
-`FreyaOptionsBuilder`. Forward set 0 bindings 2–4 and deferred lighting
-bindings 7–9 sample these maps.
+`FreyaOptionsBuilder`. Forward set 0 bindings 2–4 sample IBL; bindings 5–6
+are LTC LUTs. Deferred lighting bindings 7–9 sample IBL; 10–11 are LTC.
 
 ## DeferredCompressedPass
 
