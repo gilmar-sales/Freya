@@ -107,7 +107,7 @@ namespace FREYA_NAMESPACE
                 glm::vec4(mLights[i].outerCutoff,
                           mLights[i].intensity,
                           mLights[i].halfHeight,
-                          0.0f);
+                          mLights[i].castShadows ? 1.0f : 0.0f);
             data.lightAreaTangents[i] = glm::vec4(mLights[i].tangent, 0.0f);
         }
 
@@ -187,7 +187,7 @@ namespace FREYA_NAMESPACE
                 glm::vec4(mLights[i].outerCutoff,
                           mLights[i].intensity,
                           mLights[i].halfHeight,
-                          0.0f);
+                          mLights[i].castShadows ? 1.0f : 0.0f);
             data.lightAreaTangents[i] = glm::vec4(mLights[i].tangent, 0.0f);
         }
 

@@ -7,6 +7,7 @@
 #include "Freya/Core/IBLService.hpp"
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
+#include "Freya/Core/ShadowPass.hpp"
 #include "Freya/Core/Surface.hpp"
 #include "Freya/FreyaOptions.hpp"
 
@@ -27,10 +28,12 @@ namespace FREYA_NAMESPACE
             const skr::Arc<FreyaOptions>&         freyaOptions,
             const skr::Arc<skr::ServiceProvider>& serviceProvider,
             const skr::Arc<LightService>&         lightService,
-            const skr::Arc<IBLService>&           iblService) :
+            const skr::Arc<IBLService>&           iblService,
+            const skr::Arc<ShadowPass>&           shadowPass) :
             mDevice(device), mPhysicalDevice(physicalDevice), mSurface(surface),
             mFreyaOptions(freyaOptions), mServiceProvider(serviceProvider),
-            mLightService(lightService), mIblService(iblService)
+            mLightService(lightService), mIblService(iblService),
+            mShadowPass(shadowPass)
         {
         }
 
@@ -47,5 +50,6 @@ namespace FREYA_NAMESPACE
         skr::Arc<skr::ServiceProvider> mServiceProvider;
         skr::Arc<LightService>         mLightService;
         skr::Arc<IBLService>           mIblService;
+        skr::Arc<ShadowPass>           mShadowPass;
     };
 } // namespace FREYA_NAMESPACE

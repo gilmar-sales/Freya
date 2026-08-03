@@ -12,6 +12,7 @@
 #include "Freya/Builders/RenderTargetBuilder.hpp"
 #include "Freya/Builders/RendererBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
+#include "Freya/Builders/ShadowPassBuilder.hpp"
 #include "Freya/Builders/SurfaceBuilder.hpp"
 #include "Freya/Builders/SwapChainBuilder.hpp"
 #include "Freya/Builders/WindowBuilder.hpp"
@@ -19,8 +20,9 @@
 #include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Asset/TexturePool.hpp"
-#include "Freya/Core/LightService.hpp"
 #include "Freya/Core/IBLService.hpp"
+#include "Freya/Core/LightService.hpp"
+#include "Freya/Core/ShadowPass.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -46,6 +48,7 @@ namespace FREYA_NAMESPACE
         services.AddTransient<DeferredCompressedPassBuilder>();
         services.AddTransient<BloomPassBuilder>();
         services.AddTransient<CompositePassBuilder>();
+        services.AddTransient<ShadowPassBuilder>();
 
         services.AddSingleton<Instance>(
             [](skr::ServiceProvider& serviceProvider) {
@@ -117,6 +120,11 @@ namespace FREYA_NAMESPACE
 
         // IBL maps are baked at construction (procedural sky or HDR path)
         services.AddSingleton<IBLService>();
+
+        services.AddSingleton<ShadowPass>(
+            [](skr::ServiceProvider& serviceProvider) {
+                return serviceProvider.GetService<ShadowPassBuilder>()->Build();
+            });
 
         services.AddSingleton<Window>(
             [](skr::ServiceProvider& serviceProvider) {

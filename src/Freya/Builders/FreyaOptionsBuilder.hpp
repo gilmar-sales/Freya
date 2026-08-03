@@ -154,6 +154,36 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        FreyaOptionsBuilder& SetShadowCascadeCount(std::uint32_t count)
+        {
+            mFreyaOptions->shadowCascadeCount = count;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetShadowMapResolution(std::uint32_t resolution)
+        {
+            mFreyaOptions->shadowMapResolution = resolution;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetShadowBias(float bias)
+        {
+            mFreyaOptions->shadowBias = bias;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetMaxSpotShadows(std::uint32_t count)
+        {
+            mFreyaOptions->maxSpotShadows = count;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetMaxPointShadows(std::uint32_t count)
+        {
+            mFreyaOptions->maxPointShadows = count;
+            return *this;
+        }
+
         FreyaOptionsBuilder& WithReverseZ(bool value = true)
         {
             mFreyaOptions->ReverseZ = value;

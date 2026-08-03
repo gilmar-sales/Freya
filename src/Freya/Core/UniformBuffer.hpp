@@ -22,7 +22,10 @@ namespace FREYA_NAMESPACE
     /**
      * @brief Maximum number of lights supported by the lighting system.
      */
-    constexpr std::uint32_t MAX_LIGHTS = 16;
+    constexpr std::uint32_t MAX_LIGHTS           = 16;
+    constexpr std::uint32_t MAX_SHADOW_CASCADES  = 4;
+    constexpr std::uint32_t MAX_SPOT_SHADOWS     = 4;
+    constexpr std::uint32_t MAX_POINT_SHADOWS    = 2;
 
     /**
      * @brief Light types enumeration.
@@ -60,7 +63,8 @@ namespace FREYA_NAMESPACE
                                                   // spotlight cutoff (cosine)
         alignas(64) glm::vec4 lightOuterCutoffAndIntensity
             [MAX_LIGHTS]; // x = outerCutoff (spot cos) or halfWidth (area),
-                          // y = intensity, z = halfHeight (area)
+                          // y = intensity, z = halfHeight (area),
+                          // w = castShadows (0/1)
         alignas(64) glm::vec4
             lightAreaTangents[MAX_LIGHTS]; // xyz = rect tangent (area), w
                                            // unused
@@ -73,11 +77,30 @@ namespace FREYA_NAMESPACE
         float         _pad0        = 0.0f;
     };
 
+    /**
+     * @brief Shadow sampling data (CSM + spot slots + point slots).
+     */
+    struct alignas(256) ShadowUniformBuffer
+    {
+        alignas(64) glm::mat4 cascadeViewProj[MAX_SHADOW_CASCADES];
+        alignas(16) glm::vec4 cascadeSplits; ///< View-space split distances
+        alignas(16) glm::vec4
+            params; ///< x=bias, y=normalBias, z=cascadeCount, w=softScale
+        alignas(64) glm::mat4 spotViewProj[MAX_SPOT_SHADOWS];
+        alignas(16) glm::vec4 spotLightIndex; ///< light indices (-1 unused)
+        alignas(16) glm::vec4
+            pointLightPosFar[MAX_POINT_SHADOWS]; ///< xyz=pos, w=far
+        alignas(16) glm::vec4 pointLightIndex;   ///< light indices (-1 unused)
+    };
+
     static_assert(sizeof(ProjectionUniformBuffer) % 256 == 0,
                   "ProjectionUniformBuffer must be 256-byte aligned for UBO "
                   "ring offsets");
     static_assert(sizeof(LightUniformBuffer) % 256 == 0,
                   "LightUniformBuffer must be 256-byte aligned for UBO ring "
+                  "offsets");
+    static_assert(sizeof(ShadowUniformBuffer) % 256 == 0,
+                  "ShadowUniformBuffer must be 256-byte aligned for UBO ring "
                   "offsets");
 
 } // namespace FREYA_NAMESPACE

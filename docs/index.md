@@ -121,6 +121,11 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `exposure` | `float` | `0.7f` | HDR exposure before ACES tonemap |
 | `ambientIntensity` | `float` | `0.03f` | Flat ambient fill |
 | `environmentMapPath` | `std::string` | `./Resources/Environments/studio_small_09_4k.hdr` | Radiance `.hdr` (empty = procedural sky) |
+| `shadowCascadeCount` | `std::uint32_t` | `4` | Directional CSM cascade count (1–4) |
+| `shadowMapResolution` | `std::uint32_t` | `2048` | Shadow map resolution (square) |
+| `shadowBias` | `float` | `0.002f` | Depth bias when sampling shadows |
+| `maxSpotShadows` | `std::uint32_t` | `4` | Max concurrent spot shadow maps |
+| `maxPointShadows` | `std::uint32_t` | `2` | Max concurrent point cube shadows |
 | `renderingStrategy` | `RenderingStrategy` | `Forward` | Forward or Deferred |
 
 ## Services
@@ -137,3 +142,4 @@ Freya provides the following services via Skirnir's service provider:
 | `MaterialPool` | `skr::Arc<MaterialPool>` | Material asset management |
 | `LightService` | `skr::Arc<LightService>` | Point / directional / spot / area lights |
 | `IBLService` | `skr::Arc<IBLService>` | Environment / irradiance / BRDF LUT |
+| `ShadowPass` | `skr::Arc<ShadowPass>` | CSM / spot / point shadow maps |

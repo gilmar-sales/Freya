@@ -52,6 +52,16 @@ namespace FREYA_NAMESPACE
             glm::vec3(1.0f); ///< Flat ambient tint (legacy / fill)
         float ambientIntensity =
             0.03f; ///< Flat ambient intensity (legacy / fill)
+        /// Directional CSM cascade count (1–4).
+        std::uint32_t shadowCascadeCount = 4;
+        /// Resolution of each cascade / spot / cube face (square).
+        std::uint32_t shadowMapResolution = 2048;
+        /// Depth bias applied when sampling shadows.
+        float shadowBias = 0.002f;
+        /// Max concurrent spot lights casting shadows (0–4).
+        std::uint32_t maxSpotShadows = 4;
+        /// Max concurrent point lights casting shadows (0–2).
+        std::uint32_t maxPointShadows = 2;
         RenderingStrategy renderingStrategy =
             RenderingStrategy::Forward; ///< Rendering strategy
         bool ReverseZ;

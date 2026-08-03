@@ -12,6 +12,7 @@
 #include "Freya/Builders/SwapChainBuilder.hpp"
 
 #include "Freya/Core/LightService.hpp"
+#include "Freya/Core/ShadowPass.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -122,6 +123,7 @@ namespace FREYA_NAMESPACE
         }
 
         auto lightService = mServiceProvider->GetService<LightService>();
+        auto shadowPass   = mServiceProvider->GetService<ShadowPass>();
 
         return skr::MakeArc<Renderer>(
             mInstance,
@@ -135,6 +137,7 @@ namespace FREYA_NAMESPACE
             compositePass,
             mCommandPool,
             lightService,
+            shadowPass,
             mServiceProvider,
             mFreyaOptions,
             mEventManager,

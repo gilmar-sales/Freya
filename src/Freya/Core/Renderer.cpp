@@ -11,6 +11,7 @@
 #include "Freya/Builders/SwapChainBuilder.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
+#include "Freya/Core/ShadowPass.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 
 #include <cmath>
@@ -29,6 +30,7 @@ namespace FREYA_NAMESPACE
         const skr::Arc<CompositePass>&          compositePass,
         const skr::Arc<CommandPool>&            commandPool,
         const skr::Arc<LightService>&           lightService,
+        const skr::Arc<ShadowPass>&             shadowPass,
         const skr::Arc<skr::ServiceProvider>&   serviceProvider,
         const skr::Arc<FreyaOptions>&           freyaOptions,
         const skr::Arc<EventManager>&           eventManager,
@@ -38,7 +40,8 @@ namespace FREYA_NAMESPACE
         mDevice(device), mSwapChain(swapChain), mForwardPass(forwardPass),
         mDeferredPass(deferredPass), mBloomPass(bloomPass),
         mCompositePass(compositePass), mCommandPool(commandPool),
-        mLightService(lightService), mServiceProvider(serviceProvider),
+        mLightService(lightService), mShadowPass(shadowPass),
+        mServiceProvider(serviceProvider),
         mFreyaOptions(freyaOptions), mEventManager(eventManager),
         mCurrentProjection({}), mForwardColorImage(forwardColorImage),
         mForwardResolveImage(forwardResolveImage),
@@ -920,15 +923,31 @@ namespace FREYA_NAMESPACE
             vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
 
         commandBuffer.begin(beginInfo);
+    }
 
-        // Begin the Gbuffer+Lighting pass (deferred) or forward pass
+    void Renderer::EndScene()
+    {
+        if (mShadowPass && mLightService)
+        {
+            mShadowPass->Update(*mLightService,
+                                mCurrentProjection.view,
+                                mCurrentProjection.projection,
+                                glm::vec3(glm::inverse(mCurrentProjection.view)[3]),
+                                mCameraNear,
+                                mFreyaOptions->drawDistance);
+            mShadowPass->Render(mCommandPool, [this]() {
+                ExecuteDrawCommands(false);
+            });
+        }
+
+        const auto commandBuffer = mCommandPool->GetCommandBuffer();
+
         if (IsDeferred() && mDeferredPass)
         {
             mDeferredPass->Begin(mSwapChain, mCommandPool);
         }
         else
         {
-            // Forward mode: render offscreen (for bloom+composite)
             mForwardPass->Begin(
                 mForwardOffscreenRenderPass,
                 mForwardOffscreenFramebuffers[mSwapChain
@@ -938,7 +957,6 @@ namespace FREYA_NAMESPACE
                 mCommandPool);
         }
 
-        // Viewport and scissor
         const auto renderExtent = getRenderExtent();
         const auto viewport =
             vk::Viewport()
@@ -955,10 +973,7 @@ namespace FREYA_NAMESPACE
             vk::Rect2D().setOffset({ 0, 0 }).setExtent(renderExtent);
 
         commandBuffer.setScissor(0, 1, &scissor);
-    }
 
-    void Renderer::EndScene()
-    {
         if (IsDeferred() && mDeferredPass)
         {
             auto frameIndex     = mSwapChain->GetCurrentFrameIndex();

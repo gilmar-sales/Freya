@@ -14,6 +14,7 @@
 #include "Freya/Core/PhysicalDevice.hpp"
 #include "Freya/Core/RenderPass.hpp"
 #include "Freya/Core/RenderTarget.hpp"
+#include "Freya/Core/ShadowPass.hpp"
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Events/EventManager.hpp"
 
@@ -46,6 +47,7 @@ namespace FREYA_NAMESPACE
                  const skr::Arc<CompositePass>&          compositePass,
                  const skr::Arc<CommandPool>&            commandPool,
                  const skr::Arc<LightService>&           lightService,
+                 const skr::Arc<ShadowPass>&             shadowPass,
                  const skr::Arc<skr::ServiceProvider>&   serviceProvider,
                  const skr::Arc<FreyaOptions>&           freyaOptions,
                  const skr::Arc<EventManager>&           eventManager,
@@ -262,6 +264,8 @@ namespace FREYA_NAMESPACE
         skr::Arc<CompositePass>          mCompositePass;
         skr::Arc<CommandPool>            mCommandPool;
         skr::Arc<LightService>           mLightService;
+        skr::Arc<ShadowPass>             mShadowPass;
+        float                            mCameraNear = 1.0f;
         skr::Arc<EventManager>           mEventManager;
         skr::Arc<FreyaOptions>           mFreyaOptions;
         skr::Arc<RenderTarget>           mOutputTarget;

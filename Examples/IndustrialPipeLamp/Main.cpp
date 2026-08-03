@@ -89,11 +89,15 @@ class MainApp final : public fra::AbstractApplication
         mSpaceShipModel =
             mMeshPool->CreateMeshFromFile("./Resources/Models/SpaceShip.fbx");
 
-        // Classic light trio: cooler key, softer points farther from the mesh
-        mLightService->AddLight(fra::MakeDirectionalLight(
-            glm::vec3(-0.4f, -1.0f, -0.3f),
-            glm::vec3(1.0f, 0.96f, 0.9f),
-            1.0f));
+        // Classic light trio: cooler key + orbiting fills (shadow casters)
+        {
+            auto key = fra::MakeDirectionalLight(
+                glm::vec3(-0.4f, -1.0f, -0.3f),
+                glm::vec3(1.0f, 0.96f, 0.9f),
+                1.0f);
+            key.castShadows = true;
+            mLightService->AddLight(key);
+        }
 
         mAnimatedLights.resize(3);
 
@@ -101,12 +105,16 @@ class MainApp final : public fra::AbstractApplication
         mAnimatedLights[0].phaseOffset  = 0.0f;
         mAnimatedLights[0].radiusOffset = 4.0f;
         mAnimatedLights[0].kind         = AnimatedLightKind::Point;
-        mAnimatedLights[0].index        = static_cast<std::uint32_t>(
-            mLightService->AddLight(fra::MakePointLight(
+        {
+            auto point = fra::MakePointLight(
                 glm::vec3(12.0f, 6.0f, 0.0f),
                 glm::vec3(1.0f, 0.45f, 0.3f),
                 40.0f,
-                1.8f)));
+                1.8f);
+            point.castShadows       = true;
+            mAnimatedLights[0].index = static_cast<std::uint32_t>(
+                mLightService->AddLight(point));
+        }
 
         mAnimatedLights[1].speed        = 1.2f;
         mAnimatedLights[1].phaseOffset  = 2.1f;
@@ -123,15 +131,19 @@ class MainApp final : public fra::AbstractApplication
         mAnimatedLights[2].phaseOffset  = 4.0f;
         mAnimatedLights[2].radiusOffset = 3.0f;
         mAnimatedLights[2].kind         = AnimatedLightKind::Spot;
-        mAnimatedLights[2].index        = static_cast<std::uint32_t>(
-            mLightService->AddLight(fra::MakeSpotLight(
+        {
+            auto spot = fra::MakeSpotLight(
                 glm::vec3(0.0f, 12.0f, 10.0f),
                 glm::vec3(0.0f, -1.0f, -0.5f),
                 glm::vec3(0.95f, 0.95f, 1.0f),
                 45.0f,
                 glm::radians(10.0f),
                 glm::radians(18.0f),
-                3.0f)));
+                3.0f);
+            spot.castShadows         = true;
+            mAnimatedLights[2].index = static_cast<std::uint32_t>(
+                mLightService->AddLight(spot));
+        }
 
         // Soft rectangular fill light above the cluster
         mLightService->AddLight(fra::MakeAreaLight(

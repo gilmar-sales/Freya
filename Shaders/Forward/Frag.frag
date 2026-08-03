@@ -24,6 +24,20 @@ layout(binding = 4) uniform sampler2D brdfLUT;
 layout(binding = 5) uniform sampler2D ltcMatrixMap;
 layout(binding = 6) uniform sampler2D ltcAmplMap;
 
+layout(binding = 7) uniform ShadowBuffer {
+    mat4 cascadeViewProj[4];
+    vec4 cascadeSplits;
+    vec4 params; // x=bias y=normalBias z=cascadeCount w=softScale
+    mat4 spotViewProj[4];
+    vec4 spotLightIndex;
+    vec4 pointLightPosFar[2];
+    vec4 pointLightIndex;
+} shadows;
+
+layout(binding = 8) uniform sampler2DArrayShadow cascadeShadowMap;
+layout(binding = 9) uniform sampler2DArrayShadow spotShadowMap;
+layout(binding = 10) uniform samplerCubeArrayShadow pointShadowMap;
+
 layout(set = 1, binding = 0) uniform sampler2D albedoSampler;
 layout(set = 1, binding = 1) uniform sampler2D normalSampler;
 layout(set = 1, binding = 2) uniform sampler2D roughnessSampler;
@@ -85,6 +99,109 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0) {
 vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) *
                     pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+float ShadowPCF2DArray(sampler2DArrayShadow map, vec2 uv, float layer,
+                         float depthRef, float softScale) {
+    vec2 texel = 1.0 / vec2(textureSize(map, 0));
+    float result = 0.0;
+    for (int dx = -1; dx <= 1; ++dx) {
+        for (int dy = -1; dy <= 1; ++dy) {
+            vec2 offset =
+                vec2(float(dx), float(dy)) * texel * softScale;
+            result +=
+                texture(map, vec4(uv + offset, layer, depthRef));
+        }
+    }
+    return result / 9.0;
+}
+
+float ShadowCompare2DArray(sampler2DArrayShadow map, mat4 lightVP,
+                           vec3 worldPos, vec3 N, float layer,
+                           float softScale) {
+    vec3 biased = worldPos + N * shadows.params.y;
+    vec4 clip = lightVP * vec4(biased, 1.0);
+    vec3 ndc = clip.xyz / clip.w;
+
+    if (abs(ndc.x) > 1.0 || abs(ndc.y) > 1.0)
+        return 1.0;
+
+    vec2 uv = ndc.xy * 0.5 + 0.5;
+    float depthRef = ndc.z - shadows.params.x;
+
+    return ShadowPCF2DArray(map, uv, layer, depthRef, softScale);
+}
+
+float SampleCascadeShadow(vec3 worldPos, vec3 N, vec3 L) {
+    float viewDepth = -(pub.view * vec4(worldPos, 1.0)).z;
+
+    int cascade = int(shadows.params.z) - 1;
+    for (int i = 0; i < int(shadows.params.z); ++i) {
+        if (viewDepth < shadows.cascadeSplits[i]) {
+            cascade = i;
+            break;
+        }
+    }
+
+    return ShadowCompare2DArray(cascadeShadowMap,
+                                shadows.cascadeViewProj[cascade],
+                                worldPos, N, float(cascade),
+                                shadows.params.w);
+}
+
+float SampleSpotShadow(int lightIndex, vec3 worldPos, vec3 N) {
+    int slot = -1;
+    for (int s = 0; s < 4; ++s) {
+        if (int(shadows.spotLightIndex[s]) == lightIndex) {
+            slot = s;
+            break;
+        }
+    }
+    if (slot < 0)
+        return 1.0;
+
+    return ShadowCompare2DArray(spotShadowMap,
+                                shadows.spotViewProj[slot],
+                                worldPos, N, float(slot),
+                                shadows.params.w);
+}
+
+float SamplePointShadow(int lightIndex, vec3 worldPos, vec3 N) {
+    int slot = -1;
+    for (int s = 0; s < 2; ++s) {
+        if (int(shadows.pointLightIndex[s]) == lightIndex) {
+            slot = s;
+            break;
+        }
+    }
+    if (slot < 0)
+        return 1.0;
+
+    vec3 lightPos = shadows.pointLightPosFar[slot].xyz;
+    float far = shadows.pointLightPosFar[slot].w;
+
+    vec3 biased = worldPos + N * shadows.params.y;
+    vec3 dir = biased - lightPos;
+    float dist = length(dir);
+    if (dist >= far)
+        return 1.0;
+
+    float depthRef = dist / far - shadows.params.x;
+    return texture(pointShadowMap, vec4(normalize(dir), float(slot)),
+                   depthRef);
+}
+
+float GetShadowFactor(int i, float lightType, vec3 worldPos, vec3 N,
+                      vec3 L) {
+    if (lights.lightOuterCutoffAndIntensity[i].w < 0.5)
+        return 1.0;
+    if (lightType >= 0.5 && lightType < 1.5)
+        return SampleCascadeShadow(worldPos, N, L);
+    if (lightType >= 1.5 && lightType < 2.5)
+        return SampleSpotShadow(i, worldPos, N);
+    if (lightType < 0.5)
+        return SamplePointShadow(i, worldPos, N);
+    return 1.0;
 }
 
 vec3 IntegrateEdgeVec(vec3 v1, vec3 v2) {
@@ -206,11 +323,11 @@ void resolveLight(vec3 lightPos, float lightType, float radius, vec3 lightDir,
     }
 }
 
-vec3 calculateLight(vec3 lightPos, float lightType, vec3 lightColor,
-                    float radius, vec3 lightDir, float innerCutoff,
-                    float outerCutoff, float intensity, vec3 worldPos,
-                    vec3 N, vec3 V, vec3 albedo, float roughness,
-                    float metalness, vec3 F0) {
+vec3 calculateLight(int lightIndex, vec3 lightPos, float lightType,
+                    vec3 lightColor, float radius, vec3 lightDir,
+                    float innerCutoff, float outerCutoff, float intensity,
+                    vec3 worldPos, vec3 N, vec3 V, vec3 albedo,
+                    float roughness, float metalness, vec3 F0) {
     vec3 L;
     float attenuation;
     resolveLight(lightPos, lightType, radius, lightDir, innerCutoff,
@@ -220,6 +337,9 @@ vec3 calculateLight(vec3 lightPos, float lightType, vec3 lightColor,
     if (NdotL <= 0.0 || attenuation <= 0.0) {
         return vec3(0.0);
     }
+
+    float shadowFactor =
+        GetShadowFactor(lightIndex, lightType, worldPos, N, L);
 
     vec3 H = normalize(V + L);
     float NDF = DistributionGGX(N, H, roughness);
@@ -234,7 +354,7 @@ vec3 calculateLight(vec3 lightPos, float lightType, vec3 lightColor,
     vec3 kD = (vec3(1.0) - kS) * (1.0 - metalness);
 
     vec3 radiance = lightColor * intensity * attenuation;
-    return (kD * albedo / PI + specular) * radiance * NdotL;
+    return (kD * albedo / PI + specular) * radiance * NdotL * shadowFactor;
 }
 
 vec3 calculateIBL(vec3 N, vec3 V, vec3 albedo, float roughness, float metalness,
@@ -306,6 +426,7 @@ void main()
         }
 
         totalLighting += calculateLight(
+            i,
             lights.lightPositions[i].xyz,
             lightType,
             lights.lightColorsAndRadius[i].rgb,

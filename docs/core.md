@@ -184,9 +184,13 @@ along the bitangent (`cross(normal, tangent)`).
 - `lightPositions[i]` — xyz position / area center, **w = LightType**
 - `lightColorsAndRadius[i]` — rgb color, w radius
 - `lightDirectionsAndCutoff[i]` — xyz direction / area normal, w innerCutoff (cos)
-- `lightOuterCutoffAndIntensity[i]` — x outerCutoff (spot cos) or halfWidth (area), y intensity, z halfHeight (area)
+- `lightOuterCutoffAndIntensity[i]` — x outerCutoff (spot cos) or halfWidth (area), y intensity, z halfHeight (area), **w = castShadows** (0/1)
 - `lightAreaTangents[i]` — xyz area tangent
 - `viewPosition`, `lightCount`
+
+Set `Light::castShadows = true` on directional / spot / point lights that should
+write shadow maps. Area lights never cast shadows. Shadow budgets and quality
+come from `FreyaOptions` (see Shadows below).
 
 ### Usage
 
@@ -258,6 +262,25 @@ procedural sky; if the file is missing, the procedural sky is used as well.
 Configure with `SetIblIntensity` / `SetEnvironmentMapPath` on
 `FreyaOptionsBuilder`. Forward set 0 bindings 2–4 sample IBL; bindings 5–6
 are LTC LUTs. Deferred lighting bindings 7–9 sample IBL; 10–11 are LTC.
+
+## Shadows
+
+`ShadowPass` runs before Forward / Deferred geometry each frame and produces:
+
+| Target | Technique | Limit |
+|--------|-----------|--------|
+| Directional | Cascaded shadow maps (2D array) | `shadowCascadeCount` (1–4) |
+| Spot | Perspective depth map (2D array) | `maxSpotShadows` (0–4) |
+| Point | Cube array (6 faces each) | `maxPointShadows` (0–2) |
+
+Configure via `FreyaOptionsBuilder`: `SetShadowCascadeCount`,
+`SetShadowMapResolution`, `SetShadowBias`, `SetMaxSpotShadows`,
+`SetMaxPointShadows`. Defaults: 4 cascades, 2048², bias `0.002`, 4 spot /
+2 point slots.
+
+Lighting shaders multiply each light’s radiance by a PCF shadow factor
+(hardware compare samplers). Forward set 0 bindings 7–10 hold the shadow UBO
+and cascade / spot / point maps; Deferred lighting uses bindings 12–15.
 
 ## DeferredCompressedPass
 

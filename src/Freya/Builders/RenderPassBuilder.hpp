@@ -3,6 +3,7 @@
 #include "Freya/Core/IBLService.hpp"
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/RenderPass.hpp"
+#include "Freya/Core/ShadowPass.hpp"
 #include "Freya/FreyaOptions.hpp"
 
 namespace FREYA_NAMESPACE
@@ -29,18 +30,15 @@ namespace FREYA_NAMESPACE
             const skr::Arc<skr::Logger<RenderPassBuilder>>& logger,
             const skr::Arc<skr::ServiceProvider>&           serviceProvider,
             const skr::Arc<LightService>&                   lightService,
-            const skr::Arc<IBLService>&                     iblService) :
+            const skr::Arc<IBLService>&                     iblService,
+            const skr::Arc<ShadowPass>&                     shadowPass) :
             mDevice(device), mPhysicalDevice(physicalDevice), mSurface(surface),
             mFreyaOptions(freyaOptions), mLogger(logger),
             mServiceProvider(serviceProvider), mLightService(lightService),
-            mIblService(iblService)
+            mIblService(iblService), mShadowPass(shadowPass)
         {
         }
 
-        /**
-         * @brief Builds and returns the RenderPass object.
-         * @return Shared pointer to created RenderPass
-         */
         skr::Arc<RenderPass> Build();
 
       private:
@@ -58,5 +56,6 @@ namespace FREYA_NAMESPACE
         skr::Arc<FreyaOptions>                   mFreyaOptions;
         skr::Arc<LightService>                   mLightService;
         skr::Arc<IBLService>                     mIblService;
+        skr::Arc<ShadowPass>                     mShadowPass;
     };
 } // namespace FREYA_NAMESPACE
