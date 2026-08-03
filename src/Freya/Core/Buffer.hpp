@@ -11,6 +11,7 @@ namespace FREYA_NAMESPACE
     enum class BufferUsage
     {
         Staging,  ///< Transfer source buffer (host visible)
+        Readback, ///< Transfer destination buffer (host visible)
         Vertex,   ///< Vertex buffer (device local)
         Index,    ///< Index buffer (device local)
         Uniform,  ///< Uniform buffer (device local)

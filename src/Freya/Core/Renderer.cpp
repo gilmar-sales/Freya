@@ -6,11 +6,13 @@
 #include "Freya/Builders/CompositePassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
+#include "Freya/Builders/PickPassBuilder.hpp"
 #include "Freya/Builders/RenderPassBuilder.hpp"
 #include "Freya/Builders/RenderTargetBuilder.hpp"
 #include "Freya/Builders/SwapChainBuilder.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
+#include "Freya/Core/PickPass.hpp"
 #include "Freya/Core/ShadowPass.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 
@@ -31,6 +33,7 @@ namespace FREYA_NAMESPACE
         const skr::Arc<CommandPool>&            commandPool,
         const skr::Arc<LightService>&           lightService,
         const skr::Arc<ShadowPass>&             shadowPass,
+        const skr::Arc<PickPass>&               pickPass,
         const skr::Arc<skr::ServiceProvider>&   serviceProvider,
         const skr::Arc<FreyaOptions>&           freyaOptions,
         const skr::Arc<EventManager>&           eventManager,
@@ -41,7 +44,7 @@ namespace FREYA_NAMESPACE
         mDeferredPass(deferredPass), mBloomPass(bloomPass),
         mCompositePass(compositePass), mCommandPool(commandPool),
         mLightService(lightService), mShadowPass(shadowPass),
-        mServiceProvider(serviceProvider),
+        mPickPass(pickPass), mServiceProvider(serviceProvider),
         mFreyaOptions(freyaOptions), mEventManager(eventManager),
         mCurrentProjection({}), mForwardColorImage(forwardColorImage),
         mForwardResolveImage(forwardResolveImage),
@@ -452,6 +455,42 @@ namespace FREYA_NAMESPACE
                     mBloomResultSampler);
             }
         }
+
+        resizePickPass(extent);
+    }
+
+    void Renderer::resizePickPass(const vk::Extent2D extent)
+    {
+        if (!mPickPass || extent.width == 0 || extent.height == 0)
+        {
+            return;
+        }
+
+        if (mPickPass->GetExtent().width == extent.width &&
+            mPickPass->GetExtent().height == extent.height)
+        {
+            return;
+        }
+
+        auto colorImage =
+            mServiceProvider->GetService<ImageBuilder>()
+                ->SetUsage(ImageUsage::Color)
+                .SetFormat(vk::Format::eR32Uint)
+                .SetWidth(extent.width)
+                .SetHeight(extent.height)
+                .SetSamples(vk::SampleCountFlagBits::e1)
+                .Build();
+
+        auto depthImage =
+            mServiceProvider->GetService<ImageBuilder>()
+                ->SetUsage(ImageUsage::Depth)
+                .SetFormat(mPhysicalDevice->GetDepthFormat())
+                .SetWidth(extent.width)
+                .SetHeight(extent.height)
+                .SetSamples(vk::SampleCountFlagBits::e1)
+                .Build();
+
+        mPickPass->Resize(extent, colorImage, depthImage);
     }
 
     void Renderer::SetRenderingStrategy(const RenderingStrategy strategy)
@@ -861,19 +900,21 @@ namespace FREYA_NAMESPACE
     }
 
     void Renderer::Draw(const std::uint32_t meshId,
-                        const std::uint32_t materialId)
+                        const std::uint32_t materialId,
+                        const std::uint32_t entityId)
     {
-        mDrawCommands.push_back({ meshId, materialId, 1, 0 });
+        mDrawCommands.push_back({ meshId, materialId, 1, 0, entityId });
     }
 
     void Renderer::DrawInstanced(const std::uint32_t meshId,
                                  const std::uint32_t materialId,
                                  const size_t        instanceCount,
-                                 const size_t        firstInstance)
+                                 const size_t        firstInstance,
+                                 const std::uint32_t entityId)
     {
         mDrawCommands.push_back(
             { meshId, materialId, static_cast<std::uint32_t>(instanceCount),
-              static_cast<std::uint32_t>(firstInstance) });
+              static_cast<std::uint32_t>(firstInstance), entityId });
     }
 
     void Renderer::ClearDrawCommands()
@@ -892,6 +933,42 @@ namespace FREYA_NAMESPACE
             mMeshPool->DrawInstanced(
                 cmd.meshId, cmd.instanceCount, cmd.firstInstance);
         }
+    }
+
+    void Renderer::ExecutePickDrawCommands()
+    {
+        if (!mPickPass)
+        {
+            return;
+        }
+
+        for (const auto& cmd : mDrawCommands)
+        {
+            mPickPass->PushEntityId(mCommandPool, cmd.entityId);
+            mMeshPool->DrawInstanced(
+                cmd.meshId, cmd.instanceCount, cmd.firstInstance);
+        }
+    }
+
+    void Renderer::RequestPick(const std::uint32_t x, const std::uint32_t y)
+    {
+        mPickRequested = true;
+        mPickX         = x;
+        mPickY         = y;
+    }
+
+    bool Renderer::TryConsumePickResult(std::uint32_t& outEntityId)
+    {
+        if (!mPickAwaitingReadback || !mPickPass)
+        {
+            return false;
+        }
+
+        // Editor MVP: ensure the submit that recorded CopyPixel finished.
+        mDevice->Get().waitIdle();
+        outEntityId             = mPickPass->ReadPixel();
+        mPickAwaitingReadback   = false;
+        return true;
     }
 
     void Renderer::BeginFrame()
@@ -929,6 +1006,17 @@ namespace FREYA_NAMESPACE
 
     void Renderer::EndScene()
     {
+        if (mPickRequested && mPickPass)
+        {
+            resizePickPass(getRenderExtent());
+            mPickPass->Render(mCommandPool, mCurrentProjection, [this]() {
+                ExecutePickDrawCommands();
+            });
+            mPickPass->CopyPixel(mCommandPool, mPickX, mPickY);
+            mPickRequested          = false;
+            mPickAwaitingReadback   = true;
+        }
+
         if (mShadowPass && mLightService)
         {
             mShadowPass->Update(*mLightService,

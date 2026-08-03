@@ -13,6 +13,7 @@
 #include "Freya/Builders/RendererBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
 #include "Freya/Builders/ShadowPassBuilder.hpp"
+#include "Freya/Builders/PickPassBuilder.hpp"
 #include "Freya/Builders/SurfaceBuilder.hpp"
 #include "Freya/Builders/SwapChainBuilder.hpp"
 #include "Freya/Builders/WindowBuilder.hpp"
@@ -22,6 +23,7 @@
 #include "Freya/Asset/TexturePool.hpp"
 #include "Freya/Core/IBLService.hpp"
 #include "Freya/Core/LightService.hpp"
+#include "Freya/Core/PickPass.hpp"
 #include "Freya/Core/ShadowPass.hpp"
 
 namespace FREYA_NAMESPACE
@@ -49,6 +51,7 @@ namespace FREYA_NAMESPACE
         services.AddTransient<BloomPassBuilder>();
         services.AddTransient<CompositePassBuilder>();
         services.AddTransient<ShadowPassBuilder>();
+        services.AddTransient<PickPassBuilder>();
 
         services.AddSingleton<Instance>(
             [](skr::ServiceProvider& serviceProvider) {
@@ -124,6 +127,11 @@ namespace FREYA_NAMESPACE
         services.AddSingleton<ShadowPass>(
             [](skr::ServiceProvider& serviceProvider) {
                 return serviceProvider.GetService<ShadowPassBuilder>()->Build();
+            });
+
+        services.AddSingleton<PickPass>(
+            [](skr::ServiceProvider& serviceProvider) {
+                return serviceProvider.GetService<PickPassBuilder>()->Build();
             });
 
         services.AddSingleton<Window>(

@@ -12,6 +12,7 @@
 #include "Freya/Core/Instance.hpp"
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
+#include "Freya/Core/PickPass.hpp"
 #include "Freya/Core/RenderPass.hpp"
 #include "Freya/Core/RenderTarget.hpp"
 #include "Freya/Core/ShadowPass.hpp"
@@ -31,6 +32,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t materialId;
         std::uint32_t instanceCount;
         std::uint32_t firstInstance;
+        std::uint32_t entityId = kPickMissId;
     };
 
     class Renderer
@@ -48,6 +50,7 @@ namespace FREYA_NAMESPACE
                  const skr::Arc<CommandPool>&            commandPool,
                  const skr::Arc<LightService>&           lightService,
                  const skr::Arc<ShadowPass>&             shadowPass,
+                 const skr::Arc<PickPass>&               pickPass,
                  const skr::Arc<skr::ServiceProvider>&   serviceProvider,
                  const skr::Arc<FreyaOptions>&           freyaOptions,
                  const skr::Arc<EventManager>&           eventManager,
@@ -161,15 +164,33 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] vk::CommandBuffer GetCommandBuffer();
 
         // Draw commands with material binding
-        void Draw(std::uint32_t meshId, std::uint32_t materialId);
+        void Draw(std::uint32_t meshId,
+                  std::uint32_t materialId,
+                  std::uint32_t entityId = kPickMissId);
         void DrawInstanced(std::uint32_t meshId,
                            std::uint32_t materialId,
                            size_t        instanceCount,
-                           size_t        firstInstance = 0);
+                           size_t        firstInstance = 0,
+                           std::uint32_t entityId      = kPickMissId);
 
         // Stored draw command management
         void ClearDrawCommands();
         void ExecuteDrawCommands(bool bindMaterials = true);
+        void ExecutePickDrawCommands();
+
+        /**
+         * @brief Queue a GPU pick at the given render-target pixel.
+         *
+         * The pick runs on the next EndScene; consume the result afterward
+         * with TryConsumePickResult.
+         */
+        void RequestPick(std::uint32_t x, std::uint32_t y);
+
+        /**
+         * @brief Returns true and writes the entity ID when a pending pick
+         * readback is ready. kPickMissId means empty space.
+         */
+        bool TryConsumePickResult(std::uint32_t& outEntityId);
 
         glm::mat4 MakeProjection(float fovRadians, float aspect, float near,
                                  float far) const;
@@ -242,6 +263,8 @@ namespace FREYA_NAMESPACE
          */
         void rebuildSceneResources();
 
+        void resizePickPass(vk::Extent2D extent);
+
         void beginComposite(std::uint32_t          frameIndex,
                             const skr::Arc<Image>& opaqueImage,
                             const skr::Arc<Image>& translucentImage);
@@ -265,6 +288,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<CommandPool>            mCommandPool;
         skr::Arc<LightService>           mLightService;
         skr::Arc<ShadowPass>             mShadowPass;
+        skr::Arc<PickPass>               mPickPass;
         float                            mCameraNear = 1.0f;
         skr::Arc<EventManager>           mEventManager;
         skr::Arc<FreyaOptions>           mFreyaOptions;
@@ -293,6 +317,11 @@ namespace FREYA_NAMESPACE
         // Stored draw commands for reuse across passes (depth pre-pass,
         // gbuffer)
         std::vector<DrawCommand> mDrawCommands;
+
+        bool          mPickRequested        = false;
+        std::uint32_t mPickX                = 0;
+        std::uint32_t mPickY                = 0;
+        bool          mPickAwaitingReadback = false;
     };
 
 } // namespace FREYA_NAMESPACE

@@ -27,6 +27,9 @@ namespace FREYA_NAMESPACE
             case BufferUsage::Staging:
                 bufferInfo.setUsage(vk::BufferUsageFlagBits::eTransferSrc);
                 break;
+            case BufferUsage::Readback:
+                bufferInfo.setUsage(vk::BufferUsageFlagBits::eTransferDst);
+                break;
             case BufferUsage::Instance:
             case BufferUsage::Vertex:
                 bufferInfo.setUsage(vk::BufferUsageFlagBits::eVertexBuffer |
@@ -67,6 +70,7 @@ namespace FREYA_NAMESPACE
         switch (mUsage)
         {
             case BufferUsage::Staging:
+            case BufferUsage::Readback:
                 memoryProperties = vk::MemoryPropertyFlagBits::eHostVisible |
                                    vk::MemoryPropertyFlagBits::eHostCoherent;
                 break;
