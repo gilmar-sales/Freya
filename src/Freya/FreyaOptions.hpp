@@ -85,12 +85,7 @@ namespace FREYA_NAMESPACE
         /// Max concurrent point lights casting shadows (0–2).
         std::uint32_t maxPointShadows = 2;
         /// Soft-shadow Poisson samples (1–16). Used by lighting shaders.
-        std::uint32_t shadowSampleCount = 16;
-        /// Bilateral denoise for directional cascade shadows.
-        bool              shadowDenoise            = false;
-        float             shadowDenoiseRadius      = 4.0f;
-        float             shadowDenoiseDepthSigma  = 0.02f;
-        float             shadowDenoiseNormalSigma = 32.0f;
+        std::uint32_t     shadowSampleCount = 16;
         RenderingStrategy renderingStrategy =
             RenderingStrategy::Forward; ///< Rendering strategy
         bool ReverseZ;

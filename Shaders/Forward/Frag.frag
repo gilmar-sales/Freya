@@ -40,9 +40,6 @@ layout(binding = 7) uniform ShadowBuffer {
 layout(binding = 8) uniform sampler2DArrayShadow cascadeShadowMap;
 layout(binding = 9) uniform sampler2DArrayShadow spotShadowMap;
 layout(binding = 10) uniform samplerCubeArrayShadow pointShadowMap;
-layout(binding = 11) uniform sampler2DArray cascadeShadowDepth;
-layout(binding = 12) uniform sampler2DArray spotShadowDepth;
-layout(binding = 13) uniform sampler2D directionalShadowMask;
 
 layout(set = 1, binding = 0) uniform sampler2D albedoSampler;
 layout(set = 1, binding = 1) uniform sampler2D normalSampler;

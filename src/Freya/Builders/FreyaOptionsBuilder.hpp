@@ -219,30 +219,6 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        FreyaOptionsBuilder& SetShadowDenoise(bool enabled)
-        {
-            mFreyaOptions->shadowDenoise = enabled;
-            return *this;
-        }
-
-        FreyaOptionsBuilder& SetShadowDenoiseRadius(float radius)
-        {
-            mFreyaOptions->shadowDenoiseRadius = radius;
-            return *this;
-        }
-
-        FreyaOptionsBuilder& SetShadowDenoiseDepthSigma(float sigma)
-        {
-            mFreyaOptions->shadowDenoiseDepthSigma = sigma;
-            return *this;
-        }
-
-        FreyaOptionsBuilder& SetShadowDenoiseNormalSigma(float sigma)
-        {
-            mFreyaOptions->shadowDenoiseNormalSigma = sigma;
-            return *this;
-        }
-
         FreyaOptionsBuilder& WithReverseZ(bool value = true)
         {
             mFreyaOptions->ReverseZ = value;

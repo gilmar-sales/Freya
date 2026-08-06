@@ -15,7 +15,6 @@
 #include "Freya/Core/PickPass.hpp"
 #include "Freya/Core/RenderPass.hpp"
 #include "Freya/Core/RenderTarget.hpp"
-#include "Freya/Core/ShadowDenoisePass.hpp"
 #include "Freya/Core/ShadowPass.hpp"
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Events/EventManager.hpp"
@@ -268,14 +267,6 @@ namespace FREYA_NAMESPACE
          */
         void destroyForwardOffscreenResources();
 
-        void createForwardPrepassResources();
-        void destroyForwardPrepassResources();
-
-        void rebuildShadowDenoisePass();
-        void bindDirectionalShadowMask();
-
-        glm::vec3 findDirectionalLightDirection() const;
-
         /**
          * @brief Extent used for scene/bloom/composite sizing.
          */
@@ -309,7 +300,6 @@ namespace FREYA_NAMESPACE
         skr::Arc<DeferredCompressedPass> mDeferredPass;
         skr::Arc<BloomPass>              mBloomPass;
         skr::Arc<CompositePass>          mCompositePass;
-        skr::Arc<ShadowDenoisePass>      mShadowDenoisePass;
         skr::Arc<CommandPool>            mCommandPool;
         skr::Arc<LightService>           mLightService;
         skr::Arc<ShadowPass>             mShadowPass;
@@ -339,13 +329,6 @@ namespace FREYA_NAMESPACE
         skr::Arc<Image>              mForwardDepthImage;
         vk::RenderPass               mForwardOffscreenRenderPass;
         std::vector<vk::Framebuffer> mForwardOffscreenFramebuffers;
-
-        // Single-sample forward prepass for shadow denoise
-        skr::Arc<Image>              mForwardPrepassDepthImage;
-        skr::Arc<Image>              mForwardNormalImage;
-        vk::RenderPass               mForwardPrepassRenderPass;
-        vk::Pipeline                 mForwardPrepassPipeline;
-        std::vector<vk::Framebuffer> mForwardPrepassFramebuffers;
 
         // Stored draw commands for reuse across passes (depth pre-pass,
         // gbuffer)

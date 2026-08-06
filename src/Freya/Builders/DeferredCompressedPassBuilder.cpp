@@ -279,13 +279,12 @@ namespace FREYA_NAMESPACE
                 .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
                 .setAddressModeW(vk::SamplerAddressMode::eClampToEdge));
 
-        // 12 shadow UBO, 13 cascade cmp, 14-15 spot/point cmp, 16 spot depth
+        // 12 shadow UBO, 13 cascade cmp, 14-15 spot/point cmp
         auto lightingBindings = std::array {
             cisBinding(0),  cisBinding(1),  cisBinding(2),  cisBinding(3),
             cisBinding(4),  cisBinding(5),  uboBinding(6),  cisBinding(7),
             cisBinding(8),  cisBinding(9),  cisBinding(10), cisBinding(11),
             uboBinding(12), cisBinding(13), cisBinding(14), cisBinding(15),
-            cisBinding(16),
         };
 
         auto lightingSetLayout = mDevice->Get().createDescriptorSetLayout(
@@ -294,7 +293,7 @@ namespace FREYA_NAMESPACE
         std::array lightingPoolSizes = {
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(16 * mFreyaOptions->frameCount),
+                .setDescriptorCount(15 * mFreyaOptions->frameCount),
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eUniformBuffer)
                 .setDescriptorCount(2 * mFreyaOptions->frameCount),
@@ -502,11 +501,6 @@ namespace FREYA_NAMESPACE
                     .setSampler(mShadowPass->GetCompareSampler())
                     .setImageView(mShadowPass->GetCascadeView())
                     .setImageLayout(shadowMapLayout);
-            auto spotDepthInfo =
-                vk::DescriptorImageInfo()
-                    .setSampler(mShadowPass->GetSampler())
-                    .setImageView(mShadowPass->GetSpotView())
-                    .setImageLayout(shadowMapLayout);
 
             auto shadowWrites = std::array {
                 vk::WriteDescriptorSet()
@@ -536,13 +530,6 @@ namespace FREYA_NAMESPACE
                         vk::DescriptorType::eCombinedImageSampler)
                     .setDescriptorCount(1)
                     .setImageInfo(pointInfo),
-                vk::WriteDescriptorSet()
-                    .setDstSet(set)
-                    .setDstBinding(16)
-                    .setDescriptorType(
-                        vk::DescriptorType::eCombinedImageSampler)
-                    .setDescriptorCount(1)
-                    .setImageInfo(spotDepthInfo),
             };
             mDevice->Get().updateDescriptorSets(
                 static_cast<std::uint32_t>(shadowWrites.size()),

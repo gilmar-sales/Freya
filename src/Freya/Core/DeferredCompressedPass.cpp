@@ -277,15 +277,6 @@ namespace FREYA_NAMESPACE
         endDebugLabel(commandBuffer, mDevice->Get());
     }
 
-    void DeferredCompressedPass::UpdateDirectionalShadowMask(
-        const skr::Arc<Image>& mask, const vk::Sampler sampler)
-    {
-        // Lighting samples cascade maps directly (point-style soft disk).
-        // Denoise mask path is unused; keep the API for Renderer wiring.
-        (void) mask;
-        (void) sampler;
-    }
-
     void DeferredCompressedPass::UpdateProjection(
         const ProjectionUniformBuffer& buffer,
         const std::uint32_t            frameIndex) const

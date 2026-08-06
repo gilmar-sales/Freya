@@ -118,9 +118,6 @@ namespace FREYA_NAMESPACE
 
         void EndLighting(const skr::Arc<CommandPool>& commandPool) const;
 
-        void UpdateDirectionalShadowMask(const skr::Arc<Image>& mask,
-                                         vk::Sampler            sampler);
-
         void UpdateProjection(const ProjectionUniformBuffer& buffer,
                               std::uint32_t                  frameIndex) const;
 

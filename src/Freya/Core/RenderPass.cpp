@@ -177,13 +177,4 @@ namespace FREYA_NAMESPACE
         mDevice->Get().updateDescriptorSets(1, &descriptorWriter, 0, nullptr);
     }
 
-    void RenderPass::UpdateDirectionalShadowMask(const skr::Arc<Image>& mask,
-                                                 const vk::Sampler      sampler)
-    {
-        // Forward lighting samples cascade maps directly (point-style soft
-        // disk). Denoise mask path is unused; keep the API for Renderer.
-        (void) mask;
-        (void) sampler;
-    }
-
 } // namespace FREYA_NAMESPACE

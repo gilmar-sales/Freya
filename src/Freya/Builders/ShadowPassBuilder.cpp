@@ -248,25 +248,6 @@ namespace FREYA_NAMESPACE
 
         auto compareSampler = mDevice->Get().createSampler(compareSamplerInfo);
 
-        auto regularSamplerInfo =
-            vk::SamplerCreateInfo()
-                .setMagFilter(vk::Filter::eNearest)
-                .setMinFilter(vk::Filter::eNearest)
-                .setMipmapMode(vk::SamplerMipmapMode::eNearest)
-                .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
-                .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
-                .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
-                .setBorderColor(vk::BorderColor::eFloatOpaqueWhite)
-                .setAnisotropyEnable(false)
-                .setMaxAnisotropy(1.0f)
-                .setUnnormalizedCoordinates(false)
-                .setCompareEnable(false)
-                .setMinLod(0.0f)
-                .setMaxLod(0.0f)
-                .setMipLodBias(0.0f);
-
-        auto regularSampler = mDevice->Get().createSampler(regularSamplerInfo);
-
         return skr::MakeArc<ShadowPass>(
             mDevice,
             mPhysicalDevice,
@@ -291,7 +272,6 @@ namespace FREYA_NAMESPACE
             pointFramebuffers,
             uniformBuffer,
             compareSampler,
-            regularSampler,
             cascadeCount,
             maxSpot,
             maxPoint);

@@ -50,7 +50,6 @@ namespace FREYA_NAMESPACE
             const std::vector<vk::Framebuffer>& pointFramebuffers,
             const skr::Arc<Buffer>&             uniformBuffer,
             vk::Sampler                         compareSampler,
-            vk::Sampler                         regularSampler,
             std::uint32_t                       cascadeCount,
             std::uint32_t                       maxSpotShadows,
             std::uint32_t                       maxPointShadows);
@@ -151,11 +150,6 @@ namespace FREYA_NAMESPACE
         vk::Sampler GetCompareSampler() const { return mCompareSampler; }
 
         /**
-         * @brief Returns the regular (non-comparison) nearest sampler.
-         */
-        vk::Sampler GetSampler() const { return mSampler; }
-
-        /**
          * @brief Returns the number of configured CSM cascades.
          */
         std::uint32_t GetCascadeCount() const { return mCascadeCount; }
@@ -235,7 +229,6 @@ namespace FREYA_NAMESPACE
         skr::Arc<Buffer> mUniformBuffer;
 
         vk::Sampler mCompareSampler;
-        vk::Sampler mSampler;
 
         std::uint32_t mCascadeCount;
         std::uint32_t mMaxSpotShadows;

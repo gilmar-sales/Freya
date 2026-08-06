@@ -594,7 +594,6 @@ int main(int argc, const char** argv)
                         .SetShadowLightSize(0.035f)
                         .SetShadowMaxSoftness(8.0f)
                         .SetShadowMinVisibility(0.0f)
-                        .SetShadowDenoise(false)
                         .SetFullscreen(false)
                         .SetRenderingStrategy(fra::RenderingStrategy::Forward);
                 });

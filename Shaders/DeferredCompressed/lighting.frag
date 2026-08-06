@@ -43,7 +43,6 @@ layout(binding = 12) uniform ShadowBuffer {
 layout(binding = 13) uniform sampler2DArrayShadow cascadeShadowMap;
 layout(binding = 14) uniform sampler2DArrayShadow spotShadowMap;
 layout(binding = 15) uniform samplerCubeArrayShadow pointShadowMap;
-layout(binding = 16) uniform sampler2DArray spotShadowDepth;
 
 layout(location = 0) out vec4 outColor;
 

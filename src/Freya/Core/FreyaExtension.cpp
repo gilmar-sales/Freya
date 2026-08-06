@@ -13,7 +13,6 @@
 #include "Freya/Builders/RenderTargetBuilder.hpp"
 #include "Freya/Builders/RendererBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
-#include "Freya/Builders/ShadowDenoisePassBuilder.hpp"
 #include "Freya/Builders/ShadowPassBuilder.hpp"
 #include "Freya/Builders/SurfaceBuilder.hpp"
 #include "Freya/Builders/SwapChainBuilder.hpp"
@@ -52,7 +51,6 @@ namespace FREYA_NAMESPACE
         services.AddTransient<BloomPassBuilder>();
         services.AddTransient<CompositePassBuilder>();
         services.AddTransient<ShadowPassBuilder>();
-        services.AddTransient<ShadowDenoisePassBuilder>();
         services.AddTransient<PickPassBuilder>();
 
         services.AddSingleton<Instance>(

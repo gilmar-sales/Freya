@@ -65,7 +65,6 @@ namespace FREYA_NAMESPACE
         const std::vector<vk::Framebuffer>& pointFramebuffers,
         const skr::Arc<Buffer>&             uniformBuffer,
         const vk::Sampler                   compareSampler,
-        const vk::Sampler                   regularSampler,
         const std::uint32_t                 cascadeCount,
         const std::uint32_t                 maxSpotShadows,
         const std::uint32_t                 maxPointShadows) :
@@ -81,9 +80,8 @@ namespace FREYA_NAMESPACE
         mPointImage(pointImage), mPointMemory(pointMemory),
         mPointArrayView(pointArrayView), mPointFaceViews(pointFaceViews),
         mPointFramebuffers(pointFramebuffers), mUniformBuffer(uniformBuffer),
-        mCompareSampler(compareSampler), mSampler(regularSampler),
-        mCascadeCount(cascadeCount), mMaxSpotShadows(maxSpotShadows),
-        mMaxPointShadows(maxPointShadows),
+        mCompareSampler(compareSampler), mCascadeCount(cascadeCount),
+        mMaxSpotShadows(maxSpotShadows), mMaxPointShadows(maxPointShadows),
         mResolution(freyaOptions->shadowMapResolution),
         mSpotResolution(
             maxSpotShadows == 0 ? 1u : freyaOptions->shadowMapResolution),
@@ -158,10 +156,7 @@ namespace FREYA_NAMESPACE
 
         if (mCompareSampler)
             vkDevice.destroySampler(mCompareSampler);
-        if (mSampler)
-            vkDevice.destroySampler(mSampler);
         mCompareSampler = VK_NULL_HANDLE;
-        mSampler        = VK_NULL_HANDLE;
 
         if (mPipeline)
             vkDevice.destroyPipeline(mPipeline);
@@ -207,7 +202,6 @@ namespace FREYA_NAMESPACE
 
         mUniformBuffer  = std::move(other.mUniformBuffer);
         mCompareSampler = other.mCompareSampler;
-        mSampler        = other.mSampler;
 
         mCascadeCount    = other.mCascadeCount;
         mMaxSpotShadows  = other.mMaxSpotShadows;
@@ -234,7 +228,6 @@ namespace FREYA_NAMESPACE
         other.mPointMemory      = VK_NULL_HANDLE;
         other.mPointArrayView   = VK_NULL_HANDLE;
         other.mCompareSampler   = VK_NULL_HANDLE;
-        other.mSampler          = VK_NULL_HANDLE;
         other.mUniformBuffer.reset();
     }
 

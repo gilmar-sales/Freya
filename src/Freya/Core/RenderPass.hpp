@@ -155,9 +155,6 @@ namespace FREYA_NAMESPACE
         void UpdateProjection(const ProjectionUniformBuffer& buffer,
                               std::uint32_t                  frameIndex) const;
 
-        void UpdateDirectionalShadowMask(const skr::Arc<Image>& mask,
-                                         vk::Sampler            sampler);
-
         /**
          * @brief Returns the sampler descriptor set layout.
          */
