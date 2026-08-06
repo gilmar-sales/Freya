@@ -29,7 +29,7 @@ namespace FREYA_NAMESPACE
     constexpr std::uint32_t MAX_SHADOW_CASCADES = 4;
     constexpr std::uint32_t MAX_SPOT_SHADOWS    = 4;
     constexpr std::uint32_t MAX_POINT_SHADOWS   = 2;
-    constexpr std::uint32_t MAX_MATERIAL_SETS = 1024;
+    constexpr std::uint32_t MAX_MATERIAL_SETS   = 1024;
 
     /**
      * @brief Light types enumeration.

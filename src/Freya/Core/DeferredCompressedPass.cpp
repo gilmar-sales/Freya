@@ -1,35 +1,5 @@
 #include "DeferredCompressedPass.hpp"
 
-#include <vulkan/vulkan.h>
-
-namespace
-{
-    void beginDebugLabel(const vk::CommandBuffer& cmd,
-                         const char*              name,
-                         const vk::Device&        device)
-    {
-        auto func = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(
-            device.getProcAddr("vkCmdBeginDebugUtilsLabelEXT"));
-        if (!func)
-            return;
-
-        VkDebugUtilsLabelEXT label {};
-        label.sType      = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
-        label.pLabelName = name;
-        func(static_cast<VkCommandBuffer>(cmd), &label);
-    }
-
-    void endDebugLabel(const vk::CommandBuffer& cmd, const vk::Device& device)
-    {
-        auto func = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(
-            device.getProcAddr("vkCmdEndDebugUtilsLabelEXT"));
-        if (!func)
-            return;
-
-        func(static_cast<VkCommandBuffer>(cmd));
-    }
-} // anonymous namespace
-
 namespace FREYA_NAMESPACE
 {
     DeferredCompressedPass::DeferredCompressedPass(
@@ -136,7 +106,7 @@ namespace FREYA_NAMESPACE
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 
-        beginDebugLabel(commandBuffer, "Deferred G-buffer", mDevice->Get());
+        mDevice->BeginDebugLabel(commandBuffer, "Deferred G-buffer");
 
         auto clearValues = std::vector<vk::ClearValue> {
             vk::ClearValue().setDepthStencil(
@@ -182,14 +152,13 @@ namespace FREYA_NAMESPACE
 
         if (mLabelActive)
         {
-            endDebugLabel(commandBuffer, mDevice->Get());
+            mDevice->EndDebugLabel(commandBuffer);
         }
 
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                                    mGeometryPipelines[subpass]);
 
-        beginDebugLabel(commandBuffer, GetSubpassLabel(subpass),
-                        mDevice->Get());
+        mDevice->BeginDebugLabel(commandBuffer, GetSubpassLabel(subpass));
         mLabelActive    = true;
         mCurrentSubpass = subpass;
 
@@ -219,12 +188,12 @@ namespace FREYA_NAMESPACE
 
         if (mLabelActive)
         {
-            endDebugLabel(commandBuffer, mDevice->Get());
+            mDevice->EndDebugLabel(commandBuffer);
             mLabelActive = false;
         }
 
         commandBuffer.endRenderPass();
-        endDebugLabel(commandBuffer, mDevice->Get());
+        mDevice->EndDebugLabel(commandBuffer);
     }
 
     void DeferredCompressedPass::BeginLighting(
@@ -232,7 +201,7 @@ namespace FREYA_NAMESPACE
         const skr::Arc<CommandPool>& commandPool) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
-        beginDebugLabel(commandBuffer, "Deferred Lighting", mDevice->Get());
+        mDevice->BeginDebugLabel(commandBuffer, "Deferred Lighting");
 
         auto clearValues = std::vector<vk::ClearValue> {
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }),
@@ -274,7 +243,7 @@ namespace FREYA_NAMESPACE
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
         commandBuffer.endRenderPass();
-        endDebugLabel(commandBuffer, mDevice->Get());
+        mDevice->EndDebugLabel(commandBuffer);
     }
 
     void DeferredCompressedPass::UpdateProjection(

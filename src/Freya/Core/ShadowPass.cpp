@@ -9,36 +9,6 @@
 #include <limits>
 #include <utility>
 
-#include <vulkan/vulkan.h>
-
-namespace
-{
-    void beginDebugLabel(const vk::CommandBuffer& cmd,
-                         const char*              name,
-                         const vk::Device&        device)
-    {
-        auto func = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(
-            device.getProcAddr("vkCmdBeginDebugUtilsLabelEXT"));
-        if (!func)
-            return;
-
-        VkDebugUtilsLabelEXT label {};
-        label.sType      = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
-        label.pLabelName = name;
-        func(static_cast<VkCommandBuffer>(cmd), &label);
-    }
-
-    void endDebugLabel(const vk::CommandBuffer& cmd, const vk::Device& device)
-    {
-        auto func = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(
-            device.getProcAddr("vkCmdEndDebugUtilsLabelEXT"));
-        if (!func)
-            return;
-
-        func(static_cast<VkCommandBuffer>(cmd));
-    }
-} // namespace
-
 namespace FREYA_NAMESPACE
 {
     ShadowPass::ShadowPass(
@@ -537,13 +507,13 @@ namespace FREYA_NAMESPACE
                             const std::function<void()>& drawScene) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
-        beginDebugLabel(commandBuffer, "Shadow Pass", mDevice->Get());
+        mDevice->BeginDebugLabel(commandBuffer, "Shadow Pass");
 
         renderCascades(commandPool, drawScene);
         renderSpots(commandPool, drawScene);
         renderPoints(commandPool, drawScene);
 
-        endDebugLabel(commandBuffer, mDevice->Get());
+        mDevice->EndDebugLabel(commandBuffer);
     }
 
     void ShadowPass::renderCascades(
@@ -554,7 +524,7 @@ namespace FREYA_NAMESPACE
             return;
 
         auto commandBuffer = commandPool->GetCommandBuffer();
-        beginDebugLabel(commandBuffer, "CSM Cascades", mDevice->Get());
+        mDevice->BeginDebugLabel(commandBuffer, "CSM Cascades");
 
         const auto viewport =
             vk::Viewport()
@@ -576,7 +546,7 @@ namespace FREYA_NAMESPACE
         {
             char label[64];
             std::snprintf(label, sizeof(label), "CSM Cascade %u", i);
-            beginDebugLabel(commandBuffer, label, mDevice->Get());
+            mDevice->BeginDebugLabel(commandBuffer, label);
 
             commandBuffer.beginRenderPass(
                 vk::RenderPassBeginInfo()
@@ -608,10 +578,10 @@ namespace FREYA_NAMESPACE
             drawScene();
 
             commandBuffer.endRenderPass();
-            endDebugLabel(commandBuffer, mDevice->Get());
+            mDevice->EndDebugLabel(commandBuffer);
         }
 
-        endDebugLabel(commandBuffer, mDevice->Get());
+        mDevice->EndDebugLabel(commandBuffer);
     }
 
     void ShadowPass::renderSpots(const skr::Arc<CommandPool>& commandPool,
@@ -623,7 +593,7 @@ namespace FREYA_NAMESPACE
             return;
 
         auto commandBuffer = commandPool->GetCommandBuffer();
-        beginDebugLabel(commandBuffer, "Spot Shadows", mDevice->Get());
+        mDevice->BeginDebugLabel(commandBuffer, "Spot Shadows");
 
         const auto viewport =
             vk::Viewport()
@@ -646,7 +616,7 @@ namespace FREYA_NAMESPACE
             char label[64];
             std::snprintf(label, sizeof(label), "Spot Shadow %u%s", i,
                           (i < mActiveSpotCount) ? "" : " (clear)");
-            beginDebugLabel(commandBuffer, label, mDevice->Get());
+            mDevice->BeginDebugLabel(commandBuffer, label);
 
             commandBuffer.beginRenderPass(
                 vk::RenderPassBeginInfo()
@@ -681,10 +651,10 @@ namespace FREYA_NAMESPACE
             }
 
             commandBuffer.endRenderPass();
-            endDebugLabel(commandBuffer, mDevice->Get());
+            mDevice->EndDebugLabel(commandBuffer);
         }
 
-        endDebugLabel(commandBuffer, mDevice->Get());
+        mDevice->EndDebugLabel(commandBuffer);
     }
 
     void ShadowPass::renderPoints(const skr::Arc<CommandPool>& commandPool,
@@ -696,7 +666,7 @@ namespace FREYA_NAMESPACE
             return;
 
         auto commandBuffer = commandPool->GetCommandBuffer();
-        beginDebugLabel(commandBuffer, "Point Shadows", mDevice->Get());
+        mDevice->BeginDebugLabel(commandBuffer, "Point Shadows");
 
         const auto viewport =
             vk::Viewport()
@@ -731,7 +701,7 @@ namespace FREYA_NAMESPACE
                 char label[64];
                 std::snprintf(label, sizeof(label), "Point Shadow %u Face %u%s",
                               p, face, active ? "" : " (clear)");
-                beginDebugLabel(commandBuffer, label, mDevice->Get());
+                mDevice->BeginDebugLabel(commandBuffer, label);
 
                 commandBuffer.beginRenderPass(
                     vk::RenderPassBeginInfo()
@@ -766,11 +736,11 @@ namespace FREYA_NAMESPACE
                 }
 
                 commandBuffer.endRenderPass();
-                endDebugLabel(commandBuffer, mDevice->Get());
+                mDevice->EndDebugLabel(commandBuffer);
             }
         }
 
-        endDebugLabel(commandBuffer, mDevice->Get());
+        mDevice->EndDebugLabel(commandBuffer);
     }
 
 } // namespace FREYA_NAMESPACE

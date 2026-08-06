@@ -65,13 +65,7 @@ namespace FREYA_NAMESPACE
                const vk::Queue                 graphicsQueue,
                const vk::Queue                 presentQueue,
                const vk::Queue                 transferQueue,
-               const QueueFamilyIndices&       queueFamilyIndices) :
-            mPhysicalDevice(physicalDevice), mDevice(device),
-            mGraphicsQueue(graphicsQueue), mPresentQueue(presentQueue),
-            mTransferQueue(transferQueue),
-            mQueueFamilyIndices(queueFamilyIndices)
-        {
-        }
+               const QueueFamilyIndices&       queueFamilyIndices);
 
         ~Device()
         {
@@ -124,6 +118,19 @@ namespace FREYA_NAMESPACE
             return mQueueFamilyIndices;
         }
 
+        /**
+         * @brief Begins a Vulkan debug-utils label on the command buffer.
+         *
+         * No-op when the extension is unavailable or in Release builds.
+         */
+        void BeginDebugLabel(const vk::CommandBuffer& cmd,
+                             const char*              name) const;
+
+        /**
+         * @brief Ends the current Vulkan debug-utils label.
+         */
+        void EndDebugLabel(const vk::CommandBuffer& cmd) const;
+
       private:
         skr::Arc<PhysicalDevice> mPhysicalDevice;
 
@@ -133,5 +140,8 @@ namespace FREYA_NAMESPACE
         vk::Queue  mGraphicsQueue;
         vk::Queue  mPresentQueue;
         vk::Queue  mTransferQueue;
+
+        PFN_vkCmdBeginDebugUtilsLabelEXT mCmdBeginDebugLabel = nullptr;
+        PFN_vkCmdEndDebugUtilsLabelEXT   mCmdEndDebugLabel   = nullptr;
     };
 } // namespace FREYA_NAMESPACE
