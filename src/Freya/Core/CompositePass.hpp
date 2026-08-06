@@ -67,9 +67,17 @@ namespace FREYA_NAMESPACE
                                  const skr::Arc<Image>& opaqueImage,
                                  const skr::Arc<Image>& translucentImage,
                                  const skr::Arc<Image>& bloomResultImage,
-                                 vk::Sampler            sampler) const;
+                                 vk::Sampler            sampler);
 
       private:
+        struct BoundImages
+        {
+            vk::ImageView opaque {};
+            vk::ImageView translucent {};
+            vk::ImageView bloom {};
+            vk::Sampler   sampler {};
+        };
+
         skr::Arc<Device>       mDevice;
         skr::Arc<FreyaOptions> mFreyaOptions;
         skr::Arc<Surface>      mSurface;
@@ -83,5 +91,6 @@ namespace FREYA_NAMESPACE
         vk::DescriptorPool             mDescriptorPool;
         vk::DescriptorSetLayout        mDescriptorSetLayout;
         std::vector<vk::DescriptorSet> mDescriptorSets;
+        std::vector<BoundImages>       mBoundImages;
     };
 } // namespace FREYA_NAMESPACE

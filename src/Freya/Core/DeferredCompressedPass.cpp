@@ -283,23 +283,6 @@ namespace FREYA_NAMESPACE
     {
         const auto offset = frameIndex * sizeof(ProjectionUniformBuffer);
         mUniformBuffer->Copy(&buffer, sizeof(ProjectionUniformBuffer), offset);
-
-        auto bufferInfo =
-            vk::DescriptorBufferInfo()
-                .setBuffer(mUniformBuffer->Get())
-                .setOffset(offset)
-                .setRange(sizeof(ProjectionUniformBuffer));
-
-        const auto descriptorWriter =
-            vk::WriteDescriptorSet()
-                .setDstSet(mDescriptorSets[frameIndex])
-                .setDstBinding(0)
-                .setDstArrayElement(0)
-                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-                .setDescriptorCount(1)
-                .setBufferInfo(bufferInfo);
-
-        mDevice->Get().updateDescriptorSets(1, &descriptorWriter, 0, nullptr);
     }
 
     const char* DeferredCompressedPass::GetSubpassLabel(

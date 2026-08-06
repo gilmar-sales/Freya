@@ -266,11 +266,6 @@ namespace FREYA_NAMESPACE
          */
         void createDescriptorResources();
 
-        /**
-         * @brief Updates descriptor sets after light data changes.
-         */
-        void updateDescriptorSets();
-
         skr::Arc<Device> mDevice;
         std::uint32_t    mFrameCount;
         std::uint32_t    mMaxLights;

@@ -3,6 +3,8 @@
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
 
+#include <cstring>
+
 namespace FREYA_NAMESPACE
 {
     /**
@@ -65,7 +67,7 @@ namespace FREYA_NAMESPACE
             void* deviceData = mDevice->Get().mapMemory(
                 mMemory, offset, size, vk::MemoryMapFlagBits {});
 
-            memcpy(deviceData, data, size);
+            std::memcpy(deviceData, data, size);
 
             mDevice->Get().unmapMemory(mMemory);
         }

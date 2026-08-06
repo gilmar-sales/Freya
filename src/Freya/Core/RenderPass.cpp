@@ -147,8 +147,8 @@ namespace FREYA_NAMESPACE
     /**
      * @brief Updates projection uniform buffer for a given frame index.
      *
-     * Copies data to uniform buffer and updates descriptor set with buffer
-     * info.
+     * Copies data into the ring-buffer slot. Descriptor offsets are fixed
+     * when the pass is created.
      *
      * @param buffer     Projection data to upload
      * @param frameIndex Frame index for offset and descriptor set selection
@@ -158,23 +158,6 @@ namespace FREYA_NAMESPACE
     {
         const auto offset = frameIndex * sizeof(ProjectionUniformBuffer);
         mUniformBuffer->Copy(&buffer, sizeof(ProjectionUniformBuffer), offset);
-
-        auto bufferInfo =
-            vk::DescriptorBufferInfo()
-                .setBuffer(mUniformBuffer->Get())
-                .setOffset(offset)
-                .setRange(sizeof(ProjectionUniformBuffer));
-
-        const auto descriptorWriter =
-            vk::WriteDescriptorSet()
-                .setDstSet(mDescriptorSets[frameIndex])
-                .setDstBinding(0)
-                .setDstArrayElement(0)
-                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-                .setDescriptorCount(1)
-                .setBufferInfo(bufferInfo);
-
-        mDevice->Get().updateDescriptorSets(1, &descriptorWriter, 0, nullptr);
     }
 
 } // namespace FREYA_NAMESPACE

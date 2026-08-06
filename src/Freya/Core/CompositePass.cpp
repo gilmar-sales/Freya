@@ -20,7 +20,7 @@ namespace FREYA_NAMESPACE
         mCompositePipeline(compositePipeline), mFramebuffers(framebuffers),
         mDescriptorPool(descriptorPool),
         mDescriptorSetLayout(descriptorSetLayout),
-        mDescriptorSets(descriptorSets)
+        mDescriptorSets(descriptorSets), mBoundImages(descriptorSets.size())
     {
     }
 
@@ -107,24 +107,43 @@ namespace FREYA_NAMESPACE
     void CompositePass::UpdateDescriptorSet(
         const std::uint32_t frameIndex, const skr::Arc<Image>& opaqueImage,
         const skr::Arc<Image>& translucentImage,
-        const skr::Arc<Image>& bloomResultImage, vk::Sampler sampler) const
+        const skr::Arc<Image>& bloomResultImage, vk::Sampler sampler)
     {
+        if (frameIndex >= mBoundImages.size())
+            return;
+
+        const auto opaqueView = opaqueImage->GetImageView();
+        const auto translView = translucentImage->GetImageView();
+        const auto bloomView  = bloomResultImage->GetImageView();
+
+        auto& bound = mBoundImages[frameIndex];
+        if (bound.opaque == opaqueView && bound.translucent == translView &&
+            bound.bloom == bloomView && bound.sampler == sampler)
+        {
+            return;
+        }
+
+        bound.opaque      = opaqueView;
+        bound.translucent = translView;
+        bound.bloom       = bloomView;
+        bound.sampler     = sampler;
+
         auto opaqueInfo =
             vk::DescriptorImageInfo()
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setImageView(opaqueImage->GetImageView())
+                .setImageView(opaqueView)
                 .setSampler(sampler);
 
         auto translInfo =
             vk::DescriptorImageInfo()
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setImageView(translucentImage->GetImageView())
+                .setImageView(translView)
                 .setSampler(sampler);
 
         auto bloomInfo =
             vk::DescriptorImageInfo()
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setImageView(bloomResultImage->GetImageView())
+                .setImageView(bloomView)
                 .setSampler(sampler);
 
         auto writes = std::array {

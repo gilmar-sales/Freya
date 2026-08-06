@@ -193,27 +193,10 @@ namespace FREYA_NAMESPACE
             data.lightAreaTangents[i] = glm::vec4(mLights[i].tangent, 0.0f);
         }
 
-        // Copy to ring-buffer offset for this frame
+        // Copy to ring-buffer offset for this frame (descriptor offset is
+        // fixed at create time).
         const auto offset = frameIndex * sizeof(LightUniformBuffer);
         mBuffer->Copy(&data, sizeof(LightUniformBuffer), offset);
-
-        // Update descriptor sets with correct offset
-        auto bufferInfo =
-            vk::DescriptorBufferInfo()
-                .setBuffer(mBuffer->Get())
-                .setOffset(offset)
-                .setRange(sizeof(LightUniformBuffer));
-
-        auto writer =
-            vk::WriteDescriptorSet()
-                .setDstSet(mSets[frameIndex])
-                .setDstBinding(0)
-                .setDstArrayElement(0)
-                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-                .setDescriptorCount(1)
-                .setBufferInfo(bufferInfo);
-
-        mDevice->Get().updateDescriptorSets(1, &writer, 0, nullptr);
     }
 
     void LightService::createDescriptorResources()
