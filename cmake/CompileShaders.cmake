@@ -77,11 +77,11 @@ function(add_shader_target)
 
     if(GLSLC)
         file(GLOB_RECURSE _sources
-            "${ARG_FROM}/*.vert" "${ARG_FROM}/*.frag"
+            "${ARG_FROM}/*.vert" "${ARG_FROM}/*.frag" "${ARG_FROM}/*.comp"
         )
 
         if(NOT _sources)
-            message(WARNING "add_shader_target: no .vert/.frag files found in ${ARG_FROM}")
+            message(WARNING "add_shader_target: no .vert/.frag/.comp files found in ${ARG_FROM}")
             add_custom_target(${ARG_TARGET} ALL)
             return()
         endif()

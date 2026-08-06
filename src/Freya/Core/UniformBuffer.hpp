@@ -16,12 +16,17 @@ namespace FREYA_NAMESPACE
      */
     struct alignas(256) ProjectionUniformBuffer
     {
-        alignas(64) glm::mat4 view;       ///< View matrix
-        alignas(64) glm::mat4 projection; ///< Projection matrix
+        alignas(64) glm::mat4 view; ///< View matrix
+        alignas(64) glm::mat4
+            projection; ///< Projection (jittered for deferred geom)
         alignas(64) glm::vec4
             ambientLight; ///< Ambient light color (xyz) and intensity (w)
         alignas(64) glm::mat4
-            invViewProjection; ///< Inverse(viewProjection) for depth unproject
+            invViewProjection; ///< Inverse(jittered projection * view)
+        alignas(64) glm::mat4
+            prevViewProjection; ///< Previous frame unjittered VP (TAA velocity)
+        alignas(64) glm::mat4
+            unjitteredProjection; ///< Current frame projection without jitter
     };
 
     /**

@@ -20,6 +20,7 @@ namespace FREYA_NAMESPACE
         const vk::DescriptorPool                    descriptorPool,
         const std::vector<skr::Arc<Image>>&         gbufferImages,
         const skr::Arc<Image>&                      sceneColorImage,
+        const skr::Arc<Image>&                      velocityImage,
         const skr::Arc<Image>&                      depthImage,
         const skr::Arc<Image>&                      translucentImage,
         const std::vector<vk::Framebuffer>&         framebuffers,
@@ -37,9 +38,9 @@ namespace FREYA_NAMESPACE
         mDescriptorSetLayouts(descriptorSetLayouts),
         mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool),
         mGBufferImages(gbufferImages), mSceneColorImage(sceneColorImage),
-        mDepthImage(depthImage), mTranslucentImage(translucentImage),
-        mFramebuffers(framebuffers), mExtent(extent),
-        mLightingSetLayout(lightingSetLayout),
+        mVelocityImage(velocityImage), mDepthImage(depthImage),
+        mTranslucentImage(translucentImage), mFramebuffers(framebuffers),
+        mExtent(extent), mLightingSetLayout(lightingSetLayout),
         mLightingDescriptorPool(lightingDescriptorPool),
         mLightingSets(lightingSets), mSamplerLayout(samplerLayout),
         mSamplerDescriptorPool(samplerDescriptorPool),
@@ -81,6 +82,7 @@ namespace FREYA_NAMESPACE
         mGBufferImages.clear();
         mDepthImage.reset();
         mSceneColorImage.reset();
+        mVelocityImage.reset();
         mTranslucentImage.reset();
 
         mUniformBuffer.reset();
@@ -151,6 +153,7 @@ namespace FREYA_NAMESPACE
             vk::ClearValue().setColor(
                 { 0.5f, 0.0f, 1.0f, 0.0f }), // rough, metal, AO, free
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // scene HDR
+            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // velocity
         };
 
         const auto imageIndex = swapChain->GetCurrentImageIndex();

@@ -16,6 +16,7 @@
 #include "Freya/Builders/ShadowPassBuilder.hpp"
 #include "Freya/Builders/SurfaceBuilder.hpp"
 #include "Freya/Builders/SwapChainBuilder.hpp"
+#include "Freya/Builders/TaaPassBuilder.hpp"
 #include "Freya/Builders/WindowBuilder.hpp"
 
 #include "Freya/Asset/MaterialPool.hpp"
@@ -49,6 +50,7 @@ namespace FREYA_NAMESPACE
         services.AddTransient<CommandPoolBuilder>();
         services.AddTransient<DeferredCompressedPassBuilder>();
         services.AddTransient<BloomPassBuilder>();
+        services.AddTransient<TaaPassBuilder>();
         services.AddTransient<CompositePassBuilder>();
         services.AddTransient<ShadowPassBuilder>();
         services.AddTransient<PickPassBuilder>();

@@ -11,6 +11,7 @@
 #include "Freya/Builders/RenderTargetBuilder.hpp"
 #include "Freya/Builders/ShadowPassBuilder.hpp"
 #include "Freya/Builders/SwapChainBuilder.hpp"
+#include "Freya/Builders/TaaPassBuilder.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/PickPass.hpp"
@@ -18,9 +19,43 @@
 #include "Freya/Core/UniformBuffer.hpp"
 
 #include <cmath>
+#include <glm/gtc/matrix_inverse.hpp>
 
 namespace FREYA_NAMESPACE
 {
+    namespace
+    {
+        float Halton(std::uint32_t index, const std::uint32_t base)
+        {
+            float f      = 1.0f;
+            float result = 0.0f;
+            while (index > 0)
+            {
+                f /= static_cast<float>(base);
+                result += f * static_cast<float>(index % base);
+                index /= base;
+            }
+            return result;
+        }
+
+        void ApplyHaltonJitter(glm::mat4&          projection,
+                               const std::uint32_t frameIndex,
+                               const vk::Extent2D  extent)
+        {
+            if (extent.width == 0 || extent.height == 0)
+                return;
+
+            constexpr std::uint32_t kHaltonPeriod = 16;
+            const auto              sample = (frameIndex % kHaltonPeriod) + 1;
+            const float             jx     = (Halton(sample, 2) - 0.5f) * 2.0f /
+                                             static_cast<float>(extent.width);
+            const float             jy     = (Halton(sample, 3) - 0.5f) * 2.0f /
+                                             static_cast<float>(extent.height);
+            projection[2][0] += jx;
+            projection[2][1] += jy;
+        }
+    } // namespace
+
     Renderer::Renderer(
         const skr::Arc<Instance>&               instance,
         const skr::Arc<Surface>&                surface,
@@ -30,6 +65,7 @@ namespace FREYA_NAMESPACE
         const skr::Arc<RenderPass>&             forwardPass,
         const skr::Arc<DeferredCompressedPass>& deferredPass,
         const skr::Arc<BloomPass>&              bloomPass,
+        const skr::Arc<TaaPass>&                taaPass,
         const skr::Arc<CompositePass>&          compositePass,
         const skr::Arc<CommandPool>&            commandPool,
         const skr::Arc<LightService>&           lightService,
@@ -42,7 +78,7 @@ namespace FREYA_NAMESPACE
         const skr::Arc<Image>&                  forwardResolveImage) :
         mInstance(instance), mSurface(surface), mPhysicalDevice(physicalDevice),
         mDevice(device), mSwapChain(swapChain), mForwardPass(forwardPass),
-        mDeferredPass(deferredPass), mBloomPass(bloomPass),
+        mDeferredPass(deferredPass), mBloomPass(bloomPass), mTaaPass(taaPass),
         mCompositePass(compositePass), mCommandPool(commandPool),
         mLightService(lightService), mShadowPass(shadowPass),
         mPickPass(pickPass), mServiceProvider(serviceProvider),
@@ -137,6 +173,7 @@ namespace FREYA_NAMESPACE
 
         mDevice->Get().destroySampler(mBloomResultSampler);
         mBloomResultImage.reset();
+        mTaaPass.reset();
         mBloomPass.reset();
         mCompositePass.reset();
         mSwapChain.reset();
@@ -382,6 +419,7 @@ namespace FREYA_NAMESPACE
         mForwardColorImage.reset();
         mForwardResolveImage.reset();
         mDeferredPass.reset();
+        mTaaPass.reset();
         mBloomPass.reset();
         mCompositePass.reset();
 
@@ -395,6 +433,9 @@ namespace FREYA_NAMESPACE
                 .SetSamples(vk::SampleCountFlagBits::e1)
                 .Build();
 
+        mPrevViewProjection = glm::mat4(1.0f);
+        mTaaFrameIndex      = 0;
+
         if (IsDeferred())
         {
             mDeferredPass =
@@ -405,6 +446,10 @@ namespace FREYA_NAMESPACE
                 mServiceProvider->GetService<BloomPassBuilder>()->Build(
                     mSwapChain, mDeferredPass->GetSceneColorImage(), extent);
 
+            mTaaPass = mServiceProvider->GetService<TaaPassBuilder>()->Build(
+                mSwapChain, extent);
+            mTaaPass->ResetHistory();
+
             mCompositePass =
                 mServiceProvider->GetService<CompositePassBuilder>()->Build(
                     mSwapChain);
@@ -412,7 +457,7 @@ namespace FREYA_NAMESPACE
             for (auto frame = 0; frame < mFreyaOptions->frameCount; frame++)
             {
                 mCompositePass->UpdateDescriptorSet(
-                    frame, mDeferredPass->GetOpaqueImage(),
+                    frame, mDeferredPass->GetSceneColorImage(),
                     mDeferredPass->GetTranslucentImage(), mBloomResultImage,
                     mBloomResultSampler);
             }
@@ -524,7 +569,8 @@ namespace FREYA_NAMESPACE
             mForwardPass->UpdateProjection(mCurrentProjection, frameIndex);
             if (mDeferredPass)
             {
-                mDeferredPass->UpdateProjection(mCurrentProjection, frameIndex);
+                mDeferredPass->UpdateProjection(
+                    prepareDeferredProjection(mCurrentProjection), frameIndex);
             }
         }
     }
@@ -559,7 +605,8 @@ namespace FREYA_NAMESPACE
             mForwardPass->UpdateProjection(mCurrentProjection, frameIndex);
             if (mDeferredPass)
             {
-                mDeferredPass->UpdateProjection(mCurrentProjection, frameIndex);
+                mDeferredPass->UpdateProjection(
+                    prepareDeferredProjection(mCurrentProjection), frameIndex);
             }
         }
     }
@@ -725,8 +772,9 @@ namespace FREYA_NAMESPACE
             mForwardPass->UpdateProjection(projectionUniformBuffer, frameIndex);
             if (mDeferredPass)
             {
-                mDeferredPass->UpdateProjection(projectionUniformBuffer,
-                                                frameIndex);
+                mDeferredPass->UpdateProjection(
+                    prepareDeferredProjection(projectionUniformBuffer),
+                    frameIndex);
             }
         }
 
@@ -744,6 +792,23 @@ namespace FREYA_NAMESPACE
                               far);
     }
 
+    ProjectionUniformBuffer Renderer::prepareDeferredProjection(
+        const ProjectionUniformBuffer& unjittered) const
+    {
+        auto upload                 = unjittered;
+        upload.prevViewProjection   = mPrevViewProjection;
+        upload.unjitteredProjection = unjittered.projection;
+        ApplyHaltonJitter(upload.projection, mTaaFrameIndex, getRenderExtent());
+        return upload;
+    }
+
+    void Renderer::commitTaaHistory()
+    {
+        mPrevViewProjection =
+            mCurrentProjection.projection * mCurrentProjection.view;
+        ++mTaaFrameIndex;
+    }
+
     void Renderer::UpdateProjection(
         ProjectionUniformBuffer& projectionUniformBuffer)
     {
@@ -752,7 +817,7 @@ namespace FREYA_NAMESPACE
         if (mDeferredPass)
         {
             mDeferredPass->UpdateProjection(
-                projectionUniformBuffer, frameIndex);
+                prepareDeferredProjection(projectionUniformBuffer), frameIndex);
         }
         mCurrentProjection = projectionUniformBuffer;
     }
@@ -786,7 +851,8 @@ namespace FREYA_NAMESPACE
             mForwardPass->UpdateProjection(mCurrentProjection, frameIndex);
             if (mDeferredPass)
             {
-                mDeferredPass->UpdateProjection(mCurrentProjection, frameIndex);
+                mDeferredPass->UpdateProjection(
+                    prepareDeferredProjection(mCurrentProjection), frameIndex);
             }
         }
     }
@@ -1140,7 +1206,14 @@ namespace FREYA_NAMESPACE
             mDeferredPass->DrawLighting(mCommandPool, frameIndex);
             mDeferredPass->End(mCommandPool);
 
-            // --- Bloom pass (half resolution) ---
+            if (mTaaPass)
+            {
+                mTaaPass->Dispatch(mCommandPool,
+                                   mDeferredPass->GetSceneColorImage(),
+                                   mDeferredPass->GetVelocityImage());
+            }
+
+            // --- Bloom pass (half resolution, pre-TAA Scene Color) ---
             const auto extent = getRenderExtent();
             const auto halfW  = std::max(1u, extent.width / 2);
             const auto halfH  = std::max(1u, extent.height / 2);
@@ -1173,10 +1246,14 @@ namespace FREYA_NAMESPACE
             blitBloomToFullRes(mCommandPool);
 
             setFullViewport();
+            const auto compositeOpaque =
+                mTaaPass ? mTaaPass->GetOutputImage()
+                         : mDeferredPass->GetSceneColorImage();
             beginComposite(frameIndex,
-                           mDeferredPass->GetSceneColorImage(),
+                           compositeOpaque,
                            mDeferredPass->GetTranslucentImage(),
                            true);
+            commitTaaHistory();
         }
         else
         {

@@ -4,11 +4,13 @@ layout (location = 0) in vec3 inPosition;
 layout (location = 1) in vec2 inTexCoord;
 layout (location = 2) in mat3 inTBN;
 layout (location = 5) in vec3 inColor;
+layout (location = 6) in vec2 inVelocity;
 
 layout (location = 0) out vec4 outAlbedo;     // RGB albedo (gamma), A matID
 layout (location = 1) out vec4 outNormal;     // RGB packed normal, A 2-bit flags
 layout (location = 2) out vec4 outPbr;        // R rough, G metal, B AO, A free
 layout (location = 3) out vec4 outSceneColor; // HDR emissive
+layout (location = 4) out vec2 outVelocity;   // UV-space motion
 
 layout (set = 1, binding = 0) uniform sampler2D uAlbedoTexture;
 layout (set = 1, binding = 1) uniform sampler2D uNormalTexture;
@@ -75,4 +77,5 @@ void main() {
         srgbToLinear(texture(uEmissiveTexture, inTexCoord).rgb) *
         materialFactors.emissiveFactor.rgb;
     outSceneColor = vec4(emissiveLin * kEmissiveIntensity, 1.0);
+    outVelocity = inVelocity;
 }

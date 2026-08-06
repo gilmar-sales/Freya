@@ -293,6 +293,7 @@ namespace FREYA_NAMESPACE
         auto normalImage     = createImage(ImageUsage::GBufferNormal);
         auto pbrImage        = createImage(ImageUsage::GBufferPbr);
         auto sceneColorImage = createImage(ImageUsage::GBufferSceneColor);
+        auto velocityImage   = createImage(ImageUsage::GBufferVelocity);
         auto depthImage      = createImage(ImageUsage::Depth);
         auto translucentImage =
             createImage(ImageUsage::Color, vk::Format::eR8G8B8A8Unorm);
@@ -572,7 +573,8 @@ namespace FREYA_NAMESPACE
 
         auto gbufferBlendAttachments =
             std::vector { noBlendAttachment, noBlendAttachment,
-                          noBlendAttachment, noBlendAttachment };
+                          noBlendAttachment, noBlendAttachment,
+                          noBlendAttachment };
         auto gbufferBlendState =
             vk::PipelineColorBlendStateCreateInfo()
                 .setLogicOpEnable(false)
@@ -638,7 +640,7 @@ namespace FREYA_NAMESPACE
             auto attachments = std::vector<vk::ImageView> {
                 depthImage->GetImageView(),      albedoImage->GetImageView(),
                 normalImage->GetImageView(),     pbrImage->GetImageView(),
-                sceneColorImage->GetImageView(),
+                sceneColorImage->GetImageView(), velocityImage->GetImageView(),
             };
             framebuffers[i] = mDevice->Get().createFramebuffer(
                 vk::FramebufferCreateInfo()
@@ -653,8 +655,8 @@ namespace FREYA_NAMESPACE
             mDevice, mFreyaOptions, mSurface, renderPass, vertexPipelineLayout,
             fullscreenPipelineLayout, depthPipeline, gbufferPipeline,
             lightingPipeline, uniformBuffer, frameLayouts, descriptorSets,
-            descriptorPool, gbufferImages, sceneColorImage, depthImage,
-            translucentImage, framebuffers, lightingSetLayout,
+            descriptorPool, gbufferImages, sceneColorImage, velocityImage,
+            depthImage, translucentImage, framebuffers, lightingSetLayout,
             lightingDescriptorPool, lightingSets, samplerLayout,
             samplerDescriptorPool, gbufferSampler, extent);
     }
@@ -678,6 +680,8 @@ namespace FREYA_NAMESPACE
             colorAttachment(vk::Format::eR8G8B8A8Unorm,
                             vk::ImageLayout::eShaderReadOnlyOptimal),
             colorAttachment(vk::Format::eR16G16B16A16Sfloat,
+                            vk::ImageLayout::eShaderReadOnlyOptimal),
+            colorAttachment(vk::Format::eR16G16Sfloat,
                             vk::ImageLayout::eShaderReadOnlyOptimal),
         };
 
@@ -703,6 +707,9 @@ namespace FREYA_NAMESPACE
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
             vk::AttachmentReference()
                 .setAttachment(DefSceneColorAttachment)
+                .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
+            vk::AttachmentReference()
+                .setAttachment(DefVelocityAttachment)
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
         };
 

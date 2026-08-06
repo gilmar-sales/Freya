@@ -13,11 +13,12 @@
 namespace FREYA_NAMESPACE
 {
     /**
-     * Balanced G-buffer (128-bit color) + HDR Scene Color accumulation.
+     * Balanced G-buffer (160-bit color with velocity) + HDR Scene Color.
      *
-     * Attachments: depth, albedo+matID, normal+flags, PBR, sceneColor HDR.
-     * Subpasses: depth pre-pass → G-buffer (writes emissive into scene
-     * color) → fullscreen lighting (additive into scene color).
+     * Attachments: depth, albedo+matID, normal+flags, PBR, sceneColor HDR,
+     * velocity RG16F.
+     * Subpasses: depth pre-pass → G-buffer (emissive into scene color) →
+     * fullscreen lighting (additive into scene color). TAA runs after End().
      */
     enum : std::uint32_t
     {
@@ -26,6 +27,7 @@ namespace FREYA_NAMESPACE
         DefNormalAttachment,
         DefPbrAttachment,
         DefSceneColorAttachment,
+        DefVelocityAttachment,
     };
 
     enum : std::uint32_t
@@ -54,6 +56,7 @@ namespace FREYA_NAMESPACE
             const vk::DescriptorPool                    descriptorPool,
             const std::vector<skr::Arc<Image>>&         gbufferImages,
             const skr::Arc<Image>&                      sceneColorImage,
+            const skr::Arc<Image>&                      velocityImage,
             const skr::Arc<Image>&                      depthImage,
             const skr::Arc<Image>&                      translucentImage,
             const std::vector<vk::Framebuffer>&         framebuffers,
@@ -89,6 +92,7 @@ namespace FREYA_NAMESPACE
             return mTranslucentImage;
         }
         skr::Arc<Image> GetDepthImage() const { return mDepthImage; }
+        skr::Arc<Image> GetVelocityImage() const { return mVelocityImage; }
         skr::Arc<Image> GetAlbedoImage() const { return mGBufferImages[0]; }
         skr::Arc<Image> GetNormalImage() const { return mGBufferImages[1]; }
         skr::Arc<Image> GetPbrImage() const { return mGBufferImages[2]; }
@@ -157,6 +161,7 @@ namespace FREYA_NAMESPACE
 
         std::vector<skr::Arc<Image>> mGBufferImages;
         skr::Arc<Image>              mSceneColorImage;
+        skr::Arc<Image>              mVelocityImage;
         skr::Arc<Image>              mDepthImage;
         skr::Arc<Image>              mTranslucentImage;
 

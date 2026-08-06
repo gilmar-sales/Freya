@@ -17,6 +17,7 @@
 #include "Freya/Core/RenderTarget.hpp"
 #include "Freya/Core/ShadowPass.hpp"
 #include "Freya/Core/SwapChain.hpp"
+#include "Freya/Core/TaaPass.hpp"
 #include "Freya/Events/EventManager.hpp"
 
 namespace FREYA_NAMESPACE
@@ -47,6 +48,7 @@ namespace FREYA_NAMESPACE
                  const skr::Arc<RenderPass>&             forwardPass,
                  const skr::Arc<DeferredCompressedPass>& deferredPass,
                  const skr::Arc<BloomPass>&              bloomPass,
+                 const skr::Arc<TaaPass>&                taaPass,
                  const skr::Arc<CompositePass>&          compositePass,
                  const skr::Arc<CommandPool>&            commandPool,
                  const skr::Arc<LightService>&           lightService,
@@ -285,6 +287,11 @@ namespace FREYA_NAMESPACE
                             const skr::Arc<Image>& translucentImage,
                             bool                   tonemapHdr = false);
 
+        ProjectionUniformBuffer prepareDeferredProjection(
+            const ProjectionUniformBuffer& unjittered) const;
+
+        void commitTaaHistory();
+
         /**
          * @brief Begin a cleared swapchain render pass for application UI.
          * Leaves the pass open until Present().
@@ -300,6 +307,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<RenderPass>             mForwardPass;
         skr::Arc<DeferredCompressedPass> mDeferredPass;
         skr::Arc<BloomPass>              mBloomPass;
+        skr::Arc<TaaPass>                mTaaPass;
         skr::Arc<CompositePass>          mCompositePass;
         skr::Arc<CommandPool>            mCommandPool;
         skr::Arc<LightService>           mLightService;
@@ -319,6 +327,8 @@ namespace FREYA_NAMESPACE
         std::optional<WindowResizeEvent> mResizeEvent;
 
         ProjectionUniformBuffer mCurrentProjection;
+        glm::mat4               mPrevViewProjection { 1.0f };
+        std::uint32_t           mTaaFrameIndex = 0;
         vk::Sampler             mBloomResultSampler;
 
         // Full-res bloom result image (blit target from half-res bloom up)

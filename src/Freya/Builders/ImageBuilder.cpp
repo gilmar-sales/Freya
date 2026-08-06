@@ -72,14 +72,21 @@ namespace FREYA_NAMESPACE
             case ImageUsage::GBufferAlbedo:
             case ImageUsage::GBufferNormal:
             case ImageUsage::GBufferPbr:
+            case ImageUsage::GBufferVelocity:
                 imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment |
                                    vk::ImageUsageFlagBits::eInputAttachment |
                                    vk::ImageUsageFlagBits::eSampled);
                 break;
             case ImageUsage::GBufferSceneColor:
-                // Geometry emissive + lighting accumulation; sampled by bloom
+                // Geometry emissive + lighting accumulation; sampled by
+                // bloom/TAA
                 imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment |
                                    vk::ImageUsageFlagBits::eSampled);
+                break;
+            case ImageUsage::TaaHistory:
+                imageInfo.setUsage(vk::ImageUsageFlagBits::eStorage |
+                                   vk::ImageUsageFlagBits::eSampled |
+                                   vk::ImageUsageFlagBits::eTransferDst);
                 break;
             default:
                 break;
@@ -331,6 +338,8 @@ namespace FREYA_NAMESPACE
             case ImageUsage::GBufferNormal:
             case ImageUsage::GBufferPbr:
             case ImageUsage::GBufferSceneColor:
+            case ImageUsage::GBufferVelocity:
+            case ImageUsage::TaaHistory:
                 aspect = vk::ImageAspectFlagBits::eColor;
                 break;
             case ImageUsage::Depth:
@@ -396,6 +405,12 @@ namespace FREYA_NAMESPACE
                 mFormat = vk::Format::eR8G8B8A8Unorm;
                 break;
             case ImageUsage::GBufferSceneColor:
+                mFormat = vk::Format::eR16G16B16A16Sfloat;
+                break;
+            case ImageUsage::GBufferVelocity:
+                mFormat = vk::Format::eR16G16Sfloat;
+                break;
+            case ImageUsage::TaaHistory:
                 mFormat = vk::Format::eR16G16B16A16Sfloat;
                 break;
             default:
