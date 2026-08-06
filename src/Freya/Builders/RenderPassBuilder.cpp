@@ -230,7 +230,7 @@ namespace FREYA_NAMESPACE
         auto descriptorSets =
             mDevice->Get().allocateDescriptorSets(descriptorSetAllocInfo);
 
-        constexpr std::uint32_t maxMaterialSets = 2 << 16;
+        constexpr std::uint32_t maxMaterialSets = MAX_MATERIAL_SETS;
 
         auto samplerPoolSizes = std::array {
             vk::DescriptorPoolSize()
@@ -300,14 +300,11 @@ namespace FREYA_NAMESPACE
         auto pipelineLayoutInfo =
             vk::PipelineLayoutCreateInfo().setSetLayouts(pipelineLayouts);
 
-        uint64_t minimumBufferSize = 1024 * 1024;
-        uint64_t bufferSize =
-            sizeof(ProjectionUniformBuffer) * mFreyaOptions->frameCount;
-
         auto uniformBuffer =
             BufferBuilder(mDevice)
                 .SetUsage(BufferUsage::Uniform)
-                .SetSize(std::max(bufferSize, minimumBufferSize))
+                .SetSize(sizeof(ProjectionUniformBuffer) *
+                         mFreyaOptions->frameCount)
                 .Build();
 
         for (auto i = 0; i < mFreyaOptions->frameCount; i++)
