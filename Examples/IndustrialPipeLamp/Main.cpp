@@ -188,13 +188,14 @@ class MainApp final : public fra::AbstractApplication
             warm.phaseOffset  = 0.0f;
             warm.radiusOffset = 4.0f;
             warm.kind         = AnimatedLightKind::Point;
-            auto point        = fra::MakePointLight(glm::vec3(12.0f, 6.0f, 0.0f),
-                                                    glm::vec3(1.0f, 0.45f, 0.3f),
-                                                    50.0f,
-                                                    14.0f);
+            auto point        = fra::MakePointLight(
+                glm::vec3(12.0f, 6.0f, 0.0f),
+                glm::vec3(1.0f, 0.45f, 0.3f),
+                50.0f,
+                14.0f);
             point.castShadows = false;
-            warm.index        = static_cast<std::uint32_t>(
-                mLightService->AddLight(point));
+            warm.index =
+                static_cast<std::uint32_t>(mLightService->AddLight(point));
             mWarmPointIndex = warm.index;
             mAnimatedLights.push_back(warm);
         }
@@ -205,13 +206,14 @@ class MainApp final : public fra::AbstractApplication
             cool.phaseOffset  = 2.1f;
             cool.radiusOffset = 5.0f;
             cool.kind         = AnimatedLightKind::Point;
-            auto point        = fra::MakePointLight(glm::vec3(-12.0f, 6.0f, 0.0f),
-                                                    glm::vec3(0.3f, 0.5f, 1.0f),
-                                                    50.0f,
-                                                    14.0f);
+            auto point        = fra::MakePointLight(
+                glm::vec3(-12.0f, 6.0f, 0.0f),
+                glm::vec3(0.3f, 0.5f, 1.0f),
+                50.0f,
+                14.0f);
             point.castShadows = false;
-            cool.index        = static_cast<std::uint32_t>(
-                mLightService->AddLight(point));
+            cool.index =
+                static_cast<std::uint32_t>(mLightService->AddLight(point));
             mCoolPointIndex = cool.index;
             mAnimatedLights.push_back(cool);
         }
@@ -238,16 +240,17 @@ class MainApp final : public fra::AbstractApplication
             spotAnim.radiusOffset = seed.radiusOffset;
             spotAnim.kind         = AnimatedLightKind::Spot;
 
-            auto spot = fra::MakeSpotLight(glm::vec3(0.0f, 12.0f, 10.0f),
-                                           glm::vec3(0.0f, -1.0f, -0.5f),
-                                           seed.color,
-                                           55.0f,
-                                           glm::radians(12.0f),
-                                           glm::radians(22.0f),
-                                           10.0f);
+            auto spot = fra::MakeSpotLight(
+                glm::vec3(0.0f, 12.0f, 10.0f),
+                glm::vec3(0.0f, -1.0f, -0.5f),
+                seed.color,
+                55.0f,
+                glm::radians(12.0f),
+                glm::radians(22.0f),
+                10.0f);
             spot.castShadows = false;
-            spotAnim.index   = static_cast<std::uint32_t>(
-                mLightService->AddLight(spot));
+            spotAnim.index =
+                static_cast<std::uint32_t>(mLightService->AddLight(spot));
             mSpotIndices.push_back(spotAnim.index);
             mAnimatedLights.push_back(spotAnim);
         }

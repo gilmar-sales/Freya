@@ -35,10 +35,8 @@ namespace FREYA_NAMESPACE
                 .setInitialLayout(vk::ImageLayout::eUndefined)
                 .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 
-        auto colorRef =
-            vk::AttachmentReference()
-                .setAttachment(0)
-                .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+        auto colorRef = vk::AttachmentReference().setAttachment(0).setLayout(
+            vk::ImageLayout::eColorAttachmentOptimal);
 
         auto subpass =
             vk::SubpassDescription()
@@ -49,8 +47,7 @@ namespace FREYA_NAMESPACE
             vk::SubpassDependency()
                 .setSrcSubpass(vk::SubpassExternal)
                 .setDstSubpass(0)
-                .setSrcStageMask(
-                    vk::PipelineStageFlagBits::eFragmentShader)
+                .setSrcStageMask(vk::PipelineStageFlagBits::eFragmentShader)
                 .setDstStageMask(
                     vk::PipelineStageFlagBits::eColorAttachmentOutput)
                 .setSrcAccessMask(vk::AccessFlagBits::eShaderRead)
@@ -118,10 +115,9 @@ namespace FREYA_NAMESPACE
             vertStage,
             makeStage(blurFrag->Get(), vk::ShaderStageFlagBits::eFragment)
         };
-        auto upStages = {
-            vertStage,
-            makeStage(upFrag->Get(), vk::ShaderStageFlagBits::eFragment)
-        };
+        auto upStages = { vertStage,
+                          makeStage(upFrag->Get(),
+                                    vk::ShaderStageFlagBits::eFragment) };
 
         auto createMaskImage = [&](vk::Extent2D extent) {
             return mServiceProvider->GetService<ImageBuilder>()
@@ -133,9 +129,9 @@ namespace FREYA_NAMESPACE
                 .Build();
         };
 
-        auto halfMaskImage  = createMaskImage(halfExtent);
-        auto blurTempImage  = createMaskImage(halfExtent);
-        auto resultImage    = createMaskImage(fullExtent);
+        auto halfMaskImage = createMaskImage(halfExtent);
+        auto blurTempImage = createMaskImage(halfExtent);
+        auto resultImage   = createMaskImage(fullExtent);
 
         auto cameraBuffer =
             BufferBuilder(mDevice)
@@ -250,8 +246,7 @@ namespace FREYA_NAMESPACE
 
         auto descriptorPool = mDevice->Get().createDescriptorPool(
             vk::DescriptorPoolCreateInfo()
-                .setPoolSizeCount(
-                    static_cast<std::uint32_t>(poolSizes.size()))
+                .setPoolSizeCount(static_cast<std::uint32_t>(poolSizes.size()))
                 .setPPoolSizes(poolSizes.data())
                 .setMaxSets(4));
 
@@ -265,11 +260,10 @@ namespace FREYA_NAMESPACE
         std::array<vk::DescriptorSet, 4> descriptorSets = { sets[0], sets[1],
                                                             sets[2], sets[3] };
 
-        auto pushRange =
-            vk::PushConstantRange()
-                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
-                .setOffset(0)
-                .setSize(sizeof(ShadowDenoisePushConstants));
+        auto pushRange = vk::PushConstantRange()
+                             .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                             .setOffset(0)
+                             .setSize(sizeof(ShadowDenoisePushConstants));
 
         auto maskLayout = mDevice->Get().createPipelineLayout(
             vk::PipelineLayoutCreateInfo().setSetLayouts(maskSetLayout));
@@ -315,10 +309,9 @@ namespace FREYA_NAMESPACE
                 .setSampleShadingEnable(false)
                 .setRasterizationSamples(vk::SampleCountFlagBits::e1);
 
-        auto noDepth =
-            vk::PipelineDepthStencilStateCreateInfo()
-                .setDepthTestEnable(false)
-                .setDepthWriteEnable(false);
+        auto noDepth = vk::PipelineDepthStencilStateCreateInfo()
+                           .setDepthTestEnable(false)
+                           .setDepthWriteEnable(false);
 
         auto noBlend =
             vk::PipelineColorBlendAttachmentState()
@@ -382,12 +375,9 @@ namespace FREYA_NAMESPACE
                     .setLayers(1));
         };
 
-        framebuffers[0] =
-            makeFb(renderPasses[0], halfMaskImage, halfExtent);
-        framebuffers[1] =
-            makeFb(renderPasses[1], blurTempImage, halfExtent);
-        framebuffers[2] =
-            makeFb(renderPasses[2], halfMaskImage, halfExtent);
+        framebuffers[0] = makeFb(renderPasses[0], halfMaskImage, halfExtent);
+        framebuffers[1] = makeFb(renderPasses[1], blurTempImage, halfExtent);
+        framebuffers[2] = makeFb(renderPasses[2], halfMaskImage, halfExtent);
         framebuffers[3] = makeFb(renderPasses[3], resultImage, fullExtent);
 
         mDevice->Get().destroyShaderModule(vertShader->Get());
@@ -400,8 +390,8 @@ namespace FREYA_NAMESPACE
             renderPasses, maskLayout, blurLayout, upsampleLayout, pipelines,
             halfMaskImage, blurTempImage, resultImage, framebuffers,
             descriptorPool,
-            std::vector<vk::DescriptorSetLayout> { maskSetLayout, blurSetLayout,
-                                                   upsampleSetLayout },
+            std::vector<vk::DescriptorSetLayout> {
+                maskSetLayout, blurSetLayout, upsampleSetLayout },
             descriptorSets, cameraBuffer, sampler);
 
         pass->UpdateDescriptors(
@@ -409,7 +399,7 @@ namespace FREYA_NAMESPACE
             mShadowPass->GetCascadeView(), mShadowPass->GetCompareSampler(),
             mShadowPass->GetSampler(), mShadowPass->GetUniformBuffer());
 
-        (void)swapChain;
+        (void) swapChain;
         return pass;
     }
 } // namespace FREYA_NAMESPACE

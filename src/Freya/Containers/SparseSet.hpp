@@ -158,7 +158,8 @@ namespace FREYA_NAMESPACE
          * @param index Dense array index
          * @return Reference to element
          */
-        T& operator[](int index) { return dense[index]; };
+        T&       operator[](int index) { return dense[index]; }
+        const T& operator[](int index) const { return dense[index]; }
 
         /**
          * @brief Returns number of elements.

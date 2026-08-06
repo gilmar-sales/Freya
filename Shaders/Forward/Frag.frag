@@ -50,6 +50,12 @@ layout(set = 1, binding = 2) uniform sampler2D roughnessSampler;
 layout(set = 1, binding = 3) uniform sampler2D emissiveSampler;
 layout(set = 1, binding = 4) uniform sampler2D metalnessSampler;
 
+layout(set = 1, binding = 5) uniform MaterialFactors {
+    vec4 albedoFactor;
+    vec4 emissiveFactor; // xyz used, w unused
+    vec2 roughMetal;     // x = roughnessFactor, y = metalnessFactor
+} materialFactors;
+
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec3 fragPosition;
 layout(location = 2) in vec2 fragTexCoord;
@@ -500,12 +506,16 @@ vec3 ACESFilm(vec3 x) {
 void main()
 {
     vec3 albedo = srgbToLinear(texture(albedoSampler, fragTexCoord).rgb) *
-                  fragColor;
+                  fragColor * materialFactors.albedoFactor.rgb;
     vec3 normal = getNormalFromMap();
     float roughness =
-        max(texture(roughnessSampler, fragTexCoord).r, 0.045);
-    float metalness = texture(metalnessSampler, fragTexCoord).r;
-    vec3 emissive = srgbToLinear(texture(emissiveSampler, fragTexCoord).rgb);
+        max(texture(roughnessSampler, fragTexCoord).r *
+                materialFactors.roughMetal.x,
+            0.045);
+    float metalness = texture(metalnessSampler, fragTexCoord).r *
+                      materialFactors.roughMetal.y;
+    vec3 emissive = srgbToLinear(texture(emissiveSampler, fragTexCoord).rgb) *
+                    materialFactors.emissiveFactor.rgb;
 
     vec3 N = normalize(normal);
     vec3 V = normalize(lights.viewPosition.xyz - fragPosition);

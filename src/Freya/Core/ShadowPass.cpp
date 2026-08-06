@@ -160,11 +160,11 @@ namespace FREYA_NAMESPACE
             mFreyaOptions->ReverseZ ? softScale : -softScale);
         mShadowData.reverseZ =
             glm::vec4(mFreyaOptions->ReverseZ ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f);
-        mShadowData.pcss =
-            glm::vec4(std::max(0.0f, mFreyaOptions->shadowLightSize),
-                      std::max(1.0f, mFreyaOptions->shadowMaxSoftness),
-                      std::clamp(mFreyaOptions->shadowMinVisibility, 0.0f, 0.95f),
-                      0.0f);
+        mShadowData.pcss = glm::vec4(
+            std::max(0.0f, mFreyaOptions->shadowLightSize),
+            std::max(1.0f, mFreyaOptions->shadowMaxSoftness),
+            std::clamp(mFreyaOptions->shadowMinVisibility, 0.0f, 0.95f),
+            0.0f);
 
         // ------------------------------------------------------------------
         // Directional CSM: first shadow-casting directional light wins.

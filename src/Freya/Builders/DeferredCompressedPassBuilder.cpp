@@ -189,19 +189,24 @@ namespace FREYA_NAMESPACE
                 .setSetLayouts(frameLayouts)
                 .setDescriptorPool(descriptorPool));
 
-        auto samplerPoolSize =
+        constexpr std::uint32_t maxMaterialSets = 2 << 16;
+
+        auto samplerPoolSizes = std::array {
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(2 << 16);
+                .setDescriptorCount(5 * maxMaterialSets),
+            vk::DescriptorPoolSize()
+                .setType(vk::DescriptorType::eUniformBuffer)
+                .setDescriptorCount(maxMaterialSets),
+        };
         auto samplerDescriptorPool = mDevice->Get().createDescriptorPool(
             vk::DescriptorPoolCreateInfo()
-                .setPoolSizeCount(1)
-                .setPPoolSizes(&samplerPoolSize)
-                .setMaxSets(2 << 16));
+                .setPoolSizes(samplerPoolSizes)
+                .setMaxSets(maxMaterialSets));
 
         auto samplerBindings =
             std::array { cisBinding(0), cisBinding(1), cisBinding(2),
-                         cisBinding(3), cisBinding(4) };
+                         cisBinding(3), cisBinding(4), uboBinding(5) };
         auto samplerLayout = mDevice->Get().createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo().setBindings(samplerBindings));
 

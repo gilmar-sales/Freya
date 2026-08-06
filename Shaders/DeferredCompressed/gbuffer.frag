@@ -17,6 +17,12 @@ layout (set = 1, binding = 2) uniform sampler2D uRoughnessTexture;
 layout (set = 1, binding = 3) uniform sampler2D uEmissiveTexture;
 layout (set = 1, binding = 4) uniform sampler2D uMetalnessTexture;
 
+layout (set = 1, binding = 5) uniform MaterialFactors {
+    vec4 albedoFactor;
+    vec4 emissiveFactor; // xyz used, w unused
+    vec2 roughMetal;     // x = roughnessFactor, y = metalnessFactor
+} materialFactors;
+
 vec3 srgbToLinear(vec3 c) {
     return pow(c, vec3(2.2));
 }
@@ -36,14 +42,21 @@ void main() {
 
     // Write linear albedo into sRGB G-buffer (HW encodes on store).
     vec3 albedoLin =
-        srgbToLinear(texture(uAlbedoTexture, inTexCoord).rgb) * inColor;
+        srgbToLinear(texture(uAlbedoTexture, inTexCoord).rgb) * inColor *
+        materialFactors.albedoFactor.rgb;
     outAlbedo = vec4(albedoLin, 1.0);
 
     // Emissive G-buffer is float — store linear
-    outEmissive =
-        vec4(srgbToLinear(texture(uEmissiveTexture, inTexCoord).rgb), 1.0);
+    outEmissive = vec4(
+        srgbToLinear(texture(uEmissiveTexture, inTexCoord).rgb) *
+            materialFactors.emissiveFactor.rgb,
+        1.0);
 
-    float metalness = texture(uMetalnessTexture, inTexCoord).r;
-    float roughness = texture(uRoughnessTexture, inTexCoord).r;
+    float metalness = texture(uMetalnessTexture, inTexCoord).r *
+                      materialFactors.roughMetal.y;
+    float roughness =
+        max(texture(uRoughnessTexture, inTexCoord).r *
+                materialFactors.roughMetal.x,
+            0.045);
     outMaterial = vec4(metalness, roughness, 0.0, 1.0);
 }

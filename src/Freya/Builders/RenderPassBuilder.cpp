@@ -1,5 +1,6 @@
 #include "Freya/Builders/RenderPassBuilder.hpp"
 
+#include "Freya/Asset/Material.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
 
@@ -254,16 +255,20 @@ namespace FREYA_NAMESPACE
         auto descriptorSets =
             mDevice->Get().allocateDescriptorSets(descriptorSetAllocInfo);
 
-        auto samplerPoolSize =
+        constexpr std::uint32_t maxMaterialSets = 2 << 16;
+
+        auto samplerPoolSizes = std::array {
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(2 << 16);
+                .setDescriptorCount(5 * maxMaterialSets),
+            vk::DescriptorPoolSize()
+                .setType(vk::DescriptorType::eUniformBuffer)
+                .setDescriptorCount(maxMaterialSets),
+        };
 
-        auto samplerPoolInfo =
-            vk::DescriptorPoolCreateInfo()
-                .setPoolSizeCount(1)
-                .setPPoolSizes(&samplerPoolSize)
-                .setMaxSets(2 << 16);
+        auto samplerPoolInfo = vk::DescriptorPoolCreateInfo()
+                                   .setPoolSizes(samplerPoolSizes)
+                                   .setMaxSets(maxMaterialSets);
 
         auto samplerDescriptorPool =
             mDevice->Get().createDescriptorPool(samplerPoolInfo);
@@ -296,6 +301,12 @@ namespace FREYA_NAMESPACE
             vk::DescriptorSetLayoutBinding()
                 .setBinding(4)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(5)
+                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr),
@@ -831,6 +842,20 @@ namespace FREYA_NAMESPACE
                 .setImageView(fbEmissiveView)
                 .setSampler(fbEmissiveSampler);
 
+        auto identityFactors = MaterialFactorsUniform {};
+        auto fallbackFactorsBuffer =
+            BufferBuilder(mDevice)
+                .SetUsage(BufferUsage::Uniform)
+                .SetSize(sizeof(MaterialFactorsUniform))
+                .SetData(&identityFactors)
+                .Build();
+
+        auto fbFactorsBufferInfo =
+            vk::DescriptorBufferInfo()
+                .setBuffer(fallbackFactorsBuffer->Get())
+                .setOffset(0)
+                .setRange(sizeof(MaterialFactorsUniform));
+
         const auto fbWrites = std::array {
             vk::WriteDescriptorSet()
                 .setDstSet(fbFallbackSet)
@@ -868,6 +893,13 @@ namespace FREYA_NAMESPACE
                 .setDescriptorCount(1)
                 .setImageInfo(
                     fbBlackImgInfoDesc), // metalness fallback = 0.0 (black)
+            vk::WriteDescriptorSet()
+                .setDstSet(fbFallbackSet)
+                .setDstBinding(5)
+                .setDstArrayElement(0)
+                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                .setDescriptorCount(1)
+                .setBufferInfo(fbFactorsBufferInfo),
         };
         mDevice->Get().updateDescriptorSets(fbWrites, nullptr);
 
@@ -884,6 +916,7 @@ namespace FREYA_NAMESPACE
             samplerLayout,
             samplerDescriptorPool,
             fbFallbackSet,
+            fallbackFactorsBuffer,
             fbImage,
             fbImageMemory,
             fbImageView,

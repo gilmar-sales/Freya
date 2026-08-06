@@ -62,12 +62,12 @@ namespace FREYA_NAMESPACE
 
         ~ShadowDenoisePass();
 
-        void UpdateDescriptors(const skr::Arc<Image>& depthImage,
-                               const skr::Arc<Image>& normalImage,
-                               vk::ImageView          cascadeCompareView,
-                               vk::ImageView          cascadeDepthView,
-                               vk::Sampler            compareSampler,
-                               vk::Sampler            depthSampler,
+        void UpdateDescriptors(const skr::Arc<Image>&  depthImage,
+                               const skr::Arc<Image>&  normalImage,
+                               vk::ImageView           cascadeCompareView,
+                               vk::ImageView           cascadeDepthView,
+                               vk::Sampler             compareSampler,
+                               vk::Sampler             depthSampler,
                                const skr::Arc<Buffer>& shadowUniformBuffer);
 
         void Render(const skr::Arc<CommandPool>& commandPool,
@@ -81,9 +81,9 @@ namespace FREYA_NAMESPACE
         vk::Sampler GetSampler() const { return mSampler; }
 
       private:
-        void drawPass(const skr::Arc<CommandPool>&     commandPool,
-                      std::uint32_t                    passIndex,
-                      vk::Extent2D                     extent,
+        void drawPass(const skr::Arc<CommandPool>&      commandPool,
+                      std::uint32_t                     passIndex,
+                      vk::Extent2D                      extent,
                       const ShadowDenoisePushConstants& push) const;
 
         skr::Arc<Device>       mDevice;

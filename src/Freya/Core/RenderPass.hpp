@@ -39,11 +39,12 @@ namespace FREYA_NAMESPACE
      * @param descriptorPool      Descriptor pool
      * @param samplerLayout       Sampler descriptor set layout
      * @param samplerDescriptorPool Sampler descriptor pool
-     * @param fallbackSamplerSet  Fallback descriptor set for set 1 (samplers)
-     * @param fallbackImage       Fallback 1x1 white image
-     * @param fallbackImageMemory Fallback image memory
-     * @param fallbackImageView   Fallback image view
-     * @param fallbackSampler     Fallback sampler
+     * @param fallbackSamplerSet     Fallback descriptor set for set 1
+     * @param fallbackFactorsBuffer  Identity MaterialFactors UBO (binding 5)
+     * @param fallbackImage          Fallback 1x1 white image
+     * @param fallbackImageMemory    Fallback image memory
+     * @param fallbackImageView      Fallback image view
+     * @param fallbackSampler        Fallback sampler
      */
     class RenderPass
     {
@@ -61,6 +62,7 @@ namespace FREYA_NAMESPACE
             const vk::DescriptorSetLayout               samplerLayout,
             const vk::DescriptorPool                    samplerDescriptorPool,
             const vk::DescriptorSet                     fallbackSamplerSet,
+            const skr::Arc<Buffer>&                     fallbackFactorsBuffer,
             const vk::Image                             fallbackImage,
             const vk::DeviceMemory                      fallbackImageMemory,
             const vk::ImageView                         fallbackImageView,
@@ -77,6 +79,7 @@ namespace FREYA_NAMESPACE
             mSamplerLayout(samplerLayout),
             mSamplerDescriptorPool(samplerDescriptorPool),
             mFallbackSamplerSet(fallbackSamplerSet),
+            mFallbackFactorsBuffer(fallbackFactorsBuffer),
             mFallbackImage(fallbackImage),
             mFallbackImageMemory(fallbackImageMemory),
             mFallbackImageView(fallbackImageView),
@@ -221,6 +224,7 @@ namespace FREYA_NAMESPACE
 
         // Fallback 1x1 white texture descriptor set (bound at set 1 in Begin())
         vk::DescriptorSet mFallbackSamplerSet;
+        skr::Arc<Buffer>  mFallbackFactorsBuffer;
         vk::Image         mFallbackImage;
         vk::DeviceMemory  mFallbackImageMemory;
         vk::ImageView     mFallbackImageView;

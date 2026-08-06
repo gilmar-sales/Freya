@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.29)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(Freya LANGUAGES CXX VERSION 0.24.0)
+project(Freya LANGUAGES CXX VERSION 0.25.0)
 
 find_package(Vulkan REQUIRED)
 
@@ -19,7 +19,7 @@ include(FetchContent)
 FetchContent_Declare(
         SDL
         GIT_REPOSITORY "https://github.com/libsdl-org/SDL.git"
-        GIT_TAG "release-3.4.10"
+        GIT_TAG "release-3.4.14"
         GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(SDL)

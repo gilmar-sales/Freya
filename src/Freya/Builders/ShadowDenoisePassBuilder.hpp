@@ -22,11 +22,10 @@ namespace FREYA_NAMESPACE
             const skr::Arc<skr::ServiceProvider>& serviceProvider,
             const skr::Arc<ShadowPass>&           shadowPass);
 
-        skr::Arc<ShadowDenoisePass> Build(
-            const skr::Arc<SwapChain>& swapChain,
-            const skr::Arc<Image>&     depthImage,
-            const skr::Arc<Image>&     normalImage,
-            vk::Extent2D               fullExtent = {});
+        skr::Arc<ShadowDenoisePass> Build(const skr::Arc<SwapChain>& swapChain,
+                                          const skr::Arc<Image>&     depthImage,
+                                          const skr::Arc<Image>& normalImage,
+                                          vk::Extent2D fullExtent = {});
 
       private:
         vk::RenderPass createColorPass(vk::Format format) const;

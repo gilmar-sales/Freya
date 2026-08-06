@@ -22,6 +22,7 @@ namespace FREYA_NAMESPACE
 
         mDevice->Get().destroyDescriptorPool(mDescriptorPool);
 
+        mFallbackFactorsBuffer.reset();
         mUniformBuffer.reset();
 
         for (const auto& descriptorSetLayout : mDescriptorSetLayouts)

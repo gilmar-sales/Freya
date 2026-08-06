@@ -108,11 +108,10 @@ namespace FREYA_NAMESPACE
         constexpr auto depthRead =
             vk::ImageLayout::eDepthStencilReadOnlyOptimal;
 
-        auto depthInfo =
-            vk::DescriptorImageInfo()
-                .setSampler(mSampler)
-                .setImageView(depthImage->GetImageView())
-                .setImageLayout(depthRead);
+        auto depthInfo = vk::DescriptorImageInfo()
+                             .setSampler(mSampler)
+                             .setImageView(depthImage->GetImageView())
+                             .setImageLayout(depthRead);
 
         auto normalInfo =
             vk::DescriptorImageInfo()
@@ -319,8 +318,7 @@ namespace FREYA_NAMESPACE
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 
-        auto clearValue =
-            vk::ClearValue().setColor({ 1.0f, 0.0f, 0.0f, 0.0f });
+        auto clearValue = vk::ClearValue().setColor({ 1.0f, 0.0f, 0.0f, 0.0f });
 
         commandBuffer.beginRenderPass(
             vk::RenderPassBeginInfo()
@@ -340,8 +338,7 @@ namespace FREYA_NAMESPACE
                 .setHeight(static_cast<float>(extent.height))
                 .setMinDepth(0.0f)
                 .setMaxDepth(1.0f);
-        auto scissor =
-            vk::Rect2D().setOffset({ 0, 0 }).setExtent(extent);
+        auto scissor = vk::Rect2D().setOffset({ 0, 0 }).setExtent(extent);
         commandBuffer.setViewport(0, 1, &viewport);
         commandBuffer.setScissor(0, 1, &scissor);
 
@@ -349,7 +346,7 @@ namespace FREYA_NAMESPACE
                                    mPipelines[passIndex]);
         commandBuffer.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,
-            passIndex == ShadowDenoiseMaskPass     ? mMaskLayout
+            passIndex == ShadowDenoiseMaskPass       ? mMaskLayout
             : passIndex == ShadowDenoiseUpsamplePass ? mUpsampleLayout
                                                      : mBlurLayout,
             0, 1, &mDescriptorSets[passIndex], 0, nullptr);
@@ -370,7 +367,7 @@ namespace FREYA_NAMESPACE
                                    const glm::mat4&             invViewProj,
                                    const glm::vec3&             viewPos,
                                    const glm::vec3&             cameraForward,
-                                   const glm::vec3& lightDirection)
+                                   const glm::vec3&             lightDirection)
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
         beginDebugLabel(commandBuffer, "Shadow Denoise", mDevice->Get());
@@ -382,10 +379,9 @@ namespace FREYA_NAMESPACE
         camera.lightDirection = glm::vec4(lightDirection, 0.0f);
         mCameraBuffer->Copy(&camera, sizeof(camera), 0);
 
-        const float radius =
-            mFreyaOptions->shadowDenoiseRadius > 0.0f
-                ? mFreyaOptions->shadowDenoiseRadius
-                : 4.0f;
+        const float radius      = mFreyaOptions->shadowDenoiseRadius > 0.0f
+                                      ? mFreyaOptions->shadowDenoiseRadius
+                                      : 4.0f;
         const float depthSigma  = mFreyaOptions->shadowDenoiseDepthSigma;
         const float normalSigma = mFreyaOptions->shadowDenoiseNormalSigma;
 
@@ -394,18 +390,16 @@ namespace FREYA_NAMESPACE
         blurH.sigmas        = glm::vec4(depthSigma, normalSigma, 0.0f, 0.0f);
 
         ShadowDenoisePushConstants blurV = blurH;
-        blurV.axisAndParams =
-            glm::vec4(0.0f, 1.0f, radius, 0.0f);
+        blurV.axisAndParams              = glm::vec4(0.0f, 1.0f, radius, 0.0f);
 
         ShadowDenoisePushConstants upsample {};
         upsample.axisAndParams = glm::vec4(0.0f);
-        upsample.sigmas = glm::vec4(depthSigma, normalSigma, 0.0f, 0.0f);
+        upsample.sigmas        = glm::vec4(depthSigma, normalSigma, 0.0f, 0.0f);
 
         drawPass(commandPool, ShadowDenoiseMaskPass, mHalfExtent, blurH);
         drawPass(commandPool, ShadowDenoiseBlurHPass, mHalfExtent, blurH);
         drawPass(commandPool, ShadowDenoiseBlurVPass, mHalfExtent, blurV);
-        drawPass(commandPool, ShadowDenoiseUpsamplePass, mFullExtent,
-                 upsample);
+        drawPass(commandPool, ShadowDenoiseUpsamplePass, mFullExtent, upsample);
 
         endDebugLabel(commandBuffer, mDevice->Get());
     }
