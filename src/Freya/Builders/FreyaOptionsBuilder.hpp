@@ -184,6 +184,12 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        FreyaOptionsBuilder& SetShadowMinVisibility(float minVisibility)
+        {
+            mFreyaOptions->shadowMinVisibility = minVisibility;
+            return *this;
+        }
+
         FreyaOptionsBuilder& SetMaxSpotShadows(std::uint32_t count)
         {
             mFreyaOptions->maxSpotShadows = count;

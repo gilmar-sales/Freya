@@ -163,7 +163,7 @@ namespace FREYA_NAMESPACE
         mShadowData.pcss =
             glm::vec4(std::max(0.0f, mFreyaOptions->shadowLightSize),
                       std::max(1.0f, mFreyaOptions->shadowMaxSoftness),
-                      0.0f,
+                      std::clamp(mFreyaOptions->shadowMinVisibility, 0.0f, 0.95f),
                       0.0f);
 
         // ------------------------------------------------------------------

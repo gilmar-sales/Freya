@@ -62,6 +62,9 @@ namespace FREYA_NAMESPACE
         float shadowLightSize = 0.03f;
         /// PCSS max PCF kernel radius in shadow-map texels.
         float shadowMaxSoftness = 8.0f;
+        /// Floor on shadow visibility (0 = pure black umbra). Soft occluder
+        /// stacks stay readable instead of crushing to ink when solids meet.
+        float shadowMinVisibility = 0.0f;
         /// Max concurrent spot lights casting shadows (0–4).
         std::uint32_t maxSpotShadows = 4;
         /// Max concurrent point lights casting shadows (0–2).

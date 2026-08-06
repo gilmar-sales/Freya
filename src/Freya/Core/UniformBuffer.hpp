@@ -115,7 +115,8 @@ namespace FREYA_NAMESPACE
         glm::vec4 pointLightPosFar[MAX_POINT_SHADOWS] {}; ///< xyz=pos, w=far
         glm::vec4 pointLightIndex {}; ///< light indices (-1 unused)
         glm::vec4 reverseZ {};        ///< x=1 when Reverse-Z encoding is active
-        glm::vec4 pcss {}; ///< x=PCSS light size, y=max kernel texels
+        glm::vec4 pcss {}; ///< x=light size, y=max soft, z=min visibility
+                           ///< (umbra floor), w unused
     };
 
     static_assert(offsetof(ShadowUniformBuffer, cascadeViewProj) == 0);

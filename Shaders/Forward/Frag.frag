@@ -34,7 +34,7 @@ layout(binding = 7) uniform ShadowBuffer {
     vec4 pointLightPosFar[2];
     vec4 pointLightIndex;
     vec4 reverseZ; // x=1 when Reverse-Z point depth encoding is active
-    vec4 pcss; // x=lightSize y=maxSoftnessTexels
+    vec4 pcss; // x=lightSize y=maxSoftness z=minVisibility (umbra floor)
 } shadows;
 
 layout(binding = 8) uniform sampler2DArrayShadow cascadeShadowMap;
@@ -130,8 +130,8 @@ void ShadowTangentBasis(vec3 axis, out vec3 T, out vec3 B) {
     B = cross(axis, T);
 }
 
-// Point technique on a 2D shadow map: perturb the light→receiver axis with
-// the same Poisson disk, then re-project each tap (not a fixed UV kernel).
+// Point technique on a 2D map: same angular Poisson as cube shadows, with a
+// fixed center depthRef (varying depth per tap is what made dir/spot grainy).
 float SoftShadow2DPointStyle(sampler2DArrayShadow map, mat4 lightVP,
                              vec3 lightPos, vec3 biased, float layer,
                              float depthBiasAmount) {
@@ -145,6 +145,13 @@ float SoftShadow2DPointStyle(sampler2DArrayShadow map, mat4 lightVP,
     ShadowTangentBasis(Ndir, T, B);
     bool reverseZ = shadows.reverseZ.x > 0.5;
 
+    vec4 centerClip = lightVP * vec4(biased, 1.0);
+    vec3 centerNdc = centerClip.xyz / centerClip.w;
+    if (abs(centerNdc.x) > 1.0 || abs(centerNdc.y) > 1.0)
+        return 1.0;
+    float depthRef = reverseZ ? (centerNdc.z + depthBiasAmount)
+                              : (centerNdc.z - depthBiasAmount);
+
     float result = 0.0;
     for (int i = 0; i < 16; ++i) {
         vec2 o = kPoissonDisk[i] * kSoftDisk;
@@ -157,8 +164,6 @@ float SoftShadow2DPointStyle(sampler2DArrayShadow map, mat4 lightVP,
             continue;
         }
         vec2 uv = ndc.xy * 0.5 + 0.5;
-        float depthRef =
-            reverseZ ? (ndc.z + depthBiasAmount) : (ndc.z - depthBiasAmount);
         result += texture(map, vec4(uv, layer, depthRef));
     }
     return result / 16.0;
@@ -180,15 +185,15 @@ float SampleCascadeShadow(vec3 worldPos, vec3 N, vec3 L) {
         }
     }
 
+    // Match point bias scaling: treat "far" as softDist (virtual light).
+    float softDist = 20.0;
     float nDotL = max(dot(N, normalize(L)), 0.0);
     float slope = sqrt(max(1.0 - nDotL * nDotL, 0.0));
     float normalScale = shadows.params.y * (0.35 + 0.65 * slope);
-    float lightPush = shadows.params.x * (0.5 + slope);
+    float lightPush = shadows.params.x * softDist * (0.5 + slope);
     vec3 lightDir = normalize(L);
     vec3 biased = worldPos + N * normalScale + lightDir * lightPush;
     float depthBiasAmount = shadows.params.x * (1.0 + 1.5 * slope);
-    // Virtual light position so directional uses the exact point/spot path.
-    float softDist = 15.0;
     vec3 lightPos = biased - lightDir * softDist;
 
     float shadow = SoftShadow2DPointStyle(
@@ -223,10 +228,14 @@ float SampleSpotShadow(int lightIndex, vec3 worldPos, vec3 N, vec3 L) {
         return 1.0;
 
     vec3 lightPos = lights.lightPositions[lightIndex].xyz;
+    float radius = lights.lightColorsAndRadius[lightIndex].w;
+    float distHint = max(length(lightPos - worldPos), 1.0);
     float nDotL = max(dot(N, normalize(L)), 0.0);
     float slope = sqrt(max(1.0 - nDotL * nDotL, 0.0));
     float normalScale = shadows.params.y * (0.35 + 0.65 * slope);
-    float lightPush = shadows.params.x * (0.5 + slope);
+    // Same scale as point (point uses radius/far).
+    float lightPush =
+        shadows.params.x * min(distHint, radius) * (0.5 + slope);
     vec3 biased = worldPos + N * normalScale + normalize(L) * lightPush;
     float depthBiasAmount = shadows.params.x * (1.0 + 1.5 * slope);
 
@@ -288,13 +297,16 @@ float GetShadowFactor(int i, float lightType, vec3 worldPos, vec3 N,
                       vec3 L) {
     if (lights.lightOuterCutoffAndIntensity[i].w < 0.5)
         return 1.0;
+    float shadow = 1.0;
     if (lightType >= 0.5 && lightType < 1.5)
-        return SampleCascadeShadow(worldPos, N, L);
-    if (lightType >= 1.5 && lightType < 2.5)
-        return SampleSpotShadow(i, worldPos, N, L);
-    if (lightType < 0.5)
-        return SamplePointShadow(i, worldPos, N);
-    return 1.0;
+        shadow = SampleCascadeShadow(worldPos, N, L);
+    else if (lightType >= 1.5 && lightType < 2.5)
+        shadow = SampleSpotShadow(i, worldPos, N, L);
+    else if (lightType < 0.5)
+        shadow = SamplePointShadow(i, worldPos, N);
+    // Umbra floor: stacked soft occluders (two planes, etc.) don't crush to
+    // pure black.
+    return mix(shadows.pcss.z, 1.0, shadow);
 }
 
 vec3 IntegrateEdgeVec(vec3 v1, vec3 v2) {
