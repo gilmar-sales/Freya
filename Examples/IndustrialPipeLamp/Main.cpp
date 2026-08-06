@@ -549,7 +549,7 @@ int main(int argc, const char** argv)
                         .SetShadowMaxSoftness(8.0f)
                         .SetMaxSpotShadows(4)
                         .SetMaxPointShadows(2)
-                        .SetShadowDenoise(true)
+                        .SetShadowDenoise(false)
                         .SetFullscreen(false)
                         .SetRenderingStrategy(fra::RenderingStrategy::Forward);
                 });

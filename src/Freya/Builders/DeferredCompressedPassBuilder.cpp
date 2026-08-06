@@ -274,8 +274,7 @@ namespace FREYA_NAMESPACE
                 .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
                 .setAddressModeW(vk::SamplerAddressMode::eClampToEdge));
 
-        // Lighting set: 0-5 CIS G-buffer, 6 light UBO, 7-11 IBL,
-        // 12 shadow UBO, 13 dir mask, 14-15 spot/point cmp, 16 spot depth
+        // 12 shadow UBO, 13 cascade cmp, 14-15 spot/point cmp, 16 spot depth
         auto lightingBindings = std::array {
             cisBinding(0),  cisBinding(1),  cisBinding(2),  cisBinding(3),
             cisBinding(4),  cisBinding(5),  uboBinding(6),  cisBinding(7),
@@ -365,13 +364,6 @@ namespace FREYA_NAMESPACE
             vk::DescriptorImageInfo()
                 .setSampler(mIblService->GetLtcSampler())
                 .setImageView(mIblService->GetLtcAmplMap()->GetImageView())
-                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-
-        // Temporary mask until Renderer binds denoise result.
-        auto whiteMaskInfo =
-            vk::DescriptorImageInfo()
-                .setSampler(gbufferSampler)
-                .setImageView(emissiveImage->GetImageView())
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 
         constexpr auto shadowMapLayout =
@@ -500,6 +492,11 @@ namespace FREYA_NAMESPACE
                                  .setSampler(mShadowPass->GetCompareSampler())
                                  .setImageView(mShadowPass->GetPointView())
                                  .setImageLayout(shadowMapLayout);
+            auto cascadeInfo =
+                vk::DescriptorImageInfo()
+                    .setSampler(mShadowPass->GetCompareSampler())
+                    .setImageView(mShadowPass->GetCascadeView())
+                    .setImageLayout(shadowMapLayout);
             auto spotDepthInfo =
                 vk::DescriptorImageInfo()
                     .setSampler(mShadowPass->GetSampler())
@@ -519,7 +516,7 @@ namespace FREYA_NAMESPACE
                     .setDescriptorType(
                         vk::DescriptorType::eCombinedImageSampler)
                     .setDescriptorCount(1)
-                    .setImageInfo(whiteMaskInfo),
+                    .setImageInfo(cascadeInfo),
                 vk::WriteDescriptorSet()
                     .setDstSet(set)
                     .setDstBinding(14)

@@ -280,24 +280,10 @@ namespace FREYA_NAMESPACE
     void DeferredCompressedPass::UpdateDirectionalShadowMask(
         const skr::Arc<Image>& mask, const vk::Sampler sampler)
     {
-        auto maskInfo =
-            vk::DescriptorImageInfo()
-                .setSampler(sampler)
-                .setImageView(mask->GetImageView())
-                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-
-        for (auto& set : mLightingSets)
-        {
-            auto write =
-                vk::WriteDescriptorSet()
-                    .setDstSet(set)
-                    .setDstBinding(13)
-                    .setDescriptorType(
-                        vk::DescriptorType::eCombinedImageSampler)
-                    .setDescriptorCount(1)
-                    .setImageInfo(maskInfo);
-            mDevice->Get().updateDescriptorSets(1, &write, 0, nullptr);
-        }
+        // Lighting samples cascade maps directly (point-style soft disk).
+        // Denoise mask path is unused; keep the API for Renderer wiring.
+        (void) mask;
+        (void) sampler;
     }
 
     void DeferredCompressedPass::UpdateProjection(

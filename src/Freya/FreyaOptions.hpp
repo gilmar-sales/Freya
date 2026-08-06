@@ -67,7 +67,7 @@ namespace FREYA_NAMESPACE
         /// Max concurrent point lights casting shadows (0–2).
         std::uint32_t maxPointShadows = 2;
         /// Bilateral denoise for directional cascade shadows.
-        bool              shadowDenoise            = true;
+        bool              shadowDenoise            = false;
         float             shadowDenoiseRadius      = 4.0f;
         float             shadowDenoiseDepthSigma  = 0.02f;
         float             shadowDenoiseNormalSigma = 32.0f;
