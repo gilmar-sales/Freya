@@ -202,6 +202,23 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        FreyaOptionsBuilder& SetShadowSampleCount(std::uint32_t count)
+        {
+            mFreyaOptions->shadowSampleCount = count;
+            return *this;
+        }
+
+        /**
+         * @brief Applies a ShadowQuality preset (resolution, cascades,
+         * spot/point slots, soft-shadow tap count). Bias / light size /
+         * softness knobs are left unchanged.
+         */
+        FreyaOptionsBuilder& SetShadowQuality(ShadowQuality quality)
+        {
+            ApplyShadowQuality(*mFreyaOptions, quality);
+            return *this;
+        }
+
         FreyaOptionsBuilder& SetShadowDenoise(bool enabled)
         {
             mFreyaOptions->shadowDenoise = enabled;

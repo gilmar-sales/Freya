@@ -111,6 +111,17 @@ namespace FREYA_NAMESPACE
          */
         void SetRenderingStrategy(RenderingStrategy strategy);
 
+        /**
+         * @brief Applies a shadow quality preset and rebuilds shadow maps
+         * plus lighting passes that sample them.
+         */
+        void SetShadowQuality(ShadowQuality quality);
+
+        [[nodiscard]] ShadowQuality GetShadowQuality() const
+        {
+            return mShadowQuality;
+        }
+
         [[nodiscard]] RenderingStrategy GetRenderingStrategy() const
         {
             return mFreyaOptions->renderingStrategy;
@@ -306,6 +317,7 @@ namespace FREYA_NAMESPACE
         float                            mCameraNear = 1.0f;
         skr::Arc<EventManager>           mEventManager;
         skr::Arc<FreyaOptions>           mFreyaOptions;
+        ShadowQuality                    mShadowQuality = ShadowQuality::High;
         skr::Arc<RenderTarget>           mOutputTarget;
         bool                             mUIPassOpen = false;
 

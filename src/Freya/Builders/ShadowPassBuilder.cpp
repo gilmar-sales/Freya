@@ -182,26 +182,33 @@ namespace FREYA_NAMESPACE
             false,
             vk::ImageViewType::e2DArray);
 
+        // Zero slots still need a sampled view for lighting descriptors.
+        // Use a 1×1 stub so Low/zero configs avoid full-resolution VRAM.
+        const auto spotLayers      = maxSpot == 0 ? 1u : maxSpot;
+        const auto spotResolution  = maxSpot == 0 ? 1u : resolution;
+        const auto pointLayers     = maxPoint == 0 ? 6u : maxPoint * 6;
+        const auto pointResolution = maxPoint == 0 ? 1u : resolution;
+
         auto spot = createArrayImage(
             depthFormat,
-            resolution,
-            std::max(1u, maxSpot),
+            spotResolution,
+            spotLayers,
             false,
             vk::ImageViewType::e2DArray);
 
         auto point = createArrayImage(
             depthFormat,
-            resolution,
-            std::max(6u, maxPoint * 6),
+            pointResolution,
+            pointLayers,
             true,
             vk::ImageViewType::eCubeArray);
 
         auto cascadeFramebuffers =
             createFramebuffers(renderPass, cascade.layerViews, resolution);
         auto spotFramebuffers =
-            createFramebuffers(renderPass, spot.layerViews, resolution);
+            createFramebuffers(renderPass, spot.layerViews, spotResolution);
         auto pointFramebuffers =
-            createFramebuffers(renderPass, point.layerViews, resolution);
+            createFramebuffers(renderPass, point.layerViews, pointResolution);
 
         // ------------------------------------------------------------------
         // Shadow uniform buffer (single host-visible copy, not ring-buffered)

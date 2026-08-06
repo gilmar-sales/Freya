@@ -212,9 +212,14 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
         .SetSampleCount(8)
         .SetFullscreen(false)
         .SetDrawDistance(1000.0f)
+        .SetShadowQuality(fra::ShadowQuality::Medium)
         .SetRenderingStrategy(fra::RenderingStrategy::Forward);
 });
 ```
+
+`SetShadowQuality` applies Low / Medium / High / Ultra budgets for shadow map
+resolution, cascade count, spot/point slots, and soft-shadow tap count.
+Individual setters can still override fields after the preset.
 
 ## DeferredCompressedPassBuilder
 

@@ -46,6 +46,12 @@ class MainApp final : public fra::AbstractApplication
                     return;
                 }
 
+                if (event.key == fra::KeyCode::F5)
+                {
+                    cycleShadowQuality();
+                    return;
+                }
+
                 if (event.key == fra::KeyCode::Escape && mLookHeld)
                 {
                     setLookHeld(false);
@@ -460,18 +466,56 @@ class MainApp final : public fra::AbstractApplication
         updateTitle();
     }
 
+    void cycleShadowQuality()
+    {
+        const auto         current = mRenderer->GetShadowQuality();
+        fra::ShadowQuality next    = fra::ShadowQuality::Low;
+        switch (current)
+        {
+            case fra::ShadowQuality::Low:
+                next = fra::ShadowQuality::Medium;
+                break;
+            case fra::ShadowQuality::Medium:
+                next = fra::ShadowQuality::High;
+                break;
+            case fra::ShadowQuality::High:
+                next = fra::ShadowQuality::Ultra;
+                break;
+            case fra::ShadowQuality::Ultra:
+                next = fra::ShadowQuality::Low;
+                break;
+        }
+
+        mRenderer->SetShadowQuality(next);
+
+        static constexpr const char* kNames[] = { "Low", "Medium", "High",
+                                                  "Ultra" };
+        const auto                   index    = static_cast<int>(next);
+        std::cout << "Shadow quality: " << kNames[index] << " [F5]\n";
+        updateTitle();
+    }
+
     void updateTitle()
     {
         const char* mode = mRenderer->IsDeferred() ? "Deferred" : "Forward";
-        static constexpr const char* kShadow[] = {
+        static constexpr const char* kQuality[] = { "Low", "Med", "High",
+                                                    "Ultra" };
+        static constexpr const char* kShadow[]  = {
             "all", "dir", "warmPt", "coolPt", "spots",
         };
+        const auto qualityIndex =
+            static_cast<int>(mRenderer->GetShadowQuality());
+        const char* qualityName =
+            (qualityIndex >= 0 && qualityIndex <= 3)
+                ? kQuality[qualityIndex]
+                : "?";
         const char* shadowName =
             (mShadowCasterMode >= 0 && mShadowCasterMode <= 4)
                 ? kShadow[mShadowCasterMode]
                 : "?";
-        mFreyaOptions->title = std::string("Industrial Pipe Lamp — ") + mode +
-                               " | " + shadowName + " [0-4]";
+        mFreyaOptions->title =
+            std::string("Industrial Pipe Lamp — ") + mode + " | " +
+            qualityName + " [F5] | " + shadowName + " [0-4]";
     }
 
     enum class AnimatedLightKind
@@ -545,14 +589,11 @@ int main(int argc, const char** argv)
                         .WithReverseZ()
                         .SetDrawDistance(80.f)
                         .SetIblIntensity(0.12f)
-                        .SetShadowCascadeCount(3)
-                        .SetShadowMapResolution(4096)
+                        .SetShadowQuality(fra::ShadowQuality::High)
                         .SetShadowBias(0.002f)
                         .SetShadowLightSize(0.035f)
                         .SetShadowMaxSoftness(8.0f)
                         .SetShadowMinVisibility(0.0f)
-                        .SetMaxSpotShadows(4)
-                        .SetMaxPointShadows(2)
                         .SetShadowDenoise(false)
                         .SetFullscreen(false)
                         .SetRenderingStrategy(fra::RenderingStrategy::Forward);

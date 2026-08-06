@@ -273,10 +273,21 @@ are LTC LUTs. Deferred lighting bindings 7–9 sample IBL; 10–11 are LTC.
 | Spot | Perspective depth map (2D array) | `maxSpotShadows` (0–4) |
 | Point | Cube array (6 faces each) | `maxPointShadows` (0–2) |
 
-Configure via `FreyaOptionsBuilder`: `SetShadowCascadeCount`,
-`SetShadowMapResolution`, `SetShadowBias`, `SetMaxSpotShadows`,
-`SetMaxPointShadows`. Defaults: 4 cascades, 2048², bias `0.002`, 4 spot /
-2 point slots.
+Configure via `FreyaOptionsBuilder`: `SetShadowQuality` presets
+(`Low` / `Medium` / `High` / `Ultra`) or individual setters
+(`SetShadowCascadeCount`, `SetShadowMapResolution`, `SetShadowBias`,
+`SetMaxSpotShadows`, `SetMaxPointShadows`, `SetShadowSampleCount`).
+
+| Preset | Resolution | Cascades | Spot | Point | Soft taps |
+|--------|------------|----------|------|-------|-----------|
+| Low | 512² | 2 | 2 | 2 | 4 |
+| Medium | 1024² | 3 | 4 | 2 | 8 |
+| High | 2048² | 4 | 4 | 2 | 16 |
+| Ultra | 4096² | 4 | 4 | 2 | 16 |
+
+Defaults without a preset: 4 cascades, 2048², bias `0.002`, 4 spot /
+2 point slots, 16 soft-shadow taps. Spot/point budgets of `0` keep a 1×1
+descriptor stub instead of a full-resolution atlas.
 
 Lighting shaders multiply each light’s radiance by a PCF shadow factor
 (hardware compare samplers). Forward set 0 bindings 7–10 hold the shadow UBO

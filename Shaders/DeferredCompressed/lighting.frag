@@ -37,7 +37,7 @@ layout(binding = 12) uniform ShadowBuffer {
     vec4 pointLightPosFar[2];
     vec4 pointLightIndex;
     vec4 reverseZ; // x=1 when Reverse-Z point depth encoding is active
-    vec4 pcss; // x=lightSize y=maxSoftness z=minVisibility (umbra floor)
+    vec4 pcss; // x=lightSize y=maxSoftness z=minVisibility w=tapCount
 } shadows;
 
 layout(binding = 13) uniform sampler2DArrayShadow cascadeShadowMap;
@@ -106,6 +106,10 @@ const vec2 kPoissonDisk[16] = vec2[](
 // Identical soft disk for every light type (point-style angular / TBN).
 const float kSoftDisk = 0.008;
 
+int SoftShadowTapCount() {
+    return clamp(int(shadows.pcss.w + 0.5), 1, 16);
+}
+
 void ShadowTangentBasis(vec3 axis, out vec3 T, out vec3 B) {
     vec3 up = abs(axis.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
     T = normalize(cross(up, axis));
@@ -134,8 +138,11 @@ float SoftShadow2DPointStyle(sampler2DArrayShadow map, mat4 lightVP,
     float depthRef = reverseZ ? (centerNdc.z + depthBiasAmount)
                               : (centerNdc.z - depthBiasAmount);
 
+    int tapCount = SoftShadowTapCount();
     float result = 0.0;
     for (int i = 0; i < 16; ++i) {
+        if (i >= tapCount)
+            break;
         vec2 o = kPoissonDisk[i] * kSoftDisk;
         vec3 sampleDir = normalize(Ndir + T * o.x + B * o.y);
         vec3 samplePos = lightPos + sampleDir * dist;
@@ -148,7 +155,7 @@ float SoftShadow2DPointStyle(sampler2DArrayShadow map, mat4 lightVP,
         vec2 uv = ndc.xy * 0.5 + 0.5;
         result += texture(map, vec4(uv, layer, depthRef));
     }
-    return result / 16.0;
+    return result / float(tapCount);
 }
 
 float SampleCascadeShadow(vec3 worldPos, vec3 N, vec3 L) {
@@ -265,14 +272,17 @@ float SamplePointShadow(int lightIndex, vec3 worldPos, vec3 N) {
     vec3 Ndir = normalize(dir);
     vec3 T, B;
     ShadowTangentBasis(Ndir, T, B);
+    int tapCount = SoftShadowTapCount();
     float result = 0.0;
     for (int i = 0; i < 16; ++i) {
+        if (i >= tapCount)
+            break;
         vec2 o = kPoissonDisk[i] * kSoftDisk;
         vec3 sampleDir = normalize(Ndir + T * o.x + B * o.y);
         result += texture(pointShadowMap, vec4(sampleDir, float(slot)),
                           depthRef);
     }
-    return result / 16.0;
+    return result / float(tapCount);
 }
 
 float GetShadowFactor(int i, float lightType, vec3 worldPos, vec3 N,

@@ -61,6 +61,14 @@ namespace FREYA_NAMESPACE
         ShadowPass& operator=(const ShadowPass&) = delete;
 
         /**
+         * @brief Takes ownership of GPU resources from `other`, destroying
+         * the previous maps/pipeline on this instance. `other` is left empty
+         * (safe to destroy). Used to recreate maps after quality changes
+         * while keeping the same ShadowPass Arc alive for DI.
+         */
+        void StealResourcesFrom(ShadowPass& other);
+
+        /**
          * @brief Recomputes light view-projections and uploads the
          * ShadowUniformBuffer.
          *
@@ -181,6 +189,8 @@ namespace FREYA_NAMESPACE
         void renderPoints(const skr::Arc<CommandPool>& commandPool,
                           const std::function<void()>& drawScene) const;
 
+        void destroyGpuResources();
+
         skr::Arc<Device>         mDevice;
         skr::Arc<PhysicalDevice> mPhysicalDevice;
         skr::Arc<FreyaOptions>   mFreyaOptions;
@@ -219,6 +229,10 @@ namespace FREYA_NAMESPACE
         std::uint32_t mMaxSpotShadows;
         std::uint32_t mMaxPointShadows;
         std::uint32_t mResolution;
+        /// Spot map extent (1 when spots disabled — tiny descriptor stub).
+        std::uint32_t mSpotResolution = 1;
+        /// Point cube face extent (1 when points disabled).
+        std::uint32_t mPointResolution = 1;
 
         // CPU-side mirror of the last uploaded ShadowUniformBuffer, used by
         // Render() to know which light view-projection to push per target.

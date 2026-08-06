@@ -126,7 +126,11 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `shadowBias` | `float` | `0.002f` | Depth bias when sampling shadows |
 | `maxSpotShadows` | `std::uint32_t` | `4` | Max concurrent spot shadow maps |
 | `maxPointShadows` | `std::uint32_t` | `2` | Max concurrent point cube shadows |
+| `shadowSampleCount` | `std::uint32_t` | `16` | Soft-shadow Poisson taps (1–16) |
 | `renderingStrategy` | `RenderingStrategy` | `Forward` | Forward or Deferred |
+
+Use `FreyaOptionsBuilder::SetShadowQuality(Low|Medium|High|Ultra)` to set
+resolution, cascades, spot/point slots, and tap count together.
 
 ## Services
 

@@ -14,6 +14,21 @@ namespace FREYA_NAMESPACE
     };
 
     /**
+     * @brief Preset budgets for shadow map resolution, cascade / spot /
+     * point slots, and soft-shadow Poisson tap count.
+     *
+     * Applied via FreyaOptionsBuilder::SetShadowQuality. Individual
+     * setters still override fields after the preset.
+     */
+    enum class ShadowQuality
+    {
+        Low,    ///< 512², 2 cascades, 2 spot, 2 point, 4 taps
+        Medium, ///< 1024², 3 cascades, 4 spot, 2 point, 8 taps
+        High,   ///< 2048², 4 cascades, 4 spot, 2 point, 16 taps
+        Ultra   ///< 4096², 4 cascades, 4 spot, 2 point, 16 taps
+    };
+
+    /**
      * @brief Global configuration options for Freya engine.
      *
      * @param title             Window title (default "Freya Window")
@@ -69,6 +84,8 @@ namespace FREYA_NAMESPACE
         std::uint32_t maxSpotShadows = 4;
         /// Max concurrent point lights casting shadows (0–2).
         std::uint32_t maxPointShadows = 2;
+        /// Soft-shadow Poisson samples (1–16). Used by lighting shaders.
+        std::uint32_t shadowSampleCount = 16;
         /// Bilateral denoise for directional cascade shadows.
         bool              shadowDenoise            = false;
         float             shadowDenoiseRadius      = 4.0f;
@@ -78,5 +95,45 @@ namespace FREYA_NAMESPACE
             RenderingStrategy::Forward; ///< Rendering strategy
         bool ReverseZ;
     };
+
+    /**
+     * @brief Writes ShadowQuality preset fields into options.
+     *
+     * Bias / light size / softness / denoise knobs are left unchanged.
+     */
+    inline void ApplyShadowQuality(FreyaOptions& options, ShadowQuality quality)
+    {
+        switch (quality)
+        {
+            case ShadowQuality::Low:
+                options.shadowMapResolution = 512;
+                options.shadowCascadeCount  = 2;
+                options.maxSpotShadows      = 2;
+                options.maxPointShadows     = 2;
+                options.shadowSampleCount   = 4;
+                break;
+            case ShadowQuality::Medium:
+                options.shadowMapResolution = 1024;
+                options.shadowCascadeCount  = 3;
+                options.maxSpotShadows      = 4;
+                options.maxPointShadows     = 2;
+                options.shadowSampleCount   = 8;
+                break;
+            case ShadowQuality::High:
+                options.shadowMapResolution = 2048;
+                options.shadowCascadeCount  = 4;
+                options.maxSpotShadows      = 4;
+                options.maxPointShadows     = 2;
+                options.shadowSampleCount   = 16;
+                break;
+            case ShadowQuality::Ultra:
+                options.shadowMapResolution = 4096;
+                options.shadowCascadeCount  = 4;
+                options.maxSpotShadows      = 4;
+                options.maxPointShadows     = 2;
+                options.shadowSampleCount   = 16;
+                break;
+        }
+    }
 
 } // namespace FREYA_NAMESPACE

@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdio>
 #include <limits>
+#include <utility>
 
 #include <vulkan/vulkan.h>
 
@@ -83,12 +84,24 @@ namespace FREYA_NAMESPACE
         mCompareSampler(compareSampler), mSampler(regularSampler),
         mCascadeCount(cascadeCount), mMaxSpotShadows(maxSpotShadows),
         mMaxPointShadows(maxPointShadows),
-        mResolution(freyaOptions->shadowMapResolution)
+        mResolution(freyaOptions->shadowMapResolution),
+        mSpotResolution(
+            maxSpotShadows == 0 ? 1u : freyaOptions->shadowMapResolution),
+        mPointResolution(
+            maxPointShadows == 0 ? 1u : freyaOptions->shadowMapResolution)
     {
     }
 
     ShadowPass::~ShadowPass()
     {
+        destroyGpuResources();
+    }
+
+    void ShadowPass::destroyGpuResources()
+    {
+        if (!mDevice)
+            return;
+
         auto& vkDevice = mDevice->Get();
 
         for (auto& fb : mCascadeFramebuffers)
@@ -97,6 +110,9 @@ namespace FREYA_NAMESPACE
             vkDevice.destroyFramebuffer(fb);
         for (auto& fb : mPointFramebuffers)
             vkDevice.destroyFramebuffer(fb);
+        mCascadeFramebuffers.clear();
+        mSpotFramebuffers.clear();
+        mPointFramebuffers.clear();
 
         for (auto& view : mCascadeLayerViews)
             vkDevice.destroyImageView(view);
@@ -104,6 +120,9 @@ namespace FREYA_NAMESPACE
             vkDevice.destroyImageView(view);
         for (auto& view : mPointFaceViews)
             vkDevice.destroyImageView(view);
+        mCascadeLayerViews.clear();
+        mSpotLayerViews.clear();
+        mPointFaceViews.clear();
 
         if (mCascadeArrayView)
             vkDevice.destroyImageView(mCascadeArrayView);
@@ -111,6 +130,9 @@ namespace FREYA_NAMESPACE
             vkDevice.destroyImageView(mSpotArrayView);
         if (mPointArrayView)
             vkDevice.destroyImageView(mPointArrayView);
+        mCascadeArrayView = VK_NULL_HANDLE;
+        mSpotArrayView    = VK_NULL_HANDLE;
+        mPointArrayView   = VK_NULL_HANDLE;
 
         if (mCascadeImage)
         {
@@ -127,15 +149,93 @@ namespace FREYA_NAMESPACE
             vkDevice.destroyImage(mPointImage);
             vkDevice.freeMemory(mPointMemory);
         }
+        mCascadeImage  = VK_NULL_HANDLE;
+        mCascadeMemory = VK_NULL_HANDLE;
+        mSpotImage     = VK_NULL_HANDLE;
+        mSpotMemory    = VK_NULL_HANDLE;
+        mPointImage    = VK_NULL_HANDLE;
+        mPointMemory   = VK_NULL_HANDLE;
 
-        vkDevice.destroySampler(mCompareSampler);
-        vkDevice.destroySampler(mSampler);
+        if (mCompareSampler)
+            vkDevice.destroySampler(mCompareSampler);
+        if (mSampler)
+            vkDevice.destroySampler(mSampler);
+        mCompareSampler = VK_NULL_HANDLE;
+        mSampler        = VK_NULL_HANDLE;
 
-        vkDevice.destroyPipeline(mPipeline);
-        vkDevice.destroyPipelineLayout(mPipelineLayout);
-        vkDevice.destroyRenderPass(mRenderPass);
+        if (mPipeline)
+            vkDevice.destroyPipeline(mPipeline);
+        if (mPipelineLayout)
+            vkDevice.destroyPipelineLayout(mPipelineLayout);
+        if (mRenderPass)
+            vkDevice.destroyRenderPass(mRenderPass);
+        mPipeline       = VK_NULL_HANDLE;
+        mPipelineLayout = VK_NULL_HANDLE;
+        mRenderPass     = VK_NULL_HANDLE;
 
         mUniformBuffer.reset();
+    }
+
+    void ShadowPass::StealResourcesFrom(ShadowPass& other)
+    {
+        if (this == &other)
+            return;
+
+        destroyGpuResources();
+
+        mRenderPass     = other.mRenderPass;
+        mPipelineLayout = other.mPipelineLayout;
+        mPipeline       = other.mPipeline;
+
+        mCascadeImage        = other.mCascadeImage;
+        mCascadeMemory       = other.mCascadeMemory;
+        mCascadeArrayView    = other.mCascadeArrayView;
+        mCascadeLayerViews   = std::move(other.mCascadeLayerViews);
+        mCascadeFramebuffers = std::move(other.mCascadeFramebuffers);
+
+        mSpotImage        = other.mSpotImage;
+        mSpotMemory       = other.mSpotMemory;
+        mSpotArrayView    = other.mSpotArrayView;
+        mSpotLayerViews   = std::move(other.mSpotLayerViews);
+        mSpotFramebuffers = std::move(other.mSpotFramebuffers);
+
+        mPointImage        = other.mPointImage;
+        mPointMemory       = other.mPointMemory;
+        mPointArrayView    = other.mPointArrayView;
+        mPointFaceViews    = std::move(other.mPointFaceViews);
+        mPointFramebuffers = std::move(other.mPointFramebuffers);
+
+        mUniformBuffer  = std::move(other.mUniformBuffer);
+        mCompareSampler = other.mCompareSampler;
+        mSampler        = other.mSampler;
+
+        mCascadeCount    = other.mCascadeCount;
+        mMaxSpotShadows  = other.mMaxSpotShadows;
+        mMaxPointShadows = other.mMaxPointShadows;
+        mResolution      = other.mResolution;
+        mSpotResolution  = other.mSpotResolution;
+        mPointResolution = other.mPointResolution;
+
+        mShadowData           = {};
+        mHasDirectionalShadow = false;
+        mActiveSpotCount      = 0;
+        mActivePointCount     = 0;
+
+        other.mRenderPass       = VK_NULL_HANDLE;
+        other.mPipelineLayout   = VK_NULL_HANDLE;
+        other.mPipeline         = VK_NULL_HANDLE;
+        other.mCascadeImage     = VK_NULL_HANDLE;
+        other.mCascadeMemory    = VK_NULL_HANDLE;
+        other.mCascadeArrayView = VK_NULL_HANDLE;
+        other.mSpotImage        = VK_NULL_HANDLE;
+        other.mSpotMemory       = VK_NULL_HANDLE;
+        other.mSpotArrayView    = VK_NULL_HANDLE;
+        other.mPointImage       = VK_NULL_HANDLE;
+        other.mPointMemory      = VK_NULL_HANDLE;
+        other.mPointArrayView   = VK_NULL_HANDLE;
+        other.mCompareSampler   = VK_NULL_HANDLE;
+        other.mSampler          = VK_NULL_HANDLE;
+        other.mUniformBuffer.reset();
     }
 
     void ShadowPass::Update(const LightService& lights,
@@ -164,7 +264,8 @@ namespace FREYA_NAMESPACE
             std::max(0.0f, mFreyaOptions->shadowLightSize),
             std::max(1.0f, mFreyaOptions->shadowMaxSoftness),
             std::clamp(mFreyaOptions->shadowMinVisibility, 0.0f, 0.95f),
-            0.0f);
+            static_cast<float>(
+                std::clamp(mFreyaOptions->shadowSampleCount, 1u, 16u)));
 
         // ------------------------------------------------------------------
         // Directional CSM: first shadow-casting directional light wins.
@@ -533,13 +634,13 @@ namespace FREYA_NAMESPACE
             vk::Viewport()
                 .setX(0.0f)
                 .setY(0.0f)
-                .setWidth(static_cast<float>(mResolution))
-                .setHeight(static_cast<float>(mResolution))
+                .setWidth(static_cast<float>(mSpotResolution))
+                .setHeight(static_cast<float>(mSpotResolution))
                 .setMinDepth(0.0f)
                 .setMaxDepth(1.0f);
 
         const auto scissor = vk::Rect2D().setOffset({ 0, 0 }).setExtent(
-            { mResolution, mResolution });
+            { mSpotResolution, mSpotResolution });
 
         const auto clearValue = vk::ClearValue().setDepthStencil(
             vk::ClearDepthStencilValue().setDepth(
@@ -606,13 +707,13 @@ namespace FREYA_NAMESPACE
             vk::Viewport()
                 .setX(0.0f)
                 .setY(0.0f)
-                .setWidth(static_cast<float>(mResolution))
-                .setHeight(static_cast<float>(mResolution))
+                .setWidth(static_cast<float>(mPointResolution))
+                .setHeight(static_cast<float>(mPointResolution))
                 .setMinDepth(0.0f)
                 .setMaxDepth(1.0f);
 
         const auto scissor = vk::Rect2D().setOffset({ 0, 0 }).setExtent(
-            { mResolution, mResolution });
+            { mPointResolution, mPointResolution });
 
         const auto clearValue = vk::ClearValue().setDepthStencil(
             vk::ClearDepthStencilValue().setDepth(

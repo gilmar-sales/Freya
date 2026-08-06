@@ -12,6 +12,7 @@
 #include "Freya/Builders/RenderTargetBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
 #include "Freya/Builders/ShadowDenoisePassBuilder.hpp"
+#include "Freya/Builders/ShadowPassBuilder.hpp"
 #include "Freya/Builders/SwapChainBuilder.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
@@ -56,6 +57,17 @@ namespace FREYA_NAMESPACE
         mMeshPool(serviceProvider->GetService<MeshPool>()),
         mMaterialPool(serviceProvider->GetService<MaterialPool>())
     {
+        if (freyaOptions->shadowMapResolution >= 4096)
+            mShadowQuality = ShadowQuality::Ultra;
+        else if (freyaOptions->shadowSampleCount <= 4 &&
+                 freyaOptions->shadowMapResolution <= 512)
+            mShadowQuality = ShadowQuality::Low;
+        else if (freyaOptions->shadowSampleCount <= 8 &&
+                 freyaOptions->shadowMapResolution <= 1024)
+            mShadowQuality = ShadowQuality::Medium;
+        else
+            mShadowQuality = ShadowQuality::High;
+
         ClearProjections();
 
         mEventManager->Subscribe<WindowResizeEvent>(
@@ -522,6 +534,41 @@ namespace FREYA_NAMESPACE
         rebuildSceneResources();
 
         // Refresh projection/ambient UBOs into the newly built passes.
+        for (std::uint32_t frameIndex = 0;
+             frameIndex < mFreyaOptions->frameCount;
+             ++frameIndex)
+        {
+            mForwardPass->UpdateProjection(mCurrentProjection, frameIndex);
+            if (mDeferredPass)
+            {
+                mDeferredPass->UpdateProjection(mCurrentProjection, frameIndex);
+            }
+        }
+    }
+
+    void Renderer::SetShadowQuality(const ShadowQuality quality)
+    {
+        if (mShadowQuality == quality)
+            return;
+
+        ApplyShadowQuality(*mFreyaOptions, quality);
+        mShadowQuality = quality;
+
+        mDevice->Get().waitIdle();
+
+        if (mShadowPass)
+        {
+            auto rebuilt =
+                mServiceProvider->GetService<ShadowPassBuilder>()->Build();
+            mShadowPass->StealResourcesFrom(*rebuilt);
+        }
+
+        mForwardPass.reset();
+        mForwardPass =
+            mServiceProvider->GetService<RenderPassBuilder>()->Build();
+
+        rebuildSceneResources();
+
         for (std::uint32_t frameIndex = 0;
              frameIndex < mFreyaOptions->frameCount;
              ++frameIndex)
