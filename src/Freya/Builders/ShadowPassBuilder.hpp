@@ -13,8 +13,8 @@ namespace FREYA_NAMESPACE
      * Creates the depth-only shadow render pass, depth pipeline (push
      * constant only, no descriptor sets), cascade/spot/point depth image
      * arrays with their per-layer/per-face views and framebuffers, the
-     * host-visible ShadowUniformBuffer, and the hardware comparison
-     * sampler used for shadow sampling.
+     * ring-buffered host-visible ShadowUniformBuffer, and the hardware
+     * comparison sampler used for shadow sampling.
      */
     class ShadowPassBuilder
     {

@@ -74,7 +74,8 @@ namespace FREYA_NAMESPACE
                     const glm::mat4&             invViewProj,
                     const glm::vec3&             viewPos,
                     const glm::vec3&             cameraForward,
-                    const glm::vec3&             lightDirection);
+                    const glm::vec3&             lightDirection,
+                    std::uint32_t                frameIndex);
 
         skr::Arc<Image> GetResult() const { return mResultImage; }
 
@@ -85,6 +86,8 @@ namespace FREYA_NAMESPACE
                       std::uint32_t                     passIndex,
                       vk::Extent2D                      extent,
                       const ShadowDenoisePushConstants& push) const;
+
+        void bindShadowUboSlot(std::uint32_t frameIndex);
 
         skr::Arc<Device>       mDevice;
         skr::Arc<FreyaOptions> mFreyaOptions;
@@ -108,6 +111,7 @@ namespace FREYA_NAMESPACE
         std::array<vk::DescriptorSet, 4>     mDescriptorSets;
 
         skr::Arc<Buffer> mCameraBuffer;
+        skr::Arc<Buffer> mShadowUniformBuffer;
         vk::Sampler      mSampler;
     };
 } // namespace FREYA_NAMESPACE

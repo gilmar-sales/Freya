@@ -1098,13 +1098,15 @@ namespace FREYA_NAMESPACE
 
         if (mShadowPass && mLightService)
         {
+            const auto frameIndex = mSwapChain->GetCurrentFrameIndex();
             mShadowPass->Update(
                 *mLightService,
                 mCurrentProjection.view,
                 mCurrentProjection.projection,
                 glm::vec3(glm::inverse(mCurrentProjection.view)[3]),
                 mCameraNear,
-                mFreyaOptions->drawDistance);
+                mFreyaOptions->drawDistance,
+                frameIndex);
             mShadowPass->Render(mCommandPool, [this]() {
                 ExecuteDrawCommands(false, true);
             });
@@ -1144,7 +1146,7 @@ namespace FREYA_NAMESPACE
 
             mShadowDenoisePass->Render(
                 mCommandPool, invViewProj, viewPos, cameraForward,
-                findDirectionalLightDirection());
+                findDirectionalLightDirection(), frameIndex);
             bindDirectionalShadowMask();
         };
 

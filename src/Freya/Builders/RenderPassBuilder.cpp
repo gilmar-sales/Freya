@@ -465,7 +465,8 @@ namespace FREYA_NAMESPACE
             auto shadowUboInfo =
                 vk::DescriptorBufferInfo()
                     .setBuffer(mShadowPass->GetUniformBuffer()->Get())
-                    .setOffset(0)
+                    .setOffset(mShadowPass->GetUniformBufferOffset(
+                        static_cast<std::uint32_t>(i)))
                     .setRange(sizeof(ShadowUniformBuffer));
 
             auto shadowUboWrite =

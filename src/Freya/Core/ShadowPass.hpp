@@ -70,7 +70,7 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief Recomputes light view-projections and uploads the
-         * ShadowUniformBuffer.
+         * ShadowUniformBuffer for the given in-flight frame slot.
          *
          * Finds the first shadow-casting directional light and builds
          * practical-split CSM cascades fit to the camera frustum slices.
@@ -85,13 +85,15 @@ namespace FREYA_NAMESPACE
          *                     use by distance-based heuristics)
          * @param nearPlane    Camera near plane distance
          * @param drawDistance Camera far/draw distance
+         * @param frameIndex   Swapchain/in-flight frame index for the UBO ring
          */
         void Update(const LightService& lights,
                     const glm::mat4&    cameraView,
                     const glm::mat4&    cameraProj,
                     const glm::vec3&    cameraPos,
                     float               nearPlane,
-                    float               drawDistance);
+                    float               drawDistance,
+                    std::uint32_t       frameIndex);
 
         /**
          * @brief Renders every active shadow target.
@@ -111,10 +113,20 @@ namespace FREYA_NAMESPACE
                     const std::function<void()>& drawScene) const;
 
         /**
-         * @brief Returns the shadow uniform buffer (single copy, host
+         * @brief Returns the shadow uniform buffer (ring-buffered, host
          * visible, updated every frame by Update()).
          */
         skr::Arc<Buffer> GetUniformBuffer() const { return mUniformBuffer; }
+
+        /**
+         * @brief Byte offset of the ShadowUniformBuffer slot for `frameIndex`.
+         */
+        [[nodiscard]] std::uint64_t GetUniformBufferOffset(
+            std::uint32_t frameIndex) const
+        {
+            return static_cast<std::uint64_t>(frameIndex) *
+                   sizeof(ShadowUniformBuffer);
+        }
 
         /**
          * @brief Returns the full cascade depth array view (2D array).

@@ -243,7 +243,8 @@ namespace FREYA_NAMESPACE
                             const glm::mat4&    cameraProj,
                             const glm::vec3&    cameraPos,
                             const float         nearPlane,
-                            const float         drawDistance)
+                            const float         drawDistance,
+                            const std::uint32_t frameIndex)
     {
         (void) cameraPos;
 
@@ -334,7 +335,8 @@ namespace FREYA_NAMESPACE
             mShadowData.pointLightIndex[slot] = static_cast<float>(i);
         }
 
-        mUniformBuffer->Copy(&mShadowData, sizeof(ShadowUniformBuffer));
+        mUniformBuffer->Copy(&mShadowData, sizeof(ShadowUniformBuffer),
+                             GetUniformBufferOffset(frameIndex));
     }
 
     void ShadowPass::computeCascades(const Light&     sun,

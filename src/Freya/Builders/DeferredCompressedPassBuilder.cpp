@@ -486,7 +486,7 @@ namespace FREYA_NAMESPACE
             auto shadowUboInfo =
                 vk::DescriptorBufferInfo()
                     .setBuffer(mShadowPass->GetUniformBuffer()->Get())
-                    .setOffset(0)
+                    .setOffset(mShadowPass->GetUniformBufferOffset(frameIndex))
                     .setRange(sizeof(ShadowUniformBuffer));
 
             auto spotInfo  = vk::DescriptorImageInfo()

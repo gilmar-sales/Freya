@@ -211,12 +211,13 @@ namespace FREYA_NAMESPACE
             createFramebuffers(renderPass, point.layerViews, pointResolution);
 
         // ------------------------------------------------------------------
-        // Shadow uniform buffer (single host-visible copy, not ring-buffered)
+        // Shadow uniform buffer (ring-buffered per in-flight frame)
         // ------------------------------------------------------------------
         auto uniformBuffer =
             BufferBuilder(mDevice)
                 .SetUsage(BufferUsage::Uniform)
-                .SetSize(sizeof(ShadowUniformBuffer))
+                .SetSize(sizeof(ShadowUniformBuffer) *
+                         mFreyaOptions->frameCount)
                 .Build();
 
         // ------------------------------------------------------------------

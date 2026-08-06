@@ -104,6 +104,8 @@ namespace FREYA_NAMESPACE
         vk::Sampler             depthSampler,
         const skr::Arc<Buffer>& shadowUniformBuffer)
     {
+        mShadowUniformBuffer = shadowUniformBuffer;
+
         constexpr auto shaderRead = vk::ImageLayout::eShaderReadOnlyOptimal;
         constexpr auto depthRead =
             vk::ImageLayout::eDepthStencilReadOnlyOptimal;
@@ -363,14 +365,40 @@ namespace FREYA_NAMESPACE
         commandBuffer.endRenderPass();
     }
 
+    void ShadowDenoisePass::bindShadowUboSlot(const std::uint32_t frameIndex)
+    {
+        if (!mShadowUniformBuffer)
+            return;
+
+        auto shadowUboInfo =
+            vk::DescriptorBufferInfo()
+                .setBuffer(mShadowUniformBuffer->Get())
+                .setOffset(static_cast<std::uint64_t>(frameIndex) *
+                           sizeof(ShadowUniformBuffer))
+                .setRange(sizeof(ShadowUniformBuffer));
+
+        auto writer =
+            vk::WriteDescriptorSet()
+                .setDstSet(mDescriptorSets[ShadowDenoiseMaskPass])
+                .setDstBinding(4)
+                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                .setDescriptorCount(1)
+                .setBufferInfo(shadowUboInfo);
+
+        mDevice->Get().updateDescriptorSets(1, &writer, 0, nullptr);
+    }
+
     void ShadowDenoisePass::Render(const skr::Arc<CommandPool>& commandPool,
                                    const glm::mat4&             invViewProj,
                                    const glm::vec3&             viewPos,
                                    const glm::vec3&             cameraForward,
-                                   const glm::vec3&             lightDirection)
+                                   const glm::vec3&             lightDirection,
+                                   const std::uint32_t          frameIndex)
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
         beginDebugLabel(commandBuffer, "Shadow Denoise", mDevice->Get());
+
+        bindShadowUboSlot(frameIndex);
 
         ShadowDenoiseCameraUBO camera {};
         camera.invViewProj    = invViewProj;
