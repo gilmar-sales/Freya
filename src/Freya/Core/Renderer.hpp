@@ -282,7 +282,8 @@ namespace FREYA_NAMESPACE
 
         void beginComposite(std::uint32_t          frameIndex,
                             const skr::Arc<Image>& opaqueImage,
-                            const skr::Arc<Image>& translucentImage);
+                            const skr::Arc<Image>& translucentImage,
+                            bool                   tonemapHdr = false);
 
         /**
          * @brief Begin a cleared swapchain render pass for application UI.

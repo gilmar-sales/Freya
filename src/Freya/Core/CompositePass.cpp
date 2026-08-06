@@ -94,9 +94,13 @@ namespace FREYA_NAMESPACE
     }
 
     void CompositePass::DrawFullscreenTriangle(
-        const skr::Arc<CommandPool>& commandPool) const
+        const skr::Arc<CommandPool>& commandPool, const float tonemapHdr) const
     {
-        commandPool->GetCommandBuffer().draw(3, 1, 0, 0);
+        auto commandBuffer = commandPool->GetCommandBuffer();
+        commandBuffer.pushConstants(
+            mPipelineLayout, vk::ShaderStageFlagBits::eFragment, 0,
+            sizeof(float), &tonemapHdr);
+        commandBuffer.draw(3, 1, 0, 0);
     }
 
     void CompositePass::End(const skr::Arc<CommandPool> commandPool) const

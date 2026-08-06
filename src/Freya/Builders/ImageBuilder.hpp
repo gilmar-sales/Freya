@@ -17,12 +17,10 @@ namespace FREYA_NAMESPACE
         Depth,            ///< Depth stencil attachment
         Sampling,         ///< MSAA sampling target
         Texture,          ///< Texture/sampled image
-        GBufferPosition,  ///< Deferred G-buffer position
-        GBufferNormal,    ///< Deferred G-buffer normal
-        GBufferAlbedo,    ///< Deferred G-buffer albedo
-        GBufferEmissive,  ///< Deferred G-buffer emissive (for bloom)
-        GBufferMetalness, ///< Deferred material RT (RG8: metalness, roughness)
-        GBufferRoughness  ///< Deferred roughness-only RT (unused if packed)
+        GBufferAlbedo,    ///< Albedo RGB + material ID (R8G8B8A8_UNORM)
+        GBufferNormal,    ///< World normal + 2-bit flags (A2B10G10R10)
+        GBufferPbr,       ///< Roughness, metallic, AO, free (R8G8B8A8_UNORM)
+        GBufferSceneColor ///< HDR light accumulation / emissive (RGBA16F)
     };
 
     /**

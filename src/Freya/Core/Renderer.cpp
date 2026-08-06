@@ -403,7 +403,7 @@ namespace FREYA_NAMESPACE
 
             mBloomPass =
                 mServiceProvider->GetService<BloomPassBuilder>()->Build(
-                    mSwapChain, mDeferredPass->GetEmissiveImage(), extent);
+                    mSwapChain, mDeferredPass->GetSceneColorImage(), extent);
 
             mCompositePass =
                 mServiceProvider->GetService<CompositePassBuilder>()->Build(
@@ -605,7 +605,8 @@ namespace FREYA_NAMESPACE
 
     void Renderer::beginComposite(const std::uint32_t    frameIndex,
                                   const skr::Arc<Image>& opaqueImage,
-                                  const skr::Arc<Image>& translucentImage)
+                                  const skr::Arc<Image>& translucentImage,
+                                  const bool             tonemapHdr)
     {
         mCompositePass->UpdateDescriptorSet(
             frameIndex,
@@ -629,7 +630,8 @@ namespace FREYA_NAMESPACE
         }
 
         mCompositePass->BindPipeline(mCommandPool, frameIndex);
-        mCompositePass->DrawFullscreenTriangle(mCommandPool);
+        mCompositePass->DrawFullscreenTriangle(
+            mCommandPool, tonemapHdr ? 1.0f : 0.0f);
         mCompositePass->End(mCommandPool);
 
         if (mOutputTarget)
@@ -1132,13 +1134,11 @@ namespace FREYA_NAMESPACE
                 ExecuteDrawCommands(true);
             }
 
-            mDeferredPass->End(mCommandPool);
-
-            setFullViewport();
-            mDeferredPass->BeginLighting(mSwapChain, mCommandPool);
+            mDeferredPass->AdvanceSubpass(
+                DefLightingPass, mCommandPool, frameIndex);
             setFullViewport();
             mDeferredPass->DrawLighting(mCommandPool, frameIndex);
-            mDeferredPass->EndLighting(mCommandPool);
+            mDeferredPass->End(mCommandPool);
 
             // --- Bloom pass (half resolution) ---
             const auto extent = getRenderExtent();
@@ -1174,8 +1174,9 @@ namespace FREYA_NAMESPACE
 
             setFullViewport();
             beginComposite(frameIndex,
-                           mDeferredPass->GetOpaqueImage(),
-                           mDeferredPass->GetTranslucentImage());
+                           mDeferredPass->GetSceneColorImage(),
+                           mDeferredPass->GetTranslucentImage(),
+                           true);
         }
         else
         {

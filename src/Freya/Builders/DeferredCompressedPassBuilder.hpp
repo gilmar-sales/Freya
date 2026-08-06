@@ -41,7 +41,6 @@ namespace FREYA_NAMESPACE
             const skr::Arc<SwapChain>& swapChain, vk::Extent2D extent = {});
 
         vk::RenderPass createRenderPass() const;
-        vk::RenderPass createLightingRenderPass() const;
 
       private:
         skr::Arc<Device>               mDevice;

@@ -115,10 +115,17 @@ namespace FREYA_NAMESPACE
         auto descriptorSets = mDevice->Get().allocateDescriptorSets(allocInfo);
 
         // ------------------------------------------------------------------
-        // Pipeline layout
+        // Pipeline layout (+ push constant for deferred HDR tonemap)
         // ------------------------------------------------------------------
+        auto pushRange = vk::PushConstantRange()
+                             .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                             .setOffset(0)
+                             .setSize(sizeof(float));
+
         auto pipelineLayoutInfo =
-            vk::PipelineLayoutCreateInfo().setSetLayouts(descriptorSetLayout);
+            vk::PipelineLayoutCreateInfo()
+                .setSetLayouts(descriptorSetLayout)
+                .setPushConstantRanges(pushRange);
 
         auto pipelineLayout =
             mDevice->Get().createPipelineLayout(pipelineLayoutInfo);

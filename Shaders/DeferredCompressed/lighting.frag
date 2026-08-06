@@ -2,14 +2,23 @@
 
 layout(location = 0) in vec2 inUV;
 
-layout(binding = 0) uniform sampler2D inDepthBuffer;
-layout(binding = 1) uniform sampler2D inPosition;
-layout(binding = 2) uniform sampler2D inNormal;
-layout(binding = 3) uniform sampler2D inAlbedo;
-layout(binding = 4) uniform sampler2D inEmissive;
-layout(binding = 5) uniform sampler2D inMaterial;
+layout(input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput inDepth;
+layout(input_attachment_index = 1, set = 0, binding = 1) uniform subpassInput inAlbedo;
+layout(input_attachment_index = 2, set = 0, binding = 2) uniform subpassInput inNormal;
+layout(input_attachment_index = 3, set = 0, binding = 3) uniform subpassInput inPbr;
 
-layout(binding = 6) uniform LightBuffer {
+layout(binding = 4) uniform CameraBuffer {
+    mat4 view;
+    mat4 projection;
+    vec4 ambientLight;
+    // Match C++ alignas(64) between ambient and invViewProjection.
+    vec4 _pad0;
+    vec4 _pad1;
+    vec4 _pad2;
+    mat4 invViewProjection;
+} camera;
+
+layout(binding = 5) uniform LightBuffer {
     vec4 lightPositions[16];
     vec4 lightColorsAndRadius[16];
     vec4 lightDirectionsAndCutoff[16];
@@ -22,13 +31,13 @@ layout(binding = 6) uniform LightBuffer {
     float exposure;
 } lights;
 
-layout(binding = 7) uniform sampler2D irradianceMap;
-layout(binding = 8) uniform sampler2D prefilterMap;
-layout(binding = 9) uniform sampler2D brdfLUT;
-layout(binding = 10) uniform sampler2D ltcMatrixMap;
-layout(binding = 11) uniform sampler2D ltcAmplMap;
+layout(binding = 6) uniform sampler2D irradianceMap;
+layout(binding = 7) uniform sampler2D prefilterMap;
+layout(binding = 8) uniform sampler2D brdfLUT;
+layout(binding = 9) uniform sampler2D ltcMatrixMap;
+layout(binding = 10) uniform sampler2D ltcAmplMap;
 
-layout(binding = 12) uniform ShadowBuffer {
+layout(binding = 11) uniform ShadowBuffer {
     mat4 cascadeViewProj[4];
     vec4 cascadeSplits;
     vec4 params; // x=bias y=normalBias z=cascadeCount w=softScale
@@ -40,13 +49,15 @@ layout(binding = 12) uniform ShadowBuffer {
     vec4 pcss; // x=lightSize y=maxSoftness z=minVisibility w=tapCount
 } shadows;
 
-layout(binding = 13) uniform sampler2DArrayShadow cascadeShadowMap;
-layout(binding = 14) uniform sampler2DArrayShadow spotShadowMap;
-layout(binding = 15) uniform samplerCubeArrayShadow pointShadowMap;
+layout(binding = 12) uniform sampler2DArrayShadow cascadeShadowMap;
+layout(binding = 13) uniform sampler2DArrayShadow spotShadowMap;
+layout(binding = 14) uniform samplerCubeArrayShadow pointShadowMap;
 
 layout(location = 0) out vec4 outColor;
 
-const float bloomIntensity = 2.0;
+const uint kFlagReceiveShadow = 1u;
+const uint kFlagUnlit = 3u;
+
 const float PI = 3.14159265359;
 const float LUT_SIZE = 64.0;
 const float LUT_SCALE = (LUT_SIZE - 1.0) / LUT_SIZE;
@@ -285,8 +296,8 @@ float SamplePointShadow(int lightIndex, vec3 worldPos, vec3 N) {
 }
 
 float GetShadowFactor(int i, float lightType, vec3 worldPos, vec3 N,
-                      vec3 L) {
-    if (lights.lightOuterCutoffAndIntensity[i].w < 0.5)
+                      vec3 L, bool receiveShadow) {
+    if (!receiveShadow || lights.lightOuterCutoffAndIntensity[i].w < 0.5)
         return 1.0;
     float shadow = 1.0;
     if (lightType >= 0.5 && lightType < 1.5)
@@ -423,7 +434,8 @@ vec3 calculateLight(int lightIndex, vec3 lightPos, float lightType,
                     vec3 lightColor, float radius, vec3 lightDir,
                     float innerCutoff, float outerCutoff, float intensity,
                     vec3 worldPos, vec3 N, vec3 V, vec3 albedo,
-                    float roughness, float metalness, vec3 F0) {
+                    float roughness, float metalness, vec3 F0,
+                    bool receiveShadow) {
     vec3 L;
     float attenuation;
     resolveLight(lightPos, lightType, radius, lightDir, innerCutoff,
@@ -435,7 +447,7 @@ vec3 calculateLight(int lightIndex, vec3 lightPos, float lightType,
     }
 
     float shadowFactor =
-        GetShadowFactor(lightIndex, lightType, worldPos, N, L);
+        GetShadowFactor(lightIndex, lightType, worldPos, N, L, receiveShadow);
 
     vec3 H = normalize(V + L);
     float NDF = DistributionGGX(N, H, roughness);
@@ -475,38 +487,50 @@ vec3 calculateIBL(vec3 N, vec3 V, vec3 albedo, float roughness, float metalness,
     return (kD * diffuse + specular) * lights.iblIntensity;
 }
 
-vec3 ACESFilm(vec3 x) {
-    const float a = 2.51;
-    const float b = 0.03;
-    const float c = 2.43;
-    const float d = 0.59;
-    const float e = 0.14;
-    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+
+vec3 srgbToLinear(vec3 c) {
+    return pow(c, vec3(2.2));
+}
+
+uint UnpackFlags(float a) {
+    return uint(clamp(round(a * 3.0), 0.0, 3.0));
+}
+
+vec3 ReconstructWorldPos(vec2 uv, float depth) {
+    vec4 clip = vec4(uv * 2.0 - 1.0, depth, 1.0);
+    vec4 world = camera.invViewProjection * clip;
+    return world.xyz / world.w;
 }
 
 void main() {
-    float depth = texture(inDepthBuffer, inUV).r;
-    // Reverse-Z clears unused pixels to 0; treat near-far as sky.
+    float depth = subpassLoad(inDepth).r;
     bool reverseZ = shadows.reverseZ.x > 0.5;
     if (reverseZ ? (depth <= 1e-6) : (depth >= 0.999999)) {
         discard;
     }
 
-    vec3 fragPos = texture(inPosition, inUV).xyz;
-    vec3 normal = texture(inNormal, inUV).xyz;
-    vec4 albedoSample = texture(inAlbedo, inUV);
-    vec3 emissive = texture(inEmissive, inUV).rgb;
-    vec4 material = texture(inMaterial, inUV);
+    vec4 albedoSample = subpassLoad(inAlbedo);
+    vec4 normalSample = subpassLoad(inNormal);
+    vec4 pbrSample = subpassLoad(inPbr);
 
-    vec3 albedo = albedoSample.rgb;
-    float metalness = material.r;
-    float roughness = max(material.g, 0.045);
+    uint flags = UnpackFlags(normalSample.a);
+    if (flags == kFlagUnlit) {
+        discard;
+    }
 
-    vec3 N = normalize(normal);
+    vec3 fragPos = ReconstructWorldPos(inUV, depth);
+    vec3 albedo = srgbToLinear(albedoSample.rgb);
+    float roughness = max(pbrSample.r, 0.045);
+    float metalness = pbrSample.g;
+    float ao = pbrSample.b;
+
+    vec3 N = normalize(normalSample.rgb * 2.0 - 1.0);
     vec3 V = normalize(lights.viewPosition.xyz - fragPos);
     vec3 F0 = mix(vec3(0.04), albedo, metalness);
 
-    vec3 totalLighting = calculateIBL(N, V, albedo, roughness, metalness, F0);
+    bool receiveShadow = (flags == kFlagReceiveShadow);
+    vec3 totalLighting =
+        calculateIBL(N, V, albedo, roughness, metalness, F0) * ao;
 
     for (int i = 0; i < int(lights.lightCount); i++) {
         float lightType = lights.lightPositions[i].w;
@@ -533,12 +557,9 @@ void main() {
             lights.lightDirectionsAndCutoff[i].w,
             lights.lightOuterCutoffAndIntensity[i].x,
             lights.lightOuterCutoffAndIntensity[i].y,
-            fragPos, N, V, albedo, roughness, metalness, F0);
+            fragPos, N, V, albedo, roughness, metalness, F0, receiveShadow);
     }
 
-    vec3 color =
-        totalLighting * lights.exposure + emissive * bloomIntensity;
-    color = ACESFilm(color);
-    color = pow(color, vec3(1.0 / 2.2));
-    outColor = vec4(color, 1.0);
+    // Additive contribution; emissive already in Scene Color.
+    outColor = vec4(totalLighting * lights.exposure, 0.0);
 }

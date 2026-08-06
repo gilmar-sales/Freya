@@ -38,7 +38,7 @@ namespace FREYA_NAMESPACE
             std::move(mDevice->Get().allocateDescriptorSets(
                 samplerDescriptorSetAllocInfo));
 
-        auto factors = PackMaterialFactors(createInfo);
+        auto factors = PackMaterialFactors(createInfo, material.id);
         material.factorsBuffer =
             BufferBuilder(mDevice)
                 .SetUsage(BufferUsage::Uniform)
@@ -158,7 +158,7 @@ namespace FREYA_NAMESPACE
 
     void MaterialPool::uploadFactors(Material& material)
     {
-        auto factors = PackMaterialFactors(material.createInfo);
+        auto factors = PackMaterialFactors(material.createInfo, material.id);
         material.factorsBuffer->Copy(&factors, sizeof(factors));
     }
 

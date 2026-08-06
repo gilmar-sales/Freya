@@ -58,8 +58,12 @@ namespace FREYA_NAMESPACE
         void BindPipeline(const skr::Arc<CommandPool>& commandPool,
                           std::uint32_t                frameIndex) const;
 
-        void DrawFullscreenTriangle(
-            const skr::Arc<CommandPool>& commandPool) const;
+        /**
+         * @param tonemapHdr 1.0 applies ACES+gamma (deferred HDR Scene Color);
+         *                   0.0 leaves LDR inputs untouched (forward).
+         */
+        void DrawFullscreenTriangle(const skr::Arc<CommandPool>& commandPool,
+                                    float tonemapHdr = 0.0f) const;
 
         void End(const skr::Arc<CommandPool> commandPool) const;
 

@@ -61,10 +61,10 @@ namespace FREYA_NAMESPACE
                 mServiceProvider->GetService<DeferredCompressedPassBuilder>()
                     ->Build(mSwapChain);
 
-            // Bloom pass reads the emissive from deferred pass
+            // Bloom pass reads HDR Scene Color from deferred pass
             bloomPass = mServiceProvider->GetService<BloomPassBuilder>()->Build(
                 mSwapChain,
-                deferredPass->GetEmissiveImage());
+                deferredPass->GetSceneColorImage());
 
             // Composite pass reads opaque, translucent from deferred pass
             compositePass =

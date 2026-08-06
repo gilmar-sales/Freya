@@ -20,6 +20,8 @@ namespace FREYA_NAMESPACE
         alignas(64) glm::mat4 projection; ///< Projection matrix
         alignas(64) glm::vec4
             ambientLight; ///< Ambient light color (xyz) and intensity (w)
+        alignas(64) glm::mat4
+            invViewProjection; ///< Inverse(viewProjection) for depth unproject
     };
 
     /**

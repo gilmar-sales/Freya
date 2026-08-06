@@ -12,28 +12,29 @@
 
 namespace FREYA_NAMESPACE
 {
+    /**
+     * Balanced G-buffer (128-bit color) + HDR Scene Color accumulation.
+     *
+     * Attachments: depth, albedo+matID, normal+flags, PBR, sceneColor HDR.
+     * Subpasses: depth pre-pass → G-buffer (writes emissive into scene
+     * color) → fullscreen lighting (additive into scene color).
+     */
     enum : std::uint32_t
     {
         DefDepthAttachment,
-        DefPositionAttachment,
-        DefNormalAttachment,
         DefAlbedoAttachment,
-        DefEmissiveAttachment,
-        DefMaterialAttachment,
+        DefNormalAttachment,
+        DefPbrAttachment,
+        DefSceneColorAttachment,
     };
 
     enum : std::uint32_t
     {
         DefDepthPrePass,
         DefGBufferPass,
+        DefLightingPass,
     };
 
-    /**
-     * @brief Deferred G-buffer pass with a separate fullscreen lighting pass.
-     *
-     * G-buffer RP: depth pre-pass + G-buffer. Final layouts are shader-read
-     * so denoise and lighting can sample attachments as textures.
-     */
     class DeferredCompressedPass
     {
       public:
@@ -41,8 +42,7 @@ namespace FREYA_NAMESPACE
             const skr::Arc<Device>&       device,
             const skr::Arc<FreyaOptions>& freyaOptions,
             const skr::Arc<Surface>&      surface,
-            const vk::RenderPass          gbufferRenderPass,
-            const vk::RenderPass          lightingRenderPass,
+            const vk::RenderPass          renderPass,
             const vk::PipelineLayout      vertexPipelineLayout,
             const vk::PipelineLayout      fullscreenPipelineLayout,
             const vk::Pipeline            depthPrepassPipeline,
@@ -53,12 +53,10 @@ namespace FREYA_NAMESPACE
             const std::vector<vk::DescriptorSet>&       descriptorSets,
             const vk::DescriptorPool                    descriptorPool,
             const std::vector<skr::Arc<Image>>&         gbufferImages,
-            const skr::Arc<Image>&                      emissiveImage,
+            const skr::Arc<Image>&                      sceneColorImage,
             const skr::Arc<Image>&                      depthImage,
             const skr::Arc<Image>&                      translucentImage,
-            const skr::Arc<Image>&                      opaqueImage,
-            const std::vector<vk::Framebuffer>&         gbufferFramebuffers,
-            const std::vector<vk::Framebuffer>&         lightingFramebuffers,
+            const std::vector<vk::Framebuffer>&         framebuffers,
             const vk::DescriptorSetLayout               lightingSetLayout,
             const vk::DescriptorPool                    lightingDescriptorPool,
             const std::vector<vk::DescriptorSet>&       lightingSets,
@@ -69,7 +67,7 @@ namespace FREYA_NAMESPACE
 
         ~DeferredCompressedPass();
 
-        vk::RenderPass& GetRenderPass() { return mGbufferRenderPass; }
+        vk::RenderPass& GetRenderPass() { return mRenderPass; }
 
         vk::PipelineLayout& GetVertexPipelineLayout()
         {
@@ -83,17 +81,17 @@ namespace FREYA_NAMESPACE
 
         vk::Pipeline& GetPipeline(std::uint32_t subpass);
 
-        skr::Arc<Image> GetOpaqueImage() const { return mOpaqueImage; }
+        /// HDR scene color (emissive + lighting). Used as composite “opaque”.
+        skr::Arc<Image> GetOpaqueImage() const { return mSceneColorImage; }
+        skr::Arc<Image> GetSceneColorImage() const { return mSceneColorImage; }
         skr::Arc<Image> GetTranslucentImage() const
         {
             return mTranslucentImage;
         }
-        skr::Arc<Image> GetEmissiveImage() const { return mEmissiveImage; }
         skr::Arc<Image> GetDepthImage() const { return mDepthImage; }
-        skr::Arc<Image> GetPositionImage() const { return mGBufferImages[0]; }
+        skr::Arc<Image> GetAlbedoImage() const { return mGBufferImages[0]; }
         skr::Arc<Image> GetNormalImage() const { return mGBufferImages[1]; }
-        skr::Arc<Image> GetAlbedoImage() const { return mGBufferImages[2]; }
-        skr::Arc<Image> GetMaterialImage() const { return mGBufferImages[4]; }
+        skr::Arc<Image> GetPbrImage() const { return mGBufferImages[2]; }
 
         void Begin(const skr::Arc<SwapChain>    swapChain,
                    const skr::Arc<CommandPool>& commandPool) const;
@@ -108,15 +106,10 @@ namespace FREYA_NAMESPACE
                             const skr::Arc<CommandPool>& commandPool,
                             std::uint32_t                frameIndex) const;
 
-        void End(const skr::Arc<CommandPool> commandPool) const;
-
-        void BeginLighting(const skr::Arc<SwapChain>    swapChain,
-                           const skr::Arc<CommandPool>& commandPool) const;
-
         void DrawLighting(const skr::Arc<CommandPool>& commandPool,
                           std::uint32_t                frameIndex) const;
 
-        void EndLighting(const skr::Arc<CommandPool>& commandPool) const;
+        void End(const skr::Arc<CommandPool> commandPool) const;
 
         void UpdateProjection(const ProjectionUniformBuffer& buffer,
                               std::uint32_t                  frameIndex) const;
@@ -135,14 +128,11 @@ namespace FREYA_NAMESPACE
 
         skr::Arc<Buffer> GetUniformBuffer() { return mUniformBuffer; }
 
-        std::size_t GetFramebufferCount() const
-        {
-            return mGbufferFramebuffers.size();
-        }
+        std::size_t GetFramebufferCount() const { return mFramebuffers.size(); }
 
         vk::Framebuffer& GetFramebuffer(std::size_t index)
         {
-            return mGbufferFramebuffers[index];
+            return mFramebuffers[index];
         }
 
         std::uint32_t GetCurrentSubpass() const { return mCurrentSubpass; }
@@ -151,15 +141,13 @@ namespace FREYA_NAMESPACE
         skr::Arc<FreyaOptions> mFreyaOptions;
         skr::Arc<Surface>      mSurface;
 
-        vk::RenderPass mGbufferRenderPass;
-        vk::RenderPass mLightingRenderPass;
+        vk::RenderPass mRenderPass;
 
       private:
         vk::PipelineLayout mVertexPipelineLayout;
         vk::PipelineLayout mFullscreenPipelineLayout;
 
-        std::array<vk::Pipeline, 2> mGeometryPipelines;
-        vk::Pipeline                mLightingPipeline;
+        std::array<vk::Pipeline, 3> mPipelines;
 
         skr::Arc<Buffer> mUniformBuffer;
 
@@ -168,13 +156,11 @@ namespace FREYA_NAMESPACE
         vk::DescriptorPool                   mDescriptorPool;
 
         std::vector<skr::Arc<Image>> mGBufferImages;
-        skr::Arc<Image>              mEmissiveImage;
+        skr::Arc<Image>              mSceneColorImage;
         skr::Arc<Image>              mDepthImage;
         skr::Arc<Image>              mTranslucentImage;
-        skr::Arc<Image>              mOpaqueImage;
 
-        std::vector<vk::Framebuffer> mGbufferFramebuffers;
-        std::vector<vk::Framebuffer> mLightingFramebuffers;
+        std::vector<vk::Framebuffer> mFramebuffers;
 
         vk::Extent2D mExtent;
 

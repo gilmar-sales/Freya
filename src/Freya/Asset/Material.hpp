@@ -45,27 +45,30 @@ namespace FREYA_NAMESPACE
      * @brief GPU std140 material factors (set 1, binding 5).
      *
      * Layout: vec4 albedo, vec4 emissive (w unused), vec2 roughMetal
-     * (x=roughness, y=metalness), pad.
+     * (x=roughness, y=metalness), materialId (0–255), pad.
      */
     struct MaterialFactorsUniform
     {
         glm::vec4 albedoFactor { 1.f, 1.f, 1.f, 1.f };
         glm::vec4 emissiveFactor { 1.f, 1.f, 1.f, 0.f };
         glm::vec2 roughMetal { 1.f, 1.f };
-        glm::vec2 _pad {};
+        float     materialId = 0.f; ///< 0–255, packed into G-buffer albedo.a
+        float     _pad       = 0.f;
     };
 
     static_assert(sizeof(MaterialFactorsUniform) == 48,
                   "MaterialFactorsUniform must match GLSL std140 layout");
 
     inline MaterialFactorsUniform PackMaterialFactors(
-        const MaterialCreateInfo& createInfo)
+        const MaterialCreateInfo& createInfo,
+        const std::uint32_t       materialId = 0)
     {
         return MaterialFactorsUniform {
             .albedoFactor   = createInfo.albedoFactor,
             .emissiveFactor = glm::vec4(createInfo.emissiveFactor, 0.f),
             .roughMetal     = { createInfo.roughnessFactor,
                                 createInfo.metalnessFactor },
+            .materialId     = static_cast<float>(materialId & 0xFFu),
         };
     }
 
