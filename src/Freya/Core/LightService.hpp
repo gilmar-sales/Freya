@@ -30,7 +30,7 @@ namespace FREYA_NAMESPACE
         float     intensity   = 1.0f; ///< Light intensity multiplier
         glm::vec3 tangent =
             glm::vec3(1.0f, 0.0f, 0.0f); ///< Area rect tangent (U axis)
-        float halfHeight  = 0.0f; ///< Area rect half-height along bitangent
+        float halfHeight  = 0.0f;  ///< Area rect half-height along bitangent
         bool  castShadows = false; ///< Participates in shadow map passes
     };
 
@@ -198,10 +198,13 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief Updates the GPU buffer with current light data.
-         * @param frameIndex    Current frame index
-         * @param viewPosition  Camera/eye position for attenuation calculations
+         * @param frameIndex     Current frame index
+         * @param viewPosition   Camera/eye position for attenuation
+         * @param cameraForward  Camera look direction (world space, normalized)
          */
-        void Update(std::uint32_t frameIndex, const glm::vec3& viewPosition);
+        void Update(std::uint32_t    frameIndex,
+                    const glm::vec3& viewPosition,
+                    const glm::vec3& cameraForward);
 
         /**
          * @brief Returns the number of active lights.

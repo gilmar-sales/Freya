@@ -36,13 +36,13 @@ namespace FREYA_NAMESPACE
         const skr::Arc<Device>&                     device,
         const skr::Arc<FreyaOptions>&               freyaOptions,
         const skr::Arc<Surface>&                    surface,
-        const vk::RenderPass                        renderPass,
+        const vk::RenderPass                        gbufferRenderPass,
+        const vk::RenderPass                        lightingRenderPass,
         const vk::PipelineLayout                    vertexPipelineLayout,
         const vk::PipelineLayout                    fullscreenPipelineLayout,
         const vk::Pipeline                          depthPrepassPipeline,
         const vk::Pipeline                          gbufferPipeline,
         const vk::Pipeline                          lightingPipeline,
-        const vk::Pipeline                          translucentPipeline,
         const skr::Arc<Buffer>&                     uniformBuffer,
         const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
         const std::vector<vk::DescriptorSet>&       descriptorSets,
@@ -52,42 +52,48 @@ namespace FREYA_NAMESPACE
         const skr::Arc<Image>&                      depthImage,
         const skr::Arc<Image>&                      translucentImage,
         const skr::Arc<Image>&                      opaqueImage,
-        const std::vector<vk::Framebuffer>&         framebuffers,
-        const vk::DescriptorSetLayout               inputAttachmentLayout,
-        const vk::DescriptorPool                    inputAttachmentPool,
-        const std::vector<vk::DescriptorSet>&       lightingInputSets,
+        const std::vector<vk::Framebuffer>&         gbufferFramebuffers,
+        const std::vector<vk::Framebuffer>&         lightingFramebuffers,
+        const vk::DescriptorSetLayout               lightingSetLayout,
+        const vk::DescriptorPool                    lightingDescriptorPool,
+        const std::vector<vk::DescriptorSet>&       lightingSets,
         const vk::DescriptorSetLayout               samplerLayout,
         const vk::DescriptorPool                    samplerDescriptorPool,
+        const vk::Sampler                           gbufferSampler,
         const vk::Extent2D                          extent) :
         mDevice(device), mFreyaOptions(freyaOptions), mSurface(surface),
-        mRenderPass(renderPass), mVertexPipelineLayout(vertexPipelineLayout),
+        mGbufferRenderPass(gbufferRenderPass),
+        mLightingRenderPass(lightingRenderPass),
+        mVertexPipelineLayout(vertexPipelineLayout),
         mFullscreenPipelineLayout(fullscreenPipelineLayout),
-        mUniformBuffer(uniformBuffer),
+        mLightingPipeline(lightingPipeline), mUniformBuffer(uniformBuffer),
         mDescriptorSetLayouts(descriptorSetLayouts),
         mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool),
         mGBufferImages(gbufferImages), mEmissiveImage(emissiveImage),
         mDepthImage(depthImage), mTranslucentImage(translucentImage),
-        mOpaqueImage(opaqueImage), mFramebuffers(framebuffers), mExtent(extent),
-        mInputAttachmentLayout(inputAttachmentLayout),
-        mInputAttachmentPool(inputAttachmentPool),
-        mLightingInputSets(lightingInputSets), mSamplerLayout(samplerLayout),
-        mSamplerDescriptorPool(samplerDescriptorPool)
+        mOpaqueImage(opaqueImage), mGbufferFramebuffers(gbufferFramebuffers),
+        mLightingFramebuffers(lightingFramebuffers), mExtent(extent),
+        mLightingSetLayout(lightingSetLayout),
+        mLightingDescriptorPool(lightingDescriptorPool),
+        mLightingSets(lightingSets), mSamplerLayout(samplerLayout),
+        mSamplerDescriptorPool(samplerDescriptorPool),
+        mGbufferSampler(gbufferSampler)
     {
-        mPipelines[DefDepthPrePass]    = depthPrepassPipeline;
-        mPipelines[DefGBufferPass]     = gbufferPipeline;
-        mPipelines[DefLightingPass]    = lightingPipeline;
-        mPipelines[DefTranslucentPass] = translucentPipeline;
+        mGeometryPipelines[DefDepthPrePass] = depthPrepassPipeline;
+        mGeometryPipelines[DefGBufferPass]  = gbufferPipeline;
     }
 
     DeferredCompressedPass::~DeferredCompressedPass()
     {
         auto& vkDevice = mDevice->Get();
 
-        for (auto& fb : mFramebuffers)
+        for (auto& fb : mGbufferFramebuffers)
+            vkDevice.destroyFramebuffer(fb);
+        for (auto& fb : mLightingFramebuffers)
             vkDevice.destroyFramebuffer(fb);
 
-        vkDevice.destroyDescriptorPool(mInputAttachmentPool);
-        vkDevice.destroyDescriptorSetLayout(mInputAttachmentLayout);
+        vkDevice.destroyDescriptorPool(mLightingDescriptorPool);
+        vkDevice.destroyDescriptorSetLayout(mLightingSetLayout);
 
         vkDevice.destroyDescriptorPool(mSamplerDescriptorPool);
         vkDevice.destroyDescriptorSetLayout(mSamplerLayout);
@@ -97,13 +103,17 @@ namespace FREYA_NAMESPACE
         for (const auto& layout : mDescriptorSetLayouts)
             vkDevice.destroyDescriptorSetLayout(layout);
 
-        for (auto& pipeline : mPipelines)
+        for (auto& pipeline : mGeometryPipelines)
             vkDevice.destroyPipeline(pipeline);
+        vkDevice.destroyPipeline(mLightingPipeline);
 
         vkDevice.destroyPipelineLayout(mVertexPipelineLayout);
         vkDevice.destroyPipelineLayout(mFullscreenPipelineLayout);
 
-        vkDevice.destroyRenderPass(mRenderPass);
+        vkDevice.destroyRenderPass(mGbufferRenderPass);
+        vkDevice.destroyRenderPass(mLightingRenderPass);
+
+        vkDevice.destroySampler(mGbufferSampler);
 
         mGBufferImages.clear();
         mDepthImage.reset();
@@ -117,7 +127,7 @@ namespace FREYA_NAMESPACE
     vk::Pipeline& DeferredCompressedPass::GetPipeline(
         const std::uint32_t subpass)
     {
-        return mPipelines[subpass];
+        return mGeometryPipelines[subpass];
     }
 
     void DeferredCompressedPass::Begin(
@@ -126,21 +136,17 @@ namespace FREYA_NAMESPACE
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 
-        beginDebugLabel(commandBuffer, "Gbuffer+Lighting Pass", mDevice->Get());
+        beginDebugLabel(commandBuffer, "Deferred G-buffer", mDevice->Get());
 
-        // 8 clear values (no backbuffer — composite pass handles it)
         auto clearValues = std::vector<vk::ClearValue> {
             vk::ClearValue().setDepthStencil(
                 vk::ClearDepthStencilValue().setDepth(
-                    mFreyaOptions->ReverseZ ? 0.0f : 1.0f)),       // depth
-            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // position
-            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // normal
-            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // albedo
-            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // emissive
-            vk::ClearValue().setColor(
-                { 0.0f, 0.5f, 0.0f, 0.0f }), // material RG (metal, rough)
-            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // transl.
-            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // opaque
+                    mFreyaOptions->ReverseZ ? 0.0f : 1.0f)),
+            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }),
+            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }),
+            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }),
+            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }),
+            vk::ClearValue().setColor({ 0.0f, 0.5f, 0.0f, 0.0f }),
         };
 
         const auto imageIndex = swapChain->GetCurrentImageIndex();
@@ -148,8 +154,8 @@ namespace FREYA_NAMESPACE
 
         commandBuffer.beginRenderPass(
             vk::RenderPassBeginInfo()
-                .setRenderPass(mRenderPass)
-                .setFramebuffer(mFramebuffers[imageIndex])
+                .setRenderPass(mGbufferRenderPass)
+                .setFramebuffer(mGbufferFramebuffers[imageIndex])
                 .setRenderArea(
                     vk::Rect2D().setOffset({ 0, 0 }).setExtent(mExtent))
                 .setClearValues(clearValues),
@@ -180,37 +186,21 @@ namespace FREYA_NAMESPACE
         }
 
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
-                                   mPipelines[subpass]);
+                                   mGeometryPipelines[subpass]);
 
         beginDebugLabel(commandBuffer, GetSubpassLabel(subpass),
                         mDevice->Get());
         mLabelActive    = true;
         mCurrentSubpass = subpass;
 
-        if (subpass == DefDepthPrePass || subpass == DefGBufferPass ||
-            subpass == DefTranslucentPass)
-        {
-            commandBuffer.bindDescriptorSets(
-                vk::PipelineBindPoint::eGraphics,
-                mVertexPipelineLayout,
-                0,
-                1,
-                &mDescriptorSets[frameIndex],
-                0,
-                nullptr);
-        }
-
-        if (subpass == DefLightingPass)
-        {
-            commandBuffer.bindDescriptorSets(
-                vk::PipelineBindPoint::eGraphics,
-                mFullscreenPipelineLayout,
-                0,
-                1,
-                &mLightingInputSets[frameIndex],
-                0,
-                nullptr);
-        }
+        commandBuffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics,
+            mVertexPipelineLayout,
+            0,
+            1,
+            &mDescriptorSets[frameIndex],
+            0,
+            nullptr);
     }
 
     void DeferredCompressedPass::AdvanceSubpass(
@@ -220,12 +210,6 @@ namespace FREYA_NAMESPACE
     {
         NextSubpass(commandPool);
         BindPipeline(subpass, commandPool, frameIndex);
-    }
-
-    void DeferredCompressedPass::DrawFullscreenTriangle(
-        const skr::Arc<CommandPool>& commandPool) const
-    {
-        commandPool->GetCommandBuffer().draw(3, 1, 0, 0);
     }
 
     void DeferredCompressedPass::End(
@@ -240,8 +224,80 @@ namespace FREYA_NAMESPACE
         }
 
         commandBuffer.endRenderPass();
-
         endDebugLabel(commandBuffer, mDevice->Get());
+    }
+
+    void DeferredCompressedPass::BeginLighting(
+        const skr::Arc<SwapChain>    swapChain,
+        const skr::Arc<CommandPool>& commandPool) const
+    {
+        auto commandBuffer = commandPool->GetCommandBuffer();
+        beginDebugLabel(commandBuffer, "Deferred Lighting", mDevice->Get());
+
+        auto clearValues = std::vector<vk::ClearValue> {
+            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }),
+            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }),
+        };
+
+        const auto imageIndex = swapChain->GetCurrentImageIndex();
+        const auto frameIndex = swapChain->GetCurrentFrameIndex();
+
+        commandBuffer.beginRenderPass(
+            vk::RenderPassBeginInfo()
+                .setRenderPass(mLightingRenderPass)
+                .setFramebuffer(mLightingFramebuffers[imageIndex])
+                .setRenderArea(
+                    vk::Rect2D().setOffset({ 0, 0 }).setExtent(mExtent))
+                .setClearValues(clearValues),
+            vk::SubpassContents::eInline);
+
+        commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+                                   mLightingPipeline);
+        commandBuffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics,
+            mFullscreenPipelineLayout,
+            0,
+            1,
+            &mLightingSets[frameIndex],
+            0,
+            nullptr);
+    }
+
+    void DeferredCompressedPass::DrawLighting(
+        const skr::Arc<CommandPool>& commandPool, const std::uint32_t) const
+    {
+        commandPool->GetCommandBuffer().draw(3, 1, 0, 0);
+    }
+
+    void DeferredCompressedPass::EndLighting(
+        const skr::Arc<CommandPool>& commandPool) const
+    {
+        auto commandBuffer = commandPool->GetCommandBuffer();
+        commandBuffer.endRenderPass();
+        endDebugLabel(commandBuffer, mDevice->Get());
+    }
+
+    void DeferredCompressedPass::UpdateDirectionalShadowMask(
+        const skr::Arc<Image>& mask, const vk::Sampler sampler)
+    {
+        auto maskInfo =
+            vk::DescriptorImageInfo()
+                .setSampler(sampler)
+                .setImageView(mask->GetImageView())
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+
+        for (auto& set : mLightingSets)
+        {
+            auto write =
+                vk::WriteDescriptorSet()
+                    .setDstSet(set)
+                    .setDstBinding(13)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(maskInfo);
+            mDevice->Get().updateDescriptorSets(1, &write, 0, nullptr);
+        }
     }
 
     void DeferredCompressedPass::UpdateProjection(
@@ -278,10 +334,6 @@ namespace FREYA_NAMESPACE
                 return "Depth Pre-pass";
             case DefGBufferPass:
                 return "G-buffer";
-            case DefLightingPass:
-                return "Lighting";
-            case DefTranslucentPass:
-                return "Translucent";
             default:
                 return "Unknown";
         }

@@ -1,6 +1,7 @@
 #include "Renderer.hpp"
 
 #include "Freya/Asset/MaterialPool.hpp"
+#include "Freya/Asset/Vertex.hpp"
 #include "Freya/Builders/BloomPassBuilder.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/CompositePassBuilder.hpp"
@@ -9,10 +10,13 @@
 #include "Freya/Builders/PickPassBuilder.hpp"
 #include "Freya/Builders/RenderPassBuilder.hpp"
 #include "Freya/Builders/RenderTargetBuilder.hpp"
+#include "Freya/Builders/ShaderModuleBuilder.hpp"
+#include "Freya/Builders/ShadowDenoisePassBuilder.hpp"
 #include "Freya/Builders/SwapChainBuilder.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/PickPass.hpp"
+#include "Freya/Core/ShaderModule.hpp"
 #include "Freya/Core/ShadowPass.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 
@@ -93,12 +97,15 @@ namespace FREYA_NAMESPACE
                     mDeferredPass->GetTranslucentImage(), mBloomResultImage,
                     mBloomResultSampler);
             }
+            rebuildShadowDenoisePass();
         }
         else
         {
             // Create offscreen resources (depth image, render pass,
             // framebuffers)
             createForwardOffscreenResources();
+            createForwardPrepassResources();
+            rebuildShadowDenoisePass();
 
             // Determine the bloom/composite input image:
             //   MSAA → use the resolve image (single sample)
@@ -122,6 +129,8 @@ namespace FREYA_NAMESPACE
         mDevice->Get().waitIdle();
 
         destroyForwardOffscreenResources();
+        destroyForwardPrepassResources();
+        mShadowDenoisePass.reset();
 
         mDevice->Get().destroySampler(mBloomResultSampler);
         mBloomResultImage.reset();
@@ -341,6 +350,8 @@ namespace FREYA_NAMESPACE
         mForwardColorImage.reset();
         mForwardResolveImage.reset();
         mForwardDepthImage.reset();
+
+        destroyForwardPrepassResources();
     }
 
     void Renderer::RebuildSwapChain()
@@ -367,9 +378,11 @@ namespace FREYA_NAMESPACE
 
         // Tear down path-specific resources so strategy switches are clean.
         destroyForwardOffscreenResources();
+        destroyForwardPrepassResources();
         mForwardColorImage.reset();
         mForwardResolveImage.reset();
         mDeferredPass.reset();
+        mShadowDenoisePass.reset();
         mBloomPass.reset();
         mCompositePass.reset();
 
@@ -404,6 +417,8 @@ namespace FREYA_NAMESPACE
                     mDeferredPass->GetTranslucentImage(), mBloomResultImage,
                     mBloomResultSampler);
             }
+
+            rebuildShadowDenoisePass();
         }
         else
         {
@@ -444,6 +459,8 @@ namespace FREYA_NAMESPACE
                     mSwapChain);
 
             createForwardOffscreenResources();
+            createForwardPrepassResources();
+            rebuildShadowDenoisePass();
 
             const auto compositeInput =
                 mForwardResolveImage ? mForwardResolveImage
@@ -506,7 +523,8 @@ namespace FREYA_NAMESPACE
 
         // Refresh projection/ambient UBOs into the newly built passes.
         for (std::uint32_t frameIndex = 0;
-             frameIndex < mFreyaOptions->frameCount; ++frameIndex)
+             frameIndex < mFreyaOptions->frameCount;
+             ++frameIndex)
         {
             mForwardPass->UpdateProjection(mCurrentProjection, frameIndex);
             if (mDeferredPass)
@@ -717,7 +735,12 @@ namespace FREYA_NAMESPACE
 
         if (mLightService)
         {
-            mLightService->Update(mSwapChain->GetCurrentFrameIndex(), position);
+            const auto toTarget = target - position;
+            const auto forward  = glm::length(toTarget) > 1e-6f
+                                      ? glm::normalize(toTarget)
+                                      : glm::vec3(0.0f, 0.0f, 1.0f);
+            mLightService->Update(mSwapChain->GetCurrentFrameIndex(), position,
+                                  forward);
         }
     }
 
@@ -725,7 +748,8 @@ namespace FREYA_NAMESPACE
     {
         mCurrentProjection.ambientLight = glm::vec4(color, intensity);
         for (std::uint32_t frameIndex = 0;
-             frameIndex < mFreyaOptions->frameCount; ++frameIndex)
+             frameIndex < mFreyaOptions->frameCount;
+             ++frameIndex)
         {
             mForwardPass->UpdateProjection(mCurrentProjection, frameIndex);
             if (mDeferredPass)
@@ -901,20 +925,24 @@ namespace FREYA_NAMESPACE
 
     void Renderer::Draw(const std::uint32_t meshId,
                         const std::uint32_t materialId,
-                        const std::uint32_t entityId)
+                        const std::uint32_t entityId,
+                        const bool          castShadows)
     {
-        mDrawCommands.push_back({ meshId, materialId, 1, 0, entityId });
+        mDrawCommands.push_back(
+            { meshId, materialId, 1, 0, entityId, castShadows });
     }
 
     void Renderer::DrawInstanced(const std::uint32_t meshId,
                                  const std::uint32_t materialId,
                                  const size_t        instanceCount,
                                  const size_t        firstInstance,
+                                 const bool          castShadows,
                                  const std::uint32_t entityId)
     {
         mDrawCommands.push_back(
             { meshId, materialId, static_cast<std::uint32_t>(instanceCount),
-              static_cast<std::uint32_t>(firstInstance), entityId });
+              static_cast<std::uint32_t>(firstInstance), entityId,
+              castShadows });
     }
 
     void Renderer::ClearDrawCommands()
@@ -922,10 +950,15 @@ namespace FREYA_NAMESPACE
         mDrawCommands.clear();
     }
 
-    void Renderer::ExecuteDrawCommands(const bool bindMaterials)
+    void Renderer::ExecuteDrawCommands(const bool bindMaterials,
+                                       const bool shadowCastersOnly)
     {
         for (const auto& cmd : mDrawCommands)
         {
+            if (shadowCastersOnly && !cmd.castShadows)
+            {
+                continue;
+            }
             if (bindMaterials)
             {
                 BindMaterial(cmd.materialId);
@@ -966,8 +999,8 @@ namespace FREYA_NAMESPACE
 
         // Editor MVP: ensure the submit that recorded CopyPixel finished.
         mDevice->Get().waitIdle();
-        outEntityId             = mPickPass->ReadPixel();
-        mPickAwaitingReadback   = false;
+        outEntityId           = mPickPass->ReadPixel();
+        mPickAwaitingReadback = false;
         return true;
     }
 
@@ -1009,103 +1042,98 @@ namespace FREYA_NAMESPACE
         if (mPickRequested && mPickPass)
         {
             resizePickPass(getRenderExtent());
-            mPickPass->Render(mCommandPool, mCurrentProjection, [this]() {
-                ExecutePickDrawCommands();
-            });
+            mPickPass->Render(mCommandPool, mCurrentProjection,
+                              [this]() { ExecutePickDrawCommands(); });
             mPickPass->CopyPixel(mCommandPool, mPickX, mPickY);
-            mPickRequested          = false;
-            mPickAwaitingReadback   = true;
+            mPickRequested        = false;
+            mPickAwaitingReadback = true;
         }
 
         if (mShadowPass && mLightService)
         {
-            mShadowPass->Update(*mLightService,
-                                mCurrentProjection.view,
-                                mCurrentProjection.projection,
-                                glm::vec3(glm::inverse(mCurrentProjection.view)[3]),
-                                mCameraNear,
-                                mFreyaOptions->drawDistance);
+            mShadowPass->Update(
+                *mLightService,
+                mCurrentProjection.view,
+                mCurrentProjection.projection,
+                glm::vec3(glm::inverse(mCurrentProjection.view)[3]),
+                mCameraNear,
+                mFreyaOptions->drawDistance);
             mShadowPass->Render(mCommandPool, [this]() {
-                ExecuteDrawCommands(false);
+                ExecuteDrawCommands(false, true);
             });
         }
 
         const auto commandBuffer = mCommandPool->GetCommandBuffer();
+        const auto renderExtent  = getRenderExtent();
+        const auto frameIndex    = mSwapChain->GetCurrentFrameIndex();
+
+        auto setFullViewport = [&]() {
+            auto viewport =
+                vk::Viewport()
+                    .setX(0)
+                    .setY(0)
+                    .setWidth(static_cast<float>(renderExtent.width))
+                    .setHeight(static_cast<float>(renderExtent.height))
+                    .setMinDepth(0.0f)
+                    .setMaxDepth(1.0f);
+            auto scissor =
+                vk::Rect2D().setOffset({ 0, 0 }).setExtent(renderExtent);
+            commandBuffer.setViewport(0, 1, &viewport);
+            commandBuffer.setScissor(0, 1, &scissor);
+        };
+
+        auto runShadowDenoise = [&]() {
+            if (!mFreyaOptions->shadowDenoise || !mShadowDenoisePass)
+                return;
+
+            const auto viewPos =
+                glm::vec3(glm::inverse(mCurrentProjection.view)[3]);
+            const auto cameraForward =
+                -glm::normalize(glm::vec3(mCurrentProjection.view[0][2],
+                                          mCurrentProjection.view[1][2],
+                                          mCurrentProjection.view[2][2]));
+            const auto invViewProj = glm::inverse(
+                mCurrentProjection.projection * mCurrentProjection.view);
+
+            mShadowDenoisePass->Render(
+                mCommandPool, invViewProj, viewPos, cameraForward,
+                findDirectionalLightDirection());
+            bindDirectionalShadowMask();
+        };
 
         if (IsDeferred() && mDeferredPass)
         {
             mDeferredPass->Begin(mSwapChain, mCommandPool);
-        }
-        else
-        {
-            mForwardPass->Begin(
-                mForwardOffscreenRenderPass,
-                mForwardOffscreenFramebuffers[mSwapChain
-                                                  ->GetCurrentImageIndex()],
-                getRenderExtent(),
-                mSwapChain->GetCurrentFrameIndex(),
-                mCommandPool);
-        }
+            setFullViewport();
 
-        const auto renderExtent = getRenderExtent();
-        const auto viewport =
-            vk::Viewport()
-                .setX(0)
-                .setY(0)
-                .setWidth(static_cast<float>(renderExtent.width))
-                .setHeight(static_cast<float>(renderExtent.height))
-                .setMinDepth(0.0f)
-                .setMaxDepth(1.0f);
-
-        commandBuffer.setViewport(0, 1, &viewport);
-
-        const auto scissor =
-            vk::Rect2D().setOffset({ 0, 0 }).setExtent(renderExtent);
-
-        commandBuffer.setScissor(0, 1, &scissor);
-
-        if (IsDeferred() && mDeferredPass)
-        {
-            auto frameIndex     = mSwapChain->GetCurrentFrameIndex();
             auto currentSubpass = mDeferredPass->GetCurrentSubpass();
-
-            // Handle stored draw commands for depth pre-pass and gbuffer
             if (currentSubpass == DefDepthPrePass)
             {
-                // Execute depth pre-pass draws (no material binding needed)
                 ExecuteDrawCommands(false);
-                // Advance to G-buffer and execute with materials
                 mDeferredPass->AdvanceSubpass(
                     DefGBufferPass, mCommandPool, frameIndex);
                 ExecuteDrawCommands(true);
             }
             else if (currentSubpass == DefGBufferPass)
             {
-                // Execute gbuffer draws with materials
                 ExecuteDrawCommands(true);
             }
 
-            // Subpass 2: lighting (fullscreen triangle)
-            mDeferredPass->AdvanceSubpass(DefLightingPass,
-                                          mCommandPool,
-                                          frameIndex);
-            mDeferredPass->DrawFullscreenTriangle(mCommandPool);
-
-            // Subpass 3: translucent (skip — no translucent geometry)
-            mDeferredPass->AdvanceSubpass(DefTranslucentPass,
-                                          mCommandPool,
-                                          frameIndex);
-
-            // End deferred Gbuffer+Lighting pass
             mDeferredPass->End(mCommandPool);
 
-            // --- Bloom pass (half resolution) ---
-            const auto extent        = getRenderExtent();
-            const auto halfW         = std::max(1u, extent.width / 2);
-            const auto halfH         = std::max(1u, extent.height / 2);
-            const auto commandBuffer = mCommandPool->GetCommandBuffer();
+            runShadowDenoise();
 
-            // Viewport for half-res bloom
+            setFullViewport();
+            mDeferredPass->BeginLighting(mSwapChain, mCommandPool);
+            setFullViewport();
+            mDeferredPass->DrawLighting(mCommandPool, frameIndex);
+            mDeferredPass->EndLighting(mCommandPool);
+
+            // --- Bloom pass (half resolution) ---
+            const auto extent = getRenderExtent();
+            const auto halfW  = std::max(1u, extent.width / 2);
+            const auto halfH  = std::max(1u, extent.height / 2);
+
             auto bloomViewport =
                 vk::Viewport()
                     .setX(0)
@@ -1122,51 +1150,64 @@ namespace FREYA_NAMESPACE
             commandBuffer.setScissor(0, 1, &bloomScissor);
 
             mBloomPass->Begin(mSwapChain, mCommandPool);
-
-            // Subpass 0: threshold
-            // Already bound in Begin()
             mBloomPass->DrawFullscreenTriangle(mCommandPool);
-
-            // Subpass 1: downsample
             mBloomPass->AdvanceSubpass(
                 BloomDownsampleSubpass, mCommandPool, frameIndex);
             mBloomPass->DrawFullscreenTriangle(mCommandPool);
-
-            // Subpass 2: upsample
             mBloomPass->AdvanceSubpass(
                 BloomUpsampleSubpass, mCommandPool, frameIndex);
             mBloomPass->DrawFullscreenTriangle(mCommandPool);
-
             mBloomPass->End(mCommandPool);
 
-            // --- Blit bloom up (half res) → bloom result (full res) ---
             blitBloomToFullRes(mCommandPool);
 
-            // --- Composite pass (full resolution) ---
-            auto fullViewport =
-                vk::Viewport()
-                    .setX(0)
-                    .setY(0)
-                    .setWidth(static_cast<float>(extent.width))
-                    .setHeight(static_cast<float>(extent.height))
-                    .setMinDepth(0.0f)
-                    .setMaxDepth(1.0f);
-
-            auto fullScissor =
-                vk::Rect2D().setOffset({ 0, 0 }).setExtent(extent);
-
-            commandBuffer.setViewport(0, 1, &fullViewport);
-            commandBuffer.setScissor(0, 1, &fullScissor);
-
+            setFullViewport();
             beginComposite(frameIndex,
                            mDeferredPass->GetOpaqueImage(),
                            mDeferredPass->GetTranslucentImage());
         }
         else
         {
-            // Forward mode: end offscreen render pass, then bloom -> composite
-            auto frameIndex = mSwapChain->GetCurrentFrameIndex();
+            // Forward prepass (single-sample depth + normal)
+            if (mForwardPrepassRenderPass && mForwardPrepassPipeline)
+            {
+                auto clearValues = std::vector<vk::ClearValue> {
+                    vk::ClearValue().setDepthStencil(
+                        vk::ClearDepthStencilValue().setDepth(
+                            mFreyaOptions->ReverseZ ? 0.0f : 1.0f)),
+                    vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }),
+                };
 
+                commandBuffer.beginRenderPass(
+                    vk::RenderPassBeginInfo()
+                        .setRenderPass(mForwardPrepassRenderPass)
+                        .setFramebuffer(
+                            mForwardPrepassFramebuffers
+                                [mSwapChain->GetCurrentImageIndex()])
+                        .setRenderArea(
+                            vk::Rect2D().setOffset({ 0, 0 }).setExtent(
+                                renderExtent))
+                        .setClearValues(clearValues),
+                    vk::SubpassContents::eInline);
+
+                commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+                                           mForwardPrepassPipeline);
+                mForwardPass->BindDescriptorSet(mCommandPool, frameIndex);
+                setFullViewport();
+                ExecuteDrawCommands(false);
+                commandBuffer.endRenderPass();
+            }
+
+            runShadowDenoise();
+
+            mForwardPass->Begin(
+                mForwardOffscreenRenderPass,
+                mForwardOffscreenFramebuffers[mSwapChain
+                                                  ->GetCurrentImageIndex()],
+                getRenderExtent(),
+                frameIndex,
+                mCommandPool);
+            setFullViewport();
             ExecuteDrawCommands(true);
             mForwardPass->End(mCommandPool);
 
@@ -1287,6 +1328,276 @@ namespace FREYA_NAMESPACE
         {
             mDeferredPass->AdvanceSubpass(
                 subpass, mCommandPool, mSwapChain->GetCurrentFrameIndex());
+        }
+    }
+
+    glm::vec3 Renderer::findDirectionalLightDirection() const
+    {
+        if (!mLightService)
+            return glm::vec3(0.0f, -1.0f, 0.0f);
+
+        for (std::uint32_t i = 0; i < mLightService->GetLightCount(); ++i)
+        {
+            const auto* light = mLightService->GetLight(i);
+            if (light && light->type >= 0.5f && light->type < 1.5f)
+            {
+                return light->direction;
+            }
+        }
+        return glm::vec3(0.0f, -1.0f, 0.0f);
+    }
+
+    void Renderer::bindDirectionalShadowMask()
+    {
+        if (!mShadowDenoisePass)
+            return;
+
+        const auto mask    = mShadowDenoisePass->GetResult();
+        const auto sampler = mShadowDenoisePass->GetSampler();
+
+        if (mDeferredPass)
+            mDeferredPass->UpdateDirectionalShadowMask(mask, sampler);
+        if (mForwardPass)
+            mForwardPass->UpdateDirectionalShadowMask(mask, sampler);
+    }
+
+    void Renderer::rebuildShadowDenoisePass()
+    {
+        mShadowDenoisePass.reset();
+
+        if (!mFreyaOptions->shadowDenoise || !mShadowPass)
+            return;
+
+        skr::Arc<Image> depth;
+        skr::Arc<Image> normal;
+
+        if (IsDeferred() && mDeferredPass)
+        {
+            depth  = mDeferredPass->GetDepthImage();
+            normal = mDeferredPass->GetNormalImage();
+        }
+        else if (mForwardPrepassDepthImage && mForwardNormalImage)
+        {
+            depth  = mForwardPrepassDepthImage;
+            normal = mForwardNormalImage;
+        }
+        else
+        {
+            return;
+        }
+
+        mShadowDenoisePass =
+            mServiceProvider->GetService<ShadowDenoisePassBuilder>()->Build(
+                mSwapChain, depth, normal, getRenderExtent());
+        bindDirectionalShadowMask();
+    }
+
+    void Renderer::destroyForwardPrepassResources()
+    {
+        if (mForwardPrepassPipeline)
+        {
+            mDevice->Get().destroyPipeline(mForwardPrepassPipeline);
+            mForwardPrepassPipeline = VK_NULL_HANDLE;
+        }
+        if (mForwardPrepassRenderPass)
+        {
+            mDevice->Get().destroyRenderPass(mForwardPrepassRenderPass);
+            mForwardPrepassRenderPass = VK_NULL_HANDLE;
+        }
+        for (auto& fb : mForwardPrepassFramebuffers)
+            mDevice->Get().destroyFramebuffer(fb);
+        mForwardPrepassFramebuffers.clear();
+        mForwardPrepassDepthImage.reset();
+        mForwardNormalImage.reset();
+    }
+
+    void Renderer::createForwardPrepassResources()
+    {
+        destroyForwardPrepassResources();
+        if (IsDeferred())
+            return;
+
+        const auto extent   = getRenderExtent();
+        const auto depthFmt = mPhysicalDevice->GetDepthFormat();
+
+        mForwardPrepassDepthImage =
+            mServiceProvider->GetService<ImageBuilder>()
+                ->SetUsage(ImageUsage::Depth)
+                .SetFormat(depthFmt)
+                .SetWidth(extent.width)
+                .SetHeight(extent.height)
+                .SetSamples(vk::SampleCountFlagBits::e1)
+                .Build();
+
+        mForwardNormalImage =
+            mServiceProvider->GetService<ImageBuilder>()
+                ->SetUsage(ImageUsage::Color)
+                .SetFormat(vk::Format::eR16G16B16A16Sfloat)
+                .SetWidth(extent.width)
+                .SetHeight(extent.height)
+                .SetSamples(vk::SampleCountFlagBits::e1)
+                .Build();
+
+        auto attachments = std::vector<vk::AttachmentDescription> {
+            vk::AttachmentDescription()
+                .setFormat(depthFmt)
+                .setSamples(vk::SampleCountFlagBits::e1)
+                .setLoadOp(vk::AttachmentLoadOp::eClear)
+                .setStoreOp(vk::AttachmentStoreOp::eStore)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setInitialLayout(vk::ImageLayout::eUndefined)
+                .setFinalLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal),
+            vk::AttachmentDescription()
+                .setFormat(vk::Format::eR16G16B16A16Sfloat)
+                .setSamples(vk::SampleCountFlagBits::e1)
+                .setLoadOp(vk::AttachmentLoadOp::eClear)
+                .setStoreOp(vk::AttachmentStoreOp::eStore)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setInitialLayout(vk::ImageLayout::eUndefined)
+                .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+        };
+
+        auto depthRef = vk::AttachmentReference().setAttachment(0).setLayout(
+            vk::ImageLayout::eDepthStencilAttachmentOptimal);
+        auto colorRef = vk::AttachmentReference().setAttachment(1).setLayout(
+            vk::ImageLayout::eColorAttachmentOptimal);
+
+        auto subpass =
+            vk::SubpassDescription()
+                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+                .setColorAttachments(colorRef)
+                .setPDepthStencilAttachment(&depthRef);
+
+        auto dependency =
+            vk::SubpassDependency()
+                .setSrcSubpass(vk::SubpassExternal)
+                .setDstSubpass(0)
+                .setSrcStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                    vk::PipelineStageFlagBits::eEarlyFragmentTests)
+                .setDstStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                    vk::PipelineStageFlagBits::eEarlyFragmentTests)
+                .setSrcAccessMask(vk::AccessFlagBits::eNone)
+                .setDstAccessMask(
+                    vk::AccessFlagBits::eColorAttachmentWrite |
+                    vk::AccessFlagBits::eDepthStencilAttachmentWrite);
+
+        mForwardPrepassRenderPass = mDevice->Get().createRenderPass(
+            vk::RenderPassCreateInfo()
+                .setAttachments(attachments)
+                .setSubpasses(subpass)
+                .setDependencies(dependency));
+
+        auto loadShader = [&](const std::string& path) {
+            return mServiceProvider->GetService<ShaderModuleBuilder>()
+                ->SetFilePath(path)
+                .Build();
+        };
+        auto vert = loadShader("./Resources/Shaders/Forward/prepass.vert.spv");
+        auto frag = loadShader("./Resources/Shaders/Forward/prepass.frag.spv");
+
+        auto stages = std::array {
+            vk::PipelineShaderStageCreateInfo()
+                .setStage(vk::ShaderStageFlagBits::eVertex)
+                .setModule(vert->Get())
+                .setPName("main"),
+            vk::PipelineShaderStageCreateInfo()
+                .setStage(vk::ShaderStageFlagBits::eFragment)
+                .setModule(frag->Get())
+                .setPName("main"),
+        };
+
+        auto vertexBinding    = Vertex::GetBindingDescription();
+        auto vertexAttributes = Vertex::GetAttributesDescription();
+        auto vertexInput =
+            vk::PipelineVertexInputStateCreateInfo()
+                .setVertexBindingDescriptions(vertexBinding)
+                .setVertexAttributeDescriptions(vertexAttributes);
+
+        auto inputAssembly =
+            vk::PipelineInputAssemblyStateCreateInfo().setTopology(
+                vk::PrimitiveTopology::eTriangleList);
+
+        auto viewportState = vk::PipelineViewportStateCreateInfo()
+                                 .setViewportCount(1)
+                                 .setScissorCount(1);
+
+        auto rasterizer =
+            vk::PipelineRasterizationStateCreateInfo()
+                .setPolygonMode(vk::PolygonMode::eFill)
+                .setCullMode(vk::CullModeFlagBits::eBack)
+                .setFrontFace(vk::FrontFace::eCounterClockwise)
+                .setLineWidth(1.0f);
+
+        auto multisampling =
+            vk::PipelineMultisampleStateCreateInfo().setRasterizationSamples(
+                vk::SampleCountFlagBits::e1);
+
+        auto depthStencil =
+            vk::PipelineDepthStencilStateCreateInfo()
+                .setDepthTestEnable(true)
+                .setDepthWriteEnable(true)
+                .setDepthCompareOp(mFreyaOptions->ReverseZ
+                                       ? vk::CompareOp::eGreater
+                                       : vk::CompareOp::eLess);
+
+        auto colorBlendAttachment =
+            vk::PipelineColorBlendAttachmentState()
+                .setColorWriteMask(vk::ColorComponentFlagBits::eR |
+                                   vk::ColorComponentFlagBits::eG |
+                                   vk::ColorComponentFlagBits::eB |
+                                   vk::ColorComponentFlagBits::eA)
+                .setBlendEnable(false);
+        auto colorBlending = vk::PipelineColorBlendStateCreateInfo()
+                                 .setAttachmentCount(1)
+                                 .setPAttachments(&colorBlendAttachment);
+
+        auto dynamicStates = std::vector { vk::DynamicState::eViewport,
+                                           vk::DynamicState::eScissor };
+        auto dynamicState =
+            vk::PipelineDynamicStateCreateInfo().setDynamicStates(
+                dynamicStates);
+
+        mForwardPrepassPipeline =
+            mDevice->Get()
+                .createGraphicsPipeline(
+                    nullptr,
+                    vk::GraphicsPipelineCreateInfo()
+                        .setStages(stages)
+                        .setPVertexInputState(&vertexInput)
+                        .setPInputAssemblyState(&inputAssembly)
+                        .setPViewportState(&viewportState)
+                        .setPRasterizationState(&rasterizer)
+                        .setPMultisampleState(&multisampling)
+                        .setPDepthStencilState(&depthStencil)
+                        .setPColorBlendState(&colorBlending)
+                        .setPDynamicState(&dynamicState)
+                        .setLayout(mForwardPass->GetPipelineLayout())
+                        .setRenderPass(mForwardPrepassRenderPass)
+                        .setSubpass(0))
+                .value;
+
+        mDevice->Get().destroyShaderModule(vert->Get());
+        mDevice->Get().destroyShaderModule(frag->Get());
+
+        const auto frames = mSwapChain->GetFrames();
+        mForwardPrepassFramebuffers.resize(frames.size());
+        for (std::size_t i = 0; i < frames.size(); ++i)
+        {
+            auto views = std::vector {
+                mForwardPrepassDepthImage->GetImageView(),
+                mForwardNormalImage->GetImageView(),
+            };
+            mForwardPrepassFramebuffers[i] = mDevice->Get().createFramebuffer(
+                vk::FramebufferCreateInfo()
+                    .setRenderPass(mForwardPrepassRenderPass)
+                    .setAttachments(views)
+                    .setWidth(extent.width)
+                    .setHeight(extent.height)
+                    .setLayers(1));
         }
     }
 

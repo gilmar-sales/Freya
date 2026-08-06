@@ -16,12 +16,14 @@ layout (location = 5) in mat4 inModel;
 layout (location = 0) out vec3 outPosition;
 layout (location = 1) out vec2 outTexCoord;
 layout (location = 2) out mat3 outTBN;
+layout (location = 5) out vec3 outColor;
 
 void main() {
     vec4 worldPos = inModel * vec4(inPosition, 1.0);
     gl_Position = pub.proj * pub.view * worldPos;
     outPosition = worldPos.xyz;
     outTexCoord = inTexCoord;
+    outColor = inColor;
 
     // Match Forward/Vert.vert so normal maps share the same
     // world-space basis (derivative TBN often flips B under Vulkan).

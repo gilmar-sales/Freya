@@ -176,4 +176,27 @@ namespace FREYA_NAMESPACE
         mDevice->Get().updateDescriptorSets(1, &descriptorWriter, 0, nullptr);
     }
 
+    void RenderPass::UpdateDirectionalShadowMask(const skr::Arc<Image>& mask,
+                                                 const vk::Sampler      sampler)
+    {
+        auto maskInfo =
+            vk::DescriptorImageInfo()
+                .setSampler(sampler)
+                .setImageView(mask->GetImageView())
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+
+        for (auto& set : mDescriptorSets)
+        {
+            auto write =
+                vk::WriteDescriptorSet()
+                    .setDstSet(set)
+                    .setDstBinding(13)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(maskInfo);
+            mDevice->Get().updateDescriptorSets(1, &write, 0, nullptr);
+        }
+    }
+
 } // namespace FREYA_NAMESPACE

@@ -103,10 +103,17 @@ namespace FREYA_NAMESPACE
                 .setDepthClampEnable(false)
                 .setRasterizerDiscardEnable(false)
                 .setPolygonMode(vk::PolygonMode::eFill)
-                .setCullMode(vk::CullModeFlagBits::eBack)
+                // Front-face cull stores back-face depths (AAA default):
+                // reduces acne and keeps hollow/inner shells out of the map.
+                .setCullMode(vk::CullModeFlagBits::eFront)
                 .setFrontFace(vk::FrontFace::eCounterClockwise)
                 .setLineWidth(1.0f)
-                .setDepthBiasEnable(false);
+                .setDepthBiasEnable(true)
+                .setDepthBiasConstantFactor(
+                    mFreyaOptions->ReverseZ ? -1.25f : 1.25f)
+                .setDepthBiasClamp(0.0f)
+                .setDepthBiasSlopeFactor(
+                    mFreyaOptions->ReverseZ ? -1.75f : 1.75f);
 
         auto multisampling =
             vk::PipelineMultisampleStateCreateInfo()
@@ -132,9 +139,10 @@ namespace FREYA_NAMESPACE
 
         auto pushConstantRange =
             vk::PushConstantRange()
-                .setStageFlags(vk::ShaderStageFlagBits::eVertex)
+                .setStageFlags(vk::ShaderStageFlagBits::eVertex |
+                               vk::ShaderStageFlagBits::eFragment)
                 .setOffset(0)
-                .setSize(sizeof(glm::mat4));
+                .setSize(sizeof(ShadowPushConstant));
 
         auto pipelineLayoutInfo =
             vk::PipelineLayoutCreateInfo().setPushConstantRanges(
@@ -215,7 +223,11 @@ namespace FREYA_NAMESPACE
                 .setAddressModeU(vk::SamplerAddressMode::eClampToBorder)
                 .setAddressModeV(vk::SamplerAddressMode::eClampToBorder)
                 .setAddressModeW(vk::SamplerAddressMode::eClampToBorder)
-                .setBorderColor(vk::BorderColor::eFloatOpaqueWhite)
+                // Reverse-Z clear/far is 0; white (1) makes out-of-bounds PCF
+                // fail Greater and look like grain at cascade UV edges.
+                .setBorderColor(mFreyaOptions->ReverseZ
+                                    ? vk::BorderColor::eFloatOpaqueBlack
+                                    : vk::BorderColor::eFloatOpaqueWhite)
                 .setAnisotropyEnable(false)
                 .setMaxAnisotropy(1.0f)
                 .setUnnormalizedCoordinates(false)

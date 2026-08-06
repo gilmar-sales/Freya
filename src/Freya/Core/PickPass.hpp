@@ -53,7 +53,7 @@ namespace FREYA_NAMESPACE
          * @brief Swaps in resized color/depth images and rebuilds the
          * framebuffer.
          */
-        void Resize(vk::Extent2D         extent,
+        void Resize(vk::Extent2D           extent,
                     const skr::Arc<Image>& colorImage,
                     const skr::Arc<Image>& depthImage);
 

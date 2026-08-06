@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+
 #include <glm/glm.hpp>
 
 namespace FREYA_NAMESPACE
@@ -22,10 +25,10 @@ namespace FREYA_NAMESPACE
     /**
      * @brief Maximum number of lights supported by the lighting system.
      */
-    constexpr std::uint32_t MAX_LIGHTS           = 16;
-    constexpr std::uint32_t MAX_SHADOW_CASCADES  = 4;
-    constexpr std::uint32_t MAX_SPOT_SHADOWS     = 4;
-    constexpr std::uint32_t MAX_POINT_SHADOWS    = 2;
+    constexpr std::uint32_t MAX_LIGHTS          = 16;
+    constexpr std::uint32_t MAX_SHADOW_CASCADES = 4;
+    constexpr std::uint32_t MAX_SPOT_SHADOWS    = 4;
+    constexpr std::uint32_t MAX_POINT_SHADOWS   = 2;
 
     /**
      * @brief Light types enumeration.
@@ -70,6 +73,8 @@ namespace FREYA_NAMESPACE
                                            // unused
 
         alignas(16) glm::vec4 viewPosition; // Camera position for attenuation
+        alignas(16) glm::vec4
+            cameraForward; ///< Camera look direction (xyz), for Deferred CSM
         // std140: lightCount + iblIntensity + exposure pack into 16 bytes
         std::uint32_t lightCount   = 0;
         float         iblIntensity = 0.7f;
@@ -78,20 +83,50 @@ namespace FREYA_NAMESPACE
     };
 
     /**
+     * @brief Push constants for the depth-only shadow pipeline.
+     *
+     * When `lightPosFar.w > 0`, the fragment shader writes linear
+     * distance/far (Reverse-Z aware) instead of hardware NDC depth.
+     * Cascade/spot passes leave `lightPosFar.w <= 0`.
+     */
+    struct ShadowPushConstant
+    {
+        glm::mat4 lightVP {};
+        glm::vec4 lightPosFar {}; ///< xyz=light pos, w=far (<=0: NDC depth)
+        /// x=Reverse-Z (yzw unused).
+        glm::vec4 reverseZAndPad {};
+    };
+
+    /**
      * @brief Shadow sampling data (CSM + spot slots + point slots).
+     *
+     * Layout must match GLSL std140 (mat4 base align 16, not 64).
+     * Do not use alignas(64) on mat4 members — that inserts a 32-byte hole
+     * after `params` and breaks spot/point sampling.
      */
     struct alignas(256) ShadowUniformBuffer
     {
-        alignas(64) glm::mat4 cascadeViewProj[MAX_SHADOW_CASCADES];
-        alignas(16) glm::vec4 cascadeSplits; ///< View-space split distances
-        alignas(16) glm::vec4
-            params; ///< x=bias, y=normalBias, z=cascadeCount, w=softScale
-        alignas(64) glm::mat4 spotViewProj[MAX_SPOT_SHADOWS];
-        alignas(16) glm::vec4 spotLightIndex; ///< light indices (-1 unused)
-        alignas(16) glm::vec4
-            pointLightPosFar[MAX_POINT_SHADOWS]; ///< xyz=pos, w=far
-        alignas(16) glm::vec4 pointLightIndex;   ///< light indices (-1 unused)
+        glm::mat4 cascadeViewProj[MAX_SHADOW_CASCADES] {};
+        glm::vec4 cascadeSplits {}; ///< View-space split distances
+        glm::vec4
+            params {}; ///< x=bias, y=normalBias, z=cascadeCount, w=softScale
+        glm::mat4 spotViewProj[MAX_SPOT_SHADOWS] {};
+        glm::vec4 spotLightIndex {}; ///< light indices (-1 unused)
+        glm::vec4 pointLightPosFar[MAX_POINT_SHADOWS] {}; ///< xyz=pos, w=far
+        glm::vec4 pointLightIndex {}; ///< light indices (-1 unused)
+        glm::vec4 reverseZ {};        ///< x=1 when Reverse-Z encoding is active
+        glm::vec4 pcss {}; ///< x=PCSS light size, y=max kernel texels
     };
+
+    static_assert(offsetof(ShadowUniformBuffer, cascadeViewProj) == 0);
+    static_assert(offsetof(ShadowUniformBuffer, cascadeSplits) == 256);
+    static_assert(offsetof(ShadowUniformBuffer, params) == 272);
+    static_assert(offsetof(ShadowUniformBuffer, spotViewProj) == 288);
+    static_assert(offsetof(ShadowUniformBuffer, spotLightIndex) == 544);
+    static_assert(offsetof(ShadowUniformBuffer, pointLightPosFar) == 560);
+    static_assert(offsetof(ShadowUniformBuffer, pointLightIndex) == 592);
+    static_assert(offsetof(ShadowUniformBuffer, reverseZ) == 608);
+    static_assert(offsetof(ShadowUniformBuffer, pcss) == 624);
 
     static_assert(sizeof(ProjectionUniformBuffer) % 256 == 0,
                   "ProjectionUniformBuffer must be 256-byte aligned for UBO "

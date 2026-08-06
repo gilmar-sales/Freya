@@ -172,6 +172,18 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        FreyaOptionsBuilder& SetShadowLightSize(float lightSize)
+        {
+            mFreyaOptions->shadowLightSize = lightSize;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetShadowMaxSoftness(float maxSoftness)
+        {
+            mFreyaOptions->shadowMaxSoftness = maxSoftness;
+            return *this;
+        }
+
         FreyaOptionsBuilder& SetMaxSpotShadows(std::uint32_t count)
         {
             mFreyaOptions->maxSpotShadows = count;
@@ -181,6 +193,30 @@ namespace FREYA_NAMESPACE
         FreyaOptionsBuilder& SetMaxPointShadows(std::uint32_t count)
         {
             mFreyaOptions->maxPointShadows = count;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetShadowDenoise(bool enabled)
+        {
+            mFreyaOptions->shadowDenoise = enabled;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetShadowDenoiseRadius(float radius)
+        {
+            mFreyaOptions->shadowDenoiseRadius = radius;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetShadowDenoiseDepthSigma(float sigma)
+        {
+            mFreyaOptions->shadowDenoiseDepthSigma = sigma;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetShadowDenoiseNormalSigma(float sigma)
+        {
+            mFreyaOptions->shadowDenoiseNormalSigma = sigma;
             return *this;
         }
 

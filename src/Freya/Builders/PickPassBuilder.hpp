@@ -17,11 +17,10 @@ namespace FREYA_NAMESPACE
     class PickPassBuilder
     {
       public:
-        PickPassBuilder(
-            const skr::Arc<Device>&               device,
-            const skr::Arc<PhysicalDevice>&       physicalDevice,
-            const skr::Arc<FreyaOptions>&         freyaOptions,
-            const skr::Arc<skr::ServiceProvider>& serviceProvider) :
+        PickPassBuilder(const skr::Arc<Device>&               device,
+                        const skr::Arc<PhysicalDevice>&       physicalDevice,
+                        const skr::Arc<FreyaOptions>&         freyaOptions,
+                        const skr::Arc<skr::ServiceProvider>& serviceProvider) :
             mDevice(device), mPhysicalDevice(physicalDevice),
             mFreyaOptions(freyaOptions), mServiceProvider(serviceProvider)
         {

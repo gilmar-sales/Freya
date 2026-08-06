@@ -3,6 +3,7 @@
 layout (location = 0) in vec3 inPosition;
 layout (location = 1) in vec2 inTexCoord;
 layout (location = 2) in mat3 inTBN;
+layout (location = 5) in vec3 inColor;
 
 layout (location = 0) out vec4 outPosition;
 layout (location = 1) out vec4 outNormal;
@@ -23,13 +24,19 @@ vec3 srgbToLinear(vec3 c) {
 void main() {
     outPosition = vec4(inPosition, 1.0);
 
-    vec3 tangentNormal =
-        texture(uNormalTexture, inTexCoord).rgb * 2.0 - 1.0;
-    vec3 worldNormal = normalize(inTBN * tangentNormal);
+    vec3 sampled = texture(uNormalTexture, inTexCoord).rgb;
+    vec3 worldNormal;
+    if (all(greaterThan(sampled, vec3(0.99)))) {
+        worldNormal = normalize(inTBN[2]);
+    } else {
+        vec3 tangentNormal = sampled * 2.0 - 1.0;
+        worldNormal = normalize(inTBN * tangentNormal);
+    }
     outNormal = vec4(worldNormal, 1.0);
 
     // Write linear albedo into sRGB G-buffer (HW encodes on store).
-    vec3 albedoLin = srgbToLinear(texture(uAlbedoTexture, inTexCoord).rgb);
+    vec3 albedoLin =
+        srgbToLinear(texture(uAlbedoTexture, inTexCoord).rgb) * inColor;
     outAlbedo = vec4(albedoLin, 1.0);
 
     // Emissive G-buffer is float — store linear

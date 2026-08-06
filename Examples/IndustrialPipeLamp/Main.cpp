@@ -1,7 +1,11 @@
 #include <Freya/Freya.hpp>
 
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <iostream>
+#include <unordered_set>
+#include <vector>
 
 class MainApp final : public fra::AbstractApplication
 {
@@ -18,38 +22,110 @@ class MainApp final : public fra::AbstractApplication
 
     void StartUp() override
     {
+        mEventManager->Subscribe<fra::KeyPressedEvent>(
+            [this](const fra::KeyPressedEvent& event) {
+                mKeysHeld.insert(static_cast<std::uint32_t>(event.key));
+            });
+
         mEventManager->Subscribe<fra::KeyReleasedEvent>(
             [this](const fra::KeyReleasedEvent& event) {
-                if (event.key != fra::KeyCode::Tab)
+                mKeysHeld.erase(static_cast<std::uint32_t>(event.key));
+
+                if (event.key == fra::KeyCode::Tab)
+                {
+                    const auto next = mRenderer->IsDeferred()
+                                          ? fra::RenderingStrategy::Forward
+                                          : fra::RenderingStrategy::Deferred;
+                    mRenderer->SetRenderingStrategy(next);
+                    updateTitle();
+
+                    std::cout
+                        << "Rendering strategy: "
+                        << (mRenderer->IsDeferred() ? "Deferred" : "Forward")
+                        << '\n';
+                    return;
+                }
+
+                if (event.key == fra::KeyCode::Escape && mLookHeld)
+                {
+                    setLookHeld(false);
+                    return;
+                }
+
+                if (event.key == fra::KeyCode::Num0 ||
+                    event.key == fra::KeyCode::Kp0)
+                {
+                    setShadowCasterMode(0);
+                    return;
+                }
+                if (event.key == fra::KeyCode::Num1 ||
+                    event.key == fra::KeyCode::Kp1)
+                {
+                    setShadowCasterMode(1);
+                    return;
+                }
+                if (event.key == fra::KeyCode::Num2 ||
+                    event.key == fra::KeyCode::Kp2)
+                {
+                    setShadowCasterMode(2);
+                    return;
+                }
+                if (event.key == fra::KeyCode::Num3 ||
+                    event.key == fra::KeyCode::Kp3)
+                {
+                    setShadowCasterMode(3);
+                    return;
+                }
+                if (event.key == fra::KeyCode::Num4 ||
+                    event.key == fra::KeyCode::Kp4)
+                {
+                    setShadowCasterMode(4);
+                    return;
+                }
+            });
+
+        mEventManager->Subscribe<fra::MouseButtonPressedEvent>(
+            [this](const fra::MouseButtonPressedEvent& event) {
+                if (event.button == fra::MouseButton::Right)
+                {
+                    setLookHeld(true);
+                }
+            });
+
+        mEventManager->Subscribe<fra::MouseButtonReleasedEvent>(
+            [this](const fra::MouseButtonReleasedEvent& event) {
+                if (event.button == fra::MouseButton::Right)
+                {
+                    setLookHeld(false);
+                }
+            });
+
+        mEventManager->Subscribe<fra::MouseMoveEvent>(
+            [this](const fra::MouseMoveEvent& event) {
+                if (!mLookHeld)
                 {
                     return;
                 }
 
-                const auto next = mRenderer->IsDeferred()
-                                      ? fra::RenderingStrategy::Forward
-                                      : fra::RenderingStrategy::Deferred;
-                mRenderer->SetRenderingStrategy(next);
-                updateTitle();
-
-                std::cout << "Rendering strategy: "
-                          << (mRenderer->IsDeferred() ? "Deferred" : "Forward")
-                          << '\n';
+                mYaw += event.deltaX * kMouseSensitivity;
+                mPitch -= event.deltaY * kMouseSensitivity;
+                mPitch = std::clamp(mPitch, -89.0f, 89.0f);
             });
 
         updateTitle();
         mRenderer->ClearProjections();
 
-        mModelMatrix[0] = glm::scale(
-            glm::translate(glm::mat4(1), glm::vec3(-3, 2, 0)), glm::vec3(0.3));
+        // Two full-size lamps on the ground plane + the plane itself.
+        mModelMatrix[0] =
+            glm::scale(glm::translate(glm::mat4(1), glm::vec3(-3, -6, 0)),
+                       glm::vec3(28));
 
-        mModelMatrix[1] = glm::scale(
-            glm::translate(glm::mat4(1), glm::vec3(3, 2, 0)), glm::vec3(0.3));
+        mModelMatrix[1] =
+            glm::scale(glm::translate(glm::mat4(1), glm::vec3(3, -6, 0)),
+                       glm::vec3(28));
 
-        mModelMatrix[2] = glm::scale(
-            glm::translate(glm::mat4(1), glm::vec3(-3, -6, 0)), glm::vec3(28));
-
-        mModelMatrix[3] = glm::scale(
-            glm::translate(glm::mat4(1), glm::vec3(3, -6, 0)), glm::vec3(28));
+        // Slightly below the lamp bases so the plane is not z-fighting.
+        mModelMatrix[2] = glm::translate(glm::mat4(1), glm::vec3(0, -6.05f, 0));
 
         mSofaAlbedo = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/industrial_pipe_lamp_diff.jpg");
@@ -72,6 +148,9 @@ class MainApp final : public fra::AbstractApplication
         mSofaModel = mMeshPool->CreateMeshFromFile(
             "./Resources/Models/industrial_pipe_lamp.glb");
 
+        mGroundMesh     = createGroundMesh();
+        mGroundMaterial = mMaterialPool->Create({});
+
         mSpaceShipAlbedo = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/SpaceShip_Base_color.jpg");
 
@@ -89,63 +168,91 @@ class MainApp final : public fra::AbstractApplication
         mSpaceShipModel =
             mMeshPool->CreateMeshFromFile("./Resources/Models/SpaceShip.fbx");
 
-        // Classic light trio: cooler key + orbiting fills (shadow casters)
+        // Fill lights stay dim so local casters dominate when diagnosed.
+        // castShadows is toggled one-at-a-time (spots all share mode 4).
         {
-            auto key = fra::MakeDirectionalLight(
-                glm::vec3(-0.4f, -1.0f, -0.3f),
-                glm::vec3(1.0f, 0.96f, 0.9f),
-                1.0f);
-            key.castShadows = true;
-            mLightService->AddLight(key);
+            auto key = fra::MakeDirectionalLight(glm::vec3(-0.4f, -1.0f, -0.3f),
+                                                 glm::vec3(1.0f, 0.96f, 0.9f),
+                                                 0.35f);
+            key.castShadows = false;
+            mDirectionalIndex =
+                static_cast<std::uint32_t>(mLightService->AddLight(key));
         }
 
-        mAnimatedLights.resize(3);
+        mAnimatedLights.clear();
+        mSpotIndices.clear();
 
-        mAnimatedLights[0].speed        = 1.0f;
-        mAnimatedLights[0].phaseOffset  = 0.0f;
-        mAnimatedLights[0].radiusOffset = 4.0f;
-        mAnimatedLights[0].kind         = AnimatedLightKind::Point;
         {
-            auto point = fra::MakePointLight(
-                glm::vec3(12.0f, 6.0f, 0.0f),
-                glm::vec3(1.0f, 0.45f, 0.3f),
-                40.0f,
-                1.8f);
-            point.castShadows       = true;
-            mAnimatedLights[0].index = static_cast<std::uint32_t>(
+            AnimatedLight warm {};
+            warm.speed        = 1.0f;
+            warm.phaseOffset  = 0.0f;
+            warm.radiusOffset = 4.0f;
+            warm.kind         = AnimatedLightKind::Point;
+            auto point        = fra::MakePointLight(glm::vec3(12.0f, 6.0f, 0.0f),
+                                                    glm::vec3(1.0f, 0.45f, 0.3f),
+                                                    50.0f,
+                                                    14.0f);
+            point.castShadows = false;
+            warm.index        = static_cast<std::uint32_t>(
                 mLightService->AddLight(point));
+            mWarmPointIndex = warm.index;
+            mAnimatedLights.push_back(warm);
         }
 
-        mAnimatedLights[1].speed        = 1.2f;
-        mAnimatedLights[1].phaseOffset  = 2.1f;
-        mAnimatedLights[1].radiusOffset = 5.0f;
-        mAnimatedLights[1].kind         = AnimatedLightKind::Point;
-        mAnimatedLights[1].index        = static_cast<std::uint32_t>(
-            mLightService->AddLight(fra::MakePointLight(
-                glm::vec3(-12.0f, 6.0f, 0.0f),
-                glm::vec3(0.3f, 0.5f, 1.0f),
-                40.0f,
-                1.8f)));
-
-        mAnimatedLights[2].speed        = 0.9f;
-        mAnimatedLights[2].phaseOffset  = 4.0f;
-        mAnimatedLights[2].radiusOffset = 3.0f;
-        mAnimatedLights[2].kind         = AnimatedLightKind::Spot;
         {
-            auto spot = fra::MakeSpotLight(
-                glm::vec3(0.0f, 12.0f, 10.0f),
-                glm::vec3(0.0f, -1.0f, -0.5f),
-                glm::vec3(0.95f, 0.95f, 1.0f),
-                45.0f,
-                glm::radians(10.0f),
-                glm::radians(18.0f),
-                3.0f);
-            spot.castShadows         = true;
-            mAnimatedLights[2].index = static_cast<std::uint32_t>(
-                mLightService->AddLight(spot));
+            AnimatedLight cool {};
+            cool.speed        = 1.2f;
+            cool.phaseOffset  = 2.1f;
+            cool.radiusOffset = 5.0f;
+            cool.kind         = AnimatedLightKind::Point;
+            auto point        = fra::MakePointLight(glm::vec3(-12.0f, 6.0f, 0.0f),
+                                                    glm::vec3(0.3f, 0.5f, 1.0f),
+                                                    50.0f,
+                                                    14.0f);
+            point.castShadows = false;
+            cool.index        = static_cast<std::uint32_t>(
+                mLightService->AddLight(point));
+            mCoolPointIndex = cool.index;
+            mAnimatedLights.push_back(cool);
         }
 
-        // Soft rectangular fill light above the cluster
+        // Four orbiting spots exercise all shadow slots (MAX_SPOT_SHADOWS).
+        struct SpotSeed
+        {
+            float     speed;
+            float     phase;
+            float     radiusOffset;
+            glm::vec3 color;
+        };
+        const SpotSeed spotSeeds[] = {
+            { 0.90f, 4.0f, 3.0f, { 0.95f, 0.95f, 1.00f } },
+            { 0.75f, 0.8f, 6.0f, { 1.00f, 0.85f, 0.55f } },
+            { 1.05f, 2.6f, 2.0f, { 0.55f, 0.85f, 1.00f } },
+            { 0.85f, 5.2f, 7.5f, { 1.00f, 0.55f, 0.70f } },
+        };
+        for (const auto& seed : spotSeeds)
+        {
+            AnimatedLight spotAnim {};
+            spotAnim.speed        = seed.speed;
+            spotAnim.phaseOffset  = seed.phase;
+            spotAnim.radiusOffset = seed.radiusOffset;
+            spotAnim.kind         = AnimatedLightKind::Spot;
+
+            auto spot = fra::MakeSpotLight(glm::vec3(0.0f, 12.0f, 10.0f),
+                                           glm::vec3(0.0f, -1.0f, -0.5f),
+                                           seed.color,
+                                           55.0f,
+                                           glm::radians(12.0f),
+                                           glm::radians(22.0f),
+                                           10.0f);
+            spot.castShadows = false;
+            spotAnim.index   = static_cast<std::uint32_t>(
+                mLightService->AddLight(spot));
+            mSpotIndices.push_back(spotAnim.index);
+            mAnimatedLights.push_back(spotAnim);
+        }
+
+        // Soft rectangular fill — keep mild so it doesn't wash out casters.
         mLightService->AddLight(fra::MakeAreaLight(
             glm::vec3(0.0f, 10.0f, 0.0f),
             glm::vec3(0.0f, -1.0f, 0.0f),
@@ -153,12 +260,23 @@ class MainApp final : public fra::AbstractApplication
             4.0f,
             2.5f,
             glm::vec3(1.0f, 0.92f, 0.85f),
-            6.0f));
+            1.5f));
+
+        std::cout
+            << "Controls: RMB look | WASD move | Space/Q up | Ctrl/E down | "
+               "Tab Forward/Deferred | Esc release mouse\n"
+            << "Shadow test: 0=all  1=directional  2=warm point  "
+               "3=cool point  4=all spots\n";
+
+        // All casters on by default (same as key 0).
+        setShadowCasterMode(0);
     }
 
     void Update() override
     {
-        mCurrentTime += mWindow->GetDeltaTime();
+        const float dt = mWindow->GetDeltaTime();
+        mCurrentTime += dt;
+        updateCamera(dt);
 
         for (auto& animated : mAnimatedLights)
         {
@@ -200,31 +318,31 @@ class MainApp final : public fra::AbstractApplication
 
         mRenderer->BeginFrame();
 
-        // Orbit camera around the origin
-        constexpr float radius = 15.0f;
-        constexpr float speed  = 0.3f;
-        const glm::vec3 position(radius * std::cos(speed * mCurrentTime), 2.0f,
-                                 radius * std::sin(speed * mCurrentTime));
-        mRenderer->UpdateCamera(
-            position, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f });
+        const glm::vec3 forward = cameraForward();
+        mRenderer->UpdateCamera(mCameraPos,
+                                mCameraPos + forward,
+                                glm::vec3(0.0f, 1.0f, 0.0f));
 
         if (mInstanceMatrixBuffers == nullptr)
             mInstanceMatrixBuffers =
                 mRenderer->GetBufferBuilder()
                     .SetData(&mModelMatrix[0][0])
-                    .SetSize(sizeof(glm::mat4) * 4)
+                    .SetSize(sizeof(glm::mat4) * kInstanceCount)
                     .SetUsage(fra::BufferUsage::Instance)
                     .Build();
         else
-            mInstanceMatrixBuffers->Copy(
-                &mModelMatrix[0][0], sizeof(glm::mat4) * 4);
+            mInstanceMatrixBuffers->Copy(&mModelMatrix[0][0],
+                                         sizeof(glm::mat4) * kInstanceCount);
 
         mRenderer->BindBuffer(mInstanceMatrixBuffers);
 
-        // Queue draw commands (stored in Renderer, reused for depth pre-pass
-        // and gbuffer)
+        // Two lamps cast/receive shadows onto each other and the ground.
         for (const auto& mesh : mSofaModel)
-            mRenderer->DrawInstanced(mesh, mSofaMaterial, 2, 2);
+            mRenderer->DrawInstanced(mesh, mSofaMaterial, 2, 0);
+
+        // Ground receives shadows but must not cast — a full-screen planar
+        // depth write destroys cascade util and z-fights into binary noise.
+        mRenderer->DrawInstanced(mGroundMesh, mGroundMaterial, 1, 2, false);
 
         // EndFrame advances to lighting → translucent → composite
         // and draws the fullscreen triangles for lighting + composite.
@@ -232,11 +350,125 @@ class MainApp final : public fra::AbstractApplication
     }
 
   private:
+    static constexpr std::size_t kInstanceCount    = 3;
+    static constexpr float       kMoveSpeed        = 12.0f;
+    static constexpr float       kMouseSensitivity = 0.12f;
+
+    std::uint32_t createGroundMesh()
+    {
+        constexpr float half = 30.0f;
+        const auto      tint = glm::vec3(0.72f, 0.72f, 0.76f);
+        const auto      up   = glm::vec3(0.0f, 1.0f, 0.0f);
+        const auto      tan  = glm::vec3(1.0f, 0.0f, 0.0f);
+
+        const std::vector<fra::Vertex> vertices = {
+            { { -half, 0.0f, -half }, tint, up, tan, { 0.0f, 0.0f } },
+            { { half, 0.0f, -half }, tint, up, tan, { 1.0f, 0.0f } },
+            { { half, 0.0f, half }, tint, up, tan, { 1.0f, 1.0f } },
+            { { -half, 0.0f, half }, tint, up, tan, { 0.0f, 1.0f } },
+        };
+        // Single-sided (+Y). Two-sided coplanar indices z-fight in the CSM
+        // depth map under CullBack + lightProj Y-flip.
+        const std::vector<std::uint16_t> indices = {
+            0, 3, 2, 0, 2, 1,
+        };
+
+        return mMeshPool->CreateMesh(vertices, indices);
+    }
+
+    [[nodiscard]] bool isHeld(fra::KeyCode key) const
+    {
+        return mKeysHeld.contains(static_cast<std::uint32_t>(key));
+    }
+
+    void setLookHeld(bool held)
+    {
+        mLookHeld = held;
+        mWindow->SetMouseGrab(held);
+    }
+
+    [[nodiscard]] glm::vec3 cameraForward() const
+    {
+        const float yawRad   = glm::radians(mYaw);
+        const float pitchRad = glm::radians(mPitch);
+        return glm::normalize(glm::vec3 {
+            std::cos(pitchRad) * std::cos(yawRad),
+            std::sin(pitchRad),
+            std::cos(pitchRad) * std::sin(yawRad),
+        });
+    }
+
+    void updateCamera(float dt)
+    {
+        const glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
+        const glm::vec3 look = cameraForward();
+        const glm::vec3 forward =
+            glm::normalize(glm::vec3(look.x, 0.0f, look.z));
+        const glm::vec3 right = glm::normalize(glm::cross(forward, worldUp));
+        glm::vec3       move(0.0f);
+
+        if (isHeld(fra::KeyCode::W))
+            move += forward;
+        if (isHeld(fra::KeyCode::S))
+            move -= forward;
+        if (isHeld(fra::KeyCode::D))
+            move += right;
+        if (isHeld(fra::KeyCode::A))
+            move -= right;
+        if (isHeld(fra::KeyCode::Space) || isHeld(fra::KeyCode::Q))
+            move += worldUp;
+        if (isHeld(fra::KeyCode::LCtrl) || isHeld(fra::KeyCode::RCtrl) ||
+            isHeld(fra::KeyCode::E))
+            move -= worldUp;
+
+        if (glm::length(move) > 1e-4f)
+            mCameraPos += glm::normalize(move) * kMoveSpeed * dt;
+    }
+
+    void setLightCastShadows(std::uint32_t index, bool enabled)
+    {
+        const auto* current = mLightService->GetLight(index);
+        if (current == nullptr)
+        {
+            return;
+        }
+
+        fra::Light light  = *current;
+        light.castShadows = enabled;
+        mLightService->UpdateLight(index, light);
+    }
+
+    void setShadowCasterMode(int mode)
+    {
+        mShadowCasterMode = mode;
+
+        const bool all = mode == 0;
+        setLightCastShadows(mDirectionalIndex, all || mode == 1);
+        setLightCastShadows(mWarmPointIndex, all || mode == 2);
+        setLightCastShadows(mCoolPointIndex, all || mode == 3);
+        for (const auto spotIndex : mSpotIndices)
+            setLightCastShadows(spotIndex, all || mode == 4);
+
+        static constexpr const char* kNames[] = {
+            "all", "directional", "warm point", "cool point", "all spots",
+        };
+        const char* name = (mode >= 0 && mode <= 4) ? kNames[mode] : "unknown";
+        std::cout << "Shadow caster: " << name << " [" << mode << "]\n";
+        updateTitle();
+    }
+
     void updateTitle()
     {
         const char* mode = mRenderer->IsDeferred() ? "Deferred" : "Forward";
-        mFreyaOptions->title =
-            std::string("Industrial Pipe Lamp — ") + mode + " [Tab]";
+        static constexpr const char* kShadow[] = {
+            "all", "dir", "warmPt", "coolPt", "spots",
+        };
+        const char* shadowName =
+            (mShadowCasterMode >= 0 && mShadowCasterMode <= 4)
+                ? kShadow[mShadowCasterMode]
+                : "?";
+        mFreyaOptions->title = std::string("Industrial Pipe Lamp — ") + mode +
+                               " | " + shadowName + " [0-4]";
     }
 
     enum class AnimatedLightKind
@@ -262,6 +494,9 @@ class MainApp final : public fra::AbstractApplication
     std::uint32_t         mSofaMetalness {};
     std::uint32_t         mSofaMaterial {};
 
+    std::uint32_t mGroundMesh {};
+    std::uint32_t mGroundMaterial {};
+
     std::vector<unsigned> mSpaceShipModel;
     std::uint32_t         mSpaceShipAlbedo {};
     std::uint32_t         mSpaceShipNormal {};
@@ -273,11 +508,23 @@ class MainApp final : public fra::AbstractApplication
     skr::Arc<fra::MeshPool>     mMeshPool;
     skr::Arc<fra::LightService> mLightService;
     skr::Arc<fra::FreyaOptions> mFreyaOptions;
-    glm::mat4                   mModelMatrix[4] {};
+    glm::mat4                   mModelMatrix[kInstanceCount] {};
     float                       mCurrentTime {};
     std::vector<AnimatedLight>  mAnimatedLights;
 
     skr::Arc<fra::Buffer> mInstanceMatrixBuffers;
+
+    std::unordered_set<std::uint32_t> mKeysHeld;
+    bool                              mLookHeld  = false;
+    glm::vec3                         mCameraPos = { 0.0f, 4.0f, 18.0f };
+    float                             mYaw       = -90.0f;
+    float                             mPitch     = -12.0f;
+
+    std::uint32_t              mDirectionalIndex = 0;
+    std::uint32_t              mWarmPointIndex   = 0;
+    std::uint32_t              mCoolPointIndex   = 0;
+    std::vector<std::uint32_t> mSpotIndices;
+    int                        mShadowCasterMode = 0;
 };
 
 int main(int argc, const char** argv)
@@ -287,12 +534,22 @@ int main(int argc, const char** argv)
             .WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
                 freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
                     freyaOptions
-                        .SetTitle("Industrial Pipe Lamp — Forward [Tab]")
+                        .SetTitle("Industrial Pipe Lamp — Forward [RMB+WASD]")
                         .SetWidth(1920)
                         .SetHeight(1080)
                         .SetVSync(false)
                         .SetSampleCount(8)
                         .WithReverseZ()
+                        .SetDrawDistance(80.f)
+                        .SetIblIntensity(0.12f)
+                        .SetShadowCascadeCount(3)
+                        .SetShadowMapResolution(4096)
+                        .SetShadowBias(0.002f)
+                        .SetShadowLightSize(0.035f)
+                        .SetShadowMaxSoftness(8.0f)
+                        .SetMaxSpotShadows(4)
+                        .SetMaxPointShadows(2)
+                        .SetShadowDenoise(true)
                         .SetFullscreen(false)
                         .SetRenderingStrategy(fra::RenderingStrategy::Forward);
                 });

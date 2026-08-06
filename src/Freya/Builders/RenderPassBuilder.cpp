@@ -7,8 +7,8 @@
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
 #include "Freya/Core/ShaderModule.hpp"
-#include "Freya/Core/Surface.hpp"
 #include "Freya/Core/ShadowPass.hpp"
+#include "Freya/Core/Surface.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 #include "RenderPassBuilder.hpp"
 
@@ -100,7 +100,7 @@ namespace FREYA_NAMESPACE
                 .setDescriptorCount(mFreyaOptions->frameCount * 3),
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(mFreyaOptions->frameCount * 8),
+                .setDescriptorCount(mFreyaOptions->frameCount * 12),
         };
 
         auto poolInfo =
@@ -200,13 +200,38 @@ namespace FREYA_NAMESPACE
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
                 .setPImmutableSamplers(nullptr);
 
+        auto cascadeDepthBinding =
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(11)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr);
+
+        auto spotDepthBinding =
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(12)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr);
+
+        auto directionalMaskBinding =
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(13)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setPImmutableSamplers(nullptr);
+
         auto descriptorSetBindings = std::array {
             uboLayoutBinding,     lightBufferLayoutBinding,
             irradianceBinding,    prefilterBinding,
             brdfBinding,          ltcMatrixBinding,
             ltcAmplBinding,       shadowUboBinding,
             cascadeShadowBinding, spotShadowBinding,
-            pointShadowBinding,
+            pointShadowBinding,   cascadeDepthBinding,
+            spotDepthBinding,     directionalMaskBinding,
         };
 
         auto descriptorSetLayoutCreateInfo =
@@ -447,17 +472,33 @@ namespace FREYA_NAMESPACE
                     .setImageView(mShadowPass->GetCascadeView())
                     .setImageLayout(shadowMapLayout);
 
-            auto spotInfo =
+            auto spotInfo = vk::DescriptorImageInfo()
+                                .setSampler(mShadowPass->GetCompareSampler())
+                                .setImageView(mShadowPass->GetSpotView())
+                                .setImageLayout(shadowMapLayout);
+
+            auto pointInfo = vk::DescriptorImageInfo()
+                                 .setSampler(mShadowPass->GetCompareSampler())
+                                 .setImageView(mShadowPass->GetPointView())
+                                 .setImageLayout(shadowMapLayout);
+
+            auto cascadeDepthInfo =
                 vk::DescriptorImageInfo()
-                    .setSampler(mShadowPass->GetCompareSampler())
+                    .setSampler(mShadowPass->GetSampler())
+                    .setImageView(mShadowPass->GetCascadeView())
+                    .setImageLayout(shadowMapLayout);
+
+            auto spotDepthInfo =
+                vk::DescriptorImageInfo()
+                    .setSampler(mShadowPass->GetSampler())
                     .setImageView(mShadowPass->GetSpotView())
                     .setImageLayout(shadowMapLayout);
 
-            auto pointInfo =
-                vk::DescriptorImageInfo()
-                    .setSampler(mShadowPass->GetCompareSampler())
-                    .setImageView(mShadowPass->GetPointView())
-                    .setImageLayout(shadowMapLayout);
+            // Temporary white until Renderer binds the denoise mask.
+            auto maskInfo = vk::DescriptorImageInfo()
+                                .setSampler(mShadowPass->GetSampler())
+                                .setImageView(mShadowPass->GetCascadeView())
+                                .setImageLayout(shadowMapLayout);
 
             auto shadowWrites = std::array {
                 shadowUboWrite,
@@ -482,6 +523,27 @@ namespace FREYA_NAMESPACE
                         vk::DescriptorType::eCombinedImageSampler)
                     .setDescriptorCount(1)
                     .setImageInfo(pointInfo),
+                vk::WriteDescriptorSet()
+                    .setDstSet(descriptorSets[i])
+                    .setDstBinding(11)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(cascadeDepthInfo),
+                vk::WriteDescriptorSet()
+                    .setDstSet(descriptorSets[i])
+                    .setDstBinding(12)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(spotDepthInfo),
+                vk::WriteDescriptorSet()
+                    .setDstSet(descriptorSets[i])
+                    .setDstBinding(13)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(maskInfo),
             };
 
             mDevice->Get().updateDescriptorSets(

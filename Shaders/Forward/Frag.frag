@@ -13,6 +13,7 @@ layout(binding = 1) uniform LightBuffer {
     vec4 lightOuterCutoffAndIntensity[16];
     vec4 lightAreaTangents[16];
     vec4 viewPosition;
+    vec4 cameraForward;
     uint lightCount;
     float iblIntensity;
     float exposure;
@@ -32,11 +33,16 @@ layout(binding = 7) uniform ShadowBuffer {
     vec4 spotLightIndex;
     vec4 pointLightPosFar[2];
     vec4 pointLightIndex;
+    vec4 reverseZ; // x=1 when Reverse-Z point depth encoding is active
+    vec4 pcss; // x=lightSize y=maxSoftnessTexels
 } shadows;
 
 layout(binding = 8) uniform sampler2DArrayShadow cascadeShadowMap;
 layout(binding = 9) uniform sampler2DArrayShadow spotShadowMap;
 layout(binding = 10) uniform samplerCubeArrayShadow pointShadowMap;
+layout(binding = 11) uniform sampler2DArray cascadeShadowDepth;
+layout(binding = 12) uniform sampler2DArray spotShadowDepth;
+layout(binding = 13) uniform sampler2D directionalShadowMask;
 
 layout(set = 1, binding = 0) uniform sampler2D albedoSampler;
 layout(set = 1, binding = 1) uniform sampler2D normalSampler;
@@ -57,8 +63,12 @@ const float LUT_SCALE = (LUT_SIZE - 1.0) / LUT_SIZE;
 const float LUT_BIAS = 0.5 / LUT_SIZE;
 
 vec3 getNormalFromMap() {
-    vec3 normal = texture(normalSampler, fragTexCoord).rgb * 2.0 - 1.0;
-    return normalize(TBN * normal);
+    vec3 sampled = texture(normalSampler, fragTexCoord).rgb;
+    // Pure white fallback means "no normal map" — use geometric normal.
+    if (all(greaterThan(sampled, vec3(0.99))))
+        return normalize(TBN[2]);
+    vec3 tangentNormal = sampled * 2.0 - 1.0;
+    return normalize(TBN * tangentNormal);
 }
 
 vec2 SampleSphericalMap(vec3 v) {
@@ -101,25 +111,42 @@ vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
                     pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
-float ShadowPCF2DArray(sampler2DArrayShadow map, vec2 uv, float layer,
-                         float depthRef, float softScale) {
-    vec2 texel = 1.0 / vec2(textureSize(map, 0));
+const vec2 kPoissonDisk[16] = vec2[](
+    vec2(-0.94201624, -0.39906216), vec2(0.94558609, -0.76890725),
+    vec2(-0.094184101, -0.92938870), vec2(0.34495938, 0.29387760),
+    vec2(-0.91588581, 0.45771432), vec2(-0.81544232, -0.87912464),
+    vec2(-0.38277543, 0.27676845), vec2(0.97484398, 0.75648379),
+    vec2(0.44323325, -0.97511554), vec2(0.53742981, -0.47373420),
+    vec2(-0.26496911, -0.41893023), vec2(0.79197514, 0.19090188),
+    vec2(-0.24188840, 0.99706507), vec2(-0.81409955, 0.91437590),
+    vec2(0.19984126, 0.78641367), vec2(0.14383161, -0.14100790));
+
+// Fixed soft disk (texels). Matches the point-light Poisson feel: no IGN
+// kernel rotation (that grain), no PCSS radius hunting.
+const float kSoftShadowTexels = 5.0;
+const float kPointSoftDisk = 0.008;
+
+float SoftShadowPCF2DArray(sampler2DArrayShadow map, vec2 uv, float layer,
+                           float depthRef) {
+    vec2 texel = 1.0 / vec2(textureSize(map, 0).xy);
     float result = 0.0;
-    for (int dx = -1; dx <= 1; ++dx) {
-        for (int dy = -1; dy <= 1; ++dy) {
-            vec2 offset =
-                vec2(float(dx), float(dy)) * texel * softScale;
-            result +=
-                texture(map, vec4(uv + offset, layer, depthRef));
-        }
+    for (int i = 0; i < 16; ++i) {
+        vec2 offset = kPoissonDisk[i] * kSoftShadowTexels * texel;
+        result += texture(map, vec4(uv + offset, layer, depthRef));
     }
-    return result / 9.0;
+    return result / 16.0;
 }
 
 float ShadowCompare2DArray(sampler2DArrayShadow map, mat4 lightVP,
-                           vec3 worldPos, vec3 N, float layer,
-                           float softScale) {
-    vec3 biased = worldPos + N * shadows.params.y;
+                           vec3 worldPos, vec3 N, vec3 L, float layer) {
+    vec3 lightDir = normalize(L);
+    float nDotL = max(dot(N, lightDir), 0.0);
+    float slope = sqrt(max(1.0 - nDotL * nDotL, 0.0));
+    bool reverseZ = shadows.reverseZ.x > 0.5;
+
+    float normalScale = shadows.params.y * (0.35 + 0.65 * slope);
+    float lightPush = shadows.params.x * (0.5 + slope);
+    vec3 biased = worldPos + N * normalScale + lightDir * lightPush;
     vec4 clip = lightVP * vec4(biased, 1.0);
     vec3 ndc = clip.xyz / clip.w;
 
@@ -127,29 +154,17 @@ float ShadowCompare2DArray(sampler2DArrayShadow map, mat4 lightVP,
         return 1.0;
 
     vec2 uv = ndc.xy * 0.5 + 0.5;
-    float depthRef = ndc.z - shadows.params.x;
-
-    return ShadowPCF2DArray(map, uv, layer, depthRef, softScale);
+    float depthBias = shadows.params.x * (1.0 + 1.5 * slope);
+    float depthRef = reverseZ ? (ndc.z + depthBias) : (ndc.z - depthBias);
+    return SoftShadowPCF2DArray(map, uv, layer, depthRef);
 }
 
 float SampleCascadeShadow(vec3 worldPos, vec3 N, vec3 L) {
-    float viewDepth = -(pub.view * vec4(worldPos, 1.0)).z;
-
-    int cascade = int(shadows.params.z) - 1;
-    for (int i = 0; i < int(shadows.params.z); ++i) {
-        if (viewDepth < shadows.cascadeSplits[i]) {
-            cascade = i;
-            break;
-        }
-    }
-
-    return ShadowCompare2DArray(cascadeShadowMap,
-                                shadows.cascadeViewProj[cascade],
-                                worldPos, N, float(cascade),
-                                shadows.params.w);
+    vec2 uv = gl_FragCoord.xy / vec2(textureSize(directionalShadowMask, 0));
+    return texture(directionalShadowMask, uv).r;
 }
 
-float SampleSpotShadow(int lightIndex, vec3 worldPos, vec3 N) {
+float SampleSpotShadow(int lightIndex, vec3 worldPos, vec3 N, vec3 L) {
     int slot = -1;
     for (int s = 0; s < 4; ++s) {
         if (int(shadows.spotLightIndex[s]) == lightIndex) {
@@ -160,10 +175,8 @@ float SampleSpotShadow(int lightIndex, vec3 worldPos, vec3 N) {
     if (slot < 0)
         return 1.0;
 
-    return ShadowCompare2DArray(spotShadowMap,
-                                shadows.spotViewProj[slot],
-                                worldPos, N, float(slot),
-                                shadows.params.w);
+    return ShadowCompare2DArray(spotShadowMap, shadows.spotViewProj[slot],
+                                worldPos, N, L, float(slot));
 }
 
 float SamplePointShadow(int lightIndex, vec3 worldPos, vec3 N) {
@@ -180,15 +193,40 @@ float SamplePointShadow(int lightIndex, vec3 worldPos, vec3 N) {
     vec3 lightPos = shadows.pointLightPosFar[slot].xyz;
     float far = shadows.pointLightPosFar[slot].w;
 
-    vec3 biased = worldPos + N * shadows.params.y;
+    vec3 toLight = lightPos - worldPos;
+    float distToLight = length(toLight);
+    if (distToLight < 1e-5 || distToLight >= far)
+        return 1.0;
+
+    vec3 L = toLight / distToLight;
+    float nDotL = max(dot(N, L), 0.0);
+    float slope = sqrt(max(1.0 - nDotL * nDotL, 0.0));
+    bool reverseZ = shadows.reverseZ.x > 0.5;
+    float normalScale = shadows.params.y * (0.35 + 0.65 * slope);
+    float lightPush = shadows.params.x * far * (0.5 + slope);
+    vec3 biased = worldPos + N * normalScale + L * lightPush;
     vec3 dir = biased - lightPos;
     float dist = length(dir);
     if (dist >= far)
         return 1.0;
 
-    float depthRef = dist / far - shadows.params.x;
-    return texture(pointShadowMap, vec4(normalize(dir), float(slot)),
-                   depthRef);
+    float linear = dist / far;
+    float encoded = reverseZ ? (1.0 - linear) : linear;
+    float depthBias = shadows.params.x * (1.0 + 1.5 * slope);
+    float depthRef = reverseZ ? (encoded + depthBias) : (encoded - depthBias);
+
+    vec3 Ndir = normalize(dir);
+    vec3 up = abs(Ndir.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    vec3 T = normalize(cross(up, Ndir));
+    vec3 B = cross(Ndir, T);
+    float result = 0.0;
+    for (int i = 0; i < 16; ++i) {
+        vec2 o = kPoissonDisk[i] * kPointSoftDisk;
+        vec3 sampleDir = normalize(Ndir + T * o.x + B * o.y);
+        result += texture(pointShadowMap, vec4(sampleDir, float(slot)),
+                          depthRef);
+    }
+    return result / 16.0;
 }
 
 float GetShadowFactor(int i, float lightType, vec3 worldPos, vec3 N,
@@ -198,7 +236,7 @@ float GetShadowFactor(int i, float lightType, vec3 worldPos, vec3 N,
     if (lightType >= 0.5 && lightType < 1.5)
         return SampleCascadeShadow(worldPos, N, L);
     if (lightType >= 1.5 && lightType < 2.5)
-        return SampleSpotShadow(i, worldPos, N);
+        return SampleSpotShadow(i, worldPos, N, L);
     if (lightType < 0.5)
         return SamplePointShadow(i, worldPos, N);
     return 1.0;
@@ -394,7 +432,8 @@ vec3 ACESFilm(vec3 x) {
 
 void main()
 {
-    vec3 albedo = srgbToLinear(texture(albedoSampler, fragTexCoord).rgb);
+    vec3 albedo = srgbToLinear(texture(albedoSampler, fragTexCoord).rgb) *
+                  fragColor;
     vec3 normal = getNormalFromMap();
     float roughness =
         max(texture(roughnessSampler, fragTexCoord).r, 0.045);

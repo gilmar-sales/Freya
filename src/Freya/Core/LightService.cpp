@@ -166,14 +166,16 @@ namespace FREYA_NAMESPACE
     }
 
     void LightService::Update(std::uint32_t    frameIndex,
-                              const glm::vec3& viewPosition)
+                              const glm::vec3& viewPosition,
+                              const glm::vec3& cameraForward)
     {
         LightUniformBuffer data = {};
 
-        data.lightCount   = mLightCount;
-        data.iblIntensity = mIblIntensity;
-        data.exposure     = mExposure;
-        data.viewPosition = glm::vec4(viewPosition, 1.0f);
+        data.lightCount    = mLightCount;
+        data.iblIntensity  = mIblIntensity;
+        data.exposure      = mExposure;
+        data.viewPosition  = glm::vec4(viewPosition, 1.0f);
+        data.cameraForward = glm::vec4(cameraForward, 0.0f);
 
         for (std::uint32_t i = 0; i < mLightCount; ++i)
         {

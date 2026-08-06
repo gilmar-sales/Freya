@@ -75,7 +75,8 @@ namespace FREYA_NAMESPACE
             case ImageUsage::GBufferMetalness:
             case ImageUsage::GBufferRoughness:
                 imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment |
-                                   vk::ImageUsageFlagBits::eInputAttachment);
+                                   vk::ImageUsageFlagBits::eInputAttachment |
+                                   vk::ImageUsageFlagBits::eSampled);
                 break;
             case ImageUsage::GBufferEmissive:
                 // Need eSampled for cross-pass bloom read

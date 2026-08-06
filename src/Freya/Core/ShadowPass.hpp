@@ -223,8 +223,9 @@ namespace FREYA_NAMESPACE
         // CPU-side mirror of the last uploaded ShadowUniformBuffer, used by
         // Render() to know which light view-projection to push per target.
         ShadowUniformBuffer mShadowData {};
-        std::uint32_t       mActiveSpotCount  = 0;
-        std::uint32_t       mActivePointCount = 0;
+        bool                mHasDirectionalShadow = false;
+        std::uint32_t       mActiveSpotCount      = 0;
+        std::uint32_t       mActivePointCount     = 0;
     };
 
 } // namespace FREYA_NAMESPACE

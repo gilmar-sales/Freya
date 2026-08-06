@@ -10,42 +10,29 @@
 #include "Freya/Core/UniformBuffer.hpp"
 #include "Freya/FreyaOptions.hpp"
 
-#include <variant>
-
 namespace FREYA_NAMESPACE
 {
-    /**
-     * @brief Attachment indices for deferred Gbuffer+Lighting pass.
-     */
     enum : std::uint32_t
     {
-        DefDepthAttachment,       ///< Depth attachment
-        DefPositionAttachment,    ///< G-buffer world position
-        DefNormalAttachment,      ///< G-buffer normal
-        DefAlbedoAttachment,      ///< G-buffer albedo
-        DefEmissiveAttachment,    ///< G-buffer emissive (for bloom)
-        DefMaterialAttachment,    ///< G-buffer material (RG: metalness, roughness)
-        DefTranslucentAttachment, ///< Translucent objects buffer
-        DefOpaqueAttachment,      ///< Opaque lit result buffer
+        DefDepthAttachment,
+        DefPositionAttachment,
+        DefNormalAttachment,
+        DefAlbedoAttachment,
+        DefEmissiveAttachment,
+        DefMaterialAttachment,
+    };
+
+    enum : std::uint32_t
+    {
+        DefDepthPrePass,
+        DefGBufferPass,
     };
 
     /**
-     * @brief Subpass indices for deferred Gbuffer+Lighting pipeline.
-     */
-    enum : std::uint32_t
-    {
-        DefDepthPrePass,    ///< Depth pre-pass (subpass 0)
-        DefGBufferPass,     ///< G-buffer generation (subpass 1)
-        DefLightingPass,    ///< Lighting calculation (subpass 2)
-        DefTranslucentPass, ///< Translucent rendering (subpass 3)
-    };
-
-    /**
-     * @brief Deferred Gbuffer+Lighting render pass.
+     * @brief Deferred G-buffer pass with a separate fullscreen lighting pass.
      *
-     * Manages 4 subpasses: depth pre-pass, G-buffer, lighting, translucent.
-     * Owns G-buffer images and framebuffers.
-     * Bloom and composite are handled in separate passes.
+     * G-buffer RP: depth pre-pass + G-buffer. Final layouts are shader-read
+     * so denoise and lighting can sample attachments as textures.
      */
     class DeferredCompressedPass
     {
@@ -54,13 +41,13 @@ namespace FREYA_NAMESPACE
             const skr::Arc<Device>&       device,
             const skr::Arc<FreyaOptions>& freyaOptions,
             const skr::Arc<Surface>&      surface,
-            const vk::RenderPass          renderPass,
+            const vk::RenderPass          gbufferRenderPass,
+            const vk::RenderPass          lightingRenderPass,
             const vk::PipelineLayout      vertexPipelineLayout,
             const vk::PipelineLayout      fullscreenPipelineLayout,
             const vk::Pipeline            depthPrepassPipeline,
             const vk::Pipeline            gbufferPipeline,
             const vk::Pipeline            lightingPipeline,
-            const vk::Pipeline            translucentPipeline,
             const skr::Arc<Buffer>&       uniformBuffer,
             const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
             const std::vector<vk::DescriptorSet>&       descriptorSets,
@@ -70,17 +57,19 @@ namespace FREYA_NAMESPACE
             const skr::Arc<Image>&                      depthImage,
             const skr::Arc<Image>&                      translucentImage,
             const skr::Arc<Image>&                      opaqueImage,
-            const std::vector<vk::Framebuffer>&         framebuffers,
-            const vk::DescriptorSetLayout               inputAttachmentLayout,
-            const vk::DescriptorPool                    inputAttachmentPool,
-            const std::vector<vk::DescriptorSet>&       lightingInputSets,
+            const std::vector<vk::Framebuffer>&         gbufferFramebuffers,
+            const std::vector<vk::Framebuffer>&         lightingFramebuffers,
+            const vk::DescriptorSetLayout               lightingSetLayout,
+            const vk::DescriptorPool                    lightingDescriptorPool,
+            const std::vector<vk::DescriptorSet>&       lightingSets,
             const vk::DescriptorSetLayout               samplerLayout,
             const vk::DescriptorPool                    samplerDescriptorPool,
+            const vk::Sampler                           gbufferSampler,
             vk::Extent2D                                extent);
 
         ~DeferredCompressedPass();
 
-        vk::RenderPass& GetRenderPass() { return mRenderPass; }
+        vk::RenderPass& GetRenderPass() { return mGbufferRenderPass; }
 
         vk::PipelineLayout& GetVertexPipelineLayout()
         {
@@ -100,6 +89,11 @@ namespace FREYA_NAMESPACE
             return mTranslucentImage;
         }
         skr::Arc<Image> GetEmissiveImage() const { return mEmissiveImage; }
+        skr::Arc<Image> GetDepthImage() const { return mDepthImage; }
+        skr::Arc<Image> GetPositionImage() const { return mGBufferImages[0]; }
+        skr::Arc<Image> GetNormalImage() const { return mGBufferImages[1]; }
+        skr::Arc<Image> GetAlbedoImage() const { return mGBufferImages[2]; }
+        skr::Arc<Image> GetMaterialImage() const { return mGBufferImages[4]; }
 
         void Begin(const skr::Arc<SwapChain>    swapChain,
                    const skr::Arc<CommandPool>& commandPool) const;
@@ -114,10 +108,18 @@ namespace FREYA_NAMESPACE
                             const skr::Arc<CommandPool>& commandPool,
                             std::uint32_t                frameIndex) const;
 
-        void DrawFullscreenTriangle(
-            const skr::Arc<CommandPool>& commandPool) const;
-
         void End(const skr::Arc<CommandPool> commandPool) const;
+
+        void BeginLighting(const skr::Arc<SwapChain>    swapChain,
+                           const skr::Arc<CommandPool>& commandPool) const;
+
+        void DrawLighting(const skr::Arc<CommandPool>& commandPool,
+                          std::uint32_t                frameIndex) const;
+
+        void EndLighting(const skr::Arc<CommandPool>& commandPool) const;
+
+        void UpdateDirectionalShadowMask(const skr::Arc<Image>& mask,
+                                         vk::Sampler            sampler);
 
         void UpdateProjection(const ProjectionUniformBuffer& buffer,
                               std::uint32_t                  frameIndex) const;
@@ -136,11 +138,14 @@ namespace FREYA_NAMESPACE
 
         skr::Arc<Buffer> GetUniformBuffer() { return mUniformBuffer; }
 
-        std::size_t GetFramebufferCount() const { return mFramebuffers.size(); }
+        std::size_t GetFramebufferCount() const
+        {
+            return mGbufferFramebuffers.size();
+        }
 
         vk::Framebuffer& GetFramebuffer(std::size_t index)
         {
-            return mFramebuffers[index];
+            return mGbufferFramebuffers[index];
         }
 
         std::uint32_t GetCurrentSubpass() const { return mCurrentSubpass; }
@@ -149,13 +154,15 @@ namespace FREYA_NAMESPACE
         skr::Arc<FreyaOptions> mFreyaOptions;
         skr::Arc<Surface>      mSurface;
 
-        vk::RenderPass mRenderPass;
+        vk::RenderPass mGbufferRenderPass;
+        vk::RenderPass mLightingRenderPass;
 
       private:
         vk::PipelineLayout mVertexPipelineLayout;
         vk::PipelineLayout mFullscreenPipelineLayout;
 
-        std::array<vk::Pipeline, 4> mPipelines;
+        std::array<vk::Pipeline, 2> mGeometryPipelines;
+        vk::Pipeline                mLightingPipeline;
 
         skr::Arc<Buffer> mUniformBuffer;
 
@@ -163,31 +170,26 @@ namespace FREYA_NAMESPACE
         std::vector<vk::DescriptorSet>       mDescriptorSets;
         vk::DescriptorPool                   mDescriptorPool;
 
-        // G-buffer and intermediate images
         std::vector<skr::Arc<Image>> mGBufferImages;
         skr::Arc<Image>              mEmissiveImage;
         skr::Arc<Image>              mDepthImage;
         skr::Arc<Image>              mTranslucentImage;
         skr::Arc<Image>              mOpaqueImage;
 
-        // Framebuffers (one per swapchain image)
-        std::vector<vk::Framebuffer> mFramebuffers;
+        std::vector<vk::Framebuffer> mGbufferFramebuffers;
+        std::vector<vk::Framebuffer> mLightingFramebuffers;
 
         vk::Extent2D mExtent;
 
-        // Input attachment descriptor resources (for lighting)
-        vk::DescriptorSetLayout        mInputAttachmentLayout;
-        vk::DescriptorPool             mInputAttachmentPool;
-        std::vector<vk::DescriptorSet> mLightingInputSets;
+        vk::DescriptorSetLayout        mLightingSetLayout;
+        vk::DescriptorPool             mLightingDescriptorPool;
+        std::vector<vk::DescriptorSet> mLightingSets;
 
-        // Sampler descriptor resources (sampler pool shared with forward pass)
         vk::DescriptorSetLayout mSamplerLayout;
         vk::DescriptorPool      mSamplerDescriptorPool;
+        vk::Sampler             mGbufferSampler;
 
-        // Debug label state
-        mutable bool mLabelActive = false;
-
-        // Current subpass tracking
+        mutable bool          mLabelActive    = false;
         mutable std::uint32_t mCurrentSubpass = DefDepthPrePass;
 
         static const char* GetSubpassLabel(std::uint32_t subpass);

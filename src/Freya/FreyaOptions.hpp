@@ -39,10 +39,10 @@ namespace FREYA_NAMESPACE
         std::uint32_t       frameCount  = 4;    ///< Swapchain frame count
         vk::ClearColorValue clearColor  = { 0.0f, 0.0f, 0.0f,
                                             0.0f }; ///< Render pass clear color
-        float             drawDistance = 1000.0f; ///< View distance for culling
-        std::uint32_t     maxLights    = 16;      ///< Maximum lights in scene
-        float             iblIntensity = 0.7f; ///< Image-based lighting scale
-        float             exposure     = 0.7f; ///< HDR exposure before tonemap
+        float         drawDistance = 1000.0f; ///< View distance for culling
+        std::uint32_t maxLights    = 16;      ///< Maximum lights in scene
+        float         iblIntensity = 0.7f;    ///< Image-based lighting scale
+        float         exposure     = 0.7f;    ///< HDR exposure before tonemap
         /// Radiance `.hdr` path relative to the process working directory.
         /// Empty string forces the procedural sky. Default file is copied next
         /// to examples under Resources/Environments/.
@@ -58,10 +58,19 @@ namespace FREYA_NAMESPACE
         std::uint32_t shadowMapResolution = 2048;
         /// Depth bias applied when sampling shadows.
         float shadowBias = 0.002f;
+        /// PCSS light disk size (larger → softer distant penumbra).
+        float shadowLightSize = 0.03f;
+        /// PCSS max PCF kernel radius in shadow-map texels.
+        float shadowMaxSoftness = 8.0f;
         /// Max concurrent spot lights casting shadows (0–4).
         std::uint32_t maxSpotShadows = 4;
         /// Max concurrent point lights casting shadows (0–2).
         std::uint32_t maxPointShadows = 2;
+        /// Bilateral denoise for directional cascade shadows.
+        bool              shadowDenoise            = true;
+        float             shadowDenoiseRadius      = 4.0f;
+        float             shadowDenoiseDepthSigma  = 0.02f;
+        float             shadowDenoiseNormalSigma = 32.0f;
         RenderingStrategy renderingStrategy =
             RenderingStrategy::Forward; ///< Rendering strategy
         bool ReverseZ;

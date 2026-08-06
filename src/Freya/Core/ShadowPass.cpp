@@ -5,7 +5,38 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdio>
 #include <limits>
+
+#include <vulkan/vulkan.h>
+
+namespace
+{
+    void beginDebugLabel(const vk::CommandBuffer& cmd,
+                         const char*              name,
+                         const vk::Device&        device)
+    {
+        auto func = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(
+            device.getProcAddr("vkCmdBeginDebugUtilsLabelEXT"));
+        if (!func)
+            return;
+
+        VkDebugUtilsLabelEXT label {};
+        label.sType      = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+        label.pLabelName = name;
+        func(static_cast<VkCommandBuffer>(cmd), &label);
+    }
+
+    void endDebugLabel(const vk::CommandBuffer& cmd, const vk::Device& device)
+    {
+        auto func = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(
+            device.getProcAddr("vkCmdEndDebugUtilsLabelEXT"));
+        if (!func)
+            return;
+
+        func(static_cast<VkCommandBuffer>(cmd));
+    }
+} // namespace
 
 namespace FREYA_NAMESPACE
 {
@@ -118,11 +149,22 @@ namespace FREYA_NAMESPACE
 
         mShadowData = ShadowUniformBuffer {};
 
-        mShadowData.params =
-            glm::vec4(mFreyaOptions->shadowBias,
-                      0.5f * mFreyaOptions->shadowBias,
-                      static_cast<float>(mCascadeCount),
-                      1.5f);
+        const float softScale = 1.0f;
+        // params.x = depth bias in light NDC (receiver).
+        // params.y = world-space normal offset (receiver).
+        mShadowData.params = glm::vec4(
+            std::max(0.0005f, mFreyaOptions->shadowBias),
+            std::max(0.01f, mFreyaOptions->shadowBias * 20.0f),
+            0.0f,
+            // Soft scale magnitude; sign encodes Reverse-Z for shaders.
+            mFreyaOptions->ReverseZ ? softScale : -softScale);
+        mShadowData.reverseZ =
+            glm::vec4(mFreyaOptions->ReverseZ ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f);
+        mShadowData.pcss =
+            glm::vec4(std::max(0.0f, mFreyaOptions->shadowLightSize),
+                      std::max(1.0f, mFreyaOptions->shadowMaxSoftness),
+                      0.0f,
+                      0.0f);
 
         // ------------------------------------------------------------------
         // Directional CSM: first shadow-casting directional light wins.
@@ -140,8 +182,10 @@ namespace FREYA_NAMESPACE
             }
         }
 
-        if (sun != nullptr)
+        mHasDirectionalShadow = sun != nullptr;
+        if (mHasDirectionalShadow)
         {
+            mShadowData.params.z = static_cast<float>(mCascadeCount);
             computeCascades(*sun, cameraView, cameraProj, nearPlane,
                             drawDistance);
         }
@@ -198,7 +242,7 @@ namespace FREYA_NAMESPACE
                                      const float      nearPlane,
                                      const float      drawDistance)
     {
-        constexpr float lambda = 0.8f;
+        constexpr float lambda = 0.85f;
 
         std::array<float, MAX_SHADOW_CASCADES> splits {};
         for (std::uint32_t i = 1; i <= mCascadeCount; ++i)
@@ -226,6 +270,8 @@ namespace FREYA_NAMESPACE
         const auto up = std::abs(lightDir.y) < 0.99f
                             ? glm::vec3(0.0f, 1.0f, 0.0f)
                             : glm::vec3(1.0f, 0.0f, 0.0f);
+
+        const auto resolution = static_cast<float>(std::max(mResolution, 1u));
 
         for (std::uint32_t i = 0; i < mCascadeCount; ++i)
         {
@@ -258,9 +304,41 @@ namespace FREYA_NAMESPACE
             }
             center /= 8.0f;
 
-            const auto lightView =
-                glm::lookAt(center - lightDir * drawDistance, center, up);
+            // Bounding sphere keeps cascades stable when the camera rotates
+            // (AABB would resize and swim).
+            float radius = 0.0f;
+            for (const auto& worldCorner : worldCorners)
+            {
+                radius = std::max(radius, glm::length(worldCorner - center));
+            }
+            radius = std::ceil(radius * 16.0f) / 16.0f;
 
+            // Pull the light eye from cascade geometry, never from camera
+            // far — using drawDistance here made outer cascades get
+            // near <= 0 when radius + pad exceeded that distance.
+            constexpr float zPad     = 25.0f;
+            constexpr float pullEps  = 1.0f;
+            const float     pullBack = radius + zPad + pullEps;
+
+            // Snap the light-space center to the shadow-map texel grid so
+            // cascades do not shimmer when the camera translates.
+            const auto texelSize = (2.0f * radius) / resolution;
+            auto       lightView =
+                glm::lookAt(center - lightDir * pullBack, center, up);
+            auto centerLS = glm::vec3(lightView * glm::vec4(center, 1.0f));
+            if (texelSize > 1e-6f)
+            {
+                centerLS.x = std::floor(centerLS.x / texelSize) * texelSize;
+                centerLS.y = std::floor(centerLS.y / texelSize) * texelSize;
+            }
+            const auto snappedCenter =
+                glm::vec3(glm::inverse(lightView) * glm::vec4(centerLS, 1.0f));
+            lightView = glm::lookAt(
+                snappedCenter - lightDir * pullBack, snappedCenter, up);
+
+            // Tight light-space AABB of the frustum slice (sphere was used
+            // only for center stability). Padding keeps casters just outside
+            // the camera frustum from being clipped off the map.
             auto minB = glm::vec3(std::numeric_limits<float>::max());
             auto maxB = glm::vec3(std::numeric_limits<float>::lowest());
             for (const auto& worldCorner : worldCorners)
@@ -271,16 +349,24 @@ namespace FREYA_NAMESPACE
                 maxB = glm::max(maxB, lightSpace);
             }
 
-            // Extend the near/far range so casters just outside the
-            // visible frustum slice still land inside the ortho box.
-            constexpr auto zMult = 10.0f;
-            auto           minZ  = minB.z;
-            auto           maxZ  = maxB.z;
-            minZ                 = (minZ < 0.0f) ? minZ * zMult : minZ / zMult;
-            maxZ                 = (maxZ < 0.0f) ? maxZ / zMult : maxZ * zMult;
+            constexpr float xyPadFrac = 0.1f;
+            const auto      extentX   = std::max(maxB.x - minB.x, 1e-3f);
+            const auto      extentY   = std::max(maxB.y - minB.y, 1e-3f);
+            minB.x -= extentX * xyPadFrac;
+            maxB.x += extentX * xyPadFrac;
+            minB.y -= extentY * xyPadFrac;
+            maxB.y += extentY * xyPadFrac;
 
-            const auto near = -maxZ;
-            const auto far  = -minZ;
+            // Extend Z so casters slightly outside the camera frustum
+            // slice still land in the ortho box.
+            minB.z -= zPad;
+            maxB.z += zPad;
+
+            // Always keep a valid positive near/far (Ortho with near<=0
+            // breaks Reverse-Z Greater depth and looks like self-shadow
+            // acne on lit surfaces).
+            const auto near = std::max(1e-3f, -maxB.z);
+            const auto far  = std::max(near + 1e-3f, -minB.z);
 
             auto lightProj =
                 mFreyaOptions->ReverseZ
@@ -340,12 +426,13 @@ namespace FREYA_NAMESPACE
         constexpr auto near       = 0.05f;
         const auto     farClamped = std::max(far, near + 0.01f);
 
+        // Cube faces: keep GLM Y as-is. Flipping Y (as for 2D spot/CSM) breaks
+        // Vulkan samplerCube face orientation vs. world-dir lookup.
         auto proj = mFreyaOptions->ReverseZ
                         ? glm::perspective(glm::half_pi<float>(), 1.0f,
                                            farClamped, near)
                         : glm::perspective(glm::half_pi<float>(), 1.0f, near,
                                            farClamped);
-        proj[1][1] *= -1.0f;
 
         return proj * view;
     }
@@ -353,16 +440,25 @@ namespace FREYA_NAMESPACE
     void ShadowPass::Render(const skr::Arc<CommandPool>& commandPool,
                             const std::function<void()>& drawScene) const
     {
+        auto commandBuffer = commandPool->GetCommandBuffer();
+        beginDebugLabel(commandBuffer, "Shadow Pass", mDevice->Get());
+
         renderCascades(commandPool, drawScene);
         renderSpots(commandPool, drawScene);
         renderPoints(commandPool, drawScene);
+
+        endDebugLabel(commandBuffer, mDevice->Get());
     }
 
     void ShadowPass::renderCascades(
         const skr::Arc<CommandPool>& commandPool,
         const std::function<void()>& drawScene) const
     {
+        if (!mHasDirectionalShadow)
+            return;
+
         auto commandBuffer = commandPool->GetCommandBuffer();
+        beginDebugLabel(commandBuffer, "CSM Cascades", mDevice->Get());
 
         const auto viewport =
             vk::Viewport()
@@ -382,6 +478,10 @@ namespace FREYA_NAMESPACE
 
         for (std::uint32_t i = 0; i < mCascadeCount; ++i)
         {
+            char label[64];
+            std::snprintf(label, sizeof(label), "CSM Cascade %u", i);
+            beginDebugLabel(commandBuffer, label, mDevice->Get());
+
             commandBuffer.beginRenderPass(
                 vk::RenderPassBeginInfo()
                     .setRenderPass(mRenderPass)
@@ -395,18 +495,27 @@ namespace FREYA_NAMESPACE
             commandBuffer.setViewport(0, 1, &viewport);
             commandBuffer.setScissor(0, 1, &scissor);
 
-            const auto lightVP = mShadowData.cascadeViewProj[i];
+            const auto         lightVP = mShadowData.cascadeViewProj[i];
+            ShadowPushConstant pc {};
+            pc.lightVP     = lightVP;
+            pc.lightPosFar = glm::vec4(0.0f);
+            pc.reverseZAndPad =
+                glm::vec4(mShadowData.reverseZ.x, 0.0f, 0.0f, 0.0f);
             commandBuffer.pushConstants(
                 mPipelineLayout,
-                vk::ShaderStageFlagBits::eVertex,
+                vk::ShaderStageFlagBits::eVertex |
+                    vk::ShaderStageFlagBits::eFragment,
                 0,
-                sizeof(glm::mat4),
-                &lightVP);
+                sizeof(ShadowPushConstant),
+                &pc);
 
             drawScene();
 
             commandBuffer.endRenderPass();
+            endDebugLabel(commandBuffer, mDevice->Get());
         }
+
+        endDebugLabel(commandBuffer, mDevice->Get());
     }
 
     void ShadowPass::renderSpots(const skr::Arc<CommandPool>& commandPool,
@@ -418,6 +527,7 @@ namespace FREYA_NAMESPACE
             return;
 
         auto commandBuffer = commandPool->GetCommandBuffer();
+        beginDebugLabel(commandBuffer, "Spot Shadows", mDevice->Get());
 
         const auto viewport =
             vk::Viewport()
@@ -437,6 +547,11 @@ namespace FREYA_NAMESPACE
 
         for (std::uint32_t i = 0; i < mSpotFramebuffers.size(); ++i)
         {
+            char label[64];
+            std::snprintf(label, sizeof(label), "Spot Shadow %u%s", i,
+                          (i < mActiveSpotCount) ? "" : " (clear)");
+            beginDebugLabel(commandBuffer, label, mDevice->Get());
+
             commandBuffer.beginRenderPass(
                 vk::RenderPassBeginInfo()
                     .setRenderPass(mRenderPass)
@@ -452,19 +567,28 @@ namespace FREYA_NAMESPACE
                 commandBuffer.setViewport(0, 1, &viewport);
                 commandBuffer.setScissor(0, 1, &scissor);
 
-                const auto lightVP = mShadowData.spotViewProj[i];
+                const auto         lightVP = mShadowData.spotViewProj[i];
+                ShadowPushConstant pc {};
+                pc.lightVP     = lightVP;
+                pc.lightPosFar = glm::vec4(0.0f);
+                pc.reverseZAndPad =
+                    glm::vec4(mShadowData.reverseZ.x, 0.0f, 0.0f, 0.0f);
                 commandBuffer.pushConstants(
                     mPipelineLayout,
-                    vk::ShaderStageFlagBits::eVertex,
+                    vk::ShaderStageFlagBits::eVertex |
+                        vk::ShaderStageFlagBits::eFragment,
                     0,
-                    sizeof(glm::mat4),
-                    &lightVP);
+                    sizeof(ShadowPushConstant),
+                    &pc);
 
                 drawScene();
             }
 
             commandBuffer.endRenderPass();
+            endDebugLabel(commandBuffer, mDevice->Get());
         }
+
+        endDebugLabel(commandBuffer, mDevice->Get());
     }
 
     void ShadowPass::renderPoints(const skr::Arc<CommandPool>& commandPool,
@@ -476,6 +600,7 @@ namespace FREYA_NAMESPACE
             return;
 
         auto commandBuffer = commandPool->GetCommandBuffer();
+        beginDebugLabel(commandBuffer, "Point Shadows", mDevice->Get());
 
         const auto viewport =
             vk::Viewport()
@@ -493,19 +618,24 @@ namespace FREYA_NAMESPACE
             vk::ClearDepthStencilValue().setDepth(
                 mFreyaOptions->ReverseZ ? 0.0f : 1.0f));
 
-        const auto pointSlotCount = static_cast<std::uint32_t>(
-            mPointFramebuffers.size() / 6);
+        const auto pointSlotCount =
+            static_cast<std::uint32_t>(mPointFramebuffers.size() / 6);
 
         for (std::uint32_t p = 0; p < pointSlotCount; ++p)
         {
             const auto      posFar = mShadowData.pointLightPosFar[p];
             const glm::vec3 position(posFar);
-            const auto      far = posFar.w;
+            const auto      far    = posFar.w;
             const bool      active = p < mActivePointCount;
 
             for (std::uint32_t face = 0; face < 6; ++face)
             {
                 const auto framebufferIndex = p * 6 + face;
+
+                char label[64];
+                std::snprintf(label, sizeof(label), "Point Shadow %u Face %u%s",
+                              p, face, active ? "" : " (clear)");
+                beginDebugLabel(commandBuffer, label, mDevice->Get());
 
                 commandBuffer.beginRenderPass(
                     vk::RenderPassBeginInfo()
@@ -524,19 +654,27 @@ namespace FREYA_NAMESPACE
 
                     const auto lightVP =
                         computePointFaceViewProj(position, far, face);
+                    ShadowPushConstant pc {};
+                    pc.lightVP        = lightVP;
+                    pc.lightPosFar    = posFar;
+                    pc.reverseZAndPad = mShadowData.reverseZ;
                     commandBuffer.pushConstants(
                         mPipelineLayout,
-                        vk::ShaderStageFlagBits::eVertex,
+                        vk::ShaderStageFlagBits::eVertex |
+                            vk::ShaderStageFlagBits::eFragment,
                         0,
-                        sizeof(glm::mat4),
-                        &lightVP);
+                        sizeof(ShadowPushConstant),
+                        &pc);
 
                     drawScene();
                 }
 
                 commandBuffer.endRenderPass();
+                endDebugLabel(commandBuffer, mDevice->Get());
             }
         }
+
+        endDebugLabel(commandBuffer, mDevice->Get());
     }
 
 } // namespace FREYA_NAMESPACE
