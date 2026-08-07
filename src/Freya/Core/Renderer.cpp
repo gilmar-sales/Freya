@@ -10,6 +10,7 @@
 #include "Freya/Builders/RenderPassBuilder.hpp"
 #include "Freya/Builders/RenderTargetBuilder.hpp"
 #include "Freya/Builders/ShadowPassBuilder.hpp"
+#include "Freya/Builders/SsaoPassBuilder.hpp"
 #include "Freya/Builders/SwapChainBuilder.hpp"
 #include "Freya/Builders/TaaPassBuilder.hpp"
 #include "Freya/Core/Buffer.hpp"
@@ -66,6 +67,7 @@ namespace FREYA_NAMESPACE
         const skr::Arc<DeferredCompressedPass>& deferredPass,
         const skr::Arc<BloomPass>&              bloomPass,
         const skr::Arc<TaaPass>&                taaPass,
+        const skr::Arc<SsaoPass>&               ssaoPass,
         const skr::Arc<CompositePass>&          compositePass,
         const skr::Arc<CommandPool>&            commandPool,
         const skr::Arc<LightService>&           lightService,
@@ -79,11 +81,12 @@ namespace FREYA_NAMESPACE
         mInstance(instance), mSurface(surface), mPhysicalDevice(physicalDevice),
         mDevice(device), mSwapChain(swapChain), mForwardPass(forwardPass),
         mDeferredPass(deferredPass), mBloomPass(bloomPass), mTaaPass(taaPass),
-        mCompositePass(compositePass), mCommandPool(commandPool),
-        mLightService(lightService), mShadowPass(shadowPass),
-        mPickPass(pickPass), mServiceProvider(serviceProvider),
-        mFreyaOptions(freyaOptions), mEventManager(eventManager),
-        mCurrentProjection({}), mForwardColorImage(forwardColorImage),
+        mSsaoPass(ssaoPass), mCompositePass(compositePass),
+        mCommandPool(commandPool), mLightService(lightService),
+        mShadowPass(shadowPass), mPickPass(pickPass),
+        mServiceProvider(serviceProvider), mFreyaOptions(freyaOptions),
+        mEventManager(eventManager), mCurrentProjection({}),
+        mForwardColorImage(forwardColorImage),
         mForwardResolveImage(forwardResolveImage),
         mForwardOffscreenRenderPass(VK_NULL_HANDLE),
         mMeshPool(serviceProvider->GetService<MeshPool>()),
@@ -174,6 +177,7 @@ namespace FREYA_NAMESPACE
         mDevice->Get().destroySampler(mBloomResultSampler);
         mBloomResultImage.reset();
         mTaaPass.reset();
+        mSsaoPass.reset();
         mBloomPass.reset();
         mCompositePass.reset();
         mSwapChain.reset();
@@ -420,6 +424,7 @@ namespace FREYA_NAMESPACE
         mForwardResolveImage.reset();
         mDeferredPass.reset();
         mTaaPass.reset();
+        mSsaoPass.reset();
         mBloomPass.reset();
         mCompositePass.reset();
 
@@ -449,6 +454,9 @@ namespace FREYA_NAMESPACE
             mTaaPass = mServiceProvider->GetService<TaaPassBuilder>()->Build(
                 mSwapChain, extent);
             mTaaPass->ResetHistory();
+
+            mSsaoPass = mServiceProvider->GetService<SsaoPassBuilder>()->Build(
+                mSwapChain, extent);
 
             mCompositePass =
                 mServiceProvider->GetService<CompositePassBuilder>()->Build(
@@ -1200,11 +1208,24 @@ namespace FREYA_NAMESPACE
                 ExecuteDrawCommands(true);
             }
 
-            mDeferredPass->AdvanceSubpass(
-                DefLightingPass, mCommandPool, frameIndex);
-            setFullViewport();
-            mDeferredPass->DrawLighting(mCommandPool, frameIndex);
             mDeferredPass->End(mCommandPool);
+
+            if (mSsaoPass)
+            {
+                mSsaoPass->Dispatch(
+                    mCommandPool,
+                    mDeferredPass->GetDepthImage(),
+                    mDeferredPass->GetNormalImage(),
+                    mCurrentProjection.view,
+                    mCurrentProjection.unjitteredProjection,
+                    mFreyaOptions->ReverseZ);
+
+                mDeferredPass->BeginLighting(
+                    mCommandPool, mSsaoPass->GetOutputImage(), frameIndex);
+                setFullViewport();
+                mDeferredPass->DrawLighting(mCommandPool, frameIndex);
+                mDeferredPass->EndLighting(mCommandPool);
+            }
 
             if (mTaaPass)
             {

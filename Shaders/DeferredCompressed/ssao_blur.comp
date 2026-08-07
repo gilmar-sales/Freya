@@ -1,0 +1,63 @@
+#version 450
+
+// Cheap bilateral blur (edge-aware). Runs at SSAO resolution.
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(binding = 0) uniform sampler2D ssaoIn;
+layout(binding = 1) uniform sampler2D normalBuffer;
+layout(binding = 2) uniform sampler2D depthBuffer;
+layout(binding = 3, r8) writeonly uniform image2D ssaoOut;
+
+layout(push_constant) uniform PC {
+    vec2  invResolution;
+    vec2  direction;
+    float depthSigma;
+    float normalSigma;
+    float reverseZ;
+    float _pad;
+} pc;
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(ssaoOut);
+    if (pixel.x >= size.x || pixel.y >= size.y)
+        return;
+
+    vec2 uv = (vec2(pixel) + 0.5) * pc.invResolution;
+    float centerAO = textureLod(ssaoIn, uv, 0.0).r;
+    float centerDepth = textureLod(depthBuffer, uv, 0.0).r;
+    vec3 centerN = normalize(textureLod(normalBuffer, uv, 0.0).xyz * 2.0 - 1.0);
+
+    bool sky = pc.reverseZ > 0.5 ? (centerDepth <= 1e-6)
+                                 : (centerDepth >= 0.999999);
+    if (sky) {
+        imageStore(ssaoOut, pixel, vec4(1.0));
+        return;
+    }
+
+    const float kWeights[3] = float[](0.2941176, 0.2352941, 0.1176470);
+
+    float result = centerAO * kWeights[0];
+    float weightSum = kWeights[0];
+
+    for (int i = 1; i < 3; ++i) {
+        vec2 offset = pc.direction * float(i) * pc.invResolution;
+        for (int s = -1; s <= 1; s += 2) {
+            vec2 sampleUV = uv + offset * float(s);
+            float sampleAO = textureLod(ssaoIn, sampleUV, 0.0).r;
+            float sampleDepth = textureLod(depthBuffer, sampleUV, 0.0).r;
+            vec3 sampleN =
+                normalize(textureLod(normalBuffer, sampleUV, 0.0).xyz * 2.0 - 1.0);
+
+            float depthDiff = abs(sampleDepth - centerDepth);
+            float depthW = exp(-depthDiff * depthDiff * pc.depthSigma);
+            float nDot = max(dot(centerN, sampleN), 0.0);
+            float normalW = pow(nDot, pc.normalSigma);
+            float w = kWeights[i] * depthW * normalW;
+            result += sampleAO * w;
+            weightSum += w;
+        }
+    }
+
+    imageStore(ssaoOut, pixel, vec4(result / max(weightSum, 1e-4)));
+}

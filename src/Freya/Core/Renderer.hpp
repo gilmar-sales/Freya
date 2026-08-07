@@ -16,6 +16,7 @@
 #include "Freya/Core/RenderPass.hpp"
 #include "Freya/Core/RenderTarget.hpp"
 #include "Freya/Core/ShadowPass.hpp"
+#include "Freya/Core/SsaoPass.hpp"
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Core/TaaPass.hpp"
 #include "Freya/Events/EventManager.hpp"
@@ -49,6 +50,7 @@ namespace FREYA_NAMESPACE
                  const skr::Arc<DeferredCompressedPass>& deferredPass,
                  const skr::Arc<BloomPass>&              bloomPass,
                  const skr::Arc<TaaPass>&                taaPass,
+                 const skr::Arc<SsaoPass>&               ssaoPass,
                  const skr::Arc<CompositePass>&          compositePass,
                  const skr::Arc<CommandPool>&            commandPool,
                  const skr::Arc<LightService>&           lightService,
@@ -308,6 +310,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<DeferredCompressedPass> mDeferredPass;
         skr::Arc<BloomPass>              mBloomPass;
         skr::Arc<TaaPass>                mTaaPass;
+        skr::Arc<SsaoPass>               mSsaoPass;
         skr::Arc<CompositePass>          mCompositePass;
         skr::Arc<CommandPool>            mCommandPool;
         skr::Arc<LightService>           mLightService;

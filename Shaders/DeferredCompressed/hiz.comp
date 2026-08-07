@@ -1,0 +1,36 @@
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(binding = 0) uniform sampler2D depthOrSrc;
+layout(binding = 1, r32f) writeonly uniform image2D dstMip;
+
+layout(push_constant) uniform PC {
+    uvec2 dstSize;
+    uint  mipLevel;   // 0 = copy from depth, else downsample
+    uint  reverseZ;   // 1 = take max (closer), 0 = take min
+} pc;
+
+void main() {
+    ivec2 dst = ivec2(gl_GlobalInvocationID.xy);
+    if (dst.x >= int(pc.dstSize.x) || dst.y >= int(pc.dstSize.y))
+        return;
+
+    if (pc.mipLevel == 0u) {
+        vec2 uv = (vec2(dst) + 0.5) / vec2(pc.dstSize);
+        float d = textureLod(depthOrSrc, uv, 0.0).r;
+        imageStore(dstMip, dst, vec4(d, 0.0, 0.0, 0.0));
+        return;
+    }
+
+    ivec2 srcBase = dst * 2;
+    float d0 = texelFetch(depthOrSrc, srcBase + ivec2(0, 0), 0).r;
+    float d1 = texelFetch(depthOrSrc, srcBase + ivec2(1, 0), 0).r;
+    float d2 = texelFetch(depthOrSrc, srcBase + ivec2(0, 1), 0).r;
+    float d3 = texelFetch(depthOrSrc, srcBase + ivec2(1, 1), 0).r;
+
+    float v = (pc.reverseZ != 0u)
+                  ? max(max(d0, d1), max(d2, d3))
+                  : min(min(d0, d1), min(d2, d3));
+    imageStore(dstMip, dst, vec4(v, 0.0, 0.0, 0.0));
+}

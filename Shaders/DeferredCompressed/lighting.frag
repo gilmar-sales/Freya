@@ -2,10 +2,10 @@
 
 layout(location = 0) in vec2 inUV;
 
-layout(input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput inDepth;
-layout(input_attachment_index = 1, set = 0, binding = 1) uniform subpassInput inAlbedo;
-layout(input_attachment_index = 2, set = 0, binding = 2) uniform subpassInput inNormal;
-layout(input_attachment_index = 3, set = 0, binding = 3) uniform subpassInput inPbr;
+layout(binding = 0) uniform sampler2D inDepth;
+layout(binding = 1) uniform sampler2D inAlbedo;
+layout(binding = 2) uniform sampler2D inNormal;
+layout(binding = 3) uniform sampler2D inPbr;
 
 layout(binding = 4) uniform CameraBuffer {
     mat4 view;
@@ -52,6 +52,7 @@ layout(binding = 11) uniform ShadowBuffer {
 layout(binding = 12) uniform sampler2DArrayShadow cascadeShadowMap;
 layout(binding = 13) uniform sampler2DArrayShadow spotShadowMap;
 layout(binding = 14) uniform samplerCubeArrayShadow pointShadowMap;
+layout(binding = 15) uniform sampler2D inSsao;
 
 layout(location = 0) out vec4 outColor;
 
@@ -503,15 +504,15 @@ vec3 ReconstructWorldPos(vec2 uv, float depth) {
 }
 
 void main() {
-    float depth = subpassLoad(inDepth).r;
+    float depth = texture(inDepth, inUV).r;
     bool reverseZ = shadows.reverseZ.x > 0.5;
     if (reverseZ ? (depth <= 1e-6) : (depth >= 0.999999)) {
         discard;
     }
 
-    vec4 albedoSample = subpassLoad(inAlbedo);
-    vec4 normalSample = subpassLoad(inNormal);
-    vec4 pbrSample = subpassLoad(inPbr);
+    vec4 albedoSample = texture(inAlbedo, inUV);
+    vec4 normalSample = texture(inNormal, inUV);
+    vec4 pbrSample = texture(inPbr, inUV);
 
     uint flags = UnpackFlags(normalSample.a);
     if (flags == kFlagUnlit) {
@@ -522,15 +523,14 @@ void main() {
     vec3 albedo = srgbToLinear(albedoSample.rgb);
     float roughness = max(pbrSample.r, 0.045);
     float metalness = pbrSample.g;
-    float ao = pbrSample.b;
+    float ao = min(pbrSample.b, texture(inSsao, inUV).r);
 
     vec3 N = normalize(normalSample.rgb * 2.0 - 1.0);
     vec3 V = normalize(lights.viewPosition.xyz - fragPos);
     vec3 F0 = mix(vec3(0.04), albedo, metalness);
 
     bool receiveShadow = (flags == kFlagReceiveShadow);
-    vec3 totalLighting =
-        calculateIBL(N, V, albedo, roughness, metalness, F0) * ao;
+    vec3 totalLighting = calculateIBL(N, V, albedo, roughness, metalness, F0);
 
     for (int i = 0; i < int(lights.lightCount); i++) {
         float lightType = lights.lightPositions[i].w;
@@ -559,6 +559,8 @@ void main() {
             lights.lightOuterCutoffAndIntensity[i].y,
             fragPos, N, V, albedo, roughness, metalness, F0, receiveShadow);
     }
+
+    totalLighting *= ao;
 
     // Additive contribution; emissive already in Scene Color.
     outColor = vec4(totalLighting * lights.exposure, 0.0);

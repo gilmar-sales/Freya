@@ -2,16 +2,16 @@
 
 namespace FREYA_NAMESPACE
 {
-    TaaPass::TaaPass(const skr::Arc<Device>&       device,
-                     const skr::Arc<FreyaOptions>& freyaOptions,
-                     const vk::PipelineLayout      pipelineLayout,
-                     const vk::Pipeline            pipeline,
-                     const vk::DescriptorSetLayout setLayout,
-                     const vk::DescriptorPool      descriptorPool,
+    TaaPass::TaaPass(const skr::Arc<Device>&                 device,
+                     const skr::Arc<FreyaOptions>&           freyaOptions,
+                     const vk::PipelineLayout                pipelineLayout,
+                     const vk::Pipeline                      pipeline,
+                     const vk::DescriptorSetLayout           setLayout,
+                     const vk::DescriptorPool                descriptorPool,
                      const std::array<vk::DescriptorSet, 2>& descriptorSets,
                      const std::array<skr::Arc<Image>, 2>&   historyImages,
-                     const vk::Sampler             sampler,
-                     const vk::Extent2D            extent) :
+                     const vk::Sampler                       sampler,
+                     const vk::Extent2D                      extent) :
         mDevice(device), mFreyaOptions(freyaOptions),
         mPipelineLayout(pipelineLayout), mPipeline(pipeline),
         mSetLayout(setLayout), mDescriptorPool(descriptorPool),
@@ -154,9 +154,9 @@ namespace FREYA_NAMESPACE
             mHistoryValid ? 1.0f : 0.0f,
         };
 
-        commandBuffer.pushConstants(mPipelineLayout,
-                                    vk::ShaderStageFlagBits::eCompute, 0,
-                                    sizeof(Push), &push);
+        commandBuffer.pushConstants(
+            mPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(Push),
+            &push);
 
         const auto groupsX = (mExtent.width + 7) / 8;
         const auto groupsY = (mExtent.height + 7) / 8;

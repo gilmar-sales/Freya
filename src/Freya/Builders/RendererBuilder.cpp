@@ -8,6 +8,7 @@
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/PhysicalDeviceBuilder.hpp"
 #include "Freya/Builders/RenderPassBuilder.hpp"
+#include "Freya/Builders/SsaoPassBuilder.hpp"
 #include "Freya/Builders/SurfaceBuilder.hpp"
 #include "Freya/Builders/TaaPassBuilder.hpp"
 #include "Freya/Core/LightService.hpp"
@@ -51,6 +52,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<DeferredCompressedPass> deferredPass;
         skr::Arc<BloomPass>              bloomPass;
         skr::Arc<TaaPass>                taaPass;
+        skr::Arc<SsaoPass>               ssaoPass;
         skr::Arc<CompositePass>          compositePass;
         skr::Arc<Image>                  forwardColorImage;
         skr::Arc<Image>                  bloomInputImage;
@@ -67,6 +69,9 @@ namespace FREYA_NAMESPACE
                 deferredPass->GetSceneColorImage());
 
             taaPass = mServiceProvider->GetService<TaaPassBuilder>()->Build(
+                mSwapChain);
+
+            ssaoPass = mServiceProvider->GetService<SsaoPassBuilder>()->Build(
                 mSwapChain);
 
             compositePass =
@@ -139,6 +144,7 @@ namespace FREYA_NAMESPACE
             deferredPass,
             bloomPass,
             taaPass,
+            ssaoPass,
             compositePass,
             mCommandPool,
             lightService,

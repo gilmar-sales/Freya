@@ -17,8 +17,10 @@ namespace FREYA_NAMESPACE
      *
      * Attachments: depth, albedo+matID, normal+flags, PBR, sceneColor HDR,
      * velocity RG16F.
-     * Subpasses: depth pre-pass → G-buffer (emissive into scene color) →
-     * fullscreen lighting (additive into scene color). TAA runs after End().
+     * Subpasses: depth pre-pass → G-buffer (emissive into scene color).
+     * SSAO runs after geometry End(). Lighting is a separate render pass
+     * (BeginLighting / EndLighting) with additive fullscreen shading.
+     * TAA runs after lighting.
      */
     enum : std::uint32_t
     {
@@ -60,6 +62,8 @@ namespace FREYA_NAMESPACE
             const skr::Arc<Image>&                      depthImage,
             const skr::Arc<Image>&                      translucentImage,
             const std::vector<vk::Framebuffer>&         framebuffers,
+            const vk::RenderPass                        lightingRenderPass,
+            const vk::Framebuffer                       lightingFramebuffer,
             const vk::DescriptorSetLayout               lightingSetLayout,
             const vk::DescriptorPool                    lightingDescriptorPool,
             const std::vector<vk::DescriptorSet>&       lightingSets,
@@ -113,6 +117,12 @@ namespace FREYA_NAMESPACE
         void DrawLighting(const skr::Arc<CommandPool>& commandPool,
                           std::uint32_t                frameIndex) const;
 
+        void BeginLighting(const skr::Arc<CommandPool>& commandPool,
+                           const skr::Arc<Image>&       ssaoImage,
+                           std::uint32_t                frameIndex) const;
+
+        void EndLighting(const skr::Arc<CommandPool>& commandPool) const;
+
         void End(const skr::Arc<CommandPool> commandPool) const;
 
         void UpdateProjection(const ProjectionUniformBuffer& buffer,
@@ -146,6 +156,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<Surface>      mSurface;
 
         vk::RenderPass mRenderPass;
+        vk::RenderPass mLightingRenderPass;
 
       private:
         vk::PipelineLayout mVertexPipelineLayout;
@@ -166,6 +177,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<Image>              mTranslucentImage;
 
         std::vector<vk::Framebuffer> mFramebuffers;
+        vk::Framebuffer              mLightingFramebuffer;
 
         vk::Extent2D mExtent;
 
@@ -178,6 +190,7 @@ namespace FREYA_NAMESPACE
         vk::Sampler             mGbufferSampler;
 
         mutable bool          mLabelActive    = false;
+        mutable bool          mLightingActive = false;
         mutable std::uint32_t mCurrentSubpass = DefDepthPrePass;
 
         static const char* GetSubpassLabel(std::uint32_t subpass);

@@ -40,7 +40,8 @@ namespace FREYA_NAMESPACE
         skr::Arc<DeferredCompressedPass> Build(
             const skr::Arc<SwapChain>& swapChain, vk::Extent2D extent = {});
 
-        vk::RenderPass createRenderPass() const;
+        vk::RenderPass createGeometryRenderPass() const;
+        vk::RenderPass createLightingRenderPass() const;
 
       private:
         skr::Arc<Device>               mDevice;

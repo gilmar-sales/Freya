@@ -84,9 +84,8 @@ namespace FREYA_NAMESPACE
                 .setDescriptorCount(2),
         };
         auto pool = mDevice->Get().createDescriptorPool(
-            vk::DescriptorPoolCreateInfo()
-                .setPoolSizes(poolSizes)
-                .setMaxSets(2));
+            vk::DescriptorPoolCreateInfo().setPoolSizes(poolSizes).setMaxSets(
+                2));
 
         auto layouts = std::vector { setLayout, setLayout };
         auto sets    = mDevice->Get().allocateDescriptorSets(
@@ -96,30 +95,27 @@ namespace FREYA_NAMESPACE
 
         std::array<vk::DescriptorSet, 2> descriptorSets = { sets[0], sets[1] };
 
-        auto pushRange =
-            vk::PushConstantRange()
-                .setStageFlags(vk::ShaderStageFlagBits::eCompute)
-                .setOffset(0)
-                .setSize(sizeof(float) * 4);
+        auto pushRange = vk::PushConstantRange()
+                             .setStageFlags(vk::ShaderStageFlagBits::eCompute)
+                             .setOffset(0)
+                             .setSize(sizeof(float) * 4);
 
         auto pipelineLayout = mDevice->Get().createPipelineLayout(
             vk::PipelineLayoutCreateInfo()
                 .setSetLayouts(setLayout)
                 .setPushConstantRanges(pushRange));
 
-        auto stage =
-            vk::PipelineShaderStageCreateInfo()
-                .setStage(vk::ShaderStageFlagBits::eCompute)
-                .setModule(shader->Get())
-                .setPName("main");
+        auto stage = vk::PipelineShaderStageCreateInfo()
+                         .setStage(vk::ShaderStageFlagBits::eCompute)
+                         .setModule(shader->Get())
+                         .setPName("main");
 
         auto pipeline =
             mDevice->Get()
                 .createComputePipeline(
                     nullptr,
-                    vk::ComputePipelineCreateInfo()
-                        .setStage(stage)
-                        .setLayout(pipelineLayout))
+                    vk::ComputePipelineCreateInfo().setStage(stage).setLayout(
+                        pipelineLayout))
                 .value;
 
         mDevice->Get().destroyShaderModule(shader->Get());

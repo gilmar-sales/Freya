@@ -17,16 +17,16 @@ namespace FREYA_NAMESPACE
     class TaaPass
     {
       public:
-        TaaPass(const skr::Arc<Device>&       device,
-                const skr::Arc<FreyaOptions>& freyaOptions,
-                vk::PipelineLayout            pipelineLayout,
-                vk::Pipeline                  pipeline,
-                vk::DescriptorSetLayout       setLayout,
-                vk::DescriptorPool            descriptorPool,
+        TaaPass(const skr::Arc<Device>&                 device,
+                const skr::Arc<FreyaOptions>&           freyaOptions,
+                vk::PipelineLayout                      pipelineLayout,
+                vk::Pipeline                            pipeline,
+                vk::DescriptorSetLayout                 setLayout,
+                vk::DescriptorPool                      descriptorPool,
                 const std::array<vk::DescriptorSet, 2>& descriptorSets,
                 const std::array<skr::Arc<Image>, 2>&   historyImages,
-                vk::Sampler                   sampler,
-                vk::Extent2D                  extent);
+                vk::Sampler                             sampler,
+                vk::Extent2D                            extent);
 
         ~TaaPass();
 
@@ -49,14 +49,14 @@ namespace FREYA_NAMESPACE
         skr::Arc<Device>       mDevice;
         skr::Arc<FreyaOptions> mFreyaOptions;
 
-        vk::PipelineLayout      mPipelineLayout;
-        vk::Pipeline            mPipeline;
-        vk::DescriptorSetLayout mSetLayout;
-        vk::DescriptorPool      mDescriptorPool;
+        vk::PipelineLayout               mPipelineLayout;
+        vk::Pipeline                     mPipeline;
+        vk::DescriptorSetLayout          mSetLayout;
+        vk::DescriptorPool               mDescriptorPool;
         std::array<vk::DescriptorSet, 2> mDescriptorSets;
         std::array<skr::Arc<Image>, 2>   mHistoryImages;
-        vk::Sampler             mSampler;
-        vk::Extent2D            mExtent;
+        vk::Sampler                      mSampler;
+        vk::Extent2D                     mExtent;
 
         mutable std::uint32_t mWriteIndex   = 0;
         mutable bool          mHistoryValid = false;
