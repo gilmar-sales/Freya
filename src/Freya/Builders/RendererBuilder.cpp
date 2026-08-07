@@ -44,15 +44,28 @@ namespace FREYA_NAMESPACE
             mServiceProvider->GetService<DeferredCompressedPassBuilder>()
                 ->Build(mSwapChain);
 
-        // Bloom extracts from pre-TAA Scene Color; composite uses TAA output.
-        auto bloomPass =
-            mServiceProvider->GetService<BloomPassBuilder>()->Build(
+        skr::Arc<BloomPass> bloomPass;
+        if (mFreyaOptions->enableBloom)
+        {
+            bloomPass = mServiceProvider->GetService<BloomPassBuilder>()->Build(
                 mSwapChain,
                 deferredPass->GetSceneColorImage());
-        auto taaPass =
-            mServiceProvider->GetService<TaaPassBuilder>()->Build(mSwapChain);
-        auto ssaoPass =
-            mServiceProvider->GetService<SsaoPassBuilder>()->Build(mSwapChain);
+        }
+
+        skr::Arc<TaaPass> taaPass;
+        if (mFreyaOptions->enableTaa)
+        {
+            taaPass = mServiceProvider->GetService<TaaPassBuilder>()->Build(
+                mSwapChain);
+        }
+
+        skr::Arc<SsaoPass> ssaoPass;
+        if (mFreyaOptions->enableSsao)
+        {
+            ssaoPass = mServiceProvider->GetService<SsaoPassBuilder>()->Build(
+                mSwapChain);
+        }
+
         auto compositePass =
             mServiceProvider->GetService<CompositePassBuilder>()->Build(
                 mSwapChain);

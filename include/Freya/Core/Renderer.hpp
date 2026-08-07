@@ -9,16 +9,22 @@
 #include "Freya/Core/CompositePass.hpp"
 #include "Freya/Core/DeferredCompressedPass.hpp"
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/IFrameStage.hpp"
 #include "Freya/Core/Instance.hpp"
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
 #include "Freya/Core/PickPass.hpp"
+#include "Freya/Core/RenderFrameContext.hpp"
 #include "Freya/Core/RenderTarget.hpp"
 #include "Freya/Core/ShadowPass.hpp"
 #include "Freya/Core/SsaoPass.hpp"
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Core/TaaPass.hpp"
 #include "Freya/Events/EventManager.hpp"
+
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace FREYA_NAMESPACE
 {
@@ -63,7 +69,7 @@ namespace FREYA_NAMESPACE
         void BeginFrame();
 
         /**
-         * @brief Finish deferred scene rendering, bloom, and composite.
+         * @brief Finish deferred scene rendering via registered frame stages.
          *
          * With an output target bound, begins a cleared swapchain UI render
          * pass and leaves the command buffer open for application drawing
@@ -83,10 +89,6 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief EndScene() followed by Present().
-         *
-         * Convenience for apps that do not record UI between scene and
-         * present. With an output target, the UI pass is begun and ended
-         * empty (cleared swapchain).
          */
         void EndFrame();
 
@@ -99,10 +101,6 @@ namespace FREYA_NAMESPACE
         vk::PipelineLayout GetActivePipelineLayout() const;
         vk::RenderPass     GetActiveRenderPass() const;
 
-        /**
-         * @brief Applies a shadow quality preset and rebuilds shadow maps
-         * plus lighting passes that sample them.
-         */
         void SetShadowQuality(ShadowQuality quality);
 
         [[nodiscard]] ShadowQuality GetShadowQuality() const
@@ -125,18 +123,7 @@ namespace FREYA_NAMESPACE
         }
         void SetDrawDistance(float drawDistance);
 
-        /**
-         * @brief Redirect scene composite output to an offscreen target.
-         *
-         * Scene/bloom size to the target extent. After EndScene the swapchain
-         * UI pass is open for the app to draw (e.g. ImGui); call Present to
-         * submit.
-         */
         void SetOutputTarget(const skr::Arc<RenderTarget>& target);
-
-        /**
-         * @brief Restore default composite destination (swapchain).
-         */
         void ClearOutputTarget();
 
         [[nodiscard]] skr::Arc<RenderTarget> GetOutputTarget() const
@@ -144,22 +131,10 @@ namespace FREYA_NAMESPACE
             return mOutputTarget;
         }
 
-        /**
-         * @brief Swapchain render pass used for UI after EndScene with an
-         * output target (Clear → ColorAttachment → PresentSrc).
-         *
-         * Use this when initializing ImGui (or another UI backend) so its
-         * pipeline matches the open pass between EndScene and Present.
-         */
         [[nodiscard]] vk::RenderPass GetUIRenderPass();
 
-        /**
-         * @brief Current frame command buffer (valid between BeginFrame and
-         * Present).
-         */
         [[nodiscard]] vk::CommandBuffer GetCommandBuffer();
 
-        // Draw commands with material binding
         void Draw(std::uint32_t meshId,
                   std::uint32_t materialId,
                   std::uint32_t entityId    = kPickMissId,
@@ -171,25 +146,31 @@ namespace FREYA_NAMESPACE
                            bool          castShadows   = true,
                            std::uint32_t entityId      = kPickMissId);
 
-        // Stored draw command management
         void ClearDrawCommands();
         void ExecuteDrawCommands(bool bindMaterials     = true,
                                  bool shadowCastersOnly = false);
         void ExecutePickDrawCommands();
 
-        /**
-         * @brief Queue a GPU pick at the given render-target pixel.
-         *
-         * The pick runs on the next EndScene; consume the result afterward
-         * with TryConsumePickResult.
-         */
         void RequestPick(std::uint32_t x, std::uint32_t y);
 
-        /**
-         * @brief Returns true and writes the entity ID when a pending pick
-         * readback is ready. kPickMissId means empty space.
-         */
         bool TryConsumePickResult(std::uint32_t& outEntityId);
+
+        /**
+         * @brief Insert a custom frame stage before the named stage.
+         * @return false if beforeName was not found
+         */
+        bool InsertFrameStage(const char* beforeName, FrameStagePtr stage);
+
+        /**
+         * @brief Replace the stage with the given name.
+         * @return false if name was not found
+         */
+        bool ReplaceFrameStage(const char* name, FrameStagePtr stage);
+
+        [[nodiscard]] const std::vector<FrameStagePtr>& GetFrameStages() const
+        {
+            return mFrameStages;
+        }
 
         glm::mat4 MakeProjection(float fovRadians, float aspect, float near,
                                  float far) const;
@@ -209,9 +190,6 @@ namespace FREYA_NAMESPACE
                           const glm::vec3& target,
                           const glm::vec3& up);
 
-        /**
-         * @brief Sets flat ambient fill stored in ProjectionUniformBuffer.
-         */
         void SetAmbient(const glm::vec3& color, float intensity);
 
         void UpdateModel(const glm::mat4& model) const;
@@ -238,15 +216,8 @@ namespace FREYA_NAMESPACE
       private:
         void blitBloomToFullRes(const skr::Arc<CommandPool>& commandPool) const;
 
-        /**
-         * @brief Extent used for scene/bloom/composite sizing.
-         */
         [[nodiscard]] vk::Extent2D getRenderExtent() const;
 
-        /**
-         * @brief Rebuild deferred and post-processing resources at render
-         * extent (keeps current swapchain).
-         */
         void rebuildSceneResources();
 
         void resizePickPass(vk::Extent2D extent);
@@ -261,11 +232,13 @@ namespace FREYA_NAMESPACE
 
         void commitTaaHistory();
 
-        /**
-         * @brief Begin a cleared swapchain render pass for application UI.
-         * Leaves the pass open until Present().
-         */
         void beginUIPass();
+
+        void registerDefaultFrameStages();
+
+        [[nodiscard]] RenderFrameContext makeFrameContext();
+
+        skr::Arc<Image> createSsaoFallbackImage() const;
 
         skr::Arc<skr::ServiceProvider>   mServiceProvider;
         skr::Arc<Instance>               mInstance;
@@ -289,7 +262,6 @@ namespace FREYA_NAMESPACE
         skr::Arc<RenderTarget>           mOutputTarget;
         bool                             mUIPassOpen = false;
 
-        // Mesh and Material pools for draw commands
         skr::Arc<MeshPool>     mMeshPool;
         skr::Arc<MaterialPool> mMaterialPool;
 
@@ -300,12 +272,12 @@ namespace FREYA_NAMESPACE
         std::uint32_t           mTaaFrameIndex = 0;
         vk::Sampler             mBloomResultSampler;
 
-        // Full-res bloom result image (blit target from half-res bloom up)
         skr::Arc<Image> mBloomResultImage;
+        skr::Arc<Image> mSsaoFallbackImage;
 
-        // Stored draw commands for reuse across passes (depth pre-pass,
-        // gbuffer)
         std::vector<DrawCommand> mDrawCommands;
+
+        std::vector<FrameStagePtr> mFrameStages;
 
         bool          mPickRequested        = false;
         std::uint32_t mPickX                = 0;

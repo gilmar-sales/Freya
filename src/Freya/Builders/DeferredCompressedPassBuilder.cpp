@@ -62,24 +62,19 @@ namespace FREYA_NAMESPACE
         auto renderPass         = createGeometryRenderPass();
         auto lightingRenderPass = createLightingRenderPass();
 
-        auto loadShader = [&](const std::string& path) {
+        const auto& root       = mFreyaOptions->shaderRoot;
+        auto        loadShader = [&](const std::string& relative) {
             return mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath(path)
+                ->SetFilePath(root + "/" + relative)
                 .Build();
         };
 
-        auto depthVert =
-            loadShader("./Resources/Shaders/DeferredCompressed/depth.vert.spv");
-        auto depthFrag =
-            loadShader("./Resources/Shaders/DeferredCompressed/depth.frag.spv");
-        auto gbufVert = loadShader(
-            "./Resources/Shaders/DeferredCompressed/gbuffer.vert.spv");
-        auto gbufFrag = loadShader(
-            "./Resources/Shaders/DeferredCompressed/gbuffer.frag.spv");
-        auto lightVert = loadShader(
-            "./Resources/Shaders/DeferredCompressed/lighting.vert.spv");
-        auto lightFrag = loadShader(
-            "./Resources/Shaders/DeferredCompressed/lighting.frag.spv");
+        auto depthVert = loadShader("DeferredCompressed/depth.vert.spv");
+        auto depthFrag = loadShader("DeferredCompressed/depth.frag.spv");
+        auto gbufVert  = loadShader("DeferredCompressed/gbuffer.vert.spv");
+        auto gbufFrag  = loadShader("DeferredCompressed/gbuffer.frag.spv");
+        auto lightVert = loadShader("DeferredCompressed/lighting.vert.spv");
+        auto lightFrag = loadShader("DeferredCompressed/lighting.frag.spv");
 
         auto makeStage = [](vk::ShaderModule        module,
                             vk::ShaderStageFlagBits stage) {

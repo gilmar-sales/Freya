@@ -6,12 +6,23 @@ A Vulkan-based rendering engine powered by [Skirnir](https://github.com/gilmar-s
 
 - **Vulkan-backed rendering** - Modern graphics API with high performance
 - **Deferred rendering** - G-buffer path with SSAO, TAA, bloom, and HDR composite
+- **Composable frame stages** - Insert or replace steps in `Renderer::EndScene`
+- **Feature flags** - Toggle SSAO / TAA / Bloom and set `shaderRoot` via options
 - **Custom render targets** - Redirect scene output to an offscreen
   `RenderTarget` at runtime (see [Core](core.md)); not configured via FreyaOptions
-- **Asset management** - Built-in support for meshes, textures, and materials
+- **Asset management** - Meshes, textures (file or memory), and PBR materials
 - **Event system** - Flexible pub/sub event handling for window, keyboard, mouse, and gamepad
-- **Builder pattern** - Fluent API for constructing renderer components
+- **Builder pattern** - Fluent API plus `FreyaExtension` configure hooks
 - **Skirnir integration** - IoC container for dependency injection
+
+## Headers
+
+```cpp
+#include <Freya/Freya.hpp>    // app surface
+#include <Freya/Vulkan.hpp>   // Renderer, passes, advanced builders
+```
+
+See [API boundary](api-boundary.md) and [Flexibility](flexibility.md).
 
 ## Dependencies
 
@@ -24,7 +35,7 @@ A Vulkan-based rendering engine powered by [Skirnir](https://github.com/gilmar-s
 ## Quick Start
 
 ```cpp
-#include <Freya/Core/AbstractApplication.hpp>
+#include <Freya/Freya.hpp>
 
 class MainApp final : public fra::AbstractApplication
 {
@@ -75,13 +86,8 @@ int main(int argc, const char** argv)
 
 ```
 Freya/
-├── src/Freya/
-│   ├── Core/           # Core engine components
-│   ├── Builders/       # Builder classes for fluent construction
-│   ├── Asset/          # Mesh, Texture, Material management
-│   ├── Events/         # Event system (pub/sub)
-│   └── Containers/     # Custom container data structures
-├── include/Freya/      # Public headers
+├── include/Freya/      # Public headers (Freya.hpp, Vulkan.hpp, …)
+├── src/Freya/          # .cpp implementations + Vendor/
 ├── Examples/           # Example applications
 ├── Shaders/            # GLSL/Vulkan shaders
 └── docs/               # Documentation
@@ -126,6 +132,10 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `maxSpotShadows` | `std::uint32_t` | `4` | Max concurrent spot shadow maps |
 | `maxPointShadows` | `std::uint32_t` | `2` | Max concurrent point cube shadows |
 | `shadowSampleCount` | `std::uint32_t` | `16` | Soft-shadow Poisson taps (1–16) |
+| `shaderRoot` | `std::string` | `./Resources/Shaders` | SPIR-V directory root |
+| `enableSsao` | `bool` | `true` | Run SSAO compute pass |
+| `enableTaa` | `bool` | `true` | Run TAA resolve + jitter |
+| `enableBloom` | `bool` | `true` | Run bloom extract/blur |
 
 Use `FreyaOptionsBuilder::SetShadowQuality(Low|Medium|High|Ultra)` to set
 resolution, cascades, spot/point slots, and tap count together.

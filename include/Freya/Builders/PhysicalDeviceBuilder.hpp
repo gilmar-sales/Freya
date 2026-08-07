@@ -3,6 +3,9 @@
 #include "Freya/Core/PhysicalDevice.hpp"
 #include "Freya/FreyaOptions.hpp"
 
+#include <algorithm>
+#include <vector>
+
 namespace FREYA_NAMESPACE
 {
     class Instance;
@@ -34,6 +37,30 @@ namespace FREYA_NAMESPACE
                   vk::PhysicalDeviceType::eVirtualGpu,
                   vk::PhysicalDeviceType::eOther })
         {
+        }
+
+        /**
+         * @brief Prefer devices of this type first (inserts at front of the
+         * priority list).
+         */
+        PhysicalDeviceBuilder& PreferDeviceType(vk::PhysicalDeviceType type)
+        {
+            mPhysicalDeviceTypePriorities.erase(
+                std::remove(mPhysicalDeviceTypePriorities.begin(),
+                            mPhysicalDeviceTypePriorities.end(),
+                            type),
+                mPhysicalDeviceTypePriorities.end());
+            mPhysicalDeviceTypePriorities.insert(
+                mPhysicalDeviceTypePriorities.begin(),
+                type);
+            return *this;
+        }
+
+        PhysicalDeviceBuilder& SetTypePriorities(
+            std::vector<vk::PhysicalDeviceType> priorities)
+        {
+            mPhysicalDeviceTypePriorities = std::move(priorities);
+            return *this;
         }
 
         /**

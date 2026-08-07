@@ -23,11 +23,10 @@ namespace FREYA_NAMESPACE
         if (extent.width == 0 || extent.height == 0)
             extent = mSurface->QueryExtent();
 
-        auto shader =
-            mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath(
-                    "./Resources/Shaders/DeferredCompressed/taa.comp.spv")
-                .Build();
+        auto shader = mServiceProvider->GetService<ShaderModuleBuilder>()
+                          ->SetFilePath(mFreyaOptions->shaderRoot +
+                                        "/DeferredCompressed/taa.comp.spv")
+                          .Build();
 
         auto createHistory = [&]() {
             return mServiceProvider->GetService<ImageBuilder>()

@@ -148,6 +148,16 @@ namespace FREYA_NAMESPACE
             mPhysicalDevice->QuerySwapChainSupport(mSurface->Get())
                 .presentModes;
 
+        if (mPreferredPresentMode)
+        {
+            if (std::ranges::find(presentModes.begin(),
+                                  presentModes.end(),
+                                  *mPreferredPresentMode) != presentModes.end())
+            {
+                return *mPreferredPresentMode;
+            }
+        }
+
         const auto presentModesByPriotiry =
             mFreyaOptions->vSync
                 ? std::vector { vk::PresentModeKHR::eFifo,

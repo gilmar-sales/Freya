@@ -27,6 +27,18 @@ namespace FREYA_NAMESPACE
 
         std::uint32_t CreateTextureFromFile(std::string path);
 
+        /**
+         * @brief Upload an RGBA (or raw) pixel buffer as a mipmapped texture.
+         * @param pixels   Row-major pixel bytes (not retained)
+         * @param width    Width in texels
+         * @param height   Height in texels
+         * @param channels Bytes per pixel (default 4 = RGBA8)
+         */
+        std::uint32_t CreateTextureFromMemory(const void*   pixels,
+                                              std::uint32_t width,
+                                              std::uint32_t height,
+                                              std::uint32_t channels = 4);
+
         Texture& GetTexture(std::uint32_t textureId)
         {
             mLogger->Assert(mTextures.contains(textureId),

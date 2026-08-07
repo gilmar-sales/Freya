@@ -35,16 +35,15 @@ namespace FREYA_NAMESPACE
             std::max(1u, extent.height / 2),
         };
 
-        auto loadShader = [&](const char* path) {
+        const auto& root       = mFreyaOptions->shaderRoot;
+        auto        loadShader = [&](const std::string& relative) {
             return mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath(path)
+                ->SetFilePath(root + "/" + relative)
                 .Build();
         };
 
-        auto ssaoShader =
-            loadShader("./Resources/Shaders/DeferredCompressed/ssao.comp.spv");
-        auto blurShader = loadShader(
-            "./Resources/Shaders/DeferredCompressed/ssao_blur.comp.spv");
+        auto ssaoShader = loadShader("DeferredCompressed/ssao.comp.spv");
+        auto blurShader = loadShader("DeferredCompressed/ssao_blur.comp.spv");
 
         auto imageBuilder = mServiceProvider->GetService<ImageBuilder>();
 

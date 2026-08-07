@@ -32,6 +32,20 @@ namespace FREYA_NAMESPACE
         {
         }
 
+        DeviceBuilder& AddExtension(const char* extension)
+        {
+            mDeviceExtensions.push_back(extension);
+            return *this;
+        }
+
+        DeviceBuilder& AddExtensions(const std::vector<const char*>& extensions)
+        {
+            mDeviceExtensions.insert(mDeviceExtensions.end(),
+                                     extensions.begin(),
+                                     extensions.end());
+            return *this;
+        }
+
         /**
          * @brief Builds and returns the Device object.
          * @return Shared pointer to created Device

@@ -77,6 +77,17 @@ namespace FREYA_NAMESPACE
         /// Soft-shadow Poisson samples (1–16). Used by lighting shaders.
         std::uint32_t shadowSampleCount = 16;
         bool          ReverseZ;
+
+        /// Directory containing DeferredCompressed/, Shadow/, Pick/ SPIR-V.
+        /// Paths are relative to the process working directory.
+        std::string shaderRoot = "./Resources/Shaders";
+
+        /// When false, SSAO compute is skipped; lighting uses a white AO map.
+        bool enableSsao = true;
+        /// When false, TAA resolve is skipped; composite uses scene color.
+        bool enableTaa = true;
+        /// When false, bloom extract/downsample/upsample is skipped.
+        bool enableBloom = true;
     };
 
     /**

@@ -1,6 +1,34 @@
 # Builders
 
-Freya uses the builder pattern to provide a fluent API for constructing engine components.
+Freya uses the builder pattern to provide a fluent API for constructing engine
+components. When using `FreyaExtension`, prefer its configure hooks instead of
+constructing builders manually.
+
+## FreyaExtension hooks
+
+```cpp
+.WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
+    freya.WithOptions([](fra::FreyaOptionsBuilder& o) {
+        o.SetTitle("My App")
+         .SetShaderRoot("./Resources/Shaders")
+         .SetEnableBloom(true);
+    })
+    .WithInstance([](fra::InstanceBuilder& b) {
+        b.SetApplicationVersion(1, 0, 0);
+    })
+    .WithPhysicalDevice([](fra::PhysicalDeviceBuilder& b) {
+        b.PreferDeviceType(vk::PhysicalDeviceType::eDiscreteGpu);
+    })
+    .WithDevice([](fra::DeviceBuilder& b) {
+        b.AddExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    })
+    .WithSwapChain([](fra::SwapChainBuilder& b) {
+        b.PreferPresentMode(vk::PresentModeKHR::eFifo);
+    });
+})
+```
+
+Shader SPIR-V paths are `shaderRoot + "/DeferredCompressed|Shadow|Pick/…"`.
 
 ## Overview
 
@@ -35,24 +63,22 @@ auto instance = InstanceBuilder(logger)
 
 ## DeviceBuilder
 
-Creates Vulkan logical `Device`.
+Creates Vulkan logical `Device`. Supports `AddExtension` / `AddExtensions`.
 
 ```cpp
-auto device = DeviceBuilder()
-    .SetPhysicalDevice(physicalDevice)
-    .SetSurface(surface)
-    .SetCommandPool(commandPool)
+auto device = serviceProvider->GetService<fra::DeviceBuilder>()
+    ->AddExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
     .Build();
 ```
 
 ## PhysicalDeviceBuilder
 
-Selects and configures Vulkan `PhysicalDevice` (GPU).
+Selects and configures Vulkan `PhysicalDevice` (GPU). Use
+`PreferDeviceType` or `SetTypePriorities`.
 
 ```cpp
-auto physicalDevice = PhysicalDeviceBuilder()
-    .SetSurface(surface)
-    .SetDeviceTypePreference(vk::PhysicalDeviceType::eDiscreteGpu)
+auto physicalDevice = serviceProvider->GetService<fra::PhysicalDeviceBuilder>()
+    ->PreferDeviceType(vk::PhysicalDeviceType::eDiscreteGpu)
     .Build();
 ```
 

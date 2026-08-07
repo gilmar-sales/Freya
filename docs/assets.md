@@ -1,114 +1,82 @@
 # Assets
 
-Freya provides a comprehensive asset management system for meshes, textures, and materials.
+Freya manages meshes, textures, and PBR materials through pool services.
 
 ## MeshPool
-
-Manages mesh resources loaded from 3D model files.
 
 ```cpp
 auto meshPool = serviceProvider->GetService<fra::MeshPool>();
 
-// Load mesh from file (supports FBX, OBJ, etc. via Assimp)
-std::vector<unsigned> mesh = meshPool->CreateMeshFromFile("./Resources/Models/MyModel.fbx");
+// From file (Assimp: FBX, OBJ, …). Returns one ID per mesh in the file.
+auto meshIds = meshPool->CreateMeshFromFile("./Resources/Models/MyModel.fbx");
 
-// Draw the mesh
-meshPool->Draw(mesh[0]);
-meshPool->DrawInstanced(mesh[0], instanceCount);
+// From memory (already CPU-side Freya vertices + uint16 indices)
+std::uint32_t meshId = meshPool->CreateMesh(vertices, indices);
 ```
 
-## TexturePool
+Draw submission goes through `Renderer::Draw` / `DrawInstanced` (the pool’s
+draw helpers are internal).
 
-Manages texture resources.
+## TexturePool
 
 ```cpp
 auto texturePool = serviceProvider->GetService<fra::TexturePool>();
 
-// Load texture from file
-std::uint32_t textureId = texturePool->CreateTextureFromFile("./Resources/Textures/mytexture.png");
+std::uint32_t fromFile =
+    texturePool->CreateTextureFromFile("./Resources/Textures/albedo.png");
 
-// Create empty texture with specified properties using ImageBuilder
-std::uint32_t emptyTexture = mRenderer->GetImageBuilder()
-    .SetWidth(1024)
-    .SetHeight(1024)
-    .SetFormat(vk::Format::eR8G8B8A8Srgb)
-    .SetUsage(ImageUsage::Texture)
-    .Build();
+// RGBA8 (or other channel count) already in memory
+std::vector<std::uint8_t> rgba = /* ... */;
+std::uint32_t fromMemory = texturePool->CreateTextureFromMemory(
+    rgba.data(), width, height, /*channels=*/4);
 ```
 
-## MaterialPool
+Both paths create a mipmapped image and linear anisotropic sampler.
 
-Manages materials combining multiple textures (albedo, normal, roughness, etc.).
+## MaterialPool
 
 ```cpp
 auto materialPool = serviceProvider->GetService<fra::MaterialPool>();
 
-// Create material with texture maps
-std::uint32_t material = materialPool->Create({
-    albedoTextureId,    // Base color
-    normalTextureId,     // Normal map
-    roughnessTextureId   // Roughness map
+std::uint32_t material = materialPool->Create(fra::MaterialCreateInfo {
+    .albedo     = albedoId,
+    .normal     = normalId,
+    .roughness  = roughnessId,
+    .emissive   = emissiveId,
+    .metalness  = metalnessId,
+    .albedoFactor    = { 1.f, 1.f, 1.f, 1.f },
+    .roughnessFactor = 1.f,
+    .metalnessFactor = 1.f,
+    .emissiveFactor  = { 1.f, 1.f, 1.f },
+    .aoFactor        = 1.f,   // constant AO into G-buffer
+    .alphaCutoff     = 0.f,   // 0 = off; else discard when alpha < cutoff
 });
 
-// Bind material for rendering
-materialPool->Bind(material);
+materialPool->Update(material, updatedCreateInfo);
 ```
 
-## Material Structure
+Descriptor set 1 bindings:
 
-Materials in Freya use a PBR (Physically Based Rendering) workflow with:
+| Binding | Content |
+|---------|---------|
+| 0–4 | Combined image samplers: albedo, normal, roughness, emissive, metalness |
+| 5 | `MaterialFactorsUniform` (48 bytes): factors, `aoFactor` in `emissive.w`, `alphaCutoff` |
 
-| Channel | Type | Description |
-|---------|------|-------------|
-| Albedo | `uint32_t` | Base color texture |
-| Normal | `uint32_t` | Normal map |
-| Roughness | `uint32_t` | Roughness map |
+Empty texture optionals use engine fallbacks (white or black). Alpha cutout
+samples albedo alpha × `albedoFactor.a` in the G-buffer pass only.
 
 ## Vertex
-
-Vertex data structure for mesh rendering.
 
 ```cpp
 struct Vertex
 {
     glm::vec3 position;
+    glm::vec3 color;
     glm::vec3 normal;
+    glm::vec3 tangent;
     glm::vec2 texCoord;
 };
 ```
 
-## Asset Loading Example
-
-```cpp
-void StartUp() override
-{
-    // Load textures
-    std::uint32_t albedo = mTexturePool->CreateTextureFromFile(
-        "./Resources/Textures/MyModel_BaseColor.png");
-    std::uint32_t normal = mTexturePool->CreateTextureFromFile(
-        "./Resources/Textures/MyModel_Normal.png");
-    std::uint32_t roughness = mTexturePool->CreateTextureFromFile(
-        "./Resources/Textures/MyModel_Roughness.png");
-
-    // Create material
-    std::uint32_t material = mMaterialPool->Create({albedo, normal, roughness});
-
-    // Load mesh
-    std::vector<unsigned> mesh = mMeshPool->CreateMeshFromFile(
-        "./Resources/Models/MyModel.fbx");
-}
-
-void Update() override
-{
-    mRenderer->BeginFrame();
-
-    mMaterialPool->Bind(material);
-
-    for (const auto& submesh : mesh)
-    {
-        mMeshPool->Draw(submesh);
-    }
-
-    mRenderer->EndFrame();
-}
-```
+Instancing uses a separate `mat4` instance buffer bound via
+`Renderer::BindBuffer`.

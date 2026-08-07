@@ -25,16 +25,15 @@ namespace FREYA_NAMESPACE
         // ------------------------------------------------------------------
         // Shaders
         // ------------------------------------------------------------------
-        auto loadShader = [&](const std::string& path) {
+        const auto& root       = mFreyaOptions->shaderRoot;
+        auto        loadShader = [&](const std::string& relative) {
             return mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath(path)
+                ->SetFilePath(root + "/" + relative)
                 .Build();
         };
 
-        auto vertShader = loadShader(
-            "./Resources/Shaders/DeferredCompressed/composing.vert.spv");
-        auto fragShader = loadShader(
-            "./Resources/Shaders/DeferredCompressed/composing.frag.spv");
+        auto vertShader = loadShader("DeferredCompressed/composing.vert.spv");
+        auto fragShader = loadShader("DeferredCompressed/composing.frag.spv");
 
         auto stages = std::array {
             vk::PipelineShaderStageCreateInfo()

@@ -20,10 +20,10 @@ layout (set = 1, binding = 4) uniform sampler2D uMetalnessTexture;
 
 layout (set = 1, binding = 5) uniform MaterialFactors {
     vec4 albedoFactor;
-    vec4 emissiveFactor; // xyz used, w unused
+    vec4 emissiveFactor; // xyz emissive, w = aoFactor
     vec2 roughMetal;     // x = roughnessFactor, y = metalnessFactor
     float materialId;    // 0–255
-    float _pad;
+    float alphaCutoff;   // 0 = cutout disabled
 } materialFactors;
 
 // Matches historical lighting emissive boost (was applied in lighting.frag).
@@ -43,6 +43,11 @@ vec3 srgbToLinear(vec3 c) {
 }
 
 void main() {
+    vec4 albedoSample = texture(uAlbedoTexture, inTexCoord);
+    float alpha = albedoSample.a * materialFactors.albedoFactor.a;
+    if (materialFactors.alphaCutoff > 0.0 && alpha < materialFactors.alphaCutoff)
+        discard;
+
     vec3 sampled = texture(uNormalTexture, inTexCoord).rgb;
     vec3 worldNormal;
     if (all(greaterThan(sampled, vec3(0.99)))) {
@@ -53,7 +58,7 @@ void main() {
     }
 
     vec3 albedoLin =
-        srgbToLinear(texture(uAlbedoTexture, inTexCoord).rgb) * inColor *
+        srgbToLinear(albedoSample.rgb) * inColor *
         materialFactors.albedoFactor.rgb;
 
     // Store gamma-space albedo for UNORM target; lighting applies pow(2.2).
@@ -69,7 +74,7 @@ void main() {
         max(texture(uRoughnessTexture, inTexCoord).r *
                 materialFactors.roughMetal.x,
             0.045);
-    float ao = 1.0;
+    float ao = clamp(materialFactors.emissiveFactor.w, 0.0, 1.0);
     float free = 0.0;
     outPbr = vec4(roughness, metalness, ao, free);
 

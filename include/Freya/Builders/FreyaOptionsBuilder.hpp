@@ -226,6 +226,30 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        FreyaOptionsBuilder& SetShaderRoot(const std::string& shaderRoot)
+        {
+            mFreyaOptions->shaderRoot = shaderRoot;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetEnableSsao(bool enable)
+        {
+            mFreyaOptions->enableSsao = enable;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetEnableTaa(bool enable)
+        {
+            mFreyaOptions->enableTaa = enable;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetEnableBloom(bool enable)
+        {
+            mFreyaOptions->enableBloom = enable;
+            return *this;
+        }
+
         /**
          * @brief Builds and returns the FreyaOptions object.
          * @return Shared pointer to configured FreyaOptions

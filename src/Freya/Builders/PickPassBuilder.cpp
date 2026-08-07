@@ -86,12 +86,12 @@ namespace FREYA_NAMESPACE
         // ------------------------------------------------------------------
         auto vertShader =
             mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath("./Resources/Shaders/Pick/pick.vert.spv")
+                ->SetFilePath(mFreyaOptions->shaderRoot + "/Pick/pick.vert.spv")
                 .Build();
 
         auto fragShader =
             mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath("./Resources/Shaders/Pick/pick.frag.spv")
+                ->SetFilePath(mFreyaOptions->shaderRoot + "/Pick/pick.frag.spv")
                 .Build();
 
         auto stages = std::array {

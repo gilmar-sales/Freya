@@ -14,11 +14,14 @@
 #include "Freya/Builders/TaaPassBuilder.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
+#include "Freya/Core/FrameStages.hpp"
 #include "Freya/Core/PickPass.hpp"
 #include "Freya/Core/ShadowPass.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <glm/gtc/matrix_inverse.hpp>
 
 namespace FREYA_NAMESPACE
@@ -135,6 +138,11 @@ namespace FREYA_NAMESPACE
                 mDeferredPass->GetTranslucentImage(), mBloomResultImage,
                 mBloomResultSampler);
         }
+
+        if (!mFreyaOptions->enableSsao)
+            mSsaoFallbackImage = createSsaoFallbackImage();
+
+        registerDefaultFrameStages();
     }
 
     Renderer::~Renderer()
@@ -176,12 +184,6 @@ namespace FREYA_NAMESPACE
     {
         const auto extent = getRenderExtent();
 
-        mDeferredPass.reset();
-        mTaaPass.reset();
-        mSsaoPass.reset();
-        mBloomPass.reset();
-        mCompositePass.reset();
-
         mBloomResultImage.reset();
         mBloomResultImage =
             mServiceProvider->GetService<ImageBuilder>()
@@ -195,33 +197,127 @@ namespace FREYA_NAMESPACE
         mPrevViewProjection = glm::mat4(1.0f);
         mTaaFrameIndex      = 0;
 
-        mDeferredPass =
-            mServiceProvider->GetService<DeferredCompressedPassBuilder>()
-                ->Build(mSwapChain, extent);
+        auto ctx = makeFrameContext();
+        for (auto& stage : mFrameStages)
+            stage->Rebuild(ctx, *mServiceProvider);
 
-        mBloomPass = mServiceProvider->GetService<BloomPassBuilder>()->Build(
-            mSwapChain, mDeferredPass->GetSceneColorImage(), extent);
-
-        mTaaPass = mServiceProvider->GetService<TaaPassBuilder>()->Build(
-            mSwapChain, extent);
-        mTaaPass->ResetHistory();
-
-        mSsaoPass = mServiceProvider->GetService<SsaoPassBuilder>()->Build(
-            mSwapChain, extent);
-
-        mCompositePass =
-            mServiceProvider->GetService<CompositePassBuilder>()->Build(
-                mSwapChain);
-
-        for (auto frame = 0; frame < mFreyaOptions->frameCount; frame++)
-        {
-            mCompositePass->UpdateDescriptorSet(
-                frame, mDeferredPass->GetSceneColorImage(),
-                mDeferredPass->GetTranslucentImage(), mBloomResultImage,
-                mBloomResultSampler);
-        }
+        if (!mFreyaOptions->enableSsao)
+            mSsaoFallbackImage = createSsaoFallbackImage();
+        else
+            mSsaoFallbackImage.reset();
 
         resizePickPass(extent);
+    }
+
+    void Renderer::registerDefaultFrameStages()
+    {
+        mFrameStages = {
+            std::make_shared<PickFrameStage>(),
+            std::make_shared<ShadowFrameStage>(),
+            std::make_shared<DeferredGeometryFrameStage>(),
+            std::make_shared<SsaoLightingFrameStage>(),
+            std::make_shared<TaaFrameStage>(),
+            std::make_shared<BloomFrameStage>(),
+            std::make_shared<CompositeFrameStage>(),
+        };
+    }
+
+    RenderFrameContext Renderer::makeFrameContext()
+    {
+        RenderFrameContext ctx;
+        ctx.commandPool          = mCommandPool;
+        ctx.swapChain            = mSwapChain;
+        ctx.options              = mFreyaOptions;
+        ctx.renderExtent         = getRenderExtent();
+        ctx.frameIndex           = mSwapChain->GetCurrentFrameIndex();
+        ctx.cameraNear           = mCameraNear;
+        ctx.projection           = &mCurrentProjection;
+        ctx.deferred             = &mDeferredPass;
+        ctx.ssao                 = &mSsaoPass;
+        ctx.taa                  = &mTaaPass;
+        ctx.bloom                = &mBloomPass;
+        ctx.composite            = &mCompositePass;
+        ctx.shadow               = &mShadowPass;
+        ctx.pick                 = &mPickPass;
+        ctx.lights               = &mLightService;
+        ctx.bloomResultImage     = &mBloomResultImage;
+        ctx.ssaoFallbackImage    = &mSsaoFallbackImage;
+        ctx.bloomResultSampler   = &mBloomResultSampler;
+        ctx.outputTarget         = &mOutputTarget;
+        ctx.pickRequested        = &mPickRequested;
+        ctx.pickX                = &mPickX;
+        ctx.pickY                = &mPickY;
+        ctx.pickAwaitingReadback = &mPickAwaitingReadback;
+
+        ctx.executeDraws = [this](bool bindMaterials, bool shadowCastersOnly) {
+            ExecuteDrawCommands(bindMaterials, shadowCastersOnly);
+        };
+        ctx.executePickDraws   = [this]() { ExecutePickDrawCommands(); };
+        ctx.blitBloomToFullRes = [this]() { blitBloomToFullRes(mCommandPool); };
+        ctx.beginComposite =
+            [this](std::uint32_t frameIndex, const skr::Arc<Image>& opaque,
+                   const skr::Arc<Image>& translucent, bool tonemapHdr) {
+                beginComposite(frameIndex, opaque, translucent, tonemapHdr);
+            };
+        ctx.commitTaaHistory = [this]() { commitTaaHistory(); };
+        ctx.resizePickPass   = [this](vk::Extent2D extent) {
+            resizePickPass(extent);
+        };
+        ctx.createSsaoFallback = [this]() { return createSsaoFallbackImage(); };
+        return ctx;
+    }
+
+    skr::Arc<Image> Renderer::createSsaoFallbackImage() const
+    {
+        constexpr std::uint8_t kWhite[] = { 255, 255, 255, 255 };
+        auto                   staging =
+            BufferBuilder(mDevice)
+                .SetUsage(BufferUsage::Staging)
+                .SetSize(sizeof(kWhite))
+                .SetData(const_cast<std::uint8_t*>(kWhite))
+                .Build();
+
+        return mServiceProvider->GetService<ImageBuilder>()
+            ->SetUsage(ImageUsage::Texture)
+            .SetFormat(vk::Format::eR8G8B8A8Unorm)
+            .SetWidth(1)
+            .SetHeight(1)
+            .SetChannels(4)
+            .SetStagingBuffer(staging)
+            .SetData(const_cast<std::uint8_t*>(kWhite))
+            .Build();
+    }
+
+    bool Renderer::InsertFrameStage(const char* beforeName, FrameStagePtr stage)
+    {
+        if (!stage || !beforeName)
+            return false;
+
+        const auto it = std::ranges::find_if(
+            mFrameStages, [&](const std::shared_ptr<IFrameStage>& s) {
+                return std::strcmp(s->Name(), beforeName) == 0;
+            });
+        if (it == mFrameStages.end())
+            return false;
+
+        mFrameStages.insert(it, std::move(stage));
+        return true;
+    }
+
+    bool Renderer::ReplaceFrameStage(const char* name, FrameStagePtr stage)
+    {
+        if (!stage || !name)
+            return false;
+
+        const auto it = std::ranges::find_if(
+            mFrameStages, [&](const std::shared_ptr<IFrameStage>& s) {
+                return std::strcmp(s->Name(), name) == 0;
+            });
+        if (it == mFrameStages.end())
+            return false;
+
+        *it = std::move(stage);
+        return true;
     }
 
     void Renderer::resizePickPass(const vk::Extent2D extent)
@@ -457,7 +553,9 @@ namespace FREYA_NAMESPACE
         auto upload                 = unjittered;
         upload.prevViewProjection   = mPrevViewProjection;
         upload.unjitteredProjection = unjittered.projection;
-        ApplyHaltonJitter(upload.projection, mTaaFrameIndex, getRenderExtent());
+        if (mFreyaOptions->enableTaa && mTaaPass)
+            ApplyHaltonJitter(upload.projection, mTaaFrameIndex,
+                              getRenderExtent());
         return upload;
     }
 
@@ -465,7 +563,8 @@ namespace FREYA_NAMESPACE
     {
         mPrevViewProjection =
             mCurrentProjection.projection * mCurrentProjection.view;
-        ++mTaaFrameIndex;
+        if (mFreyaOptions->enableTaa)
+            ++mTaaFrameIndex;
     }
 
     void Renderer::UpdateProjection(
@@ -780,136 +879,9 @@ namespace FREYA_NAMESPACE
 
     void Renderer::EndScene()
     {
-        if (mPickRequested && mPickPass)
-        {
-            resizePickPass(getRenderExtent());
-            mPickPass->Render(mCommandPool, mCurrentProjection,
-                              [this]() { ExecutePickDrawCommands(); });
-            mPickPass->CopyPixel(mCommandPool, mPickX, mPickY);
-            mPickRequested        = false;
-            mPickAwaitingReadback = true;
-        }
-
-        if (mShadowPass && mLightService)
-        {
-            const auto frameIndex = mSwapChain->GetCurrentFrameIndex();
-            mShadowPass->Update(
-                *mLightService,
-                mCurrentProjection.view,
-                mCurrentProjection.projection,
-                glm::vec3(glm::inverse(mCurrentProjection.view)[3]),
-                mCameraNear,
-                mFreyaOptions->drawDistance,
-                frameIndex);
-            mShadowPass->Render(mCommandPool, [this]() {
-                ExecuteDrawCommands(false, true);
-            });
-        }
-
-        const auto commandBuffer = mCommandPool->GetCommandBuffer();
-        const auto renderExtent  = getRenderExtent();
-        const auto frameIndex    = mSwapChain->GetCurrentFrameIndex();
-
-        auto setFullViewport = [&]() {
-            auto viewport =
-                vk::Viewport()
-                    .setX(0)
-                    .setY(0)
-                    .setWidth(static_cast<float>(renderExtent.width))
-                    .setHeight(static_cast<float>(renderExtent.height))
-                    .setMinDepth(0.0f)
-                    .setMaxDepth(1.0f);
-            auto scissor =
-                vk::Rect2D().setOffset({ 0, 0 }).setExtent(renderExtent);
-            commandBuffer.setViewport(0, 1, &viewport);
-            commandBuffer.setScissor(0, 1, &scissor);
-        };
-
-        {
-            mDeferredPass->Begin(mSwapChain, mCommandPool);
-            setFullViewport();
-
-            auto currentSubpass = mDeferredPass->GetCurrentSubpass();
-            if (currentSubpass == DefDepthPrePass)
-            {
-                ExecuteDrawCommands(false);
-                mDeferredPass->AdvanceSubpass(
-                    DefGBufferPass, mCommandPool, frameIndex);
-                ExecuteDrawCommands(true);
-            }
-            else if (currentSubpass == DefGBufferPass)
-            {
-                ExecuteDrawCommands(true);
-            }
-
-            mDeferredPass->End(mCommandPool);
-
-            if (mSsaoPass)
-            {
-                mSsaoPass->Dispatch(
-                    mCommandPool,
-                    mDeferredPass->GetDepthImage(),
-                    mDeferredPass->GetNormalImage(),
-                    mCurrentProjection.view,
-                    mCurrentProjection.unjitteredProjection,
-                    mFreyaOptions->ReverseZ);
-
-                mDeferredPass->BeginLighting(
-                    mCommandPool, mSsaoPass->GetOutputImage(), frameIndex);
-                setFullViewport();
-                mDeferredPass->DrawLighting(mCommandPool, frameIndex);
-                mDeferredPass->EndLighting(mCommandPool);
-            }
-
-            if (mTaaPass)
-            {
-                mTaaPass->Dispatch(mCommandPool,
-                                   mDeferredPass->GetSceneColorImage(),
-                                   mDeferredPass->GetVelocityImage());
-            }
-
-            // --- Bloom pass (half resolution, pre-TAA Scene Color) ---
-            const auto extent = getRenderExtent();
-            const auto halfW  = std::max(1u, extent.width / 2);
-            const auto halfH  = std::max(1u, extent.height / 2);
-
-            auto bloomViewport =
-                vk::Viewport()
-                    .setX(0)
-                    .setY(0)
-                    .setWidth(static_cast<float>(halfW))
-                    .setHeight(static_cast<float>(halfH))
-                    .setMinDepth(0.0f)
-                    .setMaxDepth(1.0f);
-
-            auto bloomScissor = vk::Rect2D().setOffset({ 0, 0 }).setExtent(
-                vk::Extent2D { halfW, halfH });
-
-            commandBuffer.setViewport(0, 1, &bloomViewport);
-            commandBuffer.setScissor(0, 1, &bloomScissor);
-
-            mBloomPass->Begin(mSwapChain, mCommandPool);
-            mBloomPass->DrawFullscreenTriangle(mCommandPool);
-            mBloomPass->AdvanceSubpass(
-                BloomDownsampleSubpass, mCommandPool, frameIndex);
-            mBloomPass->DrawFullscreenTriangle(mCommandPool);
-            mBloomPass->AdvanceSubpass(
-                BloomUpsampleSubpass, mCommandPool, frameIndex);
-            mBloomPass->DrawFullscreenTriangle(mCommandPool);
-            mBloomPass->End(mCommandPool);
-
-            blitBloomToFullRes(mCommandPool);
-
-            setFullViewport();
-            const auto compositeOpaque =
-                mTaaPass ? mTaaPass->GetOutputImage()
-                         : mDeferredPass->GetSceneColorImage();
-            beginComposite(frameIndex,
-                           compositeOpaque,
-                           mDeferredPass->GetTranslucentImage(),
-                           true);
-            commitTaaHistory();
-        }
+        auto ctx = makeFrameContext();
+        for (auto& stage : mFrameStages)
+            stage->Execute(ctx);
     }
 
     void Renderer::Present()

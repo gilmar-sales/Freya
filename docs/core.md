@@ -33,23 +33,40 @@ class MyApp final : public fra::AbstractApplication
 
 ## Renderer
 
-Main rendering coordinator. Handles frame management, swap chain, and rendering commands.
+Main rendering coordinator. Handles frame management, swap chain, and an
+ordered list of `IFrameStage` adapters that drive the deferred stack.
 
 ```cpp
 mRenderer->BeginFrame();
-// ... rendering commands ...
-mRenderer->EndFrame();
+// record draws via Draw / DrawInstanced
+mRenderer->EndFrame(); // EndScene + Present
 ```
+
+### Frame stages
+
+Default order:
+
+`Pick → Shadow → DeferredGeometry → SsaoLighting → Taa → Bloom → Composite`
+
+```cpp
+#include <Freya/Vulkan.hpp>
+
+mRenderer->InsertFrameStage("Composite", myStage);
+mRenderer->ReplaceFrameStage("Bloom", myBloom);
+```
+
+See [Flexibility](flexibility.md).
 
 ### Key Methods
 
 | Method | Description |
 |--------|-------------|
 | `BeginFrame()` | Start a new frame |
-| `EndScene()` | Finish scene/bloom/composite; with an output target, begin the UI swapchain pass |
+| `EndScene()` | Run frame stages; with an output target, begin the UI swapchain pass |
 | `Present()` | End UI pass (if open), submit the command buffer, and present |
 | `EndFrame()` | `EndScene()` + `Present()` (no mid-frame UI) |
 | `RebuildSwapChain()` | Recreate swap chain (e.g., on resize) |
+| `InsertFrameStage` / `ReplaceFrameStage` | Customize the frame graph |
 | `SetVSync(bool)` | Enable/disable vertical sync |
 | `SetSamples(uint32_t)` | Set MSAA sample count |
 | `SetDrawDistance(float)` | Set render distance |

@@ -58,20 +58,37 @@ namespace FREYA_NAMESPACE
 
         mLogger->Assert(imageData != nullptr, "\tFailed to load texture.");
 
+        const auto id = CreateTextureFromMemory(
+            imageData, static_cast<std::uint32_t>(width),
+            static_cast<std::uint32_t>(height), STBI_rgb_alpha);
+
+        stbi_image_free(imageData);
+        return id;
+    }
+
+    std::uint32_t TexturePool::CreateTextureFromMemory(const void*   pixels,
+                                                       std::uint32_t width,
+                                                       std::uint32_t height,
+                                                       std::uint32_t channels)
+    {
+        mLogger->LogTrace("TexturePool::CreateTextureFromMemory:");
+        mLogger->LogTrace("\tSize: {}x{} channels={}", width, height, channels);
+        mLogger->Assert(pixels != nullptr, "\tNull pixel data.");
+        mLogger->Assert(width > 0 && height > 0, "\tInvalid dimensions.");
+        mLogger->Assert(channels > 0, "\tInvalid channel count.");
+
         const auto stagingBuffer =
-            queryStagingBuffer(width * height * STBI_rgb_alpha);
+            queryStagingBuffer(width * height * channels);
 
         const auto image =
             mServiceProvider->GetService<ImageBuilder>()
                 ->SetUsage(ImageUsage::Texture)
                 .SetWidth(width)
                 .SetHeight(height)
-                .SetChannels(STBI_rgb_alpha)
+                .SetChannels(channels)
                 .SetStagingBuffer(stagingBuffer)
-                .SetData(imageData)
+                .SetData(const_cast<void*>(pixels))
                 .Build();
-
-        stbi_image_free(imageData);
 
         const auto mipLevels = image->GetMipLevels();
 
@@ -96,8 +113,8 @@ namespace FREYA_NAMESPACE
         const auto texture = Texture {
             .image   = image,
             .sampler = sampler,
-            .width   = static_cast<std::uint32_t>(width),
-            .height  = static_cast<std::uint32_t>(height),
+            .width   = width,
+            .height  = height,
             .id      = static_cast<std::uint32_t>(mTextures.size()),
         };
 

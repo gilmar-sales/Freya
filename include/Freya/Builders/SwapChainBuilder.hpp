@@ -4,6 +4,8 @@
 
 #include "Freya/FreyaOptions.hpp"
 
+#include <optional>
+
 namespace FREYA_NAMESPACE
 {
     class Instance;
@@ -35,6 +37,16 @@ namespace FREYA_NAMESPACE
         {
         }
 
+        /**
+         * @brief Prefer this present mode when the surface supports it.
+         * Overrides the default vSync priority list for the first choice.
+         */
+        SwapChainBuilder& PreferPresentMode(vk::PresentModeKHR mode)
+        {
+            mPreferredPresentMode = mode;
+            return *this;
+        }
+
         skr::Arc<SwapChain> Build();
 
       protected:
@@ -49,6 +61,7 @@ namespace FREYA_NAMESPACE
 
         skr::Arc<skr::Logger<SwapChainBuilder>> mLogger;
         skr::Arc<skr::ServiceProvider>          mServiceProvider;
+        std::optional<vk::PresentModeKHR>       mPreferredPresentMode;
     };
 
 } // namespace FREYA_NAMESPACE

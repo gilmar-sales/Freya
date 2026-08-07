@@ -62,7 +62,21 @@ add_library(Freya ${Freya_SRCS})
 add_library(Freya::Freya ALIAS Freya)
 
 target_compile_features(Freya PUBLIC cxx_std_26)
-target_include_directories(Freya PUBLIC include src ${Vulkan_INCLUDE_DIRS})
+target_include_directories(Freya
+        PUBLIC
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                $<INSTALL_INTERFACE:include>
+                ${Vulkan_INCLUDE_DIRS}
+        PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}/src
+                # Same-directory style includes in .cpp ("Renderer.hpp")
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Core
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Builders
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Asset
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Events
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Containers
+)
 target_link_libraries(Freya PUBLIC
         SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES} skirnir::skirnir)
 

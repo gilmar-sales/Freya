@@ -58,8 +58,8 @@ The CI `ctest` step runs against an empty suite.
 
 | Path | Purpose |
 |---|---|
-| `src/Freya/` | Library source: `Core/` (Renderer, Window, DeferredCompressedPass, etc.), `Builders/` (builder for every core object), `Asset/` (MeshPool, TexturePool, MaterialPool, MaterialDescriptorResources), `Containers/` (SparseSet, MeshSet), `Events/` (input event system), `Vendor/` (stb_image.h). Also `Pch.hpp`, `FreyaOptions.hpp`. |
-| `include/Freya/` | Public headers — umbrella `Freya.hpp` pulls in all public types. |
+| `include/Freya/` | Public headers. Umbrella `Freya.hpp` (app surface) and `Vulkan.hpp` (Renderer, passes, builders). Sources implement types declared here. |
+| `src/Freya/` | Library `.cpp` plus `Vendor/` (`stb_image.h`). Headers live under `include/Freya/`. |
 | `Examples/IndustrialPipeLamp/` | Only example; binary lands at `build/Examples/IndustrialPipeLamp/IndustrialPipeLamp`. |
 | `Shaders/` | GLSL sources: `DeferredCompressed/`, `Shadow/`, `Pick/`. |
 | `textures/` | Root-level texture (not used by the IndustrialPipeLamp example, which uses its own `Examples/IndustrialPipeLamp/Resources/Textures/`). |
@@ -93,4 +93,7 @@ The CI `ctest` step runs against an empty suite.
 - Extend `fra::AbstractApplication`; implement `StartUp()` and `Update()`.
 - Use `skr::ApplicationBuilder` with `WithExtension<fra::FreyaExtension>()` to configure.
 - Services (Renderer, Window, MeshPool, TexturePool, MaterialPool, LightService) obtained via `serviceProvider->GetService<T>()`.
-- FreyaOptions: title, dimensions, vSync, fullscreen, sampleCount, frameCount, clearColor, drawDistance, maxLights, ReverseZ.
+- FreyaOptions: title, dimensions, vSync, fullscreen, sampleCount, frameCount,
+  clearColor, drawDistance, maxLights, ReverseZ, shaderRoot,
+  enableSsao/enableTaa/enableBloom.
+- Advanced Vulkan types: `#include <Freya/Vulkan.hpp>`.

@@ -32,12 +32,14 @@ namespace FREYA_NAMESPACE
         // ------------------------------------------------------------------
         auto vertShader =
             mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath("./Resources/Shaders/Shadow/depth.vert.spv")
+                ->SetFilePath(
+                    mFreyaOptions->shaderRoot + "/Shadow/depth.vert.spv")
                 .Build();
 
         auto fragShader =
             mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath("./Resources/Shaders/Shadow/depth.frag.spv")
+                ->SetFilePath(
+                    mFreyaOptions->shaderRoot + "/Shadow/depth.frag.spv")
                 .Build();
 
         auto stages = std::array {
