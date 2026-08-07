@@ -54,7 +54,8 @@ namespace FREYA_NAMESPACE
         };
 
         // Depth.vert only consumes position (loc 0) and instance
-        // mat4 (loc 5–8). Declaring unused mesh attrs triggers
+        // model mat4 (loc 5–8). Stride still covers prevModel;
+        // unused mesh / prevModel attrs are omitted to avoid
         // validation warnings.
         auto vertexBinding = Vertex::GetBindingDescription();
         auto vertexAttributes =

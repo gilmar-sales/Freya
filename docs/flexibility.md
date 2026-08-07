@@ -59,6 +59,11 @@ Defaults match the previous always-on post stack. Disabling SSAO still runs
 lighting with a white AO fallback. Disabling TAA skips Halton jitter.
 Disabling bloom clears the bloom tap so composite stays dark for that input.
 
+TAA motion vectors use G-buffer velocity (current unjittered VP vs
+`prevViewProjection`, plus per-instance previous model matrices). Prefer
+`Renderer::SetInstanceModels` so Freya maintains that history; raw
+`BindBuffer` instance data will not supply correct object motion alone.
+
 ## DI configure hooks
 
 ```cpp

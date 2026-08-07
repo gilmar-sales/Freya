@@ -71,21 +71,14 @@ class MainApp final : public fra::AbstractApplication
 
 ### Instanced Rendering
 
-The example also demonstrates instanced rendering:
+Upload current models; Freya tracks the previous frame for TAA:
 
 ```cpp
-// Create instance buffer
-mInstanceMatrixBuffers = mRenderer->GetBufferBuilder()
-    .SetData(&mModelMatrix[0][0])
-    .SetSize(sizeof(glm::mat4) * 4)
-    .SetUsage(fra::BufferUsage::Instance)
-    .Build();
+glm::mat4 models[2] = { /* ... */ };
+mRenderer->SetInstanceModels(models, 2);
 
-// Draw instanced
-for (const auto& mesh : mSpaceShipModel)
-{
-    mMeshPool->DrawInstanced(mesh, 2);  // Draw 2 instances
-}
+for (const auto& mesh : mSofaModel)
+    mRenderer->DrawInstanced(mesh, mSofaMaterial, 2, 0);
 ```
 
 ## Running Examples

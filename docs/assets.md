@@ -78,5 +78,18 @@ struct Vertex
 };
 ```
 
-Instancing uses a separate `mat4` instance buffer bound via
-`Renderer::BindBuffer`.
+## Instancing
+
+Upload current-frame model matrices with `Renderer::SetInstanceModels`. Freya
+keeps the previous frame’s transforms internally for TAA motion vectors —
+apps do not track or upload `prevModel`.
+
+```cpp
+glm::mat4 models[N] = { /* current transforms */ };
+mRenderer->SetInstanceModels(models, N);
+mRenderer->DrawInstanced(meshId, materialId, N);
+```
+
+Call once per frame (after `BeginFrame`) before queueing draws. When the
+instance count changes, Freya rebuilds history (`prev == current` for that
+frame).

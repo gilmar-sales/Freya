@@ -332,18 +332,7 @@ class MainApp final : public fra::AbstractApplication
                                 mCameraPos + forward,
                                 glm::vec3(0.0f, 1.0f, 0.0f));
 
-        if (mInstanceMatrixBuffers == nullptr)
-            mInstanceMatrixBuffers =
-                mRenderer->GetBufferBuilder()
-                    .SetData(&mModelMatrix[0][0])
-                    .SetSize(sizeof(glm::mat4) * kInstanceCount)
-                    .SetUsage(fra::BufferUsage::Instance)
-                    .Build();
-        else
-            mInstanceMatrixBuffers->Copy(&mModelMatrix[0][0],
-                                         sizeof(glm::mat4) * kInstanceCount);
-
-        mRenderer->BindBuffer(mInstanceMatrixBuffers);
+        mRenderer->SetInstanceModels(mModelMatrix, kInstanceCount);
 
         // Two lamps cast/receive shadows onto each other and the ground.
         for (const auto& mesh : mSofaModel)
@@ -640,8 +629,6 @@ class MainApp final : public fra::AbstractApplication
     glm::mat4                   mModelMatrix[kInstanceCount] {};
     float                       mCurrentTime {};
     std::vector<AnimatedLight>  mAnimatedLights;
-
-    skr::Arc<fra::Buffer> mInstanceMatrixBuffers;
 
     std::unordered_set<std::uint32_t> mKeysHeld;
     bool                              mLookHeld  = false;

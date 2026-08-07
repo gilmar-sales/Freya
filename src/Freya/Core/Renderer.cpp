@@ -781,6 +781,57 @@ namespace FREYA_NAMESPACE
             &model);
     }
 
+    void Renderer::SetInstanceModels(const glm::mat4*  models,
+                                     const std::size_t count)
+    {
+        if (count == 0 || models == nullptr)
+        {
+            mInstanceTransforms.clear();
+            mInstanceTransformBuffer.reset();
+            mInstanceHistoryFrame = std::numeric_limits<std::uint32_t>::max();
+            return;
+        }
+
+        const auto frameIndex = GetCurrentFrameIndex();
+        const bool newFrame   = frameIndex != mInstanceHistoryFrame;
+        const bool rebuilt =
+            mInstanceTransforms.size() != count || !mInstanceTransformBuffer;
+        mInstanceHistoryFrame = frameIndex;
+
+        if (rebuilt)
+        {
+            mInstanceTransforms.resize(count);
+            for (std::size_t i = 0; i < count; ++i)
+            {
+                mInstanceTransforms[i].model     = models[i];
+                mInstanceTransforms[i].prevModel = models[i];
+            }
+
+            mInstanceTransformBuffer =
+                GetBufferBuilder()
+                    .SetData(mInstanceTransforms.data())
+                    .SetSize(sizeof(InstanceTransform) * count)
+                    .SetUsage(BufferUsage::Instance)
+                    .Build();
+        }
+        else
+        {
+            for (std::size_t i = 0; i < count; ++i)
+            {
+                if (newFrame)
+                {
+                    mInstanceTransforms[i].prevModel =
+                        mInstanceTransforms[i].model;
+                }
+                mInstanceTransforms[i].model = models[i];
+            }
+            mInstanceTransformBuffer->Copy(mInstanceTransforms.data(),
+                                           sizeof(InstanceTransform) * count);
+        }
+
+        BindBuffer(mInstanceTransformBuffer);
+    }
+
     BufferBuilder Renderer::GetBufferBuilder() const
     {
         return BufferBuilder(mDevice);
@@ -838,6 +889,11 @@ namespace FREYA_NAMESPACE
     void Renderer::ExecuteDrawCommands(const bool bindMaterials,
                                        const bool shadowCastersOnly)
     {
+        if (mInstanceTransformBuffer)
+        {
+            BindBuffer(mInstanceTransformBuffer);
+        }
+
         for (const auto& cmd : mDrawCommands)
         {
             if (shadowCastersOnly && !cmd.castShadows)
@@ -858,6 +914,11 @@ namespace FREYA_NAMESPACE
         if (!mPickPass)
         {
             return;
+        }
+
+        if (mInstanceTransformBuffer)
+        {
+            BindBuffer(mInstanceTransformBuffer);
         }
 
         for (const auto& cmd : mDrawCommands)

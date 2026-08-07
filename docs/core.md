@@ -78,6 +78,7 @@ See [Flexibility](flexibility.md).
 | `GetUIRenderPass()` | Swapchain render pass for UI (ImGui pipeline init) |
 | `GetCommandBuffer()` | Current-frame command buffer |
 | `BindBuffer(Buffer)` | Bind a buffer for rendering |
+| `SetInstanceModels(const mat4*, size_t)` | Upload instance models; Freya tracks previous for TAA |
 | `GetCurrentFrameIndex()` | Get current frame index |
 | `GetFrameCount()` | Get total frame count |
 | `CalculateProjectionMatrix(float near, float far)` | Calculate projection matrix |

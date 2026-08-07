@@ -28,7 +28,8 @@ namespace FREYA_NAMESPACE
          * @brief Returns Vulkan vertex input binding descriptions.
          *
          * Binding 0: Vertex data (stride = sizeof(Vertex))
-         * Binding 1: Instance data (stride = sizeof(glm::mat4))
+         * Binding 1: Instance data (managed by
+         * `Renderer::SetInstanceModels`)
          */
         static std::vector<vk::VertexInputBindingDescription>
         GetBindingDescription();
@@ -36,8 +37,10 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Returns Vulkan vertex attribute descriptions.
          *
-         * Location 0-4: Vertex attributes (position, color, normal, tangent,
-         * texCoord) Location 5-8: Instance matrix columns (mat4)
+         * Location 0-4: Vertex attributes (position, color, normal,
+         * tangent, texCoord)
+         * Location 5-8 / 9-12: Instance current / previous model
+         * (engine layout)
          */
         static std::vector<vk::VertexInputAttributeDescription>
         GetAttributesDescription();

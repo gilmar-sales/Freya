@@ -22,9 +22,12 @@
 #include "Freya/Core/TaaPass.hpp"
 #include "Freya/Events/EventManager.hpp"
 
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "Freya/Asset/InstanceTransform.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -157,12 +160,27 @@ namespace FREYA_NAMESPACE
                   std::uint32_t materialId,
                   std::uint32_t entityId    = kPickMissId,
                   bool          castShadows = true);
+        /**
+         * @brief Queue an instanced draw. Call `SetInstanceModels` once per
+         *        frame before recording draws so Freya can bind transforms
+         *        (and previous-frame data for TAA).
+         */
         void DrawInstanced(std::uint32_t meshId,
                            std::uint32_t materialId,
                            size_t        instanceCount,
                            size_t        firstInstance = 0,
                            bool          castShadows   = true,
                            std::uint32_t entityId      = kPickMissId);
+
+        /**
+         * @brief Upload current-frame instance model matrices.
+         *
+         * Freya keeps the previous frame’s transforms for TAA motion
+         * vectors. On the first call (or when `count` changes) previous
+         * equals current. Replaces a manual instance `Buffer` for mesh
+         * draws — no need to track `prevModel` in the app.
+         */
+        void SetInstanceModels(const glm::mat4* models, std::size_t count);
 
         void ClearDrawCommands();
         void ExecuteDrawCommands(bool bindMaterials     = true,
@@ -297,6 +315,11 @@ namespace FREYA_NAMESPACE
         skr::Arc<Image> mSsaoFallbackImage;
 
         std::vector<DrawCommand> mDrawCommands;
+
+        std::vector<InstanceTransform> mInstanceTransforms;
+        skr::Arc<Buffer>               mInstanceTransformBuffer;
+        std::uint32_t                  mInstanceHistoryFrame =
+            std::numeric_limits<std::uint32_t>::max();
 
         std::vector<FrameStagePtr> mFrameStages;
 
