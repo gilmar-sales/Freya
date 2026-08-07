@@ -18,20 +18,20 @@ namespace FREYA_NAMESPACE
     constexpr auto MegaBytes = 1024 * 1024;
 
     TexturePool::TexturePool(
-        const skr::Arc<skr::ServiceProvider>& serviceProvider,
-        const skr::Arc<Device>&               device,
-        const skr::Arc<CommandPool>&          commandPool,
-        const skr::Arc<RenderPass>&           renderPass) :
+        const skr::Arc<skr::ServiceProvider>&        serviceProvider,
+        const skr::Arc<Device>&                      device,
+        const skr::Arc<CommandPool>&                 commandPool,
+        const skr::Arc<MaterialDescriptorResources>& materials) :
         mServiceProvider(serviceProvider), mDevice(device),
-        mCommandPool(commandPool), mRenderPass(renderPass)
+        mCommandPool(commandPool), mMaterialsRes(materials)
     {
         mLogger = mServiceProvider->GetService<skr::Logger<TexturePool>>();
         stbi_set_flip_vertically_on_load(true);
 
         const auto samplerDescriptorSetAllocInfo =
             vk::DescriptorSetAllocateInfo()
-                .setSetLayouts(mRenderPass->GetSamplerLayout())
-                .setDescriptorPool(mRenderPass->GetSamplerDescriptorPool());
+                .setSetLayouts(mMaterialsRes->GetSamplerLayout())
+                .setDescriptorPool(mMaterialsRes->GetSamplerDescriptorPool());
 
         mTextureDescriptorSet = mDevice->Get().allocateDescriptorSets(
             samplerDescriptorSetAllocInfo)[0];

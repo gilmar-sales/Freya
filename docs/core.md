@@ -136,10 +136,6 @@ Vulkan swap chain for framebuffer management.
 
 Vulkan physical device (GPU) selection and properties.
 
-## RenderPass
-
-Vulkan render pass configuration.
-
 ## CommandPool
 
 Command buffer pool for recording rendering commands.
@@ -159,7 +155,7 @@ Uniform buffer for shader data.
 ## LightService
 
 Manages analytical lights (point, directional, spot, area) and uploads them
-to a shared UBO used by Forward and DeferredCompressed lighting.
+to a shared UBO used by DeferredCompressed lighting.
 
 `FreyaOptions::maxLights` (default 16, see `MAX_LIGHTS`) caps how many lights
 `AddLight` accepts. Shader arrays are fixed at 16 entries.
@@ -171,7 +167,7 @@ to a shared UBO used by Forward and DeferredCompressed lighting.
 | Point | `MakePointLight(pos, color, radius, intensity)` | Attenuates by distance |
 | Directional | `MakeDirectionalLight(dir, color, intensity)` | Direction is normalized |
 | Spot | `MakeSpotLight(pos, dir, color, radius, innerRad, outerRad, intensity)` | Cone angles in radians; stored as cosines |
-| Area | `MakeAreaLight(center, normal, tangent, halfW, halfH, color, intensity)` | Rect panel; LTC in Forward + Deferred |
+| Area | `MakeAreaLight(center, normal, tangent, halfW, halfH, color, intensity)` | Rect panel; LTC in Deferred lighting |
 
 Spot/inner and outer cutoffs on `Light` are **cosines** of the cone half-angles.
 The spot factory converts radians for you.
@@ -260,12 +256,11 @@ procedural sky; if the file is missing, the procedural sky is used as well.
 | LTC matrix/ampl | Linearly Transformed Cosines for area lights |
 
 Configure with `SetIblIntensity` / `SetEnvironmentMapPath` on
-`FreyaOptionsBuilder`. Forward set 0 bindings 2–4 sample IBL; bindings 5–6
-are LTC LUTs. Deferred lighting bindings 7–9 sample IBL; 10–11 are LTC.
+`FreyaOptionsBuilder`. Deferred lighting bindings 7–9 sample IBL; 10–11 are LTC.
 
 ## Shadows
 
-`ShadowPass` runs before Forward / Deferred geometry each frame and produces:
+`ShadowPass` runs before deferred geometry each frame and produces:
 
 | Target | Technique | Limit |
 |--------|-----------|--------|
@@ -290,8 +285,8 @@ Defaults without a preset: 4 cascades, 2048², bias `0.002`, 4 spot /
 descriptor stub instead of a full-resolution atlas.
 
 Lighting shaders multiply each light’s radiance by a PCF shadow factor
-(hardware compare samplers). Forward set 0 bindings 7–10 hold the shadow UBO
-and cascade / spot / point maps; Deferred lighting uses bindings 12–15.
+(hardware compare samplers). Deferred lighting bindings 12–15 hold the shadow
+UBO and cascade / spot / point maps.
 
 ## DeferredCompressedPass
 

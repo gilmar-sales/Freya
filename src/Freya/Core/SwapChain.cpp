@@ -6,12 +6,8 @@ namespace FREYA_NAMESPACE
 
     SwapChain::~SwapChain()
     {
-        mDepthImage.reset();
-        mSampleImage.reset();
-
         for (const auto& frame : mFrames)
         {
-            mDevice->Get().destroyFramebuffer(frame.frameBuffer);
             mDevice->Get().destroyImageView(frame.imageView);
         }
 
@@ -87,8 +83,6 @@ namespace FREYA_NAMESPACE
             mImageAvailableSemaphores[mCurrentFrameIndex]
         };
 
-        // Use the image-specific render-finished semaphore so it is never
-        // reused for a different swapchain image before presentation completes.
         std::vector<vk::Semaphore> signalSemaphores = {
             mRenderFinishedSemaphores[mCurrentImageIndex]
         };

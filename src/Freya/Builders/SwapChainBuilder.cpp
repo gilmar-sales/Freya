@@ -1,10 +1,8 @@
 #include "Freya/Builders/SwapChainBuilder.hpp"
 
-#include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/SurfaceBuilder.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
-#include "Freya/Core/RenderPass.hpp"
 
 #include <vulkan/vulkan_to_string.hpp>
 
@@ -17,9 +15,6 @@ namespace FREYA_NAMESPACE
         auto surfaceFormat = mSurface->QuerySurfaceFormat();
         auto presentMode   = choosePresentMode();
         auto extent        = mSurface->QueryExtent();
-
-        const auto vkSampleCount =
-            static_cast<vk::SampleCountFlagBits>(mFreyaOptions->sampleCount);
 
         mLogger->LogTrace("\tFrame Count: {}", mFreyaOptions->frameCount);
 
@@ -102,47 +97,6 @@ namespace FREYA_NAMESPACE
                             "\tFailed to create image views");
         }
 
-        auto depthImage =
-            mServiceProvider->GetService<ImageBuilder>()
-                ->SetUsage(ImageUsage::Depth)
-                .SetSamples(vkSampleCount)
-                .SetWidth(extent.width)
-                .SetHeight(extent.height)
-                .Build();
-
-        auto sampleImage =
-            mServiceProvider->GetService<ImageBuilder>()
-                ->SetUsage(ImageUsage::Sampling)
-                .SetSamples(vkSampleCount)
-                .SetWidth(extent.width)
-                .SetHeight(extent.height)
-                .Build();
-
-        for (auto index = 0; index < swapChainImages.size(); index++)
-        {
-            auto attachments =
-                vkSampleCount != vk::SampleCountFlagBits::e1
-                    ? std::vector<vk::ImageView> { sampleImage->GetImageView(),
-                                                   depthImage->GetImageView(),
-                                                   frames[index].imageView }
-                    : std::vector<vk::ImageView> { frames[index].imageView,
-                                                   depthImage->GetImageView() };
-
-            auto framebufferInfo =
-                vk::FramebufferCreateInfo()
-                    .setRenderPass(mRenderPass->Get())
-                    .setAttachments(attachments)
-                    .setWidth(extent.width)
-                    .setHeight(extent.height)
-                    .setLayers(1);
-
-            frames[index].frameBuffer =
-                mDevice->Get().createFramebuffer(framebufferInfo);
-
-            mLogger->Assert(frames[index].frameBuffer,
-                            "\tFailed to create framebuffer");
-        }
-
         auto imageAvailableSemaphores =
             std::vector<vk::Semaphore>(mFreyaOptions->frameCount);
 
@@ -156,9 +110,6 @@ namespace FREYA_NAMESPACE
         constexpr auto fenceInfo =
             vk::FenceCreateInfo().setFlags(vk::FenceCreateFlagBits::eSignaled);
 
-        // image-available semaphores and fences use frameCount (ring-buffer
-        // index); render-finished semaphores use swapchain image count so each
-        // image owns its own semaphore and avoids reuse-before-presentation.
         for (size_t i = 0; i < mFreyaOptions->frameCount; i++)
         {
             imageAvailableSemaphores[i] =
@@ -173,8 +124,10 @@ namespace FREYA_NAMESPACE
                 mDevice->Get().createSemaphore(semaphoreInfo);
 
             mLogger->Assert(
-                imageAvailableSemaphores[i] && renderFinishedSemaphores[i] &&
-                    inFlightFences[i],
+                imageAvailableSemaphores
+                        [i < imageAvailableSemaphores.size() ? i : 0] &&
+                    renderFinishedSemaphores[i] &&
+                    inFlightFences[i < inFlightFences.size() ? i : 0],
                 "\tFailed to create synchronization objects for a frame");
         }
 
@@ -184,8 +137,6 @@ namespace FREYA_NAMESPACE
             mSurface,
             swapChain,
             frames,
-            depthImage,
-            sampleImage,
             imageAvailableSemaphores,
             renderFinishedSemaphores,
             inFlightFences);

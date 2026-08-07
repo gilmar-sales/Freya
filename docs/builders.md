@@ -83,19 +83,6 @@ auto swapChain = SwapChainBuilder()
     .Build();
 ```
 
-## RenderPassBuilder
-
-Creates Vulkan `RenderPass`.
-
-```cpp
-auto renderPass = RenderPassBuilder()
-    .SetSurface(surface)
-    .SetPhysicalDevice(physicalDevice)
-    .SetDevice(device)
-    .SetSamples(4)
-    .Build();
-```
-
 ## CommandPoolBuilder
 
 Creates `CommandPool` for command buffer management.
@@ -109,12 +96,12 @@ auto commandPool = CommandPoolBuilder()
 
 ## RendererBuilder
 
-Creates the main `Renderer` instance.
+Creates the main `Renderer` instance (deferred compressed scene path).
 
 ```cpp
 auto renderer = RendererBuilder(
     instance, surface, physicalDevice, device,
-    commandPool, swapChain, renderPass, eventManager,
+    commandPool, swapChain, eventManager,
     window, freyaOptions, serviceProvider)
     .Build();
 ```
@@ -212,8 +199,7 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
         .SetSampleCount(8)
         .SetFullscreen(false)
         .SetDrawDistance(1000.0f)
-        .SetShadowQuality(fra::ShadowQuality::Medium)
-        .SetRenderingStrategy(fra::RenderingStrategy::Forward);
+        .SetShadowQuality(fra::ShadowQuality::Medium);
 });
 ```
 
@@ -223,11 +209,11 @@ Individual setters can still override fields after the preset.
 
 ## DeferredCompressedPassBuilder
 
-Creates deferred rendering passes with G-buffer compression.
+Creates the deferred geometry / lighting passes (G-buffer + Scene Color HDR).
 
 ```cpp
 auto deferredPass = DeferredCompressedPassBuilder(device, surface, freyaOptions, serviceProvider)
-    .Build();
+    .Build(swapChain);
 ```
 
-Used for deferred rendering strategies to efficiently compress G-buffer data.
+Built internally by `RendererBuilder`; not typically constructed by apps.

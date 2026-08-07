@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Asset/MaterialDescriptorResources.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
@@ -53,24 +54,23 @@ namespace FREYA_NAMESPACE
             const vk::Pipeline            gbufferPipeline,
             const vk::Pipeline            lightingPipeline,
             const skr::Arc<Buffer>&       uniformBuffer,
-            const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
-            const std::vector<vk::DescriptorSet>&       descriptorSets,
-            const vk::DescriptorPool                    descriptorPool,
-            const std::vector<skr::Arc<Image>>&         gbufferImages,
-            const skr::Arc<Image>&                      sceneColorImage,
-            const skr::Arc<Image>&                      velocityImage,
-            const skr::Arc<Image>&                      depthImage,
-            const skr::Arc<Image>&                      translucentImage,
-            const std::vector<vk::Framebuffer>&         framebuffers,
-            const vk::RenderPass                        lightingRenderPass,
-            const vk::Framebuffer                       lightingFramebuffer,
-            const vk::DescriptorSetLayout               lightingSetLayout,
-            const vk::DescriptorPool                    lightingDescriptorPool,
-            const std::vector<vk::DescriptorSet>&       lightingSets,
-            const vk::DescriptorSetLayout               samplerLayout,
-            const vk::DescriptorPool                    samplerDescriptorPool,
-            const vk::Sampler                           gbufferSampler,
-            vk::Extent2D                                extent);
+            const std::vector<vk::DescriptorSetLayout>&  descriptorSetLayouts,
+            const std::vector<vk::DescriptorSet>&        descriptorSets,
+            const vk::DescriptorPool                     descriptorPool,
+            const std::vector<skr::Arc<Image>>&          gbufferImages,
+            const skr::Arc<Image>&                       sceneColorImage,
+            const skr::Arc<Image>&                       velocityImage,
+            const skr::Arc<Image>&                       depthImage,
+            const skr::Arc<Image>&                       translucentImage,
+            const std::vector<vk::Framebuffer>&          framebuffers,
+            const vk::RenderPass                         lightingRenderPass,
+            const vk::Framebuffer                        lightingFramebuffer,
+            const vk::DescriptorSetLayout                lightingSetLayout,
+            const vk::DescriptorPool                     lightingDescriptorPool,
+            const std::vector<vk::DescriptorSet>&        lightingSets,
+            const skr::Arc<MaterialDescriptorResources>& materialResources,
+            const vk::Sampler                            gbufferSampler,
+            vk::Extent2D                                 extent);
 
         ~DeferredCompressedPass();
 
@@ -133,11 +133,14 @@ namespace FREYA_NAMESPACE
             return mDescriptorSets[frameIndex];
         }
 
-        vk::DescriptorSetLayout& GetSamplerLayout() { return mSamplerLayout; }
+        vk::DescriptorSetLayout& GetSamplerLayout()
+        {
+            return mMaterialResources->GetSamplerLayout();
+        }
 
         vk::DescriptorPool& GetSamplerDescriptorPool()
         {
-            return mSamplerDescriptorPool;
+            return mMaterialResources->GetSamplerDescriptorPool();
         }
 
         skr::Arc<Buffer> GetUniformBuffer() { return mUniformBuffer; }
@@ -185,13 +188,13 @@ namespace FREYA_NAMESPACE
         vk::DescriptorPool             mLightingDescriptorPool;
         std::vector<vk::DescriptorSet> mLightingSets;
 
-        vk::DescriptorSetLayout mSamplerLayout;
-        vk::DescriptorPool      mSamplerDescriptorPool;
-        vk::Sampler             mGbufferSampler;
+        skr::Arc<MaterialDescriptorResources> mMaterialResources;
+        vk::Sampler                           mGbufferSampler;
 
         mutable bool          mLabelActive    = false;
         mutable bool          mLightingActive = false;
         mutable std::uint32_t mCurrentSubpass = DefDepthPrePass;
+        mutable vk::ImageView mBoundSsaoView  = {};
 
         static const char* GetSubpassLabel(std::uint32_t subpass);
     };

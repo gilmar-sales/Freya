@@ -5,15 +5,6 @@
 namespace FREYA_NAMESPACE
 {
     /**
-     * @brief Rendering strategy enumeration.
-     */
-    enum class RenderingStrategy
-    {
-        Forward, ///< Forward rendering pass
-        Deferred ///< Deferred rendering with G-buffer
-    };
-
-    /**
      * @brief Preset budgets for shadow map resolution, cascade / spot /
      * point slots, and soft-shadow Poisson tap count.
      *
@@ -41,7 +32,6 @@ namespace FREYA_NAMESPACE
      * @param clearColor        Render pass clear color (default black
      * transparent)
      * @param drawDistance      View distance for culling (default 1000.0)
-     * @param renderingStrategy Forward or Deferred (default Forward)
      */
     struct FreyaOptions
     {
@@ -85,10 +75,8 @@ namespace FREYA_NAMESPACE
         /// Max concurrent point lights casting shadows (0–2).
         std::uint32_t maxPointShadows = 2;
         /// Soft-shadow Poisson samples (1–16). Used by lighting shaders.
-        std::uint32_t     shadowSampleCount = 16;
-        RenderingStrategy renderingStrategy =
-            RenderingStrategy::Forward; ///< Rendering strategy
-        bool ReverseZ;
+        std::uint32_t shadowSampleCount = 16;
+        bool          ReverseZ;
     };
 
     /**

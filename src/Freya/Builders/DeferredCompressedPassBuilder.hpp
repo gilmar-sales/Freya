@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Asset/MaterialDescriptorResources.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
 #include "Freya/Core/DeferredCompressedPass.hpp"
@@ -22,18 +23,19 @@ namespace FREYA_NAMESPACE
     {
       public:
         DeferredCompressedPassBuilder(
-            const skr::Arc<Device>&               device,
-            const skr::Arc<PhysicalDevice>&       physicalDevice,
-            const skr::Arc<Surface>&              surface,
-            const skr::Arc<FreyaOptions>&         freyaOptions,
-            const skr::Arc<skr::ServiceProvider>& serviceProvider,
-            const skr::Arc<LightService>&         lightService,
-            const skr::Arc<IBLService>&           iblService,
-            const skr::Arc<ShadowPass>&           shadowPass) :
+            const skr::Arc<Device>&                      device,
+            const skr::Arc<PhysicalDevice>&              physicalDevice,
+            const skr::Arc<Surface>&                     surface,
+            const skr::Arc<FreyaOptions>&                freyaOptions,
+            const skr::Arc<skr::ServiceProvider>&        serviceProvider,
+            const skr::Arc<LightService>&                lightService,
+            const skr::Arc<IBLService>&                  iblService,
+            const skr::Arc<ShadowPass>&                  shadowPass,
+            const skr::Arc<MaterialDescriptorResources>& materialResources) :
             mDevice(device), mPhysicalDevice(physicalDevice), mSurface(surface),
             mFreyaOptions(freyaOptions), mServiceProvider(serviceProvider),
             mLightService(lightService), mIblService(iblService),
-            mShadowPass(shadowPass)
+            mShadowPass(shadowPass), mMaterialResources(materialResources)
         {
         }
 
@@ -44,13 +46,14 @@ namespace FREYA_NAMESPACE
         vk::RenderPass createLightingRenderPass() const;
 
       private:
-        skr::Arc<Device>               mDevice;
-        skr::Arc<PhysicalDevice>       mPhysicalDevice;
-        skr::Arc<Surface>              mSurface;
-        skr::Arc<FreyaOptions>         mFreyaOptions;
-        skr::Arc<skr::ServiceProvider> mServiceProvider;
-        skr::Arc<LightService>         mLightService;
-        skr::Arc<IBLService>           mIblService;
-        skr::Arc<ShadowPass>           mShadowPass;
+        skr::Arc<Device>                      mDevice;
+        skr::Arc<PhysicalDevice>              mPhysicalDevice;
+        skr::Arc<Surface>                     mSurface;
+        skr::Arc<FreyaOptions>                mFreyaOptions;
+        skr::Arc<skr::ServiceProvider>        mServiceProvider;
+        skr::Arc<LightService>                mLightService;
+        skr::Arc<IBLService>                  mIblService;
+        skr::Arc<ShadowPass>                  mShadowPass;
+        skr::Arc<MaterialDescriptorResources> mMaterialResources;
     };
 } // namespace FREYA_NAMESPACE

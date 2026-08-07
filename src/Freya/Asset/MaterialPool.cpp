@@ -31,8 +31,8 @@ namespace FREYA_NAMESPACE
 
         const auto samplerDescriptorSetAllocInfo =
             vk::DescriptorSetAllocateInfo()
-                .setSetLayouts(mRenderPass->GetSamplerLayout())
-                .setDescriptorPool(mRenderPass->GetSamplerDescriptorPool());
+                .setSetLayouts(mMaterialsRes->GetSamplerLayout())
+                .setDescriptorPool(mMaterialsRes->GetSamplerDescriptorPool());
 
         material.descriptorSets =
             std::move(mDevice->Get().allocateDescriptorSets(
@@ -77,8 +77,8 @@ namespace FREYA_NAMESPACE
     void MaterialPool::writeTextureDescriptors(
         Material& material, const MaterialCreateInfo& createInfo)
     {
-        auto& fallbackImageView = mRenderPass->GetFallbackImageView();
-        auto& fallbackSampler   = mRenderPass->GetFallbackSampler();
+        auto& fallbackImageView = mMaterialsRes->GetFallbackImageView();
+        auto& fallbackSampler   = mMaterialsRes->GetFallbackSampler();
         auto  fallbackImageInfo =
             vk::DescriptorImageInfo()
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
@@ -86,9 +86,9 @@ namespace FREYA_NAMESPACE
                 .setSampler(fallbackSampler);
 
         auto& emissiveFallbackImageView =
-            mRenderPass->GetEmissiveFallbackImageView();
+            mMaterialsRes->GetEmissiveFallbackImageView();
         auto& emissiveFallbackSampler =
-            mRenderPass->GetEmissiveFallbackSampler();
+            mMaterialsRes->GetEmissiveFallbackSampler();
         auto emissiveFallbackImageInfo =
             vk::DescriptorImageInfo()
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)

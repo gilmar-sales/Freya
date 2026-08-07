@@ -28,13 +28,12 @@ namespace FREYA_NAMESPACE
         mSsaoPipelineLayout(ssaoPipelineLayout), mSsaoPipeline(ssaoPipeline),
         mBlurPipelineLayout(blurPipelineLayout), mBlurPipeline(blurPipeline),
         mSsaoSetLayout(ssaoSetLayout), mBlurSetLayout(blurSetLayout),
-        mDescriptorPool(descriptorPool), mSsaoSet(ssaoSet),
-        mBlurSetH(blurSetH), mBlurSetV(blurSetV), mCameraBuffer(cameraBuffer),
+        mDescriptorPool(descriptorPool), mSsaoSet(ssaoSet), mBlurSetH(blurSetH),
+        mBlurSetV(blurSetV), mCameraBuffer(cameraBuffer),
         mNearestSampler(nearestSampler), mNoiseSampler(noiseSampler),
-        mLinearSampler(linearSampler),
-        mSsaoRawImage(ssaoRawImage), mBlurImages(blurImages),
-        mNoiseImage(noiseImage), mFullExtent(fullExtent),
-        mSsaoExtent(ssaoExtent)
+        mLinearSampler(linearSampler), mSsaoRawImage(ssaoRawImage),
+        mBlurImages(blurImages), mNoiseImage(noiseImage),
+        mFullExtent(fullExtent), mSsaoExtent(ssaoExtent)
     {
     }
 
@@ -91,6 +90,153 @@ namespace FREYA_NAMESPACE
             srcStage, dstStage, {}, nullptr, nullptr, barrier);
     }
 
+    void SsaoPass::ensureDescriptors(const skr::Arc<Image>& depthImage,
+                                     const skr::Arc<Image>& normalImage) const
+    {
+        const auto depthView  = depthImage->GetImageView();
+        const auto normalView = normalImage->GetImageView();
+
+        if (mStaticBound && mBoundDepthView == depthView &&
+            mBoundNormalView == normalView)
+            return;
+
+        // Keep Descriptor*Info storage alive for the whole update — vulkan-hpp
+        // WriteDescriptorSet only stores pointers into these.
+        const auto imageInfos = std::array {
+            // 0 depth, 1 normal, 2 noise, 3 ssao raw storage
+            vk::DescriptorImageInfo {}
+                .setSampler(mNearestSampler)
+                .setImageView(depthView)
+                .setImageLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal),
+            vk::DescriptorImageInfo {}
+                .setSampler(mLinearSampler)
+                .setImageView(normalView)
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            vk::DescriptorImageInfo {}
+                .setSampler(mNoiseSampler)
+                .setImageView(mNoiseImage->GetImageView())
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            vk::DescriptorImageInfo {}
+                .setImageView(mSsaoRawImage->GetImageView())
+                .setImageLayout(vk::ImageLayout::eGeneral),
+            // 4–7 blur H: src, normal, depth, dst
+            vk::DescriptorImageInfo {}
+                .setSampler(mLinearSampler)
+                .setImageView(mSsaoRawImage->GetImageView())
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            vk::DescriptorImageInfo {}
+                .setSampler(mLinearSampler)
+                .setImageView(normalView)
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            vk::DescriptorImageInfo {}
+                .setSampler(mNearestSampler)
+                .setImageView(depthView)
+                .setImageLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal),
+            vk::DescriptorImageInfo {}
+                .setImageView(mBlurImages[0]->GetImageView())
+                .setImageLayout(vk::ImageLayout::eGeneral),
+            // 8–11 blur V: src, normal, depth, dst
+            vk::DescriptorImageInfo {}
+                .setSampler(mLinearSampler)
+                .setImageView(mBlurImages[0]->GetImageView())
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            vk::DescriptorImageInfo {}
+                .setSampler(mLinearSampler)
+                .setImageView(normalView)
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            vk::DescriptorImageInfo {}
+                .setSampler(mNearestSampler)
+                .setImageView(depthView)
+                .setImageLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal),
+            vk::DescriptorImageInfo {}
+                .setImageView(mBlurImages[1]->GetImageView())
+                .setImageLayout(vk::ImageLayout::eGeneral),
+        };
+
+        const auto bufferInfos = std::array {
+            vk::DescriptorBufferInfo {}
+                .setBuffer(mCameraBuffer->Get())
+                .setOffset(0)
+                .setRange(sizeof(SsaoCameraBuffer)),
+        };
+
+        const auto writes = std::array {
+            vk::WriteDescriptorSet {}
+                .setDstSet(mSsaoSet)
+                .setDstBinding(0)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setImageInfo(imageInfos[0]),
+            vk::WriteDescriptorSet {}
+                .setDstSet(mSsaoSet)
+                .setDstBinding(1)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setImageInfo(imageInfos[1]),
+            vk::WriteDescriptorSet {}
+                .setDstSet(mSsaoSet)
+                .setDstBinding(2)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setImageInfo(imageInfos[2]),
+            vk::WriteDescriptorSet {}
+                .setDstSet(mSsaoSet)
+                .setDstBinding(3)
+                .setDescriptorType(vk::DescriptorType::eStorageImage)
+                .setImageInfo(imageInfos[3]),
+            vk::WriteDescriptorSet {}
+                .setDstSet(mSsaoSet)
+                .setDstBinding(4)
+                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                .setBufferInfo(bufferInfos[0]),
+            // blur H
+            vk::WriteDescriptorSet {}
+                .setDstSet(mBlurSetH)
+                .setDstBinding(0)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setImageInfo(imageInfos[4]),
+            vk::WriteDescriptorSet {}
+                .setDstSet(mBlurSetH)
+                .setDstBinding(1)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setImageInfo(imageInfos[5]),
+            vk::WriteDescriptorSet {}
+                .setDstSet(mBlurSetH)
+                .setDstBinding(2)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setImageInfo(imageInfos[6]),
+            vk::WriteDescriptorSet {}
+                .setDstSet(mBlurSetH)
+                .setDstBinding(3)
+                .setDescriptorType(vk::DescriptorType::eStorageImage)
+                .setImageInfo(imageInfos[7]),
+            // blur V
+            vk::WriteDescriptorSet {}
+                .setDstSet(mBlurSetV)
+                .setDstBinding(0)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setImageInfo(imageInfos[8]),
+            vk::WriteDescriptorSet {}
+                .setDstSet(mBlurSetV)
+                .setDstBinding(1)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setImageInfo(imageInfos[9]),
+            vk::WriteDescriptorSet {}
+                .setDstSet(mBlurSetV)
+                .setDstBinding(2)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setImageInfo(imageInfos[10]),
+            vk::WriteDescriptorSet {}
+                .setDstSet(mBlurSetV)
+                .setDstBinding(3)
+                .setDescriptorType(vk::DescriptorType::eStorageImage)
+                .setImageInfo(imageInfos[11]),
+        };
+
+        mDevice->Get().updateDescriptorSets(writes, nullptr);
+
+        mBoundDepthView  = depthView;
+        mBoundNormalView = normalView;
+        mStaticBound     = true;
+    }
+
     void SsaoPass::Dispatch(
         const skr::Arc<CommandPool>& commandPool,
         const skr::Arc<Image>&       depthImage,
@@ -111,12 +257,13 @@ namespace FREYA_NAMESPACE
         cam.view          = view;
         cam.projection    = unjitteredProjection;
         cam.params        = glm::vec4(radius, bias, power, intensity);
-        cam.res           = glm::vec4(
-            1.0f / static_cast<float>(mSsaoExtent.width),
-            1.0f / static_cast<float>(mSsaoExtent.height),
-            reverseZ ? 1.0f : 0.0f,
-            0.0f);
+        cam.res = glm::vec4(1.0f / static_cast<float>(mSsaoExtent.width),
+                            1.0f / static_cast<float>(mSsaoExtent.height),
+                            reverseZ ? 1.0f : 0.0f,
+                            0.0f);
         mCameraBuffer->Copy(&cam, sizeof(SsaoCameraBuffer), 0);
+
+        ensureDescriptors(depthImage, normalImage);
 
         // Geometry depth/normal -> compute
         {
@@ -129,10 +276,8 @@ namespace FREYA_NAMESPACE
                     .setLayerCount(1);
             auto depthBarrier =
                 vk::ImageMemoryBarrier()
-                    .setOldLayout(
-                        vk::ImageLayout::eDepthStencilReadOnlyOptimal)
-                    .setNewLayout(
-                        vk::ImageLayout::eDepthStencilReadOnlyOptimal)
+                    .setOldLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal)
+                    .setNewLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal)
                     .setSrcAccessMask(
                         vk::AccessFlagBits::eDepthStencilAttachmentWrite)
                     .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
@@ -152,68 +297,6 @@ namespace FREYA_NAMESPACE
                          vk::PipelineStageFlagBits::eColorAttachmentOutput,
                          vk::PipelineStageFlagBits::eComputeShader);
         }
-
-        auto depthInfo =
-            vk::DescriptorImageInfo()
-                .setSampler(mNearestSampler)
-                .setImageView(depthImage->GetImageView())
-                .setImageLayout(
-                    vk::ImageLayout::eDepthStencilReadOnlyOptimal);
-        auto normalInfo =
-            vk::DescriptorImageInfo()
-                .setSampler(mLinearSampler)
-                .setImageView(normalImage->GetImageView())
-                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-        auto noiseInfo =
-            vk::DescriptorImageInfo()
-                .setSampler(mNoiseSampler)
-                .setImageView(mNoiseImage->GetImageView())
-                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-        auto ssaoOutInfo =
-            vk::DescriptorImageInfo()
-                .setImageView(mSsaoRawImage->GetImageView())
-                .setImageLayout(vk::ImageLayout::eGeneral);
-        auto cameraBufInfo =
-            vk::DescriptorBufferInfo()
-                .setBuffer(mCameraBuffer->Get())
-                .setOffset(0)
-                .setRange(sizeof(SsaoCameraBuffer));
-
-        auto ssaoWrites = std::array {
-            vk::WriteDescriptorSet()
-                .setDstSet(mSsaoSet)
-                .setDstBinding(0)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setImageInfo(depthInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(mSsaoSet)
-                .setDstBinding(1)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setImageInfo(normalInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(mSsaoSet)
-                .setDstBinding(2)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setImageInfo(noiseInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(mSsaoSet)
-                .setDstBinding(3)
-                .setDescriptorType(vk::DescriptorType::eStorageImage)
-                .setDescriptorCount(1)
-                .setImageInfo(ssaoOutInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(mSsaoSet)
-                .setDstBinding(4)
-                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-                .setDescriptorCount(1)
-                .setBufferInfo(cameraBufInfo),
-        };
-        mDevice->Get().updateDescriptorSets(
-            static_cast<std::uint32_t>(ssaoWrites.size()), ssaoWrites.data(), 0,
-            nullptr);
 
         barrierColor(commandPool,
                      mSsaoRawImage->GetImage(),
@@ -254,7 +337,6 @@ namespace FREYA_NAMESPACE
         };
 
         auto runBlur = [&](const vk::DescriptorSet set,
-                           const skr::Arc<Image>&  src,
                            const skr::Arc<Image>&  dst,
                            const float             dirX,
                            const float             dirY) {
@@ -267,49 +349,6 @@ namespace FREYA_NAMESPACE
                          vk::PipelineStageFlagBits::eTopOfPipe,
                          vk::PipelineStageFlagBits::eComputeShader);
 
-            auto srcInfo =
-                vk::DescriptorImageInfo()
-                    .setSampler(mLinearSampler)
-                    .setImageView(src->GetImageView())
-                    .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-            auto dstInfo =
-                vk::DescriptorImageInfo()
-                    .setImageView(dst->GetImageView())
-                    .setImageLayout(vk::ImageLayout::eGeneral);
-
-            auto blurWrites = std::array {
-                vk::WriteDescriptorSet()
-                    .setDstSet(set)
-                    .setDstBinding(0)
-                    .setDescriptorType(
-                        vk::DescriptorType::eCombinedImageSampler)
-                    .setDescriptorCount(1)
-                    .setImageInfo(srcInfo),
-                vk::WriteDescriptorSet()
-                    .setDstSet(set)
-                    .setDstBinding(1)
-                    .setDescriptorType(
-                        vk::DescriptorType::eCombinedImageSampler)
-                    .setDescriptorCount(1)
-                    .setImageInfo(normalInfo),
-                vk::WriteDescriptorSet()
-                    .setDstSet(set)
-                    .setDstBinding(2)
-                    .setDescriptorType(
-                        vk::DescriptorType::eCombinedImageSampler)
-                    .setDescriptorCount(1)
-                    .setImageInfo(depthInfo),
-                vk::WriteDescriptorSet()
-                    .setDstSet(set)
-                    .setDstBinding(3)
-                    .setDescriptorType(vk::DescriptorType::eStorageImage)
-                    .setDescriptorCount(1)
-                    .setImageInfo(dstInfo),
-            };
-            mDevice->Get().updateDescriptorSets(
-                static_cast<std::uint32_t>(blurWrites.size()),
-                blurWrites.data(), 0, nullptr);
-
             commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute,
                                        mBlurPipeline);
             commandBuffer.bindDescriptorSets(
@@ -317,16 +356,12 @@ namespace FREYA_NAMESPACE
                 &set, 0, nullptr);
 
             BlurPush push {
-                { cam.res.x, cam.res.y },
-                { dirX, dirY },
-                100.0f,
-                32.0f,
-                reverseZ ? 1.0f : 0.0f,
-                0.0f,
+                { cam.res.x, cam.res.y }, { dirX, dirY }, 100.0f, 32.0f,
+                reverseZ ? 1.0f : 0.0f,   0.0f,
             };
-            commandBuffer.pushConstants(mBlurPipelineLayout,
-                                        vk::ShaderStageFlagBits::eCompute, 0,
-                                        sizeof(BlurPush), &push);
+            commandBuffer.pushConstants(
+                mBlurPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
+                sizeof(BlurPush), &push);
             commandBuffer.dispatch(groupsX, groupsY, 1);
 
             barrierColor(commandPool,
@@ -339,8 +374,8 @@ namespace FREYA_NAMESPACE
                          vk::PipelineStageFlagBits::eFragmentShader);
         };
 
-        runBlur(mBlurSetH, mSsaoRawImage, mBlurImages[0], 1.0f, 0.0f);
-        runBlur(mBlurSetV, mBlurImages[0], mBlurImages[1], 0.0f, 1.0f);
+        runBlur(mBlurSetH, mBlurImages[0], 1.0f, 0.0f);
+        runBlur(mBlurSetV, mBlurImages[1], 0.0f, 1.0f);
 
         mDevice->EndDebugLabel(commandBuffer);
     }

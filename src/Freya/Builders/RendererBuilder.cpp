@@ -5,9 +5,7 @@
 #include "Freya/Builders/CompositePassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/DeviceBuilder.hpp"
-#include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/PhysicalDeviceBuilder.hpp"
-#include "Freya/Builders/RenderPassBuilder.hpp"
 #include "Freya/Builders/SsaoPassBuilder.hpp"
 #include "Freya/Builders/SurfaceBuilder.hpp"
 #include "Freya/Builders/TaaPassBuilder.hpp"
@@ -24,14 +22,13 @@ namespace FREYA_NAMESPACE
         const skr::Arc<Device>&               device,
         const skr::Arc<CommandPool>&          commandPool,
         const skr::Arc<SwapChain>&            swapChain,
-        const skr::Arc<RenderPass>&           renderPass,
         const skr::Arc<EventManager>&         eventManager,
         const skr::Arc<Window>&               window,
         const skr::Arc<FreyaOptions>&         freyaOptions,
         const skr::Arc<skr::ServiceProvider>& serviceProvider) :
         mInstance(instance), mSurface(surface), mPhysicalDevice(physicalDevice),
         mDevice(device), mCommandPool(commandPool), mSwapChain(swapChain),
-        mRenderPass(renderPass), mEventManager(eventManager), mWindow(window),
+        mEventManager(eventManager), mWindow(window),
         mFreyaOptions(freyaOptions), mServiceProvider(serviceProvider),
         mLogger(serviceProvider->GetService<skr::Logger<RendererBuilder>>())
     {
@@ -43,92 +40,22 @@ namespace FREYA_NAMESPACE
                           mFreyaOptions->frameCount,
                           static_cast<int>(mFreyaOptions->sampleCount));
 
-        mLogger->LogTrace(
-            "Rendering strategy: {}",
-            mFreyaOptions->renderingStrategy == RenderingStrategy::Deferred
-                ? "Deferred"
-                : "Forward");
+        auto deferredPass =
+            mServiceProvider->GetService<DeferredCompressedPassBuilder>()
+                ->Build(mSwapChain);
 
-        skr::Arc<DeferredCompressedPass> deferredPass;
-        skr::Arc<BloomPass>              bloomPass;
-        skr::Arc<TaaPass>                taaPass;
-        skr::Arc<SsaoPass>               ssaoPass;
-        skr::Arc<CompositePass>          compositePass;
-        skr::Arc<Image>                  forwardColorImage;
-        skr::Arc<Image>                  bloomInputImage;
-
-        if (mFreyaOptions->renderingStrategy == RenderingStrategy::Deferred)
-        {
-            deferredPass =
-                mServiceProvider->GetService<DeferredCompressedPassBuilder>()
-                    ->Build(mSwapChain);
-
-            // Bloom extracts from pre-TAA Scene Color; composite uses TAA out.
-            bloomPass = mServiceProvider->GetService<BloomPassBuilder>()->Build(
+        // Bloom extracts from pre-TAA Scene Color; composite uses TAA output.
+        auto bloomPass =
+            mServiceProvider->GetService<BloomPassBuilder>()->Build(
                 mSwapChain,
                 deferredPass->GetSceneColorImage());
-
-            taaPass = mServiceProvider->GetService<TaaPassBuilder>()->Build(
+        auto taaPass =
+            mServiceProvider->GetService<TaaPassBuilder>()->Build(mSwapChain);
+        auto ssaoPass =
+            mServiceProvider->GetService<SsaoPassBuilder>()->Build(mSwapChain);
+        auto compositePass =
+            mServiceProvider->GetService<CompositePassBuilder>()->Build(
                 mSwapChain);
-
-            ssaoPass = mServiceProvider->GetService<SsaoPassBuilder>()->Build(
-                mSwapChain);
-
-            compositePass =
-                mServiceProvider->GetService<CompositePassBuilder>()->Build(
-                    mSwapChain);
-        }
-        else
-        {
-            // Bloom+Composite also for forward mode.
-            // Create forward offscreen images matching the forward pass's
-            // MSAA settings so the same pipeline can be reused.
-            const auto extent    = mSwapChain->GetExtent();
-            const auto format    = mSurface->QuerySurfaceFormat().format;
-            const auto depthFmt  = mPhysicalDevice->GetDepthFormat();
-            const auto vkSamples = static_cast<vk::SampleCountFlagBits>(
-                mFreyaOptions->sampleCount);
-            const bool msaa = vkSamples != vk::SampleCountFlagBits::e1;
-
-            // Color attachment (MSAA if requested, matches forward pipeline)
-            forwardColorImage =
-                mServiceProvider->GetService<ImageBuilder>()
-                    ->SetUsage(ImageUsage::Color)
-                    .SetFormat(format)
-                    .SetWidth(extent.width)
-                    .SetHeight(extent.height)
-                    .SetSamples(vkSamples)
-                    .Build();
-
-            // Resolve / bloom input image (always single sample)
-            if (msaa)
-            {
-                bloomInputImage =
-                    mServiceProvider->GetService<ImageBuilder>()
-                        ->SetUsage(ImageUsage::Color)
-                        .SetFormat(format)
-                        .SetWidth(extent.width)
-                        .SetHeight(extent.height)
-                        .SetSamples(vk::SampleCountFlagBits::e1)
-                        .Build();
-            }
-            else
-            {
-                bloomInputImage = forwardColorImage;
-            }
-            // Store bloom input in forwardResolveImage slot via constructor
-
-            // Bloom pass reads the resolve / single-sample color image.
-            // Forward depth image is created in
-            // Renderer::createForwardOffscreenResources().
-            bloomPass = mServiceProvider->GetService<BloomPassBuilder>()->Build(
-                mSwapChain,
-                bloomInputImage);
-
-            compositePass =
-                mServiceProvider->GetService<CompositePassBuilder>()->Build(
-                    mSwapChain);
-        }
 
         auto lightService = mServiceProvider->GetService<LightService>();
         auto shadowPass   = mServiceProvider->GetService<ShadowPass>();
@@ -140,7 +67,6 @@ namespace FREYA_NAMESPACE
             mPhysicalDevice,
             mDevice,
             mSwapChain,
-            mRenderPass,
             deferredPass,
             bloomPass,
             taaPass,
@@ -152,9 +78,7 @@ namespace FREYA_NAMESPACE
             pickPass,
             mServiceProvider,
             mFreyaOptions,
-            mEventManager,
-            forwardColorImage,
-            bloomInputImage);
+            mEventManager);
     }
 
 } // namespace FREYA_NAMESPACE

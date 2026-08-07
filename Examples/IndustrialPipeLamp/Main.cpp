@@ -31,21 +31,6 @@ class MainApp final : public fra::AbstractApplication
             [this](const fra::KeyReleasedEvent& event) {
                 mKeysHeld.erase(static_cast<std::uint32_t>(event.key));
 
-                if (event.key == fra::KeyCode::Tab)
-                {
-                    const auto next = mRenderer->IsDeferred()
-                                          ? fra::RenderingStrategy::Forward
-                                          : fra::RenderingStrategy::Deferred;
-                    mRenderer->SetRenderingStrategy(next);
-                    updateTitle();
-
-                    std::cout
-                        << "Rendering strategy: "
-                        << (mRenderer->IsDeferred() ? "Deferred" : "Forward")
-                        << '\n';
-                    return;
-                }
-
                 if (event.key == fra::KeyCode::F5)
                 {
                     cycleShadowQuality();
@@ -273,7 +258,7 @@ class MainApp final : public fra::AbstractApplication
 
         std::cout
             << "Controls: RMB look | WASD move | Space/Q up | Ctrl/E down | "
-               "Tab Forward/Deferred | Esc release mouse\n"
+               "Esc release mouse\n"
             << "Shadow test: 0=all  1=directional  2=warm point  "
                "3=cool point  4=all spots\n";
 
@@ -497,7 +482,6 @@ class MainApp final : public fra::AbstractApplication
 
     void updateTitle()
     {
-        const char* mode = mRenderer->IsDeferred() ? "Deferred" : "Forward";
         static constexpr const char* kQuality[] = { "Low", "Med", "High",
                                                     "Ultra" };
         static constexpr const char* kShadow[]  = {
@@ -514,8 +498,8 @@ class MainApp final : public fra::AbstractApplication
                 ? kShadow[mShadowCasterMode]
                 : "?";
         mFreyaOptions->title =
-            std::string("Industrial Pipe Lamp — ") + mode + " | " +
-            qualityName + " [F5] | " + shadowName + " [0-4]";
+            std::string("Industrial Pipe Lamp — Deferred | ") + qualityName +
+            " [F5] | " + shadowName + " [0-4]";
     }
 
     enum class AnimatedLightKind
@@ -581,7 +565,7 @@ int main(int argc, const char** argv)
             .WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
                 freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
                     freyaOptions
-                        .SetTitle("Industrial Pipe Lamp — Forward [RMB+WASD]")
+                        .SetTitle("Industrial Pipe Lamp — Deferred [RMB+WASD]")
                         .SetWidth(1920)
                         .SetHeight(1080)
                         .SetVSync(false)
@@ -594,8 +578,7 @@ int main(int argc, const char** argv)
                         .SetShadowLightSize(0.035f)
                         .SetShadowMaxSoftness(8.0f)
                         .SetShadowMinVisibility(0.0f)
-                        .SetFullscreen(false)
-                        .SetRenderingStrategy(fra::RenderingStrategy::Forward);
+                        .SetFullscreen(false);
                 });
             })
             .Build<MainApp>();

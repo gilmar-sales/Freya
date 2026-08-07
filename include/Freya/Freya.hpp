@@ -6,7 +6,6 @@
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/InstanceBuilder.hpp"
 #include "Freya/Builders/PhysicalDeviceBuilder.hpp"
-#include "Freya/Builders/RenderPassBuilder.hpp"
 #include "Freya/Builders/RenderTargetBuilder.hpp"
 #include "Freya/Builders/RendererBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"

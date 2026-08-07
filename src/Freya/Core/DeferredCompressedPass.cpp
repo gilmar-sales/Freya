@@ -5,34 +5,33 @@
 namespace FREYA_NAMESPACE
 {
     DeferredCompressedPass::DeferredCompressedPass(
-        const skr::Arc<Device>&                     device,
-        const skr::Arc<FreyaOptions>&               freyaOptions,
-        const skr::Arc<Surface>&                    surface,
-        const vk::RenderPass                        renderPass,
-        const vk::PipelineLayout                    vertexPipelineLayout,
-        const vk::PipelineLayout                    fullscreenPipelineLayout,
-        const vk::Pipeline                          depthPrepassPipeline,
-        const vk::Pipeline                          gbufferPipeline,
-        const vk::Pipeline                          lightingPipeline,
-        const skr::Arc<Buffer>&                     uniformBuffer,
-        const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
-        const std::vector<vk::DescriptorSet>&       descriptorSets,
-        const vk::DescriptorPool                    descriptorPool,
-        const std::vector<skr::Arc<Image>>&         gbufferImages,
-        const skr::Arc<Image>&                      sceneColorImage,
-        const skr::Arc<Image>&                      velocityImage,
-        const skr::Arc<Image>&                      depthImage,
-        const skr::Arc<Image>&                      translucentImage,
-        const std::vector<vk::Framebuffer>&         framebuffers,
-        const vk::RenderPass                        lightingRenderPass,
-        const vk::Framebuffer                       lightingFramebuffer,
-        const vk::DescriptorSetLayout               lightingSetLayout,
-        const vk::DescriptorPool                    lightingDescriptorPool,
-        const std::vector<vk::DescriptorSet>&       lightingSets,
-        const vk::DescriptorSetLayout               samplerLayout,
-        const vk::DescriptorPool                    samplerDescriptorPool,
-        const vk::Sampler                           gbufferSampler,
-        const vk::Extent2D                          extent) :
+        const skr::Arc<Device>&                      device,
+        const skr::Arc<FreyaOptions>&                freyaOptions,
+        const skr::Arc<Surface>&                     surface,
+        const vk::RenderPass                         renderPass,
+        const vk::PipelineLayout                     vertexPipelineLayout,
+        const vk::PipelineLayout                     fullscreenPipelineLayout,
+        const vk::Pipeline                           depthPrepassPipeline,
+        const vk::Pipeline                           gbufferPipeline,
+        const vk::Pipeline                           lightingPipeline,
+        const skr::Arc<Buffer>&                      uniformBuffer,
+        const std::vector<vk::DescriptorSetLayout>&  descriptorSetLayouts,
+        const std::vector<vk::DescriptorSet>&        descriptorSets,
+        const vk::DescriptorPool                     descriptorPool,
+        const std::vector<skr::Arc<Image>>&          gbufferImages,
+        const skr::Arc<Image>&                       sceneColorImage,
+        const skr::Arc<Image>&                       velocityImage,
+        const skr::Arc<Image>&                       depthImage,
+        const skr::Arc<Image>&                       translucentImage,
+        const std::vector<vk::Framebuffer>&          framebuffers,
+        const vk::RenderPass                         lightingRenderPass,
+        const vk::Framebuffer                        lightingFramebuffer,
+        const vk::DescriptorSetLayout                lightingSetLayout,
+        const vk::DescriptorPool                     lightingDescriptorPool,
+        const std::vector<vk::DescriptorSet>&        lightingSets,
+        const skr::Arc<MaterialDescriptorResources>& materialResources,
+        const vk::Sampler                            gbufferSampler,
+        const vk::Extent2D                           extent) :
         mDevice(device), mFreyaOptions(freyaOptions), mSurface(surface),
         mRenderPass(renderPass), mVertexPipelineLayout(vertexPipelineLayout),
         mFullscreenPipelineLayout(fullscreenPipelineLayout),
@@ -46,8 +45,7 @@ namespace FREYA_NAMESPACE
         mLightingRenderPass(lightingRenderPass),
         mLightingSetLayout(lightingSetLayout),
         mLightingDescriptorPool(lightingDescriptorPool),
-        mLightingSets(lightingSets), mSamplerLayout(samplerLayout),
-        mSamplerDescriptorPool(samplerDescriptorPool),
+        mLightingSets(lightingSets), mMaterialResources(materialResources),
         mGbufferSampler(gbufferSampler)
     {
         mPipelines[DefDepthPrePass] = depthPrepassPipeline;
@@ -66,9 +64,6 @@ namespace FREYA_NAMESPACE
 
         vkDevice.destroyDescriptorPool(mLightingDescriptorPool);
         vkDevice.destroyDescriptorSetLayout(mLightingSetLayout);
-
-        vkDevice.destroyDescriptorPool(mSamplerDescriptorPool);
-        vkDevice.destroyDescriptorSetLayout(mSamplerLayout);
 
         vkDevice.destroyDescriptorPool(mDescriptorPool);
 
@@ -91,6 +86,7 @@ namespace FREYA_NAMESPACE
         mSceneColorImage.reset();
         mVelocityImage.reset();
         mTranslucentImage.reset();
+        mMaterialResources.reset();
 
         mUniformBuffer.reset();
     }
@@ -252,20 +248,28 @@ namespace FREYA_NAMESPACE
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 
-        auto ssaoInfo =
-            vk::DescriptorImageInfo()
-                .setSampler(mGbufferSampler)
-                .setImageView(ssaoImage->GetImageView())
-                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+        const auto ssaoView = ssaoImage->GetImageView();
+        if (mBoundSsaoView != ssaoView)
+        {
+            const auto ssaoInfo =
+                vk::DescriptorImageInfo {}
+                    .setSampler(mGbufferSampler)
+                    .setImageView(ssaoView)
+                    .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 
-        auto ssaoWrite =
-            vk::WriteDescriptorSet()
-                .setDstSet(mLightingSets[frameIndex])
-                .setDstBinding(15)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setImageInfo(ssaoInfo);
-        mDevice->Get().updateDescriptorSets(1, &ssaoWrite, 0, nullptr);
+            for (auto& set : mLightingSets)
+            {
+                const auto ssaoWrite =
+                    vk::WriteDescriptorSet {}
+                        .setDstSet(set)
+                        .setDstBinding(15)
+                        .setDescriptorType(
+                            vk::DescriptorType::eCombinedImageSampler)
+                        .setImageInfo(ssaoInfo);
+                mDevice->Get().updateDescriptorSets(ssaoWrite, nullptr);
+            }
+            mBoundSsaoView = ssaoView;
+        }
 
         mDevice->BeginDebugLabel(commandBuffer, "Lighting");
 

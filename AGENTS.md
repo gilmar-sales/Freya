@@ -58,10 +58,10 @@ The CI `ctest` step runs against an empty suite.
 
 | Path | Purpose |
 |---|---|
-| `src/Freya/` | Library source: `Core/` (Renderer, Window, RenderPass, DeferredCompressedPass, etc.), `Builders/` (builder for every core object), `Asset/` (MeshPool, TexturePool, MaterialPool), `Containers/` (SparseSet, MeshSet), `Events/` (input event system), `Vendor/` (stb_image.h). Also `Pch.hpp`, `FreyaOptions.hpp`. |
+| `src/Freya/` | Library source: `Core/` (Renderer, Window, DeferredCompressedPass, etc.), `Builders/` (builder for every core object), `Asset/` (MeshPool, TexturePool, MaterialPool, MaterialDescriptorResources), `Containers/` (SparseSet, MeshSet), `Events/` (input event system), `Vendor/` (stb_image.h). Also `Pch.hpp`, `FreyaOptions.hpp`. |
 | `include/Freya/` | Public headers — umbrella `Freya.hpp` pulls in all public types. |
 | `Examples/IndustrialPipeLamp/` | Only example; binary lands at `build/Examples/IndustrialPipeLamp/IndustrialPipeLamp`. |
-| `Shaders/` | GLSL sources in three variants: `Forward/`, `Deferred/`, `DeferredCompressed/`. |
+| `Shaders/` | GLSL sources: `DeferredCompressed/`, `Shadow/`, `Pick/`. |
 | `textures/` | Root-level texture (not used by the IndustrialPipeLamp example, which uses its own `Examples/IndustrialPipeLamp/Resources/Textures/`). |
 | `docs/` | MkDocs-material documentation, deployed via `mkdocs gh-deploy`. |
 | `.kilo/` | Kilo CLI config: agent definitions (`.kilo/agent/`) and plans (`.kilo/plans/`). |
@@ -93,4 +93,4 @@ The CI `ctest` step runs against an empty suite.
 - Extend `fra::AbstractApplication`; implement `StartUp()` and `Update()`.
 - Use `skr::ApplicationBuilder` with `WithExtension<fra::FreyaExtension>()` to configure.
 - Services (Renderer, Window, MeshPool, TexturePool, MaterialPool, LightService) obtained via `serviceProvider->GetService<T>()`.
-- FreyaOptions: title, dimensions, vSync, fullscreen, sampleCount, frameCount, clearColor, drawDistance, maxLights, ReverseZ, renderingStrategy (`Forward` | `Deferred`).
+- FreyaOptions: title, dimensions, vSync, fullscreen, sampleCount, frameCount, clearColor, drawDistance, maxLights, ReverseZ.

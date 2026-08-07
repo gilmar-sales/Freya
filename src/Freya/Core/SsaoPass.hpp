@@ -16,7 +16,7 @@ namespace FREYA_NAMESPACE
         alignas(64) glm::mat4 view {};
         alignas(64) glm::mat4 projection {};
         alignas(16) glm::vec4 params {}; ///< radius, bias, power, intensity
-        alignas(16) glm::vec4 res {};    ///< invRes.xy, noiseScale, reverseZ
+        alignas(16) glm::vec4 res {};    ///< invRes.xy, reverseZ, unused
     };
 
     /**
@@ -26,27 +26,27 @@ namespace FREYA_NAMESPACE
     class SsaoPass
     {
       public:
-        SsaoPass(const skr::Arc<Device>&       device,
-                 const skr::Arc<FreyaOptions>& freyaOptions,
-                 vk::PipelineLayout            ssaoPipelineLayout,
-                 vk::Pipeline                  ssaoPipeline,
-                 vk::PipelineLayout            blurPipelineLayout,
-                 vk::Pipeline                  blurPipeline,
-                 vk::DescriptorSetLayout       ssaoSetLayout,
-                 vk::DescriptorSetLayout       blurSetLayout,
-                 vk::DescriptorPool            descriptorPool,
-                 vk::DescriptorSet             ssaoSet,
-                 vk::DescriptorSet             blurSetH,
-                 vk::DescriptorSet             blurSetV,
-                 const skr::Arc<Buffer>&       cameraBuffer,
-                 vk::Sampler                   nearestSampler,
-                 vk::Sampler                   noiseSampler,
-                 vk::Sampler                   linearSampler,
-                 const skr::Arc<Image>&        ssaoRawImage,
+        SsaoPass(const skr::Arc<Device>&               device,
+                 const skr::Arc<FreyaOptions>&         freyaOptions,
+                 vk::PipelineLayout                    ssaoPipelineLayout,
+                 vk::Pipeline                          ssaoPipeline,
+                 vk::PipelineLayout                    blurPipelineLayout,
+                 vk::Pipeline                          blurPipeline,
+                 vk::DescriptorSetLayout               ssaoSetLayout,
+                 vk::DescriptorSetLayout               blurSetLayout,
+                 vk::DescriptorPool                    descriptorPool,
+                 vk::DescriptorSet                     ssaoSet,
+                 vk::DescriptorSet                     blurSetH,
+                 vk::DescriptorSet                     blurSetV,
+                 const skr::Arc<Buffer>&               cameraBuffer,
+                 vk::Sampler                           nearestSampler,
+                 vk::Sampler                           noiseSampler,
+                 vk::Sampler                           linearSampler,
+                 const skr::Arc<Image>&                ssaoRawImage,
                  const std::array<skr::Arc<Image>, 2>& blurImages,
-                 const skr::Arc<Image>&        noiseImage,
-                 vk::Extent2D                  fullExtent,
-                 vk::Extent2D                  ssaoExtent);
+                 const skr::Arc<Image>&                noiseImage,
+                 vk::Extent2D                          fullExtent,
+                 vk::Extent2D                          ssaoExtent);
 
         ~SsaoPass();
 
@@ -58,12 +58,15 @@ namespace FREYA_NAMESPACE
                       const glm::mat4&             view,
                       const glm::mat4&             unjitteredProjection,
                       bool                         reverseZ,
-                      float radius    = 1.25f,
-                      float bias      = 0.04f,
-                      float power     = 2.0f,
-                      float intensity = 1.35f) const;
+                      float                        radius    = 1.25f,
+                      float                        bias      = 0.04f,
+                      float                        power     = 2.0f,
+                      float                        intensity = 1.35f) const;
 
       private:
+        void ensureDescriptors(const skr::Arc<Image>& depthImage,
+                               const skr::Arc<Image>& normalImage) const;
+
         void barrierColor(const skr::Arc<CommandPool>& commandPool,
                           vk::Image                    image,
                           vk::ImageLayout              oldLayout,
@@ -97,5 +100,11 @@ namespace FREYA_NAMESPACE
         skr::Arc<Image>                mNoiseImage;
         vk::Extent2D                   mFullExtent;
         vk::Extent2D                   mSsaoExtent;
+
+        /// Depth/normal views last written into descriptor sets (stable
+        /// across frames until rebuildSceneResources).
+        mutable vk::ImageView mBoundDepthView  = {};
+        mutable vk::ImageView mBoundNormalView = {};
+        mutable bool          mStaticBound     = false;
     };
 } // namespace FREYA_NAMESPACE

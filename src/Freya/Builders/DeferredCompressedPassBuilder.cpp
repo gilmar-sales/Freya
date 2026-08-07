@@ -226,26 +226,7 @@ namespace FREYA_NAMESPACE
                 .setSetLayouts(frameLayouts)
                 .setDescriptorPool(descriptorPool));
 
-        constexpr std::uint32_t maxMaterialSets = MAX_MATERIAL_SETS;
-
-        auto samplerPoolSizes = std::array {
-            vk::DescriptorPoolSize()
-                .setType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(5 * maxMaterialSets),
-            vk::DescriptorPoolSize()
-                .setType(vk::DescriptorType::eUniformBuffer)
-                .setDescriptorCount(maxMaterialSets),
-        };
-        auto samplerDescriptorPool = mDevice->Get().createDescriptorPool(
-            vk::DescriptorPoolCreateInfo()
-                .setPoolSizes(samplerPoolSizes)
-                .setMaxSets(maxMaterialSets));
-
-        auto samplerBindings =
-            std::array { cisBinding(0), cisBinding(1), cisBinding(2),
-                         cisBinding(3), cisBinding(4), uboBinding(5) };
-        auto samplerLayout = mDevice->Get().createDescriptorSetLayout(
-            vk::DescriptorSetLayoutCreateInfo().setBindings(samplerBindings));
+        auto& samplerLayout = mMaterialResources->GetSamplerLayout();
 
         auto uniformBuffer =
             BufferBuilder(mDevice)
@@ -668,8 +649,7 @@ namespace FREYA_NAMESPACE
             descriptorPool, gbufferImages, sceneColorImage, velocityImage,
             depthImage, translucentImage, framebuffers, lightingRenderPass,
             lightingFramebuffer, lightingSetLayout, lightingDescriptorPool,
-            lightingSets, samplerLayout, samplerDescriptorPool, gbufferSampler,
-            extent);
+            lightingSets, mMaterialResources, gbufferSampler, extent);
     }
 
     vk::RenderPass DeferredCompressedPassBuilder::createGeometryRenderPass()

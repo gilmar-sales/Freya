@@ -13,7 +13,6 @@
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
 #include "Freya/Core/PickPass.hpp"
-#include "Freya/Core/RenderPass.hpp"
 #include "Freya/Core/RenderTarget.hpp"
 #include "Freya/Core/ShadowPass.hpp"
 #include "Freya/Core/SsaoPass.hpp"
@@ -46,7 +45,6 @@ namespace FREYA_NAMESPACE
                  const skr::Arc<PhysicalDevice>&         physicalDevice,
                  const skr::Arc<Device>&                 device,
                  const skr::Arc<SwapChain>&              swapChain,
-                 const skr::Arc<RenderPass>&             forwardPass,
                  const skr::Arc<DeferredCompressedPass>& deferredPass,
                  const skr::Arc<BloomPass>&              bloomPass,
                  const skr::Arc<TaaPass>&                taaPass,
@@ -58,16 +56,14 @@ namespace FREYA_NAMESPACE
                  const skr::Arc<PickPass>&               pickPass,
                  const skr::Arc<skr::ServiceProvider>&   serviceProvider,
                  const skr::Arc<FreyaOptions>&           freyaOptions,
-                 const skr::Arc<EventManager>&           eventManager,
-                 const skr::Arc<Image>& forwardColorImage   = nullptr,
-                 const skr::Arc<Image>& forwardResolveImage = nullptr);
+                 const skr::Arc<EventManager>&           eventManager);
 
         ~Renderer();
 
         void BeginFrame();
 
         /**
-         * @brief Finish scene rendering (deferred/forward, bloom, composite).
+         * @brief Finish deferred scene rendering, bloom, and composite.
          *
          * With an output target bound, begins a cleared swapchain UI render
          * pass and leaves the command buffer open for application drawing
@@ -103,17 +99,6 @@ namespace FREYA_NAMESPACE
         vk::PipelineLayout GetActivePipelineLayout() const;
         vk::RenderPass     GetActiveRenderPass() const;
 
-        [[nodiscard]] bool IsDeferred() const
-        {
-            return mFreyaOptions->renderingStrategy ==
-                   RenderingStrategy::Deferred;
-        }
-
-        /**
-         * @brief Switches Forward/Deferred and rebuilds scene passes.
-         */
-        void SetRenderingStrategy(RenderingStrategy strategy);
-
         /**
          * @brief Applies a shadow quality preset and rebuilds shadow maps
          * plus lighting passes that sample them.
@@ -123,11 +108,6 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] ShadowQuality GetShadowQuality() const
         {
             return mShadowQuality;
-        }
-
-        [[nodiscard]] RenderingStrategy GetRenderingStrategy() const
-        {
-            return mFreyaOptions->renderingStrategy;
         }
 
         [[nodiscard]] bool GetVSync() const { return mFreyaOptions->vSync; }
@@ -250,8 +230,6 @@ namespace FREYA_NAMESPACE
             return mSwapChain->GetFrameCount();
         }
 
-        skr::Arc<RenderPass> GetForwardPass() const { return mForwardPass; }
-
         skr::Arc<DeferredCompressedPass> GetDeferredPass() const
         {
             return mDeferredPass;
@@ -261,23 +239,12 @@ namespace FREYA_NAMESPACE
         void blitBloomToFullRes(const skr::Arc<CommandPool>& commandPool) const;
 
         /**
-         * @brief Creates forward offscreen render pass and resources.
-         * Called during construction and swapchain rebuild.
-         */
-        void createForwardOffscreenResources();
-
-        /**
-         * @brief Destroys forward offscreen resources.
-         */
-        void destroyForwardOffscreenResources();
-
-        /**
          * @brief Extent used for scene/bloom/composite sizing.
          */
         [[nodiscard]] vk::Extent2D getRenderExtent() const;
 
         /**
-         * @brief Rebuild bloom/deferred/forward scene resources at render
+         * @brief Rebuild deferred and post-processing resources at render
          * extent (keeps current swapchain).
          */
         void rebuildSceneResources();
@@ -306,7 +273,6 @@ namespace FREYA_NAMESPACE
         skr::Arc<PhysicalDevice>         mPhysicalDevice;
         skr::Arc<Device>                 mDevice;
         skr::Arc<SwapChain>              mSwapChain;
-        skr::Arc<RenderPass>             mForwardPass;
         skr::Arc<DeferredCompressedPass> mDeferredPass;
         skr::Arc<BloomPass>              mBloomPass;
         skr::Arc<TaaPass>                mTaaPass;
@@ -336,13 +302,6 @@ namespace FREYA_NAMESPACE
 
         // Full-res bloom result image (blit target from half-res bloom up)
         skr::Arc<Image> mBloomResultImage;
-
-        // Forward offscreen resources (for bloom+composite in forward mode)
-        skr::Arc<Image>              mForwardColorImage;
-        skr::Arc<Image>              mForwardResolveImage;
-        skr::Arc<Image>              mForwardDepthImage;
-        vk::RenderPass               mForwardOffscreenRenderPass;
-        std::vector<vk::Framebuffer> mForwardOffscreenFramebuffers;
 
         // Stored draw commands for reuse across passes (depth pre-pass,
         // gbuffer)

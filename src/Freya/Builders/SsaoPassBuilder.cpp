@@ -41,8 +41,8 @@ namespace FREYA_NAMESPACE
                 .Build();
         };
 
-        auto ssaoShader = loadShader(
-            "./Resources/Shaders/DeferredCompressed/ssao.comp.spv");
+        auto ssaoShader =
+            loadShader("./Resources/Shaders/DeferredCompressed/ssao.comp.spv");
         auto blurShader = loadShader(
             "./Resources/Shaders/DeferredCompressed/ssao_blur.comp.spv");
 
@@ -56,15 +56,15 @@ namespace FREYA_NAMESPACE
                 .Build();
         };
 
-        auto ssaoRawImage = createSsaoImage();
-        auto blurImage0   = createSsaoImage();
-        auto blurImage1   = createSsaoImage();
-        std::array blurImages = { blurImage0, blurImage1 };
+        auto       ssaoRawImage = createSsaoImage();
+        auto       blurImage0   = createSsaoImage();
+        auto       blurImage1   = createSsaoImage();
+        std::array blurImages   = { blurImage0, blurImage1 };
 
-        constexpr std::uint32_t kNoiseSize = 4;
+        constexpr std::uint32_t                               kNoiseSize = 4;
         std::array<std::uint8_t, kNoiseSize * kNoiseSize * 3> noiseData {};
-        std::mt19937                          rng(42);
-        std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
+        std::mt19937                                          rng(42);
+        std::uniform_real_distribution<float>                 dist(-1.0f, 1.0f);
         for (std::uint32_t i = 0; i < kNoiseSize * kNoiseSize; ++i)
         {
             glm::vec3 v(dist(rng), dist(rng), 0.0f);
@@ -153,18 +153,16 @@ namespace FREYA_NAMESPACE
             vk::DescriptorSetLayoutCreateInfo().setBindings(ssaoBindings));
         auto ssaoPipelineLayout = mDevice->Get().createPipelineLayout(
             vk::PipelineLayoutCreateInfo().setSetLayouts(ssaoSetLayout));
-        auto ssaoStage =
-            vk::PipelineShaderStageCreateInfo()
-                .setStage(vk::ShaderStageFlagBits::eCompute)
-                .setModule(ssaoShader->Get())
-                .setPName("main");
+        auto ssaoStage = vk::PipelineShaderStageCreateInfo()
+                             .setStage(vk::ShaderStageFlagBits::eCompute)
+                             .setModule(ssaoShader->Get())
+                             .setPName("main");
         auto ssaoPipeline =
             mDevice->Get()
-                .createComputePipeline(
-                    nullptr,
-                    vk::ComputePipelineCreateInfo()
-                        .setStage(ssaoStage)
-                        .setLayout(ssaoPipelineLayout))
+                .createComputePipeline(nullptr,
+                                       vk::ComputePipelineCreateInfo()
+                                           .setStage(ssaoStage)
+                                           .setLayout(ssaoPipelineLayout))
                 .value;
 
         auto blurBindings = std::array {
@@ -200,18 +198,16 @@ namespace FREYA_NAMESPACE
             vk::PipelineLayoutCreateInfo()
                 .setSetLayouts(blurSetLayout)
                 .setPushConstantRanges(blurPushRange));
-        auto blurStage =
-            vk::PipelineShaderStageCreateInfo()
-                .setStage(vk::ShaderStageFlagBits::eCompute)
-                .setModule(blurShader->Get())
-                .setPName("main");
+        auto blurStage = vk::PipelineShaderStageCreateInfo()
+                             .setStage(vk::ShaderStageFlagBits::eCompute)
+                             .setModule(blurShader->Get())
+                             .setPName("main");
         auto blurPipeline =
             mDevice->Get()
-                .createComputePipeline(
-                    nullptr,
-                    vk::ComputePipelineCreateInfo()
-                        .setStage(blurStage)
-                        .setLayout(blurPipelineLayout))
+                .createComputePipeline(nullptr,
+                                       vk::ComputePipelineCreateInfo()
+                                           .setStage(blurStage)
+                                           .setLayout(blurPipelineLayout))
                 .value;
 
         auto poolSizes = std::array {
@@ -226,9 +222,8 @@ namespace FREYA_NAMESPACE
                 .setDescriptorCount(1),
         };
         auto descriptorPool = mDevice->Get().createDescriptorPool(
-            vk::DescriptorPoolCreateInfo()
-                .setPoolSizes(poolSizes)
-                .setMaxSets(3));
+            vk::DescriptorPoolCreateInfo().setPoolSizes(poolSizes).setMaxSets(
+                3));
 
         auto layouts = std::vector {
             ssaoSetLayout,
@@ -239,9 +234,9 @@ namespace FREYA_NAMESPACE
             vk::DescriptorSetAllocateInfo()
                 .setDescriptorPool(descriptorPool)
                 .setSetLayouts(layouts));
-        auto ssaoSet   = sets[0];
-        auto blurSetH  = sets[1];
-        auto blurSetV  = sets[2];
+        auto ssaoSet  = sets[0];
+        auto blurSetH = sets[1];
+        auto blurSetV = sets[2];
 
         mDevice->Get().destroyShaderModule(ssaoShader->Get());
         mDevice->Get().destroyShaderModule(blurShader->Get());

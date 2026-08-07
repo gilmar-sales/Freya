@@ -5,7 +5,7 @@ A Vulkan-based rendering engine powered by [Skirnir](https://github.com/gilmar-s
 ## Features
 
 - **Vulkan-backed rendering** - Modern graphics API with high performance
-- **Deferred & Forward rendering** - Choose between rendering strategies
+- **Deferred rendering** - G-buffer path with SSAO, TAA, bloom, and HDR composite
 - **Custom render targets** - Redirect scene output to an offscreen
   `RenderTarget` at runtime (see [Core](core.md)); not configured via FreyaOptions
 - **Asset management** - Built-in support for meshes, textures, and materials
@@ -99,8 +99,7 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
         .SetVSync(true)
         .SetFullscreen(false)
         .SetSampleCount(4)
-        .SetDrawDistance(1000.0f)
-        .SetRenderingStrategy(fra::RenderingStrategy::Forward);
+        .SetDrawDistance(1000.0f);
 });
 ```
 
@@ -113,7 +112,7 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `height` | `std::uint32_t` | `600` | Window height |
 | `vSync` | `bool` | `true` | Vertical synchronization |
 | `fullscreen` | `bool` | `true` | Fullscreen mode |
-| `sampleCount` | `std::uint32_t` | `8` | MSAA sample count |
+| `sampleCount` | `std::uint32_t` | `1` | Retained for compatibility (scene path is single-sample) |
 | `frameCount` | `std::uint32_t` | `4` | Number of frames in flight |
 | `drawDistance` | `float` | `1000.0f` | Render distance |
 | `maxLights` | `std::uint32_t` | `16` | Max analytical lights (`MAX_LIGHTS`) |
@@ -127,7 +126,6 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `maxSpotShadows` | `std::uint32_t` | `4` | Max concurrent spot shadow maps |
 | `maxPointShadows` | `std::uint32_t` | `2` | Max concurrent point cube shadows |
 | `shadowSampleCount` | `std::uint32_t` | `16` | Soft-shadow Poisson taps (1–16) |
-| `renderingStrategy` | `RenderingStrategy` | `Forward` | Forward or Deferred |
 
 Use `FreyaOptionsBuilder::SetShadowQuality(Low|Medium|High|Ultra)` to set
 resolution, cascades, spot/point slots, and tap count together.

@@ -43,8 +43,8 @@ namespace FREYA_NAMESPACE
                       const skr::Arc<Image>&       velocity) const;
 
       private:
-        void updateDescriptors(const skr::Arc<Image>& sceneColor,
-                               const skr::Arc<Image>& velocity) const;
+        void ensureSceneDescriptors(const skr::Arc<Image>& sceneColor,
+                                    const skr::Arc<Image>& velocity) const;
 
         skr::Arc<Device>       mDevice;
         skr::Arc<FreyaOptions> mFreyaOptions;
@@ -58,7 +58,9 @@ namespace FREYA_NAMESPACE
         vk::Sampler                      mSampler;
         vk::Extent2D                     mExtent;
 
-        mutable std::uint32_t mWriteIndex   = 0;
-        mutable bool          mHistoryValid = false;
+        mutable std::uint32_t mWriteIndex        = 0;
+        mutable bool          mHistoryValid      = false;
+        mutable vk::ImageView mBoundSceneView    = {};
+        mutable vk::ImageView mBoundVelocityView = {};
     };
 } // namespace FREYA_NAMESPACE

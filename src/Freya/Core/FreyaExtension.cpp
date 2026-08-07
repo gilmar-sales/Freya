@@ -7,9 +7,9 @@
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/InstanceBuilder.hpp"
 #include "Freya/Builders/LightServiceBuilder.hpp"
+#include "Freya/Builders/MaterialDescriptorResourcesBuilder.hpp"
 #include "Freya/Builders/PhysicalDeviceBuilder.hpp"
 #include "Freya/Builders/PickPassBuilder.hpp"
-#include "Freya/Builders/RenderPassBuilder.hpp"
 #include "Freya/Builders/RenderTargetBuilder.hpp"
 #include "Freya/Builders/RendererBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
@@ -20,6 +20,7 @@
 #include "Freya/Builders/TaaPassBuilder.hpp"
 #include "Freya/Builders/WindowBuilder.hpp"
 
+#include "Freya/Asset/MaterialDescriptorResources.hpp"
 #include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Asset/TexturePool.hpp"
@@ -42,13 +43,13 @@ namespace FREYA_NAMESPACE
         services.AddTransient<PhysicalDeviceBuilder>();
         services.AddTransient<DeviceBuilder>();
         services.AddTransient<SurfaceBuilder>();
-        services.AddTransient<RenderPassBuilder>();
         services.AddTransient<SwapChainBuilder>();
         services.AddTransient<ImageBuilder>();
         services.AddTransient<RenderTargetBuilder>();
         services.AddTransient<RendererBuilder>();
         services.AddTransient<ShaderModuleBuilder>();
         services.AddTransient<CommandPoolBuilder>();
+        services.AddTransient<MaterialDescriptorResourcesBuilder>();
         services.AddTransient<DeferredCompressedPassBuilder>();
         services.AddTransient<BloomPassBuilder>();
         services.AddTransient<TaaPassBuilder>();
@@ -109,10 +110,17 @@ namespace FREYA_NAMESPACE
 
         services.AddSingleton<EventManager>();
         services.AddSingleton<MeshPool>();
+
+        services.AddSingleton<MaterialDescriptorResources>(
+            [](skr::ServiceProvider& serviceProvider) {
+                return serviceProvider
+                    .GetService<MaterialDescriptorResourcesBuilder>()
+                    ->Build();
+            });
+
         services.AddSingleton<TexturePool>();
         services.AddSingleton<MaterialPool>();
 
-        // LightService singleton - uses IoC to resolve FreyaOptions dependency
         services.AddSingleton<LightService>(
             [](skr::ServiceProvider& serviceProvider) {
                 auto device       = serviceProvider.GetService<Device>();
@@ -125,7 +133,6 @@ namespace FREYA_NAMESPACE
                 return lights;
             });
 
-        // IBL maps are baked at construction (procedural sky or HDR path)
         services.AddSingleton<IBLService>();
 
         services.AddSingleton<ShadowPass>(
@@ -144,16 +151,6 @@ namespace FREYA_NAMESPACE
                     serviceProvider.GetService<WindowBuilder>();
 
                 return windowBuilder->Build();
-            });
-
-        // Always create forward RenderPass (needed by SwapChainBuilder for
-        // framebuffer creation even in deferred mode)
-        services.AddSingleton<RenderPass>(
-            [](skr::ServiceProvider& serviceProvider) {
-                auto renderPassBuilder =
-                    serviceProvider.GetService<RenderPassBuilder>();
-
-                return renderPassBuilder->Build();
             });
 
         // DeferredCompressedPass is NOT registered as a service — the

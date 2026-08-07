@@ -14,8 +14,7 @@ namespace FREYA_NAMESPACE
     /**
      * @brief Builder for creating Renderer objects.
      *
-     * Supports both Forward and Deferred rendering strategies.
-     * For deferred mode, constructs a DeferredCompressedPass internally
+     * Constructs the deferred scene and post-processing passes internally
      * using the same SwapChain that the Renderer will use.
      */
     class RendererBuilder
@@ -27,7 +26,6 @@ namespace FREYA_NAMESPACE
                         const skr::Arc<Device>&               device,
                         const skr::Arc<CommandPool>&          commandPool,
                         const skr::Arc<SwapChain>&            swapChain,
-                        const skr::Arc<RenderPass>&           renderPass,
                         const skr::Arc<EventManager>&         eventManager,
                         const skr::Arc<Window>&               window,
                         const skr::Arc<FreyaOptions>&         freyaOptions,
@@ -35,8 +33,7 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief Builds and returns the Renderer object.
-         * For deferred mode, creates the DeferredCompressedPass with
-         * the current SwapChain.
+         * Creates the DeferredCompressedPass with the current SwapChain.
          * @return Shared pointer to created Renderer
          */
         skr::Arc<Renderer> Build();
@@ -51,7 +48,6 @@ namespace FREYA_NAMESPACE
         skr::Arc<CommandPool>    mCommandPool;
         skr::Arc<SwapChain>      mSwapChain;
         skr::Arc<EventManager>   mEventManager;
-        skr::Arc<RenderPass>     mRenderPass;
         skr::Arc<Window>         mWindow;
         skr::Arc<FreyaOptions>   mFreyaOptions;
 

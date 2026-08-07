@@ -18,6 +18,35 @@ namespace FREYA_NAMESPACE
         mDescriptorSets(descriptorSets), mHistoryImages(historyImages),
         mSampler(sampler), mExtent(extent)
     {
+        // Wire history/output for both ping-pong slots once. Scene/velocity
+        // are filled on first Dispatch (stable until rebuild).
+        for (std::uint32_t writeIndex = 0; writeIndex < 2; ++writeIndex)
+        {
+            const auto readIndex  = 1u - writeIndex;
+            const auto imageInfos = std::array {
+                vk::DescriptorImageInfo {}
+                    .setSampler(mSampler)
+                    .setImageView(mHistoryImages[readIndex]->GetImageView())
+                    .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+                vk::DescriptorImageInfo {}
+                    .setImageView(mHistoryImages[writeIndex]->GetImageView())
+                    .setImageLayout(vk::ImageLayout::eGeneral),
+            };
+            const auto writes = std::array {
+                vk::WriteDescriptorSet {}
+                    .setDstSet(mDescriptorSets[writeIndex])
+                    .setDstBinding(2)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setImageInfo(imageInfos[0]),
+                vk::WriteDescriptorSet {}
+                    .setDstSet(mDescriptorSets[writeIndex])
+                    .setDstBinding(3)
+                    .setDescriptorType(vk::DescriptorType::eStorageImage)
+                    .setImageInfo(imageInfos[1]),
+            };
+            mDevice->Get().updateDescriptorSets(writes, nullptr);
+        }
     }
 
     TaaPass::~TaaPass()
@@ -32,61 +61,46 @@ namespace FREYA_NAMESPACE
         mHistoryImages[1].reset();
     }
 
-    void TaaPass::updateDescriptors(const skr::Arc<Image>& sceneColor,
-                                    const skr::Arc<Image>& velocity) const
+    void TaaPass::ensureSceneDescriptors(const skr::Arc<Image>& sceneColor,
+                                         const skr::Arc<Image>& velocity) const
     {
-        const auto readIndex = 1u - mWriteIndex;
-        const auto set       = mDescriptorSets[mWriteIndex];
+        const auto sceneView    = sceneColor->GetImageView();
+        const auto velocityView = velocity->GetImageView();
+        if (mBoundSceneView == sceneView && mBoundVelocityView == velocityView)
+            return;
 
-        auto currentInfo =
-            vk::DescriptorImageInfo()
+        const auto imageInfos = std::array {
+            vk::DescriptorImageInfo {}
                 .setSampler(mSampler)
-                .setImageView(sceneColor->GetImageView())
-                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-        auto velocityInfo =
-            vk::DescriptorImageInfo()
+                .setImageView(sceneView)
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            vk::DescriptorImageInfo {}
                 .setSampler(mSampler)
-                .setImageView(velocity->GetImageView())
-                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-        auto historyInfo =
-            vk::DescriptorImageInfo()
-                .setSampler(mSampler)
-                .setImageView(mHistoryImages[readIndex]->GetImageView())
-                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-        auto outputInfo =
-            vk::DescriptorImageInfo()
-                .setImageView(mHistoryImages[mWriteIndex]->GetImageView())
-                .setImageLayout(vk::ImageLayout::eGeneral);
-
-        auto writes = std::array {
-            vk::WriteDescriptorSet()
-                .setDstSet(set)
-                .setDstBinding(0)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setImageInfo(currentInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(set)
-                .setDstBinding(1)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setImageInfo(velocityInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(set)
-                .setDstBinding(2)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setImageInfo(historyInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(set)
-                .setDstBinding(3)
-                .setDescriptorType(vk::DescriptorType::eStorageImage)
-                .setDescriptorCount(1)
-                .setImageInfo(outputInfo),
+                .setImageView(velocityView)
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
         };
-        mDevice->Get().updateDescriptorSets(
-            static_cast<std::uint32_t>(writes.size()), writes.data(), 0,
-            nullptr);
+
+        for (auto set : mDescriptorSets)
+        {
+            const auto writes = std::array {
+                vk::WriteDescriptorSet {}
+                    .setDstSet(set)
+                    .setDstBinding(0)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setImageInfo(imageInfos[0]),
+                vk::WriteDescriptorSet {}
+                    .setDstSet(set)
+                    .setDstBinding(1)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setImageInfo(imageInfos[1]),
+            };
+            mDevice->Get().updateDescriptorSets(writes, nullptr);
+        }
+
+        mBoundSceneView    = sceneView;
+        mBoundVelocityView = velocityView;
     }
 
     void TaaPass::Dispatch(const skr::Arc<CommandPool>& commandPool,
@@ -96,7 +110,7 @@ namespace FREYA_NAMESPACE
         auto commandBuffer = commandPool->GetCommandBuffer();
         mDevice->BeginDebugLabel(commandBuffer, "TAA Resolve");
 
-        updateDescriptors(sceneColor, velocity);
+        ensureSceneDescriptors(sceneColor, velocity);
 
         const auto readIndex = 1u - mWriteIndex;
 
@@ -108,7 +122,6 @@ namespace FREYA_NAMESPACE
                 .setBaseArrayLayer(0)
                 .setLayerCount(1);
 
-        // History read: ShaderRead; history write: General
         auto barriers = std::array {
             vk::ImageMemoryBarrier()
                 .setOldLayout(vk::ImageLayout::eUndefined)
@@ -162,7 +175,6 @@ namespace FREYA_NAMESPACE
         const auto groupsY = (mExtent.height + 7) / 8;
         commandBuffer.dispatch(groupsX, groupsY, 1);
 
-        // Output → shader read for composite
         auto toSampled =
             vk::ImageMemoryBarrier()
                 .setOldLayout(vk::ImageLayout::eGeneral)
