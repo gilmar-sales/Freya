@@ -2,6 +2,9 @@
 
 #include "Freya/FreyaOptions.hpp"
 
+#include <algorithm>
+#include <cstdint>
+
 namespace FREYA_NAMESPACE
 {
     /**
@@ -216,6 +219,90 @@ namespace FREYA_NAMESPACE
         FreyaOptionsBuilder& SetShadowQuality(ShadowQuality quality)
         {
             ApplyShadowQuality(*mFreyaOptions, quality);
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetSsaoQuality(SsaoQuality quality)
+        {
+            ApplySsaoQuality(*mFreyaOptions, quality);
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetTaaQuality(TaaQuality quality)
+        {
+            ApplyTaaQuality(*mFreyaOptions, quality);
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetBloomQuality(BloomQuality quality)
+        {
+            ApplyBloomQuality(*mFreyaOptions, quality);
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetSsaoResolutionDivisor(std::uint32_t divisor)
+        {
+            mFreyaOptions->ssaoResolutionDivisor = std::max(1u, divisor);
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetSsaoRadius(float radius)
+        {
+            mFreyaOptions->ssaoRadius = radius;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetSsaoBias(float bias)
+        {
+            mFreyaOptions->ssaoBias = bias;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetSsaoPower(float power)
+        {
+            mFreyaOptions->ssaoPower = power;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetSsaoIntensity(float intensity)
+        {
+            mFreyaOptions->ssaoIntensity = intensity;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetTaaCurrentWeight(float weight)
+        {
+            mFreyaOptions->taaCurrentWeight = weight;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetTaaHaltonPeriod(std::uint32_t period)
+        {
+            mFreyaOptions->taaHaltonPeriod = std::max(1u, period);
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetBloomResolutionDivisor(std::uint32_t divisor)
+        {
+            mFreyaOptions->bloomResolutionDivisor = std::max(1u, divisor);
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetBloomThreshold(float threshold)
+        {
+            mFreyaOptions->bloomThreshold = threshold;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetBloomExtractScale(float scale)
+        {
+            mFreyaOptions->bloomExtractScale = scale;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetBloomStrength(float strength)
+        {
+            mFreyaOptions->bloomStrength = strength;
             return *this;
         }
 

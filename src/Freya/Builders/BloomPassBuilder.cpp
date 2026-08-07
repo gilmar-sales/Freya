@@ -67,8 +67,7 @@ namespace FREYA_NAMESPACE
         if (fullExtent.width == 0 || fullExtent.height == 0)
             fullExtent = mSurface->QueryExtent();
         const auto halfExtent =
-            vk::Extent2D { std::max(1u, fullExtent.width / 2),
-                           std::max(1u, fullExtent.height / 2) };
+            ScaledExtent(fullExtent, mFreyaOptions->bloomResolutionDivisor);
 
         // ------------------------------------------------------------------
         // Bloom images at half resolution
@@ -206,10 +205,17 @@ namespace FREYA_NAMESPACE
         };
 
         // ------------------------------------------------------------------
-        // Pipeline layout (1 descriptor set with 2 bindings)
+        // Pipeline layout (+ push constants for bloom threshold)
         // ------------------------------------------------------------------
+        auto pushRange = vk::PushConstantRange()
+                             .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                             .setOffset(0)
+                             .setSize(sizeof(float) * 2);
+
         auto pipelineLayoutInfo =
-            vk::PipelineLayoutCreateInfo().setSetLayouts(descriptorSetLayout);
+            vk::PipelineLayoutCreateInfo()
+                .setSetLayouts(descriptorSetLayout)
+                .setPushConstantRanges(pushRange);
         auto pipelineLayout =
             mDevice->Get().createPipelineLayout(pipelineLayoutInfo);
 

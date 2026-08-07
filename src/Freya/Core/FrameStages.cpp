@@ -135,7 +135,11 @@ namespace FREYA_NAMESPACE
                 (*ctx.deferred)->GetNormalImage(),
                 ctx.projection->view,
                 ctx.projection->unjitteredProjection,
-                ctx.options->ReverseZ);
+                ctx.options->ReverseZ,
+                ctx.options->ssaoRadius,
+                ctx.options->ssaoBias,
+                ctx.options->ssaoPower,
+                ctx.options->ssaoIntensity);
             ssaoImage = (*ctx.ssao)->GetOutputImage();
         }
         else if (ctx.ssaoFallbackImage && *ctx.ssaoFallbackImage)
@@ -245,8 +249,10 @@ namespace FREYA_NAMESPACE
         }
 
         const auto commandBuffer = ctx.commandPool->GetCommandBuffer();
-        const auto halfW         = std::max(1u, ctx.renderExtent.width / 2);
-        const auto halfH         = std::max(1u, ctx.renderExtent.height / 2);
+        const auto bloomExtent =
+            ScaledExtent(ctx.renderExtent, ctx.options->bloomResolutionDivisor);
+        const auto halfW = bloomExtent.width;
+        const auto halfH = bloomExtent.height;
 
         auto bloomViewport =
             vk::Viewport()

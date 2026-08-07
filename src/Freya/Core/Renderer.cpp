@@ -43,17 +43,18 @@ namespace FREYA_NAMESPACE
 
         void ApplyHaltonJitter(glm::mat4&          projection,
                                const std::uint32_t frameIndex,
-                               const vk::Extent2D  extent)
+                               const vk::Extent2D  extent,
+                               const std::uint32_t haltonPeriod)
         {
             if (extent.width == 0 || extent.height == 0)
                 return;
 
-            constexpr std::uint32_t kHaltonPeriod = 16;
-            const auto              sample = (frameIndex % kHaltonPeriod) + 1;
-            const float             jx     = (Halton(sample, 2) - 0.5f) * 2.0f /
-                                             static_cast<float>(extent.width);
-            const float             jy     = (Halton(sample, 3) - 0.5f) * 2.0f /
-                                             static_cast<float>(extent.height);
+            const auto  period = std::max(1u, haltonPeriod);
+            const auto  sample = (frameIndex % period) + 1;
+            const float jx     = (Halton(sample, 2) - 0.5f) * 2.0f /
+                                 static_cast<float>(extent.width);
+            const float jy     = (Halton(sample, 3) - 0.5f) * 2.0f /
+                                 static_cast<float>(extent.height);
             projection[2][0] += jx;
             projection[2][1] += jy;
         }
@@ -382,6 +383,49 @@ namespace FREYA_NAMESPACE
         }
     }
 
+    void Renderer::SetSsaoQuality(const SsaoQuality quality)
+    {
+        if (mSsaoQuality == quality)
+            return;
+
+        const auto previousDivisor = mFreyaOptions->ssaoResolutionDivisor;
+        ApplySsaoQuality(*mFreyaOptions, quality);
+        mSsaoQuality = quality;
+
+        if (previousDivisor == mFreyaOptions->ssaoResolutionDivisor)
+            return;
+
+        mDevice->Get().waitIdle();
+        rebuildSceneResources();
+    }
+
+    void Renderer::SetTaaQuality(const TaaQuality quality)
+    {
+        if (mTaaQuality == quality)
+            return;
+
+        ApplyTaaQuality(*mFreyaOptions, quality);
+        mTaaQuality = quality;
+        if (mTaaPass)
+            mTaaPass->ResetHistory();
+    }
+
+    void Renderer::SetBloomQuality(const BloomQuality quality)
+    {
+        if (mBloomQuality == quality)
+            return;
+
+        const auto previousDivisor = mFreyaOptions->bloomResolutionDivisor;
+        ApplyBloomQuality(*mFreyaOptions, quality);
+        mBloomQuality = quality;
+
+        if (previousDivisor == mFreyaOptions->bloomResolutionDivisor)
+            return;
+
+        mDevice->Get().waitIdle();
+        rebuildSceneResources();
+    }
+
     void Renderer::SetOutputTarget(const skr::Arc<RenderTarget>& target)
     {
         mDevice->Get().waitIdle();
@@ -555,7 +599,8 @@ namespace FREYA_NAMESPACE
         upload.unjitteredProjection = unjittered.projection;
         if (mFreyaOptions->enableTaa && mTaaPass)
             ApplyHaltonJitter(upload.projection, mTaaFrameIndex,
-                              getRenderExtent());
+                              getRenderExtent(),
+                              mFreyaOptions->taaHaltonPeriod);
         return upload;
     }
 

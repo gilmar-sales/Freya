@@ -139,7 +139,17 @@ namespace FREYA_NAMESPACE
     void BloomPass::DrawFullscreenTriangle(
         const skr::Arc<CommandPool>& commandPool) const
     {
-        commandPool->GetCommandBuffer().draw(3, 1, 0, 0);
+        auto commandBuffer = commandPool->GetCommandBuffer();
+        struct Push
+        {
+            float threshold;
+            float extractScale;
+        } push { mFreyaOptions->bloomThreshold,
+                 mFreyaOptions->bloomExtractScale };
+        commandBuffer.pushConstants(
+            mPipelineLayout, vk::ShaderStageFlagBits::eFragment, 0,
+            sizeof(Push), &push);
+        commandBuffer.draw(3, 1, 0, 0);
     }
 
     void BloomPass::End(const skr::Arc<CommandPool> commandPool) const

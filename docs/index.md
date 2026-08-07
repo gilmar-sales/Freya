@@ -136,6 +136,13 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `enableSsao` | `bool` | `true` | Run SSAO compute pass |
 | `enableTaa` | `bool` | `true` | Run TAA resolve + jitter |
 | `enableBloom` | `bool` | `true` | Run bloom extract/blur |
+| `ssaoResolutionDivisor` | `uint` | `2` | SSAO res = full / N (1,2,4) |
+| `taaCurrentWeight` | `float` | `0.1` | TAA blend toward current |
+| `bloomStrength` | `float` | `0.8` | Bloom mix in composite |
+
+Use `SetShadowQuality` / `SetSsaoQuality` / `SetTaaQuality` /
+`SetBloomQuality` (`Low`–`Ultra`) for presets; runtime mirrors on `Renderer`.
+
 
 Use `FreyaOptionsBuilder::SetShadowQuality(Low|Medium|High|Ultra)` to set
 resolution, cascades, spot/point slots, and tap count together.

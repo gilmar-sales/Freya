@@ -30,10 +30,8 @@ namespace FREYA_NAMESPACE
         if (extent.width == 0 || extent.height == 0)
             extent = mSurface->QueryExtent();
 
-        const vk::Extent2D ssaoExtent {
-            std::max(1u, extent.width / 2),
-            std::max(1u, extent.height / 2),
-        };
+        const auto ssaoExtent =
+            ScaledExtent(extent, mFreyaOptions->ssaoResolutionDivisor);
 
         const auto& root       = mFreyaOptions->shaderRoot;
         auto        loadShader = [&](const std::string& relative) {

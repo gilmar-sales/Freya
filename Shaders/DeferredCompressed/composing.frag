@@ -7,13 +7,12 @@ layout(binding = 1) uniform sampler2D inTranslucent;
 layout(binding = 2) uniform sampler2D inBloom;
 
 layout(push_constant) uniform PushConstants {
-    float tonemapHdr; // 1 = ACES+gamma (deferred Scene Color), 0 = LDR passthrough
+    float tonemapHdr;    // 1 = ACES+gamma, 0 = LDR passthrough
+    float bloomStrength;
 } pc;
 
 layout(location = 0) in vec2 inTexCoord;
 layout(location = 0) out vec4 outColor;
-
-const float bloomStrength = 0.8;
 
 vec3 ACESFilm(vec3 x) {
     const float a = 2.51;
@@ -30,7 +29,7 @@ void main() {
     vec4 bloomColor = texture(inBloom, inTexCoord);
 
     vec3 color = mix(opaqueColor.rgb, transColor.rgb, transColor.a);
-    color += bloomColor.rgb * bloomStrength;
+    color += bloomColor.rgb * pc.bloomStrength;
 
     if (pc.tonemapHdr > 0.5) {
         color = ACESFilm(color);

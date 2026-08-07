@@ -23,9 +23,37 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& o) {
     o.SetEnableSsao(true)
      .SetEnableTaa(true)
      .SetEnableBloom(false)
-     .SetShaderRoot("./Resources/Shaders");
+     .SetShaderRoot("./Resources/Shaders")
+     .SetShadowQuality(fra::ShadowQuality::High)
+     .SetSsaoQuality(fra::SsaoQuality::Medium)
+     .SetTaaQuality(fra::TaaQuality::High)
+     .SetBloomQuality(fra::BloomQuality::Medium);
 });
 ```
+
+## Quality presets
+
+Each effect has a `Low` / `Medium` / `High` / `Ultra` preset (same idea as
+shadows). Presets write the per-effect knobs in `FreyaOptions`; individual
+setters can override afterward.
+
+| API | Controls |
+|-----|----------|
+| `SetShadowQuality` | map res, cascades, spot/point slots, soft taps |
+| `SetSsaoQuality` | resolution divisor (1/2/4), radius, bias, power, intensity |
+| `SetTaaQuality` | current-frame blend weight, Halton period |
+| `SetBloomQuality` | resolution divisor, threshold, extract scale, composite strength |
+
+Runtime (after build):
+
+```cpp
+mRenderer->SetSsaoQuality(fra::SsaoQuality::Ultra);
+mRenderer->SetTaaQuality(fra::TaaQuality::Low);
+mRenderer->SetBloomQuality(fra::BloomQuality::High);
+```
+
+Resolution changes rebuild the related pass; TAA weight / bloom strength
+update without a full rebuild when the divisor is unchanged.
 
 Defaults match the previous always-on post stack. Disabling SSAO still runs
 lighting with a white AO fallback. Disabling TAA skips Halton jitter.

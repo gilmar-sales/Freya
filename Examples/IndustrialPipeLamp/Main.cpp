@@ -36,6 +36,21 @@ class MainApp final : public fra::AbstractApplication
                     cycleShadowQuality();
                     return;
                 }
+                if (event.key == fra::KeyCode::F6)
+                {
+                    cycleSsaoQuality();
+                    return;
+                }
+                if (event.key == fra::KeyCode::F7)
+                {
+                    cycleTaaQuality();
+                    return;
+                }
+                if (event.key == fra::KeyCode::F8)
+                {
+                    cycleBloomQuality();
+                    return;
+                }
 
                 if (event.key == fra::KeyCode::Escape && mLookHeld)
                 {
@@ -475,31 +490,114 @@ class MainApp final : public fra::AbstractApplication
 
         static constexpr const char* kNames[] = { "Low", "Medium", "High",
                                                   "Ultra" };
-        const auto                   index    = static_cast<int>(next);
-        std::cout << "Shadow quality: " << kNames[index] << " [F5]\n";
+        std::cout << "Shadow quality: " << kNames[static_cast<int>(next)]
+                  << " [F5]\n";
+        updateTitle();
+    }
+
+    void cycleSsaoQuality()
+    {
+        const auto       current = mRenderer->GetSsaoQuality();
+        fra::SsaoQuality next    = fra::SsaoQuality::Low;
+        switch (current)
+        {
+            case fra::SsaoQuality::Low:
+                next = fra::SsaoQuality::Medium;
+                break;
+            case fra::SsaoQuality::Medium:
+                next = fra::SsaoQuality::High;
+                break;
+            case fra::SsaoQuality::High:
+                next = fra::SsaoQuality::Ultra;
+                break;
+            case fra::SsaoQuality::Ultra:
+                next = fra::SsaoQuality::Low;
+                break;
+        }
+        mRenderer->SetSsaoQuality(next);
+        static constexpr const char* kNames[] = { "Low", "Medium", "High",
+                                                  "Ultra" };
+        std::cout << "SSAO quality: " << kNames[static_cast<int>(next)]
+                  << " [F6]\n";
+        updateTitle();
+    }
+
+    void cycleTaaQuality()
+    {
+        const auto      current = mRenderer->GetTaaQuality();
+        fra::TaaQuality next    = fra::TaaQuality::Low;
+        switch (current)
+        {
+            case fra::TaaQuality::Low:
+                next = fra::TaaQuality::Medium;
+                break;
+            case fra::TaaQuality::Medium:
+                next = fra::TaaQuality::High;
+                break;
+            case fra::TaaQuality::High:
+                next = fra::TaaQuality::Ultra;
+                break;
+            case fra::TaaQuality::Ultra:
+                next = fra::TaaQuality::Low;
+                break;
+        }
+        mRenderer->SetTaaQuality(next);
+        static constexpr const char* kNames[] = { "Low", "Medium", "High",
+                                                  "Ultra" };
+        std::cout << "TAA quality: " << kNames[static_cast<int>(next)]
+                  << " [F7]\n";
+        updateTitle();
+    }
+
+    void cycleBloomQuality()
+    {
+        const auto        current = mRenderer->GetBloomQuality();
+        fra::BloomQuality next    = fra::BloomQuality::Low;
+        switch (current)
+        {
+            case fra::BloomQuality::Low:
+                next = fra::BloomQuality::Medium;
+                break;
+            case fra::BloomQuality::Medium:
+                next = fra::BloomQuality::High;
+                break;
+            case fra::BloomQuality::High:
+                next = fra::BloomQuality::Ultra;
+                break;
+            case fra::BloomQuality::Ultra:
+                next = fra::BloomQuality::Low;
+                break;
+        }
+        mRenderer->SetBloomQuality(next);
+        static constexpr const char* kNames[] = { "Low", "Medium", "High",
+                                                  "Ultra" };
+        std::cout << "Bloom quality: " << kNames[static_cast<int>(next)]
+                  << " [F8]\n";
         updateTitle();
     }
 
     void updateTitle()
     {
-        static constexpr const char* kQuality[] = { "Low", "Med", "High",
-                                                    "Ultra" };
+        static constexpr const char* kQuality[] = { "L", "M", "H", "U" };
         static constexpr const char* kShadow[]  = {
             "all", "dir", "warmPt", "coolPt", "spots",
         };
-        const auto qualityIndex =
-            static_cast<int>(mRenderer->GetShadowQuality());
-        const char* qualityName =
-            (qualityIndex >= 0 && qualityIndex <= 3)
-                ? kQuality[qualityIndex]
-                : "?";
+        auto qName = [](int index) {
+            return (index >= 0 && index <= 3) ? kQuality[index] : "?";
+        };
         const char* shadowName =
             (mShadowCasterMode >= 0 && mShadowCasterMode <= 4)
                 ? kShadow[mShadowCasterMode]
                 : "?";
         mFreyaOptions->title =
-            std::string("Industrial Pipe Lamp — Deferred | ") + qualityName +
-            " [F5] | " + shadowName + " [0-4]";
+            std::string("Industrial Pipe Lamp | Shd ") +
+            qName(static_cast<int>(mRenderer->GetShadowQuality())) +
+            " [F5] SSAO " +
+            qName(static_cast<int>(mRenderer->GetSsaoQuality())) +
+            " [F6] TAA " + qName(static_cast<int>(mRenderer->GetTaaQuality())) +
+            " [F7] Blm " +
+            qName(static_cast<int>(mRenderer->GetBloomQuality())) + " [F8] | " +
+            shadowName + " [0-4]";
     }
 
     enum class AnimatedLightKind

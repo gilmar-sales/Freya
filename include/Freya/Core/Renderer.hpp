@@ -108,6 +108,24 @@ namespace FREYA_NAMESPACE
             return mShadowQuality;
         }
 
+        void SetSsaoQuality(SsaoQuality quality);
+
+        [[nodiscard]] SsaoQuality GetSsaoQuality() const
+        {
+            return mSsaoQuality;
+        }
+
+        void SetTaaQuality(TaaQuality quality);
+
+        [[nodiscard]] TaaQuality GetTaaQuality() const { return mTaaQuality; }
+
+        void SetBloomQuality(BloomQuality quality);
+
+        [[nodiscard]] BloomQuality GetBloomQuality() const
+        {
+            return mBloomQuality;
+        }
+
         [[nodiscard]] bool GetVSync() const { return mFreyaOptions->vSync; }
         void               SetVSync(bool vSync);
 
@@ -259,6 +277,9 @@ namespace FREYA_NAMESPACE
         skr::Arc<EventManager>           mEventManager;
         skr::Arc<FreyaOptions>           mFreyaOptions;
         ShadowQuality                    mShadowQuality = ShadowQuality::High;
+        SsaoQuality                      mSsaoQuality   = SsaoQuality::Medium;
+        TaaQuality                       mTaaQuality    = TaaQuality::High;
+        BloomQuality                     mBloomQuality  = BloomQuality::Medium;
         skr::Arc<RenderTarget>           mOutputTarget;
         bool                             mUIPassOpen = false;
 

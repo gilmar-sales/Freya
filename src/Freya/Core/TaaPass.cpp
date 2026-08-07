@@ -163,7 +163,7 @@ namespace FREYA_NAMESPACE
         } push {
             1.0f / static_cast<float>(mExtent.width),
             1.0f / static_cast<float>(mExtent.height),
-            0.1f,
+            mFreyaOptions->taaCurrentWeight,
             mHistoryValid ? 1.0f : 0.0f,
         };
 

@@ -1,5 +1,8 @@
 #pragma once
 
+#include <algorithm>
+#include <cstdint>
+
 #include <glm/glm.hpp>
 
 namespace FREYA_NAMESPACE
@@ -20,81 +23,105 @@ namespace FREYA_NAMESPACE
     };
 
     /**
-     * @brief Global configuration options for Freya engine.
-     *
-     * @param title             Window title (default "Freya Window")
-     * @param width             Window width in pixels (default 800)
-     * @param height            Window height in pixels (default 600)
-     * @param vSync             Vertical sync enabled (default true)
-     * @param fullscreen        Fullscreen mode (default true)
-     * @param sampleCount       MSAA sample count (default 1)
-     * @param frameCount        Swapchain frame count (default 4)
-     * @param clearColor        Render pass clear color (default black
-     * transparent)
-     * @param drawDistance      View distance for culling (default 1000.0)
+     * @brief SSAO cost / fidelity preset (resolution scale + AO knobs).
      */
-    struct FreyaOptions
+    enum class SsaoQuality
     {
-        std::string         title       = "Freya Window"; ///< Window title
-        std::uint32_t       width       = 800;  ///< Window width in pixels
-        std::uint32_t       height      = 600;  ///< Window height in pixels
-        bool                vSync       = true; ///< Vertical sync enabled
-        bool                fullscreen  = true; ///< Fullscreen mode
-        std::uint32_t       sampleCount = 1;    ///< MSAA sample count
-        std::uint32_t       frameCount  = 4;    ///< Swapchain frame count
-        vk::ClearColorValue clearColor  = { 0.0f, 0.0f, 0.0f,
-                                            0.0f }; ///< Render pass clear color
-        float         drawDistance = 1000.0f; ///< View distance for culling
-        std::uint32_t maxLights    = 16;      ///< Maximum lights in scene
-        float         iblIntensity = 0.7f;    ///< Image-based lighting scale
-        float         exposure     = 0.7f;    ///< HDR exposure before tonemap
-        /// Radiance `.hdr` path relative to the process working directory.
-        /// Empty string forces the procedural sky. Default file is copied next
-        /// to examples under Resources/Environments/.
-        std::string environmentMapPath =
-            "./Resources/Environments/studio_small_09_4k.hdr";
-        glm::vec3 ambientColor =
-            glm::vec3(1.0f); ///< Flat ambient tint (legacy / fill)
-        float ambientIntensity =
-            0.03f; ///< Flat ambient intensity (legacy / fill)
-        /// Directional CSM cascade count (1–4).
-        std::uint32_t shadowCascadeCount = 4;
-        /// Resolution of each cascade / spot / cube face (square).
-        std::uint32_t shadowMapResolution = 2048;
-        /// Depth bias applied when sampling shadows.
-        float shadowBias = 0.002f;
-        /// PCSS light disk size (larger → softer distant penumbra).
-        float shadowLightSize = 0.03f;
-        /// PCSS max PCF kernel radius in shadow-map texels.
-        float shadowMaxSoftness = 8.0f;
-        /// Floor on shadow visibility (0 = pure black umbra). Soft occluder
-        /// stacks stay readable instead of crushing to ink when solids meet.
-        float shadowMinVisibility = 0.0f;
-        /// Max concurrent spot lights casting shadows (0–4).
-        std::uint32_t maxSpotShadows = 4;
-        /// Max concurrent point lights casting shadows (0–2).
-        std::uint32_t maxPointShadows = 2;
-        /// Soft-shadow Poisson samples (1–16). Used by lighting shaders.
-        std::uint32_t shadowSampleCount = 16;
-        bool          ReverseZ;
-
-        /// Directory containing DeferredCompressed/, Shadow/, Pick/ SPIR-V.
-        /// Paths are relative to the process working directory.
-        std::string shaderRoot = "./Resources/Shaders";
-
-        /// When false, SSAO compute is skipped; lighting uses a white AO map.
-        bool enableSsao = true;
-        /// When false, TAA resolve is skipped; composite uses scene color.
-        bool enableTaa = true;
-        /// When false, bloom extract/downsample/upsample is skipped.
-        bool enableBloom = true;
+        Low,    ///< quarter-res, softer / cheaper
+        Medium, ///< half-res (default look)
+        High,   ///< half-res, stronger occlusion
+        Ultra   ///< full-res, strongest
     };
 
     /**
-     * @brief Writes ShadowQuality preset fields into options.
-     *
-     * Bias / light size / softness / denoise knobs are left unchanged.
+     * @brief TAA responsiveness vs stability preset.
      */
+    enum class TaaQuality
+    {
+        Low,    ///< high current weight, short Halton period
+        Medium, ///< balanced
+        High,   ///< stable (default)
+        Ultra   ///< heaviest history blend
+    };
+
+    /**
+     * @brief Bloom resolution + extract / composite strength preset.
+     */
+    enum class BloomQuality
+    {
+        Low,    ///< quarter-res, higher threshold, weaker
+        Medium, ///< half-res (default)
+        High,   ///< half-res, stronger bloom
+        Ultra   ///< full-res, strongest
+    };
+
+    /**
+     * @brief Scales a full render extent by an integer divisor (≥1).
+     */
+    inline vk::Extent2D ScaledExtent(vk::Extent2D full, std::uint32_t divisor)
+    {
+        divisor = std::max(1u, divisor);
+        return vk::Extent2D { std::max(1u, full.width / divisor),
+                              std::max(1u, full.height / divisor) };
+    }
+
+    /**
+     * @brief Global configuration options for Freya engine.
+     */
+    struct FreyaOptions
+    {
+        std::string         title        = "Freya Window";
+        std::uint32_t       width        = 800;
+        std::uint32_t       height       = 600;
+        bool                vSync        = true;
+        bool                fullscreen   = true;
+        std::uint32_t       sampleCount  = 1;
+        std::uint32_t       frameCount   = 4;
+        vk::ClearColorValue clearColor   = { 0.0f, 0.0f, 0.0f, 0.0f };
+        float               drawDistance = 1000.0f;
+        std::uint32_t       maxLights    = 16;
+        float               iblIntensity = 0.7f;
+        float               exposure     = 0.7f;
+        std::string         environmentMapPath =
+            "./Resources/Environments/studio_small_09_4k.hdr";
+        glm::vec3 ambientColor     = glm::vec3(1.0f);
+        float     ambientIntensity = 0.03f;
+
+        std::uint32_t shadowCascadeCount  = 4;
+        std::uint32_t shadowMapResolution = 2048;
+        float         shadowBias          = 0.002f;
+        float         shadowLightSize     = 0.03f;
+        float         shadowMaxSoftness   = 8.0f;
+        float         shadowMinVisibility = 0.0f;
+        std::uint32_t maxSpotShadows      = 4;
+        std::uint32_t maxPointShadows     = 2;
+        std::uint32_t shadowSampleCount   = 16;
+        bool          ReverseZ;
+
+        std::string shaderRoot = "./Resources/Shaders";
+
+        bool enableSsao  = true;
+        bool enableTaa   = true;
+        bool enableBloom = true;
+
+        /// 1 = full, 2 = half, 4 = quarter of render extent.
+        std::uint32_t ssaoResolutionDivisor = 2;
+        float         ssaoRadius            = 1.25f;
+        float         ssaoBias              = 0.04f;
+        float         ssaoPower             = 2.0f;
+        float         ssaoIntensity         = 1.35f;
+
+        /// Blend weight toward current frame (0–1). Higher = less ghosting.
+        float taaCurrentWeight = 0.1f;
+        /// Halton jitter sequence length used with TAA.
+        std::uint32_t taaHaltonPeriod = 16;
+
+        std::uint32_t bloomResolutionDivisor = 2;
+        float         bloomThreshold         = 0.75f;
+        float         bloomExtractScale      = 1.0f;
+        float         bloomStrength          = 0.8f;
+    };
+
     inline void ApplyShadowQuality(FreyaOptions& options, ShadowQuality quality)
     {
         switch (quality)
@@ -126,6 +153,95 @@ namespace FREYA_NAMESPACE
                 options.maxSpotShadows      = 4;
                 options.maxPointShadows     = 2;
                 options.shadowSampleCount   = 16;
+                break;
+        }
+    }
+
+    inline void ApplySsaoQuality(FreyaOptions& options, SsaoQuality quality)
+    {
+        switch (quality)
+        {
+            case SsaoQuality::Low:
+                options.ssaoResolutionDivisor = 4;
+                options.ssaoRadius            = 1.0f;
+                options.ssaoBias              = 0.05f;
+                options.ssaoPower             = 1.5f;
+                options.ssaoIntensity         = 1.0f;
+                break;
+            case SsaoQuality::Medium:
+                options.ssaoResolutionDivisor = 2;
+                options.ssaoRadius            = 1.25f;
+                options.ssaoBias              = 0.04f;
+                options.ssaoPower             = 2.0f;
+                options.ssaoIntensity         = 1.35f;
+                break;
+            case SsaoQuality::High:
+                options.ssaoResolutionDivisor = 2;
+                options.ssaoRadius            = 1.5f;
+                options.ssaoBias              = 0.035f;
+                options.ssaoPower             = 2.2f;
+                options.ssaoIntensity         = 1.5f;
+                break;
+            case SsaoQuality::Ultra:
+                options.ssaoResolutionDivisor = 1;
+                options.ssaoRadius            = 1.75f;
+                options.ssaoBias              = 0.03f;
+                options.ssaoPower             = 2.5f;
+                options.ssaoIntensity         = 1.6f;
+                break;
+        }
+    }
+
+    inline void ApplyTaaQuality(FreyaOptions& options, TaaQuality quality)
+    {
+        switch (quality)
+        {
+            case TaaQuality::Low:
+                options.taaCurrentWeight = 0.25f;
+                options.taaHaltonPeriod  = 8;
+                break;
+            case TaaQuality::Medium:
+                options.taaCurrentWeight = 0.15f;
+                options.taaHaltonPeriod  = 12;
+                break;
+            case TaaQuality::High:
+                options.taaCurrentWeight = 0.1f;
+                options.taaHaltonPeriod  = 16;
+                break;
+            case TaaQuality::Ultra:
+                options.taaCurrentWeight = 0.06f;
+                options.taaHaltonPeriod  = 16;
+                break;
+        }
+    }
+
+    inline void ApplyBloomQuality(FreyaOptions& options, BloomQuality quality)
+    {
+        switch (quality)
+        {
+            case BloomQuality::Low:
+                options.bloomResolutionDivisor = 4;
+                options.bloomThreshold         = 1.0f;
+                options.bloomExtractScale      = 0.8f;
+                options.bloomStrength          = 0.5f;
+                break;
+            case BloomQuality::Medium:
+                options.bloomResolutionDivisor = 2;
+                options.bloomThreshold         = 0.75f;
+                options.bloomExtractScale      = 1.0f;
+                options.bloomStrength          = 0.8f;
+                break;
+            case BloomQuality::High:
+                options.bloomResolutionDivisor = 2;
+                options.bloomThreshold         = 0.65f;
+                options.bloomExtractScale      = 1.1f;
+                options.bloomStrength          = 1.0f;
+                break;
+            case BloomQuality::Ultra:
+                options.bloomResolutionDivisor = 1;
+                options.bloomThreshold         = 0.55f;
+                options.bloomExtractScale      = 1.2f;
+                options.bloomStrength          = 1.2f;
                 break;
         }
     }

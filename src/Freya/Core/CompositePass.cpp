@@ -97,9 +97,14 @@ namespace FREYA_NAMESPACE
         const skr::Arc<CommandPool>& commandPool, const float tonemapHdr) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
+        struct Push
+        {
+            float tonemapHdr;
+            float bloomStrength;
+        } push { tonemapHdr, mFreyaOptions->bloomStrength };
         commandBuffer.pushConstants(
             mPipelineLayout, vk::ShaderStageFlagBits::eFragment, 0,
-            sizeof(float), &tonemapHdr);
+            sizeof(Push), &push);
         commandBuffer.draw(3, 1, 0, 0);
     }
 
