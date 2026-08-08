@@ -618,6 +618,8 @@ namespace FREYA_NAMESPACE
         }
 
         mCurrentProjection = projectionUniformBuffer;
+        mCurrentProjection.unjitteredProjection =
+            projectionUniformBuffer.projection;
     }
 
     glm::mat4 Renderer::CalculateProjectionMatrix(const float near,
@@ -659,6 +661,10 @@ namespace FREYA_NAMESPACE
         mDeferredPass->UpdateProjection(
             prepareDeferredProjection(projectionUniformBuffer), frameIndex);
         mCurrentProjection = projectionUniformBuffer;
+        // SSAO (and CPU consumers) read unjitteredProjection from this struct.
+        // prepareDeferredProjection only stamps it on the GPU upload copy.
+        mCurrentProjection.unjitteredProjection =
+            projectionUniformBuffer.projection;
     }
 
     void Renderer::UpdateCamera(const glm::vec3& position,
