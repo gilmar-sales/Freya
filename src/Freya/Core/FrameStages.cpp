@@ -71,7 +71,8 @@ namespace FREYA_NAMESPACE
         (*ctx.shadow)
             ->Update(**ctx.lights,
                      ctx.projection->view,
-                     ctx.projection->projection,
+                     // Stable frustum fit — never the Halton-jittered matrix.
+                     ctx.projection->unjitteredProjection,
                      glm::vec3(glm::inverse(ctx.projection->view)[3]),
                      ctx.cameraNear,
                      ctx.options->drawDistance,

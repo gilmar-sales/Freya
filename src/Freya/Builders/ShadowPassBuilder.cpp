@@ -113,10 +113,10 @@ namespace FREYA_NAMESPACE
                 .setLineWidth(1.0f)
                 .setDepthBiasEnable(true)
                 .setDepthBiasConstantFactor(
-                    mFreyaOptions->ReverseZ ? -1.25f : 1.25f)
+                    mFreyaOptions->ReverseZ ? -2.25f : 2.25f)
                 .setDepthBiasClamp(0.0f)
                 .setDepthBiasSlopeFactor(
-                    mFreyaOptions->ReverseZ ? -1.75f : 1.75f);
+                    mFreyaOptions->ReverseZ ? -2.75f : 2.75f);
 
         auto multisampling =
             vk::PipelineMultisampleStateCreateInfo()

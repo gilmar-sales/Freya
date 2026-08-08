@@ -122,9 +122,11 @@ namespace FREYA_NAMESPACE
         glm::vec4 spotLightIndex {}; ///< light indices (-1 unused)
         glm::vec4 pointLightPosFar[MAX_POINT_SHADOWS] {}; ///< xyz=pos, w=far
         glm::vec4 pointLightIndex {}; ///< light indices (-1 unused)
-        glm::vec4 reverseZ {};        ///< x=1 when Reverse-Z encoding is active
-        glm::vec4 pcss {}; ///< x=light size, y=max soft, z=min visibility
-                           ///< (umbra floor), w=soft-shadow tap count (1–16)
+        glm::vec4 reverseZ {}; ///< x=1 Reverse-Z, y=shadow map resolution
+        glm::vec4 pcss {}; ///< x=light size (world), y=max soft (texels),
+                           ///< z=min visibility (umbra floor),
+                           ///< w=soft-shadow tap count (1–16)
+        glm::vec4 cascadeTexelSize {}; ///< World-space texel size per cascade
     };
 
     static_assert(offsetof(ShadowUniformBuffer, cascadeViewProj) == 0);
@@ -136,6 +138,7 @@ namespace FREYA_NAMESPACE
     static_assert(offsetof(ShadowUniformBuffer, pointLightIndex) == 592);
     static_assert(offsetof(ShadowUniformBuffer, reverseZ) == 608);
     static_assert(offsetof(ShadowUniformBuffer, pcss) == 624);
+    static_assert(offsetof(ShadowUniformBuffer, cascadeTexelSize) == 640);
 
     static_assert(sizeof(ProjectionUniformBuffer) % 256 == 0,
                   "ProjectionUniformBuffer must be 256-byte aligned for UBO "

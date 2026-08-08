@@ -215,15 +215,18 @@ namespace FREYA_NAMESPACE
 
         const float softScale = 1.0f;
         // params.x = depth bias in light NDC (receiver).
-        // params.y = world-space normal offset (receiver).
+        // params.y = normal offset in shadow-map texels (receiver).
         mShadowData.params = glm::vec4(
             std::max(0.0005f, mFreyaOptions->shadowBias),
-            std::max(0.01f, mFreyaOptions->shadowBias * 20.0f),
+            std::clamp(mFreyaOptions->shadowBias * 1000.0f, 1.25f, 4.0f),
             0.0f,
             // Soft scale magnitude; sign encodes Reverse-Z for shaders.
             mFreyaOptions->ReverseZ ? softScale : -softScale);
-        mShadowData.reverseZ =
-            glm::vec4(mFreyaOptions->ReverseZ ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f);
+        mShadowData.reverseZ = glm::vec4(
+            mFreyaOptions->ReverseZ ? 1.0f : 0.0f,
+            static_cast<float>(std::max(mResolution, 1u)),
+            0.0f,
+            0.0f);
         mShadowData.pcss = glm::vec4(
             std::max(0.0f, mFreyaOptions->shadowLightSize),
             std::max(1.0f, mFreyaOptions->shadowMaxSoftness),
@@ -308,7 +311,15 @@ namespace FREYA_NAMESPACE
                                      const float      nearPlane,
                                      const float      drawDistance)
     {
-        constexpr float lambda = 0.85f;
+        // Practical split over the shadow range (not full drawDistance —
+        // 1000-unit far planes starve near cascades and inflate ortho Z
+        // precision issues that read as floor acne).
+        constexpr float kMaxDirectionalShadowDistance = 80.0f;
+        const float cascadeFar =
+            std::min(drawDistance, kMaxDirectionalShadowDistance);
+
+        // Practical split: lower λ keeps more texels near the camera.
+        constexpr float lambda = 0.55f;
 
         std::array<float, MAX_SHADOW_CASCADES> splits {};
         for (std::uint32_t i = 1; i <= mCascadeCount; ++i)
@@ -317,9 +328,9 @@ namespace FREYA_NAMESPACE
                 static_cast<float>(i) / static_cast<float>(mCascadeCount);
 
             const auto logSplit =
-                nearPlane * std::pow(drawDistance / nearPlane, p);
+                nearPlane * std::pow(cascadeFar / nearPlane, p);
             const auto uniformSplit =
-                nearPlane + (drawDistance - nearPlane) * p;
+                nearPlane + (cascadeFar - nearPlane) * p;
 
             splits[i - 1] = lambda * logSplit + (1.0f - lambda) * uniformSplit;
         }
@@ -442,6 +453,13 @@ namespace FREYA_NAMESPACE
 
             mShadowData.cascadeViewProj[i] = lightProj * lightView;
             mShadowData.cascadeSplits[i]   = splitFar;
+            // Padded AABB extent / resolution — used for UV soft radius and
+            // receiver normal offset proportional to cascade density.
+            const auto worldTexel =
+                std::max(extentX * (1.0f + 2.0f * xyPadFrac),
+                         extentY * (1.0f + 2.0f * xyPadFrac)) /
+                resolution;
+            mShadowData.cascadeTexelSize[static_cast<int>(i)] = worldTexel;
         }
     }
 

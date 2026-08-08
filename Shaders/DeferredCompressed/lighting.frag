@@ -40,13 +40,14 @@ layout(binding = 10) uniform sampler2D ltcAmplMap;
 layout(binding = 11) uniform ShadowBuffer {
     mat4 cascadeViewProj[4];
     vec4 cascadeSplits;
-    vec4 params; // x=bias y=normalBias z=cascadeCount w=softScale
+    vec4 params; // x=bias y=normalBias(texels) z=cascadeCount w=softScale
     mat4 spotViewProj[4];
     vec4 spotLightIndex;
     vec4 pointLightPosFar[2];
     vec4 pointLightIndex;
-    vec4 reverseZ; // x=1 when Reverse-Z point depth encoding is active
-    vec4 pcss; // x=lightSize y=maxSoftness z=minVisibility w=tapCount
+    vec4 reverseZ; // x=Reverse-Z, y=shadow map resolution
+    vec4 pcss; // x=lightSize(world) y=maxSoft(texels) z=minVis w=tapCount
+    vec4 cascadeTexelSize; // world-space texel size per cascade
 } shadows;
 
 layout(binding = 12) uniform sampler2DArrayShadow cascadeShadowMap;
@@ -114,11 +115,20 @@ const vec2 kPoissonDisk[16] = vec2[](
     vec2(-0.24188840, 0.99706507), vec2(-0.81409955, 0.91437590),
     vec2(0.19984126, 0.78641367), vec2(0.14383161, -0.14100790));
 
-// Identical soft disk for every light type (point-style angular / TBN).
-const float kSoftDisk = 0.008;
-
 int SoftShadowTapCount() {
     return clamp(int(shadows.pcss.w + 0.5), 1, 16);
+}
+
+float ShadowMapResolution() {
+    return max(shadows.reverseZ.y, 1.0);
+}
+
+// Soft radius in UV: world light size / cascade texel → texels, clamped.
+float SoftUvRadius(float texelWorld, float maxTexels) {
+    float ts = max(texelWorld, 1e-6);
+    float softTexels =
+        clamp(shadows.pcss.x / ts, 1.0, min(shadows.pcss.y, maxTexels));
+    return softTexels / ShadowMapResolution();
 }
 
 void ShadowTangentBasis(vec3 axis, out vec3 T, out vec3 B) {
@@ -127,25 +137,19 @@ void ShadowTangentBasis(vec3 axis, out vec3 T, out vec3 B) {
     B = cross(axis, T);
 }
 
-// Point technique on a 2D map: same angular Poisson as cube shadows, with a
-// fixed center depthRef (varying depth per tap is what made dir/spot grainy).
-float SoftShadow2DPointStyle(sampler2DArrayShadow map, mat4 lightVP,
-                             vec3 lightPos, vec3 biased, float layer,
-                             float depthBiasAmount) {
-    vec3 dir = biased - lightPos;
-    float dist = length(dir);
-    if (dist < 1e-5)
-        return 1.0;
-
-    vec3 Ndir = dir / dist;
-    vec3 T, B;
-    ShadowTangentBasis(Ndir, T, B);
-    bool reverseZ = shadows.reverseZ.x > 0.5;
-
+// Stable UV-space Poisson PCF (no per-pixel rotation → no grain without TAA).
+// Out-of-bounds taps must count as lit — clamp-to-border depth is far/empty
+// and would otherwise paint soft penumbra as grainy self-shadow (especially
+// on cascade AABB edges).
+float SoftShadow2DUV(sampler2DArrayShadow map, mat4 lightVP, vec3 biased,
+                     float layer, float depthBiasAmount, float uvRadius) {
     vec4 centerClip = lightVP * vec4(biased, 1.0);
     vec3 centerNdc = centerClip.xyz / centerClip.w;
     if (abs(centerNdc.x) > 1.0 || abs(centerNdc.y) > 1.0)
         return 1.0;
+
+    vec2 uv = centerNdc.xy * 0.5 + 0.5;
+    bool reverseZ = shadows.reverseZ.x > 0.5;
     float depthRef = reverseZ ? (centerNdc.z + depthBiasAmount)
                               : (centerNdc.z - depthBiasAmount);
 
@@ -154,17 +158,13 @@ float SoftShadow2DPointStyle(sampler2DArrayShadow map, mat4 lightVP,
     for (int i = 0; i < 16; ++i) {
         if (i >= tapCount)
             break;
-        vec2 o = kPoissonDisk[i] * kSoftDisk;
-        vec3 sampleDir = normalize(Ndir + T * o.x + B * o.y);
-        vec3 samplePos = lightPos + sampleDir * dist;
-        vec4 clip = lightVP * vec4(samplePos, 1.0);
-        vec3 ndc = clip.xyz / clip.w;
-        if (abs(ndc.x) > 1.0 || abs(ndc.y) > 1.0) {
+        vec2 sampleUv = uv + kPoissonDisk[i] * uvRadius;
+        if (sampleUv.x < 0.0 || sampleUv.x > 1.0 || sampleUv.y < 0.0 ||
+            sampleUv.y > 1.0) {
             result += 1.0;
             continue;
         }
-        vec2 uv = ndc.xy * 0.5 + 0.5;
-        result += texture(map, vec4(uv, layer, depthRef));
+        result += texture(map, vec4(sampleUv, layer, depthRef));
     }
     return result / float(tapCount);
 }
@@ -185,20 +185,35 @@ float SampleCascadeShadow(vec3 worldPos, vec3 N, vec3 L) {
         }
     }
 
-    // Match point bias scaling: treat "far" as softDist (virtual light).
-    float softDist = 20.0;
     float nDotL = max(dot(N, normalize(L)), 0.0);
     float slope = sqrt(max(1.0 - nDotL * nDotL, 0.0));
-    float normalScale = shadows.params.y * (0.35 + 0.65 * slope);
-    float lightPush = shadows.params.x * softDist * (0.5 + slope);
     vec3 lightDir = normalize(L);
-    vec3 biased = worldPos + N * normalScale + lightDir * lightPush;
-    float depthBiasAmount = shadows.params.x * (1.0 + 1.5 * slope);
-    vec3 lightPos = biased - lightDir * softDist;
 
-    float shadow = SoftShadow2DPointStyle(
-        cascadeShadowMap, shadows.cascadeViewProj[cascade], lightPos, biased,
-        float(cascade), depthBiasAmount);
+    float ts = max(shadows.cascadeTexelSize[cascade], 1e-6);
+    // Receiver bias in world units from cascade density, then convert to
+    // light NDC via lightVP (ortho Z range varies wildly per cascade).
+    float worldBias = ts * (2.5 + 3.5 * slope) * max(shadows.params.y, 1.0);
+    vec3 biased = worldPos + N * (worldBias * 0.7) + lightDir * (worldBias * 0.6);
+
+    vec4 clip = shadows.cascadeViewProj[cascade] * vec4(biased, 1.0);
+    vec3 ndc = clip.xyz / clip.w;
+    if (abs(ndc.x) > 1.0 || abs(ndc.y) > 1.0)
+        return 1.0;
+
+    vec4 clipUnbiased = shadows.cascadeViewProj[cascade] * vec4(worldPos, 1.0);
+    float ndcBias =
+        abs(ndc.z - clipUnbiased.z / max(abs(clipUnbiased.w), 1e-6));
+    // Constant floor + measured world→NDC bias (params.x still scales).
+    float depthBiasAmount =
+        max(shadows.params.x * (3.0 + 4.5 * slope), ndcBias * 1.15);
+
+    // Directional: ~1 texel. Relies on hardware compare PCF; avoids Poisson
+    // neighbor acne on large receivers.
+    float uvRadius = 1.0 / ShadowMapResolution();
+
+    float shadow = SoftShadow2DUV(cascadeShadowMap,
+                                  shadows.cascadeViewProj[cascade], biased,
+                                  float(cascade), depthBiasAmount, uvRadius);
 
     if (cascade < cascadeCount - 1) {
         float splitNear =
@@ -206,9 +221,27 @@ float SampleCascadeShadow(vec3 worldPos, vec3 N, vec3 L) {
         float splitFar = shadows.cascadeSplits[cascade];
         float blendStart = mix(splitNear, splitFar, 0.9);
         if (viewDepth > blendStart) {
-            float next = SoftShadow2DPointStyle(
-                cascadeShadowMap, shadows.cascadeViewProj[cascade + 1],
-                lightPos, biased, float(cascade + 1), depthBiasAmount);
+            int nextCascade = cascade + 1;
+            float tsNext = max(shadows.cascadeTexelSize[nextCascade], 1e-6);
+            float worldBiasNext =
+                tsNext * (2.5 + 3.5 * slope) * max(shadows.params.y, 1.0);
+            vec3 biasedNext = worldPos + N * (worldBiasNext * 0.7) +
+                              lightDir * (worldBiasNext * 0.6);
+
+            vec4 clipNext =
+                shadows.cascadeViewProj[nextCascade] * vec4(biasedNext, 1.0);
+            vec3 ndcNext = clipNext.xyz / clipNext.w;
+            vec4 clipUnbiasedNext =
+                shadows.cascadeViewProj[nextCascade] * vec4(worldPos, 1.0);
+            float ndcBiasNext = abs(
+                ndcNext.z -
+                clipUnbiasedNext.z / max(abs(clipUnbiasedNext.w), 1e-6));
+            float depthBiasNext =
+                max(shadows.params.x * (3.0 + 4.5 * slope), ndcBiasNext * 1.15);
+
+            float next = SoftShadow2DUV(
+                cascadeShadowMap, shadows.cascadeViewProj[nextCascade],
+                biasedNext, float(nextCascade), depthBiasNext, uvRadius);
             float t = smoothstep(blendStart, splitFar, viewDepth);
             shadow = mix(shadow, next, t);
         }
@@ -228,20 +261,19 @@ float SampleSpotShadow(int lightIndex, vec3 worldPos, vec3 N, vec3 L) {
         return 1.0;
 
     vec3 lightPos = lights.lightPositions[lightIndex].xyz;
-    float radius = lights.lightColorsAndRadius[lightIndex].w;
     float distHint = max(length(lightPos - worldPos), 1.0);
     float nDotL = max(dot(N, normalize(L)), 0.0);
     float slope = sqrt(max(1.0 - nDotL * nDotL, 0.0));
-    float normalScale = shadows.params.y * (0.35 + 0.65 * slope);
-    // Same scale as point (point uses radius/far).
-    float lightPush =
-        shadows.params.x * min(distHint, radius) * (0.5 + slope);
+    // Approximate texel at receiver for a ~90° cone (conservative).
+    float texelWorld = (2.0 * distHint) / ShadowMapResolution();
+    float normalScale = texelWorld * shadows.params.y * (0.5 + 1.5 * slope);
+    float lightPush = texelWorld * (1.0 + slope);
     vec3 biased = worldPos + N * normalScale + normalize(L) * lightPush;
     float depthBiasAmount = shadows.params.x * (1.0 + 1.5 * slope);
 
-    return SoftShadow2DPointStyle(spotShadowMap, shadows.spotViewProj[slot],
-                                  lightPos, biased, float(slot),
-                                  depthBiasAmount);
+    return SoftShadow2DUV(spotShadowMap, shadows.spotViewProj[slot], biased,
+                          float(slot), depthBiasAmount,
+                          SoftUvRadius(texelWorld, shadows.pcss.y));
 }
 
 float SamplePointShadow(int lightIndex, vec3 worldPos, vec3 N) {
@@ -267,8 +299,10 @@ float SamplePointShadow(int lightIndex, vec3 worldPos, vec3 N) {
     float nDotL = max(dot(N, L), 0.0);
     float slope = sqrt(max(1.0 - nDotL * nDotL, 0.0));
     bool reverseZ = shadows.reverseZ.x > 0.5;
-    float normalScale = shadows.params.y * (0.35 + 0.65 * slope);
-    float lightPush = shadows.params.x * far * (0.5 + slope);
+    // Point maps: offset ~texel at this distance (cube face spans ~2*dist).
+    float texelWorld = (2.0 * distToLight) / ShadowMapResolution();
+    float normalScale = texelWorld * shadows.params.y * (0.5 + 1.5 * slope);
+    float lightPush = texelWorld * (1.0 + slope);
     vec3 biased = worldPos + N * normalScale + L * lightPush;
     vec3 dir = biased - lightPos;
     float dist = length(dir);
@@ -283,12 +317,15 @@ float SamplePointShadow(int lightIndex, vec3 worldPos, vec3 N) {
     vec3 Ndir = normalize(dir);
     vec3 T, B;
     ShadowTangentBasis(Ndir, T, B);
+    // Angular soft disk from world light size at this distance (no UV map).
+    float softAngle =
+        clamp(shadows.pcss.x / max(dist, 0.1), 0.002, 0.015);
     int tapCount = SoftShadowTapCount();
     float result = 0.0;
     for (int i = 0; i < 16; ++i) {
         if (i >= tapCount)
             break;
-        vec2 o = kPoissonDisk[i] * kSoftDisk;
+        vec2 o = kPoissonDisk[i] * softAngle;
         vec3 sampleDir = normalize(Ndir + T * o.x + B * o.y);
         result += texture(pointShadowMap, vec4(sampleDir, float(slot)),
                           depthRef);
