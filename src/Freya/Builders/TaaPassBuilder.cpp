@@ -128,7 +128,7 @@ namespace FREYA_NAMESPACE
         auto pushRange = vk::PushConstantRange()
                              .setStageFlags(vk::ShaderStageFlagBits::eCompute)
                              .setOffset(0)
-                             .setSize(sizeof(float) * 8);
+                             .setSize(sizeof(float) * 12);
 
         auto pipelineLayout = mDevice->Get().createPipelineLayout(
             vk::PipelineLayoutCreateInfo()

@@ -224,7 +224,11 @@ namespace FREYA_NAMESPACE
             float varianceGammaY;
             float varianceGammaC;
             float depthReject;
-            float pad;
+            float sharpen;
+            float quality;
+            float pad0;
+            float pad1;
+            float pad2;
         } push {
             1.0f / static_cast<float>(mExtent.width),
             1.0f / static_cast<float>(mExtent.height),
@@ -233,6 +237,10 @@ namespace FREYA_NAMESPACE
             mFreyaOptions->taaVarianceGammaY,
             mFreyaOptions->taaVarianceGammaC,
             mFreyaOptions->taaDepthRejectThreshold,
+            mFreyaOptions->taaSharpen,
+            static_cast<float>(mFreyaOptions->taaQualityLevel),
+            0.0f,
+            0.0f,
             0.0f,
         };
 

@@ -300,6 +300,12 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        FreyaOptionsBuilder& SetTaaSharpen(float sharpen)
+        {
+            mFreyaOptions->taaSharpen = sharpen;
+            return *this;
+        }
+
         FreyaOptionsBuilder& SetBloomResolutionDivisor(std::uint32_t divisor)
         {
             mFreyaOptions->bloomResolutionDivisor = std::max(1u, divisor);
