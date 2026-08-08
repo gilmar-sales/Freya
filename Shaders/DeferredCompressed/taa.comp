@@ -295,6 +295,12 @@ void main() {
     float speedPx =
         length(velocity / max(pc.invResolution, vec2(1e-6)));
 
+    // Pre-clip luma disagreement — dilated velocity often samples the moving
+    // surface into newly uncovered background (faint High/Ultra trails).
+    float lumaGhost =
+        abs(Luma(current) - Luma(history)) /
+        max(max(Luma(current), Luma(history)), 1e-3);
+
     if (offscreen) {
         weight    = 1.0;
         histTrust = 0.0;
@@ -319,25 +325,27 @@ void main() {
         histTrust          = depthTrust;
         weight = mix(1.0, pc.currentWeight, depthTrust);
 
-        if (q >= Q_HIGH && depthTrust > 0.5 && speedPx > 0.5) {
-            // Mild reactive only while moving — never fully dump history.
-            float lumaDiff =
-                abs(Luma(current) - Luma(history)) /
-                max(max(Luma(current), Luma(history)), 1e-3);
-            float reactive =
-                clamp(lumaDiff * 1.0, 0.0, 1.0) *
-                clamp(speedPx * 0.04, 0.0, 1.0) * 0.2;
-            weight    = mix(weight, 1.0, reactive);
-            histTrust *= (1.0 - reactive);
+        // Soft floor keeps jitter AA; open toward full dump when history is
+        // clearly a different surface (Medium hard-clamp hides this; variance
+        // / ClipAABB on High+ leave a low-alpha trail otherwise).
+        float rejectCap = 0.55;
+        if (q >= Q_HIGH) {
+            float ghostLikely =
+                smoothstep(0.06, 0.28, lumaGhost) *
+                smoothstep(0.2, 1.25, speedPx);
+            rejectCap = mix(0.55, 0.98, ghostLikely);
+            weight    = mix(weight, 1.0, ghostLikely * 0.85);
+            histTrust *= (1.0 - ghostLikely * 0.85);
         }
 
-        // Keep a history floor so jittered current never fully takes over
-        // on marginal rejects (primary shimmer source vs Low).
-        weight = min(weight, mix(pc.currentWeight, 0.55, 1.0 - depthTrust));
+        weight = min(weight, mix(pc.currentWeight, rejectCap, 1.0 - depthTrust));
     }
 
     if (weight < 0.999) {
         float boost = GammaBoost(pixel, velocity);
+        // Motion-wide AABB lets dilated-velocity ghosts survive variance clip.
+        if (q >= Q_HIGH)
+            boost = mix(boost, 1.0 + 1.25 * (boost - 1.0), 0.65);
 
         if (q == Q_LOW) {
             vec3 nMin, nMax;
@@ -371,10 +379,25 @@ void main() {
             vec3 gamma = vec3(pc.varianceGammaY, pc.varianceGammaC,
                               pc.varianceGammaC) *
                          boost;
-            history = YCoCgToRGB(
-                ClipAABB(RGBToYCoCg(history), mu - gamma * sigma,
-                         mu + gamma * sigma));
+            // ClipAABB keeps chroma trails; hard-clamp Y then clip chroma.
+            vec3 hYCoCg = RGBToYCoCg(history);
+            vec3 lo     = mu - gamma * sigma;
+            vec3 hi     = mu + gamma * sigma;
+            hYCoCg.x    = clamp(hYCoCg.x, lo.x, hi.x);
+            hYCoCg      = ClipAABB(hYCoCg, lo, hi);
+            history     = YCoCgToRGB(hYCoCg);
         }
+    }
+
+    // Residual ghost after variance soft-box (High+ only).
+    if (q >= Q_HIGH && weight < 0.999) {
+        float postGhost =
+            abs(Luma(current) - Luma(history)) /
+            max(max(Luma(current), Luma(history)), 1e-3);
+        float kill = smoothstep(0.04, 0.20, postGhost) *
+                     mix(0.2, 1.0, smoothstep(0.15, 1.0, speedPx));
+        weight    = mix(weight, 1.0, kill * 0.9);
+        histTrust *= (1.0 - kill * 0.9);
     }
 
     vec3 result = mix(history, current, weight);
