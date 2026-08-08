@@ -6,6 +6,7 @@
 #include "Freya/Builders/CompositePassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
+#include "Freya/Builders/IndirectDrawSystemBuilder.hpp"
 #include "Freya/Builders/PickPassBuilder.hpp"
 #include "Freya/Builders/RenderTargetBuilder.hpp"
 #include "Freya/Builders/ShadowPassBuilder.hpp"
@@ -16,6 +17,7 @@
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/DebugLabels.hpp"
 #include "Freya/Core/FrameStages.hpp"
+#include "Freya/Core/IndirectDrawSystem.hpp"
 #include "Freya/Core/PickPass.hpp"
 #include "Freya/Core/ShadowPass.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
@@ -91,7 +93,8 @@ namespace FREYA_NAMESPACE
         mFreyaOptions(freyaOptions), mEventManager(eventManager),
         mCurrentProjection({}),
         mMeshPool(serviceProvider->GetService<MeshPool>()),
-        mMaterialPool(serviceProvider->GetService<MaterialPool>())
+        mMaterialPool(serviceProvider->GetService<MaterialPool>()),
+        mIndirectDraw(serviceProvider->GetService<IndirectDrawSystem>())
     {
         if (!freyaOptions->enableShadows)
             mShadowQuality = ShadowQuality::Off;
@@ -266,8 +269,11 @@ namespace FREYA_NAMESPACE
         ctx.pickY                = &mPickY;
         ctx.pickAwaitingReadback = &mPickAwaitingReadback;
 
-        ctx.executeDraws = [this](bool bindMaterials, bool shadowCastersOnly) {
-            ExecuteDrawCommands(bindMaterials, shadowCastersOnly);
+        ctx.executeDraws = [this](bool bindMaterials) {
+            ExecuteDrawCommands(bindMaterials);
+        };
+        ctx.dispatchCull = [this](const glm::mat4& viewProj, CullMode mode) {
+            DispatchCull(viewProj, mode);
         };
         ctx.executePickDraws   = [this]() { ExecutePickDrawCommands(); };
         ctx.blitBloomToFullRes = [this]() { blitBloomToFullRes(mCommandPool); };
@@ -830,71 +836,24 @@ namespace FREYA_NAMESPACE
             &model);
     }
 
+    void Renderer::UploadSceneInstances(
+        const std::span<const SceneInstanceUpload> uploads)
+    {
+        mUsedUploadApi = true;
+        if (mIndirectDraw)
+        {
+            mIndirectDraw->UploadSceneInstances(uploads,
+                                                GetCurrentFrameIndex());
+        }
+    }
+
     void Renderer::SetInstanceModels(const glm::mat4*  models,
                                      const std::size_t count)
     {
+        mLegacyModels.clear();
         if (count == 0 || models == nullptr)
-        {
-            mInstanceTransforms.clear();
-            mInstanceTransformBuffers.clear();
-            mInstanceTransformBuffer.reset();
-            mInstanceBufferCapacity = 0;
-            mInstanceHistoryFrame   = std::numeric_limits<std::uint32_t>::max();
             return;
-        }
-
-        const auto frameIndex = GetCurrentFrameIndex();
-        const bool newFrame   = frameIndex != mInstanceHistoryFrame;
-        mInstanceHistoryFrame = frameIndex;
-
-        if (mInstanceTransforms.size() != count)
-        {
-            mInstanceTransforms.resize(count);
-            for (std::size_t i = 0; i < count; ++i)
-            {
-                mInstanceTransforms[i].model     = models[i];
-                mInstanceTransforms[i].prevModel = models[i];
-            }
-        }
-        else
-        {
-            for (std::size_t i = 0; i < count; ++i)
-            {
-                if (newFrame)
-                {
-                    mInstanceTransforms[i].prevModel =
-                        mInstanceTransforms[i].model;
-                }
-                mInstanceTransforms[i].model = models[i];
-            }
-        }
-
-        const auto frameCount = GetFrameCount();
-        const auto bytes      = sizeof(InstanceTransform) * count;
-        const bool rebuildBuffers =
-            mInstanceTransformBuffers.size() != frameCount ||
-            mInstanceBufferCapacity != count;
-
-        if (rebuildBuffers)
-        {
-            mInstanceTransformBuffers.clear();
-            mInstanceTransformBuffers.reserve(frameCount);
-            for (std::uint32_t i = 0; i < frameCount; ++i)
-            {
-                mInstanceTransformBuffers.push_back(
-                    GetBufferBuilder()
-                        .SetData(mInstanceTransforms.data())
-                        .SetSize(bytes)
-                        .SetUsage(BufferUsage::Instance)
-                        .Build());
-            }
-            mInstanceBufferCapacity = count;
-        }
-
-        auto& frameBuffer = mInstanceTransformBuffers[frameIndex];
-        frameBuffer->Copy(mInstanceTransforms.data(), bytes);
-        mInstanceTransformBuffer = frameBuffer;
-        BindBuffer(mInstanceTransformBuffer);
+        mLegacyModels.assign(models, models + count);
     }
 
     BufferBuilder Renderer::GetBufferBuilder() const
@@ -949,49 +908,60 @@ namespace FREYA_NAMESPACE
     void Renderer::ClearDrawCommands()
     {
         mDrawCommands.clear();
+        mLegacyUploads.clear();
+        mUsedUploadApi = false;
     }
 
-    void Renderer::ExecuteDrawCommands(const bool bindMaterials,
-                                       const bool shadowCastersOnly)
+    void Renderer::flushLegacyDrawCommands()
     {
-        if (mInstanceTransformBuffer)
-        {
-            BindBuffer(mInstanceTransformBuffer);
-        }
+        if (mUsedUploadApi || !mIndirectDraw || mDrawCommands.empty())
+            return;
 
+        mLegacyUploads.clear();
         for (const auto& cmd : mDrawCommands)
         {
-            if (shadowCastersOnly && !cmd.castShadows)
+            for (std::uint32_t i = 0; i < cmd.instanceCount; ++i)
             {
-                continue;
+                const auto          instanceIndex = cmd.firstInstance + i;
+                SceneInstanceUpload upload {};
+                upload.meshId      = cmd.meshId;
+                upload.materialId  = cmd.materialId;
+                upload.entityId    = cmd.entityId;
+                upload.castShadows = cmd.castShadows;
+                if (instanceIndex < mLegacyModels.size())
+                    upload.model = mLegacyModels[instanceIndex];
+                mLegacyUploads.push_back(upload);
             }
-            if (bindMaterials)
-            {
-                BindMaterial(cmd.materialId);
-            }
-            mMeshPool->DrawInstanced(
-                cmd.meshId, cmd.instanceCount, cmd.firstInstance);
         }
+
+        mIndirectDraw->UploadSceneInstances(mLegacyUploads,
+                                            GetCurrentFrameIndex());
+    }
+
+    void Renderer::DispatchCull(const glm::mat4& viewProj, const CullMode mode)
+    {
+        flushLegacyDrawCommands();
+        if (mIndirectDraw)
+            mIndirectDraw->DispatchCull(
+                viewProj, mode, mFreyaOptions->ReverseZ);
+    }
+
+    void Renderer::ExecuteDrawCommands(const bool bindMaterials)
+    {
+        flushLegacyDrawCommands();
+        if (!mIndirectDraw)
+            return;
+
+        mIndirectDraw->ExecuteDraws(bindMaterials, GetActivePipelineLayout());
     }
 
     void Renderer::ExecutePickDrawCommands()
     {
-        if (!mPickPass)
-        {
+        flushLegacyDrawCommands();
+        if (!mIndirectDraw)
             return;
-        }
 
-        if (mInstanceTransformBuffer)
-        {
-            BindBuffer(mInstanceTransformBuffer);
-        }
-
-        for (const auto& cmd : mDrawCommands)
-        {
-            mPickPass->PushEntityId(mCommandPool, cmd.entityId);
-            mMeshPool->DrawInstanced(
-                cmd.meshId, cmd.instanceCount, cmd.firstInstance);
-        }
+        mIndirectDraw->ExecuteDraws(false, {});
     }
 
     void Renderer::RequestPick(const std::uint32_t x, const std::uint32_t y)

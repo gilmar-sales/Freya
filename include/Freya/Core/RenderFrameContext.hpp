@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Core/BloomPass.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/CompositePass.hpp"
@@ -14,6 +15,8 @@
 #include "Freya/FreyaOptions.hpp"
 
 #include <functional>
+
+#include <glm/glm.hpp>
 
 namespace FREYA_NAMESPACE
 {
@@ -55,10 +58,10 @@ namespace FREYA_NAMESPACE
         std::uint32_t* pickY                = nullptr;
         bool*          pickAwaitingReadback = nullptr;
 
-        std::function<void(bool bindMaterials, bool shadowCastersOnly)>
-                              executeDraws;
-        std::function<void()> executePickDraws;
-        std::function<void()> blitBloomToFullRes;
+        std::function<void(const glm::mat4&, CullMode)> dispatchCull;
+        std::function<void(bool bindMaterials)>         executeDraws;
+        std::function<void()>                           executePickDraws;
+        std::function<void()>                           blitBloomToFullRes;
         std::function<void(std::uint32_t, const skr::Arc<Image>&,
                            const skr::Arc<Image>&, bool)>
                                           beginComposite;

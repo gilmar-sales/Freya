@@ -1,0 +1,131 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+struct MeshInfo {
+    uint indexCount;
+    uint firstIndex;
+    int  vertexOffset;
+    uint vertexBufferIndex;
+    uint indexBufferIndex;
+    uint _pad0;
+    uint _pad1;
+    uint _pad2;
+    vec4 aabbMin;
+    vec4 aabbMax;
+};
+
+struct SceneInstance {
+    mat4 model;
+    uint meshId;
+    uint materialId;
+    uint entityId;
+    uint flags;
+};
+
+struct DrawIndexedIndirectCommand {
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    int  vertexOffset;
+    uint firstInstance;
+};
+
+layout(push_constant) uniform CullPC {
+    mat4 viewProj;
+    uint instanceCount;
+    uint cullMode;
+    uint reverseZ;
+    uint _pad0;
+} cull;
+
+layout(std430, binding = 0) readonly buffer MeshInfoBuffer {
+    MeshInfo meshes[];
+};
+
+layout(std430, binding = 1) readonly buffer SceneInstanceBuffer {
+    SceneInstance instances[];
+};
+
+layout(std430, binding = 2) writeonly buffer IndirectBuffer {
+    DrawIndexedIndirectCommand draws[];
+};
+
+const uint kFlagCastShadows = 1u;
+const uint kCullModeShadow  = 1u;
+
+bool aabbOutsideFrustum(mat4 mvp, vec3 bmin, vec3 bmax)
+{
+    vec3 corners[8] = vec3[](
+        vec3(bmin.x, bmin.y, bmin.z),
+        vec3(bmax.x, bmin.y, bmin.z),
+        vec3(bmin.x, bmax.y, bmin.z),
+        vec3(bmax.x, bmax.y, bmin.z),
+        vec3(bmin.x, bmin.y, bmax.z),
+        vec3(bmax.x, bmin.y, bmax.z),
+        vec3(bmin.x, bmax.y, bmax.z),
+        vec3(bmax.x, bmax.y, bmax.z));
+
+    int outLeft = 0, outRight = 0, outBottom = 0, outTop = 0;
+    int outNear = 0, outFar = 0;
+
+    for (int i = 0; i < 8; ++i)
+    {
+        vec4 clip = mvp * vec4(corners[i], 1.0);
+        // Skip degenerate corners (behind camera with non-positive w).
+        if (clip.w <= 0.0)
+        {
+            ++outNear;
+            continue;
+        }
+        if (clip.x < -clip.w) ++outLeft;
+        if (clip.x >  clip.w) ++outRight;
+        if (clip.y < -clip.w) ++outBottom;
+        if (clip.y >  clip.w) ++outTop;
+        if (cull.reverseZ != 0u)
+        {
+            // Reverse-Z Vulkan: near maps near 0, far near +w.
+            if (clip.z < 0.0)     ++outFar;
+            if (clip.z >  clip.w) ++outNear;
+        }
+        else
+        {
+            if (clip.z < 0.0)     ++outNear;
+            if (clip.z >  clip.w) ++outFar;
+        }
+    }
+
+    return outLeft == 8 || outRight == 8 || outBottom == 8 || outTop == 8 ||
+           outNear == 8 || outFar == 8;
+}
+
+void main()
+{
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= cull.instanceCount)
+        return;
+
+    SceneInstance inst = instances[id];
+    MeshInfo mesh = meshes[inst.meshId];
+
+    DrawIndexedIndirectCommand cmd;
+    cmd.indexCount    = mesh.indexCount;
+    cmd.firstIndex    = mesh.firstIndex;
+    cmd.vertexOffset  = mesh.vertexOffset;
+    cmd.firstInstance = id;
+    cmd.instanceCount = 1;
+
+    if (cull.cullMode == kCullModeShadow &&
+        (inst.flags & kFlagCastShadows) == 0u)
+    {
+        cmd.instanceCount = 0;
+        draws[id] = cmd;
+        return;
+    }
+
+    mat4 mvp = cull.viewProj * inst.model;
+    if (aabbOutsideFrustum(mvp, mesh.aabbMin.xyz, mesh.aabbMax.xyz))
+        cmd.instanceCount = 0;
+
+    draws[id] = cmd;
+}

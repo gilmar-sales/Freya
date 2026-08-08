@@ -102,13 +102,18 @@ namespace FREYA_NAMESPACE
          * (clear → `SHADER_READ_ONLY_OPTIMAL` so unused layers are safe
          * to sample), and for active lights binds the depth pipeline,
          * sets viewport/scissor, pushes the light VP, and invokes
-         * `drawScene`. `drawScene` should bind VB/IB and draw only.
+         * `drawScene`. `prepareCull` runs before each active view's
+         * render pass so compute can fill the indirect buffer outside
+         * the pass. `drawScene` should bind VB/IB and draw only.
          *
          * @param commandPool Command pool with the currently recording
          *                    primary command buffer
+         * @param prepareCull Callback invoked with the light view-proj
+         *                    before beginning the active view render pass
          * @param drawScene   Callback that issues scene draw calls
          */
-        void Render(const skr::Arc<CommandPool>& commandPool,
+        void Render(const skr::Arc<CommandPool>&                 commandPool,
+                    const std::function<void(const glm::mat4&)>& prepareCull,
                     const std::function<void()>& drawScene) const;
 
         /**
@@ -186,14 +191,20 @@ namespace FREYA_NAMESPACE
         glm::mat4 computePointFaceViewProj(
             const glm::vec3& position, float far, std::uint32_t face) const;
 
-        void renderCascades(const skr::Arc<CommandPool>& commandPool,
-                            const std::function<void()>& drawScene) const;
+        void renderCascades(
+            const skr::Arc<CommandPool>&                 commandPool,
+            const std::function<void(const glm::mat4&)>& prepareCull,
+            const std::function<void()>&                 drawScene) const;
 
-        void renderSpots(const skr::Arc<CommandPool>& commandPool,
-                         const std::function<void()>& drawScene) const;
+        void renderSpots(
+            const skr::Arc<CommandPool>&                 commandPool,
+            const std::function<void(const glm::mat4&)>& prepareCull,
+            const std::function<void()>&                 drawScene) const;
 
-        void renderPoints(const skr::Arc<CommandPool>& commandPool,
-                          const std::function<void()>& drawScene) const;
+        void renderPoints(
+            const skr::Arc<CommandPool>&                 commandPool,
+            const std::function<void(const glm::mat4&)>& prepareCull,
+            const std::function<void()>&                 drawScene) const;
 
         void destroyGpuResources();
 

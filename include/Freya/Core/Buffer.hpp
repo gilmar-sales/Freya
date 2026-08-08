@@ -16,6 +16,8 @@ namespace FREYA_NAMESPACE
         Index,    ///< Index buffer (device local)
         Uniform,  ///< Uniform buffer (device local)
         Instance, ///< Instance buffer (device local)
+        Storage,  ///< Storage buffer (SSBO, host visible)
+        Indirect, ///< Indirect draw commands (+ storage for compute fill)
         Image     ///< Image buffer
     };
 

@@ -1,11 +1,13 @@
 #include "MaterialDescriptorResourcesBuilder.hpp"
 
+#include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Asset/Material.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 
 #include <array>
 #include <tuple>
+#include <vector>
 
 namespace FREYA_NAMESPACE
 {
@@ -306,9 +308,102 @@ namespace FREYA_NAMESPACE
         };
         mDevice->Get().updateDescriptorSets(fallbackWrites, nullptr);
 
+        // Bindless set-1: textures[] + MaterialGPU SSBO
+        const auto bindlessFlags = std::array {
+            vk::DescriptorBindingFlags {
+                vk::DescriptorBindingFlagBits::ePartiallyBound |
+                vk::DescriptorBindingFlagBits::eUpdateAfterBind },
+            vk::DescriptorBindingFlags {},
+        };
+        const auto bindingFlagsInfo =
+            vk::DescriptorSetLayoutBindingFlagsCreateInfo().setBindingFlags(
+                bindlessFlags);
+
+        const auto textureBinding =
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(0)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(kMaxBindlessTextures)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment);
+        const auto materialBinding =
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(1)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment);
+
+        const auto bindlessBindings =
+            std::array { textureBinding, materialBinding };
+        const auto bindlessLayout = mDevice->Get().createDescriptorSetLayout(
+            vk::DescriptorSetLayoutCreateInfo()
+                .setPNext(&bindingFlagsInfo)
+                .setFlags(
+                    vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool)
+                .setBindings(bindlessBindings));
+
+        const auto bindlessPoolSizes = std::array {
+            vk::DescriptorPoolSize()
+                .setType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(kMaxBindlessTextures),
+            vk::DescriptorPoolSize()
+                .setType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1),
+        };
+        const auto bindlessPool = mDevice->Get().createDescriptorPool(
+            vk::DescriptorPoolCreateInfo()
+                .setFlags(vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind)
+                .setPoolSizes(bindlessPoolSizes)
+                .setMaxSets(1));
+
+        const auto bindlessSets = mDevice->Get().allocateDescriptorSets(
+            vk::DescriptorSetAllocateInfo()
+                .setDescriptorPool(bindlessPool)
+                .setSetLayouts(bindlessLayout));
+        const auto bindlessSet = bindlessSets[0];
+
+        std::vector<MaterialGPU> materialTable(maxMaterialSets);
+        const auto               materialsBuffer =
+            BufferBuilder(mDevice)
+                .SetUsage(BufferUsage::Storage)
+                .SetSize(sizeof(MaterialGPU) * maxMaterialSets)
+                .SetData(materialTable.data())
+                .Build();
+
+        const auto materialsBufferInfo =
+            vk::DescriptorBufferInfo()
+                .setBuffer(materialsBuffer->Get())
+                .setOffset(0)
+                .setRange(sizeof(MaterialGPU) * maxMaterialSets);
+
+        // Fill entire bindless heap with white (slot 1 = black override below).
+        std::vector<vk::DescriptorImageInfo> heapInfos(kMaxBindlessTextures,
+                                                       whiteImageInfo);
+        heapInfos[kBindlessBlackTexture] = blackImageInfo;
+
+        auto texturesWrite =
+            vk::WriteDescriptorSet()
+                .setDstSet(bindlessSet)
+                .setDstBinding(0)
+                .setDstArrayElement(0)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(kMaxBindlessTextures)
+                .setPImageInfo(heapInfos.data());
+        auto materialsWrite =
+            vk::WriteDescriptorSet()
+                .setDstSet(bindlessSet)
+                .setDstBinding(1)
+                .setDstArrayElement(0)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setBufferInfo(materialsBufferInfo);
+        const auto bindlessWrites =
+            std::array { texturesWrite, materialsWrite };
+        mDevice->Get().updateDescriptorSets(bindlessWrites, nullptr);
+
         return skr::MakeArc<MaterialDescriptorResources>(
             mDevice, samplerLayout, samplerDescriptorPool, fallbackSamplerSet,
-            fallbackFactorsBuffer, fallbackImage, fallbackImageMemory,
+            fallbackFactorsBuffer, bindlessLayout, bindlessPool, bindlessSet,
+            materialsBuffer, fallbackImage, fallbackImageMemory,
             fallbackImageView, fallbackSampler, emissiveFallbackImage,
             emissiveFallbackMemory, emissiveFallbackImageView,
             emissiveFallbackSampler);

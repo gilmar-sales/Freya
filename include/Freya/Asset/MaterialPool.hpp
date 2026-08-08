@@ -52,6 +52,7 @@ namespace FREYA_NAMESPACE
                                      const MaterialCreateInfo& createInfo);
         void writeFactorsDescriptor(Material& material);
         void uploadFactors(Material& material);
+        void writeBindlessMaterial(Material& material);
 
         skr::Arc<Device>                      mDevice;
         skr::Arc<CommandPool>                 mCommandPool;

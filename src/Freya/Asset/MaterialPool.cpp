@@ -1,5 +1,6 @@
 #include "MaterialPool.hpp"
 
+#include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Core/Renderer.hpp"
 
@@ -48,6 +49,7 @@ namespace FREYA_NAMESPACE
 
         writeTextureDescriptors(material, createInfo);
         writeFactorsDescriptor(material);
+        writeBindlessMaterial(material);
 
         mMaterials.insert(material);
 
@@ -66,6 +68,7 @@ namespace FREYA_NAMESPACE
 
         material.createInfo = createInfo;
         uploadFactors(material);
+        writeBindlessMaterial(material);
     }
 
     const MaterialCreateInfo& MaterialPool::GetCreateInfo(
@@ -160,6 +163,34 @@ namespace FREYA_NAMESPACE
     {
         auto factors = PackMaterialFactors(material.createInfo, material.id);
         material.factorsBuffer->Copy(&factors, sizeof(factors));
+    }
+
+    void MaterialPool::writeBindlessMaterial(Material& material)
+    {
+        const auto& info = material.createInfo;
+
+        auto resolveIndex = [&](const std::optional<std::uint32_t>& textureId,
+                                const std::uint32_t fallback) -> std::uint32_t {
+            if (!textureId)
+                return fallback;
+            return MaterialDescriptorResources::TextureHeapIndex(*textureId);
+        };
+
+        MaterialGPU gpu {};
+        gpu.albedoIndex = resolveIndex(info.albedo, kBindlessWhiteTexture);
+        gpu.normalIndex = resolveIndex(info.normal, kBindlessWhiteTexture);
+        gpu.roughnessIndex =
+            resolveIndex(info.roughness, kBindlessWhiteTexture);
+        gpu.emissiveIndex = resolveIndex(info.emissive, kBindlessBlackTexture);
+        gpu.metalnessIndex =
+            resolveIndex(info.metalness, kBindlessBlackTexture);
+        gpu.albedoFactor   = info.albedoFactor;
+        gpu.emissiveFactor = glm::vec4(info.emissiveFactor, info.aoFactor);
+        gpu.roughMetal     = { info.roughnessFactor, info.metalnessFactor };
+        gpu.materialId     = static_cast<float>(material.id & 0xFFu);
+        gpu.alphaCutoff    = info.alphaCutoff;
+
+        mMaterialsRes->WriteMaterial(material.id, gpu);
     }
 
     Material& MaterialPool::GetMaterial(uint32_t materialId)

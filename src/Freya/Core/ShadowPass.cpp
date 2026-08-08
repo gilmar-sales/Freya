@@ -503,22 +503,25 @@ namespace FREYA_NAMESPACE
         return proj * view;
     }
 
-    void ShadowPass::Render(const skr::Arc<CommandPool>& commandPool,
-                            const std::function<void()>& drawScene) const
+    void ShadowPass::Render(
+        const skr::Arc<CommandPool>&                 commandPool,
+        const std::function<void(const glm::mat4&)>& prepareCull,
+        const std::function<void()>&                 drawScene) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
         mDevice->BeginDebugLabel(commandBuffer, DebugLabel::Shadow);
 
-        renderCascades(commandPool, drawScene);
-        renderSpots(commandPool, drawScene);
-        renderPoints(commandPool, drawScene);
+        renderCascades(commandPool, prepareCull, drawScene);
+        renderSpots(commandPool, prepareCull, drawScene);
+        renderPoints(commandPool, prepareCull, drawScene);
 
         mDevice->EndDebugLabel(commandBuffer);
     }
 
     void ShadowPass::renderCascades(
-        const skr::Arc<CommandPool>& commandPool,
-        const std::function<void()>& drawScene) const
+        const skr::Arc<CommandPool>&                 commandPool,
+        const std::function<void(const glm::mat4&)>& prepareCull,
+        const std::function<void()>&                 drawScene) const
     {
         if (!mHasDirectionalShadow)
             return;
@@ -549,6 +552,10 @@ namespace FREYA_NAMESPACE
             mDevice->BeginDebugLabel(
                 commandBuffer, label, DebugLabel::ShadowColor);
 
+            const auto lightVP = mShadowData.cascadeViewProj[i];
+            if (prepareCull)
+                prepareCull(lightVP);
+
             commandBuffer.beginRenderPass(
                 vk::RenderPassBeginInfo()
                     .setRenderPass(mRenderPass)
@@ -562,7 +569,6 @@ namespace FREYA_NAMESPACE
             commandBuffer.setViewport(0, 1, &viewport);
             commandBuffer.setScissor(0, 1, &scissor);
 
-            const auto         lightVP = mShadowData.cascadeViewProj[i];
             ShadowPushConstant pc {};
             pc.lightVP     = lightVP;
             pc.lightPosFar = glm::vec4(0.0f);
@@ -585,8 +591,10 @@ namespace FREYA_NAMESPACE
         mDevice->EndDebugLabel(commandBuffer);
     }
 
-    void ShadowPass::renderSpots(const skr::Arc<CommandPool>& commandPool,
-                                 const std::function<void()>& drawScene) const
+    void ShadowPass::renderSpots(
+        const skr::Arc<CommandPool>&                 commandPool,
+        const std::function<void(const glm::mat4&)>& prepareCull,
+        const std::function<void()>&                 drawScene) const
     {
         // Clear every allocated layer every frame so unused slots leave
         // SHADER_READ_ONLY_OPTIMAL (descriptor samples the full array).
@@ -619,6 +627,13 @@ namespace FREYA_NAMESPACE
                           (i < mActiveSpotCount) ? "" : " (clear)");
             mDevice->BeginDebugLabel(
                 commandBuffer, label, DebugLabel::ShadowColor);
+
+            if (i < mActiveSpotCount)
+            {
+                const auto lightVP = mShadowData.spotViewProj[i];
+                if (prepareCull)
+                    prepareCull(lightVP);
+            }
 
             commandBuffer.beginRenderPass(
                 vk::RenderPassBeginInfo()
@@ -659,8 +674,10 @@ namespace FREYA_NAMESPACE
         mDevice->EndDebugLabel(commandBuffer);
     }
 
-    void ShadowPass::renderPoints(const skr::Arc<CommandPool>& commandPool,
-                                  const std::function<void()>& drawScene) const
+    void ShadowPass::renderPoints(
+        const skr::Arc<CommandPool>&                 commandPool,
+        const std::function<void(const glm::mat4&)>& prepareCull,
+        const std::function<void()>&                 drawScene) const
     {
         // Same as spots: clear every cube face so unused point slots are
         // not left in UNDEFINED when the cube-array is sampled.
@@ -706,6 +723,11 @@ namespace FREYA_NAMESPACE
                 mDevice->BeginDebugLabel(
                     commandBuffer, label, DebugLabel::ShadowColor);
 
+                const auto lightVP =
+                    computePointFaceViewProj(position, far, face);
+                if (active && prepareCull)
+                    prepareCull(lightVP);
+
                 commandBuffer.beginRenderPass(
                     vk::RenderPassBeginInfo()
                         .setRenderPass(mRenderPass)
@@ -721,8 +743,6 @@ namespace FREYA_NAMESPACE
                     commandBuffer.setViewport(0, 1, &viewport);
                     commandBuffer.setScissor(0, 1, &scissor);
 
-                    const auto lightVP =
-                        computePointFaceViewProj(position, far, face);
                     ShadowPushConstant pc {};
                     pc.lightVP        = lightVP;
                     pc.lightPosFar    = posFar;
@@ -745,5 +765,4 @@ namespace FREYA_NAMESPACE
 
         mDevice->EndDebugLabel(commandBuffer);
     }
-
 } // namespace FREYA_NAMESPACE

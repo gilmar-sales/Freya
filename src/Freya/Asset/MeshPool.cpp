@@ -8,6 +8,8 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 
+#include <limits>
+
 namespace FREYA_NAMESPACE
 {
     constexpr auto MegaBytes           = 1024 * 1024;
@@ -198,13 +200,36 @@ namespace FREYA_NAMESPACE
 
             commandPool->FreeCommandBuffer(commandBuffer);
 
-            const auto mesh =
-                Mesh { .vertexBufferIndex  = vertexBufferIndex,
-                       .vertexBufferOffset = vertexBufferOffset,
-                       .indexBufferIndex   = indexBufferIndex,
-                       .indexBufferOffset  = indexBufferOffset,
-                       .indexCount = static_cast<std::uint32_t>(indices.size()),
-                       .id = static_cast<std::uint32_t>(meshes.size()) };
+            const auto indexCount = static_cast<std::uint32_t>(indices.size());
+
+            glm::vec3 aabbMin(std::numeric_limits<float>::max());
+            glm::vec3 aabbMax(std::numeric_limits<float>::lowest());
+            for (const auto& v : vertices)
+            {
+                aabbMin = glm::min(aabbMin, v.position);
+                aabbMax = glm::max(aabbMax, v.position);
+            }
+            if (vertices.empty())
+            {
+                aabbMin = glm::vec3(0.0f);
+                aabbMax = glm::vec3(0.0f);
+            }
+
+            const auto mesh = Mesh {
+                .vertexBufferIndex  = vertexBufferIndex,
+                .vertexBufferOffset = vertexBufferOffset,
+                .indexBufferIndex   = indexBufferIndex,
+                .indexBufferOffset  = indexBufferOffset,
+                .firstIndex = indexBufferOffset /
+                              static_cast<std::uint32_t>(sizeof(std::uint16_t)),
+                .vertexOffset = static_cast<std::int32_t>(
+                    vertexBufferOffset /
+                    static_cast<std::uint32_t>(sizeof(Vertex))),
+                .indexCount = indexCount,
+                .aabbMin    = aabbMin,
+                .aabbMax    = aabbMax,
+                .id         = static_cast<std::uint32_t>(meshes.size())
+            };
 
             meshes.insert(mesh);
 
@@ -307,20 +332,17 @@ namespace FREYA_NAMESPACE
             const auto& mesh = meshes[meshId];
 
             const auto& vertexBuffer = vertexBuffers[mesh.vertexBufferIndex];
-            const auto  vertexOffset =
-                static_cast<vk::DeviceSize>(mesh.vertexBufferOffset);
+            constexpr vk::DeviceSize zeroOffset = 0;
 
             commandPool->GetCommandBuffer().bindVertexBuffers(
-                0, 1, &vertexBuffer->Get(), &vertexOffset);
+                0, 1, &vertexBuffer->Get(), &zeroOffset);
 
             const auto& indexBuffer = indexBuffers[mesh.indexBufferIndex];
-            const auto  indexOffset =
-                static_cast<vk::DeviceSize>(mesh.indexBufferOffset);
             commandPool->GetCommandBuffer().bindIndexBuffer(
-                indexBuffer->Get(), indexOffset, vk::IndexType::eUint16);
+                indexBuffer->Get(), 0, vk::IndexType::eUint16);
 
             commandPool->GetCommandBuffer().drawIndexed(
-                mesh.indexCount, 1, 0, 0, 0);
+                mesh.indexCount, 1, mesh.firstIndex, mesh.vertexOffset, 0);
         }
 
         void drawInstanced(std::uint32_t meshId,
@@ -333,21 +355,30 @@ namespace FREYA_NAMESPACE
             const auto& mesh = meshes[meshId];
 
             const auto& vertexBuffer = vertexBuffers[mesh.vertexBufferIndex];
-            const auto  vertexOffset =
-                static_cast<vk::DeviceSize>(mesh.vertexBufferOffset);
+            constexpr vk::DeviceSize zeroOffset = 0;
 
             commandPool->GetCommandBuffer().bindVertexBuffers(
-                0, 1, &vertexBuffer->Get(), &vertexOffset);
+                0, 1, &vertexBuffer->Get(), &zeroOffset);
 
             const auto& indexBuffer = indexBuffers[mesh.indexBufferIndex];
-            const auto  indexOffset =
-                static_cast<vk::DeviceSize>(mesh.indexBufferOffset);
 
             commandPool->GetCommandBuffer().bindIndexBuffer(
-                indexBuffer->Get(), indexOffset, vk::IndexType::eUint16);
+                indexBuffer->Get(), 0, vk::IndexType::eUint16);
 
             commandPool->GetCommandBuffer().drawIndexed(
-                mesh.indexCount, instanceCount, 0, 0, firstInstance);
+                mesh.indexCount, instanceCount, mesh.firstIndex,
+                mesh.vertexOffset, firstInstance);
+        }
+
+        void bindChunk(std::uint32_t vertexBufferIndex,
+                       std::uint32_t indexBufferIndex) const
+        {
+            constexpr vk::DeviceSize zeroOffset = 0;
+            commandPool->GetCommandBuffer().bindVertexBuffers(
+                0, 1, &vertexBuffers[vertexBufferIndex]->Get(), &zeroOffset);
+            commandPool->GetCommandBuffer().bindIndexBuffer(
+                indexBuffers[indexBufferIndex]->Get(), 0,
+                vk::IndexType::eUint16);
         }
     };
 
@@ -375,6 +406,59 @@ namespace FREYA_NAMESPACE
         const std::string& path)
     {
         return mImpl->createMeshFromFile(path);
+    }
+
+    bool MeshPool::Contains(const std::uint32_t meshId) const
+    {
+        return mImpl->meshes.contains(meshId);
+    }
+
+    const Mesh& MeshPool::GetMesh(const std::uint32_t meshId) const
+    {
+        return mImpl->meshes[meshId];
+    }
+
+    std::uint32_t MeshPool::GetMeshCount() const
+    {
+        return static_cast<std::uint32_t>(mImpl->meshes.size());
+    }
+
+    void MeshPool::FillMeshInfos(std::vector<MeshInfo>& out) const
+    {
+        const auto count = GetMeshCount();
+        out.assign(count, MeshInfo {});
+        for (std::uint32_t id = 0; id < count; ++id)
+        {
+            if (!mImpl->meshes.contains(id))
+                continue;
+            const auto& mesh          = mImpl->meshes[id];
+            out[id]                   = MeshInfo {};
+            out[id].indexCount        = mesh.indexCount;
+            out[id].firstIndex        = mesh.firstIndex;
+            out[id].vertexOffset      = mesh.vertexOffset;
+            out[id].vertexBufferIndex = mesh.vertexBufferIndex;
+            out[id].indexBufferIndex  = mesh.indexBufferIndex;
+            out[id].aabbMin           = glm::vec4(mesh.aabbMin, 0.0f);
+            out[id].aabbMax           = glm::vec4(mesh.aabbMax, 0.0f);
+        }
+    }
+
+    void MeshPool::BindChunk(const std::uint32_t vertexBufferIndex,
+                             const std::uint32_t indexBufferIndex) const
+    {
+        mImpl->bindChunk(vertexBufferIndex, indexBufferIndex);
+    }
+
+    const skr::Arc<Buffer>& MeshPool::GetVertexBuffer(
+        const std::uint32_t index) const
+    {
+        return mImpl->vertexBuffers[index];
+    }
+
+    const skr::Arc<Buffer>& MeshPool::GetIndexBuffer(
+        const std::uint32_t index) const
+    {
+        return mImpl->indexBuffers[index];
     }
 
     void MeshPool::Draw(const std::uint32_t meshId)

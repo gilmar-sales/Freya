@@ -18,6 +18,7 @@
 #include "Freya/Builders/RenderTargetBuilder.hpp"
 #include "Freya/Builders/WindowBuilder.hpp"
 
+#include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Asset/Material.hpp"
 #include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"

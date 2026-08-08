@@ -20,12 +20,14 @@ layout (location = 3) in vec3 inTangent;
 layout (location = 4) in vec2 inTexCoord;
 layout (location = 5) in mat4 inModel;
 layout (location = 9) in mat4 inPrevModel;
+layout (location = 13) in uvec2 inMaterialEntity;
 
 layout (location = 0) out vec3 outPosition;
 layout (location = 1) out vec2 outTexCoord;
 layout (location = 2) out mat3 outTBN;
 layout (location = 5) out vec3 outColor;
 layout (location = 6) out vec2 outVelocity;
+layout (location = 7) flat out uint outMaterialId;
 
 void main() {
     vec4 worldPos = inModel * vec4(inPosition, 1.0);
@@ -34,6 +36,7 @@ void main() {
     outPosition = worldPos.xyz;
     outTexCoord = inTexCoord;
     outColor = inColor;
+    outMaterialId = inMaterialEntity.x;
 
     // Motion in UV space from UNJITTERED projections only. Including the
     // Halton jitter here would contaminate velocity and cause shimmer.

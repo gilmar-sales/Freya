@@ -96,6 +96,16 @@ namespace FREYA_NAMESPACE
                 .setFormat(vk::Format::eR32G32B32A32Sfloat)
                 .setOffset(offsetof(InstanceTransform, prevModel) +
                            sizeof(glm::vec4) * 3),
+            vk::VertexInputAttributeDescription()
+                .setBinding(1)
+                .setLocation(13)
+                .setFormat(vk::Format::eR32G32Uint)
+                .setOffset(offsetof(InstanceTransform, materialId)),
+            vk::VertexInputAttributeDescription()
+                .setBinding(1)
+                .setLocation(14)
+                .setFormat(vk::Format::eR32G32Uint)
+                .setOffset(offsetof(InstanceTransform, entityId)),
         };
 
         return attributesDescription;

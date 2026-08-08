@@ -5,6 +5,7 @@
 #include "Freya/Builders/CompositePassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
+#include "Freya/Builders/IndirectDrawSystemBuilder.hpp"
 #include "Freya/Builders/LightServiceBuilder.hpp"
 #include "Freya/Builders/MaterialDescriptorResourcesBuilder.hpp"
 #include "Freya/Builders/PickPassBuilder.hpp"
@@ -21,6 +22,7 @@
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Asset/TexturePool.hpp"
 #include "Freya/Core/IBLService.hpp"
+#include "Freya/Core/IndirectDrawSystem.hpp"
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/PickPass.hpp"
 #include "Freya/Core/ShadowPass.hpp"
@@ -53,6 +55,7 @@ namespace FREYA_NAMESPACE
         services.AddTransient<CompositePassBuilder>();
         services.AddTransient<ShadowPassBuilder>();
         services.AddTransient<PickPassBuilder>();
+        services.AddTransient<IndirectDrawSystemBuilder>();
 
         services.AddSingleton<Instance>(
             [this](skr::ServiceProvider& serviceProvider) {
@@ -153,6 +156,12 @@ namespace FREYA_NAMESPACE
         services.AddSingleton<PickPass>(
             [](skr::ServiceProvider& serviceProvider) {
                 return serviceProvider.GetService<PickPassBuilder>()->Build();
+            });
+
+        services.AddSingleton<IndirectDrawSystem>(
+            [](skr::ServiceProvider& serviceProvider) {
+                return serviceProvider.GetService<IndirectDrawSystemBuilder>()
+                    ->Build();
             });
 
         services.AddSingleton<Window>(

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
@@ -10,6 +11,7 @@
 #include "Freya/Core/DeferredCompressedPass.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/IFrameStage.hpp"
+#include "Freya/Core/IndirectDrawSystem.hpp"
 #include "Freya/Core/Instance.hpp"
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
@@ -24,10 +26,9 @@
 
 #include <limits>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
-
-#include "Freya/Asset/InstanceTransform.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -156,14 +157,24 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] vk::CommandBuffer GetCommandBuffer();
 
+        /**
+         * @brief Upload the GPU-driven scene instance table for this frame.
+         *
+         * Prefer this over SetInstanceModels + DrawInstanced. Freya keeps
+         * previous-frame transforms for TAA and issues Multi-Draw Indirect
+         * after a frustum cull compute pass.
+         */
+        void UploadSceneInstances(std::span<const SceneInstanceUpload> uploads);
+
         void Draw(std::uint32_t meshId,
                   std::uint32_t materialId,
                   std::uint32_t entityId    = kPickMissId,
                   bool          castShadows = true);
         /**
-         * @brief Queue an instanced draw. Call `SetInstanceModels` once per
-         *        frame before recording draws so Freya can bind transforms
-         *        (and previous-frame data for TAA).
+         * @brief Queue draws into the scene upload list (compatibility).
+         *
+         * Expand into UploadSceneInstances internally on EndScene if
+         * UploadSceneInstances was not called. Prefer UploadSceneInstances.
          */
         void DrawInstanced(std::uint32_t meshId,
                            std::uint32_t materialId,
@@ -175,17 +186,14 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Upload current-frame instance model matrices.
          *
-         * Freya keeps the previous frame’s transforms for TAA motion
-         * vectors. On the first call (or when `count` changes) previous
-         * equals current. Replaces a manual instance `Buffer` for mesh
-         * draws — no need to track `prevModel` in the app.
+         * Used with DrawInstanced. Prefer UploadSceneInstances for new code.
          */
         void SetInstanceModels(const glm::mat4* models, std::size_t count);
 
         void ClearDrawCommands();
-        void ExecuteDrawCommands(bool bindMaterials     = true,
-                                 bool shadowCastersOnly = false);
+        void ExecuteDrawCommands(bool bindMaterials = true);
         void ExecutePickDrawCommands();
+        void DispatchCull(const glm::mat4& viewProj, CullMode mode);
 
         void RequestPick(std::uint32_t x, std::uint32_t y);
 
@@ -276,6 +284,8 @@ namespace FREYA_NAMESPACE
 
         skr::Arc<Image> createSsaoFallbackImage() const;
 
+        void flushLegacyDrawCommands();
+
         skr::Arc<skr::ServiceProvider>   mServiceProvider;
         skr::Arc<Instance>               mInstance;
         skr::Arc<Surface>                mSurface;
@@ -301,8 +311,9 @@ namespace FREYA_NAMESPACE
         skr::Arc<RenderTarget>           mOutputTarget;
         bool                             mUIPassOpen = false;
 
-        skr::Arc<MeshPool>     mMeshPool;
-        skr::Arc<MaterialPool> mMaterialPool;
+        skr::Arc<MeshPool>           mMeshPool;
+        skr::Arc<MaterialPool>       mMaterialPool;
+        skr::Arc<IndirectDrawSystem> mIndirectDraw;
 
         std::optional<WindowResizeEvent> mResizeEvent;
 
@@ -314,14 +325,10 @@ namespace FREYA_NAMESPACE
         skr::Arc<Image> mBloomResultImage;
         skr::Arc<Image> mSsaoFallbackImage;
 
-        std::vector<DrawCommand> mDrawCommands;
-
-        std::vector<InstanceTransform> mInstanceTransforms;
-        std::vector<skr::Arc<Buffer>>  mInstanceTransformBuffers;
-        skr::Arc<Buffer>               mInstanceTransformBuffer;
-        std::uint32_t                  mInstanceHistoryFrame =
-            std::numeric_limits<std::uint32_t>::max();
-        std::size_t mInstanceBufferCapacity = 0;
+        std::vector<DrawCommand>         mDrawCommands;
+        std::vector<SceneInstanceUpload> mLegacyUploads;
+        std::vector<glm::mat4>           mLegacyModels;
+        bool                             mUsedUploadApi = false;
 
         std::vector<FrameStagePtr> mFrameStages;
 

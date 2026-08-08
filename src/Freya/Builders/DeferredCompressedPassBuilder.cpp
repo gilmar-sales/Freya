@@ -221,7 +221,7 @@ namespace FREYA_NAMESPACE
                 .setSetLayouts(frameLayouts)
                 .setDescriptorPool(descriptorPool));
 
-        auto& samplerLayout = mMaterialResources->GetSamplerLayout();
+        auto& samplerLayout = mMaterialResources->GetBindlessLayout();
 
         auto uniformBuffer =
             BufferBuilder(mDevice)

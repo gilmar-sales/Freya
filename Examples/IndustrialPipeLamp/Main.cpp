@@ -348,15 +348,29 @@ class MainApp final : public fra::AbstractApplication
                                 mCameraPos + forward,
                                 glm::vec3(0.0f, 1.0f, 0.0f));
 
-        mRenderer->SetInstanceModels(mModelMatrix, kInstanceCount);
-
-        // Two lamps cast/receive shadows onto each other and the ground.
+        std::vector<fra::SceneInstanceUpload> instances;
+        instances.reserve(mSofaModel.size() * 2 + 1);
         for (const auto& mesh : mSofaModel)
-            mRenderer->DrawInstanced(mesh, mSofaMaterial, 2, 0);
-
-        // Ground receives shadows but must not cast — a full-screen planar
-        // depth write destroys cascade util and z-fights into binary noise.
-        mRenderer->DrawInstanced(mGroundMesh, mGroundMaterial, 1, 2, false);
+        {
+            for (std::uint32_t i = 0; i < 2; ++i)
+            {
+                instances.push_back(fra::SceneInstanceUpload {
+                    .model       = mModelMatrix[i],
+                    .meshId      = mesh,
+                    .materialId  = mSofaMaterial,
+                    .entityId    = i + 1,
+                    .castShadows = true,
+                });
+            }
+        }
+        instances.push_back(fra::SceneInstanceUpload {
+            .model       = mModelMatrix[2],
+            .meshId      = mGroundMesh,
+            .materialId  = mGroundMaterial,
+            .entityId    = 0,
+            .castShadows = false,
+        });
+        mRenderer->UploadSceneInstances(instances);
 
         // EndFrame advances to lighting → translucent → composite
         // and draws the fullscreen triangles for lighting + composite.

@@ -42,6 +42,15 @@ namespace FREYA_NAMESPACE
             case BufferUsage::Uniform:
                 bufferInfo.setUsage(vk::BufferUsageFlagBits::eUniformBuffer);
                 break;
+            case BufferUsage::Storage:
+                bufferInfo.setUsage(vk::BufferUsageFlagBits::eStorageBuffer |
+                                    vk::BufferUsageFlagBits::eTransferDst);
+                break;
+            case BufferUsage::Indirect:
+                bufferInfo.setUsage(vk::BufferUsageFlagBits::eIndirectBuffer |
+                                    vk::BufferUsageFlagBits::eStorageBuffer |
+                                    vk::BufferUsageFlagBits::eTransferDst);
+                break;
             default:
                 break;
         }
@@ -78,6 +87,8 @@ namespace FREYA_NAMESPACE
             case BufferUsage::Index:
             case BufferUsage::Uniform:
             case BufferUsage::Instance:
+            case BufferUsage::Storage:
+            case BufferUsage::Indirect:
                 memoryProperties = vk::MemoryPropertyFlagBits::eHostVisible |
                                    vk::MemoryPropertyFlagBits::eDeviceLocal;
                 break;
@@ -99,6 +110,8 @@ namespace FREYA_NAMESPACE
             case BufferUsage::Index:
             case BufferUsage::Uniform:
             case BufferUsage::Instance:
+            case BufferUsage::Storage:
+            case BufferUsage::Indirect:
                 priorityInfo.setPriority(1.0f);
                 break;
             default:

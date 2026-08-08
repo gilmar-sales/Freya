@@ -1,15 +1,21 @@
 #pragma once
 
+#include "Freya/Asset/GpuScene.hpp"
+#include "Freya/Asset/Mesh.hpp"
 #include "Freya/Asset/Vertex.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
 
 #include <memory>
+#include <span>
+#include <vector>
 
 namespace FREYA_NAMESPACE
 {
+    class Buffer;
     class Renderer;
+    class IndirectDrawSystem;
 
     /**
      * @brief Manages mesh buffers and GPU-side mesh storage.
@@ -46,8 +52,32 @@ namespace FREYA_NAMESPACE
          */
         std::vector<std::uint32_t> CreateMeshFromFile(const std::string& path);
 
+        [[nodiscard]] bool Contains(std::uint32_t meshId) const;
+
+        [[nodiscard]] const Mesh& GetMesh(std::uint32_t meshId) const;
+
+        [[nodiscard]] std::uint32_t GetMeshCount() const;
+
+        /**
+         * @brief Fill a MeshInfo table (index = meshId). Grows to mesh count.
+         */
+        void FillMeshInfos(std::vector<MeshInfo>& out) const;
+
+        /**
+         * @brief Bind vertex/index buffers for a chunk at byte offset 0.
+         */
+        void BindChunk(std::uint32_t vertexBufferIndex,
+                       std::uint32_t indexBufferIndex) const;
+
+        [[nodiscard]] const skr::Arc<Buffer>& GetVertexBuffer(
+            std::uint32_t index) const;
+
+        [[nodiscard]] const skr::Arc<Buffer>& GetIndexBuffer(
+            std::uint32_t index) const;
+
       protected:
         friend class FREYA_NAMESPACE::Renderer;
+        friend class FREYA_NAMESPACE::IndirectDrawSystem;
 
         void Draw(std::uint32_t meshId);
 

@@ -1,10 +1,12 @@
 #version 450
+#extension GL_EXT_nonuniform_qualifier : require
 
 layout (location = 0) in vec3 inPosition;
 layout (location = 1) in vec2 inTexCoord;
 layout (location = 2) in mat3 inTBN;
 layout (location = 5) in vec3 inColor;
 layout (location = 6) in vec2 inVelocity;
+layout (location = 7) flat in uint inMaterialId;
 
 layout (location = 0) out vec4 outAlbedo;     // RGB albedo (gamma), A matID
 layout (location = 1) out vec4 outNormal;     // RGB packed normal, A 2-bit flags
@@ -12,19 +14,27 @@ layout (location = 2) out vec4 outPbr;        // R rough, G metal, B AO, A free
 layout (location = 3) out vec4 outSceneColor; // HDR emissive
 layout (location = 4) out vec2 outVelocity;   // UV-space motion
 
-layout (set = 1, binding = 0) uniform sampler2D uAlbedoTexture;
-layout (set = 1, binding = 1) uniform sampler2D uNormalTexture;
-layout (set = 1, binding = 2) uniform sampler2D uRoughnessTexture;
-layout (set = 1, binding = 3) uniform sampler2D uEmissiveTexture;
-layout (set = 1, binding = 4) uniform sampler2D uMetalnessTexture;
+layout (set = 1, binding = 0) uniform sampler2D uTextures[];
 
-layout (set = 1, binding = 5) uniform MaterialFactors {
+struct MaterialGPU {
+    uint albedoIndex;
+    uint normalIndex;
+    uint roughnessIndex;
+    uint emissiveIndex;
+    uint metalnessIndex;
+    uint _pad0;
+    uint _pad1;
+    uint _pad2;
     vec4 albedoFactor;
     vec4 emissiveFactor; // xyz emissive, w = aoFactor
-    vec2 roughMetal;     // x = roughnessFactor, y = metalnessFactor
-    float materialId;    // 0–255
-    float alphaCutoff;   // 0 = cutout disabled
-} materialFactors;
+    vec2 roughMetal;
+    float materialId;
+    float alphaCutoff;
+};
+
+layout (std430, set = 1, binding = 1) readonly buffer MaterialBuffer {
+    MaterialGPU materials[];
+};
 
 // Matches historical lighting emissive boost (was applied in lighting.frag).
 const float kEmissiveIntensity = 2.0;
@@ -43,12 +53,16 @@ vec3 srgbToLinear(vec3 c) {
 }
 
 void main() {
-    vec4 albedoSample = texture(uAlbedoTexture, inTexCoord);
-    float alpha = albedoSample.a * materialFactors.albedoFactor.a;
-    if (materialFactors.alphaCutoff > 0.0 && alpha < materialFactors.alphaCutoff)
+    MaterialGPU mat = materials[inMaterialId];
+
+    vec4 albedoSample =
+        texture(uTextures[nonuniformEXT(mat.albedoIndex)], inTexCoord);
+    float alpha = albedoSample.a * mat.albedoFactor.a;
+    if (mat.alphaCutoff > 0.0 && alpha < mat.alphaCutoff)
         discard;
 
-    vec3 sampled = texture(uNormalTexture, inTexCoord).rgb;
+    vec3 sampled =
+        texture(uTextures[nonuniformEXT(mat.normalIndex)], inTexCoord).rgb;
     vec3 worldNormal;
     if (all(greaterThan(sampled, vec3(0.99)))) {
         worldNormal = normalize(inTBN[2]);
@@ -59,28 +73,31 @@ void main() {
 
     vec3 albedoLin =
         srgbToLinear(albedoSample.rgb) * inColor *
-        materialFactors.albedoFactor.rgb;
+        mat.albedoFactor.rgb;
 
     // Store gamma-space albedo for UNORM target; lighting applies pow(2.2).
     outAlbedo = vec4(linearToSrgb(albedoLin),
-                     clamp(materialFactors.materialId, 0.0, 255.0) / 255.0);
+                     clamp(mat.materialId, 0.0, 255.0) / 255.0);
 
     uint flags = kFlagReceiveShadow;
     outNormal = vec4(worldNormal * 0.5 + 0.5, float(flags) / 3.0);
 
-    float metalness = texture(uMetalnessTexture, inTexCoord).r *
-                      materialFactors.roughMetal.y;
+    float metalness =
+        texture(uTextures[nonuniformEXT(mat.metalnessIndex)], inTexCoord).r *
+        mat.roughMetal.y;
     float roughness =
-        max(texture(uRoughnessTexture, inTexCoord).r *
-                materialFactors.roughMetal.x,
+        max(texture(uTextures[nonuniformEXT(mat.roughnessIndex)], inTexCoord).r *
+                mat.roughMetal.x,
             0.045);
-    float ao = clamp(materialFactors.emissiveFactor.w, 0.0, 1.0);
+    float ao = clamp(mat.emissiveFactor.w, 0.0, 1.0);
     float free = 0.0;
     outPbr = vec4(roughness, metalness, ao, free);
 
     vec3 emissiveLin =
-        srgbToLinear(texture(uEmissiveTexture, inTexCoord).rgb) *
-        materialFactors.emissiveFactor.rgb;
+        srgbToLinear(
+            texture(uTextures[nonuniformEXT(mat.emissiveIndex)], inTexCoord)
+                .rgb) *
+        mat.emissiveFactor.rgb;
     outSceneColor = vec4(emissiveLin * kEmissiveIntensity, 1.0);
     outVelocity = inVelocity;
 }

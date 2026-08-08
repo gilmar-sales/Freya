@@ -46,6 +46,13 @@ namespace FREYA_NAMESPACE
         if (ctx.resizePickPass)
             ctx.resizePickPass(ctx.renderExtent);
 
+        if (ctx.dispatchCull && ctx.projection)
+        {
+            const auto viewProj =
+                ctx.projection->unjitteredProjection * ctx.projection->view;
+            ctx.dispatchCull(viewProj, CullMode::Camera);
+        }
+
         (*ctx.pick)->Render(ctx.commandPool, *ctx.projection,
                             ctx.executePickDraws);
         (*ctx.pick)->CopyPixel(ctx.commandPool, *ctx.pickX, *ctx.pickY);
@@ -69,9 +76,14 @@ namespace FREYA_NAMESPACE
                      ctx.cameraNear,
                      ctx.options->drawDistance,
                      ctx.frameIndex);
-        (*ctx.shadow)->Render(ctx.commandPool, [&]() {
-            ctx.executeDraws(false, true);
-        });
+        (*ctx.shadow)
+            ->Render(
+                ctx.commandPool,
+                [&](const glm::mat4& lightVP) {
+                    if (ctx.dispatchCull)
+                        ctx.dispatchCull(lightVP, CullMode::Shadow);
+                },
+                [&]() { ctx.executeDraws(false); });
     }
 
     void DeferredGeometryFrameStage::Rebuild(RenderFrameContext&   ctx,
@@ -89,21 +101,28 @@ namespace FREYA_NAMESPACE
         if (!ctx.deferred || !*ctx.deferred)
             return;
 
+        if (ctx.dispatchCull && ctx.projection)
+        {
+            const auto viewProj =
+                ctx.projection->unjitteredProjection * ctx.projection->view;
+            ctx.dispatchCull(viewProj, CullMode::Camera);
+        }
+
         (*ctx.deferred)->Begin(ctx.swapChain, ctx.commandPool);
         SetFullViewport(ctx.commandPool, ctx.renderExtent);
 
         auto currentSubpass = (*ctx.deferred)->GetCurrentSubpass();
         if (currentSubpass == DefDepthPrePass)
         {
-            ctx.executeDraws(false, false);
+            ctx.executeDraws(false);
             (*ctx.deferred)
                 ->AdvanceSubpass(DefGBufferPass, ctx.commandPool,
                                  ctx.frameIndex);
-            ctx.executeDraws(true, false);
+            ctx.executeDraws(true);
         }
         else if (currentSubpass == DefGBufferPass)
         {
-            ctx.executeDraws(true, false);
+            ctx.executeDraws(true);
         }
 
         (*ctx.deferred)->End(ctx.commandPool);

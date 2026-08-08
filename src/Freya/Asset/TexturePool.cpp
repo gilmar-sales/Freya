@@ -120,6 +120,10 @@ namespace FREYA_NAMESPACE
 
         mTextures.insert(texture);
 
+        mMaterialsRes->WriteBindlessTexture(
+            MaterialDescriptorResources::TextureHeapIndex(texture.id),
+            texture.image->GetImageView(), texture.sampler);
+
         return texture.id;
     }
 

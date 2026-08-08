@@ -1,15 +1,17 @@
 #pragma once
 
+#include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/UniformBuffer.hpp"
+
+#include <vector>
 
 namespace FREYA_NAMESPACE
 {
     /**
-     * Shared material set-1 layout, descriptor pool, and 1x1 fallback textures.
-     *
-     * Owned independently of any graphics pass so MaterialPool / TexturePool
-     * and DeferredCompressedPass can share the same sampler layout handle.
+     * Shared material layouts: legacy per-material set-1, plus bindless heap
+     * (textures[] + MaterialGPU SSBO) used by the GPU-driven GBuffer path.
      */
     class MaterialDescriptorResources
     {
@@ -20,6 +22,10 @@ namespace FREYA_NAMESPACE
             vk::DescriptorPool      samplerDescriptorPool,
             vk::DescriptorSet       fallbackSamplerSet,
             const skr::Arc<Buffer>& fallbackFactorsBuffer,
+            vk::DescriptorSetLayout bindlessLayout,
+            vk::DescriptorPool      bindlessPool,
+            vk::DescriptorSet       bindlessSet,
+            const skr::Arc<Buffer>& materialsBuffer,
             vk::Image               fallbackImage,
             vk::DeviceMemory        fallbackImageMemory,
             vk::ImageView           fallbackImageView,
@@ -43,6 +49,12 @@ namespace FREYA_NAMESPACE
             return mFallbackSamplerSet;
         }
 
+        vk::DescriptorSetLayout& GetBindlessLayout() { return mBindlessLayout; }
+
+        vk::DescriptorSet& GetBindlessSet() { return mBindlessSet; }
+
+        skr::Arc<Buffer>& GetMaterialsBuffer() { return mMaterialsBuffer; }
+
         vk::ImageView& GetFallbackImageView() { return mFallbackImageView; }
 
         vk::Sampler& GetFallbackSampler() { return mFallbackSampler; }
@@ -57,6 +69,25 @@ namespace FREYA_NAMESPACE
             return mEmissiveFallbackSampler;
         }
 
+        /**
+         * @brief Map a TexturePool id onto the bindless heap (id + 2).
+         */
+        static std::uint32_t TextureHeapIndex(std::uint32_t textureId)
+        {
+            return textureId + 2;
+        }
+
+        void WriteBindlessTexture(std::uint32_t heapIndex,
+                                  vk::ImageView imageView,
+                                  vk::Sampler   sampler);
+
+        void WriteMaterial(std::uint32_t materialId, const MaterialGPU& gpu);
+
+        [[nodiscard]] std::uint32_t GetMaterialCapacity() const
+        {
+            return mMaterialCapacity;
+        }
+
       private:
         skr::Arc<Device> mDevice;
 
@@ -64,6 +95,12 @@ namespace FREYA_NAMESPACE
         vk::DescriptorPool      mSamplerDescriptorPool;
         vk::DescriptorSet       mFallbackSamplerSet;
         skr::Arc<Buffer>        mFallbackFactorsBuffer;
+
+        vk::DescriptorSetLayout mBindlessLayout;
+        vk::DescriptorPool      mBindlessPool;
+        vk::DescriptorSet       mBindlessSet;
+        skr::Arc<Buffer>        mMaterialsBuffer;
+        std::uint32_t           mMaterialCapacity = MAX_MATERIAL_SETS;
 
         vk::Image        mFallbackImage;
         vk::DeviceMemory mFallbackImageMemory;

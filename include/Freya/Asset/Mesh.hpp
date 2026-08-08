@@ -3,6 +3,8 @@
 #include <compare>
 #include <cstdint>
 
+#include <glm/glm.hpp>
+
 namespace FREYA_NAMESPACE
 {
     /**
@@ -15,7 +17,11 @@ namespace FREYA_NAMESPACE
      * @param vertexBufferOffset Byte offset into the vertex buffer
      * @param indexBufferIndex   Index into MeshPool's index buffer vector
      * @param indexBufferOffset  Byte offset into the index buffer
+     * @param firstIndex         Index offset in index units (uint16)
+     * @param vertexOffset       Vertex offset in vertex units
      * @param indexCount         Number of indices to draw
+     * @param aabbMin            Local-space AABB minimum
+     * @param aabbMax            Local-space AABB maximum
      * @param id                 Unique mesh identifier
      */
     struct Mesh
@@ -40,7 +46,12 @@ namespace FREYA_NAMESPACE
 
         std::uint32_t indexBufferIndex;  ///< Index buffer index
         std::uint32_t indexBufferOffset; ///< Byte offset in index buffer
+        std::uint32_t firstIndex;        ///< Index units for MDI
+        std::int32_t  vertexOffset;      ///< Vertex units for MDI
         std::uint32_t indexCount;        ///< Number of indices
+
+        glm::vec3 aabbMin { 0.0f };
+        glm::vec3 aabbMax { 0.0f };
 
         std::uint32_t id; ///< Unique mesh identifier
     };
