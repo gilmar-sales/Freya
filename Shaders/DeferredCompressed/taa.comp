@@ -83,11 +83,23 @@ float GammaBoost(ivec2 pixel, vec2 velocity) {
             dMax    = max(dMax, d);
         }
     }
-    float depthEdge = clamp((dMax - dMin) * 40.0, 0.0, 1.0);
+    float depthEdge = clamp((dMax - dMin) * 25.0, 0.0, 1.0);
     float speedPx =
         length(velocity / max(pc.invResolution, vec2(1e-6)));
-    float motion = clamp(speedPx * 0.04, 0.0, 1.0);
-    return 1.0 + 1.5 * depthEdge + 0.75 * motion;
+    float motion = clamp(speedPx * 0.03, 0.0, 1.0);
+    return 1.0 + 2.0 * depthEdge + 1.0 * motion;
+}
+
+void NeighborhoodBoxMinMaxRGB(ivec2 pixel, out vec3 nMin, out vec3 nMax) {
+    nMin = vec3(1e10);
+    nMax = vec3(-1e10);
+    for (int y = -1; y <= 1; ++y) {
+        for (int x = -1; x <= 1; ++x) {
+            vec3 c = texelFetch(currentColor, pixel + ivec2(x, y), 0).rgb;
+            nMin   = min(nMin, c);
+            nMax   = max(nMax, c);
+        }
+    }
 }
 
 // Directional / ray-box clip into an AABB (YCoCg or RGB).
@@ -278,40 +290,50 @@ void main() {
     else
         history = textureLod(historyColor, clampedUV, 0.0).rgb;
 
-    float weight     = pc.currentWeight;
-    float histTrust  = 1.0; // 1 = full history allowed
+    float weight    = pc.currentWeight;
+    float histTrust = 1.0; // 1 = full history allowed
+    float speedPx =
+        length(velocity / max(pc.invResolution, vec2(1e-6)));
 
     if (offscreen) {
         weight    = 1.0;
         histTrust = 0.0;
     } else if (q == Q_LOW) {
-        float speedPx =
-            length(velocity / max(pc.invResolution, vec2(1e-6)));
         float dump = clamp(speedPx * 0.12, 0.0, 1.0);
         weight     = mix(pc.currentWeight, 1.0, dump);
         histTrust  = 1.0 - dump;
     } else {
-        // Soft depth disocclusion — hard reject exposes jitter shimmer.
+        // Depth from jittered rasters differs frame-to-frame on silhouettes
+        // even when still. Only trust depth reject under real motion.
         float histDepth = textureLod(historyDepth, clampedUV, 0.0).r;
         float depthDiff = abs(currDepth - histDepth);
-        float depthTrust =
-            1.0 - smoothstep(pc.depthReject * 0.4, pc.depthReject, depthDiff);
-        histTrust = depthTrust;
-        weight    = mix(1.0, pc.currentWeight, depthTrust);
+        // Relative term: absolute device-Z alone is noisy with Reverse-Z.
+        float depthRef  = max(max(currDepth, histDepth), 1e-3);
+        float depthRel  = depthDiff / depthRef;
+        float absUntrust =
+            smoothstep(pc.depthReject * 0.75, pc.depthReject * 2.0, depthDiff);
+        float relUntrust = smoothstep(0.04, 0.15, depthRel);
+        float depthUntrust = min(absUntrust, relUntrust);
+        float motionGate   = smoothstep(0.35, 1.75, speedPx);
+        float depthTrust   = 1.0 - depthUntrust * motionGate;
+        histTrust          = depthTrust;
+        weight = mix(1.0, pc.currentWeight, depthTrust);
 
-        if (q >= Q_HIGH && depthTrust > 0.01) {
-            // Mild reactive: nudge toward current, never fully dump history.
+        if (q >= Q_HIGH && depthTrust > 0.5 && speedPx > 0.5) {
+            // Mild reactive only while moving — never fully dump history.
             float lumaDiff =
                 abs(Luma(current) - Luma(history)) /
                 max(max(Luma(current), Luma(history)), 1e-3);
-            float speedPx =
-                length(velocity / max(pc.invResolution, vec2(1e-6)));
             float reactive =
-                clamp(lumaDiff * 1.25, 0.0, 1.0) *
-                clamp(speedPx * 0.06, 0.0, 1.0) * 0.35;
+                clamp(lumaDiff * 1.0, 0.0, 1.0) *
+                clamp(speedPx * 0.04, 0.0, 1.0) * 0.2;
             weight    = mix(weight, 1.0, reactive);
             histTrust *= (1.0 - reactive);
         }
+
+        // Keep a history floor so jittered current never fully takes over
+        // on marginal rejects (primary shimmer source vs Low).
+        weight = min(weight, mix(pc.currentWeight, 0.55, 1.0 - depthTrust));
     }
 
     if (weight < 0.999) {
@@ -320,18 +342,22 @@ void main() {
         if (q == Q_LOW) {
             vec3 nMin, nMax;
             NeighborhoodCrossMinMaxRGB(pixel, nMin, nMax);
-            // Inflate AABB slightly under boost.
             vec3 mid = 0.5 * (nMin + nMax);
             vec3 ext = 0.5 * (nMax - nMin) * boost;
             history  = clamp(history, mid - ext, mid + ext);
         } else if (q == Q_MEDIUM) {
-            vec3 mu, sigma;
-            NeighborhoodVarianceBox(pixel, false, false, mu, sigma);
-            float g      = pc.varianceGammaY * boost;
-            history      = clamp(history, mu - g * sigma, mu + g * sigma);
+            // 3×3 min/max RGB (more stable than variance on thin edges).
+            vec3 nMin, nMax;
+            NeighborhoodBoxMinMaxRGB(pixel, nMin, nMax);
+            vec3 mid = 0.5 * (nMin + nMax);
+            vec3 ext = 0.5 * (nMax - nMin) * max(boost, pc.varianceGammaY);
+            history  = clamp(history, mid - ext, mid + ext);
         } else if (q == Q_HIGH) {
             vec3 mu, sigma;
             NeighborhoodVarianceBox(pixel, true, false, mu, sigma);
+            // Floor sigma so flat neighborhoods still leave room for
+            // sub-pixel history (jitter AA samples).
+            sigma = max(sigma, vec3(0.002, 0.001, 0.001));
             vec3 gamma = vec3(pc.varianceGammaY, pc.varianceGammaC,
                               pc.varianceGammaC) *
                          boost;
@@ -341,6 +367,7 @@ void main() {
         } else {
             vec3 mu, sigma;
             NeighborhoodVarianceBox(pixel, true, true, mu, sigma);
+            sigma = max(sigma, vec3(0.002, 0.001, 0.001));
             vec3 gamma = vec3(pc.varianceGammaY, pc.varianceGammaC,
                               pc.varianceGammaC) *
                          boost;
@@ -352,11 +379,9 @@ void main() {
 
     vec3 result = mix(history, current, weight);
 
-    // Sharpen only where history was trusted — otherwise we re-inject
-    // the jittered current frame and shimmer returns.
-    if (q >= Q_MEDIUM)
-        result = ApplySharpen(result, pixel, pc.sharpen * histTrust,
-                              q >= Q_HIGH);
+    // Sharpen High+ only, and only where history stuck (avoid re-jitter).
+    if (q >= Q_HIGH)
+        result = ApplySharpen(result, pixel, pc.sharpen * histTrust, true);
 
     imageStore(outputColor, pixel, vec4(result, 1.0));
 }
