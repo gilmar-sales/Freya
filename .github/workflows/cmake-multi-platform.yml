@@ -86,7 +86,7 @@ jobs:
             libdrm-dev libgbm-dev \
             libudev-dev libdbus-1-dev \
             libpulse-dev libasound2-dev \
-            ninja-build
+            ninja-build glslang-tools
 
       - name: Cache MinGW-w64 GCC 16 on Windows
         if: matrix.os == 'windows-latest'

@@ -2,11 +2,14 @@ $ErrorActionPreference = 'Stop'
 
 $mode = if ($args -contains '--check') { 'check' } else { 'write' }
 
-$files = git ls-files |
-  Select-String -Pattern '\.(c|cc|cpp|cxx|h|hpp|hh|inc)$' |
-  Select-String -NotMatch -Pattern '(^|[\/])Shaders[\/]' |
-  Select-String -NotMatch -Pattern '(^|[\/])src[\/]Freya[\/]Vendor[\/]' |
-  ForEach-Object { $_.ToString().Trim() }
+$files = @(
+  git ls-files -c --others --exclude-standard |
+    Select-String -Pattern '\.(c|cc|cpp|cxx|h|hpp|hh|inc)$' |
+    Select-String -NotMatch -Pattern '(^|[\/])Shaders[\/]' |
+    Select-String -NotMatch -Pattern '(^|[\/])src[\/]Freya[\/]Vendor[\/]' |
+    ForEach-Object { $_.ToString().Trim() } |
+    Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
+)
 
 if ($files.Count -eq 0) {
   Write-Host 'No source files to format.'

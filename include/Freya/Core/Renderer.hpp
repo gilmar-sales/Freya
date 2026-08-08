@@ -9,6 +9,7 @@
 #include "Freya/Core/CompositePass.hpp"
 #include "Freya/Core/DeferredCompressedPass.hpp"
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/FsrUpscalePass.hpp"
 #include "Freya/Core/IFrameStage.hpp"
 #include "Freya/Core/Instance.hpp"
 #include "Freya/Core/LightService.hpp"
@@ -19,7 +20,6 @@
 #include "Freya/Core/ShadowPass.hpp"
 #include "Freya/Core/SsaoPass.hpp"
 #include "Freya/Core/SwapChain.hpp"
-#include "Freya/Core/TaaPass.hpp"
 #include "Freya/Events/EventManager.hpp"
 
 #include <limits>
@@ -56,7 +56,7 @@ namespace FREYA_NAMESPACE
                  const skr::Arc<SwapChain>&              swapChain,
                  const skr::Arc<DeferredCompressedPass>& deferredPass,
                  const skr::Arc<BloomPass>&              bloomPass,
-                 const skr::Arc<TaaPass>&                taaPass,
+                 const skr::Arc<FsrUpscalePass>&         fsrPass,
                  const skr::Arc<SsaoPass>&               ssaoPass,
                  const skr::Arc<CompositePass>&          compositePass,
                  const skr::Arc<CommandPool>&            commandPool,
@@ -118,9 +118,9 @@ namespace FREYA_NAMESPACE
             return mSsaoQuality;
         }
 
-        void SetTaaQuality(TaaQuality quality);
+        void SetFsrQuality(FsrQuality quality);
 
-        [[nodiscard]] TaaQuality GetTaaQuality() const { return mTaaQuality; }
+        [[nodiscard]] FsrQuality GetFsrQuality() const { return mFsrQuality; }
 
         void SetBloomQuality(BloomQuality quality);
 
@@ -163,7 +163,7 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Queue an instanced draw. Call `SetInstanceModels` once per
          *        frame before recording draws so Freya can bind transforms
-         *        (and previous-frame data for TAA).
+         *        (and previous-frame data for FSR motion vectors).
          */
         void DrawInstanced(std::uint32_t meshId,
                            std::uint32_t materialId,
@@ -175,7 +175,7 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Upload current-frame instance model matrices.
          *
-         * Freya keeps the previous frame’s transforms for TAA motion
+         * Freya keeps the previous frame’s transforms for FSR motion
          * vectors. On the first call (or when `count` changes) previous
          * equals current. Replaces a manual instance `Buffer` for mesh
          * draws — no need to track `prevModel` in the app.
@@ -252,6 +252,7 @@ namespace FREYA_NAMESPACE
       private:
         void blitBloomToFullRes(const skr::Arc<CommandPool>& commandPool) const;
 
+        [[nodiscard]] vk::Extent2D getDisplayExtent() const;
         [[nodiscard]] vk::Extent2D getRenderExtent() const;
 
         void rebuildSceneResources();
@@ -264,9 +265,9 @@ namespace FREYA_NAMESPACE
                             bool                   tonemapHdr = false);
 
         ProjectionUniformBuffer prepareDeferredProjection(
-            const ProjectionUniformBuffer& unjittered) const;
+            const ProjectionUniformBuffer& unjittered);
 
-        void commitTaaHistory();
+        void commitFsrHistory();
 
         void beginUIPass();
 
@@ -284,7 +285,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<SwapChain>              mSwapChain;
         skr::Arc<DeferredCompressedPass> mDeferredPass;
         skr::Arc<BloomPass>              mBloomPass;
-        skr::Arc<TaaPass>                mTaaPass;
+        skr::Arc<FsrUpscalePass>         mFsrPass;
         skr::Arc<SsaoPass>               mSsaoPass;
         skr::Arc<CompositePass>          mCompositePass;
         skr::Arc<CommandPool>            mCommandPool;
@@ -292,11 +293,12 @@ namespace FREYA_NAMESPACE
         skr::Arc<ShadowPass>             mShadowPass;
         skr::Arc<PickPass>               mPickPass;
         float                            mCameraNear = 1.0f;
+        float                            mCameraFovY = glm::radians(45.0f);
         skr::Arc<EventManager>           mEventManager;
         skr::Arc<FreyaOptions>           mFreyaOptions;
         ShadowQuality                    mShadowQuality = ShadowQuality::High;
         SsaoQuality                      mSsaoQuality   = SsaoQuality::Medium;
-        TaaQuality                       mTaaQuality    = TaaQuality::High;
+        FsrQuality                       mFsrQuality    = FsrQuality::Quality;
         BloomQuality                     mBloomQuality  = BloomQuality::Medium;
         skr::Arc<RenderTarget>           mOutputTarget;
         bool                             mUIPassOpen = false;
@@ -308,7 +310,9 @@ namespace FREYA_NAMESPACE
 
         ProjectionUniformBuffer mCurrentProjection;
         glm::mat4               mPrevViewProjection { 1.0f };
-        std::uint32_t           mTaaFrameIndex = 0;
+        std::uint32_t           mFsrFrameIndex = 0;
+        float                   mLastJitterX   = 0.f;
+        float                   mLastJitterY   = 0.f;
         vk::Sampler             mBloomResultSampler;
 
         skr::Arc<Image> mBloomResultImage;

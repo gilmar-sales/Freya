@@ -4,6 +4,7 @@
 #include "Freya/Builders/CommandPoolBuilder.hpp"
 #include "Freya/Builders/CompositePassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
+#include "Freya/Builders/FsrUpscalePassBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/LightServiceBuilder.hpp"
 #include "Freya/Builders/MaterialDescriptorResourcesBuilder.hpp"
@@ -13,7 +14,6 @@
 #include "Freya/Builders/ShadowPassBuilder.hpp"
 #include "Freya/Builders/SsaoPassBuilder.hpp"
 #include "Freya/Builders/SurfaceBuilder.hpp"
-#include "Freya/Builders/TaaPassBuilder.hpp"
 #include "Freya/Builders/WindowBuilder.hpp"
 
 #include "Freya/Asset/MaterialDescriptorResources.hpp"
@@ -48,7 +48,7 @@ namespace FREYA_NAMESPACE
         services.AddTransient<MaterialDescriptorResourcesBuilder>();
         services.AddTransient<DeferredCompressedPassBuilder>();
         services.AddTransient<BloomPassBuilder>();
-        services.AddTransient<TaaPassBuilder>();
+        services.AddTransient<FsrUpscalePassBuilder>();
         services.AddTransient<SsaoPassBuilder>();
         services.AddTransient<CompositePassBuilder>();
         services.AddTransient<ShadowPassBuilder>();

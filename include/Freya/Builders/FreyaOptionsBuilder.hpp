@@ -228,9 +228,9 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        FreyaOptionsBuilder& SetTaaQuality(TaaQuality quality)
+        FreyaOptionsBuilder& SetFsrQuality(FsrQuality quality)
         {
-            ApplyTaaQuality(*mFreyaOptions, quality);
+            ApplyFsrQuality(*mFreyaOptions, quality);
             return *this;
         }
 
@@ -267,42 +267,6 @@ namespace FREYA_NAMESPACE
         FreyaOptionsBuilder& SetSsaoIntensity(float intensity)
         {
             mFreyaOptions->ssaoIntensity = intensity;
-            return *this;
-        }
-
-        FreyaOptionsBuilder& SetTaaCurrentWeight(float weight)
-        {
-            mFreyaOptions->taaCurrentWeight = weight;
-            return *this;
-        }
-
-        FreyaOptionsBuilder& SetTaaHaltonPeriod(std::uint32_t period)
-        {
-            mFreyaOptions->taaHaltonPeriod = std::max(1u, period);
-            return *this;
-        }
-
-        FreyaOptionsBuilder& SetTaaVarianceGammaY(float gamma)
-        {
-            mFreyaOptions->taaVarianceGammaY = gamma;
-            return *this;
-        }
-
-        FreyaOptionsBuilder& SetTaaVarianceGammaC(float gamma)
-        {
-            mFreyaOptions->taaVarianceGammaC = gamma;
-            return *this;
-        }
-
-        FreyaOptionsBuilder& SetTaaDepthRejectThreshold(float threshold)
-        {
-            mFreyaOptions->taaDepthRejectThreshold = threshold;
-            return *this;
-        }
-
-        FreyaOptionsBuilder& SetTaaSharpen(float sharpen)
-        {
-            mFreyaOptions->taaSharpen = sharpen;
             return *this;
         }
 
@@ -355,9 +319,11 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        FreyaOptionsBuilder& SetEnableTaa(bool enable)
+        FreyaOptionsBuilder& SetEnableFsr(bool enable)
         {
-            mFreyaOptions->enableTaa = enable;
+            mFreyaOptions->enableFsr = enable;
+            if (!enable)
+                mFreyaOptions->fsrQuality = FsrQuality::Off;
             return *this;
         }
 

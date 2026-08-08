@@ -36,15 +36,16 @@ namespace FREYA_NAMESPACE
     };
 
     /**
-     * @brief TAA responsiveness vs stability preset.
+     * @brief FSR 3 Upscaler quality / scale presets (AMD naming).
      */
-    enum class TaaQuality
+    enum class FsrQuality
     {
-        Low,    ///< cross AABB RGB, bilinear, Halton-4
-        Medium, ///< 3×3 variance RGB, depth reject, soft sharpen
-        High,   ///< YCoCg variance, Catmull-Rom, CAS-like sharpen
-        Ultra,  ///< Gaussian YCoCg + directional clip, HQ Catmull-Rom
-        Off     ///< no temporal resolve / Halton jitter
+        NativeAA,         ///< 1.0x (temporal AA at display resolution)
+        Quality,          ///< 1.5x
+        Balanced,         ///< 1.7x
+        Performance,      ///< 2.0x
+        UltraPerformance, ///< 3.0x
+        Off               ///< no FSR / no Halton jitter
     };
 
     /**
@@ -106,7 +107,7 @@ namespace FREYA_NAMESPACE
 
         bool enableShadows = true;
         bool enableSsao    = true;
-        bool enableTaa     = true;
+        bool enableFsr     = true;
         bool enableBloom   = true;
 
         /// 1 = full, 2 = half, 4 = quarter of render extent.
@@ -116,20 +117,8 @@ namespace FREYA_NAMESPACE
         float         ssaoPower             = 2.0f;
         float         ssaoIntensity         = 1.35f;
 
-        /// Blend weight toward current frame (0–1). Higher = less ghosting.
-        float taaCurrentWeight = 0.1f;
-        /// Halton jitter sequence length used with TAA.
-        std::uint32_t taaHaltonPeriod = 16;
-        /// Shader feature tier: 0=Low … 3=Ultra (set by ApplyTaaQuality).
-        std::uint32_t taaQualityLevel = 2;
-        /// YCoCg / RGB variance AABB scale for luminance (or RGB on Medium).
-        float taaVarianceGammaY = 1.35f;
-        /// YCoCg variance AABB scale for chroma (Co/Cg); High/Ultra only.
-        float taaVarianceGammaC = 1.5f;
-        /// Soft-reject history when |currDepth - histDepth| exceeds this.
-        float taaDepthRejectThreshold = 0.04f;
-        /// Post-resolve sharpen strength (0 = off). High+ only.
-        float taaSharpen = 0.15f;
+        /// Active FSR quality (ignored when enableFsr is false).
+        FsrQuality fsrQuality = FsrQuality::Quality;
 
         std::uint32_t bloomResolutionDivisor = 2;
         float         bloomThreshold         = 0.75f;
@@ -225,56 +214,17 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    inline void ApplyTaaQuality(FreyaOptions& options, TaaQuality quality)
+    inline void ApplyFsrQuality(FreyaOptions& options, FsrQuality quality)
     {
-        if (quality == TaaQuality::Off)
+        if (quality == FsrQuality::Off)
         {
-            options.enableTaa = false;
+            options.enableFsr  = false;
+            options.fsrQuality = FsrQuality::Off;
             return;
         }
 
-        options.enableTaa = true;
-        switch (quality)
-        {
-            case TaaQuality::Low:
-                options.taaQualityLevel         = 0;
-                options.taaCurrentWeight        = 0.25f;
-                options.taaHaltonPeriod         = 4;
-                options.taaVarianceGammaY       = 1.15f;
-                options.taaVarianceGammaC       = 1.15f;
-                options.taaDepthRejectThreshold = 1.0f; // unused
-                options.taaSharpen              = 0.0f;
-                break;
-            case TaaQuality::Medium:
-                options.taaQualityLevel         = 1;
-                options.taaCurrentWeight        = 0.12f;
-                options.taaHaltonPeriod         = 8;
-                options.taaVarianceGammaY       = 1.25f;
-                options.taaVarianceGammaC       = 1.25f;
-                options.taaDepthRejectThreshold = 0.05f;
-                options.taaSharpen              = 0.0f;
-                break;
-            case TaaQuality::High:
-                options.taaQualityLevel         = 2;
-                options.taaCurrentWeight        = 0.1f;
-                options.taaHaltonPeriod         = 16;
-                options.taaVarianceGammaY       = 1.35f;
-                options.taaVarianceGammaC       = 1.5f;
-                options.taaDepthRejectThreshold = 0.04f;
-                options.taaSharpen              = 0.15f;
-                break;
-            case TaaQuality::Ultra:
-                options.taaQualityLevel         = 3;
-                options.taaCurrentWeight        = 0.08f;
-                options.taaHaltonPeriod         = 32;
-                options.taaVarianceGammaY       = 1.25f;
-                options.taaVarianceGammaC       = 1.4f;
-                options.taaDepthRejectThreshold = 0.035f;
-                options.taaSharpen              = 0.25f;
-                break;
-            case TaaQuality::Off:
-                break;
-        }
+        options.enableFsr  = true;
+        options.fsrQuality = quality;
     }
 
     inline void ApplyBloomQuality(FreyaOptions& options, BloomQuality quality)

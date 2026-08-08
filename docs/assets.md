@@ -81,7 +81,7 @@ struct Vertex
 ## Instancing
 
 Upload current-frame model matrices with `Renderer::SetInstanceModels`. Freya
-keeps the previous frame’s transforms internally for TAA motion vectors —
+keeps the previous frame’s transforms internally for FSR motion vectors —
 apps do not track or upload `prevModel`.
 
 ```cpp

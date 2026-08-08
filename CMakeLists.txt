@@ -14,6 +14,9 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build Shared Library")
 set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL
         "Disable assimp warnings as errors")
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(FetchFidelityFX)
+
 include(FetchContent)
 
 FetchContent_Declare(
@@ -78,7 +81,9 @@ target_include_directories(Freya
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Containers
 )
 target_link_libraries(Freya PUBLIC
-        SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES} skirnir::skirnir)
+        SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES} skirnir::skirnir
+        FidelityFX::FSR3)
+add_dependencies(Freya ffx_sdk_build)
 
 target_precompile_headers(Freya PUBLIC
         <memory>
@@ -101,8 +106,6 @@ target_precompile_headers(Freya PUBLIC
 # ---------------------------------------------------------------------------
 # Shader compilation pipeline
 # ---------------------------------------------------------------------------
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-
 include(CompileShaders)
 
 find_glslc()

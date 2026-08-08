@@ -3,9 +3,9 @@
 #include "Freya/Builders/BloomPassBuilder.hpp"
 #include "Freya/Builders/CompositePassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
+#include "Freya/Builders/FsrUpscalePassBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/SsaoPassBuilder.hpp"
-#include "Freya/Builders/TaaPassBuilder.hpp"
 #include "Freya/Core/BloomPass.hpp"
 #include "Freya/Core/DebugLabels.hpp"
 #include "Freya/Core/Device.hpp"
@@ -162,28 +162,36 @@ namespace FREYA_NAMESPACE
         (*ctx.deferred)->EndLighting(ctx.commandPool);
     }
 
-    void TaaFrameStage::Rebuild(RenderFrameContext&   ctx,
+    void FsrFrameStage::Rebuild(RenderFrameContext&   ctx,
                                 skr::ServiceProvider& sp)
     {
-        if (!ctx.taa)
+        if (!ctx.fsr)
             return;
-        ctx.taa->reset();
-        if (!ctx.options->enableTaa)
+        ctx.fsr->reset();
+        if (!ctx.options->enableFsr)
             return;
-        *ctx.taa = sp.GetService<TaaPassBuilder>()->Build(ctx.swapChain,
-                                                          ctx.renderExtent);
-        (*ctx.taa)->ResetHistory();
+        *ctx.fsr = sp.GetService<FsrUpscalePassBuilder>()->Build(
+            ctx.swapChain, ctx.renderExtent, ctx.displayExtent);
+        if (*ctx.fsr)
+            (*ctx.fsr)->ResetHistory();
     }
 
-    void TaaFrameStage::Execute(RenderFrameContext& ctx)
+    void FsrFrameStage::Execute(RenderFrameContext& ctx)
     {
-        if (!ctx.taa || !*ctx.taa || !ctx.deferred || !*ctx.deferred)
+        if (!ctx.fsr || !*ctx.fsr || !ctx.deferred || !*ctx.deferred)
+            return;
+        if (!(*ctx.fsr)->Valid())
             return;
 
-        (*ctx.taa)->Dispatch(ctx.commandPool,
-                             (*ctx.deferred)->GetSceneColorImage(),
-                             (*ctx.deferred)->GetVelocityImage(),
-                             (*ctx.deferred)->GetDepthImage());
+        (*ctx.fsr)->Dispatch(
+            ctx.commandPool,
+            (*ctx.deferred)->GetSceneColorImage(),
+            (*ctx.deferred)->GetVelocityImage(),
+            (*ctx.deferred)->GetDepthImage(),
+            ctx.frameDeltaMs,
+            ctx.cameraNear,
+            ctx.cameraFar,
+            ctx.cameraFovY);
     }
 
     void BloomFrameStage::Rebuild(RenderFrameContext&   ctx,
@@ -194,10 +202,18 @@ namespace FREYA_NAMESPACE
         ctx.bloom->reset();
         if (!ctx.options->enableBloom || !ctx.deferred || !*ctx.deferred)
             return;
+
+        // Bloom runs after FSR at display resolution when FSR is active.
+        skr::Arc<Image> bloomSource = (*ctx.deferred)->GetSceneColorImage();
+        auto            bloomExtent = ctx.renderExtent;
+        if (ctx.fsr && *ctx.fsr && (*ctx.fsr)->Valid())
+        {
+            bloomSource = (*ctx.fsr)->GetOutputImage();
+            bloomExtent = ctx.displayExtent;
+        }
+
         *ctx.bloom = sp.GetService<BloomPassBuilder>()->Build(
-            ctx.swapChain,
-            (*ctx.deferred)->GetSceneColorImage(),
-            ctx.renderExtent);
+            ctx.swapChain, bloomSource, bloomExtent);
     }
 
     void BloomFrameStage::Execute(RenderFrameContext& ctx)
@@ -260,8 +276,9 @@ namespace FREYA_NAMESPACE
         }
 
         const auto commandBuffer = ctx.commandPool->GetCommandBuffer();
-        const auto bloomExtent =
-            ScaledExtent(ctx.renderExtent, ctx.options->bloomResolutionDivisor);
+        const auto bloomExtent   = ScaledExtent(
+            ctx.displayExtent.width > 0 ? ctx.displayExtent : ctx.renderExtent,
+            ctx.options->bloomResolutionDivisor);
         const auto halfW = bloomExtent.width;
         const auto halfH = bloomExtent.height;
 
@@ -309,12 +326,15 @@ namespace FREYA_NAMESPACE
             !*ctx.bloomResultImage || !ctx.bloomResultSampler)
             return;
 
+        skr::Arc<Image> opaque = (*ctx.deferred)->GetSceneColorImage();
+        if (ctx.fsr && *ctx.fsr && (*ctx.fsr)->Valid())
+            opaque = (*ctx.fsr)->GetOutputImage();
+
         for (auto frame = 0; frame < ctx.options->frameCount; frame++)
         {
             (*ctx.composite)
                 ->UpdateDescriptorSet(
-                    frame, (*ctx.deferred)->GetSceneColorImage(),
-                    (*ctx.deferred)->GetTranslucentImage(),
+                    frame, opaque, (*ctx.deferred)->GetTranslucentImage(),
                     *ctx.bloomResultImage, *ctx.bloomResultSampler);
         }
     }
@@ -324,17 +344,20 @@ namespace FREYA_NAMESPACE
         if (!ctx.deferred || !*ctx.deferred || !ctx.beginComposite)
             return;
 
-        SetFullViewport(ctx.commandPool, ctx.renderExtent);
+        SetFullViewport(
+            ctx.commandPool,
+            ctx.displayExtent.width > 0 ? ctx.displayExtent : ctx.renderExtent);
 
-        const auto compositeOpaque =
-            (ctx.taa && *ctx.taa) ? (*ctx.taa)->GetOutputImage()
-                                  : (*ctx.deferred)->GetSceneColorImage();
+        skr::Arc<Image> compositeOpaque = (*ctx.deferred)->GetSceneColorImage();
+        if (ctx.fsr && *ctx.fsr && (*ctx.fsr)->Valid())
+            compositeOpaque = (*ctx.fsr)->GetOutputImage();
+
         ctx.beginComposite(ctx.frameIndex,
                            compositeOpaque,
                            (*ctx.deferred)->GetTranslucentImage(),
                            true);
-        if (ctx.commitTaaHistory)
-            ctx.commitTaaHistory();
+        if (ctx.commitFsrHistory)
+            ctx.commitFsrHistory();
     }
 
 } // namespace FREYA_NAMESPACE

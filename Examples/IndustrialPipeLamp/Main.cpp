@@ -43,7 +43,7 @@ class MainApp final : public fra::AbstractApplication
                 }
                 if (event.key == fra::KeyCode::F7)
                 {
-                    cycleTaaQuality();
+                    cycleFsrQuality();
                     return;
                 }
                 if (event.key == fra::KeyCode::F8)
@@ -276,7 +276,7 @@ class MainApp final : public fra::AbstractApplication
                "Esc release mouse\n"
             << "Shadow test: 0=all  1=directional  2=warm point  "
                "3=cool point  4=all spots\n"
-            << "TAA check: lamp 0 orbits — ghost trail => bad velocity; "
+            << "FSR check: lamp 0 orbits — ghost trail => bad velocity; "
                "F5–F8 cycle quality (Low→Med→High→Ultra→Off)\n";
 
         // All casters on by default (same as key 0).
@@ -327,9 +327,9 @@ class MainApp final : public fra::AbstractApplication
             mLightService->UpdateLight(animated.index, spot);
         }
 
-        // Orbit lamp 0 so TAA object motion can be validated (lamp 1 + ground
-        // stay static). Ghosting on the moving lamp with TAA on, gone with
-        // TAA off (F7 quality / disable), points at bad velocity history.
+        // Orbit lamp 0 so FSR object motion can be validated (lamp 1 + ground
+        // stay static). Ghosting on the moving lamp with FSR on, gone with
+        // FSR off (F7 quality / disable), points at bad velocity history.
         {
             constexpr float kOrbitRadius = 4.0f;
             constexpr float kOrbitSpeed  = 0.9f;
@@ -533,32 +533,36 @@ class MainApp final : public fra::AbstractApplication
         updateTitle();
     }
 
-    void cycleTaaQuality()
+    void cycleFsrQuality()
     {
-        const auto      current = mRenderer->GetTaaQuality();
-        fra::TaaQuality next    = fra::TaaQuality::Low;
+        const auto      current = mRenderer->GetFsrQuality();
+        fra::FsrQuality next    = fra::FsrQuality::NativeAA;
         switch (current)
         {
-            case fra::TaaQuality::Low:
-                next = fra::TaaQuality::Medium;
+            case fra::FsrQuality::NativeAA:
+                next = fra::FsrQuality::Quality;
                 break;
-            case fra::TaaQuality::Medium:
-                next = fra::TaaQuality::High;
+            case fra::FsrQuality::Quality:
+                next = fra::FsrQuality::Balanced;
                 break;
-            case fra::TaaQuality::High:
-                next = fra::TaaQuality::Ultra;
+            case fra::FsrQuality::Balanced:
+                next = fra::FsrQuality::Performance;
                 break;
-            case fra::TaaQuality::Ultra:
-                next = fra::TaaQuality::Off;
+            case fra::FsrQuality::Performance:
+                next = fra::FsrQuality::UltraPerformance;
                 break;
-            case fra::TaaQuality::Off:
-                next = fra::TaaQuality::Low;
+            case fra::FsrQuality::UltraPerformance:
+                next = fra::FsrQuality::Off;
+                break;
+            case fra::FsrQuality::Off:
+                next = fra::FsrQuality::NativeAA;
                 break;
         }
-        mRenderer->SetTaaQuality(next);
-        static constexpr const char* kNames[] = { "Low", "Medium", "High",
-                                                  "Ultra", "Off" };
-        std::cout << "TAA quality: " << kNames[static_cast<int>(next)]
+        mRenderer->SetFsrQuality(next);
+        static constexpr const char* kNames[] = {
+            "NativeAA", "Quality", "Balanced", "Perf", "UltraPerf", "Off"
+        };
+        std::cout << "FSR quality: " << kNames[static_cast<int>(next)]
                   << " [F7]\n";
         updateTitle();
     }
@@ -602,6 +606,12 @@ class MainApp final : public fra::AbstractApplication
         auto qName = [](int index) {
             return (index >= 0 && index <= 4) ? kQuality[index] : "?";
         };
+        static constexpr const char* kFsr[] = {
+            "NAA", "Q", "B", "P", "UP", "-"
+        };
+        auto fsrName = [](int index) {
+            return (index >= 0 && index <= 5) ? kFsr[index] : "?";
+        };
         const char* shadowName =
             (mShadowCasterMode >= 0 && mShadowCasterMode <= 4)
                 ? kShadow[mShadowCasterMode]
@@ -611,7 +621,8 @@ class MainApp final : public fra::AbstractApplication
             qName(static_cast<int>(mRenderer->GetShadowQuality())) +
             " [F5] SSAO " +
             qName(static_cast<int>(mRenderer->GetSsaoQuality())) +
-            " [F6] TAA " + qName(static_cast<int>(mRenderer->GetTaaQuality())) +
+            " [F6] FSR " +
+            fsrName(static_cast<int>(mRenderer->GetFsrQuality())) +
             " [F7] Blm " +
             qName(static_cast<int>(mRenderer->GetBloomQuality())) + " [F8] | " +
             shadowName + " [0-4]";

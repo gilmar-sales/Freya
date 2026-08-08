@@ -8,7 +8,7 @@ deferred stack without forking the renderer.
 | Area | Mechanism |
 |------|-----------|
 | Window / lighting / shadows | `FreyaOptions` / `FreyaOptionsBuilder` |
-| Post features | `SetEnableShadows` / `SetEnableSsao` / `SetEnableTaa` / `SetEnableBloom` |
+| Post features | `SetEnableShadows` / `SetEnableSsao` / `SetEnableFsr` / `SetEnableBloom` |
 | SPIR-V root | `SetShaderRoot("./Resources/Shaders")` |
 | Vulkan builders | `FreyaExtension::WithInstance` / `WithDevice` / `WithPhysicalDevice` / `WithSwapChain` / `WithRenderer` |
 | Frame graph | `Renderer::InsertFrameStage` / `ReplaceFrameStage` |
@@ -21,12 +21,12 @@ deferred stack without forking the renderer.
 ```cpp
 freya.WithOptions([](fra::FreyaOptionsBuilder& o) {
     o.SetEnableSsao(true)
-     .SetEnableTaa(true)
+     .SetEnableFsr(true)
      .SetEnableBloom(false)
      .SetShaderRoot("./Resources/Shaders")
      .SetShadowQuality(fra::ShadowQuality::High)
      .SetSsaoQuality(fra::SsaoQuality::Medium)
-     .SetTaaQuality(fra::TaaQuality::High)
+     .SetFsrQuality(fra::FsrQuality::Quality)
      .SetBloomQuality(fra::BloomQuality::Medium);
 });
 ```
@@ -42,28 +42,29 @@ individual setters can override afterward. `Off` clears the matching
 |-----|----------|
 | `SetShadowQuality` | map res, cascades, spot/point slots, soft taps; `Off` skips maps |
 | `SetSsaoQuality` | resolution divisor (1/2/4), radius, bias, power, intensity |
-| `SetTaaQuality` | current-frame blend weight, Halton period |
+| `SetFsrQuality` | FSR 3 scale mode (NativeAA…UltraPerformance / Off) |
 | `SetBloomQuality` | resolution divisor, threshold, extract scale, composite strength |
 
 Runtime (after build):
 
 ```cpp
 mRenderer->SetSsaoQuality(fra::SsaoQuality::Ultra);
-mRenderer->SetTaaQuality(fra::TaaQuality::Off);
+mRenderer->SetFsrQuality(fra::FsrQuality::Off);
 mRenderer->SetBloomQuality(fra::BloomQuality::High);
 mRenderer->SetShadowQuality(fra::ShadowQuality::Off);
 ```
 
-Resolution changes rebuild the related pass; TAA weight / bloom strength
+Resolution changes rebuild the related pass; FSR quality / bloom strength
 update without a full rebuild when the divisor is unchanged. Toggling
-`Off` ↔ any quality rebuilds SSAO/TAA/Bloom as needed; shadow `Off` only
+`Off` ↔ any quality rebuilds SSAO/FSR/Bloom as needed; shadow `Off` only
 gates the pass and clears `castShadows` in the light UBO.
 
 Defaults match the previous always-on post stack. Disabling SSAO still runs
-lighting with a white AO fallback. Disabling TAA skips Halton jitter.
-Disabling bloom clears the bloom tap so composite stays dark for that input.
+lighting with a white AO fallback. Disabling FSR skips jitter and renders
+at native display resolution. Disabling bloom clears the bloom tap so
+composite stays dark for that input.
 
-TAA motion vectors use G-buffer velocity (current unjittered VP vs
+FSR motion vectors use G-buffer velocity (current unjittered VP vs
 `prevViewProjection`, plus per-instance previous model matrices). Prefer
 `Renderer::SetInstanceModels` so Freya maintains that history; raw
 `BindBuffer` instance data will not supply correct object motion alone.
@@ -94,7 +95,7 @@ TAA motion vectors use G-buffer velocity (current unjittered VP vs
 
 `Renderer::EndScene` runs an ordered list of `IFrameStage` adapters:
 
-`Pick → Shadow → DeferredGeometry → SsaoLighting → Taa → Bloom → Composite`
+`Pick → Shadow → DeferredGeometry → SsaoLighting → Fsr → Bloom → Composite`
 
 ```cpp
 #include <Freya/Vulkan.hpp>

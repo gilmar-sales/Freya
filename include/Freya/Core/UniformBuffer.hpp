@@ -24,7 +24,7 @@ namespace FREYA_NAMESPACE
         alignas(64) glm::mat4
             invViewProjection; ///< Inverse(jittered projection * view)
         alignas(64) glm::mat4
-            prevViewProjection; ///< Previous frame unjittered VP (TAA velocity)
+            prevViewProjection; ///< Previous frame unjittered VP (FSR velocity)
         alignas(64) glm::mat4
             unjitteredProjection; ///< Current frame projection without jitter
     };

@@ -21,7 +21,7 @@ namespace FREYA_NAMESPACE
      * Subpasses: depth pre-pass → G-buffer (emissive into scene color).
      * SSAO runs after geometry End(). Lighting is a separate render pass
      * (BeginLighting / EndLighting) with additive fullscreen shading.
-     * TAA runs after lighting.
+     * FSR runs after lighting.
      */
     enum : std::uint32_t
     {

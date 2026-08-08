@@ -42,10 +42,10 @@ namespace FREYA_NAMESPACE
         void Execute(RenderFrameContext& ctx) override;
     };
 
-    class TaaFrameStage : public IFrameStage
+    class FsrFrameStage : public IFrameStage
     {
       public:
-        [[nodiscard]] const char* Name() const override { return "Taa"; }
+        [[nodiscard]] const char* Name() const override { return "Fsr"; }
         void                      Rebuild(RenderFrameContext&   ctx,
                                           skr::ServiceProvider& sp) override;
         void                      Execute(RenderFrameContext& ctx) override;

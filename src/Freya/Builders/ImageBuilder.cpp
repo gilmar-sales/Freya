@@ -79,12 +79,11 @@ namespace FREYA_NAMESPACE
                 break;
             case ImageUsage::GBufferSceneColor:
                 // Geometry emissive + lighting accumulation; sampled by
-                // bloom/TAA
+                // bloom / FSR
                 imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment |
                                    vk::ImageUsageFlagBits::eSampled);
                 break;
-            case ImageUsage::TaaHistory:
-            case ImageUsage::TaaDepthHistory:
+            case ImageUsage::FsrOutput:
                 imageInfo.setUsage(vk::ImageUsageFlagBits::eStorage |
                                    vk::ImageUsageFlagBits::eSampled |
                                    vk::ImageUsageFlagBits::eTransferDst);
@@ -350,8 +349,7 @@ namespace FREYA_NAMESPACE
             case ImageUsage::GBufferPbr:
             case ImageUsage::GBufferSceneColor:
             case ImageUsage::GBufferVelocity:
-            case ImageUsage::TaaHistory:
-            case ImageUsage::TaaDepthHistory:
+            case ImageUsage::FsrOutput:
             case ImageUsage::HiZDepth:
             case ImageUsage::Ssao:
                 aspect = vk::ImageAspectFlagBits::eColor;
@@ -424,11 +422,8 @@ namespace FREYA_NAMESPACE
             case ImageUsage::GBufferVelocity:
                 mFormat = vk::Format::eR16G16Sfloat;
                 break;
-            case ImageUsage::TaaHistory:
+            case ImageUsage::FsrOutput:
                 mFormat = vk::Format::eR16G16B16A16Sfloat;
-                break;
-            case ImageUsage::TaaDepthHistory:
-                mFormat = vk::Format::eR16Sfloat;
                 break;
             case ImageUsage::HiZDepth:
                 mFormat = vk::Format::eR32Sfloat;

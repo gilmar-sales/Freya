@@ -19,6 +19,7 @@
 #include "Freya/Core/DeferredCompressedPass.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/FrameStages.hpp"
+#include "Freya/Core/FsrUpscalePass.hpp"
 #include "Freya/Core/IBLService.hpp"
 #include "Freya/Core/IFrameStage.hpp"
 #include "Freya/Core/Image.hpp"
@@ -31,7 +32,6 @@
 #include "Freya/Core/ShadowPass.hpp"
 #include "Freya/Core/SsaoPass.hpp"
 #include "Freya/Core/SwapChain.hpp"
-#include "Freya/Core/TaaPass.hpp"
 #include "Freya/Core/Window.hpp"
 
 #include "Freya/Builders/BufferBuilder.hpp"

@@ -5,9 +5,9 @@ A Vulkan-based rendering engine powered by [Skirnir](https://github.com/gilmar-s
 ## Features
 
 - **Vulkan-backed rendering** - Modern graphics API with high performance
-- **Deferred rendering** - G-buffer path with SSAO, TAA, bloom, and HDR composite
+- **Deferred rendering** - G-buffer path with SSAO, FSR 3, bloom, and HDR composite
 - **Composable frame stages** - Insert or replace steps in `Renderer::EndScene`
-- **Feature flags** - Toggle SSAO / TAA / Bloom and set `shaderRoot` via options
+- **Feature flags** - Toggle SSAO / FSR / Bloom and set `shaderRoot` via options
 - **Custom render targets** - Redirect scene output to an offscreen
   `RenderTarget` at runtime (see [Core](core.md)); not configured via FreyaOptions
 - **Asset management** - Meshes, textures (file or memory), and PBR materials
@@ -134,13 +134,13 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `shadowSampleCount` | `std::uint32_t` | `16` | Soft-shadow Poisson taps (1–16) |
 | `shaderRoot` | `std::string` | `./Resources/Shaders` | SPIR-V directory root |
 | `enableSsao` | `bool` | `true` | Run SSAO compute pass |
-| `enableTaa` | `bool` | `true` | Run TAA resolve + jitter |
+| `enableFsr` | `bool` | `true` | Run FSR 3 upscale + jitter |
+| `fsrQuality` | `FsrQuality` | `Quality` | Upscale ratio preset |
 | `enableBloom` | `bool` | `true` | Run bloom extract/blur |
 | `ssaoResolutionDivisor` | `uint` | `2` | SSAO res = full / N (1,2,4) |
-| `taaCurrentWeight` | `float` | `0.1` | TAA blend toward current |
 | `bloomStrength` | `float` | `0.8` | Bloom mix in composite |
 
-Use `SetShadowQuality` / `SetSsaoQuality` / `SetTaaQuality` /
+Use `SetShadowQuality` / `SetSsaoQuality` / `SetFsrQuality` /
 `SetBloomQuality` (`Low`–`Ultra`) for presets; runtime mirrors on `Renderer`.
 
 

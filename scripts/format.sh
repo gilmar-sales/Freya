@@ -7,10 +7,13 @@ if [[ "${1:-}" == "--check" ]]; then
 fi
 
 mapfile -t FILES < <(
-  git ls-files \
+  git ls-files -c --others --exclude-standard \
     | grep -E '\.(c|cc|cpp|cxx|h|hpp|hh|inc)$' \
     | grep -v -E '(^|/)Shaders/' \
-    | grep -v -E '(^|/)src/Freya/Vendor/'
+    | grep -v -E '(^|/)src/Freya/Vendor/' \
+    | while IFS= read -r f; do
+        [[ -f "$f" ]] && printf '%s\n' "$f"
+      done
 )
 
 if [[ "${#FILES[@]}" -eq 0 ]]; then

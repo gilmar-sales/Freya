@@ -4,12 +4,12 @@
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/CompositePass.hpp"
 #include "Freya/Core/DeferredCompressedPass.hpp"
+#include "Freya/Core/FsrUpscalePass.hpp"
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/PickPass.hpp"
 #include "Freya/Core/ShadowPass.hpp"
 #include "Freya/Core/SsaoPass.hpp"
 #include "Freya/Core/SwapChain.hpp"
-#include "Freya/Core/TaaPass.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 #include "Freya/FreyaOptions.hpp"
 
@@ -32,14 +32,18 @@ namespace FREYA_NAMESPACE
         skr::Arc<SwapChain>    swapChain;
         skr::Arc<FreyaOptions> options;
         vk::Extent2D           renderExtent {};
-        std::uint32_t          frameIndex = 0;
-        float                  cameraNear = 1.0f;
+        vk::Extent2D           displayExtent {};
+        std::uint32_t          frameIndex   = 0;
+        float                  cameraNear   = 1.0f;
+        float                  cameraFar    = 1000.0f;
+        float                  cameraFovY   = 1.0f;
+        float                  frameDeltaMs = 16.6f;
 
         ProjectionUniformBuffer* projection = nullptr;
 
         skr::Arc<DeferredCompressedPass>* deferred           = nullptr;
         skr::Arc<SsaoPass>*               ssao               = nullptr;
-        skr::Arc<TaaPass>*                taa                = nullptr;
+        skr::Arc<FsrUpscalePass>*         fsr                = nullptr;
         skr::Arc<BloomPass>*              bloom              = nullptr;
         skr::Arc<CompositePass>*          composite          = nullptr;
         skr::Arc<ShadowPass>*             shadow             = nullptr;
@@ -62,7 +66,7 @@ namespace FREYA_NAMESPACE
         std::function<void(std::uint32_t, const skr::Arc<Image>&,
                            const skr::Arc<Image>&, bool)>
                                           beginComposite;
-        std::function<void()>             commitTaaHistory;
+        std::function<void()>             commitFsrHistory;
         std::function<void(vk::Extent2D)> resizePickPass;
         std::function<skr::Arc<Image>()>  createSsaoFallback;
     };

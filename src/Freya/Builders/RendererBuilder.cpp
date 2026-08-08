@@ -5,10 +5,10 @@
 #include "Freya/Builders/CompositePassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/DeviceBuilder.hpp"
+#include "Freya/Builders/FsrUpscalePassBuilder.hpp"
 #include "Freya/Builders/PhysicalDeviceBuilder.hpp"
 #include "Freya/Builders/SsaoPassBuilder.hpp"
 #include "Freya/Builders/SurfaceBuilder.hpp"
-#include "Freya/Builders/TaaPassBuilder.hpp"
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/PickPass.hpp"
 #include "Freya/Core/ShadowPass.hpp"
@@ -40,30 +40,49 @@ namespace FREYA_NAMESPACE
                           mFreyaOptions->frameCount,
                           static_cast<int>(mFreyaOptions->sampleCount));
 
+        const auto displayExtent = mSwapChain->GetExtent();
+        auto       renderExtent  = displayExtent;
+        if (mFreyaOptions->enableFsr &&
+            mFreyaOptions->fsrQuality != FsrQuality::Off)
+        {
+            renderExtent =
+                FsrUpscalePass::QueryRenderExtent(displayExtent,
+                                                  mFreyaOptions->fsrQuality);
+        }
+
         auto deferredPass =
             mServiceProvider->GetService<DeferredCompressedPassBuilder>()
-                ->Build(mSwapChain);
+                ->Build(mSwapChain, renderExtent);
+
+        skr::Arc<FsrUpscalePass> fsrPass;
+        if (mFreyaOptions->enableFsr)
+        {
+            fsrPass = mServiceProvider->GetService<FsrUpscalePassBuilder>()
+                          ->Build(mSwapChain, renderExtent, displayExtent);
+        }
 
         skr::Arc<BloomPass> bloomPass;
         if (mFreyaOptions->enableBloom)
         {
+            auto bloomSource = deferredPass->GetSceneColorImage();
+            auto bloomExtent = renderExtent;
+            if (fsrPass && fsrPass->Valid())
+            {
+                bloomSource = fsrPass->GetOutputImage();
+                bloomExtent = displayExtent;
+            }
             bloomPass = mServiceProvider->GetService<BloomPassBuilder>()->Build(
                 mSwapChain,
-                deferredPass->GetSceneColorImage());
-        }
-
-        skr::Arc<TaaPass> taaPass;
-        if (mFreyaOptions->enableTaa)
-        {
-            taaPass = mServiceProvider->GetService<TaaPassBuilder>()->Build(
-                mSwapChain);
+                bloomSource,
+                bloomExtent);
         }
 
         skr::Arc<SsaoPass> ssaoPass;
         if (mFreyaOptions->enableSsao)
         {
             ssaoPass = mServiceProvider->GetService<SsaoPassBuilder>()->Build(
-                mSwapChain);
+                mSwapChain,
+                renderExtent);
         }
 
         auto compositePass =
@@ -82,7 +101,7 @@ namespace FREYA_NAMESPACE
             mSwapChain,
             deferredPass,
             bloomPass,
-            taaPass,
+            fsrPass,
             ssaoPass,
             compositePass,
             mCommandPool,

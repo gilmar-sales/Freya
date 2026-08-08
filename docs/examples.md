@@ -71,7 +71,7 @@ class MainApp final : public fra::AbstractApplication
 
 ### Instanced Rendering
 
-Upload current models; Freya tracks the previous frame for TAA:
+Upload current models; Freya tracks the previous frame for FSR:
 
 ```cpp
 glm::mat4 models[2] = { /* ... */ };
