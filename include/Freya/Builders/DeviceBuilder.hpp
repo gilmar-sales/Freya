@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 namespace FREYA_NAMESPACE
 {
     class PhysicalDevice;
@@ -12,7 +14,9 @@ namespace FREYA_NAMESPACE
      * @brief Builder for creating logical Device objects.
      *
      * Finds queue families, enables swapchain extension, and optionally
-     * enables memory priority extensions if supported.
+     * enables memory priority extensions if supported. When Freya is built
+     * with FREYA_HAS_XESS, ApplyXessRequirements() queries the SDK for
+     * required device extensions and feature structures.
      *
      * @param instance      Instance reference
      * @param physicalDevice Physical device reference
@@ -47,6 +51,13 @@ namespace FREYA_NAMESPACE
         }
 
         /**
+         * @brief Query XeSS SDK for required Vulkan device extensions/features.
+         *
+         * No-op when FREYA_HAS_XESS is 0. Must be called before Build().
+         */
+        DeviceBuilder& ApplyXessRequirements();
+
+        /**
          * @brief Builds and returns the Device object.
          * @return Shared pointer to created Device
          */
@@ -72,7 +83,9 @@ namespace FREYA_NAMESPACE
         skr::Arc<PhysicalDevice> mPhysicalDevice; ///< Physical device reference
         skr::Arc<Surface>        mSurface;        ///< Surface reference
         std::vector<const char*>
-            mDeviceExtensions; ///< Enabled device extensions
+              mDeviceExtensions; ///< Enabled device extensions
+        bool  mApplyXessRequirements = false;
+        void* mXessFeatureChain      = nullptr;
     };
 
 } // namespace FREYA_NAMESPACE

@@ -33,6 +33,7 @@
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Core/TaaPass.hpp"
 #include "Freya/Core/Window.hpp"
+#include "Freya/Core/XessPass.hpp"
 
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/DeviceBuilder.hpp"

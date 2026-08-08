@@ -6,6 +6,7 @@
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/SsaoPassBuilder.hpp"
 #include "Freya/Builders/TaaPassBuilder.hpp"
+#include "Freya/Builders/XessPassBuilder.hpp"
 #include "Freya/Core/BloomPass.hpp"
 #include "Freya/Core/DebugLabels.hpp"
 #include "Freya/Core/Device.hpp"
@@ -165,6 +166,31 @@ namespace FREYA_NAMESPACE
     void TaaFrameStage::Rebuild(RenderFrameContext&   ctx,
                                 skr::ServiceProvider& sp)
     {
+        if (ctx.options->enableXess)
+        {
+            if (ctx.taa)
+                ctx.taa->reset();
+            if (!ctx.xess)
+                return;
+            // Prefer an already-built pass (Renderer::rebuildSceneResources
+            // creates XeSS before other stages so renderExtent is known).
+            if (!*ctx.xess)
+            {
+                *ctx.xess = sp.GetService<XessPassBuilder>()->Build(
+                    ctx.swapChain, ctx.presentExtent.width > 0
+                                       ? ctx.presentExtent
+                                       : ctx.renderExtent);
+            }
+            if (*ctx.xess)
+            {
+                (*ctx.xess)->ResetHistory();
+                ctx.renderExtent = (*ctx.xess)->GetInputExtent();
+            }
+            return;
+        }
+
+        if (ctx.xess)
+            ctx.xess->reset();
         if (!ctx.taa)
             return;
         ctx.taa->reset();
@@ -177,7 +203,19 @@ namespace FREYA_NAMESPACE
 
     void TaaFrameStage::Execute(RenderFrameContext& ctx)
     {
-        if (!ctx.taa || !*ctx.taa || !ctx.deferred || !*ctx.deferred)
+        if (!ctx.deferred || !*ctx.deferred)
+            return;
+
+        if (ctx.xess && *ctx.xess)
+        {
+            (*ctx.xess)->Dispatch(ctx.commandPool,
+                                  (*ctx.deferred)->GetSceneColorImage(),
+                                  (*ctx.deferred)->GetVelocityImage(),
+                                  (*ctx.deferred)->GetDepthImage());
+            return;
+        }
+
+        if (!ctx.taa || !*ctx.taa)
             return;
 
         (*ctx.taa)->Dispatch(ctx.commandPool,
@@ -324,11 +362,15 @@ namespace FREYA_NAMESPACE
         if (!ctx.deferred || !*ctx.deferred || !ctx.beginComposite)
             return;
 
-        SetFullViewport(ctx.commandPool, ctx.renderExtent);
+        SetFullViewport(
+            ctx.commandPool,
+            ctx.presentExtent.width > 0 ? ctx.presentExtent : ctx.renderExtent);
 
-        const auto compositeOpaque =
-            (ctx.taa && *ctx.taa) ? (*ctx.taa)->GetOutputImage()
-                                  : (*ctx.deferred)->GetSceneColorImage();
+        skr::Arc<Image> compositeOpaque = (*ctx.deferred)->GetSceneColorImage();
+        if (ctx.xess && *ctx.xess)
+            compositeOpaque = (*ctx.xess)->GetOutputImage();
+        else if (ctx.taa && *ctx.taa)
+            compositeOpaque = (*ctx.taa)->GetOutputImage();
         ctx.beginComposite(ctx.frameIndex,
                            compositeOpaque,
                            (*ctx.deferred)->GetTranslucentImage(),

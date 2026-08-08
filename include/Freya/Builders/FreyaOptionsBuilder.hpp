@@ -367,6 +367,20 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        FreyaOptionsBuilder& SetEnableXess(bool enable)
+        {
+            mFreyaOptions->enableXess = enable;
+            if (enable)
+                mFreyaOptions->enableTaa = false;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetXessQuality(XessQuality quality)
+        {
+            ApplyXessQuality(*mFreyaOptions, quality);
+            return *this;
+        }
+
         /**
          * @brief Builds and returns the FreyaOptions object.
          * @return Shared pointer to configured FreyaOptions

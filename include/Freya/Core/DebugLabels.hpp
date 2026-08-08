@@ -28,21 +28,20 @@ namespace FREYA_NAMESPACE
                                                           1.0f };
         inline constexpr std::array<float, 4> ShadowColor { 0.95f, 0.55f, 0.18f,
                                                             1.0f };
-        inline constexpr std::array<float, 4> GeometryColor {
-            0.30f, 0.55f, 0.95f, 1.0f
-        };
+        inline constexpr std::array<float, 4> GeometryColor { 0.30f, 0.55f,
+                                                              0.95f, 1.0f };
         inline constexpr std::array<float, 4> SsaoColor { 0.15f, 0.82f, 0.78f,
                                                           1.0f };
-        inline constexpr std::array<float, 4> LightingColor {
-            0.95f, 0.85f, 0.25f, 1.0f
-        };
+        inline constexpr std::array<float, 4> LightingColor { 0.95f, 0.85f,
+                                                              0.25f, 1.0f };
         inline constexpr std::array<float, 4> TaaColor { 0.35f, 0.85f, 0.40f,
                                                          1.0f };
+        inline constexpr std::array<float, 4> XessColor { 0.20f, 0.65f, 0.95f,
+                                                          1.0f };
         inline constexpr std::array<float, 4> BloomColor { 0.72f, 0.42f, 0.95f,
                                                            1.0f };
-        inline constexpr std::array<float, 4> CompositeColor {
-            0.95f, 0.42f, 0.42f, 1.0f
-        };
+        inline constexpr std::array<float, 4> CompositeColor { 0.95f, 0.42f,
+                                                               0.42f, 1.0f };
 
         // --- Top-level / pass roots ----------------------------------------
         inline constexpr DebugRegion Frame { "Frame", FrameColor };
@@ -74,6 +73,7 @@ namespace FREYA_NAMESPACE
                                                         LightingColor };
 
         inline constexpr DebugRegion Taa { "TAA", TaaColor };
+        inline constexpr DebugRegion Xess { "XeSS", XessColor };
 
         inline constexpr DebugRegion Bloom { "Bloom", BloomColor };
         inline constexpr DebugRegion BloomThreshold { "Bloom Threshold",

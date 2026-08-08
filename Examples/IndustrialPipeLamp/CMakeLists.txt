@@ -3,6 +3,7 @@ add_executable(IndustrialPipeLamp Main.cpp)
 target_compile_features(IndustrialPipeLamp PUBLIC cxx_std_26)
 
 target_link_libraries(IndustrialPipeLamp Freya::Freya)
+freya_copy_xess_runtime(IndustrialPipeLamp)
 
 if (MSVC)
     target_compile_options(IndustrialPipeLamp PUBLIC "/ZI" "/MP")

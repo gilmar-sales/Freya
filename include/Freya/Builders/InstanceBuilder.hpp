@@ -129,6 +129,13 @@ namespace FREYA_NAMESPACE
             const std::vector<const char*>& extesions);
 
         /**
+         * @brief Query XeSS SDK for required instance extensions / min API.
+         *
+         * No-op when FREYA_HAS_XESS is 0.
+         */
+        InstanceBuilder& ApplyXessRequirements();
+
+        /**
          * @brief Builds and returns the Instance object.
          * @return Shared pointer to created Instance
          * @note Creates Vulkan instance with configured layers/extensions

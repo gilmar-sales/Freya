@@ -51,6 +51,11 @@ class MainApp final : public fra::AbstractApplication
                     cycleBloomQuality();
                     return;
                 }
+                if (event.key == fra::KeyCode::F9)
+                {
+                    cycleXessQuality();
+                    return;
+                }
 
                 if (event.key == fra::KeyCode::Escape && mLookHeld)
                 {
@@ -593,14 +598,60 @@ class MainApp final : public fra::AbstractApplication
         updateTitle();
     }
 
+    void cycleXessQuality()
+    {
+        const auto       current = mRenderer->GetXessQuality();
+        fra::XessQuality next    = fra::XessQuality::Off;
+        switch (current)
+        {
+            case fra::XessQuality::Off:
+                next = fra::XessQuality::AntiAliasing;
+                break;
+            case fra::XessQuality::AntiAliasing:
+                next = fra::XessQuality::UltraQualityPlus;
+                break;
+            case fra::XessQuality::UltraQualityPlus:
+                next = fra::XessQuality::UltraQuality;
+                break;
+            case fra::XessQuality::UltraQuality:
+                next = fra::XessQuality::Quality;
+                break;
+            case fra::XessQuality::Quality:
+                next = fra::XessQuality::Balanced;
+                break;
+            case fra::XessQuality::Balanced:
+                next = fra::XessQuality::Performance;
+                break;
+            case fra::XessQuality::Performance:
+                next = fra::XessQuality::UltraPerformance;
+                break;
+            case fra::XessQuality::UltraPerformance:
+                next = fra::XessQuality::Off;
+                break;
+        }
+        mRenderer->SetXessQuality(next);
+        static constexpr const char* kNames[] = {
+            "UltraPerf", "Perf", "Balanced", "Quality",
+            "Ultra",     "UQ+",  "AA",       "Off"
+        };
+        std::cout << "XeSS quality: " << kNames[static_cast<int>(next)]
+                  << " [F9]\n";
+        updateTitle();
+    }
+
     void updateTitle()
     {
         static constexpr const char* kQuality[] = { "L", "M", "H", "U", "-" };
         static constexpr const char* kShadow[]  = {
             "all", "dir", "warmPt", "coolPt", "spots",
         };
-        auto qName = [](int index) {
+        static constexpr const char* kXess[] = { "UPerf", "Perf", "Bal", "Qual",
+                                                 "UQual", "UQ+",  "AA",  "-" };
+        auto                         qName   = [](int index) {
             return (index >= 0 && index <= 4) ? kQuality[index] : "?";
+        };
+        auto xessName = [](int index) {
+            return (index >= 0 && index <= 7) ? kXess[index] : "?";
         };
         const char* shadowName =
             (mShadowCasterMode >= 0 && mShadowCasterMode <= 4)
@@ -613,8 +664,10 @@ class MainApp final : public fra::AbstractApplication
             qName(static_cast<int>(mRenderer->GetSsaoQuality())) +
             " [F6] TAA " + qName(static_cast<int>(mRenderer->GetTaaQuality())) +
             " [F7] Blm " +
-            qName(static_cast<int>(mRenderer->GetBloomQuality())) + " [F8] | " +
-            shadowName + " [0-4]";
+            qName(static_cast<int>(mRenderer->GetBloomQuality())) +
+            " [F8] XeSS " +
+            xessName(static_cast<int>(mRenderer->GetXessQuality())) +
+            " [F9] | " + shadowName + " [0-4]";
     }
 
     enum class AnimatedLightKind

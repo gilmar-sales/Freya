@@ -1,5 +1,12 @@
 #include "Freya/Builders/InstanceBuilder.hpp"
 
+#if FREYA_HAS_XESS
+    #include <xess/xess_vk.h>
+#endif
+
+#include <algorithm>
+#include <cstring>
+
 namespace FREYA_NAMESPACE
 {
     static VKAPI_ATTR vk::Bool32 VKAPI_CALL DebugCallback(
@@ -97,6 +104,43 @@ namespace FREYA_NAMESPACE
             AddLayer(extension);
         }
 
+        return *this;
+    }
+
+    InstanceBuilder& InstanceBuilder::ApplyXessRequirements()
+    {
+#if FREYA_HAS_XESS
+        uint32_t           extensionCount = 0;
+        const char* const* extensions     = nullptr;
+        uint32_t           minApiVersion  = 0;
+        const auto         status         = xessVKGetRequiredInstanceExtensions(
+            &extensionCount, &extensions, &minApiVersion);
+        if (status != XESS_RESULT_SUCCESS)
+        {
+            mLogger->LogWarning(
+                "xessVKGetRequiredInstanceExtensions failed ({})",
+                static_cast<int>(status));
+            return *this;
+        }
+
+        if (minApiVersion > mAPIVersion)
+            mAPIVersion = minApiVersion;
+
+        for (uint32_t i = 0; i < extensionCount; ++i)
+        {
+            const char* ext = extensions[i];
+            const bool  already =
+                std::find_if(mExtensions.begin(), mExtensions.end(),
+                             [ext](const char* e) {
+                                 return std::strcmp(e, ext) == 0;
+                             }) != mExtensions.end();
+            if (!already)
+                mExtensions.push_back(ext);
+        }
+#else
+        mLogger->LogWarning(
+            "ApplyXessRequirements ignored (FREYA_HAS_XESS=0).");
+#endif
         return *this;
     }
 

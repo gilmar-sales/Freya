@@ -15,6 +15,7 @@
 #include "Freya/Builders/SurfaceBuilder.hpp"
 #include "Freya/Builders/TaaPassBuilder.hpp"
 #include "Freya/Builders/WindowBuilder.hpp"
+#include "Freya/Builders/XessPassBuilder.hpp"
 
 #include "Freya/Asset/MaterialDescriptorResources.hpp"
 #include "Freya/Asset/MaterialPool.hpp"
@@ -49,6 +50,7 @@ namespace FREYA_NAMESPACE
         services.AddTransient<DeferredCompressedPassBuilder>();
         services.AddTransient<BloomPassBuilder>();
         services.AddTransient<TaaPassBuilder>();
+        services.AddTransient<XessPassBuilder>();
         services.AddTransient<SsaoPassBuilder>();
         services.AddTransient<CompositePassBuilder>();
         services.AddTransient<ShadowPassBuilder>();
@@ -61,6 +63,9 @@ namespace FREYA_NAMESPACE
                     serviceProvider.GetService<InstanceBuilder>();
 
                 instanceBuilder->SetApplicationName(freyaOptions->title);
+
+                if (freyaOptions->enableXess)
+                    instanceBuilder->ApplyXessRequirements();
 
                 if (mConfigureInstance)
                     (*mConfigureInstance)(*instanceBuilder);
@@ -89,8 +94,12 @@ namespace FREYA_NAMESPACE
 
         services.AddSingleton<Device>(
             [this](skr::ServiceProvider& serviceProvider) {
+                auto freyaOptions = serviceProvider.GetService<FreyaOptions>();
                 auto deviceBuilder =
                     serviceProvider.GetService<DeviceBuilder>();
+
+                if (freyaOptions->enableXess)
+                    deviceBuilder->ApplyXessRequirements();
 
                 if (mConfigureDevice)
                     (*mConfigureDevice)(*deviceBuilder);

@@ -60,6 +60,24 @@ namespace FREYA_NAMESPACE
     };
 
     /**
+     * @brief Intel XeSS-SR quality / upscale ratio preset.
+     *
+     * Mutually exclusive with Freya's software TAA. Requires FREYA_HAS_XESS
+     * (Windows SDK runtime). Scale factors follow XeSS 1.3+.
+     */
+    enum class XessQuality
+    {
+        UltraPerformance, ///< ~3.0× upscale
+        Performance,      ///< ~2.3×
+        Balanced,         ///< ~2.0×
+        Quality,          ///< ~1.7×
+        UltraQuality,     ///< ~1.5×
+        UltraQualityPlus, ///< ~1.3×
+        AntiAliasing,     ///< 1.0× native AA
+        Off               ///< XeSS disabled; use TAA or raw
+    };
+
+    /**
      * @brief Scales a full render extent by an integer divisor (≥1).
      */
     inline vk::Extent2D ScaledExtent(vk::Extent2D full, std::uint32_t divisor)
@@ -108,6 +126,7 @@ namespace FREYA_NAMESPACE
         bool enableSsao    = true;
         bool enableTaa     = true;
         bool enableBloom   = true;
+        bool enableXess    = false;
 
         /// 1 = full, 2 = half, 4 = quarter of render extent.
         std::uint32_t ssaoResolutionDivisor = 2;
@@ -135,6 +154,10 @@ namespace FREYA_NAMESPACE
         float         bloomThreshold         = 0.75f;
         float         bloomExtractScale      = 1.0f;
         float         bloomStrength          = 0.8f;
+
+        /// Halton length for XeSS jitter (set by ApplyXessQuality).
+        std::uint32_t xessHaltonPeriod = 32;
+        XessQuality   xessQuality      = XessQuality::Off;
     };
 
     inline void ApplyShadowQuality(FreyaOptions& options, ShadowQuality quality)
@@ -233,7 +256,9 @@ namespace FREYA_NAMESPACE
             return;
         }
 
-        options.enableTaa = true;
+        options.enableTaa   = true;
+        options.enableXess  = false;
+        options.xessQuality = XessQuality::Off;
         switch (quality)
         {
             case TaaQuality::Low:
@@ -313,6 +338,47 @@ namespace FREYA_NAMESPACE
                 options.bloomStrength          = 1.2f;
                 break;
             case BloomQuality::Off:
+                break;
+        }
+    }
+
+    inline void ApplyXessQuality(FreyaOptions& options, XessQuality quality)
+    {
+        options.xessQuality = quality;
+        if (quality == XessQuality::Off)
+        {
+            options.enableXess = false;
+            return;
+        }
+
+        options.enableXess = true;
+        options.enableTaa  = false;
+        // Jitter length ≥ 8 * scale² (XeSS 1.3+ guidance). Use conservative
+        // periods that cover the worst case for each tier.
+        switch (quality)
+        {
+            case XessQuality::UltraPerformance:
+                options.xessHaltonPeriod = 72;
+                break;
+            case XessQuality::Performance:
+                options.xessHaltonPeriod = 48;
+                break;
+            case XessQuality::Balanced:
+                options.xessHaltonPeriod = 32;
+                break;
+            case XessQuality::Quality:
+                options.xessHaltonPeriod = 28;
+                break;
+            case XessQuality::UltraQuality:
+                options.xessHaltonPeriod = 24;
+                break;
+            case XessQuality::UltraQualityPlus:
+                options.xessHaltonPeriod = 16;
+                break;
+            case XessQuality::AntiAliasing:
+                options.xessHaltonPeriod = 16;
+                break;
+            case XessQuality::Off:
                 break;
         }
     }

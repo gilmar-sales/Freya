@@ -48,6 +48,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(skirnir)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(FetchXess)
+
 if(${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
         option(FREYA_BUILD_EXAMPLES "Build freyr examples" ON)
 else()
@@ -80,6 +83,13 @@ target_include_directories(Freya
 target_link_libraries(Freya PUBLIC
         SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES} skirnir::skirnir)
 
+if(FREYA_HAS_XESS)
+        target_compile_definitions(Freya PUBLIC FREYA_HAS_XESS=1)
+        target_link_libraries(Freya PUBLIC xess)
+else()
+        target_compile_definitions(Freya PUBLIC FREYA_HAS_XESS=0)
+endif()
+
 target_precompile_headers(Freya PUBLIC
         <memory>
         <limits>
@@ -101,8 +111,6 @@ target_precompile_headers(Freya PUBLIC
 # ---------------------------------------------------------------------------
 # Shader compilation pipeline
 # ---------------------------------------------------------------------------
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-
 include(CompileShaders)
 
 find_glslc()

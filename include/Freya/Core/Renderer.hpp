@@ -20,6 +20,7 @@
 #include "Freya/Core/SsaoPass.hpp"
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Core/TaaPass.hpp"
+#include "Freya/Core/XessPass.hpp"
 #include "Freya/Events/EventManager.hpp"
 
 #include <limits>
@@ -57,6 +58,7 @@ namespace FREYA_NAMESPACE
                  const skr::Arc<DeferredCompressedPass>& deferredPass,
                  const skr::Arc<BloomPass>&              bloomPass,
                  const skr::Arc<TaaPass>&                taaPass,
+                 const skr::Arc<XessPass>&               xessPass,
                  const skr::Arc<SsaoPass>&               ssaoPass,
                  const skr::Arc<CompositePass>&          compositePass,
                  const skr::Arc<CommandPool>&            commandPool,
@@ -121,6 +123,13 @@ namespace FREYA_NAMESPACE
         void SetTaaQuality(TaaQuality quality);
 
         [[nodiscard]] TaaQuality GetTaaQuality() const { return mTaaQuality; }
+
+        void SetXessQuality(XessQuality quality);
+
+        [[nodiscard]] XessQuality GetXessQuality() const
+        {
+            return mXessQuality;
+        }
 
         void SetBloomQuality(BloomQuality quality);
 
@@ -253,6 +262,7 @@ namespace FREYA_NAMESPACE
         void blitBloomToFullRes(const skr::Arc<CommandPool>& commandPool) const;
 
         [[nodiscard]] vk::Extent2D getRenderExtent() const;
+        [[nodiscard]] vk::Extent2D getPresentExtent() const;
 
         void rebuildSceneResources();
 
@@ -285,6 +295,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<DeferredCompressedPass> mDeferredPass;
         skr::Arc<BloomPass>              mBloomPass;
         skr::Arc<TaaPass>                mTaaPass;
+        skr::Arc<XessPass>               mXessPass;
         skr::Arc<SsaoPass>               mSsaoPass;
         skr::Arc<CompositePass>          mCompositePass;
         skr::Arc<CommandPool>            mCommandPool;
@@ -297,6 +308,7 @@ namespace FREYA_NAMESPACE
         ShadowQuality                    mShadowQuality = ShadowQuality::High;
         SsaoQuality                      mSsaoQuality   = SsaoQuality::Medium;
         TaaQuality                       mTaaQuality    = TaaQuality::High;
+        XessQuality                      mXessQuality   = XessQuality::Off;
         BloomQuality                     mBloomQuality  = BloomQuality::Medium;
         skr::Arc<RenderTarget>           mOutputTarget;
         bool                             mUIPassOpen = false;

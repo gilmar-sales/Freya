@@ -12,6 +12,7 @@
 #include "Freya/Builders/SsaoPassBuilder.hpp"
 #include "Freya/Builders/SwapChainBuilder.hpp"
 #include "Freya/Builders/TaaPassBuilder.hpp"
+#include "Freya/Builders/XessPassBuilder.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/DebugLabels.hpp"
@@ -45,7 +46,9 @@ namespace FREYA_NAMESPACE
         void ApplyHaltonJitter(glm::mat4&          projection,
                                const std::uint32_t frameIndex,
                                const vk::Extent2D  extent,
-                               const std::uint32_t haltonPeriod)
+                               const std::uint32_t haltonPeriod,
+                               float*              outJitterX = nullptr,
+                               float*              outJitterY = nullptr)
         {
             if (extent.width == 0 || extent.height == 0)
                 return;
@@ -55,12 +58,16 @@ namespace FREYA_NAMESPACE
             // NDC Y points down and MakeProjection flips proj[1][1].
             const auto  period = std::max(1u, haltonPeriod);
             const auto  sample = (frameIndex % period) + 1;
-            const float jx     = (Halton(sample, 2) - 0.5f) * 2.0f /
-                                 static_cast<float>(extent.width);
-            const float jy     = -(Halton(sample, 3) - 0.5f) * 2.0f /
-                                 static_cast<float>(extent.height);
+            const float jxPx   = Halton(sample, 2) - 0.5f;
+            const float jyPx   = Halton(sample, 3) - 0.5f;
+            const float jx     = jxPx * 2.0f / static_cast<float>(extent.width);
+            const float jy = -jyPx * 2.0f / static_cast<float>(extent.height);
             projection[2][0] += jx;
             projection[2][1] += jy;
+            if (outJitterX)
+                *outJitterX = jxPx;
+            if (outJitterY)
+                *outJitterY = jyPx;
         }
     } // namespace
 
@@ -73,6 +80,7 @@ namespace FREYA_NAMESPACE
         const skr::Arc<DeferredCompressedPass>& deferredPass,
         const skr::Arc<BloomPass>&              bloomPass,
         const skr::Arc<TaaPass>&                taaPass,
+        const skr::Arc<XessPass>&               xessPass,
         const skr::Arc<SsaoPass>&               ssaoPass,
         const skr::Arc<CompositePass>&          compositePass,
         const skr::Arc<CommandPool>&            commandPool,
@@ -84,12 +92,12 @@ namespace FREYA_NAMESPACE
         const skr::Arc<EventManager>&           eventManager) :
         mInstance(instance), mSurface(surface), mPhysicalDevice(physicalDevice),
         mDevice(device), mSwapChain(swapChain), mDeferredPass(deferredPass),
-        mBloomPass(bloomPass), mTaaPass(taaPass), mSsaoPass(ssaoPass),
-        mCompositePass(compositePass), mCommandPool(commandPool),
-        mLightService(lightService), mShadowPass(shadowPass),
-        mPickPass(pickPass), mServiceProvider(serviceProvider),
-        mFreyaOptions(freyaOptions), mEventManager(eventManager),
-        mCurrentProjection({}),
+        mBloomPass(bloomPass), mTaaPass(taaPass), mXessPass(xessPass),
+        mSsaoPass(ssaoPass), mCompositePass(compositePass),
+        mCommandPool(commandPool), mLightService(lightService),
+        mShadowPass(shadowPass), mPickPass(pickPass),
+        mServiceProvider(serviceProvider), mFreyaOptions(freyaOptions),
+        mEventManager(eventManager), mCurrentProjection({}),
         mMeshPool(serviceProvider->GetService<MeshPool>()),
         mMaterialPool(serviceProvider->GetService<MaterialPool>())
     {
@@ -112,6 +120,10 @@ namespace FREYA_NAMESPACE
             mTaaQuality = TaaQuality::Off;
         if (!freyaOptions->enableBloom)
             mBloomQuality = BloomQuality::Off;
+        if (freyaOptions->enableXess)
+            mXessQuality = freyaOptions->xessQuality;
+        else
+            mXessQuality = XessQuality::Off;
 
         if (mLightService)
             mLightService->SetShadowsEnabled(freyaOptions->enableShadows);
@@ -126,8 +138,8 @@ namespace FREYA_NAMESPACE
                 }
             });
 
-        // Create bloom result image (full-res blit target)
-        const auto extent = getRenderExtent();
+        // Create bloom result image (full-res blit target at present size)
+        const auto extent = getPresentExtent();
         mBloomResultImage =
             mServiceProvider->GetService<ImageBuilder>()
                 ->SetUsage(ImageUsage::Color)
@@ -168,6 +180,7 @@ namespace FREYA_NAMESPACE
 
         mDevice->Get().destroySampler(mBloomResultSampler);
         mBloomResultImage.reset();
+        mXessPass.reset();
         mTaaPass.reset();
         mSsaoPass.reset();
         mBloomPass.reset();
@@ -190,29 +203,53 @@ namespace FREYA_NAMESPACE
         rebuildSceneResources();
     }
 
-    vk::Extent2D Renderer::getRenderExtent() const
+    vk::Extent2D Renderer::getPresentExtent() const
     {
         if (mOutputTarget)
             return mOutputTarget->GetExtent();
         return mSwapChain->GetExtent();
     }
 
+    vk::Extent2D Renderer::getRenderExtent() const
+    {
+        if (mFreyaOptions->enableXess && mXessPass)
+            return mXessPass->GetInputExtent();
+        return getPresentExtent();
+    }
+
     void Renderer::rebuildSceneResources()
     {
-        const auto extent = getRenderExtent();
+        const auto presentExtent = getPresentExtent();
 
         mBloomResultImage.reset();
         mBloomResultImage =
             mServiceProvider->GetService<ImageBuilder>()
                 ->SetUsage(ImageUsage::Color)
                 .SetFormat(vk::Format::eR16G16B16A16Sfloat)
-                .SetWidth(extent.width)
-                .SetHeight(extent.height)
+                .SetWidth(presentExtent.width)
+                .SetHeight(presentExtent.height)
                 .SetSamples(vk::SampleCountFlagBits::e1)
                 .Build();
 
         mPrevViewProjection = glm::mat4(1.0f);
         mTaaFrameIndex      = 0;
+
+        // Build XeSS first so getRenderExtent() reflects the input size
+        // when subsequent stages rebuild deferred/SSAO/bloom.
+        mXessPass.reset();
+        if (mFreyaOptions->enableXess)
+        {
+            mXessPass = mServiceProvider->GetService<XessPassBuilder>()->Build(
+                mSwapChain, presentExtent);
+            if (mXessPass)
+                mXessPass->ResetHistory();
+            else
+            {
+                mFreyaOptions->enableXess  = false;
+                mFreyaOptions->xessQuality = XessQuality::Off;
+                mXessQuality               = XessQuality::Off;
+            }
+        }
 
         auto ctx = makeFrameContext();
         for (auto& stage : mFrameStages)
@@ -223,7 +260,7 @@ namespace FREYA_NAMESPACE
         else
             mSsaoFallbackImage.reset();
 
-        resizePickPass(extent);
+        resizePickPass(getRenderExtent());
     }
 
     void Renderer::registerDefaultFrameStages()
@@ -246,12 +283,14 @@ namespace FREYA_NAMESPACE
         ctx.swapChain            = mSwapChain;
         ctx.options              = mFreyaOptions;
         ctx.renderExtent         = getRenderExtent();
+        ctx.presentExtent        = getPresentExtent();
         ctx.frameIndex           = mSwapChain->GetCurrentFrameIndex();
         ctx.cameraNear           = mCameraNear;
         ctx.projection           = &mCurrentProjection;
         ctx.deferred             = &mDeferredPass;
         ctx.ssao                 = &mSsaoPass;
         ctx.taa                  = &mTaaPass;
+        ctx.xess                 = &mXessPass;
         ctx.bloom                = &mBloomPass;
         ctx.composite            = &mCompositePass;
         ctx.shadow               = &mShadowPass;
@@ -432,10 +471,14 @@ namespace FREYA_NAMESPACE
             return;
 
         const bool wasEnabled = mFreyaOptions->enableTaa;
+        const bool hadXess    = mFreyaOptions->enableXess;
         ApplyTaaQuality(*mFreyaOptions, quality);
         mTaaQuality = quality;
+        if (mFreyaOptions->enableTaa)
+            mXessQuality = XessQuality::Off;
 
-        if (wasEnabled != mFreyaOptions->enableTaa)
+        if (wasEnabled != mFreyaOptions->enableTaa ||
+            hadXess != mFreyaOptions->enableXess)
         {
             mDevice->Get().waitIdle();
             rebuildSceneResources();
@@ -444,6 +487,29 @@ namespace FREYA_NAMESPACE
 
         if (mTaaPass)
             mTaaPass->ResetHistory();
+    }
+
+    void Renderer::SetXessQuality(const XessQuality quality)
+    {
+        if (mXessQuality == quality)
+            return;
+
+        const bool wasEnabled = mFreyaOptions->enableXess;
+        ApplyXessQuality(*mFreyaOptions, quality);
+        mXessQuality = quality;
+        if (mFreyaOptions->enableXess)
+            mTaaQuality = TaaQuality::Off;
+
+        if (wasEnabled != mFreyaOptions->enableXess ||
+            mFreyaOptions->enableXess)
+        {
+            mDevice->Get().waitIdle();
+            rebuildSceneResources();
+            return;
+        }
+
+        if (mXessPass)
+            mXessPass->ResetHistory();
     }
 
     void Renderer::SetBloomQuality(const BloomQuality quality)
@@ -639,10 +705,21 @@ namespace FREYA_NAMESPACE
         auto upload                 = unjittered;
         upload.prevViewProjection   = mPrevViewProjection;
         upload.unjitteredProjection = unjittered.projection;
-        if (mFreyaOptions->enableTaa && mTaaPass)
+        if (mFreyaOptions->enableXess && mXessPass)
+        {
+            float jx = 0.0f;
+            float jy = 0.0f;
+            ApplyHaltonJitter(upload.projection, mTaaFrameIndex,
+                              getRenderExtent(),
+                              mFreyaOptions->xessHaltonPeriod, &jx, &jy);
+            mXessPass->SetJitter(jx, jy);
+        }
+        else if (mFreyaOptions->enableTaa && mTaaPass)
+        {
             ApplyHaltonJitter(upload.projection, mTaaFrameIndex,
                               getRenderExtent(),
                               mFreyaOptions->taaHaltonPeriod);
+        }
         return upload;
     }
 
@@ -650,7 +727,7 @@ namespace FREYA_NAMESPACE
     {
         mPrevViewProjection =
             mCurrentProjection.projection * mCurrentProjection.view;
-        if (mFreyaOptions->enableTaa)
+        if (mFreyaOptions->enableTaa || mFreyaOptions->enableXess)
             ++mTaaFrameIndex;
     }
 
@@ -705,9 +782,11 @@ namespace FREYA_NAMESPACE
         mDevice->BeginDebugLabel(commandBuffer, DebugLabel::BloomBlit);
 
         auto       bloomUpImage = mBloomPass->GetBloomUpImage();
-        const auto extent       = getRenderExtent();
-        const auto halfW        = static_cast<int32_t>(extent.width / 2);
-        const auto halfH        = static_cast<int32_t>(extent.height / 2);
+        const auto srcExtent    = ScaledExtent(
+            getRenderExtent(), mFreyaOptions->bloomResolutionDivisor);
+        const auto dstExtent = getPresentExtent();
+        const auto halfW     = static_cast<int32_t>(srcExtent.width);
+        const auto halfH     = static_cast<int32_t>(srcExtent.height);
 
         // Transition bloom up to transfer source
         auto srcBarrier =
@@ -771,8 +850,8 @@ namespace FREYA_NAMESPACE
                                        vk::Offset3D { halfW, halfH, 1 } };
         auto dstOffsets = std::array {
             vk::Offset3D { 0, 0, 0 },
-            vk::Offset3D { static_cast<int32_t>(extent.width),
-                           static_cast<int32_t>(extent.height), 1 }
+            vk::Offset3D { static_cast<int32_t>(dstExtent.width),
+                           static_cast<int32_t>(dstExtent.height), 1 }
         };
 
         blitRegion.setSrcOffsets(srcOffsets);

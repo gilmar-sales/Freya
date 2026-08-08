@@ -11,6 +11,7 @@
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Core/TaaPass.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
+#include "Freya/Core/XessPass.hpp"
 #include "Freya/FreyaOptions.hpp"
 
 #include <functional>
@@ -32,6 +33,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<SwapChain>    swapChain;
         skr::Arc<FreyaOptions> options;
         vk::Extent2D           renderExtent {};
+        vk::Extent2D           presentExtent {};
         std::uint32_t          frameIndex = 0;
         float                  cameraNear = 1.0f;
 
@@ -40,6 +42,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<DeferredCompressedPass>* deferred           = nullptr;
         skr::Arc<SsaoPass>*               ssao               = nullptr;
         skr::Arc<TaaPass>*                taa                = nullptr;
+        skr::Arc<XessPass>*               xess               = nullptr;
         skr::Arc<BloomPass>*              bloom              = nullptr;
         skr::Arc<CompositePass>*          composite          = nullptr;
         skr::Arc<ShadowPass>*             shadow             = nullptr;
