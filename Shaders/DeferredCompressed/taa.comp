@@ -20,9 +20,9 @@ layout(push_constant) uniform PushConstants {
     float depthReject;
     float sharpen;
     float quality;
+    float reverseZ; // 1 when Reverse-Z (larger depth = closer)
     float _pad0;
     float _pad1;
-    float _pad2;
 } pc;
 
 const int Q_LOW    = 0;
@@ -44,6 +44,50 @@ vec3 YCoCgToRGB(vec3 c) {
 
 float Luma(vec3 c) {
     return dot(c, vec3(0.2126, 0.7152, 0.0722));
+}
+
+bool IsCloser(float candidate, float reference) {
+    return pc.reverseZ > 0.5 ? (candidate > reference)
+                             : (candidate < reference);
+}
+
+// Closest-depth velocity in 3×3 — anchors silhouettes under motion.
+vec2 DilateVelocity(ivec2 pixel, out float closestDepth) {
+    closestDepth = texelFetch(currentDepth, pixel, 0).r;
+    vec2 bestVel = texelFetch(velocityBuffer, pixel, 0).xy;
+
+    for (int y = -1; y <= 1; ++y) {
+        for (int x = -1; x <= 1; ++x) {
+            if (x == 0 && y == 0)
+                continue;
+            ivec2 p = pixel + ivec2(x, y);
+            float d = texelFetch(currentDepth, p, 0).r;
+            if (IsCloser(d, closestDepth)) {
+                closestDepth = d;
+                bestVel      = texelFetch(velocityBuffer, p, 0).xy;
+            }
+        }
+    }
+    return bestVel;
+}
+
+// Widen variance AABB on depth edges / motion so sub-pixel border AA is
+// not clipped away (avoids exposing raw jitter = shimmer).
+float GammaBoost(ivec2 pixel, vec2 velocity) {
+    float dMin = 1e10;
+    float dMax = -1e10;
+    for (int y = -1; y <= 1; ++y) {
+        for (int x = -1; x <= 1; ++x) {
+            float d = texelFetch(currentDepth, pixel + ivec2(x, y), 0).r;
+            dMin    = min(dMin, d);
+            dMax    = max(dMax, d);
+        }
+    }
+    float depthEdge = clamp((dMax - dMin) * 40.0, 0.0, 1.0);
+    float speedPx =
+        length(velocity / max(pc.invResolution, vec2(1e-6)));
+    float motion = clamp(speedPx * 0.04, 0.0, 1.0);
+    return 1.0 + 1.5 * depthEdge + 0.75 * motion;
 }
 
 // Directional / ray-box clip into an AABB (YCoCg or RGB).
@@ -101,7 +145,7 @@ vec3 SampleHistoryCatmullRom(vec2 uv) {
     return result;
 }
 
-// Explicit 4×4 Catmull-Rom (16 nearest taps) — Ultra (sharper subpixel).
+// Explicit 4×4 Catmull-Rom (16 nearest taps) — Ultra.
 float CatmullRomWeight(float x) {
     x = abs(x);
     if (x < 1.0)
@@ -154,10 +198,8 @@ void NeighborhoodVarianceBox(ivec2 pixel, bool ycocg, bool gaussian,
     for (int y = -1; y <= 1; ++y) {
         for (int x = -1; x <= 1; ++x) {
             float w = 1.0;
-            if (gaussian) {
-                // 3×3 binomial ≈ Gaussian: [1 2 1; 2 4 2; 1 2 1] / 16
+            if (gaussian)
                 w = float(2 - abs(x)) * float(2 - abs(y));
-            }
             vec3 c = texelFetch(currentColor, pixel + ivec2(x, y), 0).rgb;
             if (ycocg)
                 c = RGBToYCoCg(c);
@@ -180,8 +222,6 @@ vec3 SoftCurrent(ivec2 pixel) {
     return c * 0.2;
 }
 
-// CAS-like: inject current high-pass with contrast-adaptive gain (fewer
-// halos than a fixed unsharp mask).
 vec3 ApplySharpen(vec3 result, ivec2 pixel, float strength, bool adaptive) {
     if (strength <= 1e-5)
         return result;
@@ -192,11 +232,10 @@ vec3 ApplySharpen(vec3 result, ivec2 pixel, float strength, bool adaptive) {
 
     float amount = strength;
     if (adaptive) {
-        float softL  = Luma(soft);
-        float resL   = Luma(result);
+        float softL = Luma(soft);
+        float resL  = Luma(result);
         float contrast =
             abs(resL - softL) / max(max(resL, softL), 1e-3);
-        // Less sharpen where local contrast is already high (RCAS idea).
         amount *= 1.0 - clamp(contrast, 0.0, 1.0);
     }
 
@@ -211,8 +250,8 @@ void main() {
 
     int q = int(pc.quality + 0.5);
 
-    vec2  uv      = (vec2(pixel) + 0.5) * pc.invResolution;
-    vec3  current = textureLod(currentColor, uv, 0.0).rgb;
+    vec2  uv        = (vec2(pixel) + 0.5) * pc.invResolution;
+    vec3  current   = textureLod(currentColor, uv, 0.0).rgb;
     float currDepth = texelFetch(currentDepth, pixel, 0).r;
 
     imageStore(outputDepth, pixel, vec4(currDepth, 0.0, 0.0, 0.0));
@@ -222,14 +261,15 @@ void main() {
         return;
     }
 
-    vec2 velocity  = textureLod(velocityBuffer, uv, 0.0).xy;
-    vec2 historyUV = uv - velocity;
+    // Dilated velocity (closest surface) for stable silhouette reprojection.
+    float closestDepth;
+    vec2  velocity  = DilateVelocity(pixel, closestDepth);
+    vec2  historyUV = uv - velocity;
 
     bool offscreen = any(lessThan(historyUV, vec2(0.0))) ||
                      any(greaterThan(historyUV, vec2(1.0)));
     vec2 clampedUV = clamp(historyUV, vec2(0.0), vec2(1.0));
 
-    // --- History reprojection filter ---
     vec3 history;
     if (q >= Q_ULTRA)
         history = SampleHistoryCatmullRomHQ(clampedUV);
@@ -238,72 +278,85 @@ void main() {
     else
         history = textureLod(historyColor, clampedUV, 0.0).rgb;
 
-    float weight = pc.currentWeight;
+    float weight     = pc.currentWeight;
+    float histTrust  = 1.0; // 1 = full history allowed
 
-    // --- Ghosting mitigation ---
     if (offscreen) {
-        weight = 1.0;
+        weight    = 1.0;
+        histTrust = 0.0;
     } else if (q == Q_LOW) {
-        // Velocity-only: dump history on fast motion.
-        float speedPx = length(velocity / max(pc.invResolution, vec2(1e-6)));
-        weight = mix(pc.currentWeight, 1.0, clamp(speedPx * 0.15, 0.0, 1.0));
+        float speedPx =
+            length(velocity / max(pc.invResolution, vec2(1e-6)));
+        float dump = clamp(speedPx * 0.12, 0.0, 1.0);
+        weight     = mix(pc.currentWeight, 1.0, dump);
+        histTrust  = 1.0 - dump;
     } else {
+        // Soft depth disocclusion — hard reject exposes jitter shimmer.
         float histDepth = textureLod(historyDepth, clampedUV, 0.0).r;
-        bool disoccluded = abs(currDepth - histDepth) > pc.depthReject;
-        if (disoccluded) {
-            weight = 1.0;
-        } else if (q >= Q_HIGH) {
-            // Reactive: high luminance contrast under motion → less history.
+        float depthDiff = abs(currDepth - histDepth);
+        float depthTrust =
+            1.0 - smoothstep(pc.depthReject * 0.4, pc.depthReject, depthDiff);
+        histTrust = depthTrust;
+        weight    = mix(1.0, pc.currentWeight, depthTrust);
+
+        if (q >= Q_HIGH && depthTrust > 0.01) {
+            // Mild reactive: nudge toward current, never fully dump history.
             float lumaDiff =
                 abs(Luma(current) - Luma(history)) /
                 max(max(Luma(current), Luma(history)), 1e-3);
             float speedPx =
                 length(velocity / max(pc.invResolution, vec2(1e-6)));
             float reactive =
-                clamp(lumaDiff * 2.0, 0.0, 1.0) *
-                clamp(speedPx * 0.1, 0.0, 1.0);
-            weight = mix(pc.currentWeight, 1.0, reactive);
+                clamp(lumaDiff * 1.25, 0.0, 1.0) *
+                clamp(speedPx * 0.06, 0.0, 1.0) * 0.35;
+            weight    = mix(weight, 1.0, reactive);
+            histTrust *= (1.0 - reactive);
         }
     }
 
-    // --- Neighborhood history limitation ---
-    if (weight < 1.0) {
+    if (weight < 0.999) {
+        float boost = GammaBoost(pixel, velocity);
+
         if (q == Q_LOW) {
             vec3 nMin, nMax;
             NeighborhoodCrossMinMaxRGB(pixel, nMin, nMax);
-            history = clamp(history, nMin, nMax);
+            // Inflate AABB slightly under boost.
+            vec3 mid = 0.5 * (nMin + nMax);
+            vec3 ext = 0.5 * (nMax - nMin) * boost;
+            history  = clamp(history, mid - ext, mid + ext);
         } else if (q == Q_MEDIUM) {
             vec3 mu, sigma;
             NeighborhoodVarianceBox(pixel, false, false, mu, sigma);
-            vec3 aabbMin = mu - pc.varianceGammaY * sigma;
-            vec3 aabbMax = mu + pc.varianceGammaY * sigma;
-            history      = clamp(history, aabbMin, aabbMax);
+            float g      = pc.varianceGammaY * boost;
+            history      = clamp(history, mu - g * sigma, mu + g * sigma);
         } else if (q == Q_HIGH) {
             vec3 mu, sigma;
             NeighborhoodVarianceBox(pixel, true, false, mu, sigma);
-            vec3 gamma =
-                vec3(pc.varianceGammaY, pc.varianceGammaC, pc.varianceGammaC);
-            vec3 aabbMin = mu - gamma * sigma;
-            vec3 aabbMax = mu + gamma * sigma;
+            vec3 gamma = vec3(pc.varianceGammaY, pc.varianceGammaC,
+                              pc.varianceGammaC) *
+                         boost;
             history =
-                YCoCgToRGB(clamp(RGBToYCoCg(history), aabbMin, aabbMax));
-        } else { // Ultra: YCoCg variance + directional clip + Gaussian
+                YCoCgToRGB(clamp(RGBToYCoCg(history), mu - gamma * sigma,
+                                 mu + gamma * sigma));
+        } else {
             vec3 mu, sigma;
             NeighborhoodVarianceBox(pixel, true, true, mu, sigma);
-            vec3 gamma =
-                vec3(pc.varianceGammaY, pc.varianceGammaC, pc.varianceGammaC);
-            vec3 aabbMin = mu - gamma * sigma;
-            vec3 aabbMax = mu + gamma * sigma;
+            vec3 gamma = vec3(pc.varianceGammaY, pc.varianceGammaC,
+                              pc.varianceGammaC) *
+                         boost;
             history = YCoCgToRGB(
-                ClipAABB(RGBToYCoCg(history), aabbMin, aabbMax));
+                ClipAABB(RGBToYCoCg(history), mu - gamma * sigma,
+                         mu + gamma * sigma));
         }
     }
 
     vec3 result = mix(history, current, weight);
 
-    // --- Sharpen (Medium+) ---
+    // Sharpen only where history was trusted — otherwise we re-inject
+    // the jittered current frame and shimmer returns.
     if (q >= Q_MEDIUM)
-        result = ApplySharpen(result, pixel, pc.sharpen, q >= Q_HIGH);
+        result = ApplySharpen(result, pixel, pc.sharpen * histTrust,
+                              q >= Q_HIGH);
 
     imageStore(outputColor, pixel, vec4(result, 1.0));
 }

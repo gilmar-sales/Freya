@@ -123,13 +123,13 @@ namespace FREYA_NAMESPACE
         /// Shader feature tier: 0=Low … 3=Ultra (set by ApplyTaaQuality).
         std::uint32_t taaQualityLevel = 2;
         /// YCoCg / RGB variance AABB scale for luminance (or RGB on Medium).
-        float taaVarianceGammaY = 1.0f;
+        float taaVarianceGammaY = 1.15f;
         /// YCoCg variance AABB scale for chroma (Co/Cg); High/Ultra only.
-        float taaVarianceGammaC = 1.25f;
-        /// Reject history when |currDepth - histDepth| exceeds this (device Z).
-        float taaDepthRejectThreshold = 0.01f;
+        float taaVarianceGammaC = 1.35f;
+        /// Soft-reject history when |currDepth - histDepth| exceeds this.
+        float taaDepthRejectThreshold = 0.015f;
         /// Post-resolve sharpen strength (0 = off). Medium+ only.
-        float taaSharpen = 0.4f;
+        float taaSharpen = 0.3f;
 
         std::uint32_t bloomResolutionDivisor = 2;
         float         bloomThreshold         = 0.75f;
@@ -240,8 +240,8 @@ namespace FREYA_NAMESPACE
                 options.taaQualityLevel         = 0;
                 options.taaCurrentWeight        = 0.25f;
                 options.taaHaltonPeriod         = 4;
-                options.taaVarianceGammaY       = 1.0f;
-                options.taaVarianceGammaC       = 1.0f;
+                options.taaVarianceGammaY       = 1.15f;
+                options.taaVarianceGammaC       = 1.15f;
                 options.taaDepthRejectThreshold = 1.0f; // unused
                 options.taaSharpen              = 0.0f;
                 break;
@@ -249,28 +249,28 @@ namespace FREYA_NAMESPACE
                 options.taaQualityLevel         = 1;
                 options.taaCurrentWeight        = 0.15f;
                 options.taaHaltonPeriod         = 8;
-                options.taaVarianceGammaY       = 1.25f;
-                options.taaVarianceGammaC       = 1.25f;
-                options.taaDepthRejectThreshold = 0.015f;
-                options.taaSharpen              = 0.25f;
+                options.taaVarianceGammaY       = 1.35f;
+                options.taaVarianceGammaC       = 1.35f;
+                options.taaDepthRejectThreshold = 0.02f;
+                options.taaSharpen              = 0.2f;
                 break;
             case TaaQuality::High:
                 options.taaQualityLevel         = 2;
                 options.taaCurrentWeight        = 0.1f;
                 options.taaHaltonPeriod         = 16;
-                options.taaVarianceGammaY       = 1.0f;
-                options.taaVarianceGammaC       = 1.25f;
-                options.taaDepthRejectThreshold = 0.01f;
-                options.taaSharpen              = 0.4f;
+                options.taaVarianceGammaY       = 1.15f;
+                options.taaVarianceGammaC       = 1.35f;
+                options.taaDepthRejectThreshold = 0.015f;
+                options.taaSharpen              = 0.3f;
                 break;
             case TaaQuality::Ultra:
                 options.taaQualityLevel         = 3;
                 options.taaCurrentWeight        = 0.06f;
                 options.taaHaltonPeriod         = 32;
-                options.taaVarianceGammaY       = 0.85f;
-                options.taaVarianceGammaC       = 1.15f;
-                options.taaDepthRejectThreshold = 0.0075f;
-                options.taaSharpen              = 0.55f;
+                options.taaVarianceGammaY       = 1.0f;
+                options.taaVarianceGammaC       = 1.25f;
+                options.taaDepthRejectThreshold = 0.012f;
+                options.taaSharpen              = 0.4f;
                 break;
             case TaaQuality::Off:
                 break;

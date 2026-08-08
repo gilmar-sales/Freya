@@ -49,11 +49,14 @@ namespace FREYA_NAMESPACE
             if (extent.width == 0 || extent.height == 0)
                 return;
 
+            // Halton ∈ [0,1] → pixel offset ∈ [-0.5, 0.5]. Map to NDC
+            // (clip xy ∈ [-1,1]) via *2/resolution. Y is negated: Vulkan
+            // NDC Y points down and MakeProjection flips proj[1][1].
             const auto  period = std::max(1u, haltonPeriod);
             const auto  sample = (frameIndex % period) + 1;
             const float jx     = (Halton(sample, 2) - 0.5f) * 2.0f /
                                  static_cast<float>(extent.width);
-            const float jy     = (Halton(sample, 3) - 0.5f) * 2.0f /
+            const float jy     = -(Halton(sample, 3) - 0.5f) * 2.0f /
                                  static_cast<float>(extent.height);
             projection[2][0] += jx;
             projection[2][1] += jy;
@@ -407,8 +410,8 @@ namespace FREYA_NAMESPACE
         if (mSsaoQuality == quality)
             return;
 
-        const bool         wasEnabled      = mFreyaOptions->enableSsao;
-        const auto         previousDivisor = mFreyaOptions->ssaoResolutionDivisor;
+        const bool wasEnabled      = mFreyaOptions->enableSsao;
+        const auto previousDivisor = mFreyaOptions->ssaoResolutionDivisor;
         ApplySsaoQuality(*mFreyaOptions, quality);
         mSsaoQuality = quality;
 
@@ -826,7 +829,7 @@ namespace FREYA_NAMESPACE
             mInstanceTransformBuffers.clear();
             mInstanceTransformBuffer.reset();
             mInstanceBufferCapacity = 0;
-            mInstanceHistoryFrame = std::numeric_limits<std::uint32_t>::max();
+            mInstanceHistoryFrame   = std::numeric_limits<std::uint32_t>::max();
             return;
         }
 
@@ -857,7 +860,7 @@ namespace FREYA_NAMESPACE
         }
 
         const auto frameCount = GetFrameCount();
-        const auto bytes = sizeof(InstanceTransform) * count;
+        const auto bytes      = sizeof(InstanceTransform) * count;
         const bool rebuildBuffers =
             mInstanceTransformBuffers.size() != frameCount ||
             mInstanceBufferCapacity != count;

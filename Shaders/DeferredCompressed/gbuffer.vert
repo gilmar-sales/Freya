@@ -35,8 +35,9 @@ void main() {
     outTexCoord = inTexCoord;
     outColor = inColor;
 
-    // Motion in UV space: unjittered current VP vs previous VP, each with
-    // the matching model matrix (prevModel for dynamic objects / TAA).
+    // Motion in UV space from UNJITTERED projections only. Including the
+    // Halton jitter here would contaminate velocity and cause shimmer.
+    // Rasterization still uses pub.proj (jittered) via gl_Position above.
     vec4 currClip = pub.unjitteredProjection * pub.view * worldPos;
     vec4 prevClip = pub.prevViewProjection * prevWorldPos;
     vec2 currNdc = currClip.xy / max(currClip.w, 1e-5);
