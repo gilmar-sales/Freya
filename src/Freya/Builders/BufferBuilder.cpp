@@ -4,8 +4,72 @@
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
 
+#include <cstring>
+#include <limits>
+
 namespace FREYA_NAMESPACE
 {
+    namespace
+    {
+        struct MemoryChoice
+        {
+            std::uint32_t typeIndex    = 0;
+            bool          hostVisible  = false;
+            bool          hostCoherent = false;
+        };
+
+        MemoryChoice ChooseBufferMemory(
+            const skr::Arc<PhysicalDevice>& physical,
+            const std::uint32_t             typeBits,
+            const BufferUsage               usage)
+        {
+            using enum vk::MemoryPropertyFlagBits;
+
+            const auto tryProps =
+                [&](const vk::MemoryPropertyFlags props) -> std::uint32_t {
+                std::uint32_t index = 0;
+                if (physical->TryQueryCompatibleMemoryType(
+                        typeBits, props, index))
+                    return index;
+                return std::numeric_limits<std::uint32_t>::max();
+            };
+
+            MemoryChoice choice {};
+
+            if (usage == BufferUsage::Staging || usage == BufferUsage::Readback)
+            {
+                const auto idx = tryProps(eHostVisible | eHostCoherent);
+                assert(idx != std::numeric_limits<std::uint32_t>::max());
+                choice.typeIndex    = idx;
+                choice.hostVisible  = true;
+                choice.hostCoherent = true;
+                return choice;
+            }
+
+            // Prefer ReBAR-style host-visible device-local + coherent so
+            // Copy can write without flush or map/unmap.
+            static constexpr vk::MemoryPropertyFlags kCandidates[] = {
+                eHostVisible | eHostCoherent | eDeviceLocal,
+                eHostVisible | eDeviceLocal,
+                eHostVisible | eHostCoherent,
+            };
+
+            for (const auto props : kCandidates)
+            {
+                const auto idx = tryProps(props);
+                if (idx == std::numeric_limits<std::uint32_t>::max())
+                    continue;
+
+                choice.typeIndex    = idx;
+                choice.hostVisible  = true;
+                choice.hostCoherent = (props & eHostCoherent) == eHostCoherent;
+                return choice;
+            }
+
+            assert(!"Failed to find suitable buffer memory type.");
+            return choice;
+        }
+    } // namespace
 
     skr::Arc<Buffer> BufferBuilder::Build()
     {
@@ -75,32 +139,9 @@ namespace FREYA_NAMESPACE
         const auto memoryRequirements =
             mDevice->Get().getBufferMemoryRequirements(buffer);
 
-        auto memoryProperties = vk::MemoryPropertyFlags {};
-
-        switch (mUsage)
-        {
-            case BufferUsage::Staging:
-            case BufferUsage::Readback:
-                memoryProperties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                   vk::MemoryPropertyFlagBits::eHostCoherent;
-                break;
-            case BufferUsage::Vertex:
-            case BufferUsage::Index:
-            case BufferUsage::Uniform:
-            case BufferUsage::Instance:
-            case BufferUsage::Storage:
-            case BufferUsage::Indirect:
-                memoryProperties = vk::MemoryPropertyFlagBits::eHostVisible |
-                                   vk::MemoryPropertyFlagBits::eDeviceLocal;
-                break;
-            default:
-                break;
-        }
-
-        const auto memoryTypeIndex =
-            mDevice->GetPhysicalDevice()->QueryCompatibleMemoryType(
-                memoryRequirements.memoryTypeBits,
-                memoryProperties);
+        const auto choice =
+            ChooseBufferMemory(mDevice->GetPhysicalDevice(),
+                               memoryRequirements.memoryTypeBits, mUsage);
 
         auto priorityInfo =
             vk::MemoryPriorityAllocateInfoEXT().setPriority(0.2f);
@@ -122,7 +163,7 @@ namespace FREYA_NAMESPACE
         const auto allocInfo =
             vk::MemoryAllocateInfo()
                 .setAllocationSize(memoryRequirements.size)
-                .setMemoryTypeIndex(memoryTypeIndex)
+                .setMemoryTypeIndex(choice.typeIndex)
                 .setPNext(&priorityInfo);
 
         auto memory = mDevice->Get().allocateMemory(allocInfo);
@@ -131,20 +172,30 @@ namespace FREYA_NAMESPACE
 
         mDevice->Get().bindBufferMemory(buffer, memory, 0);
 
-        if (mData != nullptr)
+        void* mapped = nullptr;
+        if (choice.hostVisible && mSize > 0)
         {
-            void* data = mDevice->Get().mapMemory(
-                memory,
-                0,
-                mSize,
-                vk::MemoryMapFlagBits {});
-
-            memcpy(data, mData, mSize);
-
-            mDevice->Get().unmapMemory(memory);
+            mapped = mDevice->Get().mapMemory(
+                memory, 0, mSize, vk::MemoryMapFlagBits {});
+            assert(mapped && "Failed to persistently map buffer memory");
         }
 
-        return skr::MakeArc<Buffer>(mDevice, mUsage, mSize, buffer, memory);
+        if (mData != nullptr && mapped != nullptr)
+        {
+            std::memcpy(mapped, mData, mSize);
+            if (!choice.hostCoherent)
+            {
+                const auto range =
+                    vk::MappedMemoryRange()
+                        .setMemory(memory)
+                        .setOffset(0)
+                        .setSize(mSize);
+                mDevice->Get().flushMappedMemoryRanges(range);
+            }
+        }
+
+        return skr::MakeArc<Buffer>(mDevice, mUsage, mSize, buffer, memory,
+                                    mapped, choice.hostCoherent);
     };
 
 } // namespace FREYA_NAMESPACE

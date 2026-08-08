@@ -15,9 +15,10 @@ namespace FREYA_NAMESPACE
         return details;
     }
 
-    std::uint32_t PhysicalDevice::QueryCompatibleMemoryType(
+    bool PhysicalDevice::TryQueryCompatibleMemoryType(
         const std::uint32_t           typeFilter,
-        const vk::MemoryPropertyFlags properties) const
+        const vk::MemoryPropertyFlags properties,
+        std::uint32_t&                outIndex) const
     {
         const auto memoryProperties = mPhysicalDevice.getMemoryProperties();
 
@@ -27,9 +28,21 @@ namespace FREYA_NAMESPACE
                 (memoryProperties.memoryTypes[i].propertyFlags & properties) ==
                     properties)
             {
-                return i;
+                outIndex = i;
+                return true;
             }
         }
+
+        return false;
+    }
+
+    std::uint32_t PhysicalDevice::QueryCompatibleMemoryType(
+        const std::uint32_t           typeFilter,
+        const vk::MemoryPropertyFlags properties) const
+    {
+        std::uint32_t index = 0;
+        if (TryQueryCompatibleMemoryType(typeFilter, properties, index))
+            return index;
 
         assert(!"Failed to find suitable memory type.");
 

@@ -270,19 +270,11 @@ namespace FREYA_NAMESPACE
             return kPickMissId;
         }
 
-        void* mapped = mDevice->Get().mapMemory(
-            mStagingBuffer->GetMemory(),
-            0,
-            sizeof(std::uint32_t),
-            vk::MemoryMapFlagBits {});
+        const void* mapped = mStagingBuffer->GetMapped();
+        if (!mapped)
+            return kPickMissId;
 
-        std::uint32_t value = kPickMissId;
-        if (mapped)
-        {
-            value = *static_cast<const std::uint32_t*>(mapped);
-            mDevice->Get().unmapMemory(mStagingBuffer->GetMemory());
-        }
-        return value;
+        return *static_cast<const std::uint32_t*>(mapped);
     }
 
 } // namespace FREYA_NAMESPACE

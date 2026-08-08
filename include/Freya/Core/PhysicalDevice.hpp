@@ -62,6 +62,14 @@ namespace FREYA_NAMESPACE
             std::uint32_t typeFilter, vk::MemoryPropertyFlags properties) const;
 
         /**
+         * @brief Finds a memory type matching filter and properties.
+         * @return true and writes @p outIndex when a match exists
+         */
+        bool TryQueryCompatibleMemoryType(std::uint32_t           typeFilter,
+                                          vk::MemoryPropertyFlags properties,
+                                          std::uint32_t& outIndex) const;
+
+        /**
          * @brief Queries the device's supported sample count for a desired
          * value.
          * @param desired Desired sample count (as vk::SampleCountFlagBits

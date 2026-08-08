@@ -8,9 +8,9 @@
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
 
+#include <algorithm>
 #include <limits>
 #include <span>
-#include <unordered_map>
 #include <vector>
 
 namespace FREYA_NAMESPACE
@@ -23,8 +23,9 @@ namespace FREYA_NAMESPACE
      * atomic-compacts survivors into [firstInstance, firstInstance+visible)
      * of a compact transform buffer used for drawing.
      *
-     * TAA history: `prevModel` is resolved by `entityId` (no full-vector
-     * copy). Prefer uploading sorted by `(meshId, entityId)`.
+     * TAA history: `prevModel` is resolved by `entityId` via an
+     * open-addressing map rebuilt each frame (O(1) generation clear, no
+     * node heap traffic). Prefer uploading sorted by `(meshId, entityId)`.
      */
     class IndirectDrawSystem
     {
@@ -73,6 +74,146 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] bool HasScene() const { return mInstanceCount > 0; }
 
       private:
+        /**
+         * @brief Open-addressing entityId → model map for TAA history.
+         *
+         * Generation clear is O(1); capacity stays allocated across frames.
+         */
+        class EntityModelMap
+        {
+          public:
+            static constexpr std::uint32_t kEmpty =
+                std::numeric_limits<std::uint32_t>::max();
+
+            void clear()
+            {
+                ++mGeneration;
+                mCount = 0;
+                if (mGeneration == 0)
+                {
+                    mGeneration = 1;
+                    for (auto& slot : mSlots)
+                    {
+                        slot.entityId   = kEmpty;
+                        slot.generation = 0;
+                    }
+                }
+            }
+
+            void reserve(const std::size_t n)
+            {
+                std::size_t need = 16;
+                while (need < n * 2)
+                    need *= 2;
+                if (need > mSlots.size())
+                    rehash(need);
+            }
+
+            void insert(const std::uint32_t entityId, const glm::mat4& model)
+            {
+                if (entityId == kEmpty)
+                    return;
+
+                if (mSlots.empty() || mCount * 2 >= mSlots.size())
+                    reserve(std::max<std::size_t>(mCount + 1, 16));
+
+                const auto mask = mSlots.size() - 1;
+                auto       i    = hash(entityId) & mask;
+                for (;;)
+                {
+                    auto& slot = mSlots[i];
+                    if (slot.entityId == kEmpty ||
+                        slot.generation != mGeneration)
+                    {
+                        slot.entityId   = entityId;
+                        slot.generation = mGeneration;
+                        slot.model      = model;
+                        ++mCount;
+                        return;
+                    }
+                    if (slot.entityId == entityId)
+                    {
+                        slot.model = model;
+                        return;
+                    }
+                    i = (i + 1) & mask;
+                }
+            }
+
+            [[nodiscard]] const glm::mat4* find(
+                const std::uint32_t entityId) const
+            {
+                if (mSlots.empty() || entityId == kEmpty)
+                    return nullptr;
+
+                const auto mask = mSlots.size() - 1;
+                auto       i    = hash(entityId) & mask;
+                for (;;)
+                {
+                    const auto& slot = mSlots[i];
+                    if (slot.entityId == kEmpty ||
+                        slot.generation != mGeneration)
+                        return nullptr;
+                    if (slot.entityId == entityId)
+                        return &slot.model;
+                    i = (i + 1) & mask;
+                }
+            }
+
+          private:
+            struct Slot
+            {
+                std::uint32_t entityId   = kEmpty;
+                std::uint32_t generation = 0;
+                glm::mat4     model { 1.0f };
+            };
+
+            static std::uint32_t hash(std::uint32_t x)
+            {
+                x ^= x >> 16;
+                x *= 0x7feb352du;
+                x ^= x >> 15;
+                x *= 0x846ca68bu;
+                x ^= x >> 16;
+                return x;
+            }
+
+            void rehash(const std::size_t newCap)
+            {
+                std::vector<Slot> old = std::move(mSlots);
+                mSlots.assign(newCap, Slot {});
+                const auto  mask = newCap - 1;
+                std::size_t live = 0;
+
+                for (const auto& slot : old)
+                {
+                    if (slot.entityId == kEmpty ||
+                        slot.generation != mGeneration)
+                        continue;
+
+                    auto i = hash(slot.entityId) & mask;
+                    for (;;)
+                    {
+                        auto& dst = mSlots[i];
+                        if (dst.entityId == kEmpty ||
+                            dst.generation != mGeneration)
+                        {
+                            dst = slot;
+                            ++live;
+                            break;
+                        }
+                        i = (i + 1) & mask;
+                    }
+                }
+
+                mCount = live;
+            }
+
+            std::vector<Slot> mSlots;
+            std::uint32_t     mGeneration = 1;
+            std::size_t       mCount      = 0;
+        };
+
         struct FrameResources
         {
             skr::Arc<Buffer> sceneInstances;
@@ -116,14 +257,14 @@ namespace FREYA_NAMESPACE
         skr::Arc<Buffer>            mMeshInfoBuffer;
         std::vector<FrameResources> mFrames;
 
-        std::vector<MeshInfo>                        mMeshInfos;
-        std::vector<SceneInstance>                   mSceneInstances;
-        std::vector<InstanceTransform>               mInstanceTransforms;
-        std::vector<InstanceTransform>               mPrevTransforms;
-        std::unordered_map<std::uint32_t, glm::mat4> mPrevModelByEntity;
-        std::vector<std::uint32_t>                   mInstanceBatchIds;
-        std::vector<vk::DrawIndexedIndirectCommand>  mIndirectCommands;
-        std::vector<ChunkRun>                        mChunkRuns;
+        std::vector<MeshInfo>                       mMeshInfos;
+        std::vector<SceneInstance>                  mSceneInstances;
+        std::vector<InstanceTransform>              mInstanceTransforms;
+        std::vector<InstanceTransform>              mPrevTransforms;
+        EntityModelMap                              mPrevModelByEntity;
+        std::vector<std::uint32_t>                  mInstanceBatchIds;
+        std::vector<vk::DrawIndexedIndirectCommand> mIndirectCommands;
+        std::vector<ChunkRun>                       mChunkRuns;
 
         std::uint32_t mInstanceCount    = 0;
         std::uint32_t mMeshInfoCapacity = 0;

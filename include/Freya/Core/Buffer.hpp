@@ -25,8 +25,8 @@ namespace FREYA_NAMESPACE
      * @brief Wrapper for Vulkan buffer with device memory management.
      *
      * Manages buffer lifecycle, binding to command buffers, and memory
-     * operations. Supports staging, vertex, index, uniform, instance,
-     * and image buffer usage types.
+     * operations. Host-visible buffers are persistently mapped at creation;
+     * Copy writes through the mapped pointer (no per-call map/unmap).
      *
      * @param device  Device reference
      * @param usage   Buffer usage type
@@ -41,9 +41,11 @@ namespace FREYA_NAMESPACE
                const BufferUsage       usage,
                const std::uint64_t     size,
                const vk::Buffer        buffer,
-               const vk::DeviceMemory  memory) :
+               const vk::DeviceMemory  memory,
+               void*                   mapped       = nullptr,
+               const bool              hostCoherent = true) :
             mDevice(device), mBuffer(buffer), mMemory(memory), mUsage(usage),
-            mSize(size)
+            mSize(size), mMapped(mapped), mHostCoherent(hostCoherent)
         {
         }
 
@@ -72,11 +74,17 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] const std::uint64_t& GetSize() const { return mSize; }
 
         /**
+         * @brief Persistent host mapping, or nullptr if not host-visible.
+         */
+        [[nodiscard]] void* GetMapped() const { return mMapped; }
+
+        /**
          * @brief Copies data into the buffer memory.
          * @param data  Source data pointer
          * @param size  Size of data to copy
          * @param offset Offset into buffer memory (default 0)
-         * @note Only copies if size fits within buffer and data is not null
+         * @note Only copies if size fits within buffer and data is not null.
+         *       Uses the persistent map when available.
          */
         void Copy(const void*   data,
                   std::uint64_t size,
@@ -89,6 +97,8 @@ namespace FREYA_NAMESPACE
         vk::DeviceMemory mMemory;
         BufferUsage      mUsage;
         std::uint64_t    mSize;
+        void*            mMapped       = nullptr;
+        bool             mHostCoherent = true;
     };
 
 } // namespace FREYA_NAMESPACE

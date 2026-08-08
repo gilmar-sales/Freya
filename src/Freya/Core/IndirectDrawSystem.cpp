@@ -354,7 +354,7 @@ namespace FREYA_NAMESPACE
         mPrevModelByEntity.clear();
         mPrevModelByEntity.reserve(mPrevTransforms.size());
         for (const auto& prev : mPrevTransforms)
-            mPrevModelByEntity[prev.entityId] = prev.model;
+            mPrevModelByEntity.insert(prev.entityId, prev.model);
 
         // Build sort keys with cached mesh buffer indices (one GetMesh each).
         std::vector<UploadSortKey> sortKeys(uploads.size());
@@ -404,10 +404,9 @@ namespace FREYA_NAMESPACE
             };
 
             glm::mat4 prev = src.model;
-            if (const auto it = mPrevModelByEntity.find(src.entityId);
-                it != mPrevModelByEntity.end())
+            if (const auto* found = mPrevModelByEntity.find(src.entityId))
             {
-                prev = it->second;
+                prev = *found;
             }
 
             mInstanceTransforms[dst] = InstanceTransform {
