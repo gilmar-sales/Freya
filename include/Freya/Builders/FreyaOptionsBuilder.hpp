@@ -319,6 +319,12 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        FreyaOptionsBuilder& SetEnableShadows(bool enable)
+        {
+            mFreyaOptions->enableShadows = enable;
+            return *this;
+        }
+
         FreyaOptionsBuilder& SetEnableSsao(bool enable)
         {
             mFreyaOptions->enableSsao = enable;

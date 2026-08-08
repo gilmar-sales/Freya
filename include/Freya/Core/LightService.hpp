@@ -256,6 +256,17 @@ namespace FREYA_NAMESPACE
         float GetExposure() const { return mExposure; }
 
         /**
+         * @brief When false, GPU light UBO writes castShadows as 0 so lighting
+         * skips shadow sampling (CPU Light::castShadows is unchanged).
+         */
+        void SetShadowsEnabled(bool enabled) { mShadowsEnabled = enabled; }
+
+        [[nodiscard]] bool GetShadowsEnabled() const
+        {
+            return mShadowsEnabled;
+        }
+
+        /**
          * @brief Returns whether the service has any lights.
          */
         bool HasLights() const { return mLightCount > 0; }
@@ -270,8 +281,9 @@ namespace FREYA_NAMESPACE
         std::uint32_t    mFrameCount;
         std::uint32_t    mMaxLights;
         std::uint32_t    mLightCount;
-        float            mIblIntensity = 0.7f;
-        float            mExposure     = 0.7f;
+        float            mIblIntensity    = 0.7f;
+        float            mExposure        = 0.7f;
+        bool             mShadowsEnabled  = true;
 
         std::vector<Light> mLights;
         skr::Arc<Buffer>   mBuffer;

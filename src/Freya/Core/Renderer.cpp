@@ -89,7 +89,9 @@ namespace FREYA_NAMESPACE
         mMeshPool(serviceProvider->GetService<MeshPool>()),
         mMaterialPool(serviceProvider->GetService<MaterialPool>())
     {
-        if (freyaOptions->shadowMapResolution >= 4096)
+        if (!freyaOptions->enableShadows)
+            mShadowQuality = ShadowQuality::Off;
+        else if (freyaOptions->shadowMapResolution >= 4096)
             mShadowQuality = ShadowQuality::Ultra;
         else if (freyaOptions->shadowSampleCount <= 4 &&
                  freyaOptions->shadowMapResolution <= 512)
@@ -99,6 +101,16 @@ namespace FREYA_NAMESPACE
             mShadowQuality = ShadowQuality::Medium;
         else
             mShadowQuality = ShadowQuality::High;
+
+        if (!freyaOptions->enableSsao)
+            mSsaoQuality = SsaoQuality::Off;
+        if (!freyaOptions->enableTaa)
+            mTaaQuality = TaaQuality::Off;
+        if (!freyaOptions->enableBloom)
+            mBloomQuality = BloomQuality::Off;
+
+        if (mLightService)
+            mLightService->SetShadowsEnabled(freyaOptions->enableShadows);
 
         ClearProjections();
 
@@ -363,6 +375,13 @@ namespace FREYA_NAMESPACE
         ApplyShadowQuality(*mFreyaOptions, quality);
         mShadowQuality = quality;
 
+        if (mLightService)
+            mLightService->SetShadowsEnabled(mFreyaOptions->enableShadows);
+
+        // Off only flips the runtime gate; keep existing atlas resources.
+        if (quality == ShadowQuality::Off)
+            return;
+
         mDevice->Get().waitIdle();
 
         if (mShadowPass)
@@ -388,11 +407,15 @@ namespace FREYA_NAMESPACE
         if (mSsaoQuality == quality)
             return;
 
-        const auto previousDivisor = mFreyaOptions->ssaoResolutionDivisor;
+        const bool         wasEnabled      = mFreyaOptions->enableSsao;
+        const auto         previousDivisor = mFreyaOptions->ssaoResolutionDivisor;
         ApplySsaoQuality(*mFreyaOptions, quality);
         mSsaoQuality = quality;
 
-        if (previousDivisor == mFreyaOptions->ssaoResolutionDivisor)
+        const bool enabledChanged = wasEnabled != mFreyaOptions->enableSsao;
+        const bool divisorChanged =
+            previousDivisor != mFreyaOptions->ssaoResolutionDivisor;
+        if (!enabledChanged && !divisorChanged)
             return;
 
         mDevice->Get().waitIdle();
@@ -404,8 +427,17 @@ namespace FREYA_NAMESPACE
         if (mTaaQuality == quality)
             return;
 
+        const bool wasEnabled = mFreyaOptions->enableTaa;
         ApplyTaaQuality(*mFreyaOptions, quality);
         mTaaQuality = quality;
+
+        if (wasEnabled != mFreyaOptions->enableTaa)
+        {
+            mDevice->Get().waitIdle();
+            rebuildSceneResources();
+            return;
+        }
+
         if (mTaaPass)
             mTaaPass->ResetHistory();
     }
@@ -415,11 +447,15 @@ namespace FREYA_NAMESPACE
         if (mBloomQuality == quality)
             return;
 
+        const bool wasEnabled      = mFreyaOptions->enableBloom;
         const auto previousDivisor = mFreyaOptions->bloomResolutionDivisor;
         ApplyBloomQuality(*mFreyaOptions, quality);
         mBloomQuality = quality;
 
-        if (previousDivisor == mFreyaOptions->bloomResolutionDivisor)
+        const bool enabledChanged = wasEnabled != mFreyaOptions->enableBloom;
+        const bool divisorChanged =
+            previousDivisor != mFreyaOptions->bloomResolutionDivisor;
+        if (!enabledChanged && !divisorChanged)
             return;
 
         mDevice->Get().waitIdle();

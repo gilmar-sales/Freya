@@ -8,7 +8,7 @@ deferred stack without forking the renderer.
 | Area | Mechanism |
 |------|-----------|
 | Window / lighting / shadows | `FreyaOptions` / `FreyaOptionsBuilder` |
-| Post features | `SetEnableSsao` / `SetEnableTaa` / `SetEnableBloom` |
+| Post features | `SetEnableShadows` / `SetEnableSsao` / `SetEnableTaa` / `SetEnableBloom` |
 | SPIR-V root | `SetShaderRoot("./Resources/Shaders")` |
 | Vulkan builders | `FreyaExtension::WithInstance` / `WithDevice` / `WithPhysicalDevice` / `WithSwapChain` / `WithRenderer` |
 | Frame graph | `Renderer::InsertFrameStage` / `ReplaceFrameStage` |
@@ -33,13 +33,14 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& o) {
 
 ## Quality presets
 
-Each effect has a `Low` / `Medium` / `High` / `Ultra` preset (same idea as
-shadows). Presets write the per-effect knobs in `FreyaOptions`; individual
-setters can override afterward.
+Each effect has a `Low` / `Medium` / `High` / `Ultra` / `Off` preset (same
+idea as shadows). Presets write the per-effect knobs in `FreyaOptions`;
+individual setters can override afterward. `Off` clears the matching
+`enable*` flag without wiping resolution / strength knobs.
 
 | API | Controls |
 |-----|----------|
-| `SetShadowQuality` | map res, cascades, spot/point slots, soft taps |
+| `SetShadowQuality` | map res, cascades, spot/point slots, soft taps; `Off` skips maps |
 | `SetSsaoQuality` | resolution divisor (1/2/4), radius, bias, power, intensity |
 | `SetTaaQuality` | current-frame blend weight, Halton period |
 | `SetBloomQuality` | resolution divisor, threshold, extract scale, composite strength |
@@ -48,12 +49,15 @@ Runtime (after build):
 
 ```cpp
 mRenderer->SetSsaoQuality(fra::SsaoQuality::Ultra);
-mRenderer->SetTaaQuality(fra::TaaQuality::Low);
+mRenderer->SetTaaQuality(fra::TaaQuality::Off);
 mRenderer->SetBloomQuality(fra::BloomQuality::High);
+mRenderer->SetShadowQuality(fra::ShadowQuality::Off);
 ```
 
 Resolution changes rebuild the related pass; TAA weight / bloom strength
-update without a full rebuild when the divisor is unchanged.
+update without a full rebuild when the divisor is unchanged. Toggling
+`Off` ↔ any quality rebuilds SSAO/TAA/Bloom as needed; shadow `Off` only
+gates the pass and clears `castShadows` in the light UBO.
 
 Defaults match the previous always-on post stack. Disabling SSAO still runs
 lighting with a white AO fallback. Disabling TAA skips Halton jitter.

@@ -275,7 +275,9 @@ class MainApp final : public fra::AbstractApplication
             << "Controls: RMB look | WASD move | Space/Q up | Ctrl/E down | "
                "Esc release mouse\n"
             << "Shadow test: 0=all  1=directional  2=warm point  "
-               "3=cool point  4=all spots\n";
+               "3=cool point  4=all spots\n"
+            << "TAA check: lamp 0 orbits — ghost trail => bad velocity; "
+               "F5–F8 cycle quality (Low→Med→High→Ultra→Off)\n";
 
         // All casters on by default (same as key 0).
         setShadowCasterMode(0);
@@ -323,6 +325,21 @@ class MainApp final : public fra::AbstractApplication
                 spot.direction = glm::normalize(toOrigin);
             }
             mLightService->UpdateLight(animated.index, spot);
+        }
+
+        // Orbit lamp 0 so TAA object motion can be validated (lamp 1 + ground
+        // stay static). Ghosting on the moving lamp with TAA on, gone with
+        // TAA off (F7 quality / disable), points at bad velocity history.
+        {
+            constexpr float kOrbitRadius = 4.0f;
+            constexpr float kOrbitSpeed  = 0.9f;
+            const float     angle        = kOrbitSpeed * mCurrentTime;
+            const glm::vec3 pos(kOrbitRadius * std::cos(angle),
+                                -6.0f,
+                                kOrbitRadius * std::sin(angle));
+            mModelMatrix[0] =
+                glm::scale(glm::translate(glm::mat4(1.0f), pos),
+                           glm::vec3(28.0f));
         }
 
         mRenderer->BeginFrame();
@@ -471,6 +488,9 @@ class MainApp final : public fra::AbstractApplication
                 next = fra::ShadowQuality::Ultra;
                 break;
             case fra::ShadowQuality::Ultra:
+                next = fra::ShadowQuality::Off;
+                break;
+            case fra::ShadowQuality::Off:
                 next = fra::ShadowQuality::Low;
                 break;
         }
@@ -478,7 +498,7 @@ class MainApp final : public fra::AbstractApplication
         mRenderer->SetShadowQuality(next);
 
         static constexpr const char* kNames[] = { "Low", "Medium", "High",
-                                                  "Ultra" };
+                                                  "Ultra", "Off" };
         std::cout << "Shadow quality: " << kNames[static_cast<int>(next)]
                   << " [F5]\n";
         updateTitle();
@@ -500,12 +520,15 @@ class MainApp final : public fra::AbstractApplication
                 next = fra::SsaoQuality::Ultra;
                 break;
             case fra::SsaoQuality::Ultra:
+                next = fra::SsaoQuality::Off;
+                break;
+            case fra::SsaoQuality::Off:
                 next = fra::SsaoQuality::Low;
                 break;
         }
         mRenderer->SetSsaoQuality(next);
         static constexpr const char* kNames[] = { "Low", "Medium", "High",
-                                                  "Ultra" };
+                                                  "Ultra", "Off" };
         std::cout << "SSAO quality: " << kNames[static_cast<int>(next)]
                   << " [F6]\n";
         updateTitle();
@@ -527,12 +550,15 @@ class MainApp final : public fra::AbstractApplication
                 next = fra::TaaQuality::Ultra;
                 break;
             case fra::TaaQuality::Ultra:
+                next = fra::TaaQuality::Off;
+                break;
+            case fra::TaaQuality::Off:
                 next = fra::TaaQuality::Low;
                 break;
         }
         mRenderer->SetTaaQuality(next);
         static constexpr const char* kNames[] = { "Low", "Medium", "High",
-                                                  "Ultra" };
+                                                  "Ultra", "Off" };
         std::cout << "TAA quality: " << kNames[static_cast<int>(next)]
                   << " [F7]\n";
         updateTitle();
@@ -554,12 +580,15 @@ class MainApp final : public fra::AbstractApplication
                 next = fra::BloomQuality::Ultra;
                 break;
             case fra::BloomQuality::Ultra:
+                next = fra::BloomQuality::Off;
+                break;
+            case fra::BloomQuality::Off:
                 next = fra::BloomQuality::Low;
                 break;
         }
         mRenderer->SetBloomQuality(next);
         static constexpr const char* kNames[] = { "Low", "Medium", "High",
-                                                  "Ultra" };
+                                                  "Ultra", "Off" };
         std::cout << "Bloom quality: " << kNames[static_cast<int>(next)]
                   << " [F8]\n";
         updateTitle();
@@ -567,12 +596,12 @@ class MainApp final : public fra::AbstractApplication
 
     void updateTitle()
     {
-        static constexpr const char* kQuality[] = { "L", "M", "H", "U" };
+        static constexpr const char* kQuality[] = { "L", "M", "H", "U", "-" };
         static constexpr const char* kShadow[]  = {
             "all", "dir", "warmPt", "coolPt", "spots",
         };
         auto qName = [](int index) {
-            return (index >= 0 && index <= 3) ? kQuality[index] : "?";
+            return (index >= 0 && index <= 4) ? kQuality[index] : "?";
         };
         const char* shadowName =
             (mShadowCasterMode >= 0 && mShadowCasterMode <= 4)

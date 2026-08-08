@@ -53,6 +53,9 @@ namespace FREYA_NAMESPACE
 
     void ShadowFrameStage::Execute(RenderFrameContext& ctx)
     {
+        if (!ctx.options->enableShadows)
+            return;
+
         if (!ctx.shadow || !*ctx.shadow || !ctx.lights || !*ctx.lights)
             return;
 

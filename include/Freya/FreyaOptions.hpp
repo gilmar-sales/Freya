@@ -19,7 +19,8 @@ namespace FREYA_NAMESPACE
         Low,    ///< 512², 2 cascades, 2 spot, 2 point, 4 taps
         Medium, ///< 1024², 3 cascades, 4 spot, 2 point, 8 taps
         High,   ///< 2048², 4 cascades, 4 spot, 2 point, 16 taps
-        Ultra   ///< 4096², 4 cascades, 4 spot, 2 point, 16 taps
+        Ultra,  ///< 4096², 4 cascades, 4 spot, 2 point, 16 taps
+        Off     ///< skip shadow maps; lighting ignores castShadows
     };
 
     /**
@@ -30,7 +31,8 @@ namespace FREYA_NAMESPACE
         Low,    ///< quarter-res, softer / cheaper
         Medium, ///< half-res (default look)
         High,   ///< half-res, stronger occlusion
-        Ultra   ///< full-res, strongest
+        Ultra,  ///< full-res, strongest
+        Off     ///< lighting uses white AO fallback
     };
 
     /**
@@ -41,7 +43,8 @@ namespace FREYA_NAMESPACE
         Low,    ///< high current weight, short Halton period
         Medium, ///< balanced
         High,   ///< stable (default)
-        Ultra   ///< heaviest history blend
+        Ultra,  ///< heaviest history blend
+        Off     ///< no temporal resolve / Halton jitter
     };
 
     /**
@@ -52,7 +55,8 @@ namespace FREYA_NAMESPACE
         Low,    ///< quarter-res, higher threshold, weaker
         Medium, ///< half-res (default)
         High,   ///< half-res, stronger bloom
-        Ultra   ///< full-res, strongest
+        Ultra,  ///< full-res, strongest
+        Off     ///< composite bloom tap cleared to black
     };
 
     /**
@@ -100,9 +104,10 @@ namespace FREYA_NAMESPACE
 
         std::string shaderRoot = "./Resources/Shaders";
 
-        bool enableSsao  = true;
-        bool enableTaa   = true;
-        bool enableBloom = true;
+        bool enableShadows = true;
+        bool enableSsao    = true;
+        bool enableTaa     = true;
+        bool enableBloom   = true;
 
         /// 1 = full, 2 = half, 4 = quarter of render extent.
         std::uint32_t ssaoResolutionDivisor = 2;
@@ -124,6 +129,13 @@ namespace FREYA_NAMESPACE
 
     inline void ApplyShadowQuality(FreyaOptions& options, ShadowQuality quality)
     {
+        if (quality == ShadowQuality::Off)
+        {
+            options.enableShadows = false;
+            return;
+        }
+
+        options.enableShadows = true;
         switch (quality)
         {
             case ShadowQuality::Low:
@@ -154,11 +166,20 @@ namespace FREYA_NAMESPACE
                 options.maxPointShadows     = 2;
                 options.shadowSampleCount   = 16;
                 break;
+            case ShadowQuality::Off:
+                break;
         }
     }
 
     inline void ApplySsaoQuality(FreyaOptions& options, SsaoQuality quality)
     {
+        if (quality == SsaoQuality::Off)
+        {
+            options.enableSsao = false;
+            return;
+        }
+
+        options.enableSsao = true;
         switch (quality)
         {
             case SsaoQuality::Low:
@@ -189,11 +210,20 @@ namespace FREYA_NAMESPACE
                 options.ssaoPower             = 2.5f;
                 options.ssaoIntensity         = 1.6f;
                 break;
+            case SsaoQuality::Off:
+                break;
         }
     }
 
     inline void ApplyTaaQuality(FreyaOptions& options, TaaQuality quality)
     {
+        if (quality == TaaQuality::Off)
+        {
+            options.enableTaa = false;
+            return;
+        }
+
+        options.enableTaa = true;
         switch (quality)
         {
             case TaaQuality::Low:
@@ -212,11 +242,20 @@ namespace FREYA_NAMESPACE
                 options.taaCurrentWeight = 0.06f;
                 options.taaHaltonPeriod  = 16;
                 break;
+            case TaaQuality::Off:
+                break;
         }
     }
 
     inline void ApplyBloomQuality(FreyaOptions& options, BloomQuality quality)
     {
+        if (quality == BloomQuality::Off)
+        {
+            options.enableBloom = false;
+            return;
+        }
+
+        options.enableBloom = true;
         switch (quality)
         {
             case BloomQuality::Low:
@@ -242,6 +281,8 @@ namespace FREYA_NAMESPACE
                 options.bloomThreshold         = 0.55f;
                 options.bloomExtractScale      = 1.2f;
                 options.bloomStrength          = 1.2f;
+                break;
+            case BloomQuality::Off:
                 break;
         }
     }
