@@ -111,10 +111,10 @@ namespace FREYA_NAMESPACE
 
         /// 1 = full, 2 = half, 4 = quarter of render extent.
         std::uint32_t ssaoResolutionDivisor = 2;
-        float         ssaoRadius            = 1.25f;
-        float         ssaoBias              = 0.04f;
-        float         ssaoPower             = 2.0f;
-        float         ssaoIntensity         = 1.35f;
+        float         ssaoRadius            = 1.15f;
+        float         ssaoBias              = 0.045f;
+        float         ssaoPower             = 1.5f;
+        float         ssaoIntensity         = 1.0f;
 
         /// Blend weight toward current frame (0–1). Higher = less ghosting.
         float taaCurrentWeight = 0.1f;
@@ -196,29 +196,29 @@ namespace FREYA_NAMESPACE
                 options.ssaoResolutionDivisor = 4;
                 options.ssaoRadius            = 1.0f;
                 options.ssaoBias              = 0.05f;
-                options.ssaoPower             = 1.5f;
+                options.ssaoPower             = 1.4f;
                 options.ssaoIntensity         = 1.0f;
                 break;
             case SsaoQuality::Medium:
                 options.ssaoResolutionDivisor = 2;
-                options.ssaoRadius            = 1.25f;
-                options.ssaoBias              = 0.04f;
-                options.ssaoPower             = 2.0f;
-                options.ssaoIntensity         = 1.35f;
+                options.ssaoRadius            = 1.15f;
+                options.ssaoBias              = 0.045f;
+                options.ssaoPower             = 1.5f;
+                options.ssaoIntensity         = 1.0f;
                 break;
             case SsaoQuality::High:
                 options.ssaoResolutionDivisor = 2;
-                options.ssaoRadius            = 1.5f;
-                options.ssaoBias              = 0.035f;
-                options.ssaoPower             = 2.2f;
-                options.ssaoIntensity         = 1.5f;
+                options.ssaoRadius            = 1.25f;
+                options.ssaoBias              = 0.04f;
+                options.ssaoPower             = 1.6f;
+                options.ssaoIntensity         = 1.0f;
                 break;
             case SsaoQuality::Ultra:
                 options.ssaoResolutionDivisor = 1;
-                options.ssaoRadius            = 1.75f;
-                options.ssaoBias              = 0.03f;
-                options.ssaoPower             = 2.5f;
-                options.ssaoIntensity         = 1.6f;
+                options.ssaoRadius            = 1.35f;
+                options.ssaoBias              = 0.04f;
+                options.ssaoPower             = 1.7f;
+                options.ssaoIntensity         = 1.0f;
                 break;
             case SsaoQuality::Off:
                 break;

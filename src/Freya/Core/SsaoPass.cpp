@@ -330,19 +330,21 @@ namespace FREYA_NAMESPACE
 
         struct BlurPush
         {
-            float invResolution[2];
-            float direction[2];
-            float depthSigma;
-            float normalSigma;
-            float reverseZ;
-            float pad;
+            float     invResolution[2];
+            float     direction[2];
+            float     depthSigma;
+            float     normalSigma;
+            float     reverseZ;
+            float     pad;
+            glm::mat4 invProjection;
         };
 
-        auto runBlur = [&](const vk::DescriptorSet set,
-                           const skr::Arc<Image>&  dst,
-                           const float             dirX,
-                           const float             dirY,
-                           const DebugRegion&      region) {
+        auto runBlur = [&](const vk::DescriptorSet   set,
+                           const skr::Arc<Image>&    dst,
+                           const float               dirX,
+                           const float               dirY,
+                           const DebugRegion&        region,
+                           const vk::PipelineStageFlags dstStage) {
             mDevice->BeginDebugLabel(commandBuffer, region);
 
             barrierColor(commandPool,
@@ -360,9 +362,15 @@ namespace FREYA_NAMESPACE
                 vk::PipelineBindPoint::eCompute, mBlurPipelineLayout, 0, 1,
                 &set, 0, nullptr);
 
+            // View-space bilateral: sigma ≈ 0.5 → 1/(2σ²) = 2.
             BlurPush push {
-                { cam.res.x, cam.res.y }, { dirX, dirY }, 100.0f, 32.0f,
-                reverseZ ? 1.0f : 0.0f,   0.0f,
+                { cam.res.x, cam.res.y },
+                { dirX, dirY },
+                2.0f,
+                32.0f,
+                reverseZ ? 1.0f : 0.0f,
+                0.0f,
+                cam.invProjection,
             };
             commandBuffer.pushConstants(
                 mBlurPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
@@ -376,13 +384,16 @@ namespace FREYA_NAMESPACE
                          vk::AccessFlagBits::eShaderWrite,
                          vk::AccessFlagBits::eShaderRead,
                          vk::PipelineStageFlagBits::eComputeShader,
-                         vk::PipelineStageFlagBits::eFragmentShader);
+                         dstStage);
 
             mDevice->EndDebugLabel(commandBuffer);
         };
 
-        runBlur(mBlurSetH, mBlurImages[0], 1.0f, 0.0f, DebugLabel::SsaoBlurH);
-        runBlur(mBlurSetV, mBlurImages[1], 0.0f, 1.0f, DebugLabel::SsaoBlurV);
+        // H→V is compute→compute; final output is sampled by lighting.
+        runBlur(mBlurSetH, mBlurImages[0], 1.0f, 0.0f, DebugLabel::SsaoBlurH,
+                vk::PipelineStageFlagBits::eComputeShader);
+        runBlur(mBlurSetV, mBlurImages[1], 0.0f, 1.0f, DebugLabel::SsaoBlurV,
+                vk::PipelineStageFlagBits::eFragmentShader);
 
         mDevice->EndDebugLabel(commandBuffer);
     }

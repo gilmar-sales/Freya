@@ -83,7 +83,8 @@ void main() {
     float ao = 1.0;
     if (weightSum > 0.5)
         ao = 1.0 - (occlusion / weightSum);
-    ao = pow(clamp(ao, 0.0, 1.0), cam.params.z);
-    ao = mix(1.0, ao, clamp(cam.params.w, 0.0, 2.0));
-    imageStore(ssaoOut, pixel, vec4(ao));
+    // power > 1 increases contrast (darker creases); intensity blends AO in.
+    ao = pow(clamp(ao, 0.0, 1.0), max(cam.params.z, 1e-3));
+    ao = mix(1.0, ao, clamp(cam.params.w, 0.0, 1.0));
+    imageStore(ssaoOut, pixel, vec4(clamp(ao, 0.0, 1.0)));
 }

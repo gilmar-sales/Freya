@@ -58,10 +58,10 @@ namespace FREYA_NAMESPACE
                       const glm::mat4&             view,
                       const glm::mat4&             unjitteredProjection,
                       bool                         reverseZ,
-                      float                        radius    = 1.25f,
-                      float                        bias      = 0.04f,
-                      float                        power     = 2.0f,
-                      float                        intensity = 1.35f) const;
+                      float                        radius    = 1.15f,
+                      float                        bias      = 0.045f,
+                      float                        power     = 1.5f,
+                      float                        intensity = 1.0f) const;
 
       private:
         void ensureDescriptors(const skr::Arc<Image>& depthImage,

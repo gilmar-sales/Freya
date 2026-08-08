@@ -190,7 +190,7 @@ namespace FREYA_NAMESPACE
             vk::PushConstantRange()
                 .setStageFlags(vk::ShaderStageFlagBits::eCompute)
                 .setOffset(0)
-                .setSize(sizeof(float) * 8);
+                .setSize(sizeof(float) * 8 + sizeof(glm::mat4));
         auto blurPipelineLayout = mDevice->Get().createPipelineLayout(
             vk::PipelineLayoutCreateInfo()
                 .setSetLayouts(blurSetLayout)

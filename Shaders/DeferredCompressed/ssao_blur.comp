@@ -1,6 +1,8 @@
 #version 450
 
-// Cheap bilateral blur (edge-aware). Runs at SSAO resolution.
+// Separable bilateral blur (edge-aware). Runs at SSAO resolution.
+// Radius matches the 4x4 noise tile so high-frequency AO grain is removed
+// without bleeding across geometric edges.
 layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(binding = 0) uniform sampler2D ssaoIn;
@@ -11,11 +13,18 @@ layout(binding = 3, r8) writeonly uniform image2D ssaoOut;
 layout(push_constant) uniform PC {
     vec2  invResolution;
     vec2  direction;
-    float depthSigma;
+    float depthSigma;  // 1 / (2 * sigma^2) in view units
     float normalSigma;
     float reverseZ;
     float _pad;
+    mat4  invProjection;
 } pc;
+
+vec3 ViewPosFromDepth(vec2 uv, float depth) {
+    vec4 clip = vec4(uv * 2.0 - 1.0, depth, 1.0);
+    vec4 view = pc.invProjection * clip;
+    return view.xyz / view.w;
+}
 
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
@@ -35,12 +44,16 @@ void main() {
         return;
     }
 
-    const float kWeights[3] = float[](0.2941176, 0.2352941, 0.1176470);
+    float centerViewZ = ViewPosFromDepth(uv, centerDepth).z;
+
+    // 9-tap separable Gaussian, covering the 4x4 SSAO noise period.
+    const float kWeights[5] =
+        float[](0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216);
 
     float result = centerAO * kWeights[0];
     float weightSum = kWeights[0];
 
-    for (int i = 1; i < 3; ++i) {
+    for (int i = 1; i < 5; ++i) {
         vec2 offset = pc.direction * float(i) * pc.invResolution;
         for (int s = -1; s <= 1; s += 2) {
             vec2 sampleUV = uv + offset * float(s);
@@ -49,7 +62,8 @@ void main() {
             vec3 sampleN =
                 normalize(textureLod(normalBuffer, sampleUV, 0.0).xyz * 2.0 - 1.0);
 
-            float depthDiff = abs(sampleDepth - centerDepth);
+            float sampleViewZ = ViewPosFromDepth(sampleUV, sampleDepth).z;
+            float depthDiff = abs(sampleViewZ - centerViewZ);
             float depthW = exp(-depthDiff * depthDiff * pc.depthSigma);
             float nDot = max(dot(centerN, sampleN), 0.0);
             float normalW = pow(nDot, pc.normalSigma);
