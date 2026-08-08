@@ -66,7 +66,7 @@ namespace FREYA_NAMESPACE
                           const skr::Arc<CommandPool>& commandPool) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
-        mDevice->BeginDebugLabel(commandBuffer, "Bloom Render Pass");
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::Bloom);
 
         auto clearValues = std::vector<vk::ClearValue> {
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // threshold
@@ -109,7 +109,7 @@ namespace FREYA_NAMESPACE
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                                    mPipelines[subpass]);
 
-        mDevice->BeginDebugLabel(commandBuffer, GetSubpassLabel(subpass));
+        mDevice->BeginDebugLabel(commandBuffer, GetSubpassRegion(subpass));
         mLabelActive = true;
 
         if (subpass == BloomThresholdSubpass ||
@@ -168,16 +168,21 @@ namespace FREYA_NAMESPACE
 
     const char* BloomPass::GetSubpassLabel(const std::uint32_t subpass)
     {
+        return GetSubpassRegion(subpass).name;
+    }
+
+    DebugRegion BloomPass::GetSubpassRegion(const std::uint32_t subpass)
+    {
         switch (subpass)
         {
             case BloomThresholdSubpass:
-                return "Bloom Threshold";
+                return DebugLabel::BloomThreshold;
             case BloomDownsampleSubpass:
-                return "Bloom Downsample";
+                return DebugLabel::BloomDownsample;
             case BloomUpsampleSubpass:
-                return "Bloom Upsample";
+                return DebugLabel::BloomUpsample;
             default:
-                return "Bloom Unknown";
+                return { "Bloom Unknown", DebugLabel::BloomColor };
         }
     }
 } // namespace FREYA_NAMESPACE

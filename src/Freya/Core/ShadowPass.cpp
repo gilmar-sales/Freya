@@ -507,7 +507,7 @@ namespace FREYA_NAMESPACE
                             const std::function<void()>& drawScene) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
-        mDevice->BeginDebugLabel(commandBuffer, "Shadow Pass");
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::Shadow);
 
         renderCascades(commandPool, drawScene);
         renderSpots(commandPool, drawScene);
@@ -524,7 +524,7 @@ namespace FREYA_NAMESPACE
             return;
 
         auto commandBuffer = commandPool->GetCommandBuffer();
-        mDevice->BeginDebugLabel(commandBuffer, "CSM Cascades");
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::ShadowCascades);
 
         const auto viewport =
             vk::Viewport()
@@ -546,7 +546,8 @@ namespace FREYA_NAMESPACE
         {
             char label[64];
             std::snprintf(label, sizeof(label), "CSM Cascade %u", i);
-            mDevice->BeginDebugLabel(commandBuffer, label);
+            mDevice->BeginDebugLabel(
+                commandBuffer, label, DebugLabel::ShadowColor);
 
             commandBuffer.beginRenderPass(
                 vk::RenderPassBeginInfo()
@@ -593,7 +594,7 @@ namespace FREYA_NAMESPACE
             return;
 
         auto commandBuffer = commandPool->GetCommandBuffer();
-        mDevice->BeginDebugLabel(commandBuffer, "Spot Shadows");
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::ShadowSpots);
 
         const auto viewport =
             vk::Viewport()
@@ -616,7 +617,8 @@ namespace FREYA_NAMESPACE
             char label[64];
             std::snprintf(label, sizeof(label), "Spot Shadow %u%s", i,
                           (i < mActiveSpotCount) ? "" : " (clear)");
-            mDevice->BeginDebugLabel(commandBuffer, label);
+            mDevice->BeginDebugLabel(
+                commandBuffer, label, DebugLabel::ShadowColor);
 
             commandBuffer.beginRenderPass(
                 vk::RenderPassBeginInfo()
@@ -666,7 +668,7 @@ namespace FREYA_NAMESPACE
             return;
 
         auto commandBuffer = commandPool->GetCommandBuffer();
-        mDevice->BeginDebugLabel(commandBuffer, "Point Shadows");
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::ShadowPoints);
 
         const auto viewport =
             vk::Viewport()
@@ -701,7 +703,8 @@ namespace FREYA_NAMESPACE
                 char label[64];
                 std::snprintf(label, sizeof(label), "Point Shadow %u Face %u%s",
                               p, face, active ? "" : " (clear)");
-                mDevice->BeginDebugLabel(commandBuffer, label);
+                mDevice->BeginDebugLabel(
+                    commandBuffer, label, DebugLabel::ShadowColor);
 
                 commandBuffer.beginRenderPass(
                     vk::RenderPassBeginInfo()

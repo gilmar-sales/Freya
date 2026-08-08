@@ -144,7 +144,7 @@ namespace FREYA_NAMESPACE
                 nullptr, toSampled);
         }
 
-        mDevice->BeginDebugLabel(commandBuffer, "Deferred");
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::DeferredGeometry);
 
         auto clearValues = std::vector<vk::ClearValue> {
             vk::ClearValue().setDepthStencil(
@@ -198,8 +198,16 @@ namespace FREYA_NAMESPACE
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                                    mPipelines[subpass]);
 
-        mDevice->BeginDebugLabel(commandBuffer, GetSubpassLabel(subpass));
-        mLabelActive    = true;
+        // Lighting uses a single pass label from BeginLighting().
+        if (subpass != DefLightingPass)
+        {
+            mDevice->BeginDebugLabel(commandBuffer, GetSubpassRegion(subpass));
+            mLabelActive = true;
+        }
+        else
+        {
+            mLabelActive = false;
+        }
         mCurrentSubpass = subpass;
 
         if (subpass == DefLightingPass)
@@ -271,7 +279,7 @@ namespace FREYA_NAMESPACE
             mBoundSsaoView = ssaoView;
         }
 
-        mDevice->BeginDebugLabel(commandBuffer, "Lighting");
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::DeferredLighting);
 
         commandBuffer.beginRenderPass(
             vk::RenderPassBeginInfo()
@@ -331,16 +339,22 @@ namespace FREYA_NAMESPACE
     const char* DeferredCompressedPass::GetSubpassLabel(
         const std::uint32_t subpass)
     {
+        return GetSubpassRegion(subpass).name;
+    }
+
+    DebugRegion DeferredCompressedPass::GetSubpassRegion(
+        const std::uint32_t subpass)
+    {
         switch (subpass)
         {
             case DefDepthPrePass:
-                return "Depth Pre-pass";
+                return DebugLabel::DepthPrePass;
             case DefGBufferPass:
-                return "G-buffer";
+                return DebugLabel::GBuffer;
             case DefLightingPass:
-                return "Lighting";
+                return DebugLabel::DeferredLighting;
             default:
-                return "Unknown";
+                return { "Unknown", DebugLabel::GeometryColor };
         }
     }
 

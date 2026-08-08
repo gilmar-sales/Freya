@@ -337,9 +337,8 @@ class MainApp final : public fra::AbstractApplication
             const glm::vec3 pos(kOrbitRadius * std::cos(angle),
                                 -6.0f,
                                 kOrbitRadius * std::sin(angle));
-            mModelMatrix[0] =
-                glm::scale(glm::translate(glm::mat4(1.0f), pos),
-                           glm::vec3(28.0f));
+            mModelMatrix[0] = glm::scale(glm::translate(glm::mat4(1.0f), pos),
+                                         glm::vec3(28.0f));
         }
 
         mRenderer->BeginFrame();

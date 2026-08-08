@@ -250,7 +250,7 @@ namespace FREYA_NAMESPACE
         const float                  intensity) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
-        mDevice->BeginDebugLabel(commandBuffer, "SSAO");
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::Ssao);
 
         SsaoCameraBuffer cam {};
         cam.invProjection = glm::inverse(unjitteredProjection);
@@ -298,6 +298,10 @@ namespace FREYA_NAMESPACE
                          vk::PipelineStageFlagBits::eComputeShader);
         }
 
+        const auto groupsX = (mSsaoExtent.width + 7) / 8;
+        const auto groupsY = (mSsaoExtent.height + 7) / 8;
+
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::SsaoAoCompute);
         barrierColor(commandPool,
                      mSsaoRawImage->GetImage(),
                      vk::ImageLayout::eUndefined,
@@ -312,9 +316,6 @@ namespace FREYA_NAMESPACE
         commandBuffer.bindDescriptorSets(
             vk::PipelineBindPoint::eCompute, mSsaoPipelineLayout, 0, 1,
             &mSsaoSet, 0, nullptr);
-
-        const auto groupsX = (mSsaoExtent.width + 7) / 8;
-        const auto groupsY = (mSsaoExtent.height + 7) / 8;
         commandBuffer.dispatch(groupsX, groupsY, 1);
 
         barrierColor(commandPool,
@@ -325,6 +326,7 @@ namespace FREYA_NAMESPACE
                      vk::AccessFlagBits::eShaderRead,
                      vk::PipelineStageFlagBits::eComputeShader,
                      vk::PipelineStageFlagBits::eComputeShader);
+        mDevice->EndDebugLabel(commandBuffer);
 
         struct BlurPush
         {
@@ -339,7 +341,10 @@ namespace FREYA_NAMESPACE
         auto runBlur = [&](const vk::DescriptorSet set,
                            const skr::Arc<Image>&  dst,
                            const float             dirX,
-                           const float             dirY) {
+                           const float             dirY,
+                           const DebugRegion&      region) {
+            mDevice->BeginDebugLabel(commandBuffer, region);
+
             barrierColor(commandPool,
                          dst->GetImage(),
                          vk::ImageLayout::eUndefined,
@@ -372,10 +377,12 @@ namespace FREYA_NAMESPACE
                          vk::AccessFlagBits::eShaderRead,
                          vk::PipelineStageFlagBits::eComputeShader,
                          vk::PipelineStageFlagBits::eFragmentShader);
+
+            mDevice->EndDebugLabel(commandBuffer);
         };
 
-        runBlur(mBlurSetH, mBlurImages[0], 1.0f, 0.0f);
-        runBlur(mBlurSetV, mBlurImages[1], 0.0f, 1.0f);
+        runBlur(mBlurSetH, mBlurImages[0], 1.0f, 0.0f, DebugLabel::SsaoBlurH);
+        runBlur(mBlurSetV, mBlurImages[1], 0.0f, 1.0f, DebugLabel::SsaoBlurV);
 
         mDevice->EndDebugLabel(commandBuffer);
     }

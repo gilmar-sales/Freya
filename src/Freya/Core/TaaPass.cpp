@@ -149,7 +149,7 @@ namespace FREYA_NAMESPACE
                            const skr::Arc<Image>&       depth) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
-        mDevice->BeginDebugLabel(commandBuffer, "TAA Resolve");
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::Taa);
 
         ensureSceneDescriptors(sceneColor, velocity, depth);
 

@@ -103,5 +103,6 @@ namespace FREYA_NAMESPACE
         mutable bool mLabelActive = false;
 
         static const char* GetSubpassLabel(std::uint32_t subpass);
+        static DebugRegion GetSubpassRegion(std::uint32_t subpass);
     };
 } // namespace FREYA_NAMESPACE

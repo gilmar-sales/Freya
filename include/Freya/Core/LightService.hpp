@@ -261,10 +261,7 @@ namespace FREYA_NAMESPACE
          */
         void SetShadowsEnabled(bool enabled) { mShadowsEnabled = enabled; }
 
-        [[nodiscard]] bool GetShadowsEnabled() const
-        {
-            return mShadowsEnabled;
-        }
+        [[nodiscard]] bool GetShadowsEnabled() const { return mShadowsEnabled; }
 
         /**
          * @brief Returns whether the service has any lights.
@@ -281,9 +278,9 @@ namespace FREYA_NAMESPACE
         std::uint32_t    mFrameCount;
         std::uint32_t    mMaxLights;
         std::uint32_t    mLightCount;
-        float            mIblIntensity    = 0.7f;
-        float            mExposure        = 0.7f;
-        bool             mShadowsEnabled  = true;
+        float            mIblIntensity   = 0.7f;
+        float            mExposure       = 0.7f;
+        bool             mShadowsEnabled = true;
 
         std::vector<Light> mLights;
         skr::Arc<Buffer>   mBuffer;

@@ -40,10 +40,13 @@ namespace FREYA_NAMESPACE
 
     void CompositePass::Begin(const skr::Arc<SwapChain>    swapChain,
                               const skr::Arc<CommandPool>& commandPool,
-                              const vk::ClearValue&        clearColor) const
+                              const vk::ClearValue&        clearColor,
+                              const DebugRegion&           region) const
     {
         auto       commandBuffer = commandPool->GetCommandBuffer();
         const auto imageIndex    = swapChain->GetCurrentImageIndex();
+
+        mDevice->BeginDebugLabel(commandBuffer, region);
 
         auto clearValues = std::vector<vk::ClearValue> { clearColor };
 
@@ -61,10 +64,13 @@ namespace FREYA_NAMESPACE
                               const vk::Framebuffer        framebuffer,
                               const vk::Extent2D           extent,
                               const skr::Arc<CommandPool>& commandPool,
-                              const vk::ClearValue&        clearColor) const
+                              const vk::ClearValue&        clearColor,
+                              const DebugRegion&           region) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
         auto clearValues   = std::vector<vk::ClearValue> { clearColor };
+
+        mDevice->BeginDebugLabel(commandBuffer, region);
 
         commandBuffer.beginRenderPass(
             vk::RenderPassBeginInfo()
@@ -110,7 +116,9 @@ namespace FREYA_NAMESPACE
 
     void CompositePass::End(const skr::Arc<CommandPool> commandPool) const
     {
-        commandPool->GetCommandBuffer().endRenderPass();
+        auto commandBuffer = commandPool->GetCommandBuffer();
+        commandBuffer.endRenderPass();
+        mDevice->EndDebugLabel(commandBuffer);
     }
 
     void CompositePass::UpdateDescriptorSet(

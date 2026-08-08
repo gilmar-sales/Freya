@@ -197,6 +197,7 @@ namespace FREYA_NAMESPACE
         mutable vk::ImageView mBoundSsaoView  = {};
 
         static const char* GetSubpassLabel(std::uint32_t subpass);
+        static DebugRegion GetSubpassRegion(std::uint32_t subpass);
     };
 
 } // namespace FREYA_NAMESPACE

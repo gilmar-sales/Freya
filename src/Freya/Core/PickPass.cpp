@@ -127,6 +127,7 @@ namespace FREYA_NAMESPACE
         mUniformBuffer->Copy(&projection, sizeof(ProjectionUniformBuffer));
 
         auto& commandBuffer = commandPool->GetCommandBuffer();
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::Pick);
 
         const auto clearColor =
             vk::ClearColorValue().setUint32({ kPickMissId, 0u, 0u, 0u });
@@ -174,6 +175,7 @@ namespace FREYA_NAMESPACE
         drawScene();
 
         commandBuffer.endRenderPass();
+        mDevice->EndDebugLabel(commandBuffer);
     }
 
     void PickPass::PushEntityId(const skr::Arc<CommandPool>& commandPool,
@@ -201,6 +203,7 @@ namespace FREYA_NAMESPACE
         const auto clampedY = std::min(y, mExtent.height - 1);
 
         auto& commandBuffer = commandPool->GetCommandBuffer();
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::PickCopy);
 
         // Transition ID image from color-attachment (final layout of the pick
         // render pass: TransferSrcOptimal) — render pass already leaves it in
@@ -256,6 +259,8 @@ namespace FREYA_NAMESPACE
             mStagingBuffer->Get(),
             1,
             &region);
+
+        mDevice->EndDebugLabel(commandBuffer);
     }
 
     std::uint32_t PickPass::ReadPixel() const

@@ -103,12 +103,11 @@ namespace FREYA_NAMESPACE
                 glm::vec4(mLights[i].color, mLights[i].radius);
             data.lightDirectionsAndCutoff[i] =
                 glm::vec4(mLights[i].direction, mLights[i].innerCutoff);
-            data.lightOuterCutoffAndIntensity[i] =
-                glm::vec4(mLights[i].outerCutoff,
-                          mLights[i].intensity,
-                          mLights[i].halfHeight,
-                          (mShadowsEnabled && mLights[i].castShadows) ? 1.0f
-                                                                      : 0.0f);
+            data.lightOuterCutoffAndIntensity[i] = glm::vec4(
+                mLights[i].outerCutoff,
+                mLights[i].intensity,
+                mLights[i].halfHeight,
+                (mShadowsEnabled && mLights[i].castShadows) ? 1.0f : 0.0f);
             data.lightAreaTangents[i] = glm::vec4(mLights[i].tangent, 0.0f);
         }
 
@@ -186,12 +185,11 @@ namespace FREYA_NAMESPACE
                 glm::vec4(mLights[i].color, mLights[i].radius);
             data.lightDirectionsAndCutoff[i] =
                 glm::vec4(mLights[i].direction, mLights[i].innerCutoff);
-            data.lightOuterCutoffAndIntensity[i] =
-                glm::vec4(mLights[i].outerCutoff,
-                          mLights[i].intensity,
-                          mLights[i].halfHeight,
-                          (mShadowsEnabled && mLights[i].castShadows) ? 1.0f
-                                                                      : 0.0f);
+            data.lightOuterCutoffAndIntensity[i] = glm::vec4(
+                mLights[i].outerCutoff,
+                mLights[i].intensity,
+                mLights[i].halfHeight,
+                (mShadowsEnabled && mLights[i].castShadows) ? 1.0f : 0.0f);
             data.lightAreaTangents[i] = glm::vec4(mLights[i].tangent, 0.0f);
         }
 

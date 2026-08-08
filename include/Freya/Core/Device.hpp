@@ -1,6 +1,9 @@
 #pragma once
 
+#include "DebugLabels.hpp"
 #include "PhysicalDevice.hpp"
+
+#include <array>
 
 namespace FREYA_NAMESPACE
 {
@@ -122,9 +125,23 @@ namespace FREYA_NAMESPACE
          * @brief Begins a Vulkan debug-utils label on the command buffer.
          *
          * No-op when the extension is unavailable or in Release builds.
+         * Uses a neutral gray when no color is provided.
          */
         void BeginDebugLabel(const vk::CommandBuffer& cmd,
                              const char*              name) const;
+
+        /**
+         * @brief Begins a colored Vulkan debug-utils label.
+         */
+        void BeginDebugLabel(const vk::CommandBuffer&    cmd,
+                             const char*                 name,
+                             const std::array<float, 4>& color) const;
+
+        /**
+         * @brief Begins a debug-utils label from a shared DebugRegion.
+         */
+        void BeginDebugLabel(const vk::CommandBuffer& cmd,
+                             const DebugRegion&       region) const;
 
         /**
          * @brief Ends the current Vulkan debug-utils label.

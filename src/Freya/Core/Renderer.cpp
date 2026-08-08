@@ -14,6 +14,7 @@
 #include "Freya/Builders/TaaPassBuilder.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
+#include "Freya/Core/DebugLabels.hpp"
 #include "Freya/Core/FrameStages.hpp"
 #include "Freya/Core/PickPass.hpp"
 #include "Freya/Core/ShadowPass.hpp"
@@ -482,7 +483,7 @@ namespace FREYA_NAMESPACE
     void Renderer::beginUIPass()
     {
         mCompositePass->Begin(mSwapChain, mCommandPool,
-                              mFreyaOptions->clearColor);
+                              mFreyaOptions->clearColor, DebugLabel::UI);
 
         const auto extent        = mSwapChain->GetExtent();
         const auto commandBuffer = mCommandPool->GetCommandBuffer();
@@ -695,6 +696,7 @@ namespace FREYA_NAMESPACE
         const skr::Arc<CommandPool>& commandPool) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::BloomBlit);
 
         auto       bloomUpImage = mBloomPass->GetBloomUpImage();
         const auto extent       = getRenderExtent();
@@ -797,6 +799,8 @@ namespace FREYA_NAMESPACE
             vk::PipelineStageFlagBits::eTransfer,
             vk::PipelineStageFlagBits::eFragmentShader, vk::DependencyFlags(),
             nullptr, nullptr, finalBarrier);
+
+        mDevice->EndDebugLabel(commandBuffer);
     }
 
     vk::PipelineLayout Renderer::GetActivePipelineLayout() const
@@ -1040,9 +1044,18 @@ namespace FREYA_NAMESPACE
 
     void Renderer::EndScene()
     {
-        auto ctx = makeFrameContext();
+        auto       ctx           = makeFrameContext();
+        const auto commandBuffer = mCommandPool->GetCommandBuffer();
+
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::Frame);
         for (auto& stage : mFrameStages)
+        {
+            mDevice->BeginDebugLabel(commandBuffer,
+                                     DebugLabel::ForStage(stage->Name()));
             stage->Execute(ctx);
+            mDevice->EndDebugLabel(commandBuffer);
+        }
+        mDevice->EndDebugLabel(commandBuffer);
     }
 
     void Renderer::Present()

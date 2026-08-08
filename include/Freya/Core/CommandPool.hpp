@@ -35,6 +35,14 @@ namespace FREYA_NAMESPACE
         vk::CommandPool& Get() { return mCommandPool; }
 
         /**
+         * @brief Returns the owning logical device.
+         */
+        [[nodiscard]] const skr::Arc<Device>& GetDevice() const
+        {
+            return mDevice;
+        }
+
+        /**
          * @brief Returns the command buffer at current index.
          * @note Index wraps based on frame count
          */

@@ -7,6 +7,8 @@
 #include "Freya/Builders/SsaoPassBuilder.hpp"
 #include "Freya/Builders/TaaPassBuilder.hpp"
 #include "Freya/Core/BloomPass.hpp"
+#include "Freya/Core/DebugLabels.hpp"
+#include "Freya/Core/Device.hpp"
 #include "Freya/Core/RenderFrameContext.hpp"
 
 #include <glm/gtc/matrix_inverse.hpp>
@@ -206,6 +208,9 @@ namespace FREYA_NAMESPACE
             if (ctx.bloomResultImage && *ctx.bloomResultImage)
             {
                 const auto commandBuffer = ctx.commandPool->GetCommandBuffer();
+                ctx.commandPool->GetDevice()->BeginDebugLabel(
+                    commandBuffer, DebugLabel::BloomClear);
+
                 const auto range =
                     vk::ImageSubresourceRange()
                         .setAspectMask(vk::ImageAspectFlagBits::eColor)
@@ -248,6 +253,8 @@ namespace FREYA_NAMESPACE
                     nullptr,
                     nullptr,
                     barrier);
+
+                ctx.commandPool->GetDevice()->EndDebugLabel(commandBuffer);
             }
             return;
         }

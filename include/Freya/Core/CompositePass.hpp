@@ -40,7 +40,8 @@ namespace FREYA_NAMESPACE
 
         void Begin(const skr::Arc<SwapChain>    swapChain,
                    const skr::Arc<CommandPool>& commandPool,
-                   const vk::ClearValue&        clearColor) const;
+                   const vk::ClearValue&        clearColor,
+                   const DebugRegion& region = DebugLabel::Composite) const;
 
         /**
          * @brief Begin composite into a custom framebuffer (e.g. RenderTarget).
@@ -53,7 +54,8 @@ namespace FREYA_NAMESPACE
                    vk::Framebuffer              framebuffer,
                    vk::Extent2D                 extent,
                    const skr::Arc<CommandPool>& commandPool,
-                   const vk::ClearValue&        clearColor) const;
+                   const vk::ClearValue&        clearColor,
+                   const DebugRegion& region = DebugLabel::Composite) const;
 
         void BindPipeline(const skr::Arc<CommandPool>& commandPool,
                           std::uint32_t                frameIndex) const;
