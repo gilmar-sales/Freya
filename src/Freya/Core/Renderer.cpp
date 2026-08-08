@@ -745,8 +745,10 @@ namespace FREYA_NAMESPACE
 
         auto       bloomUpImage = mBloomPass->GetBloomUpImage();
         const auto extent       = getRenderExtent();
-        const auto halfW        = static_cast<int32_t>(extent.width / 2);
-        const auto halfH        = static_cast<int32_t>(extent.height / 2);
+        const auto bloomExtent  = ScaledExtent(
+            extent, mFreyaOptions->bloomResolutionDivisor);
+        const auto srcW = static_cast<int32_t>(bloomExtent.width);
+        const auto srcH = static_cast<int32_t>(bloomExtent.height);
 
         // Transition bloom up to transfer source
         auto srcBarrier =
@@ -790,7 +792,7 @@ namespace FREYA_NAMESPACE
             vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(),
             nullptr, nullptr, dstBarrier);
 
-        // Blit: half-res bloom up → full-res bloom result
+        // Blit: bloom resolution → full-res bloom result
         auto blitRegion =
             vk::ImageBlit {}
                 .setSrcSubresource(
@@ -806,8 +808,9 @@ namespace FREYA_NAMESPACE
                         .setBaseArrayLayer(0)
                         .setLayerCount(1));
 
-        auto srcOffsets = std::array { vk::Offset3D { 0, 0, 0 },
-                                       vk::Offset3D { halfW, halfH, 1 } };
+        auto srcOffsets =
+            std::array { vk::Offset3D { 0, 0, 0 },
+                         vk::Offset3D { srcW, srcH, 1 } };
         auto dstOffsets = std::array {
             vk::Offset3D { 0, 0, 0 },
             vk::Offset3D { static_cast<int32_t>(extent.width),
