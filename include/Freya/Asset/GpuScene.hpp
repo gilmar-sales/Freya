@@ -7,9 +7,9 @@
 
 namespace FREYA_NAMESPACE
 {
-    constexpr std::uint32_t kMaxBindlessTextures             = 1024;
-    constexpr std::uint32_t kMaxMeshInfos                    = 4096;
-    constexpr std::uint32_t kSceneInstanceFlagCastShadows    = 1u;
+    constexpr std::uint32_t kMaxBindlessTextures          = 1024;
+    constexpr std::uint32_t kMaxMeshInfos                 = 4096;
+    constexpr std::uint32_t kSceneInstanceFlagCastShadows = 1u;
 
     constexpr std::uint32_t kBindlessWhiteTexture = 0;
     constexpr std::uint32_t kBindlessBlackTexture = 1;
@@ -63,6 +63,11 @@ namespace FREYA_NAMESPACE
 
     /**
      * @brief Host upload record (prevModel filled by Renderer).
+     *
+     * Contract: prefer sorting by `(meshId, entityId)` before upload so
+     * Freya can form contiguous mesh batches and keep TAA history stable
+     * (prevModel is looked up by `entityId`). If already sorted that way
+     * (and by vertex/index chunk), Freya skips the internal sort.
      */
     struct SceneInstanceUpload
     {
@@ -94,7 +99,10 @@ namespace FREYA_NAMESPACE
     };
 
     /**
-     * @brief Cull push constants (std430-compatible layout, ≤128 bytes).
+     * @brief Cull push constants.
+     *
+     * Approach A: per-instance frustum test + atomic compaction into
+     * batched `VkDrawIndexedIndirectCommand`s (one draw per mesh run).
      */
     struct CullPushConstants
     {
@@ -105,7 +113,6 @@ namespace FREYA_NAMESPACE
         std::uint32_t _pad0         = 0;
     };
 
-    static_assert(sizeof(CullPushConstants) == 80,
-                  "CullPushConstants size");
+    static_assert(sizeof(CullPushConstants) == 80, "CullPushConstants size");
 
 } // namespace FREYA_NAMESPACE

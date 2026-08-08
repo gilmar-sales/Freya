@@ -10,12 +10,21 @@
 
 #include <limits>
 #include <span>
+#include <unordered_map>
 #include <vector>
 
 namespace FREYA_NAMESPACE
 {
     /**
-     * @brief GPU-driven scene: upload instances, frustum cull, multi-draw.
+     * @brief GPU-driven scene: batched MDI, frustum cull + compact, draw.
+     *
+     * Contiguous uploads with the same meshId become one indirect command.
+     * CullFrustum.comp (approach A) frustum-tests each instance and
+     * atomic-compacts survivors into [firstInstance, firstInstance+visible)
+     * of a compact transform buffer used for drawing.
+     *
+     * TAA history: `prevModel` is resolved by `entityId` (no full-vector
+     * copy). Prefer uploading sorted by `(meshId, entityId)`.
      */
     class IndirectDrawSystem
     {
@@ -30,7 +39,8 @@ namespace FREYA_NAMESPACE
             vk::PipelineLayout                           cullPipelineLayout,
             vk::DescriptorSetLayout                      cullSetLayout,
             vk::DescriptorPool                           cullDescriptorPool,
-            std::vector<vk::DescriptorSet>               cullDescriptorSets);
+            std::vector<vk::DescriptorSet>
+                cullDescriptorSets);
 
         ~IndirectDrawSystem();
 
@@ -40,10 +50,9 @@ namespace FREYA_NAMESPACE
         void SyncMeshInfo();
 
         /**
-         * @brief Dispatch frustum cull into the per-frame indirect buffer.
+         * @brief Reset batch instanceCounts, dispatch cull+compact.
          *
-         * Must be called outside of a render pass. Uses push constants for
-         * per-view params so many shadow/camera culls can share one CB.
+         * Must be called outside of a render pass.
          */
         void DispatchCull(const glm::mat4& viewProj, CullMode mode,
                           bool reverseZ = false);
@@ -56,14 +65,21 @@ namespace FREYA_NAMESPACE
             return mInstanceCount;
         }
 
+        [[nodiscard]] std::uint32_t GetBatchCount() const
+        {
+            return static_cast<std::uint32_t>(mIndirectCommands.size());
+        }
+
         [[nodiscard]] bool HasScene() const { return mInstanceCount > 0; }
 
       private:
         struct FrameResources
         {
             skr::Arc<Buffer> sceneInstances;
+            skr::Arc<Buffer> batchIds;
+            skr::Arc<Buffer> sourceTransforms;
+            skr::Arc<Buffer> compactTransforms;
             skr::Arc<Buffer> indirect;
-            skr::Arc<Buffer> instanceTransforms;
             std::uint32_t    capacity = 0;
         };
 
@@ -77,8 +93,9 @@ namespace FREYA_NAMESPACE
 
         void ensureCapacity(std::uint32_t instanceCount);
         void updateCullDescriptors(std::uint32_t frameIndex);
-        void fillIndirectCommandsCpu();
+        void buildBatches();
         void uploadFrameBuffers();
+        void uploadIndirectZeros();
 
         [[nodiscard]] FrameResources& currentFrame();
 
@@ -90,26 +107,27 @@ namespace FREYA_NAMESPACE
         std::uint32_t mFrameCount = 1;
         std::uint32_t mFrameIndex = 0;
 
-        vk::Pipeline                 mCullPipeline;
-        vk::PipelineLayout           mCullPipelineLayout;
-        vk::DescriptorSetLayout      mCullSetLayout;
-        vk::DescriptorPool           mCullDescriptorPool;
+        vk::Pipeline                   mCullPipeline;
+        vk::PipelineLayout             mCullPipelineLayout;
+        vk::DescriptorSetLayout        mCullSetLayout;
+        vk::DescriptorPool             mCullDescriptorPool;
         std::vector<vk::DescriptorSet> mCullDescriptorSets;
 
-        skr::Arc<Buffer>          mMeshInfoBuffer;
+        skr::Arc<Buffer>            mMeshInfoBuffer;
         std::vector<FrameResources> mFrames;
 
-        std::vector<MeshInfo>                       mMeshInfos;
-        std::vector<SceneInstance>                  mSceneInstances;
-        std::vector<InstanceTransform>              mInstanceTransforms;
-        std::vector<vk::DrawIndexedIndirectCommand> mIndirectCommands;
-        std::vector<ChunkRun>                       mChunkRuns;
+        std::vector<MeshInfo>                        mMeshInfos;
+        std::vector<SceneInstance>                   mSceneInstances;
+        std::vector<InstanceTransform>               mInstanceTransforms;
+        std::vector<InstanceTransform>               mPrevTransforms;
+        std::unordered_map<std::uint32_t, glm::mat4> mPrevModelByEntity;
+        std::vector<std::uint32_t>                   mInstanceBatchIds;
+        std::vector<vk::DrawIndexedIndirectCommand>  mIndirectCommands;
+        std::vector<ChunkRun>                        mChunkRuns;
 
         std::uint32_t mInstanceCount    = 0;
         std::uint32_t mMeshInfoCapacity = 0;
-        std::uint32_t mHistoryFrame =
-            std::numeric_limits<std::uint32_t>::max();
-        bool mMeshInfoDirty = true;
+        bool          mMeshInfoDirty    = true;
     };
 
 } // namespace FREYA_NAMESPACE

@@ -160,9 +160,10 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Upload the GPU-driven scene instance table for this frame.
          *
-         * Prefer this over SetInstanceModels + DrawInstanced. Freya keeps
-         * previous-frame transforms for TAA and issues Multi-Draw Indirect
-         * after a frustum cull compute pass.
+         * Prefer sorting by `(meshId, entityId)` so Freya forms one MDI
+         * batch per mesh and resolves TAA `prevModel` by `entityId`. Cull
+         * (approach A) frustum-tests each instance and atomic-compacts
+         * survivors into dense batches for `drawIndexedIndirect`.
          */
         void UploadSceneInstances(std::span<const SceneInstanceUpload> uploads);
 

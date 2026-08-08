@@ -29,6 +29,8 @@ namespace FREYA_NAMESPACE
                 ->SetFilePath(root + "/GpuDriven/CullFrustum.comp.spv")
                 .Build();
 
+        // 0 meshInfo, 1 scene, 2 indirect, 3 sourceXforms, 4 compact,
+        // 5 batchIds
         const auto bindings = std::array {
             vk::DescriptorSetLayoutBinding()
                 .setBinding(0)
@@ -42,6 +44,21 @@ namespace FREYA_NAMESPACE
                 .setStageFlags(vk::ShaderStageFlagBits::eCompute),
             vk::DescriptorSetLayoutBinding()
                 .setBinding(2)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eCompute),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(3)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eCompute),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(4)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eCompute),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(5)
                 .setDescriptorType(vk::DescriptorType::eStorageBuffer)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eCompute),
@@ -71,9 +88,8 @@ namespace FREYA_NAMESPACE
             mDevice->Get()
                 .createComputePipeline(
                     nullptr,
-                    vk::ComputePipelineCreateInfo()
-                        .setStage(stage)
-                        .setLayout(pipelineLayout))
+                    vk::ComputePipelineCreateInfo().setStage(stage).setLayout(
+                        pipelineLayout))
                 .value;
 
         const auto frameCount = std::max(1u, mFreyaOptions->frameCount);
@@ -81,12 +97,11 @@ namespace FREYA_NAMESPACE
         const auto poolSizes = std::array {
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eStorageBuffer)
-                .setDescriptorCount(3 * frameCount),
+                .setDescriptorCount(6 * frameCount),
         };
         const auto descriptorPool = mDevice->Get().createDescriptorPool(
-            vk::DescriptorPoolCreateInfo()
-                .setPoolSizes(poolSizes)
-                .setMaxSets(frameCount));
+            vk::DescriptorPoolCreateInfo().setPoolSizes(poolSizes).setMaxSets(
+                frameCount));
 
         std::vector<vk::DescriptorSetLayout> layouts(frameCount, setLayout);
         auto descriptorSets = mDevice->Get().allocateDescriptorSets(

@@ -14,8 +14,8 @@ auto meshIds = meshPool->CreateMeshFromFile("./Resources/Models/MyModel.fbx");
 std::uint32_t meshId = meshPool->CreateMesh(vertices, indices);
 ```
 
-Draw submission goes through `Renderer::Draw` / `DrawInstanced` (the pool’s
-draw helpers are internal).
+Draw submission goes through `Renderer::UploadSceneInstances` (preferred) or
+the legacy `Draw` / `DrawInstanced` helpers.
 
 ## TexturePool
 
@@ -78,18 +78,24 @@ struct Vertex
 };
 ```
 
-## Instancing
+## Instancing (GPU-driven MDI)
 
-Upload current-frame model matrices with `Renderer::SetInstanceModels`. Freya
-keeps the previous frame’s transforms internally for TAA motion vectors —
-apps do not track or upload `prevModel`.
+Prefer `Renderer::UploadSceneInstances` with one record per logical instance.
+Contiguous uploads that share the same `meshId` become **one** multi-draw
+indirect command; frustum cull (compute) atomic-compacts visible instances.
+
+**Contract:** sort by `(meshId, entityId)` when possible (Freya skips its
+internal sort if already ordered by vertex/index chunk + mesh + entity).
+TAA `prevModel` is resolved by `entityId` (first frame / new ids: `prev ==
+model`).
 
 ```cpp
-glm::mat4 models[N] = { /* current transforms */ };
-mRenderer->SetInstanceModels(models, N);
-mRenderer->DrawInstanced(meshId, materialId, N);
+std::vector<fra::SceneInstanceUpload> instances;
+// Prefer push order: same mesh contiguous, entityId ascending within mesh.
+instances.push_back({ .model = M, .meshId = mesh, .materialId = mat,
+                      .entityId = id, .castShadows = true });
+mRenderer->UploadSceneInstances(instances);
 ```
 
-Call once per frame (after `BeginFrame`) before queueing draws. When the
-instance count changes, Freya rebuilds history (`prev == current` for that
-frame).
+Legacy path: `SetInstanceModels` + `Draw` / `DrawInstanced` still works and is
+expanded into `UploadSceneInstances` internally.

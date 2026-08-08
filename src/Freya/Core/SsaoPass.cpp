@@ -339,11 +339,11 @@ namespace FREYA_NAMESPACE
             glm::mat4 invProjection;
         };
 
-        auto runBlur = [&](const vk::DescriptorSet   set,
-                           const skr::Arc<Image>&    dst,
-                           const float               dirX,
-                           const float               dirY,
-                           const DebugRegion&        region,
+        auto runBlur = [&](const vk::DescriptorSet      set,
+                           const skr::Arc<Image>&       dst,
+                           const float                  dirX,
+                           const float                  dirY,
+                           const DebugRegion&           region,
                            const vk::PipelineStageFlags dstStage) {
             mDevice->BeginDebugLabel(commandBuffer, region);
 

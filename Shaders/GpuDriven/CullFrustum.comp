@@ -2,6 +2,11 @@
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
+// Approach A: CPU emits one indirect draw per contiguous mesh batch
+// (instanceCount = 0). Each instance thread frustum-tests, then
+// atomicAdd's into that batch's instanceCount and writes a compacted
+// InstanceTransform so the VS sees a dense [firstInstance, +visible).
+
 struct MeshInfo {
     uint indexCount;
     uint firstIndex;
@@ -31,6 +36,15 @@ struct DrawIndexedIndirectCommand {
     uint firstInstance;
 };
 
+struct InstanceTransform {
+    mat4 model;
+    mat4 prevModel;
+    uint materialId;
+    uint entityId;
+    uint flags;
+    uint _pad;
+};
+
 layout(push_constant) uniform CullPC {
     mat4 viewProj;
     uint instanceCount;
@@ -47,8 +61,20 @@ layout(std430, binding = 1) readonly buffer SceneInstanceBuffer {
     SceneInstance instances[];
 };
 
-layout(std430, binding = 2) writeonly buffer IndirectBuffer {
+layout(std430, binding = 2) buffer IndirectBuffer {
     DrawIndexedIndirectCommand draws[];
+};
+
+layout(std430, binding = 3) readonly buffer SourceTransforms {
+    InstanceTransform sources[];
+};
+
+layout(std430, binding = 4) writeonly buffer CompactTransforms {
+    InstanceTransform compact[];
+};
+
+layout(std430, binding = 5) readonly buffer BatchIdBuffer {
+    uint batchIds[];
 };
 
 const uint kFlagCastShadows = 1u;
@@ -72,7 +98,6 @@ bool aabbOutsideFrustum(mat4 mvp, vec3 bmin, vec3 bmax)
     for (int i = 0; i < 8; ++i)
     {
         vec4 clip = mvp * vec4(corners[i], 1.0);
-        // Skip degenerate corners (behind camera with non-positive w).
         if (clip.w <= 0.0)
         {
             ++outNear;
@@ -84,7 +109,6 @@ bool aabbOutsideFrustum(mat4 mvp, vec3 bmin, vec3 bmax)
         if (clip.y >  clip.w) ++outTop;
         if (cull.reverseZ != 0u)
         {
-            // Reverse-Z Vulkan: near maps near 0, far near +w.
             if (clip.z < 0.0)     ++outFar;
             if (clip.z >  clip.w) ++outNear;
         }
@@ -106,26 +130,18 @@ void main()
         return;
 
     SceneInstance inst = instances[id];
-    MeshInfo mesh = meshes[inst.meshId];
-
-    DrawIndexedIndirectCommand cmd;
-    cmd.indexCount    = mesh.indexCount;
-    cmd.firstIndex    = mesh.firstIndex;
-    cmd.vertexOffset  = mesh.vertexOffset;
-    cmd.firstInstance = id;
-    cmd.instanceCount = 1;
 
     if (cull.cullMode == kCullModeShadow &&
         (inst.flags & kFlagCastShadows) == 0u)
-    {
-        cmd.instanceCount = 0;
-        draws[id] = cmd;
         return;
-    }
 
+    MeshInfo mesh = meshes[inst.meshId];
     mat4 mvp = cull.viewProj * inst.model;
     if (aabbOutsideFrustum(mvp, mesh.aabbMin.xyz, mesh.aabbMax.xyz))
-        cmd.instanceCount = 0;
+        return;
 
-    draws[id] = cmd;
+    uint batchId = batchIds[id];
+    uint slot = atomicAdd(draws[batchId].instanceCount, 1u);
+    uint dst = draws[batchId].firstInstance + slot;
+    compact[dst] = sources[id];
 }

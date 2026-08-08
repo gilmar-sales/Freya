@@ -33,6 +33,7 @@ namespace FREYA_NAMESPACE
             case BufferUsage::Instance:
             case BufferUsage::Vertex:
                 bufferInfo.setUsage(vk::BufferUsageFlagBits::eVertexBuffer |
+                                    vk::BufferUsageFlagBits::eStorageBuffer |
                                     vk::BufferUsageFlagBits::eTransferDst);
                 break;
             case BufferUsage::Index:
