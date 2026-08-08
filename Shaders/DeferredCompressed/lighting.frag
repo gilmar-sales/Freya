@@ -567,7 +567,9 @@ void main() {
     vec3 F0 = mix(vec3(0.04), albedo, metalness);
 
     bool receiveShadow = (flags == kFlagReceiveShadow);
-    vec3 totalLighting = calculateIBL(N, V, albedo, roughness, metalness, F0);
+    // Material AO + SSAO attenuate ambient/IBL only (not direct lights).
+    vec3 totalLighting =
+        calculateIBL(N, V, albedo, roughness, metalness, F0) * ao;
 
     for (int i = 0; i < int(lights.lightCount); i++) {
         float lightType = lights.lightPositions[i].w;
@@ -596,8 +598,6 @@ void main() {
             lights.lightOuterCutoffAndIntensity[i].y,
             fragPos, N, V, albedo, roughness, metalness, F0, receiveShadow);
     }
-
-    totalLighting *= ao;
 
     // Additive contribution; emissive already in Scene Color.
     outColor = vec4(totalLighting * lights.exposure, 0.0);
