@@ -155,6 +155,9 @@ namespace FREYA_NAMESPACE
         if (!ctx.deferred || !*ctx.deferred)
             return;
 
+        const bool ssaoDebug =
+            ctx.options->ssaoDebugView != SsaoDebugView::None;
+
         skr::Arc<Image> ssaoImage;
         if (ctx.ssao && *ctx.ssao)
         {
@@ -169,7 +172,9 @@ namespace FREYA_NAMESPACE
                 ctx.options->ssaoBias,
                 ctx.options->ssaoPower,
                 ctx.options->ssaoIntensity);
-            ssaoImage = (*ctx.ssao)->GetOutputImage();
+            ssaoImage = ctx.options->ssaoDebugView == SsaoDebugView::Raw
+                            ? (*ctx.ssao)->GetRawImage()
+                            : (*ctx.ssao)->GetOutputImage();
         }
         else if (ctx.ssaoFallbackImage && *ctx.ssaoFallbackImage)
         {
@@ -182,7 +187,8 @@ namespace FREYA_NAMESPACE
         (*ctx.deferred)
             ->BeginLighting(ctx.commandPool, ssaoImage, ctx.frameIndex);
         SetFullViewport(ctx.commandPool, ctx.renderExtent);
-        (*ctx.deferred)->DrawLighting(ctx.commandPool, ctx.frameIndex);
+        (*ctx.deferred)
+            ->DrawLighting(ctx.commandPool, ctx.frameIndex, ssaoDebug);
         (*ctx.deferred)->EndLighting(ctx.commandPool);
     }
 
@@ -356,7 +362,7 @@ namespace FREYA_NAMESPACE
         ctx.beginComposite(ctx.frameIndex,
                            compositeOpaque,
                            (*ctx.deferred)->GetTranslucentImage(),
-                           true);
+                           ctx.options->ssaoDebugView == SsaoDebugView::None);
         if (ctx.commitTaaHistory)
             ctx.commitTaaHistory();
     }

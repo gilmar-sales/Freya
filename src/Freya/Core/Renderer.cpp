@@ -440,6 +440,31 @@ namespace FREYA_NAMESPACE
         rebuildSceneResources();
     }
 
+    void Renderer::SetSsaoDebugView(const SsaoDebugView view)
+    {
+        mFreyaOptions->ssaoDebugView = view;
+    }
+
+    void Renderer::SetSsaoRadius(const float radius)
+    {
+        mFreyaOptions->ssaoRadius = std::max(0.0f, radius);
+    }
+
+    void Renderer::SetSsaoBias(const float bias)
+    {
+        mFreyaOptions->ssaoBias = std::max(0.0f, bias);
+    }
+
+    void Renderer::SetSsaoPower(const float power)
+    {
+        mFreyaOptions->ssaoPower = std::max(0.0f, power);
+    }
+
+    void Renderer::SetSsaoIntensity(const float intensity)
+    {
+        mFreyaOptions->ssaoIntensity = std::max(0.0f, intensity);
+    }
+
     void Renderer::SetTaaQuality(const TaaQuality quality)
     {
         if (mTaaQuality == quality)

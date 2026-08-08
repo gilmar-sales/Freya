@@ -264,6 +264,12 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        FreyaOptionsBuilder& SetSsaoDebugView(SsaoDebugView view)
+        {
+            mFreyaOptions->ssaoDebugView = view;
+            return *this;
+        }
+
         FreyaOptionsBuilder& SetSsaoIntensity(float intensity)
         {
             mFreyaOptions->ssaoIntensity = intensity;

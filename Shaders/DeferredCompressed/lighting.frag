@@ -55,6 +55,13 @@ layout(binding = 13) uniform sampler2DArrayShadow spotShadowMap;
 layout(binding = 14) uniform samplerCubeArrayShadow pointShadowMap;
 layout(binding = 15) uniform sampler2D inSsao;
 
+layout(push_constant) uniform LightingPush {
+    uint debugMode; // 0 = lit, 1 = grayscale SSAO
+    uint _pad0;
+    uint _pad1;
+    uint _pad2;
+} push;
+
 layout(location = 0) out vec4 outColor;
 
 const uint kFlagReceiveShadow = 1u;
@@ -543,6 +550,16 @@ vec3 ReconstructWorldPos(vec2 uv, float depth) {
 void main() {
     float depth = texture(inDepth, inUV).r;
     bool reverseZ = shadows.reverseZ.x > 0.5;
+    float ssao = texture(inSsao, inUV).r;
+
+    // Grayscale AO debug: sky stays white; no ACES (composite tonemap off).
+    if (push.debugMode != 0u) {
+        bool sky = reverseZ ? (depth <= 1e-6) : (depth >= 0.999999);
+        float ao = sky ? 1.0 : ssao;
+        outColor = vec4(vec3(ao), 0.0);
+        return;
+    }
+
     if (reverseZ ? (depth <= 1e-6) : (depth >= 0.999999)) {
         discard;
     }
@@ -560,7 +577,7 @@ void main() {
     vec3 albedo = srgbToLinear(albedoSample.rgb);
     float roughness = max(pbrSample.r, 0.045);
     float metalness = pbrSample.g;
-    float ao = min(pbrSample.b, texture(inSsao, inUV).r);
+    float ao = min(pbrSample.b, ssao);
 
     vec3 N = normalize(normalSample.rgb * 2.0 - 1.0);
     vec3 V = normalize(lights.viewPosition.xyz - fragPos);

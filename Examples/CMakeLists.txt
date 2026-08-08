@@ -1,1 +1,2 @@
 add_subdirectory(IndustrialPipeLamp)
+add_subdirectory(SsaoDebug)

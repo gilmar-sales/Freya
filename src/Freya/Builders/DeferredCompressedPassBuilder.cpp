@@ -532,8 +532,16 @@ namespace FREYA_NAMESPACE
                 shadowWrites.data(), 0, nullptr);
         }
 
+        auto lightingPushRange =
+            vk::PushConstantRange()
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setOffset(0)
+                .setSize(sizeof(std::uint32_t) * 4);
+
         auto fullscreenPipelineLayout = mDevice->Get().createPipelineLayout(
-            vk::PipelineLayoutCreateInfo().setSetLayouts(lightingSetLayout));
+            vk::PipelineLayoutCreateInfo()
+                .setSetLayouts(lightingSetLayout)
+                .setPushConstantRanges(lightingPushRange));
 
         auto depthInfoPipe =
             vk::GraphicsPipelineCreateInfo()

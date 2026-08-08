@@ -244,9 +244,23 @@ namespace FREYA_NAMESPACE
     }
 
     void DeferredCompressedPass::DrawLighting(
-        const skr::Arc<CommandPool>& commandPool, const std::uint32_t) const
+        const skr::Arc<CommandPool>& commandPool, const std::uint32_t,
+        const bool                   ssaoDebug) const
     {
-        commandPool->GetCommandBuffer().draw(3, 1, 0, 0);
+        auto commandBuffer = commandPool->GetCommandBuffer();
+
+        struct LightingPush
+        {
+            std::uint32_t debugMode;
+            std::uint32_t pad0;
+            std::uint32_t pad1;
+            std::uint32_t pad2;
+        } push { ssaoDebug ? 1u : 0u, 0u, 0u, 0u };
+
+        commandBuffer.pushConstants(
+            mFullscreenPipelineLayout, vk::ShaderStageFlagBits::eFragment, 0,
+            sizeof(LightingPush), &push);
+        commandBuffer.draw(3, 1, 0, 0);
     }
 
     void DeferredCompressedPass::BeginLighting(

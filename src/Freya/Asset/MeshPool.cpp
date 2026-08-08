@@ -379,6 +379,7 @@ namespace FREYA_NAMESPACE
                     aiProcess_SortByPType | aiProcess_GenNormals |
                     aiProcess_GenUVCoords | aiProcess_OptimizeMeshes |
                     aiProcess_JoinIdenticalVertices | aiProcess_GlobalScale |
+                    aiProcess_PreTransformVertices |
                     aiProcess_ValidateDataStructure);
 
             if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE ||

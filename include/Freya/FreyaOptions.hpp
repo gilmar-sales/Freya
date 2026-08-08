@@ -36,6 +36,20 @@ namespace FREYA_NAMESPACE
     };
 
     /**
+     * @brief SSAO debug visualization for lighting / composite.
+     *
+     * None keeps the normal lit path. Blurred / Raw replace lighting with
+     * grayscale AO (LDR composite, no ACES) using the post-blur or raw
+     * R8 buffer respectively.
+     */
+    enum class SsaoDebugView
+    {
+        None,    ///< lit scene with SSAO applied to IBL
+        Blurred, ///< grayscale blurred AO
+        Raw      ///< grayscale pre-blur AO
+    };
+
+    /**
      * @brief TAA responsiveness vs stability preset.
      */
     enum class TaaQuality
@@ -113,10 +127,12 @@ namespace FREYA_NAMESPACE
 
         /// 1 = full, 2 = half, 4 = quarter of render extent.
         std::uint32_t ssaoResolutionDivisor = 2;
-        float         ssaoRadius            = 1.15f;
-        float         ssaoBias              = 0.045f;
+        /// View-space meters (human-scale scene ≈ 0.3–1.0).
+        float         ssaoRadius            = 0.5f;
+        float         ssaoBias              = 0.025f;
         float         ssaoPower             = 1.5f;
-        float         ssaoIntensity         = 1.0f;
+        float         ssaoIntensity         = 0.5f;
+        SsaoDebugView ssaoDebugView         = SsaoDebugView::None;
 
         /// Blend weight toward current frame (0–1). Higher = less ghosting.
         float taaCurrentWeight = 0.1f;
@@ -196,31 +212,31 @@ namespace FREYA_NAMESPACE
         {
             case SsaoQuality::Low:
                 options.ssaoResolutionDivisor = 4;
-                options.ssaoRadius            = 1.0f;
-                options.ssaoBias              = 0.05f;
+                options.ssaoRadius            = 0.4f;
+                options.ssaoBias              = 0.03f;
                 options.ssaoPower             = 1.4f;
-                options.ssaoIntensity         = 1.0f;
+                options.ssaoIntensity         = 0.5f;
                 break;
             case SsaoQuality::Medium:
                 options.ssaoResolutionDivisor = 2;
-                options.ssaoRadius            = 1.15f;
-                options.ssaoBias              = 0.045f;
+                options.ssaoRadius            = 0.5f;
+                options.ssaoBias              = 0.025f;
                 options.ssaoPower             = 1.5f;
-                options.ssaoIntensity         = 1.0f;
+                options.ssaoIntensity         = 0.5f;
                 break;
             case SsaoQuality::High:
                 options.ssaoResolutionDivisor = 2;
-                options.ssaoRadius            = 1.25f;
-                options.ssaoBias              = 0.04f;
+                options.ssaoRadius            = 0.65f;
+                options.ssaoBias              = 0.025f;
                 options.ssaoPower             = 1.6f;
-                options.ssaoIntensity         = 1.0f;
+                options.ssaoIntensity         = 0.5f;
                 break;
             case SsaoQuality::Ultra:
                 options.ssaoResolutionDivisor = 1;
-                options.ssaoRadius            = 1.35f;
-                options.ssaoBias              = 0.04f;
+                options.ssaoRadius            = 0.8f;
+                options.ssaoBias              = 0.02f;
                 options.ssaoPower             = 1.7f;
-                options.ssaoIntensity         = 1.0f;
+                options.ssaoIntensity         = 0.5f;
                 break;
             case SsaoQuality::Off:
                 break;

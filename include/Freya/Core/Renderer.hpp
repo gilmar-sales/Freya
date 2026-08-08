@@ -119,6 +119,35 @@ namespace FREYA_NAMESPACE
             return mSsaoQuality;
         }
 
+        void SetSsaoDebugView(SsaoDebugView view);
+
+        [[nodiscard]] SsaoDebugView GetSsaoDebugView() const
+        {
+            return mFreyaOptions->ssaoDebugView;
+        }
+
+        void SetSsaoRadius(float radius);
+        void SetSsaoBias(float bias);
+        void SetSsaoPower(float power);
+        void SetSsaoIntensity(float intensity);
+
+        [[nodiscard]] float GetSsaoRadius() const
+        {
+            return mFreyaOptions->ssaoRadius;
+        }
+        [[nodiscard]] float GetSsaoBias() const
+        {
+            return mFreyaOptions->ssaoBias;
+        }
+        [[nodiscard]] float GetSsaoPower() const
+        {
+            return mFreyaOptions->ssaoPower;
+        }
+        [[nodiscard]] float GetSsaoIntensity() const
+        {
+            return mFreyaOptions->ssaoIntensity;
+        }
+
         void SetTaaQuality(TaaQuality quality);
 
         [[nodiscard]] TaaQuality GetTaaQuality() const { return mTaaQuality; }

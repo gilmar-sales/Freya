@@ -50,7 +50,11 @@ namespace FREYA_NAMESPACE
 
         ~SsaoPass();
 
+        /// Post bilateral-blur AO (binding used by lighting by default).
         skr::Arc<Image> GetOutputImage() const { return mBlurImages[1]; }
+
+        /// Pre-blur AO (useful for SSAO debug visualization).
+        skr::Arc<Image> GetRawImage() const { return mSsaoRawImage; }
 
         void Dispatch(const skr::Arc<CommandPool>& commandPool,
                       const skr::Arc<Image>&       depthImage,
@@ -58,10 +62,10 @@ namespace FREYA_NAMESPACE
                       const glm::mat4&             view,
                       const glm::mat4&             unjitteredProjection,
                       bool                         reverseZ,
-                      float                        radius    = 1.15f,
-                      float                        bias      = 0.045f,
+                      float                        radius    = 0.5f,
+                      float                        bias      = 0.025f,
                       float                        power     = 1.5f,
-                      float                        intensity = 1.0f) const;
+                      float                        intensity = 0.5f) const;
 
       private:
         void ensureDescriptors(const skr::Arc<Image>& depthImage,
