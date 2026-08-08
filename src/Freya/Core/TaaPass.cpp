@@ -10,26 +10,38 @@ namespace FREYA_NAMESPACE
                      const vk::DescriptorPool                descriptorPool,
                      const std::array<vk::DescriptorSet, 2>& descriptorSets,
                      const std::array<skr::Arc<Image>, 2>&   historyImages,
-                     const vk::Sampler                       sampler,
+                     const std::array<skr::Arc<Image>, 2>&   depthHistoryImages,
+                     const vk::Sampler                       colorSampler,
+                     const vk::Sampler                       nearestSampler,
                      const vk::Extent2D                      extent) :
         mDevice(device), mFreyaOptions(freyaOptions),
         mPipelineLayout(pipelineLayout), mPipeline(pipeline),
         mSetLayout(setLayout), mDescriptorPool(descriptorPool),
         mDescriptorSets(descriptorSets), mHistoryImages(historyImages),
-        mSampler(sampler), mExtent(extent)
+        mDepthHistoryImages(depthHistoryImages), mColorSampler(colorSampler),
+        mNearestSampler(nearestSampler), mExtent(extent)
     {
-        // Wire history/output for both ping-pong slots once. Scene/velocity
-        // are filled on first Dispatch (stable until rebuild).
+        // Wire history/output for both ping-pong slots once. Scene/velocity/
+        // depth are filled on first Dispatch (stable until rebuild).
         for (std::uint32_t writeIndex = 0; writeIndex < 2; ++writeIndex)
         {
             const auto readIndex  = 1u - writeIndex;
             const auto imageInfos = std::array {
                 vk::DescriptorImageInfo {}
-                    .setSampler(mSampler)
+                    .setSampler(mColorSampler)
                     .setImageView(mHistoryImages[readIndex]->GetImageView())
                     .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
                 vk::DescriptorImageInfo {}
                     .setImageView(mHistoryImages[writeIndex]->GetImageView())
+                    .setImageLayout(vk::ImageLayout::eGeneral),
+                vk::DescriptorImageInfo {}
+                    .setSampler(mNearestSampler)
+                    .setImageView(
+                        mDepthHistoryImages[readIndex]->GetImageView())
+                    .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+                vk::DescriptorImageInfo {}
+                    .setImageView(
+                        mDepthHistoryImages[writeIndex]->GetImageView())
                     .setImageLayout(vk::ImageLayout::eGeneral),
             };
             const auto writes = std::array {
@@ -44,6 +56,17 @@ namespace FREYA_NAMESPACE
                     .setDstBinding(3)
                     .setDescriptorType(vk::DescriptorType::eStorageImage)
                     .setImageInfo(imageInfos[1]),
+                vk::WriteDescriptorSet {}
+                    .setDstSet(mDescriptorSets[writeIndex])
+                    .setDstBinding(5)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setImageInfo(imageInfos[2]),
+                vk::WriteDescriptorSet {}
+                    .setDstSet(mDescriptorSets[writeIndex])
+                    .setDstBinding(6)
+                    .setDescriptorType(vk::DescriptorType::eStorageImage)
+                    .setImageInfo(imageInfos[3]),
             };
             mDevice->Get().updateDescriptorSets(writes, nullptr);
         }
@@ -56,28 +79,38 @@ namespace FREYA_NAMESPACE
         vkDevice.destroyPipelineLayout(mPipelineLayout);
         vkDevice.destroyDescriptorPool(mDescriptorPool);
         vkDevice.destroyDescriptorSetLayout(mSetLayout);
-        vkDevice.destroySampler(mSampler);
+        vkDevice.destroySampler(mColorSampler);
+        vkDevice.destroySampler(mNearestSampler);
         mHistoryImages[0].reset();
         mHistoryImages[1].reset();
+        mDepthHistoryImages[0].reset();
+        mDepthHistoryImages[1].reset();
     }
 
     void TaaPass::ensureSceneDescriptors(const skr::Arc<Image>& sceneColor,
-                                         const skr::Arc<Image>& velocity) const
+                                         const skr::Arc<Image>& velocity,
+                                         const skr::Arc<Image>& depth) const
     {
         const auto sceneView    = sceneColor->GetImageView();
         const auto velocityView = velocity->GetImageView();
-        if (mBoundSceneView == sceneView && mBoundVelocityView == velocityView)
+        const auto depthView    = depth->GetImageView();
+        if (mBoundSceneView == sceneView &&
+            mBoundVelocityView == velocityView && mBoundDepthView == depthView)
             return;
 
         const auto imageInfos = std::array {
             vk::DescriptorImageInfo {}
-                .setSampler(mSampler)
+                .setSampler(mColorSampler)
                 .setImageView(sceneView)
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
             vk::DescriptorImageInfo {}
-                .setSampler(mSampler)
+                .setSampler(mNearestSampler)
                 .setImageView(velocityView)
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            vk::DescriptorImageInfo {}
+                .setSampler(mNearestSampler)
+                .setImageView(depthView)
+                .setImageLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal),
         };
 
         for (auto set : mDescriptorSets)
@@ -95,26 +128,34 @@ namespace FREYA_NAMESPACE
                     .setDescriptorType(
                         vk::DescriptorType::eCombinedImageSampler)
                     .setImageInfo(imageInfos[1]),
+                vk::WriteDescriptorSet {}
+                    .setDstSet(set)
+                    .setDstBinding(4)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setImageInfo(imageInfos[2]),
             };
             mDevice->Get().updateDescriptorSets(writes, nullptr);
         }
 
         mBoundSceneView    = sceneView;
         mBoundVelocityView = velocityView;
+        mBoundDepthView    = depthView;
     }
 
     void TaaPass::Dispatch(const skr::Arc<CommandPool>& commandPool,
                            const skr::Arc<Image>&       sceneColor,
-                           const skr::Arc<Image>&       velocity) const
+                           const skr::Arc<Image>&       velocity,
+                           const skr::Arc<Image>&       depth) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
         mDevice->BeginDebugLabel(commandBuffer, "TAA Resolve");
 
-        ensureSceneDescriptors(sceneColor, velocity);
+        ensureSceneDescriptors(sceneColor, velocity, depth);
 
         const auto readIndex = 1u - mWriteIndex;
 
-        auto range =
+        auto colorRange =
             vk::ImageSubresourceRange()
                 .setAspectMask(vk::ImageAspectFlagBits::eColor)
                 .setBaseMipLevel(0)
@@ -129,7 +170,7 @@ namespace FREYA_NAMESPACE
                 .setSrcAccessMask({})
                 .setDstAccessMask(vk::AccessFlagBits::eShaderWrite)
                 .setImage(mHistoryImages[mWriteIndex]->GetImage())
-                .setSubresourceRange(range),
+                .setSubresourceRange(colorRange),
             vk::ImageMemoryBarrier()
                 .setOldLayout(mHistoryValid
                                   ? vk::ImageLayout::eShaderReadOnlyOptimal
@@ -140,12 +181,32 @@ namespace FREYA_NAMESPACE
                                       : vk::AccessFlags {})
                 .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
                 .setImage(mHistoryImages[readIndex]->GetImage())
-                .setSubresourceRange(range),
+                .setSubresourceRange(colorRange),
+            vk::ImageMemoryBarrier()
+                .setOldLayout(vk::ImageLayout::eUndefined)
+                .setNewLayout(vk::ImageLayout::eGeneral)
+                .setSrcAccessMask({})
+                .setDstAccessMask(vk::AccessFlagBits::eShaderWrite)
+                .setImage(mDepthHistoryImages[mWriteIndex]->GetImage())
+                .setSubresourceRange(colorRange),
+            vk::ImageMemoryBarrier()
+                .setOldLayout(mHistoryValid
+                                  ? vk::ImageLayout::eShaderReadOnlyOptimal
+                                  : vk::ImageLayout::eUndefined)
+                .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setSrcAccessMask(mHistoryValid
+                                      ? vk::AccessFlagBits::eShaderRead
+                                      : vk::AccessFlags {})
+                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                .setImage(mDepthHistoryImages[readIndex]->GetImage())
+                .setSubresourceRange(colorRange),
         };
 
         commandBuffer.pipelineBarrier(
             vk::PipelineStageFlagBits::eComputeShader |
-                vk::PipelineStageFlagBits::eFragmentShader,
+                vk::PipelineStageFlagBits::eFragmentShader |
+                vk::PipelineStageFlagBits::eEarlyFragmentTests |
+                vk::PipelineStageFlagBits::eLateFragmentTests,
             vk::PipelineStageFlagBits::eComputeShader, {}, nullptr, nullptr,
             barriers);
 
@@ -160,11 +221,19 @@ namespace FREYA_NAMESPACE
             float invResY;
             float currentWeight;
             float historyValid;
+            float varianceGammaY;
+            float varianceGammaC;
+            float depthReject;
+            float pad;
         } push {
             1.0f / static_cast<float>(mExtent.width),
             1.0f / static_cast<float>(mExtent.height),
             mFreyaOptions->taaCurrentWeight,
             mHistoryValid ? 1.0f : 0.0f,
+            mFreyaOptions->taaVarianceGammaY,
+            mFreyaOptions->taaVarianceGammaC,
+            mFreyaOptions->taaDepthRejectThreshold,
+            0.0f,
         };
 
         commandBuffer.pushConstants(
@@ -175,19 +244,30 @@ namespace FREYA_NAMESPACE
         const auto groupsY = (mExtent.height + 7) / 8;
         commandBuffer.dispatch(groupsX, groupsY, 1);
 
-        auto toSampled =
+        auto toSampledColor =
             vk::ImageMemoryBarrier()
                 .setOldLayout(vk::ImageLayout::eGeneral)
                 .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
                 .setSrcAccessMask(vk::AccessFlagBits::eShaderWrite)
                 .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
                 .setImage(mHistoryImages[mWriteIndex]->GetImage())
-                .setSubresourceRange(range);
+                .setSubresourceRange(colorRange);
+        auto toSampledDepth =
+            vk::ImageMemoryBarrier()
+                .setOldLayout(vk::ImageLayout::eGeneral)
+                .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setSrcAccessMask(vk::AccessFlagBits::eShaderWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                .setImage(mDepthHistoryImages[mWriteIndex]->GetImage())
+                .setSubresourceRange(colorRange);
+
+        auto after = std::array { toSampledColor, toSampledDepth };
 
         commandBuffer.pipelineBarrier(
             vk::PipelineStageFlagBits::eComputeShader,
-            vk::PipelineStageFlagBits::eFragmentShader, {}, nullptr, nullptr,
-            toSampled);
+            vk::PipelineStageFlagBits::eFragmentShader |
+                vk::PipelineStageFlagBits::eComputeShader,
+            {}, nullptr, nullptr, after);
 
         mHistoryValid = true;
         mWriteIndex   = 1u - mWriteIndex;

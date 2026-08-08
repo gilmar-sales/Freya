@@ -84,6 +84,7 @@ namespace FREYA_NAMESPACE
                                    vk::ImageUsageFlagBits::eSampled);
                 break;
             case ImageUsage::TaaHistory:
+            case ImageUsage::TaaDepthHistory:
                 imageInfo.setUsage(vk::ImageUsageFlagBits::eStorage |
                                    vk::ImageUsageFlagBits::eSampled |
                                    vk::ImageUsageFlagBits::eTransferDst);
@@ -350,6 +351,7 @@ namespace FREYA_NAMESPACE
             case ImageUsage::GBufferSceneColor:
             case ImageUsage::GBufferVelocity:
             case ImageUsage::TaaHistory:
+            case ImageUsage::TaaDepthHistory:
             case ImageUsage::HiZDepth:
             case ImageUsage::Ssao:
                 aspect = vk::ImageAspectFlagBits::eColor;
@@ -424,6 +426,9 @@ namespace FREYA_NAMESPACE
                 break;
             case ImageUsage::TaaHistory:
                 mFormat = vk::Format::eR16G16B16A16Sfloat;
+                break;
+            case ImageUsage::TaaDepthHistory:
+                mFormat = vk::Format::eR16Sfloat;
                 break;
             case ImageUsage::HiZDepth:
                 mFormat = vk::Format::eR32Sfloat;

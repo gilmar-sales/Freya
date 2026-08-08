@@ -8,11 +8,11 @@
 namespace FREYA_NAMESPACE
 {
     /**
-     * @brief Temporal AA compute resolve (neighborhood-clamped history blend).
+     * @brief Temporal AA compute resolve.
      *
-     * Reads lit Scene Color + velocity, blends with ping-pong history, and
-     * exposes the resolved HDR image for composite. Bloom should sample
-     * pre-TAA Scene Color.
+     * Reprojects ping-pong HDR history with velocity, rejects disocclusions
+     * via depth history, and variance-clips history in YCoCg before blend.
+     * Bloom should continue to sample pre-TAA Scene Color.
      */
     class TaaPass
     {
@@ -25,7 +25,9 @@ namespace FREYA_NAMESPACE
                 vk::DescriptorPool                      descriptorPool,
                 const std::array<vk::DescriptorSet, 2>& descriptorSets,
                 const std::array<skr::Arc<Image>, 2>&   historyImages,
-                vk::Sampler                             sampler,
+                const std::array<skr::Arc<Image>, 2>&   depthHistoryImages,
+                vk::Sampler                             colorSampler,
+                vk::Sampler                             nearestSampler,
                 vk::Extent2D                            extent);
 
         ~TaaPass();
@@ -40,11 +42,13 @@ namespace FREYA_NAMESPACE
 
         void Dispatch(const skr::Arc<CommandPool>& commandPool,
                       const skr::Arc<Image>&       sceneColor,
-                      const skr::Arc<Image>&       velocity) const;
+                      const skr::Arc<Image>&       velocity,
+                      const skr::Arc<Image>&       depth) const;
 
       private:
         void ensureSceneDescriptors(const skr::Arc<Image>& sceneColor,
-                                    const skr::Arc<Image>& velocity) const;
+                                    const skr::Arc<Image>& velocity,
+                                    const skr::Arc<Image>& depth) const;
 
         skr::Arc<Device>       mDevice;
         skr::Arc<FreyaOptions> mFreyaOptions;
@@ -55,12 +59,15 @@ namespace FREYA_NAMESPACE
         vk::DescriptorPool               mDescriptorPool;
         std::array<vk::DescriptorSet, 2> mDescriptorSets;
         std::array<skr::Arc<Image>, 2>   mHistoryImages;
-        vk::Sampler                      mSampler;
+        std::array<skr::Arc<Image>, 2>   mDepthHistoryImages;
+        vk::Sampler                      mColorSampler;
+        vk::Sampler                      mNearestSampler;
         vk::Extent2D                     mExtent;
 
         mutable std::uint32_t mWriteIndex        = 0;
         mutable bool          mHistoryValid      = false;
         mutable vk::ImageView mBoundSceneView    = {};
         mutable vk::ImageView mBoundVelocityView = {};
+        mutable vk::ImageView mBoundDepthView    = {};
     };
 } // namespace FREYA_NAMESPACE

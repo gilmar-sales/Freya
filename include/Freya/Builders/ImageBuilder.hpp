@@ -23,6 +23,7 @@ namespace FREYA_NAMESPACE
         GBufferSceneColor, ///< HDR light accumulation / emissive (RGBA16F)
         GBufferVelocity,   ///< Screen-space motion vectors (RG16F)
         TaaHistory,        ///< TAA history / resolve target (RGBA16F storage)
+        TaaDepthHistory,   ///< TAA depth history for disocclusion (R16F)
         HiZDepth,          ///< Hi-Z depth pyramid (R32F storage + sampled)
         Ssao               ///< SSAO buffer (R8 storage + sampled)
     };

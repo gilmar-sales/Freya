@@ -120,6 +120,13 @@ namespace FREYA_NAMESPACE
         float taaCurrentWeight = 0.1f;
         /// Halton jitter sequence length used with TAA.
         std::uint32_t taaHaltonPeriod = 16;
+        /// YCoCg variance AABB scale for luminance (tighter kills brightness
+        /// trails).
+        float taaVarianceGammaY = 1.0f;
+        /// YCoCg variance AABB scale for chroma (Co/Cg).
+        float taaVarianceGammaC = 1.25f;
+        /// Reject history when |currDepth - histDepth| exceeds this (device Z).
+        float taaDepthRejectThreshold = 0.01f;
 
         std::uint32_t bloomResolutionDivisor = 2;
         float         bloomThreshold         = 0.75f;
@@ -227,20 +234,32 @@ namespace FREYA_NAMESPACE
         switch (quality)
         {
             case TaaQuality::Low:
-                options.taaCurrentWeight = 0.25f;
-                options.taaHaltonPeriod  = 8;
+                options.taaCurrentWeight        = 0.25f;
+                options.taaHaltonPeriod         = 8;
+                options.taaVarianceGammaY       = 1.25f;
+                options.taaVarianceGammaC       = 1.5f;
+                options.taaDepthRejectThreshold = 0.02f;
                 break;
             case TaaQuality::Medium:
-                options.taaCurrentWeight = 0.15f;
-                options.taaHaltonPeriod  = 12;
+                options.taaCurrentWeight        = 0.15f;
+                options.taaHaltonPeriod         = 12;
+                options.taaVarianceGammaY       = 1.1f;
+                options.taaVarianceGammaC       = 1.35f;
+                options.taaDepthRejectThreshold = 0.015f;
                 break;
             case TaaQuality::High:
-                options.taaCurrentWeight = 0.1f;
-                options.taaHaltonPeriod  = 16;
+                options.taaCurrentWeight        = 0.1f;
+                options.taaHaltonPeriod         = 16;
+                options.taaVarianceGammaY       = 1.0f;
+                options.taaVarianceGammaC       = 1.25f;
+                options.taaDepthRejectThreshold = 0.01f;
                 break;
             case TaaQuality::Ultra:
-                options.taaCurrentWeight = 0.06f;
-                options.taaHaltonPeriod  = 16;
+                options.taaCurrentWeight        = 0.06f;
+                options.taaHaltonPeriod         = 16;
+                options.taaVarianceGammaY       = 0.85f;
+                options.taaVarianceGammaC       = 1.15f;
+                options.taaDepthRejectThreshold = 0.0075f;
                 break;
             case TaaQuality::Off:
                 break;

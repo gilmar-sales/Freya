@@ -180,7 +180,8 @@ namespace FREYA_NAMESPACE
 
         (*ctx.taa)->Dispatch(ctx.commandPool,
                              (*ctx.deferred)->GetSceneColorImage(),
-                             (*ctx.deferred)->GetVelocityImage());
+                             (*ctx.deferred)->GetVelocityImage(),
+                             (*ctx.deferred)->GetDepthImage());
     }
 
     void BloomFrameStage::Rebuild(RenderFrameContext&   ctx,

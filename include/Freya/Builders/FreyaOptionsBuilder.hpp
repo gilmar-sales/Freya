@@ -282,6 +282,24 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        FreyaOptionsBuilder& SetTaaVarianceGammaY(float gamma)
+        {
+            mFreyaOptions->taaVarianceGammaY = gamma;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetTaaVarianceGammaC(float gamma)
+        {
+            mFreyaOptions->taaVarianceGammaC = gamma;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetTaaDepthRejectThreshold(float threshold)
+        {
+            mFreyaOptions->taaDepthRejectThreshold = threshold;
+            return *this;
+        }
+
         FreyaOptionsBuilder& SetBloomResolutionDivisor(std::uint32_t divisor)
         {
             mFreyaOptions->bloomResolutionDivisor = std::max(1u, divisor);

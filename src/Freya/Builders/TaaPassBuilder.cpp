@@ -36,17 +36,32 @@ namespace FREYA_NAMESPACE
                 .SetSamples(vk::SampleCountFlagBits::e1)
                 .Build();
         };
+        auto createDepthHistory = [&]() {
+            return mServiceProvider->GetService<ImageBuilder>()
+                ->SetUsage(ImageUsage::TaaDepthHistory)
+                .SetWidth(extent.width)
+                .SetHeight(extent.height)
+                .SetSamples(vk::SampleCountFlagBits::e1)
+                .Build();
+        };
 
-        std::array historyImages = { createHistory(), createHistory() };
+        std::array historyImages      = { createHistory(), createHistory() };
+        std::array depthHistoryImages = { createDepthHistory(),
+                                          createDepthHistory() };
 
-        auto sampler = mDevice->Get().createSampler(
-            vk::SamplerCreateInfo()
-                .setMagFilter(vk::Filter::eLinear)
-                .setMinFilter(vk::Filter::eLinear)
-                .setMipmapMode(vk::SamplerMipmapMode::eNearest)
-                .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
-                .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
-                .setAddressModeW(vk::SamplerAddressMode::eClampToEdge));
+        auto makeSampler = [&](vk::Filter filter) {
+            return mDevice->Get().createSampler(
+                vk::SamplerCreateInfo()
+                    .setMagFilter(filter)
+                    .setMinFilter(filter)
+                    .setMipmapMode(vk::SamplerMipmapMode::eNearest)
+                    .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
+                    .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
+                    .setAddressModeW(vk::SamplerAddressMode::eClampToEdge));
+        };
+
+        auto colorSampler   = makeSampler(vk::Filter::eLinear);
+        auto nearestSampler = makeSampler(vk::Filter::eNearest);
 
         auto bindings = std::array {
             vk::DescriptorSetLayoutBinding()
@@ -69,18 +84,34 @@ namespace FREYA_NAMESPACE
                 .setDescriptorType(vk::DescriptorType::eStorageImage)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eCompute),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(4)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eCompute),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(5)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eCompute),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(6)
+                .setDescriptorType(vk::DescriptorType::eStorageImage)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eCompute),
         };
 
         auto setLayout = mDevice->Get().createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo().setBindings(bindings));
 
+        // 2 sets × (5 CIS + 2 storage)
         auto poolSizes = std::array {
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(6),
+                .setDescriptorCount(10),
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eStorageImage)
-                .setDescriptorCount(2),
+                .setDescriptorCount(4),
         };
         auto pool = mDevice->Get().createDescriptorPool(
             vk::DescriptorPoolCreateInfo().setPoolSizes(poolSizes).setMaxSets(
@@ -97,7 +128,7 @@ namespace FREYA_NAMESPACE
         auto pushRange = vk::PushConstantRange()
                              .setStageFlags(vk::ShaderStageFlagBits::eCompute)
                              .setOffset(0)
-                             .setSize(sizeof(float) * 4);
+                             .setSize(sizeof(float) * 8);
 
         auto pipelineLayout = mDevice->Get().createPipelineLayout(
             vk::PipelineLayoutCreateInfo()
@@ -121,7 +152,8 @@ namespace FREYA_NAMESPACE
 
         return skr::MakeArc<TaaPass>(
             mDevice, mFreyaOptions, pipelineLayout, pipeline, setLayout, pool,
-            descriptorSets, historyImages, sampler, extent);
+            descriptorSets, historyImages, depthHistoryImages, colorSampler,
+            nearestSampler, extent);
     }
 
 } // namespace FREYA_NAMESPACE
