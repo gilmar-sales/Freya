@@ -316,10 +316,12 @@ namespace FREYA_NAMESPACE
 
         std::vector<DrawCommand> mDrawCommands;
 
-        std::vector<InstanceTransform> mInstanceTransforms;
-        skr::Arc<Buffer>               mInstanceTransformBuffer;
-        std::uint32_t                  mInstanceHistoryFrame =
+        std::vector<InstanceTransform>     mInstanceTransforms;
+        std::vector<skr::Arc<Buffer>>      mInstanceTransformBuffers;
+        skr::Arc<Buffer>                   mInstanceTransformBuffer;
+        std::uint32_t                      mInstanceHistoryFrame =
             std::numeric_limits<std::uint32_t>::max();
+        std::size_t                        mInstanceBufferCapacity = 0;
 
         std::vector<FrameStagePtr> mFrameStages;
 

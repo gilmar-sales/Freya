@@ -787,18 +787,18 @@ namespace FREYA_NAMESPACE
         if (count == 0 || models == nullptr)
         {
             mInstanceTransforms.clear();
+            mInstanceTransformBuffers.clear();
             mInstanceTransformBuffer.reset();
+            mInstanceBufferCapacity = 0;
             mInstanceHistoryFrame = std::numeric_limits<std::uint32_t>::max();
             return;
         }
 
         const auto frameIndex = GetCurrentFrameIndex();
         const bool newFrame   = frameIndex != mInstanceHistoryFrame;
-        const bool rebuilt =
-            mInstanceTransforms.size() != count || !mInstanceTransformBuffer;
         mInstanceHistoryFrame = frameIndex;
 
-        if (rebuilt)
+        if (mInstanceTransforms.size() != count)
         {
             mInstanceTransforms.resize(count);
             for (std::size_t i = 0; i < count; ++i)
@@ -806,13 +806,6 @@ namespace FREYA_NAMESPACE
                 mInstanceTransforms[i].model     = models[i];
                 mInstanceTransforms[i].prevModel = models[i];
             }
-
-            mInstanceTransformBuffer =
-                GetBufferBuilder()
-                    .SetData(mInstanceTransforms.data())
-                    .SetSize(sizeof(InstanceTransform) * count)
-                    .SetUsage(BufferUsage::Instance)
-                    .Build();
         }
         else
         {
@@ -825,10 +818,33 @@ namespace FREYA_NAMESPACE
                 }
                 mInstanceTransforms[i].model = models[i];
             }
-            mInstanceTransformBuffer->Copy(mInstanceTransforms.data(),
-                                           sizeof(InstanceTransform) * count);
         }
 
+        const auto frameCount = GetFrameCount();
+        const auto bytes = sizeof(InstanceTransform) * count;
+        const bool rebuildBuffers =
+            mInstanceTransformBuffers.size() != frameCount ||
+            mInstanceBufferCapacity != count;
+
+        if (rebuildBuffers)
+        {
+            mInstanceTransformBuffers.clear();
+            mInstanceTransformBuffers.reserve(frameCount);
+            for (std::uint32_t i = 0; i < frameCount; ++i)
+            {
+                mInstanceTransformBuffers.push_back(
+                    GetBufferBuilder()
+                        .SetData(mInstanceTransforms.data())
+                        .SetSize(bytes)
+                        .SetUsage(BufferUsage::Instance)
+                        .Build());
+            }
+            mInstanceBufferCapacity = count;
+        }
+
+        auto& frameBuffer = mInstanceTransformBuffers[frameIndex];
+        frameBuffer->Copy(mInstanceTransforms.data(), bytes);
+        mInstanceTransformBuffer = frameBuffer;
         BindBuffer(mInstanceTransformBuffer);
     }
 
