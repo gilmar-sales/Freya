@@ -10,7 +10,7 @@ auto meshPool = serviceProvider->GetService<fra::MeshPool>();
 // From file (Assimp: FBX, OBJ, …). Returns one ID per mesh in the file.
 auto meshIds = meshPool->CreateMeshFromFile("./Resources/Models/MyModel.fbx");
 
-// From memory (already CPU-side Freya vertices + uint16 indices)
+// From memory (already CPU-side Freya vertices + uint32 indices)
 std::uint32_t meshId = meshPool->CreateMesh(vertices, indices);
 ```
 

@@ -222,11 +222,11 @@ namespace FREYA_NAMESPACE
             0.0f,
             // Soft scale magnitude; sign encodes Reverse-Z for shaders.
             mFreyaOptions->ReverseZ ? softScale : -softScale);
-        mShadowData.reverseZ = glm::vec4(
-            mFreyaOptions->ReverseZ ? 1.0f : 0.0f,
-            static_cast<float>(std::max(mResolution, 1u)),
-            0.0f,
-            0.0f);
+        mShadowData.reverseZ =
+            glm::vec4(mFreyaOptions->ReverseZ ? 1.0f : 0.0f,
+                      static_cast<float>(std::max(mResolution, 1u)),
+                      0.0f,
+                      0.0f);
         mShadowData.pcss = glm::vec4(
             std::max(0.0f, mFreyaOptions->shadowLightSize),
             std::max(1.0f, mFreyaOptions->shadowMaxSoftness),
@@ -315,7 +315,7 @@ namespace FREYA_NAMESPACE
         // 1000-unit far planes starve near cascades and inflate ortho Z
         // precision issues that read as floor acne).
         constexpr float kMaxDirectionalShadowDistance = 80.0f;
-        const float cascadeFar =
+        const float     cascadeFar =
             std::min(drawDistance, kMaxDirectionalShadowDistance);
 
         // Practical split: lower λ keeps more texels near the camera.
@@ -329,8 +329,7 @@ namespace FREYA_NAMESPACE
 
             const auto logSplit =
                 nearPlane * std::pow(cascadeFar / nearPlane, p);
-            const auto uniformSplit =
-                nearPlane + (cascadeFar - nearPlane) * p;
+            const auto uniformSplit = nearPlane + (cascadeFar - nearPlane) * p;
 
             splits[i - 1] = lambda * logSplit + (1.0f - lambda) * uniformSplit;
         }

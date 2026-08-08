@@ -123,9 +123,9 @@ namespace FREYA_NAMESPACE
         glm::vec4 pointLightPosFar[MAX_POINT_SHADOWS] {}; ///< xyz=pos, w=far
         glm::vec4 pointLightIndex {}; ///< light indices (-1 unused)
         glm::vec4 reverseZ {}; ///< x=1 Reverse-Z, y=shadow map resolution
-        glm::vec4 pcss {}; ///< x=light size (world), y=max soft (texels),
-                           ///< z=min visibility (umbra floor),
-                           ///< w=soft-shadow tap count (1–16)
+        glm::vec4 pcss {};     ///< x=light size (world), y=max soft (texels),
+                               ///< z=min visibility (umbra floor),
+                               ///< w=soft-shadow tap count (1–16)
         glm::vec4 cascadeTexelSize {}; ///< World-space texel size per cascade
     };
 

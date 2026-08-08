@@ -43,7 +43,7 @@ namespace FREYA_NAMESPACE
                 break;
             case BufferUsage::Index:
                 commandPool->GetCommandBuffer().bindIndexBuffer(
-                    mBuffer, 0, vk::IndexType::eUint16);
+                    mBuffer, 0, vk::IndexType::eUint32);
                 break;
             case BufferUsage::Instance:
                 commandPool->GetCommandBuffer().bindVertexBuffers(

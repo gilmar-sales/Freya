@@ -56,6 +56,9 @@ namespace FREYA_NAMESPACE
             features2.features.drawIndirectFirstInstance,
             "Physical device does not support drawIndirectFirstInstance "
             "(required for GPU-driven draws)");
+        mLogger->Assert(vulkan12Features.drawIndirectCount,
+                        "Physical device does not support drawIndirectCount "
+                        "(required for GPU-driven draws)");
         mLogger->Assert(vulkan12Features.descriptorIndexing,
                         "Physical device does not support descriptorIndexing "
                         "(required for bindless materials)");
@@ -80,6 +83,7 @@ namespace FREYA_NAMESPACE
 
         auto enabled12 =
             vk::PhysicalDeviceVulkan12Features {}
+                .setDrawIndirectCount(true)
                 .setDescriptorIndexing(true)
                 .setRuntimeDescriptorArray(true)
                 .setShaderSampledImageArrayNonUniformIndexing(true)

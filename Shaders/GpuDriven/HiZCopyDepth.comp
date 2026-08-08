@@ -1,0 +1,23 @@
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform PC {
+    uvec2 extent;
+    uint  reverseZ;
+    uint  _pad;
+} pc;
+
+layout(binding = 0) uniform sampler2D depthTex;
+layout(binding = 1, r32f) writeonly uniform image2D hizMip0;
+
+void main()
+{
+    uvec2 gid = gl_GlobalInvocationID.xy;
+    if (gid.x >= pc.extent.x || gid.y >= pc.extent.y)
+        return;
+
+    vec2 uv = (vec2(gid) + 0.5) / vec2(pc.extent);
+    float d = textureLod(depthTex, uv, 0.0).r;
+    imageStore(hizMip0, ivec2(gid), vec4(d, 0.0, 0.0, 0.0));
+}

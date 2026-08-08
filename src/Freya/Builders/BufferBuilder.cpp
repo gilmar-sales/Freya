@@ -98,11 +98,13 @@ namespace FREYA_NAMESPACE
             case BufferUsage::Vertex:
                 bufferInfo.setUsage(vk::BufferUsageFlagBits::eVertexBuffer |
                                     vk::BufferUsageFlagBits::eStorageBuffer |
-                                    vk::BufferUsageFlagBits::eTransferDst);
+                                    vk::BufferUsageFlagBits::eTransferDst |
+                                    vk::BufferUsageFlagBits::eTransferSrc);
                 break;
             case BufferUsage::Index:
                 bufferInfo.setUsage(vk::BufferUsageFlagBits::eIndexBuffer |
-                                    vk::BufferUsageFlagBits::eTransferDst);
+                                    vk::BufferUsageFlagBits::eTransferDst |
+                                    vk::BufferUsageFlagBits::eTransferSrc);
                 break;
             case BufferUsage::Uniform:
                 bufferInfo.setUsage(vk::BufferUsageFlagBits::eUniformBuffer);

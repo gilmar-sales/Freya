@@ -397,7 +397,7 @@ class MainApp final : public fra::AbstractApplication
         };
         // Single-sided (+Y). Two-sided coplanar indices z-fight in the CSM
         // depth map under CullBack + lightProj Y-flip.
-        const std::vector<std::uint16_t> indices = {
+        const std::vector<std::uint32_t> indices = {
             0, 3, 2, 0, 2, 1,
         };
 

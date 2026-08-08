@@ -8,52 +8,31 @@
 namespace FREYA_NAMESPACE
 {
     /**
-     * @brief Mesh data structure with buffer indices and offsets.
+     * @brief Mesh record in the global mega geometry buffers.
      *
-     * Contains references to vertex/index buffers and counts for drawing.
-     * Implicitly converts to size_t for use as ID in SparseSet/MeshSet.
-     *
-     * @param vertexBufferIndex  Index into MeshPool's vertex buffer vector
-     * @param vertexBufferOffset Byte offset into the vertex buffer
-     * @param indexBufferIndex   Index into MeshPool's index buffer vector
-     * @param indexBufferOffset  Byte offset into the index buffer
-     * @param firstIndex         Index offset in index units (uint16)
-     * @param vertexOffset       Vertex offset in vertex units
-     * @param indexCount         Number of indices to draw
-     * @param aabbMin            Local-space AABB minimum
-     * @param aabbMax            Local-space AABB maximum
-     * @param id                 Unique mesh identifier
+     * All meshes share one vertex and one uint32 index buffer. LOD ranges are
+     * indexed via `lodBase` / `lodCount` into MeshPool's LOD table.
      */
     struct Mesh
     {
-        /**
-         * @brief Conversion operator to mesh ID (size_t).
-         */
         operator size_t() const { return id; }
 
-        /**
-         * @brief Conversion operator to boolean (valid if id != 0).
-         */
         operator bool() const { return id != 0; }
 
-        /**
-         * @brief Spaceship operator for ordered comparison.
-         */
         auto operator<=>(const Mesh& other) const { return id <=> other.id; }
 
-        std::uint32_t vertexBufferIndex;  ///< Vertex buffer index
-        std::uint32_t vertexBufferOffset; ///< Byte offset in vertex buffer
-
-        std::uint32_t indexBufferIndex;  ///< Index buffer index
-        std::uint32_t indexBufferOffset; ///< Byte offset in index buffer
-        std::uint32_t firstIndex;        ///< Index units for MDI
-        std::int32_t  vertexOffset;      ///< Vertex units for MDI
-        std::uint32_t indexCount;        ///< Number of indices
+        std::uint32_t vertexBufferOffset = 0; ///< Byte offset in mega VBO
+        std::uint32_t indexBufferOffset  = 0; ///< Byte offset of LOD0 indices
+        std::uint32_t firstIndex         = 0; ///< LOD0 index units for MDI
+        std::int32_t  vertexOffset       = 0; ///< Vertex units for MDI
+        std::uint32_t indexCount         = 0; ///< LOD0 index count
+        std::uint32_t lodCount           = 1;
+        std::uint32_t lodBase            = 0; ///< Index into MeshLodInfo table
 
         glm::vec3 aabbMin { 0.0f };
         glm::vec3 aabbMax { 0.0f };
 
-        std::uint32_t id; ///< Unique mesh identifier
+        std::uint32_t id = 0;
     };
 
 } // namespace FREYA_NAMESPACE

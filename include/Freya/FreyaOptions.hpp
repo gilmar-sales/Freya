@@ -95,7 +95,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t shadowMapResolution = 2048;
         float         shadowBias          = 0.002f;
         /// World-space penumbra radius hint (scaled by cascade texel size).
-        float         shadowLightSize     = 0.03f;
+        float shadowLightSize = 0.03f;
         /// Soft-shadow kernel clamp in shadow-map texels.
         float         shadowMaxSoftness   = 8.0f;
         float         shadowMinVisibility = 0.0f;

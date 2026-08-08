@@ -7,25 +7,22 @@
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/HiZPyramid.hpp"
+#include "Freya/Core/Image.hpp"
 
-#include <algorithm>
 #include <limits>
 #include <span>
 #include <vector>
 
+#include <glm/glm.hpp>
+
 namespace FREYA_NAMESPACE
 {
     /**
-     * @brief GPU-driven scene: batched MDI, frustum cull + compact, draw.
+     * @brief GPU-driven scene: Approach B MDI + frustum/Hi-Z cull + LOD.
      *
-     * Contiguous uploads with the same meshId become one indirect command.
-     * CullFrustum.comp (approach A) frustum-tests each instance and
-     * atomic-compacts survivors into [firstInstance, firstInstance+visible)
-     * of a compact transform buffer used for drawing.
-     *
-     * TAA history: `prevModel` is resolved by `entityId` via an
-     * open-addressing map rebuilt each frame (O(1) generation clear, no
-     * node heap traffic). Prefer uploading sorted by `(meshId, entityId)`.
+     * Compute compacta uma DrawIndexedIndirectCommand por instância visível
+     * (LOD selecionado) e a CPU emite um único drawIndexedIndirectCount.
      */
     class IndirectDrawSystem
     {
@@ -41,7 +38,11 @@ namespace FREYA_NAMESPACE
             vk::DescriptorSetLayout                      cullSetLayout,
             vk::DescriptorPool                           cullDescriptorPool,
             std::vector<vk::DescriptorSet>
-                cullDescriptorSets);
+                cullDescriptorSets,
+            skr::Arc<HiZPyramid>
+                hiz,
+            skr::Arc<Image>
+                hizFallbackImage);
 
         ~IndirectDrawSystem();
 
@@ -50,8 +51,14 @@ namespace FREYA_NAMESPACE
 
         void SyncMeshInfo();
 
+        void SetCullView(const glm::vec3& cameraPos, vk::Extent2D screenSize);
+
+        void ResizeHiZ(vk::Extent2D extent);
+
+        void BuildHiZ(const skr::Arc<Image>& depthImage, bool reverseZ);
+
         /**
-         * @brief Reset batch instanceCounts, dispatch cull+compact.
+         * @brief Reset drawCount, dispatch cull+compact+LOD.
          *
          * Must be called outside of a render pass.
          */
@@ -68,17 +75,12 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] std::uint32_t GetBatchCount() const
         {
-            return static_cast<std::uint32_t>(mIndirectCommands.size());
+            return mInstanceCount;
         }
 
         [[nodiscard]] bool HasScene() const { return mInstanceCount > 0; }
 
       private:
-        /**
-         * @brief Open-addressing entityId → model map for TAA history.
-         *
-         * Generation clear is O(1); capacity stays allocated across frames.
-         */
         class EntityModelMap
         {
           public:
@@ -217,26 +219,21 @@ namespace FREYA_NAMESPACE
         struct FrameResources
         {
             skr::Arc<Buffer> sceneInstances;
-            skr::Arc<Buffer> batchIds;
             skr::Arc<Buffer> sourceTransforms;
             skr::Arc<Buffer> compactTransforms;
             skr::Arc<Buffer> indirect;
+            skr::Arc<Buffer> drawCount;
             std::uint32_t    capacity = 0;
         };
 
-        struct ChunkRun
-        {
-            std::uint32_t vertexBufferIndex = 0;
-            std::uint32_t indexBufferIndex  = 0;
-            std::uint32_t firstDraw         = 0;
-            std::uint32_t drawCount         = 0;
-        };
-
         void ensureCapacity(std::uint32_t instanceCount);
+        void ensureCapacityForFrame(std::uint32_t frameIndex,
+                                    std::uint32_t instanceCount);
         void updateCullDescriptors(std::uint32_t frameIndex);
-        void buildBatches();
+        void bumpCullDescVersion();
+        void refreshCullDescriptorsIfNeeded();
         void uploadFrameBuffers();
-        void uploadIndirectZeros();
+        void zeroDrawCount();
 
         [[nodiscard]] FrameResources& currentFrame();
 
@@ -254,21 +251,32 @@ namespace FREYA_NAMESPACE
         vk::DescriptorPool             mCullDescriptorPool;
         std::vector<vk::DescriptorSet> mCullDescriptorSets;
 
+        skr::Arc<HiZPyramid> mHiZ;
+        skr::Arc<Image>      mHizFallbackImage;
+
         skr::Arc<Buffer>            mMeshInfoBuffer;
+        skr::Arc<Buffer>            mMeshLodBuffer;
         std::vector<FrameResources> mFrames;
 
-        std::vector<MeshInfo>                       mMeshInfos;
-        std::vector<SceneInstance>                  mSceneInstances;
-        std::vector<InstanceTransform>              mInstanceTransforms;
-        std::vector<InstanceTransform>              mPrevTransforms;
-        EntityModelMap                              mPrevModelByEntity;
-        std::vector<std::uint32_t>                  mInstanceBatchIds;
-        std::vector<vk::DrawIndexedIndirectCommand> mIndirectCommands;
-        std::vector<ChunkRun>                       mChunkRuns;
+        std::vector<MeshInfo>          mMeshInfos;
+        std::vector<MeshLodInfo>       mMeshLods;
+        std::vector<SceneInstance>     mSceneInstances;
+        std::vector<InstanceTransform> mInstanceTransforms;
+        std::vector<InstanceTransform> mPrevTransforms;
+        EntityModelMap                 mPrevModelByEntity;
 
         std::uint32_t mInstanceCount    = 0;
         std::uint32_t mMeshInfoCapacity = 0;
+        std::uint32_t mMeshLodCapacity  = 0;
         bool          mMeshInfoDirty    = true;
+
+        // Cull descriptor updates are unsafe once the set is bound this frame.
+        std::uint32_t              mCullDescVersion = 1;
+        std::vector<std::uint32_t> mFrameCullDescVersion;
+        bool                       mCullDescRefreshedThisFrame = false;
+
+        glm::vec3    mCameraPos { 0.0f };
+        vk::Extent2D mScreenSize { 1, 1 };
     };
 
 } // namespace FREYA_NAMESPACE

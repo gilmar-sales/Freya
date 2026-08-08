@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.29)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(Freya LANGUAGES CXX VERSION 0.35.1)
+project(Freya LANGUAGES CXX VERSION 0.36.0)
 
 find_package(Vulkan REQUIRED)
 
@@ -48,6 +48,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(skirnir)
 
+FetchContent_Declare(
+        meshoptimizer
+        GIT_REPOSITORY "https://github.com/zeux/meshoptimizer.git"
+        GIT_TAG "v1.2"
+        GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(meshoptimizer)
+
 if(${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
         option(FREYA_BUILD_EXAMPLES "Build freyr examples" ON)
 else()
@@ -78,7 +86,8 @@ target_include_directories(Freya
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Containers
 )
 target_link_libraries(Freya PUBLIC
-        SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES} skirnir::skirnir)
+        SDL3::SDL3 glm assimp meshoptimizer ${Vulkan_LIBRARIES}
+        skirnir::skirnir)
 
 target_precompile_headers(Freya PUBLIC
         <memory>

@@ -4,16 +4,17 @@
 
 - CMake 3.29+, requires Vulkan SDK and **GCC 16+** (C++26 reflection via
   `-freflection`; Clang/MSVC are not supported yet). All deps fetched via
-  `FetchContent`: SDL3, glm, assimp, skirnir.
+  `FetchContent`: SDL3, glm, assimp, meshoptimizer, skirnir.
 - Pinned dependency versions:
 
-  | Dependency  | Version / Tag    |
-  |-------------|------------------|
-  | SDL3        | `release-3.4.10` |
-  | glm         | `1.0.3`          |
-  | assimp      | `v6.0.5`         |
-  | skirnir     | `v0.22.1`        |
-  | stb_image.h | `v2.30` (vendored in `src/Freya/Vendor/`) |
+  | Dependency     | Version / Tag    |
+  |----------------|------------------|
+  | SDL3           | `release-3.4.10` |
+  | glm            | `1.0.3`          |
+  | assimp         | `v6.0.5`         |
+  | meshoptimizer  | `v1.2`           |
+  | skirnir        | `v0.22.1`        |
+  | stb_image.h    | `v2.30` (vendored in `src/Freya/Vendor/`) |
 - Static lib only (`BUILD_SHARED_LIBS OFF`).
 - `build/` is the active build directory (Ninja, used by CI). `.gitignore` patterns `cmake-build-*/` and `build/` (but `build/` is committed — do not delete it).
 - **Generator: Ninja is mandatory.** Always pass `-G Ninja` when configuring (CI uses Ninja, and the shader copy targets in `cmake/CompileShaders.cmake` rely on Ninja generator behavior). Do not use the default generator.

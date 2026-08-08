@@ -13,21 +13,12 @@ namespace FREYA_NAMESPACE
 
         struct UploadSortKey
         {
-            std::uint32_t vertexBufferIndex = 0;
-            std::uint32_t indexBufferIndex  = 0;
-            std::uint32_t meshId            = 0;
-            std::uint32_t entityId          = 0;
-            std::uint32_t uploadIndex       = 0;
+            std::uint32_t entityId    = 0;
+            std::uint32_t uploadIndex = 0;
         };
 
         bool UploadSortKeyLess(const UploadSortKey& a, const UploadSortKey& b)
         {
-            if (a.vertexBufferIndex != b.vertexBufferIndex)
-                return a.vertexBufferIndex < b.vertexBufferIndex;
-            if (a.indexBufferIndex != b.indexBufferIndex)
-                return a.indexBufferIndex < b.indexBufferIndex;
-            if (a.meshId != b.meshId)
-                return a.meshId < b.meshId;
             if (a.entityId != b.entityId)
                 return a.entityId < b.entityId;
             return a.uploadIndex < b.uploadIndex;
@@ -45,15 +36,22 @@ namespace FREYA_NAMESPACE
         const vk::DescriptorSetLayout                cullSetLayout,
         const vk::DescriptorPool                     cullDescriptorPool,
         std::vector<vk::DescriptorSet>
-            cullDescriptorSets) :
+            cullDescriptorSets,
+        skr::Arc<HiZPyramid>
+            hiz,
+        skr::Arc<Image>
+            hizFallbackImage) :
         mDevice(device), mCommandPool(commandPool), mMeshPool(meshPool),
         mMaterials(materials), mFrameCount(std::max(1u, frameCount)),
         mCullPipeline(cullPipeline), mCullPipelineLayout(cullPipelineLayout),
         mCullSetLayout(cullSetLayout), mCullDescriptorPool(cullDescriptorPool),
-        mCullDescriptorSets(std::move(cullDescriptorSets))
+        mCullDescriptorSets(std::move(cullDescriptorSets)),
+        mHiZ(std::move(hiz)), mHizFallbackImage(std::move(hizFallbackImage))
     {
         mFrames.resize(mFrameCount);
-        ensureCapacity(kInitialInstanceCapacity);
+        mFrameCullDescVersion.assign(mFrameCount, 0);
+        for (std::uint32_t f = 0; f < mFrameCount; ++f)
+            ensureCapacityForFrame(f, kInitialInstanceCapacity);
         SyncMeshInfo();
     }
 
@@ -64,6 +62,8 @@ namespace FREYA_NAMESPACE
         vkDevice.destroyPipelineLayout(mCullPipelineLayout);
         vkDevice.destroyDescriptorPool(mCullDescriptorPool);
         vkDevice.destroyDescriptorSetLayout(mCullSetLayout);
+        mHiZ.reset();
+        mHizFallbackImage.reset();
     }
 
     IndirectDrawSystem::FrameResources& IndirectDrawSystem::currentFrame()
@@ -71,70 +71,138 @@ namespace FREYA_NAMESPACE
         return mFrames[mFrameIndex % mFrameCount];
     }
 
-    void IndirectDrawSystem::ensureCapacity(const std::uint32_t instanceCount)
+    void IndirectDrawSystem::SetCullView(const glm::vec3&   cameraPos,
+                                         const vk::Extent2D screenSize)
     {
+        mCameraPos  = cameraPos;
+        mScreenSize = screenSize;
+    }
+
+    void IndirectDrawSystem::ResizeHiZ(const vk::Extent2D extent)
+    {
+        if (!mHiZ)
+            return;
+        mHiZ->Resize(extent.width, extent.height);
+        mHiZ->Invalidate();
+        bumpCullDescVersion();
+        // Swapchain resize waits idle; safe to refresh every set now.
         for (std::uint32_t f = 0; f < mFrameCount; ++f)
         {
-            auto& frame = mFrames[f];
-            if (instanceCount <= frame.capacity && frame.sceneInstances &&
-                frame.batchIds && frame.sourceTransforms &&
-                frame.compactTransforms && frame.indirect)
-            {
-                continue;
-            }
-
-            const auto capacity = std::max(
-                instanceCount,
-                std::max(frame.capacity * 2, kInitialInstanceCapacity));
-
-            frame.sceneInstances =
-                BufferBuilder(mDevice)
-                    .SetUsage(BufferUsage::Storage)
-                    .SetSize(sizeof(SceneInstance) * capacity)
-                    .Build();
-            frame.batchIds = BufferBuilder(mDevice)
-                                 .SetUsage(BufferUsage::Storage)
-                                 .SetSize(sizeof(std::uint32_t) * capacity)
-                                 .Build();
-            frame.sourceTransforms =
-                BufferBuilder(mDevice)
-                    .SetUsage(BufferUsage::Storage)
-                    .SetSize(sizeof(InstanceTransform) * capacity)
-                    .Build();
-            frame.compactTransforms =
-                BufferBuilder(mDevice)
-                    .SetUsage(BufferUsage::Instance)
-                    .SetSize(sizeof(InstanceTransform) * capacity)
-                    .Build();
-            // One command per batch; worst case = one mesh per instance.
-            frame.indirect =
-                BufferBuilder(mDevice)
-                    .SetUsage(BufferUsage::Indirect)
-                    .SetSize(sizeof(vk::DrawIndexedIndirectCommand) * capacity)
-                    .Build();
-            frame.capacity = capacity;
             updateCullDescriptors(f);
+            mFrameCullDescVersion[f] = mCullDescVersion;
         }
+        mCullDescRefreshedThisFrame = false;
+    }
 
+    void IndirectDrawSystem::BuildHiZ(const skr::Arc<Image>& depthImage,
+                                      const bool             reverseZ)
+    {
+        if (!mHiZ || !depthImage)
+            return;
+        const bool wasReady = mHiZ->IsReady();
+        if (!mHiZ->IsValid())
+            mHiZ->Resize(std::max(1u, mScreenSize.width),
+                         std::max(1u, mScreenSize.height));
+        // Do not rewrite cull descriptor sets here: DispatchCull already
+        // bound this frame's set earlier in the same command buffer.
+        mHiZ->Build(mCommandPool, depthImage, reverseZ, mFrameIndex);
+        if (!wasReady && mHiZ->IsReady())
+            bumpCullDescVersion();
+    }
+
+    void IndirectDrawSystem::bumpCullDescVersion()
+    {
+        ++mCullDescVersion;
+        if (mCullDescVersion == 0)
+            mCullDescVersion = 1;
+        mCullDescRefreshedThisFrame = false;
+    }
+
+    void IndirectDrawSystem::refreshCullDescriptorsIfNeeded()
+    {
+        if (mCullDescRefreshedThisFrame)
+            return;
+        if (mFrameIndex >= mFrameCullDescVersion.size())
+            return;
+
+        if (mFrameCullDescVersion[mFrameIndex] != mCullDescVersion)
+        {
+            updateCullDescriptors(mFrameIndex);
+            mFrameCullDescVersion[mFrameIndex] = mCullDescVersion;
+        }
+        mCullDescRefreshedThisFrame = true;
+    }
+
+    void IndirectDrawSystem::ensureCapacity(const std::uint32_t instanceCount)
+    {
+        ensureCapacityForFrame(mFrameIndex, instanceCount);
         mSceneInstances.reserve(instanceCount);
         mInstanceTransforms.reserve(instanceCount);
-        mInstanceBatchIds.reserve(instanceCount);
-        mIndirectCommands.reserve(instanceCount);
+    }
+
+    void IndirectDrawSystem::ensureCapacityForFrame(
+        const std::uint32_t frameIndex, const std::uint32_t instanceCount)
+    {
+        if (frameIndex >= mFrames.size())
+            return;
+
+        auto& frame = mFrames[frameIndex];
+        if (instanceCount <= frame.capacity && frame.sceneInstances &&
+            frame.sourceTransforms && frame.compactTransforms &&
+            frame.indirect && frame.drawCount)
+        {
+            return;
+        }
+
+        const auto capacity = std::max(
+            instanceCount,
+            std::max(frame.capacity * 2, kInitialInstanceCapacity));
+
+        frame.sceneInstances =
+            BufferBuilder(mDevice)
+                .SetUsage(BufferUsage::Storage)
+                .SetSize(sizeof(SceneInstance) * capacity)
+                .Build();
+        frame.sourceTransforms =
+            BufferBuilder(mDevice)
+                .SetUsage(BufferUsage::Storage)
+                .SetSize(sizeof(InstanceTransform) * capacity)
+                .Build();
+        frame.compactTransforms =
+            BufferBuilder(mDevice)
+                .SetUsage(BufferUsage::Instance)
+                .SetSize(sizeof(InstanceTransform) * capacity)
+                .Build();
+        frame.indirect =
+            BufferBuilder(mDevice)
+                .SetUsage(BufferUsage::Indirect)
+                .SetSize(sizeof(vk::DrawIndexedIndirectCommand) * capacity)
+                .Build();
+        frame.drawCount = BufferBuilder(mDevice)
+                              .SetUsage(BufferUsage::Indirect)
+                              .SetSize(sizeof(std::uint32_t))
+                              .Build();
+        frame.capacity = capacity;
+
+        bumpCullDescVersion();
+        updateCullDescriptors(frameIndex);
+        if (frameIndex < mFrameCullDescVersion.size())
+            mFrameCullDescVersion[frameIndex] = mCullDescVersion;
     }
 
     void IndirectDrawSystem::updateCullDescriptors(
         const std::uint32_t frameIndex)
     {
-        if (!mMeshInfoBuffer || frameIndex >= mFrames.size() ||
+        if (!mMeshInfoBuffer || !mMeshLodBuffer ||
+            frameIndex >= mFrames.size() ||
             frameIndex >= mCullDescriptorSets.size())
         {
             return;
         }
 
         auto& frame = mFrames[frameIndex];
-        if (!frame.sceneInstances || !frame.batchIds ||
-            !frame.sourceTransforms || !frame.compactTransforms ||
-            !frame.indirect)
+        if (!frame.sceneInstances || !frame.sourceTransforms ||
+            !frame.compactTransforms || !frame.indirect || !frame.drawCount)
         {
             return;
         }
@@ -165,11 +233,26 @@ namespace FREYA_NAMESPACE
                 .setBuffer(frame.compactTransforms->Get())
                 .setOffset(0)
                 .setRange(sizeof(InstanceTransform) * cap);
-        const auto batchInfo =
+        const auto lodInfo =
             vk::DescriptorBufferInfo()
-                .setBuffer(frame.batchIds->Get())
+                .setBuffer(mMeshLodBuffer->Get())
                 .setOffset(0)
-                .setRange(sizeof(std::uint32_t) * cap);
+                .setRange(sizeof(MeshLodInfo) * std::max(mMeshLodCapacity, 1u));
+        const auto countInfo =
+            vk::DescriptorBufferInfo()
+                .setBuffer(frame.drawCount->Get())
+                .setOffset(0)
+                .setRange(sizeof(std::uint32_t));
+
+        const bool useHiZ = mHiZ && mHiZ->IsReady() && mHiZ->GetSampledView();
+        const auto hizView =
+            useHiZ ? mHiZ->GetSampledView() : mHizFallbackImage->GetImageView();
+        const auto hizSampler = mHiZ ? mHiZ->GetSampler() : vk::Sampler {};
+        const auto hizInfo =
+            vk::DescriptorImageInfo()
+                .setSampler(hizSampler)
+                .setImageView(hizView)
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 
         const auto set    = mCullDescriptorSets[frameIndex];
         const auto writes = std::array {
@@ -208,7 +291,19 @@ namespace FREYA_NAMESPACE
                 .setDstBinding(5)
                 .setDescriptorType(vk::DescriptorType::eStorageBuffer)
                 .setDescriptorCount(1)
-                .setBufferInfo(batchInfo),
+                .setBufferInfo(lodInfo),
+            vk::WriteDescriptorSet()
+                .setDstSet(set)
+                .setDstBinding(6)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setBufferInfo(countInfo),
+            vk::WriteDescriptorSet()
+                .setDstSet(set)
+                .setDstBinding(7)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setImageInfo(hizInfo),
         };
         mDevice->Get().updateDescriptorSets(writes, nullptr);
     }
@@ -216,19 +311,45 @@ namespace FREYA_NAMESPACE
     void IndirectDrawSystem::SyncMeshInfo()
     {
         mMeshPool->FillMeshInfos(mMeshInfos);
-        const auto count =
-            std::max(static_cast<std::uint32_t>(mMeshInfos.size()), 1u);
+        mMeshPool->FillMeshLods(mMeshLods);
 
-        if (count > mMeshInfoCapacity || !mMeshInfoBuffer)
+        const auto meshCount =
+            std::max(static_cast<std::uint32_t>(mMeshInfos.size()), 1u);
+        const auto lodCount =
+            std::max(static_cast<std::uint32_t>(mMeshLods.size()), 1u);
+
+        bool rebind = false;
+        if (meshCount > mMeshInfoCapacity || !mMeshInfoBuffer)
         {
+            mDevice->Get().waitIdle();
             mMeshInfoBuffer =
                 BufferBuilder(mDevice)
                     .SetUsage(BufferUsage::Storage)
-                    .SetSize(sizeof(MeshInfo) * count)
+                    .SetSize(sizeof(MeshInfo) * meshCount)
                     .Build();
-            mMeshInfoCapacity = count;
+            mMeshInfoCapacity = meshCount;
+            rebind            = true;
+        }
+        if (lodCount > mMeshLodCapacity || !mMeshLodBuffer)
+        {
+            mDevice->Get().waitIdle();
+            mMeshLodBuffer   = BufferBuilder(mDevice)
+                                   .SetUsage(BufferUsage::Storage)
+                                   .SetSize(sizeof(MeshLodInfo) * lodCount)
+                                   .Build();
+            mMeshLodCapacity = lodCount;
+            rebind           = true;
+        }
+
+        if (rebind)
+        {
+            bumpCullDescVersion();
             for (std::uint32_t f = 0; f < mFrameCount; ++f)
+            {
                 updateCullDescriptors(f);
+                if (f < mFrameCullDescVersion.size())
+                    mFrameCullDescVersion[f] = mCullDescVersion;
+            }
         }
 
         if (!mMeshInfos.empty())
@@ -236,64 +357,12 @@ namespace FREYA_NAMESPACE
             mMeshInfoBuffer->Copy(mMeshInfos.data(),
                                   sizeof(MeshInfo) * mMeshInfos.size());
         }
-        mMeshInfoDirty = false;
-    }
-
-    void IndirectDrawSystem::buildBatches()
-    {
-        mIndirectCommands.clear();
-        mChunkRuns.clear();
-        mInstanceBatchIds.assign(mInstanceCount, 0);
-
-        if (mInstanceCount == 0)
-            return;
-
-        std::uint32_t runStart = 0;
-        while (runStart < mInstanceCount)
+        if (!mMeshLods.empty())
         {
-            const auto meshId = mSceneInstances[runStart].meshId;
-            MeshInfo   mesh {};
-            if (meshId < mMeshInfos.size())
-                mesh = mMeshInfos[meshId];
-
-            std::uint32_t runEnd = runStart + 1;
-            while (runEnd < mInstanceCount &&
-                   mSceneInstances[runEnd].meshId == meshId)
-            {
-                ++runEnd;
-            }
-
-            const auto batchIndex =
-                static_cast<std::uint32_t>(mIndirectCommands.size());
-            for (std::uint32_t i = runStart; i < runEnd; ++i)
-                mInstanceBatchIds[i] = batchIndex;
-
-            mIndirectCommands.push_back(
-                vk::DrawIndexedIndirectCommand {}
-                    .setIndexCount(mesh.indexCount)
-                    .setInstanceCount(0) // filled by cull atomic compact
-                    .setFirstIndex(mesh.firstIndex)
-                    .setVertexOffset(mesh.vertexOffset)
-                    .setFirstInstance(runStart));
-
-            if (mChunkRuns.empty() ||
-                mChunkRuns.back().vertexBufferIndex != mesh.vertexBufferIndex ||
-                mChunkRuns.back().indexBufferIndex != mesh.indexBufferIndex)
-            {
-                mChunkRuns.push_back(ChunkRun {
-                    .vertexBufferIndex = mesh.vertexBufferIndex,
-                    .indexBufferIndex  = mesh.indexBufferIndex,
-                    .firstDraw         = batchIndex,
-                    .drawCount         = 1,
-                });
-            }
-            else
-            {
-                ++mChunkRuns.back().drawCount;
-            }
-
-            runStart = runEnd;
+            mMeshLodBuffer->Copy(mMeshLods.data(),
+                                 sizeof(MeshLodInfo) * mMeshLods.size());
         }
+        mMeshInfoDirty = false;
     }
 
     void IndirectDrawSystem::uploadFrameBuffers()
@@ -307,24 +376,16 @@ namespace FREYA_NAMESPACE
         frame.sourceTransforms->Copy(
             mInstanceTransforms.data(),
             sizeof(InstanceTransform) * mInstanceCount);
-        frame.batchIds->Copy(mInstanceBatchIds.data(),
-                             sizeof(std::uint32_t) * mInstanceCount);
-        uploadIndirectZeros();
+        zeroDrawCount();
     }
 
-    void IndirectDrawSystem::uploadIndirectZeros()
+    void IndirectDrawSystem::zeroDrawCount()
     {
         auto& frame = currentFrame();
-        if (mIndirectCommands.empty() || !frame.indirect)
+        if (!frame.drawCount)
             return;
-
-        // Ensure instanceCount is 0 before each cull atomic pass.
-        for (auto& cmd : mIndirectCommands)
-            cmd.setInstanceCount(0);
-
-        frame.indirect->Copy(
-            mIndirectCommands.data(),
-            sizeof(vk::DrawIndexedIndirectCommand) * mIndirectCommands.size());
+        const std::uint32_t zero = 0;
+        frame.drawCount->Copy(&zero, sizeof(zero));
     }
 
     void IndirectDrawSystem::UploadSceneInstances(
@@ -332,15 +393,13 @@ namespace FREYA_NAMESPACE
         const std::uint32_t                        frameIndex)
     {
         mFrameIndex = frameIndex % mFrameCount;
+        mCullDescRefreshedThisFrame = false;
 
         if (uploads.empty())
         {
             mInstanceCount = 0;
             mSceneInstances.clear();
             mInstanceTransforms.clear();
-            mInstanceBatchIds.clear();
-            mIndirectCommands.clear();
-            mChunkRuns.clear();
             return;
         }
 
@@ -348,25 +407,22 @@ namespace FREYA_NAMESPACE
             SyncMeshInfo();
 
         ensureCapacity(static_cast<std::uint32_t>(uploads.size()));
+        refreshCullDescriptorsIfNeeded();
+        // Allow DispatchCull to refresh once more if SyncMeshInfo bumped.
+        mCullDescRefreshedThisFrame = false;
 
-        // Swap history buffers (no deep copy of matrices).
         mPrevTransforms.swap(mInstanceTransforms);
         mPrevModelByEntity.clear();
         mPrevModelByEntity.reserve(mPrevTransforms.size());
         for (const auto& prev : mPrevTransforms)
             mPrevModelByEntity.insert(prev.entityId, prev.model);
 
-        // Build sort keys with cached mesh buffer indices (one GetMesh each).
         std::vector<UploadSortKey> sortKeys(uploads.size());
         for (std::uint32_t i = 0; i < uploads.size(); ++i)
         {
-            const auto& mesh = mMeshPool->GetMesh(uploads[i].meshId);
-            sortKeys[i]      = UploadSortKey {
-                .vertexBufferIndex = mesh.vertexBufferIndex,
-                .indexBufferIndex  = mesh.indexBufferIndex,
-                .meshId            = uploads[i].meshId,
-                .entityId          = uploads[i].entityId,
-                .uploadIndex       = i,
+            sortKeys[i] = UploadSortKey {
+                .entityId    = uploads[i].entityId,
+                .uploadIndex = i,
             };
         }
 
@@ -405,9 +461,7 @@ namespace FREYA_NAMESPACE
 
             glm::mat4 prev = src.model;
             if (const auto* found = mPrevModelByEntity.find(src.entityId))
-            {
                 prev = *found;
-            }
 
             mInstanceTransforms[dst] = InstanceTransform {
                 .model      = src.model,
@@ -418,27 +472,34 @@ namespace FREYA_NAMESPACE
             };
         }
 
-        buildBatches();
         uploadFrameBuffers();
     }
 
     void IndirectDrawSystem::DispatchCull(
         const glm::mat4& viewProj, const CullMode mode, const bool reverseZ)
     {
-        if (mInstanceCount == 0 || mIndirectCommands.empty())
+        if (mInstanceCount == 0)
             return;
 
-        if (mMeshInfoDirty)
-            SyncMeshInfo();
+        // At most one descriptor update per frame before the first bind.
+        // Do not SyncMeshInfo here — UploadSceneInstances already did, and a
+        // mid-frame descriptor rewrite would invalidate this command buffer.
+        refreshCullDescriptorsIfNeeded();
 
-        // Reset per-batch visible counts before atomic compaction.
-        uploadIndirectZeros();
+        zeroDrawCount();
 
         CullPushConstants pc {};
         pc.viewProj      = viewProj;
+        pc.cameraPos     = glm::vec4(mCameraPos, 0.0f);
+        pc.screenSize    = glm::vec2(static_cast<float>(mScreenSize.width),
+                                     static_cast<float>(mScreenSize.height));
         pc.instanceCount = mInstanceCount;
         pc.cullMode      = static_cast<std::uint32_t>(mode);
         pc.reverseZ      = reverseZ ? 1u : 0u;
+        pc.hizEnabled =
+            (mode == CullMode::Camera && mHiZ && mHiZ->IsReady()) ? 1u : 0u;
+        pc.lodPixelRef = 256.0f;
+        pc.lodStep     = 2.0f;
 
         auto&      frame = currentFrame();
         auto&      cb    = mCommandPool->GetCommandBuffer();
@@ -458,6 +519,14 @@ namespace FREYA_NAMESPACE
                 .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
                 .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
                 .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                .setBuffer(mMeshLodBuffer->Get())
+                .setOffset(0)
+                .setSize(VK_WHOLE_SIZE),
+            vk::BufferMemoryBarrier()
+                .setSrcAccessMask(vk::AccessFlagBits::eHostWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
                 .setBuffer(frame.sceneInstances->Get())
                 .setOffset(0)
                 .setSize(VK_WHOLE_SIZE),
@@ -470,11 +539,14 @@ namespace FREYA_NAMESPACE
                 .setOffset(0)
                 .setSize(VK_WHOLE_SIZE),
             vk::BufferMemoryBarrier()
-                .setSrcAccessMask(vk::AccessFlagBits::eHostWrite)
-                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                .setSrcAccessMask(vk::AccessFlagBits::eIndirectCommandRead |
+                                  vk::AccessFlagBits::eHostWrite |
+                                  vk::AccessFlagBits::eShaderWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eShaderRead |
+                                  vk::AccessFlagBits::eShaderWrite)
                 .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
                 .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
-                .setBuffer(frame.batchIds->Get())
+                .setBuffer(frame.indirect->Get())
                 .setOffset(0)
                 .setSize(VK_WHOLE_SIZE),
             vk::BufferMemoryBarrier()
@@ -485,7 +557,7 @@ namespace FREYA_NAMESPACE
                                   vk::AccessFlagBits::eShaderWrite)
                 .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
                 .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
-                .setBuffer(frame.indirect->Get())
+                .setBuffer(frame.drawCount->Get())
                 .setOffset(0)
                 .setSize(VK_WHOLE_SIZE),
             vk::BufferMemoryBarrier()
@@ -528,6 +600,14 @@ namespace FREYA_NAMESPACE
                 .setSize(VK_WHOLE_SIZE),
             vk::BufferMemoryBarrier()
                 .setSrcAccessMask(vk::AccessFlagBits::eShaderWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eIndirectCommandRead)
+                .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                .setBuffer(frame.drawCount->Get())
+                .setOffset(0)
+                .setSize(VK_WHOLE_SIZE),
+            vk::BufferMemoryBarrier()
+                .setSrcAccessMask(vk::AccessFlagBits::eShaderWrite)
                 .setDstAccessMask(vk::AccessFlagBits::eVertexAttributeRead)
                 .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
                 .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
@@ -547,13 +627,14 @@ namespace FREYA_NAMESPACE
     void IndirectDrawSystem::ExecuteDraws(
         const bool bindMaterials, const vk::PipelineLayout pipelineLayout)
     {
-        if (mInstanceCount == 0 || mChunkRuns.empty())
+        if (mInstanceCount == 0)
             return;
 
         auto& frame = currentFrame();
         auto& cb    = mCommandPool->GetCommandBuffer();
 
         frame.compactTransforms->Bind(mCommandPool);
+        mMeshPool->BindGeometry();
 
         if (bindMaterials && pipelineLayout)
         {
@@ -562,15 +643,9 @@ namespace FREYA_NAMESPACE
                 &mMaterials->GetBindlessSet(), 0, nullptr);
         }
 
-        for (const auto& run : mChunkRuns)
-        {
-            mMeshPool->BindChunk(run.vertexBufferIndex, run.indexBufferIndex);
-            cb.drawIndexedIndirect(
-                frame.indirect->Get(),
-                sizeof(vk::DrawIndexedIndirectCommand) * run.firstDraw,
-                run.drawCount,
-                sizeof(vk::DrawIndexedIndirectCommand));
-        }
+        cb.drawIndexedIndirectCount(
+            frame.indirect->Get(), 0, frame.drawCount->Get(), 0, frame.capacity,
+            sizeof(vk::DrawIndexedIndirectCommand));
     }
 
 } // namespace FREYA_NAMESPACE

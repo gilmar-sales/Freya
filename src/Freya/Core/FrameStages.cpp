@@ -127,6 +127,10 @@ namespace FREYA_NAMESPACE
         }
 
         (*ctx.deferred)->End(ctx.commandPool);
+
+        // Previous-frame Hi-Z for next camera cull (depth is ReadOnly).
+        if (ctx.buildHiZ)
+            ctx.buildHiZ();
     }
 
     void SsaoLightingFrameStage::Rebuild(RenderFrameContext&   ctx,

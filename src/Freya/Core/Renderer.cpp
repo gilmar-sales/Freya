@@ -227,6 +227,8 @@ namespace FREYA_NAMESPACE
             mSsaoFallbackImage.reset();
 
         resizePickPass(extent);
+        if (mIndirectDraw)
+            mIndirectDraw->ResizeHiZ(extent);
     }
 
     void Renderer::registerDefaultFrameStages()
@@ -275,7 +277,13 @@ namespace FREYA_NAMESPACE
         ctx.dispatchCull = [this](const glm::mat4& viewProj, CullMode mode) {
             DispatchCull(viewProj, mode);
         };
-        ctx.executePickDraws   = [this]() { ExecutePickDrawCommands(); };
+        ctx.executePickDraws = [this]() { ExecutePickDrawCommands(); };
+        ctx.buildHiZ         = [this]() {
+            if (!mIndirectDraw || !mDeferredPass)
+                return;
+            mIndirectDraw->BuildHiZ(mDeferredPass->GetDepthImage(),
+                                    mFreyaOptions->ReverseZ);
+        };
         ctx.blitBloomToFullRes = [this]() { blitBloomToFullRes(mCommandPool); };
         ctx.beginComposite =
             [this](std::uint32_t frameIndex, const skr::Arc<Image>& opaque,
@@ -941,9 +949,13 @@ namespace FREYA_NAMESPACE
     void Renderer::DispatchCull(const glm::mat4& viewProj, const CullMode mode)
     {
         flushLegacyDrawCommands();
-        if (mIndirectDraw)
-            mIndirectDraw->DispatchCull(
-                viewProj, mode, mFreyaOptions->ReverseZ);
+        if (!mIndirectDraw)
+            return;
+
+        const auto cameraPos =
+            glm::vec3(glm::inverse(mCurrentProjection.view)[3]);
+        mIndirectDraw->SetCullView(cameraPos, getRenderExtent());
+        mIndirectDraw->DispatchCull(viewProj, mode, mFreyaOptions->ReverseZ);
     }
 
     void Renderer::ExecuteDrawCommands(const bool bindMaterials)

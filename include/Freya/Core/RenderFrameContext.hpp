@@ -61,6 +61,7 @@ namespace FREYA_NAMESPACE
         std::function<void(const glm::mat4&, CullMode)> dispatchCull;
         std::function<void(bool bindMaterials)>         executeDraws;
         std::function<void()>                           executePickDraws;
+        std::function<void()>                           buildHiZ;
         std::function<void()>                           blitBloomToFullRes;
         std::function<void(std::uint32_t, const skr::Arc<Image>&,
                            const skr::Arc<Image>&, bool)>

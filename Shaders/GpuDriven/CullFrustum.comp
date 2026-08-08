@@ -2,22 +2,27 @@
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
-// Approach A: CPU emits one indirect draw per contiguous mesh batch
-// (instanceCount = 0). Each instance thread frustum-tests, then
-// atomicAdd's into that batch's instanceCount and writes a compacted
-// InstanceTransform so the VS sees a dense [firstInstance, +visible).
+// Approach B: per-instance frustum (+ optional Hi-Z) cull, LOD select,
+// atomic-compact into dense DrawIndexedIndirectCommand list + transforms.
 
 struct MeshInfo {
-    uint indexCount;
-    uint firstIndex;
-    int  vertexOffset;
-    uint vertexBufferIndex;
-    uint indexBufferIndex;
+    uint lodCount;
+    uint lodBase;
     uint _pad0;
     uint _pad1;
     uint _pad2;
+    uint _pad3;
+    uint _pad4;
+    uint _pad5;
     vec4 aabbMin;
     vec4 aabbMax;
+};
+
+struct MeshLodInfo {
+    uint indexCount;
+    uint firstIndex;
+    int  vertexOffset;
+    uint _pad;
 };
 
 struct SceneInstance {
@@ -47,10 +52,14 @@ struct InstanceTransform {
 
 layout(push_constant) uniform CullPC {
     mat4 viewProj;
+    vec4 cameraPos;
+    vec2 screenSize;
     uint instanceCount;
     uint cullMode;
     uint reverseZ;
-    uint _pad0;
+    uint hizEnabled;
+    float lodPixelRef;
+    float lodStep;
 } cull;
 
 layout(std430, binding = 0) readonly buffer MeshInfoBuffer {
@@ -61,7 +70,7 @@ layout(std430, binding = 1) readonly buffer SceneInstanceBuffer {
     SceneInstance instances[];
 };
 
-layout(std430, binding = 2) buffer IndirectBuffer {
+layout(std430, binding = 2) writeonly buffer IndirectBuffer {
     DrawIndexedIndirectCommand draws[];
 };
 
@@ -73,9 +82,15 @@ layout(std430, binding = 4) writeonly buffer CompactTransforms {
     InstanceTransform compact[];
 };
 
-layout(std430, binding = 5) readonly buffer BatchIdBuffer {
-    uint batchIds[];
+layout(std430, binding = 5) readonly buffer MeshLodBuffer {
+    MeshLodInfo lods[];
 };
+
+layout(std430, binding = 6) buffer DrawCountBuffer {
+    uint drawCount;
+};
+
+layout(binding = 7) uniform sampler2D hizPyramid;
 
 const uint kFlagCastShadows = 1u;
 const uint kCullModeShadow  = 1u;
@@ -123,6 +138,79 @@ bool aabbOutsideFrustum(mat4 mvp, vec3 bmin, vec3 bmax)
            outNear == 8 || outFar == 8;
 }
 
+uint selectLod(float screenDiameter, uint lodCount)
+{
+    if (lodCount <= 1u || cull.cullMode == kCullModeShadow)
+        return 0u;
+
+    float ref = max(cull.lodPixelRef, 1.0);
+    float step = max(cull.lodStep, 1.01);
+    uint lod = 0u;
+    float threshold = ref;
+    while (lod + 1u < lodCount && screenDiameter < threshold)
+    {
+        ++lod;
+        threshold /= step;
+    }
+    return lod;
+}
+
+bool occludedByHiZ(mat4 mvp, vec3 bmin, vec3 bmax)
+{
+    if (cull.hizEnabled == 0u)
+        return false;
+
+    vec2 smin = vec2(1e10);
+    vec2 smax = vec2(-1e10);
+    float nearestZ = cull.reverseZ != 0u ? -1e10 : 1e10;
+    int valid = 0;
+
+    vec3 corners[8] = vec3[](
+        vec3(bmin.x, bmin.y, bmin.z),
+        vec3(bmax.x, bmin.y, bmin.z),
+        vec3(bmin.x, bmax.y, bmin.z),
+        vec3(bmax.x, bmax.y, bmin.z),
+        vec3(bmin.x, bmin.y, bmax.z),
+        vec3(bmax.x, bmin.y, bmax.z),
+        vec3(bmin.x, bmax.y, bmax.z),
+        vec3(bmax.x, bmax.y, bmax.z));
+
+    for (int i = 0; i < 8; ++i)
+    {
+        vec4 clip = mvp * vec4(corners[i], 1.0);
+        if (clip.w <= 0.0)
+            continue;
+        vec3 ndc = clip.xyz / clip.w;
+        vec2 uv = ndc.xy * 0.5 + 0.5;
+        smin = min(smin, uv);
+        smax = max(smax, uv);
+        if (cull.reverseZ != 0u)
+            nearestZ = max(nearestZ, ndc.z);
+        else
+            nearestZ = min(nearestZ, ndc.z);
+        ++valid;
+    }
+
+    if (valid == 0)
+        return false;
+
+    smin = clamp(smin, vec2(0.0), vec2(1.0));
+    smax = clamp(smax, vec2(0.0), vec2(1.0));
+    vec2 sizePx = (smax - smin) * cull.screenSize;
+    float maxDim = max(max(sizePx.x, sizePx.y), 1.0);
+    float mip = floor(log2(maxDim));
+    float levels = float(textureQueryLevels(hizPyramid));
+    mip = clamp(mip, 0.0, max(levels - 1.0, 0.0));
+
+    vec2 center = (smin + smax) * 0.5;
+    float occluder = textureLod(hizPyramid, center, mip).r;
+
+    // Conservatively: if AABB nearest depth is farther than Hi-Z farthest.
+    if (cull.reverseZ != 0u)
+        return nearestZ < occluder;
+    return nearestZ > occluder;
+}
+
 void main()
 {
     uint id = gl_GlobalInvocationID.x;
@@ -136,12 +224,53 @@ void main()
         return;
 
     MeshInfo mesh = meshes[inst.meshId];
+    if (mesh.lodCount == 0u)
+        return;
+
     mat4 mvp = cull.viewProj * inst.model;
     if (aabbOutsideFrustum(mvp, mesh.aabbMin.xyz, mesh.aabbMax.xyz))
         return;
 
-    uint batchId = batchIds[id];
-    uint slot = atomicAdd(draws[batchId].instanceCount, 1u);
-    uint dst = draws[batchId].firstInstance + slot;
-    compact[dst] = sources[id];
+    if (cull.cullMode != kCullModeShadow &&
+        occludedByHiZ(mvp, mesh.aabbMin.xyz, mesh.aabbMax.xyz))
+        return;
+
+    // Screen-space diameter from AABB corners of MVP.
+    vec3 bmin = mesh.aabbMin.xyz;
+    vec3 bmax = mesh.aabbMax.xyz;
+    vec3 corners[8] = vec3[](
+        vec3(bmin.x, bmin.y, bmin.z),
+        vec3(bmax.x, bmin.y, bmin.z),
+        vec3(bmin.x, bmax.y, bmin.z),
+        vec3(bmax.x, bmax.y, bmin.z),
+        vec3(bmin.x, bmin.y, bmax.z),
+        vec3(bmax.x, bmin.y, bmax.z),
+        vec3(bmin.x, bmax.y, bmax.z),
+        vec3(bmax.x, bmax.y, bmax.z));
+    vec2 smin = vec2(1e10);
+    vec2 smax = vec2(-1e10);
+    for (int i = 0; i < 8; ++i)
+    {
+        vec4 clip = mvp * vec4(corners[i], 1.0);
+        if (clip.w <= 0.0)
+            continue;
+        vec2 uv = (clip.xy / clip.w) * 0.5 + 0.5;
+        smin = min(smin, uv);
+        smax = max(smax, uv);
+    }
+    float screenDiameter =
+        length((smax - smin) * cull.screenSize);
+
+    uint lod = selectLod(screenDiameter, mesh.lodCount);
+    MeshLodInfo range = lods[mesh.lodBase + lod];
+    if (range.indexCount == 0u)
+        return;
+
+    uint slot = atomicAdd(drawCount, 1u);
+    draws[slot].indexCount    = range.indexCount;
+    draws[slot].instanceCount = 1u;
+    draws[slot].firstIndex    = range.firstIndex;
+    draws[slot].vertexOffset  = range.vertexOffset;
+    draws[slot].firstInstance = slot;
+    compact[slot] = sources[id];
 }
