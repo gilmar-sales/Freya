@@ -159,16 +159,27 @@ class MainApp final : public fra::AbstractApplication
             .roughnessFactor = 0.35f,
             .metalnessFactor = 0.2f,
         });
+        mShipMaterial = mMaterialPool->Create({
+            .albedoFactor    = { 0.62f, 0.64f, 0.68f, 1.0f },
+            .roughnessFactor = 0.4f,
+            .metalnessFactor = 0.65f,
+        });
 
         mHelmetMeshes = mMeshPool->CreateMeshFromFile(
             "./Resources/Models/DamagedHelmet.gltf");
         mDragonMeshes = mMeshPool->CreateMeshFromFile(
             "./Resources/Models/DragonAttenuation.gltf");
+        mShipMeshes = mMeshPool->CreateMeshFromFile(
+            "./Resources/Models/ally_ship.glb");
 
         if (mHelmetMeshes.empty())
             std::cerr << "Failed to load DamagedHelmet.gltf\n";
         if (mDragonMeshes.empty())
             std::cerr << "Failed to load DragonAttenuation.gltf\n";
+        if (mShipMeshes.empty())
+            std::cerr << "Failed to load ally_ship.glb\n";
+        else
+            std::cout << "ally_ship meshes: " << mShipMeshes.size() << '\n';
 
         // Dim key — AO stays visible on IBL.
         {
@@ -182,7 +193,7 @@ class MainApp final : public fra::AbstractApplication
         buildSceneInstances();
 
         std::cout
-            << "SSAO Debug — DamagedHelmet + DragonAttenuation\n"
+            << "SSAO Debug — DamagedHelmet + Dragon + ally_ship\n"
             << "RMB look | WASD move | Space/Q up | Ctrl/E down\n"
             << "V  cycle view: Lit / AO Blurred / AO Raw\n"
             << "F6 cycle SSAO quality (Low→Med→High→Ultra→Off)\n"
@@ -287,6 +298,21 @@ class MainApp final : public fra::AbstractApplication
             inst.model      = dragonModel;
             inst.meshId     = meshId;
             inst.materialId = mDragonMaterial;
+            inst.entityId   = nextEntity++;
+            mInstances.push_back(inst);
+        }
+
+        // glTF node scales by 0.01; PreTransformVertices bakes that → ~3 cm.
+        // Scale ×100 → ~3 m, level with the rest of the SSAO props.
+        const auto shipModel = glm::scale(
+            glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.0f, -2.8f)),
+            glm::vec3(100.0f));
+        for (const auto meshId : mShipMeshes)
+        {
+            Instance inst {};
+            inst.model      = shipModel;
+            inst.meshId     = meshId;
+            inst.materialId = mShipMaterial;
             inst.entityId   = nextEntity++;
             mInstances.push_back(inst);
         }
@@ -478,8 +504,10 @@ class MainApp final : public fra::AbstractApplication
     std::uint32_t              mGroundMaterial = 0;
     std::uint32_t              mHelmetMaterial = 0;
     std::uint32_t              mDragonMaterial = 0;
+    std::uint32_t              mShipMaterial   = 0;
     std::vector<std::uint32_t> mHelmetMeshes;
     std::vector<std::uint32_t> mDragonMeshes;
+    std::vector<std::uint32_t> mShipMeshes;
     std::vector<Instance>      mInstances;
 
     glm::vec3 mCameraPos { 0.2f, 1.4f, 4.8f };

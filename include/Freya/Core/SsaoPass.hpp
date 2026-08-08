@@ -20,7 +20,7 @@ namespace FREYA_NAMESPACE
     };
 
     /**
-     * Half-resolution SSAO + bilateral blur.
+     * Half-resolution SSAO + bilateral blur (LearnOpenGL hemisphere).
      * Output is R8 AO sampled by lighting (binding 15) with linear upsample.
      */
     class SsaoPass

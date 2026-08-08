@@ -28,7 +28,7 @@ namespace FREYA_NAMESPACE
      */
     enum class SsaoQuality
     {
-        Low,    ///< quarter-res, softer / cheaper
+        Low,    ///< half-res, softer / cheaper knobs
         Medium, ///< half-res (default look)
         High,   ///< half-res, stronger occlusion
         Ultra,  ///< full-res, strongest
@@ -127,8 +127,10 @@ namespace FREYA_NAMESPACE
 
         /// 1 = full, 2 = half, 4 = quarter of render extent.
         std::uint32_t ssaoResolutionDivisor = 2;
-        /// View-space meters (human-scale scene ≈ 0.3–1.0).
+        /// Hemisphere radius in view-space meters (LearnOpenGL SSAO).
+        /// Human-scale creases ≈ 0.3–1.0.
         float         ssaoRadius            = 0.5f;
+        /// View-Z acne bias (LearnOpenGL default 0.025).
         float         ssaoBias              = 0.025f;
         float         ssaoPower             = 1.5f;
         float         ssaoIntensity         = 0.5f;
@@ -211,7 +213,8 @@ namespace FREYA_NAMESPACE
         switch (quality)
         {
             case SsaoQuality::Low:
-                options.ssaoResolutionDivisor = 4;
+                // Half-res (quarter-res reads as blocky after upsample).
+                options.ssaoResolutionDivisor = 2;
                 options.ssaoRadius            = 0.4f;
                 options.ssaoBias              = 0.03f;
                 options.ssaoPower             = 1.4f;
