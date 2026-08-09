@@ -12,33 +12,33 @@
 namespace FREYA_NAMESPACE
 {
     ShadowPass::ShadowPass(
-        const skr::Arc<Device>&               device,
-        const skr::Arc<PhysicalDevice>&       physicalDevice,
-        const skr::Arc<FreyaOptions>&         freyaOptions,
-        const skr::Arc<BoneMatrixResources>&  boneResources,
-        const vk::RenderPass                  renderPass,
-        const vk::PipelineLayout              pipelineLayout,
-        const vk::Pipeline                    pipeline,
-        const vk::Image                       cascadeImage,
-        const vk::DeviceMemory                cascadeMemory,
-        const vk::ImageView                   cascadeArrayView,
-        const std::vector<vk::ImageView>&     cascadeLayerViews,
-        const std::vector<vk::Framebuffer>&   cascadeFramebuffers,
-        const vk::Image                       spotImage,
-        const vk::DeviceMemory                spotMemory,
-        const vk::ImageView                   spotArrayView,
-        const std::vector<vk::ImageView>&     spotLayerViews,
-        const std::vector<vk::Framebuffer>&   spotFramebuffers,
-        const vk::Image                       pointImage,
-        const vk::DeviceMemory                pointMemory,
-        const vk::ImageView                   pointArrayView,
-        const std::vector<vk::ImageView>&     pointFaceViews,
-        const std::vector<vk::Framebuffer>&   pointFramebuffers,
-        const skr::Arc<Buffer>&               uniformBuffer,
-        const vk::Sampler                     compareSampler,
-        const std::uint32_t                   cascadeCount,
-        const std::uint32_t                   maxSpotShadows,
-        const std::uint32_t                   maxPointShadows) :
+        const skr::Arc<Device>&              device,
+        const skr::Arc<PhysicalDevice>&      physicalDevice,
+        const skr::Arc<FreyaOptions>&        freyaOptions,
+        const skr::Arc<BoneMatrixResources>& boneResources,
+        const vk::RenderPass                 renderPass,
+        const vk::PipelineLayout             pipelineLayout,
+        const vk::Pipeline                   pipeline,
+        const vk::Image                      cascadeImage,
+        const vk::DeviceMemory               cascadeMemory,
+        const vk::ImageView                  cascadeArrayView,
+        const std::vector<vk::ImageView>&    cascadeLayerViews,
+        const std::vector<vk::Framebuffer>&  cascadeFramebuffers,
+        const vk::Image                      spotImage,
+        const vk::DeviceMemory               spotMemory,
+        const vk::ImageView                  spotArrayView,
+        const std::vector<vk::ImageView>&    spotLayerViews,
+        const std::vector<vk::Framebuffer>&  spotFramebuffers,
+        const vk::Image                      pointImage,
+        const vk::DeviceMemory               pointMemory,
+        const vk::ImageView                  pointArrayView,
+        const std::vector<vk::ImageView>&    pointFaceViews,
+        const std::vector<vk::Framebuffer>&  pointFramebuffers,
+        const skr::Arc<Buffer>&              uniformBuffer,
+        const vk::Sampler                    compareSampler,
+        const std::uint32_t                  cascadeCount,
+        const std::uint32_t                  maxSpotShadows,
+        const std::uint32_t                  maxPointShadows) :
         mDevice(device), mPhysicalDevice(physicalDevice),
         mFreyaOptions(freyaOptions), mBoneResources(boneResources),
         mRenderPass(renderPass), mPipelineLayout(pipelineLayout),
@@ -546,13 +546,14 @@ namespace FREYA_NAMESPACE
             return;
 
         auto boneSet = mBoneResources->GetSet(mFrameIndex);
-        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                                         mPipelineLayout,
-                                         0,
-                                         1,
-                                         &boneSet,
-                                         0,
-                                         nullptr);
+        commandBuffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics,
+            mPipelineLayout,
+            0,
+            1,
+            &boneSet,
+            0,
+            nullptr);
     }
 
     void ShadowPass::renderCascades(

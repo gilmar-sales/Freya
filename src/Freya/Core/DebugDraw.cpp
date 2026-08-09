@@ -77,7 +77,7 @@ namespace FREYA_NAMESPACE
         Line(nz, ny, color);
     }
 
-    void DebugDraw::DrawSkeleton(const Skeleton& skeleton,
+    void DebugDraw::DrawSkeleton(const Skeleton&  skeleton,
                                  const LocalPose& local,
                                  const glm::mat4& modelWorld,
                                  const glm::vec4& color)

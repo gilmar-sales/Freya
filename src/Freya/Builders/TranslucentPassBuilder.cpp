@@ -51,11 +51,12 @@ namespace FREYA_NAMESPACE
 
         auto createImage =
             [&](ImageUsage usage, std::optional<vk::Format> format = {}) {
-                auto builder = mServiceProvider->GetService<ImageBuilder>()
-                                   ->SetUsage(usage)
-                                   .SetWidth(extent.width)
-                                   .SetHeight(extent.height)
-                                   .SetSamples(vk::SampleCountFlagBits::e1);
+                auto builder =
+                    mServiceProvider->GetService<ImageBuilder>()
+                        ->SetUsage(usage)
+                        .SetWidth(extent.width)
+                        .SetHeight(extent.height)
+                        .SetSamples(vk::SampleCountFlagBits::e1);
                 if (format)
                     builder.SetFormat(*format);
                 return builder.Build();
@@ -68,9 +69,8 @@ namespace FREYA_NAMESPACE
         std::vector<skr::Arc<Image>> sceneWithTranslucency(frameCount);
         for (std::uint32_t i = 0; i < frameCount; ++i)
         {
-            oitAccum[i] = createImage(ImageUsage::GBufferSceneColor);
-            oitReveal[i] =
-                createImage(ImageUsage::Color, vk::Format::eR8Unorm);
+            oitAccum[i]  = createImage(ImageUsage::GBufferSceneColor);
+            oitReveal[i] = createImage(ImageUsage::Color, vk::Format::eR8Unorm);
             sceneWithTranslucency[i] =
                 createImage(ImageUsage::GBufferSceneColor);
         }
@@ -111,24 +111,19 @@ namespace FREYA_NAMESPACE
                 .setStoreOp(vk::AttachmentStoreOp::eStore)
                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-                .setInitialLayout(
-                    vk::ImageLayout::eDepthStencilReadOnlyOptimal)
-                .setFinalLayout(
-                    vk::ImageLayout::eDepthStencilReadOnlyOptimal),
+                .setInitialLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal)
+                .setFinalLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal),
         };
 
         auto accumColorRefs = std::array {
-            vk::AttachmentReference()
-                .setAttachment(0)
-                .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
-            vk::AttachmentReference()
-                .setAttachment(1)
-                .setLayout(vk::ImageLayout::eColorAttachmentOptimal),
+            vk::AttachmentReference().setAttachment(0).setLayout(
+                vk::ImageLayout::eColorAttachmentOptimal),
+            vk::AttachmentReference().setAttachment(1).setLayout(
+                vk::ImageLayout::eColorAttachmentOptimal),
         };
         auto accumDepthRef =
-            vk::AttachmentReference()
-                .setAttachment(2)
-                .setLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal);
+            vk::AttachmentReference().setAttachment(2).setLayout(
+                vk::ImageLayout::eDepthStencilReadOnlyOptimal);
 
         auto accumSubpass =
             vk::SubpassDescription()
@@ -183,9 +178,8 @@ namespace FREYA_NAMESPACE
                 .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 
         auto resolveColorRef =
-            vk::AttachmentReference()
-                .setAttachment(0)
-                .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+            vk::AttachmentReference().setAttachment(0).setLayout(
+                vk::ImageLayout::eColorAttachmentOptimal);
 
         auto resolveSubpass =
             vk::SubpassDescription()
@@ -206,8 +200,9 @@ namespace FREYA_NAMESPACE
                 .setDstSubpass(VK_SUBPASS_EXTERNAL)
                 .setSrcStageMask(
                     vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader |
-                                 vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setDstStageMask(
+                    vk::PipelineStageFlagBits::eFragmentShader |
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
                 .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
                 .setDstAccessMask(vk::AccessFlagBits::eShaderRead |
                                   vk::AccessFlagBits::eColorAttachmentRead),
@@ -257,11 +252,10 @@ namespace FREYA_NAMESPACE
 
         for (std::uint32_t i = 0; i < mFreyaOptions->frameCount; ++i)
         {
-            auto bufInfo =
-                vk::DescriptorBufferInfo()
-                    .setBuffer(uniformBuffer->Get())
-                    .setOffset(sizeof(ProjectionUniformBuffer) * i)
-                    .setRange(sizeof(ProjectionUniformBuffer));
+            auto bufInfo = vk::DescriptorBufferInfo()
+                               .setBuffer(uniformBuffer->Get())
+                               .setOffset(sizeof(ProjectionUniformBuffer) * i)
+                               .setRange(sizeof(ProjectionUniformBuffer));
             auto writer =
                 vk::WriteDescriptorSet()
                     .setDstSet(cameraSets[i])
@@ -272,8 +266,8 @@ namespace FREYA_NAMESPACE
             mDevice->Get().updateDescriptorSets(1, &writer, 0, nullptr);
         }
 
-        auto& bindlessLayout = mMaterialResources->GetBindlessLayout();
-        auto  lightLayout    = mLightService->GetLayout();
+        auto& bindlessLayout  = mMaterialResources->GetBindlessLayout();
+        auto  lightLayout     = mLightService->GetLayout();
         auto  accumSetLayouts = std::array {
             cameraSetLayout,
             bindlessLayout,
@@ -372,7 +366,7 @@ namespace FREYA_NAMESPACE
         }
 
         // --- Accumulate pipeline ---------------------------------------------
-        auto makeStage = [](vk::ShaderModule module,
+        auto makeStage = [](vk::ShaderModule        module,
                             vk::ShaderStageFlagBits stage) {
             return vk::PipelineShaderStageCreateInfo()
                 .setStage(stage)
@@ -387,14 +381,13 @@ namespace FREYA_NAMESPACE
 
         auto vertexBinding = Vertex::GetBindingDescription();
         auto vertexAttrs   = Vertex::GetAttributesDescription();
-        auto vertexInput =
-            vk::PipelineVertexInputStateCreateInfo()
-                .setVertexBindingDescriptions(vertexBinding)
-                .setVertexAttributeDescriptions(vertexAttrs);
+        auto vertexInput   = vk::PipelineVertexInputStateCreateInfo()
+                                 .setVertexBindingDescriptions(vertexBinding)
+                                 .setVertexAttributeDescriptions(vertexAttrs);
 
         auto inputAssembly =
-            vk::PipelineInputAssemblyStateCreateInfo()
-                .setTopology(vk::PrimitiveTopology::eTriangleList);
+            vk::PipelineInputAssemblyStateCreateInfo().setTopology(
+                vk::PrimitiveTopology::eTriangleList);
         auto viewportState = vk::PipelineViewportStateCreateInfo()
                                  .setViewportCount(1)
                                  .setScissorCount(1);
@@ -403,9 +396,9 @@ namespace FREYA_NAMESPACE
                 .setCullMode(vk::CullModeFlagBits::eNone)
                 .setFrontFace(vk::FrontFace::eCounterClockwise)
                 .setLineWidth(1.0f);
-        auto multisample = vk::PipelineMultisampleStateCreateInfo()
-                               .setRasterizationSamples(
-                                   vk::SampleCountFlagBits::e1);
+        auto multisample =
+            vk::PipelineMultisampleStateCreateInfo().setRasterizationSamples(
+                vk::SampleCountFlagBits::e1);
 
         auto accumBlend0 =
             vk::PipelineColorBlendAttachmentState()
@@ -416,11 +409,10 @@ namespace FREYA_NAMESPACE
                 .setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
                 .setDstAlphaBlendFactor(vk::BlendFactor::eOne)
                 .setAlphaBlendOp(vk::BlendOp::eAdd)
-                .setColorWriteMask(
-                    vk::ColorComponentFlagBits::eR |
-                    vk::ColorComponentFlagBits::eG |
-                    vk::ColorComponentFlagBits::eB |
-                    vk::ColorComponentFlagBits::eA);
+                .setColorWriteMask(vk::ColorComponentFlagBits::eR |
+                                   vk::ColorComponentFlagBits::eG |
+                                   vk::ColorComponentFlagBits::eB |
+                                   vk::ColorComponentFlagBits::eA);
         // Reveal R8: dst *= (1 - src.r) via OneMinusSrcColor.
         auto accumBlend1 =
             vk::PipelineColorBlendAttachmentState()
@@ -481,11 +473,10 @@ namespace FREYA_NAMESPACE
         auto resolveBlend =
             vk::PipelineColorBlendAttachmentState()
                 .setBlendEnable(false)
-                .setColorWriteMask(
-                    vk::ColorComponentFlagBits::eR |
-                    vk::ColorComponentFlagBits::eG |
-                    vk::ColorComponentFlagBits::eB |
-                    vk::ColorComponentFlagBits::eA);
+                .setColorWriteMask(vk::ColorComponentFlagBits::eR |
+                                   vk::ColorComponentFlagBits::eG |
+                                   vk::ColorComponentFlagBits::eB |
+                                   vk::ColorComponentFlagBits::eA);
         auto resolveBlendState =
             vk::PipelineColorBlendStateCreateInfo().setAttachments(
                 resolveBlend);
@@ -545,8 +536,7 @@ namespace FREYA_NAMESPACE
             resolvePipeline, uniformBuffer, cameraSetLayout, cameraPool,
             cameraSets, resolveSetLayout, resolvePool, resolveSets,
             std::move(oitAccum), std::move(oitReveal),
-            std::move(sceneWithTranslucency),
-            std::move(accumulateFramebuffers),
+            std::move(sceneWithTranslucency), std::move(accumulateFramebuffers),
             std::move(resolveFramebuffers), sampler, depthFormat, extent);
     }
 

@@ -184,13 +184,13 @@ namespace FREYA_NAMESPACE
         gpu.emissiveIndex = resolveIndex(info.emissive, kBindlessBlackTexture);
         gpu.metalnessIndex =
             resolveIndex(info.metalness, kBindlessBlackTexture);
-        gpu.albedoFactor   = info.albedoFactor;
-        gpu.emissiveFactor = glm::vec4(info.emissiveFactor, info.aoFactor);
-        gpu.roughMetal     = { info.roughnessFactor, info.metalnessFactor };
-        gpu.materialId     = static_cast<float>(material.id & 0xFFu);
-        gpu.alphaCutoff    = info.alphaCutoff;
-        gpu.alphaMode      = static_cast<std::uint32_t>(info.alphaMode);
-        gpu.clearcoat      = info.clearcoat;
+        gpu.albedoFactor       = info.albedoFactor;
+        gpu.emissiveFactor     = glm::vec4(info.emissiveFactor, info.aoFactor);
+        gpu.roughMetal         = { info.roughnessFactor, info.metalnessFactor };
+        gpu.materialId         = static_cast<float>(material.id & 0xFFu);
+        gpu.alphaCutoff        = info.alphaCutoff;
+        gpu.alphaMode          = static_cast<std::uint32_t>(info.alphaMode);
+        gpu.clearcoat          = info.clearcoat;
         gpu.clearcoatRoughness = info.clearcoatRoughness;
 
         mMaterialsRes->WriteMaterial(material.id, gpu);

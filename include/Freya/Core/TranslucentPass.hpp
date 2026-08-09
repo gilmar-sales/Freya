@@ -44,14 +44,19 @@ namespace FREYA_NAMESPACE
             vk::DescriptorSetLayout                      resolveSetLayout,
             vk::DescriptorPool                           resolveDescriptorPool,
             const std::vector<vk::DescriptorSet>&        resolveSets,
-            std::vector<skr::Arc<Image>>                 oitAccum,
-            std::vector<skr::Arc<Image>>                 oitReveal,
-            std::vector<skr::Arc<Image>>                 sceneWithTranslucency,
-            std::vector<vk::Framebuffer>                 accumulateFramebuffers,
-            std::vector<vk::Framebuffer>                 resolveFramebuffers,
-            vk::Sampler                                  sampler,
-            vk::Format                                   depthFormat,
-            vk::Extent2D                                 extent);
+            std::vector<skr::Arc<Image>>
+                oitAccum,
+            std::vector<skr::Arc<Image>>
+                oitReveal,
+            std::vector<skr::Arc<Image>>
+                sceneWithTranslucency,
+            std::vector<vk::Framebuffer>
+                accumulateFramebuffers,
+            std::vector<vk::Framebuffer>
+                         resolveFramebuffers,
+            vk::Sampler  sampler,
+            vk::Format   depthFormat,
+            vk::Extent2D extent);
 
         ~TranslucentPass();
 
@@ -69,7 +74,7 @@ namespace FREYA_NAMESPACE
         }
 
         void UpdateProjection(const ProjectionUniformBuffer& buffer,
-                              std::uint32_t frameIndex) const;
+                              std::uint32_t                  frameIndex) const;
 
         void BeginAccumulate(const skr::Arc<CommandPool>& commandPool,
                              std::uint32_t                frameIndex) const;

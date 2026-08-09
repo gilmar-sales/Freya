@@ -400,6 +400,18 @@ class MainApp final : public fra::AbstractApplication
 
         mRenderer->BeginFrame();
 
+        // N+1 joint extracts from last GPU anim Dispatch (Crowd / heroes).
+        if (mGpuAnimMode == GpuAnimMode::Crowd)
+        {
+            fra::GpuJointExtractSample samples[4] {};
+            std::uint32_t              n = 0;
+            if (mRenderer->PollGpuAnimJointExtract(samples, &n) && n > 0)
+            {
+                mGpuExtractHeadSkin = samples[0].skinMatrix;
+                mGpuExtractReady    = true;
+            }
+        }
+
         const auto             jointCount = mSkinned.skeleton.JointCount();
         std::vector<glm::mat4> allBones;
         const bool             gpuCrowd = mGpuAnimMode == GpuAnimMode::Crowd;
@@ -761,6 +773,12 @@ class MainApp final : public fra::AbstractApplication
                       << " animTicks=" << (mProfAnimUpdates / n)
                       << " inst=" << instances.size()
                       << " bones=" << allBones.size() << ")\n";
+            if (mGpuAnimMode == GpuAnimMode::Crowd && mGpuExtractReady)
+            {
+                const glm::vec3 t(mGpuExtractHeadSkin[3]);
+                std::cout << "  GPU extract N+1 fox0 head skin.t=(" << t.x
+                          << ", " << t.y << ", " << t.z << ")\n";
+            }
             mProfReportTimer = 0.f;
             mProfFrames      = 0;
             mProfAnimMs = mProfSkinMs = mProfBoneMs = 0.0;
@@ -1038,23 +1056,25 @@ class MainApp final : public fra::AbstractApplication
     GpuAnimMode               mGpuAnimMode       = GpuAnimMode::Off;
     bool                      mGpuAnimGoldenOnce = false;
     bool                      mGpuCrowdSeeded    = false;
+    bool                      mGpuExtractReady   = false;
+    glm::mat4                 mGpuExtractHeadSkin { 1.f };
     std::vector<glm::mat4>    mGpuFox0CpuSkin;
 
     struct GoldenFeatures
     {
-        bool  mask           = false;
-        bool  look           = false;
-        bool  ik             = false;
-        bool  lookSkipClamp  = false;
+        bool mask          = false;
+        bool look          = false;
+        bool ik            = false;
+        bool lookSkipClamp = false;
     };
 
     void runFox0GoldenStages(const std::uint32_t frameIndex)
     {
-        auto&      fox        = mFoxes[0];
-        const auto jointCount = mSkinned.skeleton.JointCount();
-        const char* names[]   = { "loco", "+mask", "+look", "+look_noclamp",
-                                  "+ik",  "full" };
-        GoldenFeatures stages[] = {
+        auto&          fox        = mFoxes[0];
+        const auto     jointCount = mSkinned.skeleton.JointCount();
+        const char*    names[]    = { "loco",          "+mask", "+look",
+                                      "+look_noclamp", "+ik",   "full" };
+        GoldenFeatures stages[]   = {
             { false, false, false, false }, { true, false, false, false },
             { false, true, false, false },  { false, true, false, true },
             { false, false, true, false },  { true, true, true, false },
@@ -1084,15 +1104,15 @@ class MainApp final : public fra::AbstractApplication
                 continue;
             }
             std::vector<glm::mat4> gpuBones(jointCount);
-            if (!mRenderer->ReadbackGpuAnimBones(frameIndex, fox.boneOffset,
-                                                 gpuBones))
+            if (!mRenderer->ReadbackGpuAnimBones(
+                    frameIndex, fox.boneOffset, gpuBones))
             {
                 std::cout << "  " << names[s] << ": readback failed\n";
                 continue;
             }
             float      maxAbs = 0.f;
-            const auto n =
-                std::min(jointCount, static_cast<std::uint32_t>(cpuSkin.size()));
+            const auto n      = std::min(
+                jointCount, static_cast<std::uint32_t>(cpuSkin.size()));
             for (std::uint32_t i = 0; i < n; ++i)
             {
                 const auto d = gpuBones[i] - cpuSkin[i];
@@ -1124,10 +1144,8 @@ class MainApp final : public fra::AbstractApplication
             fra::CancelRootTranslationXZ(mSkinned.skeleton, local);
         if (feat.look && mHeadJoint >= 0)
         {
-            const float yaw =
-                feat.lookSkipClamp ? -1.f : 1.2f;
-            const float pitch =
-                feat.lookSkipClamp ? -1.f : 0.8f;
+            const float yaw   = feat.lookSkipClamp ? -1.f : 1.2f;
+            const float pitch = feat.lookSkipClamp ? -1.f : 0.8f;
             (void) fra::ApplyLookAt(
                 mSkinned.skeleton, local, fox.model,
                 static_cast<std::uint32_t>(mHeadJoint), mCameraPos, 0.75f, yaw,
@@ -1169,12 +1187,24 @@ class MainApp final : public fra::AbstractApplication
                              "full)\n";
                 break;
             case GpuAnimMode::Fox0:
-                mGpuAnimMode    = GpuAnimMode::Crowd;
-                mGpuCrowdSeeded = false;
-                std::cout << "GpuAnim Crowd (LOD + layers/look/IK on GPU)\n";
+                mGpuAnimMode     = GpuAnimMode::Crowd;
+                mGpuCrowdSeeded  = false;
+                mGpuExtractReady = false;
+                if (!mFoxes.empty() && mHeadJoint >= 0)
+                {
+                    const fra::GpuJointExtractRequest req {
+                        .boneOffset = mFoxes[0].boneOffset,
+                        .jointIndex = static_cast<std::uint32_t>(mHeadJoint),
+                    };
+                    mRenderer->SetGpuAnimJointExtract({ &req, 1 });
+                }
+                std::cout << "GpuAnim Crowd (LOD + layers/look/IK on GPU; "
+                             "fox0 head extract N+1)\n";
                 break;
             case GpuAnimMode::Crowd:
-                mGpuAnimMode = GpuAnimMode::Off;
+                mGpuAnimMode     = GpuAnimMode::Off;
+                mGpuExtractReady = false;
+                mRenderer->SetGpuAnimJointExtract({});
                 if (auto* gpu = mRenderer->GetGpuAnimPass())
                 {
                     gpu->SetEnabled(false);

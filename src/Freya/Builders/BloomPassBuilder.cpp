@@ -82,7 +82,7 @@ namespace FREYA_NAMESPACE
                 .Build();
         };
 
-        const auto                     frameCount = mFreyaOptions->frameCount;
+        const auto                   frameCount = mFreyaOptions->frameCount;
         std::vector<skr::Arc<Image>> bloomThresholdImages(frameCount);
         std::vector<skr::Arc<Image>> bloomDownImages(frameCount);
         std::vector<skr::Arc<Image>> bloomUpImages(frameCount);

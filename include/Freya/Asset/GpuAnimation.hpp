@@ -71,6 +71,32 @@ namespace FREYA_NAMESPACE
         float         _pad0 = 0.f;
     };
 
+    /**
+     * @brief One bone to pull from the GPU palette for async CPU use (N+1).
+     *
+     * `boneOffset + jointIndex` indexes `BoneMatrixResources::bones[]`
+     * (skin matrix = global * inverseBind). Prefer a few hero joints over
+     * full-palette readback.
+     */
+    struct GpuJointExtractRequest
+    {
+        std::uint32_t boneOffset = 0;
+        std::uint32_t jointIndex = 0;
+    };
+
+    /**
+     * @brief Result of #GpuAnimPass::PollJointExtract (previous finished
+     * frame).
+     */
+    struct GpuJointExtractSample
+    {
+        std::uint32_t boneOffset  = 0;
+        std::uint32_t jointIndex  = 0;
+        std::uint32_t sourceFrame = 0;
+        std::uint32_t _pad        = 0;
+        glm::mat4     skinMatrix { 1.f };
+    };
+
     [[nodiscard]] inline GpuBakedJoint ToGpuJoint(const JointTRS& j)
     {
         GpuBakedJoint g;

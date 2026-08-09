@@ -8,20 +8,28 @@
 
 #include <cstdint>
 #include <span>
+#include <vector>
 
 namespace FREYA_NAMESPACE
 {
     /**
      * @brief Compute path that fills BoneMatrixResources bones[] (GPU anim).
+     *
+     * Optional joint extract: after bake, copies a tiny list of skin matrices
+     * into a host-visible FiF ring. Call PollJointExtract at the start of the
+     * next CPU Update (before the next Dispatch overwrites that slot) for
+     * 1-frame-late gameplay (footsteps, VFX attach, etc.). Same-frame pose
+     * still needs a CPU path or a sync readback.
      */
     class GpuAnimPass
     {
       public:
-        static constexpr std::uint32_t kMaxJoints      = 128;
-        static constexpr std::uint32_t kMaxInstances   = 2048;
-        static constexpr std::uint32_t kMaxClips       = 8;
-        static constexpr std::uint32_t kMaxBakedJoints = 65536;
-        static constexpr std::uint32_t kMaxMaskFloats  = kMaxJoints;
+        static constexpr std::uint32_t kMaxJoints        = 128;
+        static constexpr std::uint32_t kMaxInstances     = 2048;
+        static constexpr std::uint32_t kMaxClips         = 8;
+        static constexpr std::uint32_t kMaxBakedJoints   = 65536;
+        static constexpr std::uint32_t kMaxMaskFloats    = kMaxJoints;
+        static constexpr std::uint32_t kMaxExtractJoints = 64;
 
         GpuAnimPass(const skr::Arc<Device>&              device,
                     const skr::Arc<BoneMatrixResources>& boneResources,
@@ -39,7 +47,9 @@ namespace FREYA_NAMESPACE
                     const skr::Arc<Buffer>&              restJointsBuffer,
                     const skr::Arc<Buffer>&              localScratchBuffer,
                     const skr::Arc<Buffer>&              globalScratchBuffer,
-                    const skr::Arc<Buffer>&              readbackBuffer);
+                    const skr::Arc<Buffer>&              readbackBuffer,
+                    const skr::Arc<Buffer>&              extractRingBuffer,
+                    std::uint32_t                        frameCount);
 
         ~GpuAnimPass();
 
@@ -61,27 +71,46 @@ namespace FREYA_NAMESPACE
                            const std::uint32_t ikRoot,
                            const std::uint32_t ikMid, const std::uint32_t ikTip,
                            const std::uint32_t rootJoint,
-                           const glm::vec3     lookLocalForward = { 0.f, 0.f,
-                                                               1.f },
-                           const float         lookMaxYawRad   = 1.2f,
-                           const float         lookMaxPitchRad = 0.8f)
+                           const glm::vec3 lookLocalForward = { 0.f, 0.f, 1.f },
+                           const float     lookMaxYawRad    = 1.2f,
+                           const float     lookMaxPitchRad  = 0.8f)
         {
-            mLookJoint         = lookJoint;
-            mIkRoot            = ikRoot;
-            mIkMid             = ikMid;
-            mIkTip             = ikTip;
-            mRootJoint         = rootJoint;
-            mLookLocalForward  = lookLocalForward;
-            mLookMaxYawRad     = lookMaxYawRad;
-            mLookMaxPitchRad   = lookMaxPitchRad;
+            mLookJoint        = lookJoint;
+            mIkRoot           = ikRoot;
+            mIkMid            = ikMid;
+            mIkTip            = ikTip;
+            mRootJoint        = rootJoint;
+            mLookLocalForward = lookLocalForward;
+            mLookMaxYawRad    = lookMaxYawRad;
+            mLookMaxPitchRad  = lookMaxPitchRad;
         }
 
-        /** Negative max yaw disables clampSwing (raw quatFromTo). */
+        /** Negative max yaw disables aim clamp (raw aim direction). */
         void SetLookClamp(const float maxYawRad, const float maxPitchRad)
         {
             mLookMaxYawRad   = maxYawRad;
             mLookMaxPitchRad = maxPitchRad;
         }
+
+        /**
+         * @brief Configure which palette entries to copy each Dispatch.
+         *
+         * Empty clears extract. Cap is #kMaxExtractJoints. Changes apply on
+         * the next Dispatch (not retroactive to in-flight rings).
+         */
+        void SetJointExtractList(std::span<const GpuJointExtractRequest> reqs);
+
+        /**
+         * @brief Read extracts recorded for the previous CPU frame.
+         *
+         * Call once at Update start with the current FiF index (after
+         * BeginFrame / before that slot's next extract overwrite). Returns
+         * false until at least one Dispatch has filled the previous slot.
+         */
+        bool PollJointExtract(std::uint32_t frameIndex,
+                              std::span<GpuJointExtractSample>
+                                             out,
+                              std::uint32_t* outCount = nullptr) const;
 
         void UploadSkeleton(const GpuSkeletonPack& skeleton);
         void UploadBakes(const GpuBakePack& pack);
@@ -117,6 +146,19 @@ namespace FREYA_NAMESPACE
       private:
         void recordCompute(vk::CommandBuffer commandBuffer,
                            std::uint32_t     frameIndex) const;
+        void recordJointExtract(vk::CommandBuffer commandBuffer,
+                                std::uint32_t     frameIndex) const;
+
+        [[nodiscard]] std::uint32_t extractSlot(std::uint32_t frameIndex) const
+        {
+            return mFrameCount == 0 ? 0u : (frameIndex % mFrameCount);
+        }
+
+        [[nodiscard]] vk::DeviceSize extractSlotBytes() const
+        {
+            return static_cast<vk::DeviceSize>(kMaxExtractJoints) *
+                   sizeof(glm::mat4);
+        }
 
         struct PushConstants
         {
@@ -153,19 +195,28 @@ namespace FREYA_NAMESPACE
         skr::Arc<Buffer> mLocalScratchBuffer;
         skr::Arc<Buffer> mGlobalScratchBuffer;
         skr::Arc<Buffer> mReadbackBuffer;
+        skr::Arc<Buffer> mExtractRingBuffer;
 
-        bool          mEnabled       = false;
-        bool          mCopyPrevBones = true;
-        std::uint32_t mInstanceCount = 0;
-        std::uint32_t mJointCount    = 0;
-        std::uint32_t mLookJoint     = 0xffffffffu;
-        std::uint32_t mIkRoot        = 0;
-        std::uint32_t mIkMid         = 0;
-        std::uint32_t mIkTip         = 0;
-        std::uint32_t mRootJoint         = 0xffffffffu;
+        bool          mEnabled          = false;
+        bool          mCopyPrevBones    = true;
+        std::uint32_t mInstanceCount    = 0;
+        std::uint32_t mJointCount       = 0;
+        std::uint32_t mFrameCount       = 1;
+        std::uint32_t mLookJoint        = 0xffffffffu;
+        std::uint32_t mIkRoot           = 0;
+        std::uint32_t mIkMid            = 0;
+        std::uint32_t mIkTip            = 0;
+        std::uint32_t mRootJoint        = 0xffffffffu;
         glm::vec3     mLookLocalForward = { 0.f, 0.f, 1.f };
         float         mLookMaxYawRad    = 1.2f;
         float         mLookMaxPitchRad  = 0.8f;
+
+        std::vector<GpuJointExtractRequest> mExtractRequests;
+        /// Per FiF slot: request snapshot + count + validity for Poll.
+        mutable std::vector<std::vector<GpuJointExtractRequest>> mExtractMeta;
+        mutable std::vector<std::uint32_t>                       mExtractCounts;
+        mutable std::vector<std::uint8_t>                        mExtractValid;
+        mutable std::vector<std::uint32_t> mExtractSourceFrame;
     };
 
 } // namespace FREYA_NAMESPACE

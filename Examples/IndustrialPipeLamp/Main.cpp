@@ -170,10 +170,9 @@ class MainApp final : public fra::AbstractApplication
             mSofaModel.size() > 1 ? mSofaModel[1] : std::uint32_t { ~0u };
         if (mBulbMeshId == ~0u)
         {
-            std::cerr
-                << "Lamp GLB has " << mSofaModel.size()
-                << " mesh(es); expected body/bulb/switch — "
-                   "bulb Blend material will not apply\n";
+            std::cerr << "Lamp GLB has " << mSofaModel.size()
+                      << " mesh(es); expected body/bulb/switch — "
+                         "bulb Blend material will not apply\n";
         }
 
         mGroundMesh     = createGroundMesh();
@@ -508,19 +507,15 @@ class MainApp final : public fra::AbstractApplication
         // Cage opens slightly toward +Z; bias aim down/out of the fixture.
         constexpr glm::vec3 kAimLocal { 0.0f, -0.85f, 0.45f };
 
-        for (std::size_t i = 0;
-             i < mBulbSpotIndices.size() && i < 2;
-             ++i)
+        for (std::size_t i = 0; i < mBulbSpotIndices.size() && i < 2; ++i)
         {
-            const auto* current =
-                mLightService->GetLight(mBulbSpotIndices[i]);
+            const auto* current = mLightService->GetLight(mBulbSpotIndices[i]);
             if (current == nullptr)
                 continue;
 
             const glm::mat4& model = mModelMatrix[i];
-            fra::Light       spot = *current;
-            spot.position =
-                glm::vec3(model * glm::vec4(kBulbLocal, 1.0f));
+            fra::Light       spot  = *current;
+            spot.position = glm::vec3(model * glm::vec4(kBulbLocal, 1.0f));
             const glm::vec3 aim = glm::mat3(model) * kAimLocal;
             if (glm::dot(aim, aim) > 1e-8f)
                 spot.direction = glm::normalize(aim);

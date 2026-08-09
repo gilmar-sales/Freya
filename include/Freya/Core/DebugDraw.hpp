@@ -63,13 +63,12 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Visualize a two-bone IK chain + tip target + pole.
          */
-        void DrawTwoBoneIk(const ::FREYA_NAMESPACE::Skeleton& skeleton,
-                           const LocalPose& local, const glm::mat4& modelWorld,
-                           std::uint32_t root, std::uint32_t mid,
-                           std::uint32_t tip, const glm::vec3& targetWorld,
-                           const glm::vec3& poleWorld,
-                           const glm::vec4& chainColor,
-                           const glm::vec4& targetColor);
+        void DrawTwoBoneIk(
+            const ::FREYA_NAMESPACE::Skeleton& skeleton, const LocalPose& local,
+            const glm::mat4& modelWorld, std::uint32_t root, std::uint32_t mid,
+            std::uint32_t tip, const glm::vec3& targetWorld,
+            const glm::vec3& poleWorld, const glm::vec4& chainColor,
+            const glm::vec4& targetColor);
 
       private:
         bool pushVertex(const DebugDrawVertex& v);

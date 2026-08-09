@@ -519,13 +519,14 @@ void main()
                 vec3 desDir = normalize(desiredMid - rootW);
                 vec4 dQ     = quatFromTo(curDir, desDir);
                 mat4 jw     = inst.modelWorld * globalPose[base + root];
-                vec4 wr     = normalize(quatMul(dQ, quatFromMat(jw)));
-                int  pp     = parents[root];
-                mat4 pw     = (pp < 0 || uint(pp) >= jc)
-                                  ? inst.modelWorld
-                                  : (inst.modelWorld *
-                                     globalPose[base + uint(pp)]);
-                vec4 parentQ = normalize(quatFromMat(pw));
+                // Match CPU setLocalRotation: ortho quat_cast on TRS mats.
+                vec4 wr = normalize(quatMul(dQ, quatFromMatOrtho(jw)));
+                int  pp = parents[root];
+                mat4 pw = (pp < 0 || uint(pp) >= jc)
+                              ? inst.modelWorld
+                              : (inst.modelWorld *
+                                 globalPose[base + uint(pp)]);
+                vec4 parentQ = quatFromMatOrtho(pw);
                 vec4 desiredLocal =
                     normalize(quatMul(quatInverse(parentQ), wr));
                 BakedJoint lj = localPose[base + root];
@@ -541,13 +542,13 @@ void main()
                 vec3 desDir = normalize(desiredTip - midW2);
                 vec4 dQ     = quatFromTo(curDir, desDir);
                 mat4 jw     = inst.modelWorld * globalPose[base + mid];
-                vec4 wr     = normalize(quatMul(dQ, quatFromMat(jw)));
+                vec4 wr     = normalize(quatMul(dQ, quatFromMatOrtho(jw)));
                 int  pp     = parents[mid];
                 mat4 pw     = (pp < 0 || uint(pp) >= jc)
                                   ? inst.modelWorld
                                   : (inst.modelWorld *
                                      globalPose[base + uint(pp)]);
-                vec4 parentQ = normalize(quatFromMat(pw));
+                vec4 parentQ = quatFromMatOrtho(pw);
                 vec4 desiredLocal =
                     normalize(quatMul(quatInverse(parentQ), wr));
                 BakedJoint lj = localPose[base + mid];

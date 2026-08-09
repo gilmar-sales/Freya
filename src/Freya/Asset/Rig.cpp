@@ -50,8 +50,8 @@ namespace FREYA_NAMESPACE
 
         glm::quat quatFromMatOrtho(const glm::mat4& m)
         {
-            glm::vec3 c0(m[0]);
-            glm::vec3 c1(m[1]);
+            glm::vec3       c0(m[0]);
+            glm::vec3       c1(m[1]);
             const glm::vec3 c2src(m[2]);
             c0 = glm::normalize(c0);
             c1 = c1 - glm::dot(c0, c1) * c0;
@@ -81,28 +81,27 @@ namespace FREYA_NAMESPACE
         glm::vec3 clampAimDirection(glm::vec3 forward, glm::vec3 toTarget,
                                     const float maxYaw, const float maxPitch)
         {
-            forward  = glm::normalize(forward);
-            toTarget = glm::normalize(toTarget);
+            forward         = glm::normalize(forward);
+            toTarget        = glm::normalize(toTarget);
             glm::vec3 right = glm::cross(glm::vec3(0.f, 1.f, 0.f), forward);
             if (length2(right) < 1e-8f)
                 right = glm::cross(glm::vec3(1.f, 0.f, 0.f), forward);
-            right              = glm::normalize(right);
-            const glm::vec3 up = glm::cross(forward, right);
-            const float     x  = glm::dot(toTarget, right);
-            const float     y  = glm::dot(toTarget, up);
-            const float     z  = glm::dot(toTarget, forward);
-            float           yaw =
-                std::atan2(x, z);
-            float pitch = std::atan2(y, std::sqrt(x * x + z * z));
-            yaw         = std::clamp(yaw, -maxYaw, maxYaw);
-            pitch       = std::clamp(pitch, -maxPitch, maxPitch);
-            const float cp = std::cos(pitch);
-            const float sp = std::sin(pitch);
-            const float cy = std::cos(yaw);
-            const float sy = std::sin(yaw);
+            right                 = glm::normalize(right);
+            const glm::vec3 up    = glm::cross(forward, right);
+            const float     x     = glm::dot(toTarget, right);
+            const float     y     = glm::dot(toTarget, up);
+            const float     z     = glm::dot(toTarget, forward);
+            float           yaw   = std::atan2(x, z);
+            float           pitch = std::atan2(y, std::sqrt(x * x + z * z));
+            yaw                   = std::clamp(yaw, -maxYaw, maxYaw);
+            pitch                 = std::clamp(pitch, -maxPitch, maxPitch);
+            const float     cp    = std::cos(pitch);
+            const float     sp    = std::sin(pitch);
+            const float     cy    = std::cos(yaw);
+            const float     sy    = std::sin(yaw);
             const glm::vec3 local(sy * cp, sp, cy * cp);
-            return glm::normalize(right * local.x + up * local.y +
-                                  forward * local.z);
+            return glm::normalize(
+                right * local.x + up * local.y + forward * local.z);
         }
 
         void setLocalRotation(LocalPose& local, const std::uint32_t joint,
@@ -226,7 +225,7 @@ namespace FREYA_NAMESPACE
             const glm::vec3 desDir = glm::normalize(desiredMid - rootW);
             const glm::quat dQ     = quatFromTo(curDir, desDir);
             const glm::mat4 jw     = modelWorld * global[chain.root];
-            const glm::quat wr     = glm::normalize(dQ * glm::quat_cast(jw));
+            const glm::quat wr     = glm::normalize(dQ * quatFromMatOrtho(jw));
             const auto      pw =
                 parentWorld(skeleton, global, chain.root, modelWorld);
             setLocalRotation(local, chain.root, wr, pw,
@@ -241,7 +240,7 @@ namespace FREYA_NAMESPACE
             const glm::vec3 desDir = glm::normalize(desiredTip - midW2);
             const glm::quat dQ     = quatFromTo(curDir, desDir);
             const glm::mat4 jw     = modelWorld * global[chain.mid];
-            const glm::quat wr     = glm::normalize(dQ * glm::quat_cast(jw));
+            const glm::quat wr     = glm::normalize(dQ * quatFromMatOrtho(jw));
             const auto      pw =
                 parentWorld(skeleton, global, chain.mid, modelWorld);
             setLocalRotation(local, chain.mid, wr, pw,

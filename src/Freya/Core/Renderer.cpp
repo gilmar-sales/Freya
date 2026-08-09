@@ -931,9 +931,10 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    bool Renderer::ReadbackGpuAnimBones(const std::uint32_t        frameIndex,
-                                        const std::uint32_t        boneOffset,
-                                        const std::span<glm::mat4> out)
+    bool Renderer::ReadbackGpuAnimBones(const std::uint32_t frameIndex,
+                                        const std::uint32_t boneOffset,
+                                        const std::span<glm::mat4>
+                                            out)
     {
         if (!mGpuAnimPass)
             return false;
@@ -953,6 +954,22 @@ namespace FREYA_NAMESPACE
         mGpuAnimPass->SetEnabled(true);
         mGpuAnimPass->DispatchImmediate(mCommandPool, frameIndex);
         return true;
+    }
+
+    void Renderer::SetGpuAnimJointExtract(
+        const std::span<const GpuJointExtractRequest> requests)
+    {
+        if (mGpuAnimPass)
+            mGpuAnimPass->SetJointExtractList(requests);
+    }
+
+    bool Renderer::PollGpuAnimJointExtract(
+        const std::span<GpuJointExtractSample> out, std::uint32_t* outCount)
+    {
+        if (!mGpuAnimPass)
+            return false;
+        return mGpuAnimPass->PollJointExtract(
+            GetCurrentFrameIndex(), out, outCount);
     }
 
     BufferBuilder Renderer::GetBufferBuilder() const

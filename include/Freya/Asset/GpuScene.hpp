@@ -103,19 +103,19 @@ namespace FREYA_NAMESPACE
      */
     struct MaterialGPU
     {
-        std::uint32_t albedoIndex    = kBindlessWhiteTexture;
-        std::uint32_t normalIndex    = kBindlessWhiteTexture;
-        std::uint32_t roughnessIndex = kBindlessWhiteTexture;
-        std::uint32_t emissiveIndex  = kBindlessBlackTexture;
-        std::uint32_t metalnessIndex = kBindlessBlackTexture;
-        std::uint32_t alphaMode      = 0; ///< AlphaMode as uint
+        std::uint32_t albedoIndex        = kBindlessWhiteTexture;
+        std::uint32_t normalIndex        = kBindlessWhiteTexture;
+        std::uint32_t roughnessIndex     = kBindlessWhiteTexture;
+        std::uint32_t emissiveIndex      = kBindlessBlackTexture;
+        std::uint32_t metalnessIndex     = kBindlessBlackTexture;
+        std::uint32_t alphaMode          = 0; ///< AlphaMode as uint
         float         clearcoat          = 0.f;
         float         clearcoatRoughness = 0.03f;
-        glm::vec4     albedoFactor   = glm::vec4(1.0f);
-        glm::vec4     emissiveFactor = glm::vec4(1.0f); ///< w = ao
-        glm::vec2     roughMetal     = glm::vec2(1.0f);
-        float         materialId     = 0.0f;
-        float         alphaCutoff    = 0.0f;
+        glm::vec4     albedoFactor       = glm::vec4(1.0f);
+        glm::vec4     emissiveFactor     = glm::vec4(1.0f); ///< w = ao
+        glm::vec2     roughMetal         = glm::vec2(1.0f);
+        float         materialId         = 0.0f;
+        float         alphaCutoff        = 0.0f;
     };
 
     /**

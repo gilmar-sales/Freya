@@ -29,18 +29,21 @@ namespace FREYA_NAMESPACE
     {
       public:
         BloomPass(
-            const skr::Arc<Device>&                     device,
-            const skr::Arc<FreyaOptions>&               freyaOptions,
-            const skr::Arc<Surface>&                    surface,
-            vk::Extent2D                                halfExtent,
-            vk::RenderPass                              renderPass,
-            vk::PipelineLayout                          pipelineLayout,
-            vk::Pipeline                                thresholdPipeline,
-            vk::Pipeline                                downsamplePipeline,
-            vk::Pipeline                                upsamplePipeline,
-            std::vector<skr::Arc<Image>>                bloomThresholdImages,
-            std::vector<skr::Arc<Image>>                bloomDownImages,
-            std::vector<skr::Arc<Image>>                bloomUpImages,
+            const skr::Arc<Device>&       device,
+            const skr::Arc<FreyaOptions>& freyaOptions,
+            const skr::Arc<Surface>&      surface,
+            vk::Extent2D                  halfExtent,
+            vk::RenderPass                renderPass,
+            vk::PipelineLayout            pipelineLayout,
+            vk::Pipeline                  thresholdPipeline,
+            vk::Pipeline                  downsamplePipeline,
+            vk::Pipeline                  upsamplePipeline,
+            std::vector<skr::Arc<Image>>
+                bloomThresholdImages,
+            std::vector<skr::Arc<Image>>
+                bloomDownImages,
+            std::vector<skr::Arc<Image>>
+                                                        bloomUpImages,
             const std::vector<vk::Framebuffer>&         framebuffers,
             vk::DescriptorPool                          descriptorPool,
             const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,

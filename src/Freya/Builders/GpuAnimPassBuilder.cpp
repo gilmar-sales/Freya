@@ -33,12 +33,17 @@ namespace FREYA_NAMESPACE
             GpuAnimPass::kMaxJoints * sizeof(GpuBakedJoint));
         const auto scratchCount =
             GpuAnimPass::kMaxInstances * GpuAnimPass::kMaxJoints;
-        const auto localScratchBytes = static_cast<std::uint32_t>(
-            scratchCount * sizeof(GpuBakedJoint));
+        const auto localScratchBytes =
+            static_cast<std::uint32_t>(scratchCount * sizeof(GpuBakedJoint));
         const auto globalScratchBytes =
             static_cast<std::uint32_t>(scratchCount * sizeof(glm::mat4));
         const auto readbackBytes = static_cast<std::uint32_t>(
             GpuAnimPass::kMaxJoints * sizeof(glm::mat4));
+        const auto frameCount =
+            std::max(1u, mBoneResources ? mBoneResources->GetFrameCount()
+                                        : mFreyaOptions->frameCount);
+        const auto extractRingBytes = static_cast<std::uint32_t>(
+            frameCount * GpuAnimPass::kMaxExtractJoints * sizeof(glm::mat4));
 
         auto parentsBuf =
             BufferBuilder(mDevice)
@@ -86,6 +91,11 @@ namespace FREYA_NAMESPACE
             BufferBuilder(mDevice)
                 .SetUsage(BufferUsage::Readback)
                 .SetSize(readbackBytes)
+                .Build();
+        auto extractRingBuf =
+            BufferBuilder(mDevice)
+                .SetUsage(BufferUsage::Readback)
+                .SetSize(std::max(extractRingBytes, 256u))
                 .Build();
 
         const auto animBindings = std::array {
@@ -182,9 +192,9 @@ namespace FREYA_NAMESPACE
             vk::PushConstantRange()
                 .setStageFlags(vk::ShaderStageFlagBits::eCompute)
                 .setOffset(0)
-                .setSize(static_cast<std::uint32_t>(sizeof(std::uint32_t) * 8u +
-                                                    sizeof(glm::vec4) +
-                                                    sizeof(float) * 4u));
+                .setSize(static_cast<std::uint32_t>(
+                    sizeof(std::uint32_t) * 8u + sizeof(glm::vec4) +
+                    sizeof(float) * 4u));
 
         const auto setLayouts =
             std::array { mBoneResources->GetLayout(), animSetLayout };
@@ -215,7 +225,7 @@ namespace FREYA_NAMESPACE
             mDevice, mBoneResources, pipelineLayout, pipeline, animSetLayout,
             animPool, animSet, parentsBuf, invBindBuf, clipHdrBuf, jointsBuf,
             instanceBuf, maskBuf, restBuf, localScratchBuf, globalScratchBuf,
-            readbackBuf);
+            readbackBuf, extractRingBuf, frameCount);
     }
 
 } // namespace FREYA_NAMESPACE

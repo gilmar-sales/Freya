@@ -27,14 +27,19 @@ namespace FREYA_NAMESPACE
         const vk::DescriptorSetLayout                resolveSetLayout,
         const vk::DescriptorPool                     resolveDescriptorPool,
         const std::vector<vk::DescriptorSet>&        resolveSets,
-        std::vector<skr::Arc<Image>>                 oitAccum,
-        std::vector<skr::Arc<Image>>                 oitReveal,
-        std::vector<skr::Arc<Image>>                 sceneWithTranslucency,
-        std::vector<vk::Framebuffer>                 accumulateFramebuffers,
-        std::vector<vk::Framebuffer>                 resolveFramebuffers,
-        const vk::Sampler                            sampler,
-        const vk::Format                             depthFormat,
-        const vk::Extent2D                           extent) :
+        std::vector<skr::Arc<Image>>
+            oitAccum,
+        std::vector<skr::Arc<Image>>
+            oitReveal,
+        std::vector<skr::Arc<Image>>
+            sceneWithTranslucency,
+        std::vector<vk::Framebuffer>
+            accumulateFramebuffers,
+        std::vector<vk::Framebuffer>
+                           resolveFramebuffers,
+        const vk::Sampler  sampler,
+        const vk::Format   depthFormat,
+        const vk::Extent2D extent) :
         mDevice(device), mFreyaOptions(freyaOptions),
         mMaterialResources(materialResources), mBoneResources(boneResources),
         mLightService(lightService),
@@ -51,8 +56,8 @@ namespace FREYA_NAMESPACE
         mOitReveal(std::move(oitReveal)),
         mSceneWithTranslucency(std::move(sceneWithTranslucency)),
         mAccumulateFramebuffers(std::move(accumulateFramebuffers)),
-        mResolveFramebuffers(std::move(resolveFramebuffers)),
-        mSampler(sampler), mDepthFormat(depthFormat), mExtent(extent),
+        mResolveFramebuffers(std::move(resolveFramebuffers)), mSampler(sampler),
+        mDepthFormat(depthFormat), mExtent(extent),
         mBoundOpaqueViews(resolveSets.size())
     {
     }
@@ -88,7 +93,7 @@ namespace FREYA_NAMESPACE
 
     void TranslucentPass::UpdateProjection(
         const ProjectionUniformBuffer& buffer,
-        const std::uint32_t             frameIndex) const
+        const std::uint32_t            frameIndex) const
     {
         auto upload = buffer;
         upload.invViewProjection =

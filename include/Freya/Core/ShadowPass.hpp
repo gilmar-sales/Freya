@@ -28,33 +28,33 @@ namespace FREYA_NAMESPACE
     {
       public:
         ShadowPass(
-            const skr::Arc<Device>&               device,
-            const skr::Arc<PhysicalDevice>&       physicalDevice,
-            const skr::Arc<FreyaOptions>&         freyaOptions,
-            const skr::Arc<BoneMatrixResources>&  boneResources,
-            vk::RenderPass                        renderPass,
-            vk::PipelineLayout                    pipelineLayout,
-            vk::Pipeline                          pipeline,
-            vk::Image                             cascadeImage,
-            vk::DeviceMemory                      cascadeMemory,
-            vk::ImageView                         cascadeArrayView,
-            const std::vector<vk::ImageView>&     cascadeLayerViews,
-            const std::vector<vk::Framebuffer>&   cascadeFramebuffers,
-            vk::Image                             spotImage,
-            vk::DeviceMemory                      spotMemory,
-            vk::ImageView                         spotArrayView,
-            const std::vector<vk::ImageView>&     spotLayerViews,
-            const std::vector<vk::Framebuffer>&   spotFramebuffers,
-            vk::Image                             pointImage,
-            vk::DeviceMemory                      pointMemory,
-            vk::ImageView                         pointArrayView,
-            const std::vector<vk::ImageView>&     pointFaceViews,
-            const std::vector<vk::Framebuffer>&   pointFramebuffers,
-            const skr::Arc<Buffer>&               uniformBuffer,
-            vk::Sampler                           compareSampler,
-            std::uint32_t                         cascadeCount,
-            std::uint32_t                         maxSpotShadows,
-            std::uint32_t                         maxPointShadows);
+            const skr::Arc<Device>&              device,
+            const skr::Arc<PhysicalDevice>&      physicalDevice,
+            const skr::Arc<FreyaOptions>&        freyaOptions,
+            const skr::Arc<BoneMatrixResources>& boneResources,
+            vk::RenderPass                       renderPass,
+            vk::PipelineLayout                   pipelineLayout,
+            vk::Pipeline                         pipeline,
+            vk::Image                            cascadeImage,
+            vk::DeviceMemory                     cascadeMemory,
+            vk::ImageView                        cascadeArrayView,
+            const std::vector<vk::ImageView>&    cascadeLayerViews,
+            const std::vector<vk::Framebuffer>&  cascadeFramebuffers,
+            vk::Image                            spotImage,
+            vk::DeviceMemory                     spotMemory,
+            vk::ImageView                        spotArrayView,
+            const std::vector<vk::ImageView>&    spotLayerViews,
+            const std::vector<vk::Framebuffer>&  spotFramebuffers,
+            vk::Image                            pointImage,
+            vk::DeviceMemory                     pointMemory,
+            vk::ImageView                        pointArrayView,
+            const std::vector<vk::ImageView>&    pointFaceViews,
+            const std::vector<vk::Framebuffer>&  pointFramebuffers,
+            const skr::Arc<Buffer>&              uniformBuffer,
+            vk::Sampler                          compareSampler,
+            std::uint32_t                        cascadeCount,
+            std::uint32_t                        maxSpotShadows,
+            std::uint32_t                        maxPointShadows);
 
         ~ShadowPass();
 
@@ -212,11 +212,11 @@ namespace FREYA_NAMESPACE
 
         void bindBoneDescriptorSet(vk::CommandBuffer commandBuffer) const;
 
-        skr::Arc<Device>               mDevice;
-        skr::Arc<PhysicalDevice>       mPhysicalDevice;
-        skr::Arc<FreyaOptions>         mFreyaOptions;
-        skr::Arc<BoneMatrixResources>  mBoneResources;
-        std::uint32_t                  mFrameIndex = 0;
+        skr::Arc<Device>              mDevice;
+        skr::Arc<PhysicalDevice>      mPhysicalDevice;
+        skr::Arc<FreyaOptions>        mFreyaOptions;
+        skr::Arc<BoneMatrixResources> mBoneResources;
+        std::uint32_t                 mFrameIndex = 0;
 
         vk::RenderPass     mRenderPass;
         vk::PipelineLayout mPipelineLayout;

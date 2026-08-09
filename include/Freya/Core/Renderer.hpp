@@ -308,15 +308,30 @@ namespace FREYA_NAMESPACE
          * Pass the frame index used for Upload/Dispatch (before Present
          * advances the swapchain frame).
          */
-        bool ReadbackGpuAnimBones(std::uint32_t        frameIndex,
-                                  std::uint32_t        boneOffset,
-                                  std::span<glm::mat4> out);
+        bool ReadbackGpuAnimBones(std::uint32_t frameIndex,
+                                  std::uint32_t boneOffset,
+                                  std::span<glm::mat4>
+                                      out);
 
         /**
          * @brief Upload + one-shot GPU anim dispatch + wait (golden stages).
          */
         bool DispatchGpuAnimImmediate(
-            std::span<const GpuAnimInstance> instances, std::uint32_t frameIndex);
+            std::span<const GpuAnimInstance> instances,
+            std::uint32_t                    frameIndex);
+
+        /**
+         * @brief Configure async joint extract (copied after each GPU anim
+         * Dispatch into a host FiF ring).
+         */
+        void SetGpuAnimJointExtract(
+            std::span<const GpuJointExtractRequest> requests);
+
+        /**
+         * @brief Poll N+1 joint extracts (call at Update start).
+         */
+        bool PollGpuAnimJointExtract(std::span<GpuJointExtractSample> out,
+                                     std::uint32_t* outCount = nullptr);
 
         void UpdateModel(const glm::mat4& model) const;
 

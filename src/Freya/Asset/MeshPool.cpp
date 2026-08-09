@@ -16,8 +16,8 @@
 #include <string>
 #include <unordered_map>
 
-#include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 namespace FREYA_NAMESPACE
 {
@@ -282,10 +282,9 @@ namespace FREYA_NAMESPACE
             {
                 const glm::vec3 center = 0.5f * (aabbMin + aabbMax);
                 const glm::vec3 extent = 0.5f * (aabbMax - aabbMin);
-                const float radius =
-                    glm::length(extent) * 1.25f;
-                aabbMin = center - glm::vec3(radius);
-                aabbMax = center + glm::vec3(radius);
+                const float     radius = glm::length(extent) * 1.25f;
+                aabbMin                = center - glm::vec3(radius);
+                aabbMax                = center + glm::vec3(radius);
             }
 
             const auto lodBase = static_cast<std::uint32_t>(meshLods.size());
@@ -429,10 +428,10 @@ namespace FREYA_NAMESPACE
             return std::string(s.C_Str());
         }
 
-        void collectBoneNames(const aiScene* scene,
-                              std::unordered_map<std::string, std::uint32_t>&
-                                  nameToIndex,
-                              Skeleton& skeleton)
+        void collectBoneNames(
+            const aiScene*                                  scene,
+            std::unordered_map<std::string, std::uint32_t>& nameToIndex,
+            Skeleton&                                       skeleton)
         {
             for (unsigned m = 0; m < scene->mNumMeshes; ++m)
             {
@@ -454,20 +453,19 @@ namespace FREYA_NAMESPACE
             }
         }
 
-        void assignParentsAndRest(const aiNode*      node,
-                                  const std::int32_t parentBone,
-                                  std::unordered_map<std::string, std::uint32_t>&
-                                      nameToIndex,
-                                  Skeleton&          skeleton)
+        void assignParentsAndRest(
+            const aiNode*                                   node,
+            const std::int32_t                              parentBone,
+            std::unordered_map<std::string, std::uint32_t>& nameToIndex,
+            Skeleton&                                       skeleton)
         {
-            const auto name  = aiName(node->mName);
+            const auto   name = aiName(node->mName);
             std::int32_t self = parentBone;
             if (const auto it = nameToIndex.find(name); it != nameToIndex.end())
             {
-                self                         = static_cast<std::int32_t>(it->second);
-                skeleton.parents[it->second] = parentBone;
-                skeleton.restLocal[it->second] =
-                    toGlm(node->mTransformation);
+                self = static_cast<std::int32_t>(it->second);
+                skeleton.parents[it->second]   = parentBone;
+                skeleton.restLocal[it->second] = toGlm(node->mTransformation);
             }
             for (unsigned i = 0; i < node->mNumChildren; ++i)
                 assignParentsAndRest(node->mChildren[i], self, nameToIndex,
@@ -483,10 +481,9 @@ namespace FREYA_NAMESPACE
 
             for (auto i = 0u; i < mesh->mNumVertices; ++i)
             {
-                const auto& aVertex  = mesh->mVertices[i];
-                const auto& aNormal  = mesh->mNormals
-                                           ? mesh->mNormals[i]
-                                           : aiVector3D(0, 1, 0);
+                const auto& aVertex = mesh->mVertices[i];
+                const auto& aNormal =
+                    mesh->mNormals ? mesh->mNormals[i] : aiVector3D(0, 1, 0);
                 const auto& aTangent = mesh->HasTangentsAndBitangents()
                                            ? mesh->mTangents[i]
                                            : aiVector3D(1, 0, 0);
@@ -556,14 +553,13 @@ namespace FREYA_NAMESPACE
 
         void processSkinnedNode(
             std::vector<std::uint32_t>& meshIds, const aiNode* node,
-            const aiScene* scene,
+            const aiScene*                                        scene,
             const std::unordered_map<std::string, std::uint32_t>& nameToIndex)
         {
             for (unsigned int i = 0; i < node->mNumMeshes; ++i)
             {
                 const aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-                meshIds.push_back(
-                    processSkinnedMesh(mesh, scene, nameToIndex));
+                meshIds.push_back(processSkinnedMesh(mesh, scene, nameToIndex));
             }
             for (unsigned int i = 0; i < node->mNumChildren; ++i)
                 processSkinnedNode(meshIds, node->mChildren[i], scene,
@@ -571,15 +567,14 @@ namespace FREYA_NAMESPACE
         }
 
         static AnimationClip convertAnimation(
-            const aiAnimation* anim,
+            const aiAnimation*                                    anim,
             const std::unordered_map<std::string, std::uint32_t>& nameToIndex)
         {
             AnimationClip clip;
-            clip.name = aiName(anim->mName);
-            const float tps =
-                anim->mTicksPerSecond > 0.0 ? static_cast<float>(
-                                                  anim->mTicksPerSecond)
-                                            : 25.f;
+            clip.name       = aiName(anim->mName);
+            const float tps = anim->mTicksPerSecond > 0.0
+                                  ? static_cast<float>(anim->mTicksPerSecond)
+                                  : 25.f;
             clip.ticksPerSecond = tps;
             clip.duration =
                 static_cast<float>(anim->mDuration) / std::max(tps, 1e-6f);
@@ -587,7 +582,7 @@ namespace FREYA_NAMESPACE
             for (unsigned c = 0; c < anim->mNumChannels; ++c)
             {
                 const aiNodeAnim* ch = anim->mChannels[c];
-                const auto it = nameToIndex.find(aiName(ch->mNodeName));
+                const auto        it = nameToIndex.find(aiName(ch->mNodeName));
                 if (it == nameToIndex.end())
                     continue;
 
@@ -598,7 +593,7 @@ namespace FREYA_NAMESPACE
                 {
                     const auto& k = ch->mPositionKeys[i];
                     out.translations.push_back(AnimationVecKey {
-                        .time = static_cast<float>(k.mTime) / tps,
+                        .time  = static_cast<float>(k.mTime) / tps,
                         .value = glm::vec3(k.mValue.x, k.mValue.y, k.mValue.z),
                     });
                 }
@@ -607,7 +602,7 @@ namespace FREYA_NAMESPACE
                 {
                     const auto& k = ch->mRotationKeys[i];
                     out.rotations.push_back(AnimationQuatKey {
-                        .time = static_cast<float>(k.mTime) / tps,
+                        .time  = static_cast<float>(k.mTime) / tps,
                         .value = glm::normalize(glm::quat(
                             k.mValue.w, k.mValue.x, k.mValue.y, k.mValue.z)),
                     });
@@ -617,7 +612,7 @@ namespace FREYA_NAMESPACE
                 {
                     const auto& k = ch->mScalingKeys[i];
                     out.scales.push_back(AnimationVecKey {
-                        .time = static_cast<float>(k.mTime) / tps,
+                        .time  = static_cast<float>(k.mTime) / tps,
                         .value = glm::vec3(k.mValue.x, k.mValue.y, k.mValue.z),
                     });
                 }
@@ -652,10 +647,9 @@ namespace FREYA_NAMESPACE
             collectBoneNames(scene, nameToIndex, out.skeleton);
             if (out.skeleton.JointCount() == 0)
             {
-                logger->LogError(
-                    "Skinned load found no bones in '{}'; use "
-                    "CreateMeshFromFile for static models.",
-                    path);
+                logger->LogError("Skinned load found no bones in '{}'; use "
+                                 "CreateMeshFromFile for static models.",
+                                 path);
                 return out;
             }
 

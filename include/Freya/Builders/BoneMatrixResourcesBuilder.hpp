@@ -9,9 +9,8 @@ namespace FREYA_NAMESPACE
     class BoneMatrixResourcesBuilder
     {
       public:
-        BoneMatrixResourcesBuilder(
-            const skr::Arc<Device>&       device,
-            const skr::Arc<FreyaOptions>& freyaOptions) :
+        BoneMatrixResourcesBuilder(const skr::Arc<Device>&       device,
+                                   const skr::Arc<FreyaOptions>& freyaOptions) :
             mDevice(device), mFreyaOptions(freyaOptions)
         {
         }

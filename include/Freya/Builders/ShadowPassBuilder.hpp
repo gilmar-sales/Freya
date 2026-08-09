@@ -20,12 +20,11 @@ namespace FREYA_NAMESPACE
     class ShadowPassBuilder
     {
       public:
-        ShadowPassBuilder(
-            const skr::Arc<Device>&               device,
-            const skr::Arc<PhysicalDevice>&       physicalDevice,
-            const skr::Arc<FreyaOptions>&         freyaOptions,
-            const skr::Arc<skr::ServiceProvider>& serviceProvider,
-            const skr::Arc<BoneMatrixResources>&  boneResources) :
+        ShadowPassBuilder(const skr::Arc<Device>&               device,
+                          const skr::Arc<PhysicalDevice>&       physicalDevice,
+                          const skr::Arc<FreyaOptions>&         freyaOptions,
+                          const skr::Arc<skr::ServiceProvider>& serviceProvider,
+                          const skr::Arc<BoneMatrixResources>&  boneResources) :
             mDevice(device), mPhysicalDevice(physicalDevice),
             mFreyaOptions(freyaOptions), mServiceProvider(serviceProvider),
             mBoneResources(boneResources)

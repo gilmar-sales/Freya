@@ -1,6 +1,7 @@
 #include "Freya/Core/GpuAnimPass.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstring>
 
 namespace FREYA_NAMESPACE
@@ -22,7 +23,9 @@ namespace FREYA_NAMESPACE
         const skr::Arc<Buffer>&              restJointsBuffer,
         const skr::Arc<Buffer>&              localScratchBuffer,
         const skr::Arc<Buffer>&              globalScratchBuffer,
-        const skr::Arc<Buffer>&              readbackBuffer) :
+        const skr::Arc<Buffer>&              readbackBuffer,
+        const skr::Arc<Buffer>&              extractRingBuffer,
+        const std::uint32_t                  frameCount) :
         mDevice(device), mBoneResources(boneResources),
         mPipelineLayout(pipelineLayout), mPipeline(pipeline),
         mAnimSetLayout(animSetLayout), mAnimPool(animPool), mAnimSet(animSet),
@@ -32,8 +35,13 @@ namespace FREYA_NAMESPACE
         mRestJointsBuffer(restJointsBuffer),
         mLocalScratchBuffer(localScratchBuffer),
         mGlobalScratchBuffer(globalScratchBuffer),
-        mReadbackBuffer(readbackBuffer)
+        mReadbackBuffer(readbackBuffer), mExtractRingBuffer(extractRingBuffer),
+        mFrameCount(std::max(1u, frameCount))
     {
+        mExtractMeta.resize(mFrameCount);
+        mExtractCounts.resize(mFrameCount, 0);
+        mExtractValid.resize(mFrameCount, 0);
+        mExtractSourceFrame.resize(mFrameCount, 0);
     }
 
     GpuAnimPass::~GpuAnimPass()
@@ -48,6 +56,58 @@ namespace FREYA_NAMESPACE
             mDevice->Get().destroyDescriptorPool(mAnimPool);
         if (mAnimSetLayout)
             mDevice->Get().destroyDescriptorSetLayout(mAnimSetLayout);
+    }
+
+    void GpuAnimPass::SetJointExtractList(
+        const std::span<const GpuJointExtractRequest> reqs)
+    {
+        const auto n = std::min(
+            static_cast<std::uint32_t>(reqs.size()), kMaxExtractJoints);
+        mExtractRequests.assign(reqs.begin(), reqs.begin() + n);
+    }
+
+    bool GpuAnimPass::PollJointExtract(const std::uint32_t frameIndex,
+                                       const std::span<GpuJointExtractSample>
+                                                      out,
+                                       std::uint32_t* outCount) const
+    {
+        if (outCount)
+            *outCount = 0;
+        if (!mExtractRingBuffer || mFrameCount == 0 || out.empty())
+            return false;
+
+        // Previous finished frame in the FiF ring (N+1 when polled at Update
+        // start before this slot is overwritten by Dispatch).
+        const auto prev =
+            (extractSlot(frameIndex) + mFrameCount - 1u) % mFrameCount;
+        if (!mExtractValid[prev] || mExtractCounts[prev] == 0)
+            return false;
+
+        const auto n = std::min(
+            { mExtractCounts[prev], static_cast<std::uint32_t>(out.size()),
+              static_cast<std::uint32_t>(mExtractMeta[prev].size()) });
+        if (n == 0)
+            return false;
+
+        const void* mapped = mExtractRingBuffer->GetMapped();
+        if (!mapped)
+            return false;
+
+        const auto* mats = reinterpret_cast<const glm::mat4*>(
+            static_cast<const std::uint8_t*>(mapped) +
+            static_cast<std::size_t>(prev) * extractSlotBytes());
+
+        for (std::uint32_t i = 0; i < n; ++i)
+        {
+            out[i].boneOffset  = mExtractMeta[prev][i].boneOffset;
+            out[i].jointIndex  = mExtractMeta[prev][i].jointIndex;
+            out[i].sourceFrame = mExtractSourceFrame[prev];
+            out[i]._pad        = 0;
+            out[i].skinMatrix  = mats[i];
+        }
+        if (outCount)
+            *outCount = n;
+        return true;
     }
 
     void GpuAnimPass::UploadSkeleton(const GpuSkeletonPack& skeleton)
@@ -141,6 +201,7 @@ namespace FREYA_NAMESPACE
         }
 
         recordCompute(commandBuffer, frameIndex);
+        recordJointExtract(commandBuffer, frameIndex);
     }
 
     void GpuAnimPass::DispatchImmediate(
@@ -157,6 +218,7 @@ namespace FREYA_NAMESPACE
         cb.begin(vk::CommandBufferBeginInfo().setFlags(
             vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
         recordCompute(cb, frameIndex);
+        recordJointExtract(cb, frameIndex);
         cb.end();
 
         const auto submitInfo =
@@ -176,13 +238,13 @@ namespace FREYA_NAMESPACE
             vk::PipelineBindPoint::eCompute, mPipelineLayout, 0, sets, {});
 
         PushConstants pc {};
-        pc.instanceCount = mInstanceCount;
-        pc.jointCount    = mJointCount;
-        pc.lookJoint     = mLookJoint;
-        pc.ikRoot        = mIkRoot;
-        pc.ikMid         = mIkMid;
-        pc.ikTip         = mIkTip;
-        pc.rootJoint     = mRootJoint;
+        pc.instanceCount    = mInstanceCount;
+        pc.jointCount       = mJointCount;
+        pc.lookJoint        = mLookJoint;
+        pc.ikRoot           = mIkRoot;
+        pc.ikMid            = mIkMid;
+        pc.ikTip            = mIkTip;
+        pc.rootJoint        = mRootJoint;
         pc.lookLocalForward = glm::vec4(mLookLocalForward, 0.f);
         pc.lookMaxYaw       = mLookMaxYawRad;
         pc.lookMaxPitch     = mLookMaxPitchRad;
@@ -204,6 +266,86 @@ namespace FREYA_NAMESPACE
                 .setBuffer(mBoneResources->GetBuffer()->Get())
                 .setOffset(bonesOff)
                 .setSize(bytes),
+            {});
+    }
+
+    void GpuAnimPass::recordJointExtract(const vk::CommandBuffer commandBuffer,
+                                         const std::uint32_t frameIndex) const
+    {
+        if (!mExtractRingBuffer || !mBoneResources || mExtractRequests.empty())
+            return;
+
+        const auto slot = extractSlot(frameIndex);
+        const auto n =
+            std::min(static_cast<std::uint32_t>(mExtractRequests.size()),
+                     kMaxExtractJoints);
+        if (n == 0)
+            return;
+
+        mExtractMeta[slot].assign(mExtractRequests.begin(),
+                                  mExtractRequests.begin() + n);
+        mExtractCounts[slot]      = n;
+        mExtractSourceFrame[slot] = frameIndex;
+        // Valid for Poll only after GPU finishes this FiF slot (next wrap).
+        mExtractValid[slot] = 1;
+
+        const auto bonesBase = mBoneResources->BonesByteOffset(frameIndex);
+        const auto dstBase =
+            static_cast<vk::DeviceSize>(slot) * extractSlotBytes();
+        const auto matBytes = static_cast<vk::DeviceSize>(sizeof(glm::mat4));
+
+        // Compute → transfer; vertex still uses bones via prior barrier.
+        std::vector<vk::BufferCopy> regions;
+        regions.reserve(n);
+        for (std::uint32_t i = 0; i < n; ++i)
+        {
+            const auto& req = mExtractRequests[i];
+            const auto  src =
+                bonesBase +
+                static_cast<vk::DeviceSize>(req.boneOffset + req.jointIndex) *
+                    matBytes;
+            regions.push_back(vk::BufferCopy()
+                                  .setSrcOffset(src)
+                                  .setDstOffset(dstBase + i * matBytes)
+                                  .setSize(matBytes));
+        }
+
+        const auto rangeBytes = n * matBytes;
+        commandBuffer.pipelineBarrier(
+            vk::PipelineStageFlagBits::eComputeShader |
+                vk::PipelineStageFlagBits::eVertexShader,
+            vk::PipelineStageFlagBits::eTransfer, {}, {},
+            vk::BufferMemoryBarrier()
+                .setSrcAccessMask(vk::AccessFlagBits::eShaderWrite |
+                                  vk::AccessFlagBits::eShaderRead)
+                .setDstAccessMask(vk::AccessFlagBits::eTransferRead)
+                .setBuffer(mBoneResources->GetBuffer()->Get())
+                .setOffset(bonesBase)
+                .setSize(mBoneResources->PaletteBytes()),
+            {});
+        commandBuffer.pipelineBarrier(
+            vk::PipelineStageFlagBits::eHost,
+            vk::PipelineStageFlagBits::eTransfer, {}, {},
+            vk::BufferMemoryBarrier()
+                .setSrcAccessMask(vk::AccessFlagBits::eHostRead)
+                .setDstAccessMask(vk::AccessFlagBits::eTransferWrite)
+                .setBuffer(mExtractRingBuffer->Get())
+                .setOffset(dstBase)
+                .setSize(rangeBytes),
+            {});
+
+        commandBuffer.copyBuffer(mBoneResources->GetBuffer()->Get(),
+                                 mExtractRingBuffer->Get(), regions);
+
+        commandBuffer.pipelineBarrier(
+            vk::PipelineStageFlagBits::eTransfer,
+            vk::PipelineStageFlagBits::eHost, {}, {},
+            vk::BufferMemoryBarrier()
+                .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eHostRead)
+                .setBuffer(mExtractRingBuffer->Get())
+                .setOffset(dstBase)
+                .setSize(rangeBytes),
             {});
     }
 
