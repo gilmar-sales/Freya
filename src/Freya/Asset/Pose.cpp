@@ -1,4 +1,5 @@
 #include "Freya/Asset/Pose.hpp"
+#include "Freya/Asset/BakedAnimation.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -435,12 +436,22 @@ namespace FREYA_NAMESPACE
         const float t0   = span.i0 < times.size() ? times[span.i0] : 0.f;
         const float t1   = span.i1 < times.size() ? times[span.i1] : 0.f;
 
-        LocalPose a = s0.clip ? SampleClip(skeleton, *s0.clip, t0, s0.loop)
-                              : RestLocalPose(skeleton);
+        LocalPose a;
+        if (s0.baked && !s0.baked->Empty())
+            a = SampleBaked(skeleton, *s0.baked, t0, s0.loop);
+        else if (s0.clip)
+            a = SampleClip(skeleton, *s0.clip, t0, s0.loop);
+        else
+            a = RestLocalPose(skeleton);
         if (span.i0 == span.i1 || span.t <= 0.f)
             return a;
-        LocalPose b = s1.clip ? SampleClip(skeleton, *s1.clip, t1, s1.loop)
-                              : RestLocalPose(skeleton);
+        LocalPose b;
+        if (s1.baked && !s1.baked->Empty())
+            b = SampleBaked(skeleton, *s1.baked, t1, s1.loop);
+        else if (s1.clip)
+            b = SampleClip(skeleton, *s1.clip, t1, s1.loop);
+        else
+            b = RestLocalPose(skeleton);
         return BlendLocalPoses(a, b, span.t);
     }
 

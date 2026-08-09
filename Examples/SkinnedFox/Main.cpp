@@ -2,6 +2,7 @@
 #include <Freya/Vulkan.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <iostream>
@@ -186,6 +187,14 @@ class MainApp final : public fra::AbstractApplication
         if (!run)
             run = walk;
 
+        const float bakeHz = std::max(1.f, mFreyaOptions->animBakeHz);
+        mBakeIdle          = fra::BakeClip(mSkinned.skeleton, *idle, bakeHz);
+        mBakeWalk          = fra::BakeClip(mSkinned.skeleton, *walk, bakeHz);
+        mBakeRun           = fra::BakeClip(mSkinned.skeleton, *run, bakeHz);
+        std::cout << "Baked clips @" << bakeHz << "Hz: idle frames="
+                  << mBakeIdle.frameCount << " walk=" << mBakeWalk.frameCount
+                  << " run=" << mBakeRun.frameCount << '\n';
+
         mUpperClip = idle;
         mUpperMask = makeUpperBodyMask(mSkinned.skeleton);
         mRestPose  = fra::RestLocalPose(mSkinned.skeleton);
@@ -220,6 +229,7 @@ class MainApp final : public fra::AbstractApplication
         const float originZ =
             -0.5f * static_cast<float>(kFoxGridZ - 1) * kFoxSpacing;
 
+        const auto    lodMaxPeriod  = fra::AnimLodMaxPeriod(*mFreyaOptions);
         std::uint32_t upperCount    = 0;
         std::uint32_t additiveCount = 0;
         std::uint32_t lookCount     = 0;
@@ -232,9 +242,10 @@ class MainApp final : public fra::AbstractApplication
             {
                 const std::uint32_t i = z * kFoxGridX + x;
                 FoxActor            fox;
-                fox.speed            = speedPreset(i);
-                fox.boneOffset       = i * jointCount;
-                fox.useUpperLayer    = (i % 4u) == 0u;
+                fox.speed         = speedPreset(i);
+                fox.boneOffset    = i * jointCount;
+                fox.stagger       = static_cast<std::uint8_t>(i % lodMaxPeriod);
+                fox.useUpperLayer = (i % 4u) == 0u;
                 fox.useAdditiveLayer = (i % 4u) == 2u;
                 fox.useLookAt        = mHeadJoint >= 0 && (i % 5u) == 1u;
                 fox.useIk            = mIkReady && (i % 13u) == 0u;
@@ -264,9 +275,10 @@ class MainApp final : public fra::AbstractApplication
                         .SetSkeleton(&mSkinned.skeleton)
                         .ParamFloat("Speed", fox.speed)
                         .Blend1DState("Loco", "Speed")
-                        .AddBlendSample(0.f, *idle)
-                        .AddBlendSample(1.f, *walk)
-                        .AddBlendSample(2.f, *run, true, kRunPlayback)
+                        .AddBlendSample(0.f, *idle, true, 1.f, &mBakeIdle)
+                        .AddBlendSample(1.f, *walk, true, 1.f, &mBakeWalk)
+                        .AddBlendSample(2.f, *run, true, kRunPlayback,
+                                        &mBakeRun)
                         .Entry("Loco")
                         .Build();
 
@@ -276,11 +288,14 @@ class MainApp final : public fra::AbstractApplication
             }
         }
 
-        std::cout << "Anim stack — " << foxCount
-                  << " foxes | Blend1D phase-sync | upper=" << upperCount
-                  << " additive=" << additiveCount << " look=" << lookCount
-                  << " ik=" << ikCount << " rootDrive=" << rootCount << '\n'
-                  << "  Keys: 1/2/3 Speed   Up/Down   F3=DebugDraw\n";
+        std::cout
+            << "Anim stack — " << foxCount << " foxes | Blend1D bake@"
+            << mFreyaOptions->animBakeHz << "Hz | upper=" << upperCount
+            << " additive=" << additiveCount << " look=" << lookCount
+            << " ik=" << ikCount << " rootDrive=" << rootCount << '\n'
+            << "  1/2/3/Up/Down=Speed   F1=help   F2..F11=feature toggles\n";
+        printFeatureHelp();
+        printFeatureStatus();
 
         mFoxMaterial = mMaterialPool->Create({
             .albedoFactor    = { 0.82f, 0.45f, 0.18f, 1.f },
@@ -331,6 +346,10 @@ class MainApp final : public fra::AbstractApplication
                 mCameraPos += right * speed;
         }
 
+        using Clock     = std::chrono::steady_clock;
+        using SecondsF  = std::chrono::duration<double>;
+        const auto tUp0 = Clock::now();
+
         mRenderer->BeginFrame();
 
         const auto             jointCount = mSkinned.skeleton.JointCount();
@@ -338,24 +357,69 @@ class MainApp final : public fra::AbstractApplication
         allBones.reserve(mFoxes.size() * jointCount);
         std::vector<fra::FiredAnimationEvent> events;
         events.reserve(8);
-        auto&         debugDraw = mRenderer->GetDebugDraw();
-        const bool    drawDebug = mRenderer->IsDebugDrawEnabled();
-        std::uint32_t foxIndex  = 0;
+        auto&      debugDraw = mRenderer->GetDebugDraw();
+        const bool drawDebug =
+            mEnableDebugDraw && mRenderer->IsDebugDrawEnabled();
+        std::uint32_t foxIndex    = 0;
+        std::uint32_t animUpdates = 0;
+        double        msAnim      = 0.0;
+        double        msSkin      = 0.0;
+        const auto    tAnim0      = Clock::now();
         for (auto& fox : mFoxes)
         {
-            events.clear();
-            auto local = fox.graph.Evaluate(dt, &events);
-            for (const auto& e : events)
+            fox.pendingDt += dt;
+
+            const glm::vec3 foxPos(fox.model[3]);
+            fra::UpdateAnimLodTier(
+                *mFreyaOptions, fox.lodTier, glm::length(foxPos - mCameraPos));
+            const auto period = fra::AnimLodPeriod(*mFreyaOptions, fox.lodTier);
+            const bool due = ((mAnimFrameIndex + fox.stagger) % period) == 0u;
+            const bool mustEval = due || fox.skinCache.size() != jointCount;
+
+            // Cheap locomotion can advance every display frame.
+            if (mEnableRootMotion && fox.useRootMotion)
             {
-                if (e.name.rfind("Footstep", 0) == 0)
+                fox.model = fra::DrivePlanarLocomotion(
+                    fox.model, locoMetersPerSec(fox.speed), dt);
+            }
+
+            if (!mustEval)
+            {
+                allBones.insert(allBones.end(), fox.skinCache.begin(),
+                                fox.skinCache.end());
+                ++foxIndex;
+                continue;
+            }
+
+            ++animUpdates;
+            const float stepDt = fox.pendingDt;
+            fox.pendingDt      = 0.f;
+
+            events.clear();
+            fra::LocalPose local;
+            if (mEnableAnimGraph)
+            {
+                local = fox.graph.Evaluate(
+                    stepDt, mEnableEvents ? &events : nullptr);
+            }
+            else
+                local = fra::RestLocalPose(mSkinned.skeleton);
+
+            if (mEnableEvents)
+            {
+                for (const auto& e : events)
                 {
-                    ++fox.footsteps;
-                    ++mFootstepTotal;
+                    if (e.name.rfind("Footstep", 0) == 0)
+                    {
+                        ++fox.footsteps;
+                        ++mFootstepTotal;
+                    }
                 }
             }
-            if (fox.useUpperLayer && mUpperClip)
+
+            if (mEnableUpperMask && fox.useUpperLayer && mUpperClip)
             {
-                fox.upperTime += dt;
+                fox.upperTime += stepDt;
                 if (mUpperClip->duration > 0.f)
                 {
                     fox.upperTime =
@@ -367,9 +431,9 @@ class MainApp final : public fra::AbstractApplication
                     mSkinned.skeleton, *mUpperClip, fox.upperTime, true);
                 local = fra::BlendMasked(local, upper, mUpperMask, 0.85f);
             }
-            else if (fox.useAdditiveLayer && mUpperClip)
+            else if (mEnableAdditive && fox.useAdditiveLayer && mUpperClip)
             {
-                fox.upperTime += dt;
+                fox.upperTime += stepDt;
                 if (mUpperClip->duration > 0.f)
                 {
                     fox.upperTime =
@@ -379,29 +443,26 @@ class MainApp final : public fra::AbstractApplication
                 }
                 const auto add = fra::SampleClip(
                     mSkinned.skeleton, *mUpperClip, fox.upperTime, true);
-                // Survey − rest as additive delta on upper body.
                 local = fra::BlendAdditive(
                     local, add, mRestPose, mUpperMask, 0.55f);
             }
 
-            // Procedural root drive (Fox clips are in-place).
-            if (fox.useRootMotion)
-            {
-                fox.model = fra::DrivePlanarLocomotion(
-                    fox.model, locoMetersPerSec(fox.speed), dt);
+            if (mEnableRootMotion && fox.useRootMotion)
                 fra::CancelRootTranslationXZ(mSkinned.skeleton, local);
-            }
 
-            if (fox.useLookAt && mHeadJoint >= 0)
+            const bool doLook =
+                mEnableLookAt && fox.useLookAt && mHeadJoint >= 0;
+            if (doLook)
             {
                 (void) fra::ApplyLookAt(
                     mSkinned.skeleton, local, fox.model,
                     static_cast<std::uint32_t>(mHeadJoint), mCameraPos, 0.75f);
             }
 
-            glm::vec3 ikTarget {};
-            glm::vec3 ikPole {};
-            if (fox.useIk)
+            glm::vec3  ikTarget {};
+            glm::vec3  ikPole {};
+            const bool doIk = mEnableIk && fox.useIk;
+            if (doIk)
             {
                 const glm::vec3 pos(fox.model[3]);
                 const glm::vec3 fwd = glm::normalize(
@@ -416,34 +477,39 @@ class MainApp final : public fra::AbstractApplication
                                            mLegChain, ikTarget, ikPole, 0.85f);
             }
 
-            if (drawDebug && (fox.useLookAt || fox.useIk || foxIndex < 12u))
+            if (drawDebug && (doLook || doIk || foxIndex < 12u))
             {
                 debugDraw.DrawSkeleton(mSkinned.skeleton, local, fox.model,
                                        { 0.2f, 0.95f, 0.45f, 0.9f });
-                if (fox.useLookAt && mHeadJoint >= 0)
+                if (doLook)
                 {
                     debugDraw.DrawLookRay(
                         mSkinned.skeleton, local, fox.model,
                         static_cast<std::uint32_t>(mHeadJoint), mCameraPos,
                         { 0.3f, 0.85f, 1.f, 1.f });
                 }
-                if (fox.useIk)
+                if (doIk)
                 {
                     debugDraw.DrawTwoBoneIk(
                         mSkinned.skeleton, local, fox.model, mLegChain.root,
                         mLegChain.mid, mLegChain.tip, ikTarget, ikPole,
-                        { 1.f, 0.55f, 0.15f, 1.f },
-                        { 1.f, 0.2f, 0.35f, 1.f });
+                        { 1.f, 0.55f, 0.15f, 1.f }, { 1.f, 0.2f, 0.35f, 1.f });
                 }
             }
             ++foxIndex;
 
-            const auto skin = fra::PoseToSkinMatrices(mSkinned.skeleton, local);
-            allBones.insert(allBones.end(), skin.begin(), skin.end());
+            const auto tSkin0 = Clock::now();
+            fox.skinCache = fra::PoseToSkinMatrices(mSkinned.skeleton, local);
+            allBones.insert(allBones.end(), fox.skinCache.begin(),
+                            fox.skinCache.end());
+            msSkin += SecondsF(Clock::now() - tSkin0).count() * 1000.0;
         }
+        ++mAnimFrameIndex;
+        msAnim = SecondsF(Clock::now() - tAnim0).count() * 1000.0 - msSkin;
+        mProfAnimUpdates += animUpdates;
 
         mFootstepLogTimer += dt;
-        if (mFootstepLogTimer >= 2.f)
+        if (mEnableEvents && mFootstepLogTimer >= 2.f)
         {
             mFootstepLogTimer = 0.f;
             std::cout << "Footsteps total=" << mFootstepTotal << '\n';
@@ -454,7 +520,10 @@ class MainApp final : public fra::AbstractApplication
             allBones = fra::PoseToSkinMatrices(
                 mSkinned.skeleton, fra::RestLocalPose(mSkinned.skeleton));
         }
+        const auto tBone0 = Clock::now();
         mRenderer->UploadBoneMatrices(allBones);
+        const double msBoneUpload =
+            SecondsF(Clock::now() - tBone0).count() * 1000.0;
 
         const float yawRad   = glm::radians(mYaw);
         const float pitchRad = glm::radians(mPitch);
@@ -466,6 +535,7 @@ class MainApp final : public fra::AbstractApplication
         mRenderer->UpdateCamera(
             mCameraPos, mCameraPos + front, glm::vec3(0.f, 1.f, 0.f));
 
+        const auto                            tInst0 = Clock::now();
         std::vector<fra::SceneInstanceUpload> instances;
         instances.reserve(mFoxes.size() * mSkinned.meshIds.size() + 1);
         std::uint32_t entity = 1;
@@ -478,7 +548,7 @@ class MainApp final : public fra::AbstractApplication
                     .meshId      = meshId,
                     .materialId  = mFoxMaterial,
                     .entityId    = entity++,
-                    .castShadows = true,
+                    .castShadows = mEnableShadows,
                     .boneOffset  = fox.boneOffset,
                     .boneCount   = jointCount,
                 });
@@ -494,23 +564,66 @@ class MainApp final : public fra::AbstractApplication
             .castShadows = false,
         });
         mRenderer->UploadSceneInstances(instances);
+        const double msInstances =
+            SecondsF(Clock::now() - tInst0).count() * 1000.0;
+
+        const auto tEnd0 = Clock::now();
         mRenderer->EndFrame();
+        const double msEndFrame =
+            SecondsF(Clock::now() - tEnd0).count() * 1000.0;
+        const double msUpdate = SecondsF(Clock::now() - tUp0).count() * 1000.0;
+
+        ++mProfFrames;
+        mProfAnimMs += msAnim;
+        mProfSkinMs += msSkin;
+        mProfBoneMs += msBoneUpload;
+        mProfInstMs += msInstances;
+        mProfEndMs += msEndFrame;
+        mProfUpdateMs += msUpdate;
+        mProfDtSum += dt;
+        mProfReportTimer += dt;
+        if (mProfReportTimer >= 1.f && mProfFrames > 0)
+        {
+            const double n = static_cast<double>(mProfFrames);
+            const double fps =
+                mProfDtSum > 0.0 ? static_cast<double>(mProfFrames) / mProfDtSum
+                                 : 0.0;
+            std::cout << "CPU avg  fps=" << fps << "  anim="
+                      << (mProfAnimMs / n) << "ms  skin=" << (mProfSkinMs / n)
+                      << "ms  boneUp=" << (mProfBoneMs / n)
+                      << "ms  instUp=" << (mProfInstMs / n)
+                      << "ms  endFrame=" << (mProfEndMs / n) << "ms  update="
+                      << (mProfUpdateMs / n) << "ms  (foxes=" << mFoxes.size()
+                      << " animTicks=" << (mProfAnimUpdates / n)
+                      << " inst=" << instances.size()
+                      << " bones=" << allBones.size() << ")\n";
+            mProfReportTimer = 0.f;
+            mProfFrames      = 0;
+            mProfAnimMs = mProfSkinMs = mProfBoneMs = 0.0;
+            mProfInstMs = mProfEndMs = mProfUpdateMs = 0.0;
+            mProfDtSum                               = 0.0;
+            mProfAnimUpdates                         = 0;
+        }
     }
 
   private:
     struct FoxActor
     {
-        fra::AnimGraph graph;
-        glm::mat4      model { 1.f };
-        float          speed            = 0.f;
-        float          upperTime        = 0.f;
-        std::uint32_t  boneOffset       = 0;
-        std::uint32_t  footsteps        = 0;
-        bool           useUpperLayer    = false;
-        bool           useAdditiveLayer = false;
-        bool           useLookAt        = false;
-        bool           useIk            = false;
-        bool           useRootMotion    = false;
+        fra::AnimGraph         graph;
+        glm::mat4              model { 1.f };
+        std::vector<glm::mat4> skinCache;
+        float                  speed            = 0.f;
+        float                  upperTime        = 0.f;
+        float                  pendingDt        = 0.f;
+        std::uint32_t          boneOffset       = 0;
+        std::uint32_t          footsteps        = 0;
+        std::uint8_t           lodTier          = 0;
+        std::uint8_t           stagger          = 0;
+        bool                   useUpperLayer    = false;
+        bool                   useAdditiveLayer = false;
+        bool                   useLookAt        = false;
+        bool                   useIk            = false;
+        bool                   useRootMotion    = false;
     };
 
     void setLookHeld(const bool held)
@@ -529,6 +642,111 @@ class MainApp final : public fra::AbstractApplication
             fox.graph.SetFloat("Speed", mSpeed);
         }
         std::cout << "Speed=" << mSpeed << " (" << mFoxes.size() << " foxes)\n";
+    }
+
+    static const char* onOff(const bool v) { return v ? "ON " : "off"; }
+
+    static const char* animQualityName(const fra::AnimationQuality q)
+    {
+        switch (q)
+        {
+            case fra::AnimationQuality::Low:
+                return "Low";
+            case fra::AnimationQuality::Medium:
+                return "Medium";
+            case fra::AnimationQuality::High:
+                return "High";
+            case fra::AnimationQuality::Ultra:
+                return "Ultra";
+            case fra::AnimationQuality::Off:
+                return "Off";
+        }
+        return "?";
+    }
+
+    void printFeatureHelp() const
+    {
+        std::cout << "Feature toggles:\n"
+                  << "  F1  help/status\n"
+                  << "  F2  cast shadows (foxes)\n"
+                  << "  F3  debug draw\n"
+                  << "  F4  AnimGraph evaluate (off = rest pose)\n"
+                  << "  F5  upper BlendMasked layer\n"
+                  << "  F6  additive upper layer\n"
+                  << "  F7  look-at\n"
+                  << "  F8  two-bone IK\n"
+                  << "  F9  root/locomotion drive\n"
+                  << "  F10 clip events / footstep log\n"
+                  << "  F11 cycle AnimationQuality "
+                     "(Low/Med/High/Ultra/Off)\n"
+                  << "Loco Blend1D uses shared bake @"
+                  << mFreyaOptions->animBakeHz
+                  << "Hz; LOD bands from FreyaOptions\n"
+                  << "CPU avg line every 1s: anim/skin/boneUp/instUp/"
+                     "endFrame/update + animTicks\n";
+    }
+
+    void printFeatureStatus() const
+    {
+        const auto& o = *mFreyaOptions;
+        std::cout << "Features  shadow=" << onOff(mEnableShadows)
+                  << " debug=" << onOff(mEnableDebugDraw)
+                  << " graph=" << onOff(mEnableAnimGraph)
+                  << " mask=" << onOff(mEnableUpperMask) << " add="
+                  << onOff(mEnableAdditive) << " look=" << onOff(mEnableLookAt)
+                  << " ik=" << onOff(mEnableIk)
+                  << " root=" << onOff(mEnableRootMotion)
+                  << " events=" << onOff(mEnableEvents)
+                  << " animQ=" << animQualityName(mAnimationQuality)
+                  << " lod=" << onOff(o.enableAnimLod) << '\n'
+                  << "  lodPeriods=" << o.animLodPeriod[0] << '/'
+                  << o.animLodPeriod[1] << '/' << o.animLodPeriod[2] << '/'
+                  << o.animLodPeriod[3] << " exitDist=" << o.animLodExitDist[0]
+                  << '/' << o.animLodExitDist[1] << '/' << o.animLodExitDist[2]
+                  << '\n';
+    }
+
+    void setAnimationQuality(const fra::AnimationQuality quality)
+    {
+        mAnimationQuality = quality;
+        fra::ApplyAnimationQuality(*mFreyaOptions, quality);
+        const auto maxP = fra::AnimLodMaxPeriod(*mFreyaOptions);
+        for (std::uint32_t i = 0; i < mFoxes.size(); ++i)
+            mFoxes[i].stagger = static_cast<std::uint8_t>(i % maxP);
+        std::cout << "AnimationQuality " << animQualityName(quality) << '\n';
+        printFeatureStatus();
+    }
+
+    void cycleAnimationQuality()
+    {
+        using Q = fra::AnimationQuality;
+        switch (mAnimationQuality)
+        {
+            case Q::Low:
+                setAnimationQuality(Q::Medium);
+                break;
+            case Q::Medium:
+                setAnimationQuality(Q::High);
+                break;
+            case Q::High:
+                setAnimationQuality(Q::Ultra);
+                break;
+            case Q::Ultra:
+                setAnimationQuality(Q::Off);
+                break;
+            case Q::Off:
+                setAnimationQuality(Q::Low);
+                break;
+        }
+    }
+
+    void toggle(bool& flag, const char* name)
+    {
+        flag = !flag;
+        if (&flag == &mEnableDebugDraw)
+            mRenderer->SetDebugDrawEnabled(flag);
+        std::cout << name << ' ' << (flag ? "ON" : "OFF") << '\n';
+        printFeatureStatus();
     }
 
     void onKeyPressed(const fra::KeyCode key)
@@ -550,12 +768,40 @@ class MainApp final : public fra::AbstractApplication
             case fra::KeyCode::Down:
                 setSpeed(mSpeed - 0.25f);
                 break;
-            case fra::KeyCode::F3: {
-                const bool on = !mRenderer->IsDebugDrawEnabled();
-                mRenderer->SetDebugDrawEnabled(on);
-                std::cout << "DebugDraw " << (on ? "ON" : "OFF") << '\n';
+            case fra::KeyCode::F1:
+                printFeatureHelp();
+                printFeatureStatus();
                 break;
-            }
+            case fra::KeyCode::F2:
+                toggle(mEnableShadows, "Shadows");
+                break;
+            case fra::KeyCode::F3:
+                toggle(mEnableDebugDraw, "DebugDraw");
+                break;
+            case fra::KeyCode::F4:
+                toggle(mEnableAnimGraph, "AnimGraph");
+                break;
+            case fra::KeyCode::F5:
+                toggle(mEnableUpperMask, "UpperMask");
+                break;
+            case fra::KeyCode::F6:
+                toggle(mEnableAdditive, "Additive");
+                break;
+            case fra::KeyCode::F7:
+                toggle(mEnableLookAt, "LookAt");
+                break;
+            case fra::KeyCode::F8:
+                toggle(mEnableIk, "IK");
+                break;
+            case fra::KeyCode::F9:
+                toggle(mEnableRootMotion, "RootMotion");
+                break;
+            case fra::KeyCode::F10:
+                toggle(mEnableEvents, "Events");
+                break;
+            case fra::KeyCode::F11:
+                cycleAnimationQuality();
+                break;
             default:
                 break;
         }
@@ -596,6 +842,9 @@ class MainApp final : public fra::AbstractApplication
     skr::Arc<fra::FreyaOptions> mFreyaOptions;
 
     fra::SkinnedModel         mSkinned;
+    fra::BakedClip            mBakeIdle;
+    fra::BakedClip            mBakeWalk;
+    fra::BakedClip            mBakeRun;
     std::vector<FoxActor>     mFoxes;
     const fra::AnimationClip* mUpperClip = nullptr;
     fra::BoneMask             mUpperMask;
@@ -603,13 +852,35 @@ class MainApp final : public fra::AbstractApplication
     fra::TwoBoneChain         mLegChain {};
     std::int32_t              mHeadJoint        = -1;
     bool                      mIkReady          = true;
-    float                     mAnimClock        = 0.f;
-    float                     mSpeed            = 0.f;
-    float                     mFootstepLogTimer = 0.f;
-    std::uint64_t             mFootstepTotal    = 0;
-    std::uint32_t             mFoxMaterial      = 0;
-    std::uint32_t             mGroundMesh       = 0;
-    std::uint32_t             mGroundMaterial   = 0;
+    bool                      mEnableShadows    = true;
+    bool                      mEnableDebugDraw  = false;
+    bool                      mEnableAnimGraph  = true;
+    bool                      mEnableUpperMask  = true;
+    bool                      mEnableAdditive   = true;
+    bool                      mEnableLookAt     = true;
+    bool                      mEnableIk         = true;
+    bool                      mEnableRootMotion = true;
+    bool                      mEnableEvents     = true;
+    fra::AnimationQuality     mAnimationQuality = fra::AnimationQuality::High;
+
+    float         mProfReportTimer  = 0.f;
+    std::uint32_t mProfFrames       = 0;
+    std::uint32_t mProfAnimUpdates  = 0;
+    std::uint32_t mAnimFrameIndex   = 0;
+    double        mProfAnimMs       = 0.0;
+    double        mProfSkinMs       = 0.0;
+    double        mProfBoneMs       = 0.0;
+    double        mProfInstMs       = 0.0;
+    double        mProfEndMs        = 0.0;
+    double        mProfUpdateMs     = 0.0;
+    double        mProfDtSum        = 0.0;
+    float         mAnimClock        = 0.f;
+    float         mSpeed            = 0.f;
+    float         mFootstepLogTimer = 0.f;
+    std::uint64_t mFootstepTotal    = 0;
+    std::uint32_t mFoxMaterial      = 0;
+    std::uint32_t mGroundMesh       = 0;
+    std::uint32_t mGroundMaterial   = 0;
 
     std::unordered_set<std::uint32_t> mKeysHeld;
     bool                              mLookHeld  = false;
@@ -624,14 +895,15 @@ int main(int, const char**)
         skr::ApplicationBuilder()
             .WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
                 freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
-                    freyaOptions.SetTitle(
-                                         "SkinnedFox — F3 DebugDraw / Rig / Events")
+                    freyaOptions
+                        .SetTitle("SkinnedFox — F1 help / F2-F11 toggles")
                         .SetWidth(1600)
                         .SetHeight(900)
                         .SetVSync(false)
                         .WithReverseZ()
                         .SetIblIntensity(0.2f)
                         .SetShadowQuality(fra::ShadowQuality::Medium)
+                        .SetAnimationQuality(fra::AnimationQuality::High)
                         .SetFullscreen(false);
                 });
             })

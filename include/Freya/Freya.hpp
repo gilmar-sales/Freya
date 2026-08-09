@@ -20,6 +20,7 @@
 
 #include "Freya/Asset/AnimGraph.hpp"
 #include "Freya/Asset/AnimationClip.hpp"
+#include "Freya/Asset/BakedAnimation.hpp"
 #include "Freya/Asset/BoneMatrixResources.hpp"
 #include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Asset/Material.hpp"

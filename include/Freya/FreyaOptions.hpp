@@ -74,6 +74,22 @@ namespace FREYA_NAMESPACE
     };
 
     /**
+     * @brief CPU animation rate LOD preset (crowd / many skinned actors).
+     *
+     * Controls distance bands and per-tier update periods. Playback never
+     * freezes: skipped frames keep the last skin palette and accumulate dt.
+     * Applied via FreyaOptionsBuilder::SetAnimationQuality.
+     */
+    enum class AnimationQuality
+    {
+        Low,    ///< short Near band, long Far periods
+        Medium, ///< balanced 4-tier bands
+        High,   ///< wider Near / Mid (default)
+        Ultra,  ///< all actors evaluate every frame
+        Off     ///< disable rate LOD (same as Ultra for cost)
+    };
+
+    /**
      * @brief Scales a full render extent by an integer divisor (≥1).
      */
     inline vk::Extent2D ScaledExtent(vk::Extent2D full, std::uint32_t divisor)
@@ -155,6 +171,17 @@ namespace FREYA_NAMESPACE
         float         bloomThreshold         = 0.75f;
         float         bloomExtractScale      = 1.0f;
         float         bloomStrength          = 0.8f;
+
+        /// When false, every skinned actor evaluates / skins each frame.
+        bool enableAnimLod = true;
+        /// Update every N display frames for tiers 0..3 (Near→Far).
+        std::uint32_t animLodPeriod[4] = { 1, 2, 4, 8 };
+        /// Leave tier i toward i+1 when distance exceeds (metres).
+        float animLodExitDist[3] = { 20.f, 38.f, 55.f };
+        /// Enter tier i from i+1 when distance falls below (hysteresis).
+        float animLodEnterDist[3] = { 17.f, 32.f, 48.f };
+        /// Clip bake rate used by apps that call BakeClip with this knob.
+        float animBakeHz = 30.f;
     };
 
     inline void ApplyShadowQuality(FreyaOptions& options, ShadowQuality quality)
@@ -334,6 +361,112 @@ namespace FREYA_NAMESPACE
                 options.bloomStrength          = 1.2f;
                 break;
             case BloomQuality::Off:
+                break;
+        }
+    }
+
+    inline void ApplyAnimationQuality(FreyaOptions&    options,
+                                      AnimationQuality quality)
+    {
+        auto setBands = [&](const float e0, const float n0, const float e1,
+                            const float n1, const float e2, const float n2) {
+            options.animLodExitDist[0]  = e0;
+            options.animLodEnterDist[0] = n0;
+            options.animLodExitDist[1]  = e1;
+            options.animLodEnterDist[1] = n1;
+            options.animLodExitDist[2]  = e2;
+            options.animLodEnterDist[2] = n2;
+        };
+        auto setPeriods = [&](const std::uint32_t p0, const std::uint32_t p1,
+                              const std::uint32_t p2, const std::uint32_t p3) {
+            options.animLodPeriod[0] = std::max(1u, p0);
+            options.animLodPeriod[1] = std::max(1u, p1);
+            options.animLodPeriod[2] = std::max(1u, p2);
+            options.animLodPeriod[3] = std::max(1u, p3);
+        };
+
+        switch (quality)
+        {
+            case AnimationQuality::Off:
+            case AnimationQuality::Ultra:
+                options.enableAnimLod = false;
+                setPeriods(1, 1, 1, 1);
+                setBands(1e6f, 1e6f, 1e6f, 1e6f, 1e6f, 1e6f);
+                options.animBakeHz = 30.f;
+                break;
+            case AnimationQuality::Low:
+                options.enableAnimLod = true;
+                setPeriods(1, 3, 6, 12);
+                setBands(8.f, 6.f, 18.f, 14.f, 32.f, 26.f);
+                options.animBakeHz = 20.f;
+                break;
+            case AnimationQuality::Medium:
+                options.enableAnimLod = true;
+                setPeriods(1, 2, 4, 8);
+                setBands(12.f, 10.f, 24.f, 20.f, 42.f, 36.f);
+                options.animBakeHz = 30.f;
+                break;
+            case AnimationQuality::High:
+                options.enableAnimLod = true;
+                setPeriods(1, 2, 4, 8);
+                setBands(20.f, 17.f, 38.f, 32.f, 55.f, 48.f);
+                options.animBakeHz = 30.f;
+                break;
+        }
+    }
+
+    [[nodiscard]] inline std::uint32_t AnimLodPeriod(const FreyaOptions& o,
+                                                     const std::uint8_t  tier)
+    {
+        if (!o.enableAnimLod)
+            return 1u;
+        const auto i = std::min<std::uint8_t>(tier, 3u);
+        return std::max(1u, o.animLodPeriod[i]);
+    }
+
+    [[nodiscard]] inline std::uint32_t AnimLodMaxPeriod(const FreyaOptions& o)
+    {
+        if (!o.enableAnimLod)
+            return 1u;
+        return std::max(std::max(std::max(1u, o.animLodPeriod[0]),
+                                 std::max(1u, o.animLodPeriod[1])),
+                        std::max(std::max(1u, o.animLodPeriod[2]),
+                                 std::max(1u, o.animLodPeriod[3])));
+    }
+
+    /**
+     * @brief Hysteresis tier update (0 Near … 3 Far) from camera distance.
+     */
+    inline void UpdateAnimLodTier(const FreyaOptions& o, std::uint8_t& tier,
+                                  const float dist)
+    {
+        if (!o.enableAnimLod)
+        {
+            tier = 0;
+            return;
+        }
+
+        switch (tier)
+        {
+            case 0:
+                if (dist > o.animLodExitDist[0])
+                    tier = 1;
+                break;
+            case 1:
+                if (dist < o.animLodEnterDist[0])
+                    tier = 0;
+                else if (dist > o.animLodExitDist[1])
+                    tier = 2;
+                break;
+            case 2:
+                if (dist < o.animLodEnterDist[1])
+                    tier = 1;
+                else if (dist > o.animLodExitDist[2])
+                    tier = 3;
+                break;
+            default:
+                if (dist < o.animLodEnterDist[2])
+                    tier = 2;
                 break;
         }
     }

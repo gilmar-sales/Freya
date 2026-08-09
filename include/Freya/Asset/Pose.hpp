@@ -69,13 +69,19 @@ namespace FREYA_NAMESPACE
         glm::quat rotation { 1.f, 0.f, 0.f, 0.f };
     };
 
+    struct BakedClip;
+
     /**
      * @brief Clip sample on a 1D blend axis (e.g. Speed 0/1/2).
+     *
+     * When `baked` is set, EvaluateBlend1D / AnimGraph sample from the bake
+     * instead of keyframe channels (`clip` still required for duration/events).
      */
     struct Blend1DSample
     {
         float                value         = 0.f;
         const AnimationClip* clip          = nullptr;
+        const BakedClip*     baked         = nullptr;
         bool                 loop          = true;
         float                playbackSpeed = 1.f;
     };

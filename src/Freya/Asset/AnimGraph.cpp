@@ -1,8 +1,11 @@
 #include "Freya/Asset/AnimGraph.hpp"
+#include "Freya/Asset/BakedAnimation.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
+#include <unordered_map>
+#include <vector>
 
 namespace FREYA_NAMESPACE
 {
@@ -176,6 +179,8 @@ namespace FREYA_NAMESPACE
             CollectFiredClipEvents(
                 *state.clip, tPrev, clipTime, state.loop, *outEvents);
 
+        if (state.baked && !state.baked->Empty())
+            return SampleBaked(*mSkeleton, *state.baked, clipTime, state.loop);
         return state.clip
                    ? SampleClip(*mSkeleton, *state.clip, clipTime, state.loop)
                    : RestLocalPose(*mSkeleton);
@@ -283,7 +288,7 @@ namespace FREYA_NAMESPACE
 
     AnimGraphBuilder& AnimGraphBuilder::AddBlendSample(
         const float value, const AnimationClip& clip, const bool loop,
-        const float playbackSpeed)
+        const float playbackSpeed, const BakedClip* baked)
     {
         if (mLastBlendState < 0)
             throw std::runtime_error(
@@ -297,9 +302,16 @@ namespace FREYA_NAMESPACE
         Blend1DSample sample;
         sample.value         = value;
         sample.clip          = &clip;
+        sample.baked         = baked;
         sample.loop          = loop;
         sample.playbackSpeed = playbackSpeed;
         st.blendSamples.push_back(sample);
+        return *this;
+    }
+
+    AnimGraphBuilder& AnimGraphBuilder::EnableBaking(const float bakeHz)
+    {
+        mBakeHz = bakeHz;
         return *this;
     }
 
@@ -357,6 +369,59 @@ namespace FREYA_NAMESPACE
         }
 
         mGraph.mSkeleton = mSkeleton;
+
+        if (mBakeHz > 0.f)
+        {
+            // Only bake clips that do not already have an external bake.
+            std::vector<const AnimationClip*> ordered;
+            ordered.reserve(8);
+            auto consider = [&](const AnimationClip* clip,
+                                const BakedClip*     existing) {
+                if (!clip || existing)
+                    return;
+                if (std::find(ordered.begin(), ordered.end(), clip) ==
+                    ordered.end())
+                    ordered.push_back(clip);
+            };
+            for (const auto& st : mGraph.mStates)
+            {
+                consider(st.clip, st.baked);
+                for (const auto& s : st.blendSamples)
+                    consider(s.clip, s.baked);
+            }
+
+            mGraph.mBakedClips.clear();
+            mGraph.mBakedClips.reserve(ordered.size());
+            std::unordered_map<const AnimationClip*, std::uint32_t> index;
+            index.reserve(ordered.size());
+            for (const AnimationClip* clip : ordered)
+            {
+                const auto idx =
+                    static_cast<std::uint32_t>(mGraph.mBakedClips.size());
+                mGraph.mBakedClips.push_back(
+                    BakeClip(*mSkeleton, *clip, mBakeHz));
+                index.emplace(clip, idx);
+            }
+
+            auto resolve = [&](const AnimationClip* clip) -> const BakedClip* {
+                if (!clip)
+                    return nullptr;
+                const auto it = index.find(clip);
+                return it == index.end() ? nullptr
+                                         : &mGraph.mBakedClips[it->second];
+            };
+            for (auto& st : mGraph.mStates)
+            {
+                if (st.kind == AnimGraph::StateKind::Clip && !st.baked)
+                    st.baked = resolve(st.clip);
+                for (auto& s : st.blendSamples)
+                {
+                    if (!s.baked)
+                        s.baked = resolve(s.clip);
+                }
+            }
+        }
+
         if (!mEntryName.empty())
         {
             const auto idx = findState(mEntryName);

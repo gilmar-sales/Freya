@@ -240,6 +240,28 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        /**
+         * @brief Applies an AnimationQuality preset (LOD distances /
+         * periods / bakeHz). Per-field setters still override after.
+         */
+        FreyaOptionsBuilder& SetAnimationQuality(AnimationQuality quality)
+        {
+            ApplyAnimationQuality(*mFreyaOptions, quality);
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetAnimLodEnabled(bool enabled)
+        {
+            mFreyaOptions->enableAnimLod = enabled;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetAnimBakeHz(float hz)
+        {
+            mFreyaOptions->animBakeHz = std::max(1.f, hz);
+            return *this;
+        }
+
         FreyaOptionsBuilder& SetSsaoResolutionDivisor(std::uint32_t divisor)
         {
             mFreyaOptions->ssaoResolutionDivisor = std::max(1u, divisor);

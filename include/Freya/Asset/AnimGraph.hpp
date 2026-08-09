@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Freya/Asset/AnimationClip.hpp"
+#include "Freya/Asset/BakedAnimation.hpp"
 #include "Freya/Asset/Pose.hpp"
 #include "Freya/Asset/Skeleton.hpp"
 
@@ -110,6 +111,8 @@ namespace FREYA_NAMESPACE
             std::vector<float>         blendTimes;
             bool                       syncPhase  = true;
             float                      blendPhase = 0.f;
+
+            const BakedClip* baked = nullptr; ///< optional clip-state bake
         };
 
         struct Transition
@@ -143,6 +146,8 @@ namespace FREYA_NAMESPACE
         std::vector<State>      mStates;
         std::vector<Transition> mTransitions;
         std::uint32_t           mEntryState = 0;
+        /// Owned bakes; Blend1DSample::baked / State::baked point here.
+        std::vector<BakedClip> mBakedClips;
 
         std::unordered_map<std::string, FloatParam>   mFloats;
         std::unordered_map<std::string, BoolParam>    mBools;
@@ -182,9 +187,17 @@ namespace FREYA_NAMESPACE
         AnimGraphBuilder& Blend1DState(std::string name, std::string param,
                                        bool syncPhase = true);
 
-        AnimGraphBuilder& AddBlendSample(float value, const AnimationClip& clip,
-                                         bool  loop          = true,
-                                         float playbackSpeed = 1.f);
+        AnimGraphBuilder& AddBlendSample(
+            float value, const AnimationClip& clip, bool loop = true,
+            float playbackSpeed = 1.f, const BakedClip* baked = nullptr);
+
+        /**
+         * @brief Bake every clip referenced by states at `bakeHz` into the
+         *        graph (Evaluate uses SampleBaked). Call before Build().
+         *
+         * Pass bakeHz <= 0 to disable (keyframe SampleClip path).
+         */
+        AnimGraphBuilder& EnableBaking(float bakeHz = 30.f);
 
         AnimGraphBuilder& Entry(std::string_view stateName);
 
@@ -202,6 +215,7 @@ namespace FREYA_NAMESPACE
         AnimGraph       mGraph;
         std::string     mEntryName;
         std::int32_t    mLastBlendState = -1;
+        float           mBakeHz         = 0.f;
     };
 
 } // namespace FREYA_NAMESPACE
