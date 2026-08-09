@@ -137,6 +137,10 @@ namespace FREYA_NAMESPACE
          *
          * Advances base state and all layers. Use with GPU sample APIs, or
          * call SampleCurrent() for a CPU local pose afterward.
+         *
+         * With GPU skin (Crowd), still call Advance each frame so clip markers
+         * (e.g. Footstep) fire from Blend1D/Blend2D phase — pose bake stays on
+         * the GPU.
          */
         void Advance(float                             dt,
                      std::vector<FiredAnimationEvent>* outEvents = nullptr);

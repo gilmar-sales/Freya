@@ -24,12 +24,15 @@ namespace FREYA_NAMESPACE
     class GpuAnimPass
     {
       public:
-        static constexpr std::uint32_t kMaxJoints        = 128;
-        static constexpr std::uint32_t kMaxInstances     = 2048;
-        static constexpr std::uint32_t kMaxClips         = 8;
-        static constexpr std::uint32_t kMaxBakedJoints   = 65536;
-        static constexpr std::uint32_t kMaxMaskFloats    = kMaxJoints;
-        static constexpr std::uint32_t kMaxExtractJoints = 64;
+        static constexpr std::uint32_t kMaxJoints    = 128;
+        static constexpr std::uint32_t kMaxInstances = 2048;
+        static constexpr std::uint32_t kMaxClips     = 24;
+        /// Float storage capacity (48 B/joint).
+        static constexpr std::uint32_t kMaxBakedJointsFloat = 65536;
+        /// Quantized capacity: same VRAM as float pool (65536×48 / 16).
+        static constexpr std::uint32_t kMaxBakedJointsQuant = 196608;
+        static constexpr std::uint32_t kMaxMaskFloats       = kMaxJoints;
+        static constexpr std::uint32_t kMaxExtractJoints    = 64;
 
         GpuAnimPass(const skr::Arc<Device>&              device,
                     const skr::Arc<BoneMatrixResources>& boneResources,
@@ -49,7 +52,8 @@ namespace FREYA_NAMESPACE
                     const skr::Arc<Buffer>&              globalScratchBuffer,
                     const skr::Arc<Buffer>&              readbackBuffer,
                     const skr::Arc<Buffer>&              extractRingBuffer,
-                    std::uint32_t                        frameCount);
+                    std::uint32_t                        frameCount,
+                    bool                                 quantizedJoints);
 
         ~GpuAnimPass();
 
@@ -58,6 +62,17 @@ namespace FREYA_NAMESPACE
 
         void SetEnabled(const bool enabled) { mEnabled = enabled; }
         [[nodiscard]] bool IsEnabled() const { return mEnabled; }
+
+        [[nodiscard]] bool UsesQuantizedJoints() const
+        {
+            return mQuantizedJoints;
+        }
+
+        [[nodiscard]] std::uint32_t MaxBakedJoints() const
+        {
+            return mQuantizedJoints ? kMaxBakedJointsQuant
+                                    : kMaxBakedJointsFloat;
+        }
 
         /**
          * @brief When true, Dispatch carries bones from the previous FiF slot,
@@ -142,7 +157,8 @@ namespace FREYA_NAMESPACE
         void UploadSkeleton(const GpuSkeletonPack& skeleton);
         void UploadBakes(const GpuBakePack& pack);
         void UploadBoneMask(std::span<const float> weights);
-        void UploadRestJoints(std::span<const GpuBakedJoint> joints);
+        void UploadRestJoints(std::span<const GpuFloatJoint> joints);
+        void UploadRestJoints(std::span<const GpuQuantJoint> joints);
         void UploadInstances(std::span<const GpuAnimInstance> instances);
 
         [[nodiscard]] std::uint32_t GetInstanceCount() const
@@ -217,6 +233,7 @@ namespace FREYA_NAMESPACE
 
         bool          mEnabled          = false;
         bool          mCopyPrevBones    = true;
+        bool          mQuantizedJoints  = true;
         std::uint32_t mInstanceCount    = 0;
         std::uint32_t mJointCount       = 0;
         std::uint32_t mFrameCount       = 1;

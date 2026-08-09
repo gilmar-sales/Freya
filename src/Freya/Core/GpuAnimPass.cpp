@@ -25,7 +25,8 @@ namespace FREYA_NAMESPACE
         const skr::Arc<Buffer>&              globalScratchBuffer,
         const skr::Arc<Buffer>&              readbackBuffer,
         const skr::Arc<Buffer>&              extractRingBuffer,
-        const std::uint32_t                  frameCount) :
+        const std::uint32_t                  frameCount,
+        const bool                           quantizedJoints) :
         mDevice(device), mBoneResources(boneResources),
         mPipelineLayout(pipelineLayout), mPipeline(pipeline),
         mAnimSetLayout(animSetLayout), mAnimPool(animPool), mAnimSet(animSet),
@@ -36,6 +37,7 @@ namespace FREYA_NAMESPACE
         mLocalScratchBuffer(localScratchBuffer),
         mGlobalScratchBuffer(globalScratchBuffer),
         mReadbackBuffer(readbackBuffer), mExtractRingBuffer(extractRingBuffer),
+        mQuantizedJoints(quantizedJoints),
         mFrameCount(std::max(1u, frameCount))
     {
         mExtractMeta.resize(mFrameCount);
@@ -133,6 +135,9 @@ namespace FREYA_NAMESPACE
 
     void GpuAnimPass::UploadBakes(const GpuBakePack& pack)
     {
+        if (pack.quantized != mQuantizedJoints)
+            return;
+
         const auto clipCount = std::min(
             static_cast<std::uint32_t>(pack.headers.size()), kMaxClips);
         if (clipCount == 0)
@@ -142,11 +147,23 @@ namespace FREYA_NAMESPACE
             pack.headers.data(),
             static_cast<std::uint32_t>(clipCount * sizeof(GpuClipHeader)));
 
-        const auto jointCount = std::min(
-            static_cast<std::uint32_t>(pack.joints.size()), kMaxBakedJoints);
-        mJointsBuffer->Copy(
-            pack.joints.data(),
-            static_cast<std::uint32_t>(jointCount * sizeof(GpuBakedJoint)));
+        const auto jointCap = MaxBakedJoints();
+        if (mQuantizedJoints)
+        {
+            const auto jointCount = std::min(
+                static_cast<std::uint32_t>(pack.quantJoints.size()), jointCap);
+            mJointsBuffer->Copy(
+                pack.quantJoints.data(),
+                static_cast<std::uint32_t>(jointCount * sizeof(GpuQuantJoint)));
+        }
+        else
+        {
+            const auto jointCount = std::min(
+                static_cast<std::uint32_t>(pack.floatJoints.size()), jointCap);
+            mJointsBuffer->Copy(
+                pack.floatJoints.data(),
+                static_cast<std::uint32_t>(jointCount * sizeof(GpuFloatJoint)));
+        }
     }
 
     void GpuAnimPass::UploadBoneMask(const std::span<const float> weights)
@@ -160,15 +177,27 @@ namespace FREYA_NAMESPACE
     }
 
     void GpuAnimPass::UploadRestJoints(
-        const std::span<const GpuBakedJoint> joints)
+        const std::span<const GpuFloatJoint> joints)
     {
-        if (!mRestJointsBuffer || joints.empty())
+        if (mQuantizedJoints || !mRestJointsBuffer || joints.empty())
             return;
         const auto n =
             std::min(static_cast<std::uint32_t>(joints.size()), kMaxJoints);
         mRestJointsBuffer->Copy(
             joints.data(),
-            static_cast<std::uint32_t>(n * sizeof(GpuBakedJoint)));
+            static_cast<std::uint32_t>(n * sizeof(GpuFloatJoint)));
+    }
+
+    void GpuAnimPass::UploadRestJoints(
+        const std::span<const GpuQuantJoint> joints)
+    {
+        if (!mQuantizedJoints || !mRestJointsBuffer || joints.empty())
+            return;
+        const auto n =
+            std::min(static_cast<std::uint32_t>(joints.size()), kMaxJoints);
+        mRestJointsBuffer->Copy(
+            joints.data(),
+            static_cast<std::uint32_t>(n * sizeof(GpuQuantJoint)));
     }
 
     void GpuAnimPass::UploadInstances(

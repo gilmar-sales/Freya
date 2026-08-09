@@ -172,6 +172,59 @@ namespace FREYA_NAMESPACE
                 emit(span.i1);
             }
         }
+
+        void collectDominantBlend2DEvents(
+            const std::vector<Blend2DSample>& samples,
+            const std::vector<float>&         prevTimes,
+            const std::vector<float>& currTimes, const glm::vec2 param,
+            std::vector<FiredAnimationEvent>* outEvents)
+        {
+            if (!outEvents || samples.empty())
+                return;
+
+            std::vector<glm::vec2> positions(samples.size());
+            for (std::uint32_t i = 0; i < samples.size(); ++i)
+                positions[i] = samples[i].pos;
+            const auto tri = ResolveBlend2D(positions, param);
+
+            const auto emit = [&](const std::uint32_t idx) {
+                if (idx >= samples.size() || !samples[idx].clip)
+                    return;
+                const float t0 = idx < prevTimes.size() ? prevTimes[idx] : 0.f;
+                const float t1 = idx < currTimes.size() ? currTimes[idx] : 0.f;
+                CollectFiredClipEvents(
+                    *samples[idx].clip, t0, t1, samples[idx].loop, *outEvents);
+            };
+
+            // Prefer samples that dominate the triangle (≥ ~1/3).
+            constexpr float kThr = 0.34f;
+            bool            any  = false;
+            if (tri.w0 >= kThr)
+            {
+                emit(tri.i0);
+                any = true;
+            }
+            if (tri.w1 >= kThr)
+            {
+                emit(tri.i1);
+                any = true;
+            }
+            if (tri.w2 >= kThr)
+            {
+                emit(tri.i2);
+                any = true;
+            }
+            if (any)
+                return;
+
+            // Degenerate / snapped: fire the heaviest vertex.
+            if (tri.w0 >= tri.w1 && tri.w0 >= tri.w2)
+                emit(tri.i0);
+            else if (tri.w1 >= tri.w2)
+                emit(tri.i1);
+            else
+                emit(tri.i2);
+        }
     } // namespace
 
     void AnimGraph::advanceState(State& state, float& clipTime, const float dt,
@@ -208,17 +261,25 @@ namespace FREYA_NAMESPACE
             if (state.blendTimes.size() != state.blend2DSamples.size())
                 state.blendTimes.assign(state.blend2DSamples.size(), 0.f);
 
-            const glm::vec2 param { GetFloat(state.blendParam),
-                                    GetFloat(state.blendParamY) };
+            const glm::vec2    param { GetFloat(state.blendParam),
+                                       GetFloat(state.blendParamY) };
+            std::vector<float> prevTimes = state.blendTimes;
+            const float        prevPhase = state.blendPhase;
+
             if (state.syncPhase)
             {
                 state.blendPhase = AdvanceBlend2DPhase(
                     state.blend2DSamples, param, state.blendPhase, dt);
                 WriteBlend2DTimesFromPhase(
                     state.blend2DSamples, state.blendTimes, state.blendPhase);
+                WriteBlend2DTimesFromPhase(
+                    state.blend2DSamples, prevTimes, prevPhase);
             }
             else
                 AdvanceBlend2DTimes(state.blend2DSamples, state.blendTimes, dt);
+
+            collectDominantBlend2DEvents(state.blend2DSamples, prevTimes,
+                                         state.blendTimes, param, outEvents);
             return;
         }
 

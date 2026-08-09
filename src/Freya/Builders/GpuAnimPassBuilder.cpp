@@ -12,10 +12,20 @@ namespace FREYA_NAMESPACE
 {
     skr::Arc<GpuAnimPass> GpuAnimPassBuilder::Build()
     {
+        const bool quantize = mFreyaOptions->quantizeGpuAnimJoints;
+        const auto shaderPath =
+            mFreyaOptions->shaderRoot +
+            (quantize ? "/Anim/skin_bake_quant.comp.spv"
+                      : "/Anim/skin_bake.comp.spv");
         auto shader = mServiceProvider->GetService<ShaderModuleBuilder>()
-                          ->SetFilePath(mFreyaOptions->shaderRoot +
-                                        "/Anim/skin_bake.comp.spv")
+                          ->SetFilePath(shaderPath)
                           .Build();
+
+        const auto jointStride = quantize ? sizeof(GpuQuantJoint)
+                                          : sizeof(GpuFloatJoint);
+        const auto maxBakeJoints =
+            quantize ? GpuAnimPass::kMaxBakedJointsQuant
+                     : GpuAnimPass::kMaxBakedJointsFloat;
 
         const auto parentsBytes = static_cast<std::uint32_t>(
             GpuAnimPass::kMaxJoints * sizeof(std::int32_t));
@@ -23,18 +33,18 @@ namespace FREYA_NAMESPACE
             GpuAnimPass::kMaxJoints * sizeof(glm::mat4));
         const auto clipHdrBytes = static_cast<std::uint32_t>(
             GpuAnimPass::kMaxClips * sizeof(GpuClipHeader));
-        const auto jointsBytes = static_cast<std::uint32_t>(
-            GpuAnimPass::kMaxBakedJoints * sizeof(GpuBakedJoint));
+        const auto jointsBytes =
+            static_cast<std::uint32_t>(maxBakeJoints * jointStride);
         const auto instBytes = static_cast<std::uint32_t>(
             GpuAnimPass::kMaxInstances * sizeof(GpuAnimInstance));
         const auto maskBytes = static_cast<std::uint32_t>(
             GpuAnimPass::kMaxMaskFloats * sizeof(float));
         const auto restBytes = static_cast<std::uint32_t>(
-            GpuAnimPass::kMaxJoints * sizeof(GpuBakedJoint));
+            GpuAnimPass::kMaxJoints * jointStride);
         const auto scratchCount =
             GpuAnimPass::kMaxInstances * GpuAnimPass::kMaxJoints;
         const auto localScratchBytes =
-            static_cast<std::uint32_t>(scratchCount * sizeof(GpuBakedJoint));
+            static_cast<std::uint32_t>(scratchCount * sizeof(GpuScratchJoint));
         const auto globalScratchBytes =
             static_cast<std::uint32_t>(scratchCount * sizeof(glm::mat4));
         const auto readbackBytes = static_cast<std::uint32_t>(
@@ -207,7 +217,8 @@ namespace FREYA_NAMESPACE
                          .setModule(shader->Get())
                          .setPName("main");
 
-        std::cout << "[GpuAnimPass] createComputePipeline (skin_bake)...\n"
+        std::cout << "[GpuAnimPass] createComputePipeline ("
+                  << (quantize ? "skin_bake_quant" : "skin_bake") << ")...\n"
                   << std::flush;
         auto pipeline =
             mDevice->Get()
@@ -224,7 +235,7 @@ namespace FREYA_NAMESPACE
             mDevice, mBoneResources, pipelineLayout, pipeline, animSetLayout,
             animPool, animSet, parentsBuf, invBindBuf, clipHdrBuf, jointsBuf,
             instanceBuf, maskBuf, restBuf, localScratchBuf, globalScratchBuf,
-            readbackBuf, extractRingBuf, frameCount);
+            readbackBuf, extractRingBuf, frameCount, quantize);
     }
 
 } // namespace FREYA_NAMESPACE

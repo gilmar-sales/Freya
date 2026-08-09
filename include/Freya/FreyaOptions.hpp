@@ -184,6 +184,10 @@ namespace FREYA_NAMESPACE
         float animLodEnterDist[3] = { 17.f, 32.f, 48.f };
         /// Clip bake rate used by apps that call BakeClip with this knob.
         float animBakeHz = 30.f;
+        /// When true, GPU clip/rest joints use 16 B quantized storage
+        /// (`skin_bake_quant`); otherwise full float TRS (`skin_bake`).
+        /// Toggle requires rebuilding GpuAnimPass (see Renderer::RebuildGpuAnimPass).
+        bool quantizeGpuAnimJoints = true;
     };
 
     inline void ApplyShadowQuality(FreyaOptions& options, ShadowQuality quality)

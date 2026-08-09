@@ -303,6 +303,13 @@ namespace FREYA_NAMESPACE
         }
 
         /**
+         * @brief Destroy and rebuild GpuAnimPass from current FreyaOptions
+         * (e.g. after toggling `quantizeGpuAnimJoints`). Waits idle; caller
+         * must re-upload skeleton / bakes / mask / rest / rig indices.
+         */
+        void RebuildGpuAnimPass();
+
+        /**
          * @brief After GPU anim dispatch + idle, read bone matrices back.
          *
          * Pass the frame index used for Upload/Dispatch (before Present

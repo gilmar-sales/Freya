@@ -6,6 +6,7 @@
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/CompositePassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
+#include "Freya/Builders/GpuAnimPassBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/IndirectDrawSystemBuilder.hpp"
 #include "Freya/Builders/PickPassBuilder.hpp"
@@ -929,6 +930,20 @@ namespace FREYA_NAMESPACE
         {
             boneResources->Upload(GetCurrentFrameIndex(), bones);
         }
+    }
+
+    void Renderer::RebuildGpuAnimPass()
+    {
+        if (!mDevice || !mServiceProvider)
+            return;
+        const bool wasEnabled =
+            mGpuAnimPass && mGpuAnimPass->IsEnabled();
+        mDevice->Get().waitIdle();
+        mGpuAnimPass.reset();
+        mGpuAnimPass =
+            mServiceProvider->GetService<GpuAnimPassBuilder>()->Build();
+        if (mGpuAnimPass)
+            mGpuAnimPass->SetEnabled(wasEnabled);
     }
 
     bool Renderer::ReadbackGpuAnimBones(const std::uint32_t frameIndex,

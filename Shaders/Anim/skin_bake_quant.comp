@@ -1,8 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 
-#ifndef FREYA_JOINT_QUANT
-#define FREYA_JOINT_QUANT 0
-#endif
+#define FREYA_JOINT_QUANT 1
 
 #include "skin_bake_body.inc"

@@ -92,12 +92,14 @@ function(add_shader_target)
             get_filename_component(_name ${_src} NAME)
             set(_spv "${ARG_INTO}/${_dir}/${_name}.spv")
 
+            get_filename_component(_srcdir ${_src} DIRECTORY)
+            file(GLOB _inc_deps "${_srcdir}/*.inc")
             add_custom_command(
                 OUTPUT  ${_spv}
                 COMMAND ${CMAKE_COMMAND} -E make_directory
                         "${ARG_INTO}/${_dir}"
-                COMMAND ${GLSLC} -o ${_spv} ${_src}
-                DEPENDS ${_src}
+                COMMAND ${GLSLC} -I${_srcdir} -I${ARG_FROM} -o ${_spv} ${_src}
+                DEPENDS ${_src} ${_inc_deps}
                 COMMENT "Compiling ${_rel} → ${_name}.spv"
                 VERBATIM
             )

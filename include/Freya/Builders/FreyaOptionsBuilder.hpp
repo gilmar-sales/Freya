@@ -262,6 +262,12 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        FreyaOptionsBuilder& SetQuantizeGpuAnimJoints(bool enabled)
+        {
+            mFreyaOptions->quantizeGpuAnimJoints = enabled;
+            return *this;
+        }
+
         FreyaOptionsBuilder& SetSsaoResolutionDivisor(std::uint32_t divisor)
         {
             mFreyaOptions->ssaoResolutionDivisor = std::max(1u, divisor);

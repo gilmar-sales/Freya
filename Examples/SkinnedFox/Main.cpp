@@ -209,25 +209,14 @@ class MainApp final : public fra::AbstractApplication
         mClipWalk = walk;
         mClipRun  = run;
 
-        if (auto* gpu = mRenderer->GetGpuAnimPass())
-        {
-            gpu->UploadSkeleton(fra::PackSkeleton(mSkinned.skeleton));
-            const fra::BakedClip clips[3] = { mBakeIdle, mBakeWalk, mBakeRun };
-            gpu->UploadBakes(fra::PackBakedClips(clips));
-            gpu->SetCopyPrevBones(false);
-            std::cout << "GPU anim bake uploaded (Idle/Walk/Run)\n";
-        }
-
         mUpperClip = idle;
         mUpperMask = makeUpperBodyMask(mSkinned.skeleton);
         mRestPose  = fra::RestLocalPose(mSkinned.skeleton);
 
         if (auto* gpu = mRenderer->GetGpuAnimPass())
         {
-            const auto jc = mSkinned.skeleton.JointCount();
-            gpu->UploadBoneMask(fra::PackBoneMask(mUpperMask, jc));
-            gpu->UploadRestJoints(fra::PackRestJoints(mRestPose, jc));
-            std::cout << "GPU anim mask+rest uploaded\n";
+            uploadGpuAnimAssets(*gpu);
+            gpu->SetCopyPrevBones(false);
         }
 
         mHeadJoint       = findJointAny(mSkinned.skeleton, { "Head", "head" });
@@ -249,19 +238,7 @@ class MainApp final : public fra::AbstractApplication
         }
 
         if (auto* gpu = mRenderer->GetGpuAnimPass())
-        {
-            // Fox.glb spine bones extend along +X (neck→head translation).
-            const auto root = fra::FindRootJoint(mSkinned.skeleton);
-            gpu->SetRigIndices(
-                mHeadJoint >= 0 ? static_cast<std::uint32_t>(mHeadJoint)
-                                : 0xffffffffu,
-                mLegChain.root, mLegChain.mid, mLegChain.tip,
-                root >= 0 ? static_cast<std::uint32_t>(root) : 0xffffffffu,
-                kLookLocalForward);
-            std::cout << "GPU anim rig indices head=" << mHeadJoint
-                      << " ik=" << mLegChain.root << "/" << mLegChain.mid << "/"
-                      << mLegChain.tip << " lookFwd=+X\n";
-        }
+            bindGpuAnimRig(*gpu);
 
         std::cout << "Rig joints: head=" << mHeadJoint
                   << " leg=" << mLegChain.root << "/" << mLegChain.mid << "/"
@@ -832,15 +809,20 @@ class MainApp final : public fra::AbstractApplication
                   << "  F6  additive upper layer\n"
                   << "  F7  look-at\n"
                   << "  F8  two-bone IK\n"
-                  << "  F9  root/locomotion drive\n"
-                  << "  F10 clip events / footstep log\n"
+                  << "  F9  quantize GPU bake (float ↔ 16B; rebuild pass)\n"
+                  << "  F10 clip events / footstep log (CPU Advance; works "
+                     "with GPU Crowd/Blend2D)\n"
                   << "  F11 cycle AnimationQuality "
                      "(Low/Med/High/Ultra/Off)\n"
                   << "  F12 GPU anim: Off → Fox0 golden → Crowd\n"
+                  << "  R   root/locomotion drive\n"
                   << "Loco Blend2D (Strafe×Speed) bake @"
                   << mFreyaOptions->animBakeHz
                   << "Hz; Q/E strafe; LOD wall-clock Hz (F11)\n"
-                  << "CPU avg line every 1s: anim/skin/boneUp/instUp/"
+                  << "GPU bake "
+                  << (mFreyaOptions->quantizeGpuAnimJoints ? "quantized"
+                                                           : "float")
+                  << "; CPU avg line every 1s: anim/skin/boneUp/instUp/"
                      "endFrame/update + animTicks\n";
     }
 
@@ -856,7 +838,8 @@ class MainApp final : public fra::AbstractApplication
                   << " root=" << onOff(mEnableRootMotion)
                   << " events=" << onOff(mEnableEvents)
                   << " animQ=" << animQualityName(mAnimationQuality)
-                  << " lod=" << onOff(o.enableAnimLod) << '\n'
+                  << " lod=" << onOff(o.enableAnimLod)
+                  << " quant=" << onOff(o.quantizeGpuAnimJoints) << '\n'
                   << "  lodHz=" << o.animLodHz[0] << '/' << o.animLodHz[1]
                   << '/' << o.animLodHz[2] << '/' << o.animLodHz[3]
                   << " exitDist=" << o.animLodExitDist[0] << '/'
@@ -954,7 +937,7 @@ class MainApp final : public fra::AbstractApplication
                 toggle(mEnableIk, "IK");
                 break;
             case fra::KeyCode::F9:
-                toggle(mEnableRootMotion, "RootMotion");
+                toggleQuantizeGpuAnim();
                 break;
             case fra::KeyCode::F10:
                 toggle(mEnableEvents, "Events");
@@ -964,6 +947,9 @@ class MainApp final : public fra::AbstractApplication
                 break;
             case fra::KeyCode::F12:
                 cycleGpuAnimMode();
+                break;
+            case fra::KeyCode::R:
+                toggle(mEnableRootMotion, "RootMotion");
                 break;
             default:
                 break;
@@ -1042,6 +1028,70 @@ class MainApp final : public fra::AbstractApplication
         bool ik            = false;
         bool lookSkipClamp = false;
     };
+
+    void uploadGpuAnimAssets(fra::GpuAnimPass& gpu)
+    {
+        const bool quant = mFreyaOptions->quantizeGpuAnimJoints;
+        gpu.UploadSkeleton(fra::PackSkeleton(mSkinned.skeleton));
+        const fra::BakedClip clips[3] = { mBakeIdle, mBakeWalk, mBakeRun };
+        gpu.UploadBakes(fra::PackBakedClips(clips, quant));
+        const auto jc = mSkinned.skeleton.JointCount();
+        gpu.UploadBoneMask(fra::PackBoneMask(mUpperMask, jc));
+        if (quant)
+            gpu.UploadRestJoints(fra::PackRestJointsQuant(mRestPose, jc));
+        else
+            gpu.UploadRestJoints(fra::PackRestJointsFloat(mRestPose, jc));
+        std::cout << "GPU anim bake+mask+rest uploaded ("
+                  << (quant ? "quantized 16B" : "float 48B") << ")\n";
+    }
+
+    void bindGpuAnimRig(fra::GpuAnimPass& gpu)
+    {
+        // Fox.glb spine bones extend along +X (neck→head translation).
+        const auto root = fra::FindRootJoint(mSkinned.skeleton);
+        gpu.SetRigIndices(
+            mHeadJoint >= 0 ? static_cast<std::uint32_t>(mHeadJoint)
+                            : 0xffffffffu,
+            mLegChain.root, mLegChain.mid, mLegChain.tip,
+            root >= 0 ? static_cast<std::uint32_t>(root) : 0xffffffffu,
+            kLookLocalForward);
+        std::cout << "GPU anim rig indices head=" << mHeadJoint
+                  << " ik=" << mLegChain.root << "/" << mLegChain.mid << "/"
+                  << mLegChain.tip << " lookFwd=+X\n";
+    }
+
+    void toggleQuantizeGpuAnim()
+    {
+        mFreyaOptions->quantizeGpuAnimJoints =
+            !mFreyaOptions->quantizeGpuAnimJoints;
+        const bool wasCrowd = mGpuAnimMode == GpuAnimMode::Crowd;
+        const bool wasFox0  = mGpuAnimMode == GpuAnimMode::Fox0;
+        mRenderer->RebuildGpuAnimPass();
+        if (auto* gpu = mRenderer->GetGpuAnimPass())
+        {
+            uploadGpuAnimAssets(*gpu);
+            bindGpuAnimRig(*gpu);
+            gpu->SetCopyPrevBones(false);
+            if (wasCrowd || wasFox0)
+                gpu->SetEnabled(true);
+            if (wasCrowd)
+            {
+                fra::GpuJointExtractRequest req;
+                req.boneOffset = 0;
+                req.jointIndex =
+                    mHeadJoint >= 0 ? static_cast<std::uint32_t>(mHeadJoint)
+                                    : 0u;
+                mRenderer->SetGpuAnimJointExtract({ &req, 1 });
+                mGpuExtractReady = false;
+            }
+            if (wasFox0)
+                mGpuAnimGoldenOnce = true;
+        }
+        std::cout << "QuantizeGpuAnimJoints "
+                  << (mFreyaOptions->quantizeGpuAnimJoints ? "ON" : "OFF")
+                  << " (pass rebuilt)\n";
+        printFeatureStatus();
+    }
 
     void runFox0GoldenStages(const std::uint32_t frameIndex)
     {

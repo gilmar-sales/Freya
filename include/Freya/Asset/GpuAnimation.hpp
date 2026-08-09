@@ -5,17 +5,22 @@
 #include "Freya/Asset/Skeleton.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <span>
 #include <vector>
 
 #include <glm/glm.hpp>
+#include <glm/gtc/packing.hpp>
 #include <glm/gtc/quaternion.hpp>
 
 namespace FREYA_NAMESPACE
 {
-    /** std430 mirror of Shader Anim/skin_bake.comp joints. */
-    struct GpuBakedJoint
+    /**
+     * @brief Full-precision joint for clip/rest SSBOs (48 B, matches GLSL
+     * BakedJoint when quantization is off).
+     */
+    struct GpuFloatJoint
     {
         glm::vec3 t { 0.f };
         float     pad0 = 0.f;
@@ -23,6 +28,39 @@ namespace FREYA_NAMESPACE
         glm::vec3 s { 1.f };
         float     pad1 = 0.f;
     };
+
+    static_assert(sizeof(GpuFloatJoint) == 48);
+
+    /**
+     * @brief Quantized joint for clip/rest SSBOs (16 B).
+     *
+     * Layout matches GLSL `QuantJoint` in Anim/skin_bake_body.inc:
+     * - quatBits: smallest-three (2-bit omitted index + 3×10-bit)
+     * - txy / tzsx / sysz: packHalf2x16 of (tx,ty), (tz,sx), (sy,sz)
+     */
+    struct GpuQuantJoint
+    {
+        std::uint32_t quatBits = 0;
+        std::uint32_t txy      = 0;
+        std::uint32_t tzsx     = 0;
+        std::uint32_t sysz     = 0;
+    };
+
+    static_assert(sizeof(GpuQuantJoint) == 16);
+
+    /**
+     * @brief Working float TRS in compute scratch (matches GLSL BakedJoint).
+     */
+    struct GpuScratchJoint
+    {
+        glm::vec3 t { 0.f };
+        float     pad0 = 0.f;
+        glm::vec4 q { 0.f, 0.f, 0.f, 1.f };
+        glm::vec3 s { 1.f };
+        float     pad1 = 0.f;
+    };
+
+    static_assert(sizeof(GpuScratchJoint) == 48);
 
     struct GpuClipHeader
     {
@@ -115,12 +153,60 @@ namespace FREYA_NAMESPACE
         glm::mat4     skinMatrix { 1.f };
     };
 
-    [[nodiscard]] inline GpuBakedJoint ToGpuJoint(const JointTRS& j)
+    /// Pack unit quaternion: omit largest abs component (index in bits 31..30),
+    /// store the other three as 10-bit values in [-1/sqrt(2), 1/sqrt(2)].
+    [[nodiscard]] inline std::uint32_t PackQuatSmallestThree(glm::quat q)
     {
-        GpuBakedJoint g;
+        q                = glm::normalize(q);
+        const float c[4] = { q.x, q.y, q.z, q.w };
+        int         maxI = 0;
+        for (int i = 1; i < 4; ++i)
+        {
+            if (std::abs(c[i]) > std::abs(c[maxI]))
+                maxI = i;
+        }
+
+        float v[4] = { c[0], c[1], c[2], c[3] };
+        if (v[maxI] < 0.f)
+        {
+            for (float& e : v)
+                e = -e;
+        }
+
+        constexpr float kRange = 0.7071067811865476f; // 1/sqrt(2)
+        auto            out    = static_cast<std::uint32_t>(maxI) << 30;
+        int             shift  = 20;
+        for (int i = 0; i < 4; ++i)
+        {
+            if (i == maxI)
+                continue;
+            const float n =
+                std::clamp((v[i] / kRange) * 0.5f + 0.5f, 0.f, 1.f);
+            auto bits = static_cast<std::uint32_t>(n * 1023.f + 0.5f);
+            bits      = std::min(bits, 1023u);
+            out |= bits << shift;
+            shift -= 10;
+        }
+        return out;
+    }
+
+    [[nodiscard]] inline GpuFloatJoint ToGpuFloatJoint(const JointTRS& j)
+    {
+        GpuFloatJoint g;
         g.t = j.translation;
         g.q = glm::vec4(j.rotation.x, j.rotation.y, j.rotation.z, j.rotation.w);
         g.s = j.scale;
+        return g;
+    }
+
+    [[nodiscard]] inline GpuQuantJoint ToGpuQuantJoint(const JointTRS& j)
+    {
+        GpuQuantJoint g;
+        g.quatBits = PackQuatSmallestThree(j.rotation);
+        g.txy =
+            glm::packHalf2x16(glm::vec2(j.translation.x, j.translation.y));
+        g.tzsx = glm::packHalf2x16(glm::vec2(j.translation.z, j.scale.x));
+        g.sysz = glm::packHalf2x16(glm::vec2(j.scale.y, j.scale.z));
         return g;
     }
 
@@ -130,13 +216,23 @@ namespace FREYA_NAMESPACE
     struct GpuBakePack
     {
         std::vector<GpuClipHeader> headers;
-        std::vector<GpuBakedJoint> joints;
+        std::vector<GpuFloatJoint> floatJoints;
+        std::vector<GpuQuantJoint> quantJoints;
+        bool                       quantized = false;
+
+        [[nodiscard]] std::uint32_t JointCount() const
+        {
+            return quantized
+                       ? static_cast<std::uint32_t>(quantJoints.size())
+                       : static_cast<std::uint32_t>(floatJoints.size());
+        }
     };
 
     [[nodiscard]] inline GpuBakePack PackBakedClips(
-        std::span<const BakedClip> clips)
+        std::span<const BakedClip> clips, const bool quantize = true)
     {
         GpuBakePack pack;
+        pack.quantized = quantize;
         pack.headers.reserve(clips.size());
         for (const auto& c : clips)
         {
@@ -144,11 +240,24 @@ namespace FREYA_NAMESPACE
             h.duration   = c.duration;
             h.frameCount = c.frameCount;
             h.jointCount = c.jointCount;
-            h.jointsBase = static_cast<std::uint32_t>(pack.joints.size());
+            h.jointsBase =
+                quantize ? static_cast<std::uint32_t>(pack.quantJoints.size())
+                         : static_cast<std::uint32_t>(pack.floatJoints.size());
             pack.headers.push_back(h);
-            pack.joints.reserve(pack.joints.size() + c.joints.size());
-            for (const auto& j : c.joints)
-                pack.joints.push_back(ToGpuJoint(j));
+            if (quantize)
+            {
+                pack.quantJoints.reserve(pack.quantJoints.size() +
+                                         c.joints.size());
+                for (const auto& j : c.joints)
+                    pack.quantJoints.push_back(ToGpuQuantJoint(j));
+            }
+            else
+            {
+                pack.floatJoints.reserve(pack.floatJoints.size() +
+                                         c.joints.size());
+                for (const auto& j : c.joints)
+                    pack.floatJoints.push_back(ToGpuFloatJoint(j));
+            }
         }
         return pack;
     }
@@ -183,15 +292,28 @@ namespace FREYA_NAMESPACE
         return out;
     }
 
-    [[nodiscard]] inline std::vector<GpuBakedJoint> PackRestJoints(
+    [[nodiscard]] inline std::vector<GpuFloatJoint> PackRestJointsFloat(
         const LocalPose& rest, const std::uint32_t jointCount)
     {
-        std::vector<GpuBakedJoint> out(jointCount);
+        std::vector<GpuFloatJoint> out(jointCount);
         const auto                 n = std::min(jointCount, rest.Size());
         for (std::uint32_t i = 0; i < n; ++i)
-            out[i] = ToGpuJoint(rest.joints[i]);
+            out[i] = ToGpuFloatJoint(rest.joints[i]);
         for (std::uint32_t i = n; i < jointCount; ++i)
             out[i].q = glm::vec4(0.f, 0.f, 0.f, 1.f);
+        return out;
+    }
+
+    [[nodiscard]] inline std::vector<GpuQuantJoint> PackRestJointsQuant(
+        const LocalPose& rest, const std::uint32_t jointCount)
+    {
+        std::vector<GpuQuantJoint> out(jointCount);
+        const auto                 n = std::min(jointCount, rest.Size());
+        for (std::uint32_t i = 0; i < n; ++i)
+            out[i] = ToGpuQuantJoint(rest.joints[i]);
+        const JointTRS identity {};
+        for (std::uint32_t i = n; i < jointCount; ++i)
+            out[i] = ToGpuQuantJoint(identity);
         return out;
     }
 
