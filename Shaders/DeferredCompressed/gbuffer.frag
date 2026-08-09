@@ -10,7 +10,7 @@ layout (location = 7) flat in uint inMaterialId;
 
 layout (location = 0) out vec4 outAlbedo;     // RGB albedo (gamma), A matID
 layout (location = 1) out vec4 outNormal;     // RGB packed normal, A 2-bit flags
-layout (location = 2) out vec4 outPbr;        // R rough, G metal, B AO, A free
+layout (location = 2) out vec4 outPbr;        // R rough, G metal, B AO, A clearcoat
 layout (location = 3) out vec4 outSceneColor; // HDR emissive
 layout (location = 4) out vec2 outVelocity;   // UV-space motion
 
@@ -23,8 +23,8 @@ struct MaterialGPU {
     uint emissiveIndex;
     uint metalnessIndex;
     uint alphaMode; // 0 Opaque, 1 Mask, 2 Blend
-    uint _pad1;
-    uint _pad2;
+    float clearcoat;
+    float clearcoatRoughness;
     vec4 albedoFactor;
     vec4 emissiveFactor; // xyz emissive, w = aoFactor
     vec2 roughMetal;
@@ -96,8 +96,8 @@ void main() {
                 mat.roughMetal.x,
             0.045);
     float ao = clamp(mat.emissiveFactor.w, 0.0, 1.0);
-    float free = 0.0;
-    outPbr = vec4(roughness, metalness, ao, free);
+    float clearcoat = clamp(mat.clearcoat, 0.0, 1.0);
+    outPbr = vec4(roughness, metalness, ao, clearcoat);
 
     vec3 emissiveLin =
         srgbToLinear(

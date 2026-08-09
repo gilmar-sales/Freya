@@ -51,6 +51,8 @@ std::uint32_t material = materialPool->Create(fra::MaterialCreateInfo {
     .aoFactor        = 1.f,   // constant AO into G-buffer
     .alphaCutoff     = 0.f,   // Mask: discard when alpha < cutoff
     .alphaMode       = fra::AlphaMode::Opaque, // Opaque | Mask | Blend
+    .clearcoat          = 0.f,    // deferred GGX clearcoat weight
+    .clearcoatRoughness = 0.03f,  // glTF-style default
 });
 
 materialPool->Update(material, updatedCreateInfo);
@@ -61,6 +63,10 @@ uses `alphaCutoff` cutout in the G-buffer. `AlphaMode::Blend` is filtered
 into the Weighted Blended OIT pass (`CullMode::Translucent`); use
 `albedoFactor.a` (and albedo alpha) for coverage, and typically
 `castShadows = false` on glass instances.
+
+`clearcoat` (>0) enables a second dielectric GGX lobe in deferred lighting
+(F0=0.04). The weight is stored in G-buffer PBR.a; `clearcoatRoughness` is
+looked up from the bindless `MaterialGPU` table via albedo.a material ID.
 
 Descriptor set 1 bindings:
 

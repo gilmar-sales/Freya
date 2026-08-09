@@ -145,11 +145,13 @@ class MainApp final : public fra::AbstractApplication
             "./Resources/Textures/industrial_pipe_lamp_metal.png");
 
         mSofaMaterial = mMaterialPool->Create(
-            { .albedo    = mSofaAlbedo,
-              .normal    = mSofaNormal,
-              .roughness = mSofaRoughness,
-              .emissive  = mSofaEmissive,
-              .metalness = mSofaMetalness });
+            { .albedo             = mSofaAlbedo,
+              .normal             = mSofaNormal,
+              .roughness          = mSofaRoughness,
+              .emissive           = mSofaEmissive,
+              .metalness          = mSofaMetalness,
+              .clearcoat          = 0.85f,
+              .clearcoatRoughness = 0.08f });
 
         // Warm amber glass — low coverage; GGX/Fresnel in oit_accum add shine.
         mBulbMaterial = mMaterialPool->Create({

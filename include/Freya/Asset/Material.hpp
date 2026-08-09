@@ -44,6 +44,8 @@ namespace FREYA_NAMESPACE
      * @param alphaCutoff      Mask discard threshold (albedo.a * factor.a);
      *                         ignored when alphaMode is not Mask
      * @param alphaMode        Opaque, Mask (cutout), or Blend (WBOIT)
+     * @param clearcoat        Clearcoat weight 0–1 (deferred GGX layer)
+     * @param clearcoatRoughness Clearcoat GGX roughness (glTF default ~0.03)
      */
     struct MaterialCreateInfo
     {
@@ -60,6 +62,8 @@ namespace FREYA_NAMESPACE
         float     aoFactor    = 1.f;
         float     alphaCutoff = 0.f;
         AlphaMode alphaMode   = AlphaMode::Opaque;
+        float     clearcoat          = 0.f;
+        float     clearcoatRoughness = 0.03f;
     };
 
     /**

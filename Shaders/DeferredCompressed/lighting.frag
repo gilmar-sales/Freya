@@ -1,13 +1,14 @@
 #version 450
+#extension GL_EXT_nonuniform_qualifier : require
 
 layout(location = 0) in vec2 inUV;
 
-layout(binding = 0) uniform sampler2D inDepth;
-layout(binding = 1) uniform sampler2D inAlbedo;
-layout(binding = 2) uniform sampler2D inNormal;
-layout(binding = 3) uniform sampler2D inPbr;
+layout(set = 0, binding = 0) uniform sampler2D inDepth;
+layout(set = 0, binding = 1) uniform sampler2D inAlbedo;
+layout(set = 0, binding = 2) uniform sampler2D inNormal;
+layout(set = 0, binding = 3) uniform sampler2D inPbr;
 
-layout(binding = 4) uniform CameraBuffer {
+layout(set = 0, binding = 4) uniform CameraBuffer {
     mat4 view;
     mat4 projection;
     vec4 ambientLight;
@@ -18,7 +19,7 @@ layout(binding = 4) uniform CameraBuffer {
     mat4 invViewProjection;
 } camera;
 
-layout(binding = 5) uniform LightBuffer {
+layout(set = 0, binding = 5) uniform LightBuffer {
     vec4 lightPositions[16];
     vec4 lightColorsAndRadius[16];
     vec4 lightDirectionsAndCutoff[16];
@@ -31,13 +32,13 @@ layout(binding = 5) uniform LightBuffer {
     float exposure;
 } lights;
 
-layout(binding = 6) uniform sampler2D irradianceMap;
-layout(binding = 7) uniform sampler2D prefilterMap;
-layout(binding = 8) uniform sampler2D brdfLUT;
-layout(binding = 9) uniform sampler2D ltcMatrixMap;
-layout(binding = 10) uniform sampler2D ltcAmplMap;
+layout(set = 0, binding = 6) uniform sampler2D irradianceMap;
+layout(set = 0, binding = 7) uniform sampler2D prefilterMap;
+layout(set = 0, binding = 8) uniform sampler2D brdfLUT;
+layout(set = 0, binding = 9) uniform sampler2D ltcMatrixMap;
+layout(set = 0, binding = 10) uniform sampler2D ltcAmplMap;
 
-layout(binding = 11) uniform ShadowBuffer {
+layout(set = 0, binding = 11) uniform ShadowBuffer {
     mat4 cascadeViewProj[4];
     vec4 cascadeSplits;
     vec4 params; // x=bias y=normalBias(texels) z=cascadeCount w=softScale
@@ -50,10 +51,30 @@ layout(binding = 11) uniform ShadowBuffer {
     vec4 cascadeTexelSize; // world-space texel size per cascade
 } shadows;
 
-layout(binding = 12) uniform sampler2DArrayShadow cascadeShadowMap;
-layout(binding = 13) uniform sampler2DArrayShadow spotShadowMap;
-layout(binding = 14) uniform samplerCubeArrayShadow pointShadowMap;
-layout(binding = 15) uniform sampler2D inSsao;
+layout(set = 0, binding = 12) uniform sampler2DArrayShadow cascadeShadowMap;
+layout(set = 0, binding = 13) uniform sampler2DArrayShadow spotShadowMap;
+layout(set = 0, binding = 14) uniform samplerCubeArrayShadow pointShadowMap;
+layout(set = 0, binding = 15) uniform sampler2D inSsao;
+
+struct MaterialGPU {
+    uint albedoIndex;
+    uint normalIndex;
+    uint roughnessIndex;
+    uint emissiveIndex;
+    uint metalnessIndex;
+    uint alphaMode;
+    float clearcoat;
+    float clearcoatRoughness;
+    vec4 albedoFactor;
+    vec4 emissiveFactor;
+    vec2 roughMetal;
+    float materialId;
+    float alphaCutoff;
+};
+
+layout(std430, set = 1, binding = 1) readonly buffer MaterialBuffer {
+    MaterialGPU materials[];
+};
 
 layout(push_constant) uniform LightingPush {
     uint debugMode; // 0 = lit, 1 = grayscale SSAO
@@ -417,7 +438,7 @@ vec3 calculateAreaLight(vec3 center, vec3 lightColor, vec3 normal,
                         vec3 tangent, float halfWidth, float halfHeight,
                         float intensity, vec3 worldPos, vec3 N, vec3 V,
                         vec3 albedo, float roughness, float metalness,
-                        vec3 F0) {
+                        vec3 F0, float coatSpecAtten) {
     vec3 Nn = normalize(normal);
     vec3 T = normalize(tangent - Nn * dot(tangent, Nn));
     vec3 B = cross(Nn, T);
@@ -444,7 +465,7 @@ vec3 calculateAreaLight(vec3 center, vec3 lightColor, vec3 normal,
         LTC_Evaluate(N, V, worldPos, mat3(1.0), points, true);
 
     vec3 specular = F0 * t2.x + (1.0 - F0) * t2.y;
-    specular *= spec;
+    specular *= spec * coatSpecAtten;
     vec3 diffuse = albedo * (1.0 - metalness) * diff;
 
     return lightColor * intensity * (diffuse + specular) / (2.0 * PI);
@@ -480,7 +501,7 @@ vec3 calculateLight(int lightIndex, vec3 lightPos, float lightType,
                     float innerCutoff, float outerCutoff, float intensity,
                     vec3 worldPos, vec3 N, vec3 V, vec3 albedo,
                     float roughness, float metalness, vec3 F0,
-                    bool receiveShadow) {
+                    bool receiveShadow, float coatSpecAtten) {
     vec3 L;
     float attenuation;
     resolveLight(lightPos, lightType, radius, lightDir, innerCutoff,
@@ -507,11 +528,38 @@ vec3 calculateLight(int lightIndex, vec3 lightPos, float lightType,
     vec3 kD = (vec3(1.0) - kS) * (1.0 - metalness);
 
     vec3 radiance = lightColor * intensity * attenuation;
-    return (kD * albedo / PI + specular) * radiance * NdotL * shadowFactor;
+    return (kD * albedo / PI + specular * coatSpecAtten) * radiance * NdotL *
+           shadowFactor;
+}
+
+vec3 calculateClearcoatLight(vec3 lightPos, float lightType, vec3 lightColor,
+                             float radius, vec3 lightDir, float innerCutoff,
+                             float outerCutoff, float intensity, vec3 worldPos,
+                             vec3 N, vec3 V, float coatRoughness,
+                             float clearcoat) {
+    vec3 L;
+    float attenuation;
+    resolveLight(lightPos, lightType, radius, lightDir, innerCutoff,
+                 outerCutoff, worldPos, L, attenuation);
+
+    float NdotL = max(dot(N, L), 0.0);
+    if (NdotL <= 0.0 || attenuation <= 0.0 || clearcoat < 1e-3)
+        return vec3(0.0);
+
+    vec3 H = normalize(V + L);
+    vec3 F0c = vec3(0.04);
+    float NDF = DistributionGGX(N, H, coatRoughness);
+    float G = GeometrySmith(N, V, L, coatRoughness);
+    vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0c);
+    vec3 specular =
+        (NDF * G * F) /
+        max(4.0 * max(dot(N, V), 0.0) * NdotL, 1e-4);
+    vec3 radiance = lightColor * intensity * attenuation;
+    return specular * radiance * NdotL * clearcoat;
 }
 
 vec3 calculateIBL(vec3 N, vec3 V, vec3 albedo, float roughness, float metalness,
-                  vec3 F0) {
+                  vec3 F0, float coatSpecAtten) {
     float NdotV = max(dot(N, V), 0.0);
     vec3 R = reflect(-V, N);
 
@@ -527,9 +575,27 @@ vec3 calculateIBL(vec3 N, vec3 V, vec3 albedo, float roughness, float metalness,
         textureLod(prefilterMap, SampleSphericalMap(R), roughness * maxLod)
             .rgb;
     vec2 brdf = texture(brdfLUT, vec2(NdotV, roughness)).rg;
-    vec3 specular = prefilteredColor * (F * brdf.x + brdf.y);
+    vec3 specular = prefilteredColor * (F * brdf.x + brdf.y) * coatSpecAtten;
 
     return (kD * diffuse + specular) * lights.iblIntensity;
+}
+
+vec3 calculateClearcoatIBL(vec3 N, vec3 V, float coatRoughness,
+                           float clearcoat) {
+    if (clearcoat < 1e-3)
+        return vec3(0.0);
+    float NdotV = max(dot(N, V), 0.0);
+    vec3 R = reflect(-V, N);
+    vec3 F0c = vec3(0.04);
+    vec3 F = fresnelSchlickRoughness(NdotV, F0c, coatRoughness);
+    float maxLod = float(textureQueryLevels(prefilterMap) - 1);
+    vec3 prefilteredColor =
+        textureLod(prefilterMap, SampleSphericalMap(R),
+                   coatRoughness * maxLod)
+            .rgb;
+    vec2 brdf = texture(brdfLUT, vec2(NdotV, coatRoughness)).rg;
+    return prefilteredColor * (F * brdf.x + brdf.y) * clearcoat *
+           lights.iblIntensity;
 }
 
 
@@ -578,15 +644,31 @@ void main() {
     float roughness = max(pbrSample.r, 0.045);
     float metalness = pbrSample.g;
     float ao = min(pbrSample.b, ssao);
+    float clearcoat = clamp(pbrSample.a, 0.0, 1.0);
+
+    float coatRoughness = 0.03;
+    if (clearcoat > 1e-3) {
+        uint matId = uint(clamp(round(albedoSample.a * 255.0), 0.0, 255.0));
+        coatRoughness = max(materials[matId].clearcoatRoughness, 0.045);
+    }
 
     vec3 N = normalize(normalSample.rgb * 2.0 - 1.0);
     vec3 V = normalize(lights.viewPosition.xyz - fragPos);
     vec3 F0 = mix(vec3(0.04), albedo, metalness);
 
+    float NdotV = max(dot(N, V), 0.0);
+    vec3 Fc = fresnelSchlick(NdotV, vec3(0.04));
+    float coatSpecAtten =
+        (clearcoat < 1e-3)
+            ? 1.0
+            : (1.0 - clearcoat * max(Fc.r, max(Fc.g, Fc.b)));
+
     bool receiveShadow = (flags == kFlagReceiveShadow);
     // Material AO + SSAO attenuate ambient/IBL only (not direct lights).
     vec3 totalLighting =
-        calculateIBL(N, V, albedo, roughness, metalness, F0) * ao;
+        calculateIBL(N, V, albedo, roughness, metalness, F0, coatSpecAtten) *
+        ao;
+    totalLighting += calculateClearcoatIBL(N, V, coatRoughness, clearcoat) * ao;
 
     for (int i = 0; i < int(lights.lightCount); i++) {
         float lightType = lights.lightPositions[i].w;
@@ -599,7 +681,17 @@ void main() {
                 lights.lightOuterCutoffAndIntensity[i].x,
                 lights.lightOuterCutoffAndIntensity[i].z,
                 lights.lightOuterCutoffAndIntensity[i].y,
-                fragPos, N, V, albedo, roughness, metalness, F0);
+                fragPos, N, V, albedo, roughness, metalness, F0,
+                coatSpecAtten);
+            totalLighting += calculateClearcoatLight(
+                lights.lightPositions[i].xyz, lightType,
+                lights.lightColorsAndRadius[i].rgb,
+                lights.lightColorsAndRadius[i].w,
+                lights.lightDirectionsAndCutoff[i].xyz,
+                lights.lightDirectionsAndCutoff[i].w,
+                lights.lightOuterCutoffAndIntensity[i].x,
+                lights.lightOuterCutoffAndIntensity[i].y, fragPos, N, V,
+                coatRoughness, clearcoat);
             continue;
         }
 
@@ -613,7 +705,17 @@ void main() {
             lights.lightDirectionsAndCutoff[i].w,
             lights.lightOuterCutoffAndIntensity[i].x,
             lights.lightOuterCutoffAndIntensity[i].y,
-            fragPos, N, V, albedo, roughness, metalness, F0, receiveShadow);
+            fragPos, N, V, albedo, roughness, metalness, F0, receiveShadow,
+            coatSpecAtten);
+        totalLighting += calculateClearcoatLight(
+            lights.lightPositions[i].xyz, lightType,
+            lights.lightColorsAndRadius[i].rgb,
+            lights.lightColorsAndRadius[i].w,
+            lights.lightDirectionsAndCutoff[i].xyz,
+            lights.lightDirectionsAndCutoff[i].w,
+            lights.lightOuterCutoffAndIntensity[i].x,
+            lights.lightOuterCutoffAndIntensity[i].y, fragPos, N, V,
+            coatRoughness, clearcoat);
     }
 
     // Additive contribution; emissive already in Scene Color.

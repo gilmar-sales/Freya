@@ -102,8 +102,8 @@ namespace FREYA_NAMESPACE
         std::uint32_t emissiveIndex  = kBindlessBlackTexture;
         std::uint32_t metalnessIndex = kBindlessBlackTexture;
         std::uint32_t alphaMode      = 0; ///< AlphaMode as uint
-        std::uint32_t _pad1          = 0;
-        std::uint32_t _pad2          = 0;
+        float         clearcoat          = 0.f;
+        float         clearcoatRoughness = 0.03f;
         glm::vec4     albedoFactor   = glm::vec4(1.0f);
         glm::vec4     emissiveFactor = glm::vec4(1.0f); ///< w = ao
         glm::vec2     roughMetal     = glm::vec2(1.0f);

@@ -536,9 +536,13 @@ namespace FREYA_NAMESPACE
                 .setOffset(0)
                 .setSize(sizeof(std::uint32_t) * 4);
 
+        auto lightingPipelineLayouts = std::array {
+            lightingSetLayout,
+            mMaterialResources->GetBindlessLayout(),
+        };
         auto fullscreenPipelineLayout = mDevice->Get().createPipelineLayout(
             vk::PipelineLayoutCreateInfo()
-                .setSetLayouts(lightingSetLayout)
+                .setSetLayouts(lightingPipelineLayouts)
                 .setPushConstantRanges(lightingPushRange));
 
         auto depthInfoPipe =

@@ -190,6 +190,8 @@ namespace FREYA_NAMESPACE
         gpu.materialId     = static_cast<float>(material.id & 0xFFu);
         gpu.alphaCutoff    = info.alphaCutoff;
         gpu.alphaMode      = static_cast<std::uint32_t>(info.alphaMode);
+        gpu.clearcoat      = info.clearcoat;
+        gpu.clearcoatRoughness = info.clearcoatRoughness;
 
         mMaterialsRes->WriteMaterial(material.id, gpu);
     }

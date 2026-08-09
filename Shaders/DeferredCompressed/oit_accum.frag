@@ -34,8 +34,8 @@ struct MaterialGPU {
     uint emissiveIndex;
     uint metalnessIndex;
     uint alphaMode;
-    uint _pad1;
-    uint _pad2;
+    float clearcoat;
+    float clearcoatRoughness;
     vec4 albedoFactor;
     vec4 emissiveFactor;
     vec2 roughMetal;
