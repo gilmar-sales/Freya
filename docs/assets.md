@@ -14,74 +14,18 @@ auto meshIds = meshPool->CreateMeshFromFile("./Resources/Models/MyModel.fbx");
 fra::SkinnedModel fox =
     meshPool->CreateSkinnedModelFromFile("./Resources/Models/Fox.glb");
 
-// Pose API: SampleClip → Blend1D / BlendMasked → PoseToSkinMatrices.
-// EvaluateSkeletonPose is a thin wrapper for a single clip.
-auto skin = fra::PoseToSkinMatrices(
-    fox.skeleton, fra::SampleClip(fox.skeleton, fox.clips[0], timeSec));
-renderer->UploadBoneMatrices(skin);
-
-// AnimGraph: Blend1D locomotion on a float param (Idle↔Walk↔Run).
-// syncPhase=true (default) keeps feet aligned while blending gaits.
-auto graph = fra::AnimGraphBuilder()
-                 .SetSkeleton(&fox.skeleton)
-                 .ParamFloat("Speed")
-                 .Blend1DState("Loco", "Speed")
-                 .AddBlendSample(0.f, fox.clips[0])
-                 .AddBlendSample(1.f, fox.clips[1])
-                 .AddBlendSample(2.f, fox.clips[2], true, 1.85f)
-                 .Entry("Loco")
-                 .Build();
-graph.SetFloat("Speed", 1.35f); // continuous blend Walk↔Run
-std::vector<fra::FiredAnimationEvent> events;
-auto local = graph.Evaluate(dt, &events);
-// events may contain Footstep.L / Footstep.R when Walk/Run markers fire.
-
-// Bone mask layer: upper-body overlay without stomping the gait.
-fra::BoneMask upper = fra::BoneMask::Filled(fox.skeleton.JointCount(), 0.f);
-if (auto spine = fra::FindJointIndex(fox.skeleton, "Spine"); spine >= 0)
-    upper.SetSubtree(fox.skeleton, static_cast<std::uint32_t>(spine), 1.f);
-local = fra::BlendMasked(
-    local, fra::SampleClip(fox.skeleton, fox.clips[0], timeSec), upper, 0.8f);
-
-// Additive layer: (clip − rest) on top of locomotion (partial weight + mask).
-local = fra::BlendAdditive(
-    local, fra::SampleClip(fox.skeleton, fox.clips[0], timeSec),
-    fra::RestLocalPose(fox.skeleton), upper, 0.5f);
-
-// Rig MVP (after layers): look-at → two-bone IK → root / locomotion drive.
-fra::ApplyLookAt(fox.skeleton, local, model, headJoint, cameraPos, 0.7f);
-fra::SolveTwoBoneIK(fox.skeleton, local, model, legChain, footTarget, pole, 0.85f);
-model = fra::DrivePlanarLocomotion(model, metersPerSec, dt);
-fra::CancelRootTranslationXZ(fox.skeleton, local);
-
-// Debug draw overlay (post-composite). Filled via renderer->GetDebugDraw().
-renderer->SetDebugDrawEnabled(true);
-auto& dd = renderer->GetDebugDraw();
-dd.DrawSkeleton(fox.skeleton, local, model, { 0.2f, 0.95f, 0.45f, 1.f });
-dd.DrawLookRay(fox.skeleton, local, model, headJoint, cameraPos,
-               { 0.3f, 0.85f, 1.f, 1.f });
-dd.DrawTwoBoneIk(fox.skeleton, local, model, leg.root, leg.mid, leg.tip,
-                 footTarget, pole, { 1.f, 0.55f, 0.15f, 1.f },
-                 { 1.f, 0.25f, 0.35f, 1.f });
-
-renderer->UploadBoneMatrices(fra::PoseToSkinMatrices(fox.skeleton, local));
-// Instances share boneOffset=0 .. JointCount()-1 in the bone palette.
-uploads.push_back({
-    .model = model,
-    .meshId = fox.meshIds[0],
-    .materialId = mat,
-    .entityId = 1,
-    .boneOffset = 0,
-    .boneCount = fox.skeleton.JointCount(),
-});
+// Full stack (AnimGraph, bake, CPU/GPU skin, LOD, look/IK): see Animation.
+renderer->UploadBoneMatrices(fra::EvaluateSkeletonPose(
+    fox.skeleton, fox.clips[0], timeSec));
 
 // From memory (already CPU-side Freya vertices + uint32 indices)
 std::uint32_t meshId = meshPool->CreateMesh(vertices, indices);
 ```
 
 Static meshes leave `Vertex::joints/weights` at defaults and
-`SceneInstanceUpload::boneOffset = fra::kNoSkin`. Skinned draws evaluate a
-second/prev bone palette for TAA velocity (`UploadBoneMatrices`).
+`SceneInstanceUpload::boneOffset = fra::kNoSkin`. Skinned draws use a
+second/prev bone palette for TAA velocity. Full animation docs:
+[Animation](animation.md).
 
 Draw submission goes through `Renderer::UploadSceneInstances` (preferred) or
 the legacy `Draw` / `DrawInstanced` helpers.

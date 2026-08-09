@@ -81,15 +81,28 @@ for (const auto& mesh : mSofaModel)
     mRenderer->DrawInstanced(mesh, mSofaMaterial, 2, 0);
 ```
 
+## SkinnedFox
+
+Location: `Examples/SkinnedFox/`
+
+Crowd skinned demo: Blend2D locomotion, layers, look/IK, CPU or GPU skin
+paths, animation LOD, and `anim_prof` metrics. See
+[Animation](animation.md#skinnedfox-example).
+
+```bash
+cd build/Examples/SkinnedFox
+./SkinnedFox
+```
+
 ## Running Examples
 
 To build and run examples:
 
 ```bash
 # Build from project root
-cmake -B build -DFREYA_BUILD_EXAMPLES=ON
+cmake -B build -S . -G Ninja -DFREYA_BUILD_EXAMPLES=ON
 cmake --build build
 
-# Run an example
-./build/Examples/Sofa/Sofa
+# Run an example (cwd must be the binary directory)
+cd build/Examples/SkinnedFox && ./SkinnedFox
 ```

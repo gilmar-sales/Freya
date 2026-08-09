@@ -11,6 +11,8 @@ A Vulkan-based rendering engine powered by [Skirnir](https://github.com/gilmar-s
 - **Custom render targets** - Redirect scene output to an offscreen
   `RenderTarget` at runtime (see [Core](core.md)); not configured via FreyaOptions
 - **Asset management** - Meshes, textures (file or memory), and PBR materials
+- **Skinned animation** - AnimGraph, bake, CPU or GPU skin palettes, LOD
+  (see [Animation](animation.md))
 - **Event system** - Flexible pub/sub event handling for window, keyboard, mouse, and gamepad
 - **Builder pattern** - Fluent API plus `FreyaExtension` configure hooks
 - **Skirnir integration** - IoC container for dependency injection
