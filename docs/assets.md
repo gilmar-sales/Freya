@@ -53,7 +53,16 @@ fra::ApplyLookAt(fox.skeleton, local, model, headJoint, cameraPos, 0.7f);
 fra::SolveTwoBoneIK(fox.skeleton, local, model, legChain, footTarget, pole, 0.85f);
 model = fra::DrivePlanarLocomotion(model, metersPerSec, dt);
 fra::CancelRootTranslationXZ(fox.skeleton, local);
-// Or from authored curves: IntegrateRootMotion(model, ExtractRootDelta(...));
+
+// Debug draw overlay (post-composite). Filled via renderer->GetDebugDraw().
+renderer->SetDebugDrawEnabled(true);
+auto& dd = renderer->GetDebugDraw();
+dd.DrawSkeleton(fox.skeleton, local, model, { 0.2f, 0.95f, 0.45f, 1.f });
+dd.DrawLookRay(fox.skeleton, local, model, headJoint, cameraPos,
+               { 0.3f, 0.85f, 1.f, 1.f });
+dd.DrawTwoBoneIk(fox.skeleton, local, model, leg.root, leg.mid, leg.tip,
+                 footTarget, pole, { 1.f, 0.55f, 0.15f, 1.f },
+                 { 1.f, 0.25f, 0.35f, 1.f });
 
 renderer->UploadBoneMatrices(fra::PoseToSkinMatrices(fox.skeleton, local));
 // Instances share boneOffset=0 .. JointCount()-1 in the bone palette.

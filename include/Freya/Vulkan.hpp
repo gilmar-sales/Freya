@@ -15,6 +15,8 @@
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/CompositePass.hpp"
+#include "Freya/Core/DebugDraw.hpp"
+#include "Freya/Core/DebugDrawPass.hpp"
 #include "Freya/Core/DebugLabels.hpp"
 #include "Freya/Core/DeferredCompressedPass.hpp"
 #include "Freya/Core/Device.hpp"

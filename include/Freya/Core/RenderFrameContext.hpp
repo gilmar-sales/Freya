@@ -4,6 +4,7 @@
 #include "Freya/Core/BloomPass.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/CompositePass.hpp"
+#include "Freya/Core/DebugDrawPass.hpp"
 #include "Freya/Core/DeferredCompressedPass.hpp"
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/PickPass.hpp"
@@ -55,6 +56,8 @@ namespace FREYA_NAMESPACE
         vk::Sampler*                      bloomResultSampler = nullptr;
         skr::Arc<RenderTarget>*           outputTarget       = nullptr;
 
+        skr::Arc<DebugDrawPass>* debugDrawPass = nullptr;
+
         bool*          pickRequested        = nullptr;
         std::uint32_t* pickX                = nullptr;
         std::uint32_t* pickY                = nullptr;
@@ -72,6 +75,7 @@ namespace FREYA_NAMESPACE
         std::function<void()>             commitTaaHistory;
         std::function<void(vk::Extent2D)> resizePickPass;
         std::function<skr::Arc<Image>()>  createSsaoFallback;
+        std::function<void()>             drawDebugOverlay;
     };
 
 } // namespace FREYA_NAMESPACE

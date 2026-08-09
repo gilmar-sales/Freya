@@ -9,6 +9,8 @@
 #include "Freya/Core/BloomPass.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/CompositePass.hpp"
+#include "Freya/Core/DebugDraw.hpp"
+#include "Freya/Core/DebugDrawPass.hpp"
 #include "Freya/Core/DeferredCompressedPass.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/IFrameStage.hpp"
@@ -62,6 +64,7 @@ namespace FREYA_NAMESPACE
                  const skr::Arc<TaaPass>&                taaPass,
                  const skr::Arc<SsaoPass>&               ssaoPass,
                  const skr::Arc<CompositePass>&          compositePass,
+                 const skr::Arc<DebugDrawPass>&          debugDrawPass,
                  const skr::Arc<CommandPool>&            commandPool,
                  const skr::Arc<LightService>&           lightService,
                  const skr::Arc<ShadowPass>&             shadowPass,
@@ -274,6 +277,13 @@ namespace FREYA_NAMESPACE
 
         void SetAmbient(const glm::vec3& color, float intensity);
 
+        void SetDebugDrawEnabled(bool enabled) { mDebugDrawEnabled = enabled; }
+        [[nodiscard]] bool IsDebugDrawEnabled() const
+        {
+            return mDebugDrawEnabled;
+        }
+        [[nodiscard]] DebugDraw& GetDebugDraw() { return mDebugDraw; }
+
         void UpdateModel(const glm::mat4& model) const;
 
         [[nodiscard]] BufferBuilder       GetBufferBuilder() const;
@@ -336,6 +346,9 @@ namespace FREYA_NAMESPACE
         skr::Arc<TaaPass>                mTaaPass;
         skr::Arc<SsaoPass>               mSsaoPass;
         skr::Arc<CompositePass>          mCompositePass;
+        skr::Arc<DebugDrawPass>          mDebugDrawPass;
+        DebugDraw                        mDebugDraw;
+        bool                             mDebugDrawEnabled = false;
         skr::Arc<CommandPool>            mCommandPool;
         skr::Arc<LightService>           mLightService;
         skr::Arc<ShadowPass>             mShadowPass;

@@ -280,7 +280,7 @@ class MainApp final : public fra::AbstractApplication
                   << " foxes | Blend1D phase-sync | upper=" << upperCount
                   << " additive=" << additiveCount << " look=" << lookCount
                   << " ik=" << ikCount << " rootDrive=" << rootCount << '\n'
-                  << "  Keys: 1/2/3 presets   Up/Down=Speed\n";
+                  << "  Keys: 1/2/3 Speed   Up/Down   F3=DebugDraw\n";
 
         mFoxMaterial = mMaterialPool->Create({
             .albedoFactor    = { 0.82f, 0.45f, 0.18f, 1.f },
@@ -338,6 +338,9 @@ class MainApp final : public fra::AbstractApplication
         allBones.reserve(mFoxes.size() * jointCount);
         std::vector<fra::FiredAnimationEvent> events;
         events.reserve(8);
+        auto&         debugDraw = mRenderer->GetDebugDraw();
+        const bool    drawDebug = mRenderer->IsDebugDrawEnabled();
+        std::uint32_t foxIndex  = 0;
         for (auto& fox : mFoxes)
         {
             events.clear();
@@ -396,6 +399,8 @@ class MainApp final : public fra::AbstractApplication
                     static_cast<std::uint32_t>(mHeadJoint), mCameraPos, 0.75f);
             }
 
+            glm::vec3 ikTarget {};
+            glm::vec3 ikPole {};
             if (fox.useIk)
             {
                 const glm::vec3 pos(fox.model[3]);
@@ -405,12 +410,33 @@ class MainApp final : public fra::AbstractApplication
                     0.12f *
                     std::sin(mAnimClock * 3.f +
                              static_cast<float>(fox.boneOffset) * 0.01f);
-                const glm::vec3 target =
-                    pos + fwd * 0.55f + glm::vec3(0.f, 0.15f + bob, 0.f);
-                const glm::vec3 pole = pos + glm::vec3(0.25f, 0.4f, 0.f);
+                ikTarget = pos + fwd * 0.55f + glm::vec3(0.f, 0.15f + bob, 0.f);
+                ikPole   = pos + glm::vec3(0.25f, 0.4f, 0.f);
                 (void) fra::SolveTwoBoneIK(mSkinned.skeleton, local, fox.model,
-                                           mLegChain, target, pole, 0.85f);
+                                           mLegChain, ikTarget, ikPole, 0.85f);
             }
+
+            if (drawDebug && (fox.useLookAt || fox.useIk || foxIndex < 12u))
+            {
+                debugDraw.DrawSkeleton(mSkinned.skeleton, local, fox.model,
+                                       { 0.2f, 0.95f, 0.45f, 0.9f });
+                if (fox.useLookAt && mHeadJoint >= 0)
+                {
+                    debugDraw.DrawLookRay(
+                        mSkinned.skeleton, local, fox.model,
+                        static_cast<std::uint32_t>(mHeadJoint), mCameraPos,
+                        { 0.3f, 0.85f, 1.f, 1.f });
+                }
+                if (fox.useIk)
+                {
+                    debugDraw.DrawTwoBoneIk(
+                        mSkinned.skeleton, local, fox.model, mLegChain.root,
+                        mLegChain.mid, mLegChain.tip, ikTarget, ikPole,
+                        { 1.f, 0.55f, 0.15f, 1.f },
+                        { 1.f, 0.2f, 0.35f, 1.f });
+                }
+            }
+            ++foxIndex;
 
             const auto skin = fra::PoseToSkinMatrices(mSkinned.skeleton, local);
             allBones.insert(allBones.end(), skin.begin(), skin.end());
@@ -524,6 +550,12 @@ class MainApp final : public fra::AbstractApplication
             case fra::KeyCode::Down:
                 setSpeed(mSpeed - 0.25f);
                 break;
+            case fra::KeyCode::F3: {
+                const bool on = !mRenderer->IsDebugDrawEnabled();
+                mRenderer->SetDebugDrawEnabled(on);
+                std::cout << "DebugDraw " << (on ? "ON" : "OFF") << '\n';
+                break;
+            }
             default:
                 break;
         }
@@ -569,15 +601,15 @@ class MainApp final : public fra::AbstractApplication
     fra::BoneMask             mUpperMask;
     fra::LocalPose            mRestPose;
     fra::TwoBoneChain         mLegChain {};
-    std::int32_t              mHeadJoint      = -1;
-    bool                      mIkReady        = true;
+    std::int32_t              mHeadJoint        = -1;
+    bool                      mIkReady          = true;
     float                     mAnimClock        = 0.f;
     float                     mSpeed            = 0.f;
     float                     mFootstepLogTimer = 0.f;
     std::uint64_t             mFootstepTotal    = 0;
     std::uint32_t             mFoxMaterial      = 0;
-    std::uint32_t             mGroundMesh     = 0;
-    std::uint32_t             mGroundMaterial = 0;
+    std::uint32_t             mGroundMesh       = 0;
+    std::uint32_t             mGroundMaterial   = 0;
 
     std::unordered_set<std::uint32_t> mKeysHeld;
     bool                              mLookHeld  = false;
@@ -592,7 +624,8 @@ int main(int, const char**)
         skr::ApplicationBuilder()
             .WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
                 freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
-                    freyaOptions.SetTitle("SkinnedFox — Rig MVP (look/IK/root)")
+                    freyaOptions.SetTitle(
+                                         "SkinnedFox — F3 DebugDraw / Rig / Events")
                         .SetWidth(1600)
                         .SetHeight(900)
                         .SetVSync(false)

@@ -81,4 +81,13 @@ namespace FREYA_NAMESPACE
         void                      Execute(RenderFrameContext& ctx) override;
     };
 
+    class DebugDrawFrameStage : public IFrameStage
+    {
+      public:
+        [[nodiscard]] const char* Name() const override { return "DebugDraw"; }
+        void                      Rebuild(RenderFrameContext&   ctx,
+                                          skr::ServiceProvider& sp) override;
+        void                      Execute(RenderFrameContext& ctx) override;
+    };
+
 } // namespace FREYA_NAMESPACE

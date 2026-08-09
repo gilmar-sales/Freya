@@ -78,6 +78,7 @@ namespace FREYA_NAMESPACE
         const skr::Arc<TaaPass>&                taaPass,
         const skr::Arc<SsaoPass>&               ssaoPass,
         const skr::Arc<CompositePass>&          compositePass,
+        const skr::Arc<DebugDrawPass>&          debugDrawPass,
         const skr::Arc<CommandPool>&            commandPool,
         const skr::Arc<LightService>&           lightService,
         const skr::Arc<ShadowPass>&             shadowPass,
@@ -88,7 +89,8 @@ namespace FREYA_NAMESPACE
         mInstance(instance), mSurface(surface), mPhysicalDevice(physicalDevice),
         mDevice(device), mSwapChain(swapChain), mDeferredPass(deferredPass),
         mBloomPass(bloomPass), mTaaPass(taaPass), mSsaoPass(ssaoPass),
-        mCompositePass(compositePass), mCommandPool(commandPool),
+        mCompositePass(compositePass), mDebugDrawPass(debugDrawPass),
+        mCommandPool(commandPool),
         mLightService(lightService), mShadowPass(shadowPass),
         mPickPass(pickPass), mServiceProvider(serviceProvider),
         mFreyaOptions(freyaOptions), mEventManager(eventManager),
@@ -247,6 +249,7 @@ namespace FREYA_NAMESPACE
             std::make_shared<TranslucentFrameStage>(),
             std::make_shared<BloomFrameStage>(),
             std::make_shared<CompositeFrameStage>(),
+            std::make_shared<DebugDrawFrameStage>(),
         };
     }
 
@@ -266,6 +269,7 @@ namespace FREYA_NAMESPACE
         ctx.translucent                = &mTranslucentPass;
         ctx.bloom                      = &mBloomPass;
         ctx.composite                  = &mCompositePass;
+        ctx.debugDrawPass              = &mDebugDrawPass;
         ctx.shadow                     = &mShadowPass;
         ctx.pick                       = &mPickPass;
         ctx.lights                     = &mLightService;
@@ -306,6 +310,18 @@ namespace FREYA_NAMESPACE
             resizePickPass(extent);
         };
         ctx.createSsaoFallback = [this]() { return createSsaoFallbackImage(); };
+        ctx.drawDebugOverlay   = [this]() {
+            if (!mDebugDrawEnabled || !mDebugDrawPass || mDebugDraw.Empty())
+                return;
+            // ImGui/output-target path owns the swapchain; skip overlay.
+            if (mOutputTarget)
+                return;
+            const glm::mat4 viewProj =
+                mCurrentProjection.unjitteredProjection *
+                mCurrentProjection.view;
+            mDebugDrawPass->Draw(mSwapChain, mCommandPool, mDebugDraw.Vertices(),
+                                 viewProj);
+        };
         return ctx;
     }
 
@@ -1051,6 +1067,7 @@ namespace FREYA_NAMESPACE
     {
         mSwapChain->WaitNextFrame();
         mDrawCommands.clear();
+        mDebugDraw.Clear();
 
         if (mResizeEvent.has_value())
         {

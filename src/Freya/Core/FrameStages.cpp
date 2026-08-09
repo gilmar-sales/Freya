@@ -2,6 +2,7 @@
 
 #include "Freya/Builders/BloomPassBuilder.hpp"
 #include "Freya/Builders/CompositePassBuilder.hpp"
+#include "Freya/Builders/DebugDrawPassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/SsaoPassBuilder.hpp"
@@ -448,6 +449,22 @@ namespace FREYA_NAMESPACE
                            ctx.options->ssaoDebugView == SsaoDebugView::None);
         if (ctx.commitTaaHistory)
             ctx.commitTaaHistory();
+    }
+
+    void DebugDrawFrameStage::Rebuild(RenderFrameContext&   ctx,
+                                      skr::ServiceProvider& sp)
+    {
+        if (!ctx.debugDrawPass)
+            return;
+        ctx.debugDrawPass->reset();
+        *ctx.debugDrawPass =
+            sp.GetService<DebugDrawPassBuilder>()->Build(ctx.swapChain);
+    }
+
+    void DebugDrawFrameStage::Execute(RenderFrameContext& ctx)
+    {
+        if (ctx.drawDebugOverlay)
+            ctx.drawDebugOverlay();
     }
 
 } // namespace FREYA_NAMESPACE

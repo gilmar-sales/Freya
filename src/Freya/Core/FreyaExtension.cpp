@@ -4,6 +4,7 @@
 #include "Freya/Builders/BoneMatrixResourcesBuilder.hpp"
 #include "Freya/Builders/CommandPoolBuilder.hpp"
 #include "Freya/Builders/CompositePassBuilder.hpp"
+#include "Freya/Builders/DebugDrawPassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/IndirectDrawSystemBuilder.hpp"
@@ -57,6 +58,7 @@ namespace FREYA_NAMESPACE
         services.AddTransient<TaaPassBuilder>();
         services.AddTransient<SsaoPassBuilder>();
         services.AddTransient<CompositePassBuilder>();
+        services.AddTransient<DebugDrawPassBuilder>();
         services.AddTransient<TranslucentPassBuilder>();
         services.AddTransient<ShadowPassBuilder>();
         services.AddTransient<PickPassBuilder>();

@@ -3,6 +3,7 @@
 #include "Freya/Builders/BloomPassBuilder.hpp"
 #include "Freya/Builders/CommandPoolBuilder.hpp"
 #include "Freya/Builders/CompositePassBuilder.hpp"
+#include "Freya/Builders/DebugDrawPassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/DeviceBuilder.hpp"
 #include "Freya/Builders/PhysicalDeviceBuilder.hpp"
@@ -70,6 +71,10 @@ namespace FREYA_NAMESPACE
             mServiceProvider->GetService<CompositePassBuilder>()->Build(
                 mSwapChain);
 
+        auto debugDrawPass =
+            mServiceProvider->GetService<DebugDrawPassBuilder>()->Build(
+                mSwapChain);
+
         auto lightService = mServiceProvider->GetService<LightService>();
         auto shadowPass   = mServiceProvider->GetService<ShadowPass>();
         auto pickPass     = mServiceProvider->GetService<PickPass>();
@@ -85,6 +90,7 @@ namespace FREYA_NAMESPACE
             taaPass,
             ssaoPass,
             compositePass,
+            debugDrawPass,
             mCommandPool,
             lightService,
             shadowPass,
