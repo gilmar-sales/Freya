@@ -2,6 +2,7 @@
 
 #include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Asset/Mesh.hpp"
+#include "Freya/Asset/SkinnedModel.hpp"
 #include "Freya/Asset/Vertex.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
@@ -9,6 +10,7 @@
 
 #include <memory>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace FREYA_NAMESPACE
@@ -50,6 +52,14 @@ namespace FREYA_NAMESPACE
          * @return Vector of mesh IDs created from the file
          */
         std::vector<std::uint32_t> CreateMeshFromFile(const std::string& path);
+
+        /**
+         * @brief Load a skinned model (no PreTransformVertices).
+         *
+         * Builds a shared Skeleton, AnimationClips, and mesh IDs with
+         * joints/weights. Cull AABBs are inflated for posed conservatism.
+         */
+        SkinnedModel CreateSkinnedModelFromFile(const std::string& path);
 
         [[nodiscard]] bool Contains(std::uint32_t meshId) const;
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Asset/BoneMatrixResources.hpp"
 #include "Freya/Asset/MaterialDescriptorResources.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
@@ -31,11 +32,13 @@ namespace FREYA_NAMESPACE
             const skr::Arc<LightService>&                lightService,
             const skr::Arc<IBLService>&                  iblService,
             const skr::Arc<ShadowPass>&                  shadowPass,
-            const skr::Arc<MaterialDescriptorResources>& materialResources) :
+            const skr::Arc<MaterialDescriptorResources>& materialResources,
+            const skr::Arc<BoneMatrixResources>&         boneResources) :
             mDevice(device), mPhysicalDevice(physicalDevice), mSurface(surface),
             mFreyaOptions(freyaOptions), mServiceProvider(serviceProvider),
             mLightService(lightService), mIblService(iblService),
-            mShadowPass(shadowPass), mMaterialResources(materialResources)
+            mShadowPass(shadowPass), mMaterialResources(materialResources),
+            mBoneResources(boneResources)
         {
         }
 
@@ -55,5 +58,6 @@ namespace FREYA_NAMESPACE
         skr::Arc<IBLService>                  mIblService;
         skr::Arc<ShadowPass>                  mShadowPass;
         skr::Arc<MaterialDescriptorResources> mMaterialResources;
+        skr::Arc<BoneMatrixResources>         mBoneResources;
     };
 } // namespace FREYA_NAMESPACE

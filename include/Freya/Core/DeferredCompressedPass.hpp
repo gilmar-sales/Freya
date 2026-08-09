@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Asset/BoneMatrixResources.hpp"
 #include "Freya/Asset/MaterialDescriptorResources.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
@@ -68,6 +69,7 @@ namespace FREYA_NAMESPACE
             const vk::DescriptorPool                     lightingDescriptorPool,
             const std::vector<vk::DescriptorSet>&        lightingSets,
             const skr::Arc<MaterialDescriptorResources>& materialResources,
+            const skr::Arc<BoneMatrixResources>&         boneResources,
             const vk::Sampler                            gbufferSampler,
             vk::Extent2D                                 extent);
 
@@ -184,6 +186,7 @@ namespace FREYA_NAMESPACE
         std::vector<vk::DescriptorSet> mLightingSets;
 
         skr::Arc<MaterialDescriptorResources> mMaterialResources;
+        skr::Arc<BoneMatrixResources>         mBoneResources;
         vk::Sampler                           mGbufferSampler;
 
         mutable bool                       mLabelActive    = false;

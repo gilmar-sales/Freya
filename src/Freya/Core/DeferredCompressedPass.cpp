@@ -29,6 +29,7 @@ namespace FREYA_NAMESPACE
         const vk::DescriptorPool                     lightingDescriptorPool,
         const std::vector<vk::DescriptorSet>&        lightingSets,
         const skr::Arc<MaterialDescriptorResources>& materialResources,
+        const skr::Arc<BoneMatrixResources>&         boneResources,
         const vk::Sampler                            gbufferSampler,
         const vk::Extent2D                           extent) :
         mDevice(device), mFreyaOptions(freyaOptions), mSurface(surface),
@@ -44,7 +45,8 @@ namespace FREYA_NAMESPACE
         mLightingSetLayout(lightingSetLayout),
         mLightingDescriptorPool(lightingDescriptorPool),
         mLightingSets(lightingSets), mMaterialResources(materialResources),
-        mGbufferSampler(gbufferSampler), mBoundSsaoViews(lightingSets.size())
+        mBoneResources(boneResources), mGbufferSampler(gbufferSampler),
+        mBoundSsaoViews(lightingSets.size())
     {
         mPipelines[DefDepthPrePass] = depthPrepassPipeline;
         mPipelines[DefGBufferPass]  = gbufferPipeline;
@@ -198,6 +200,18 @@ namespace FREYA_NAMESPACE
                 &mDescriptorSets[frameIndex],
                 0,
                 nullptr);
+            if (mBoneResources)
+            {
+                auto boneSet = mBoneResources->GetSet(frameIndex);
+                commandBuffer.bindDescriptorSets(
+                    vk::PipelineBindPoint::eGraphics,
+                    mVertexPipelineLayout,
+                    2,
+                    1,
+                    &boneSet,
+                    0,
+                    nullptr);
+            }
         }
     }
 

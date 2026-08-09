@@ -115,6 +115,16 @@ namespace FREYA_NAMESPACE
                     .setFormat(vk::Format::eR32G32B32Sfloat)
                     .setOffset(offsetof(Vertex, position)),
                 vk::VertexInputAttributeDescription()
+                    .setBinding(0)
+                    .setLocation(14)
+                    .setFormat(vk::Format::eR32G32B32A32Uint)
+                    .setOffset(offsetof(Vertex, joints)),
+                vk::VertexInputAttributeDescription()
+                    .setBinding(0)
+                    .setLocation(15)
+                    .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                    .setOffset(offsetof(Vertex, weights)),
+                vk::VertexInputAttributeDescription()
                     .setBinding(1)
                     .setLocation(5)
                     .setFormat(vk::Format::eR32G32B32A32Sfloat)
@@ -134,12 +144,11 @@ namespace FREYA_NAMESPACE
                     .setLocation(8)
                     .setFormat(vk::Format::eR32G32B32A32Sfloat)
                     .setOffset(sizeof(glm::vec4) * 3),
-                // materialId + entityId as uvec2 (see InstanceTransform /
-                // pick.vert)
+                // materialId + entityId + flags + boneOffset (uvec4)
                 vk::VertexInputAttributeDescription()
                     .setBinding(1)
                     .setLocation(13)
-                    .setFormat(vk::Format::eR32G32Uint)
+                    .setFormat(vk::Format::eR32G32B32A32Uint)
                     .setOffset(offsetof(InstanceTransform, materialId)),
             };
 
@@ -208,9 +217,13 @@ namespace FREYA_NAMESPACE
                 .setOffset(0)
                 .setSize(sizeof(std::uint32_t));
 
+        auto setLayouts = std::array {
+            descriptorSetLayout,
+            mBoneResources->GetLayout(),
+        };
         auto pipelineLayoutInfo =
             vk::PipelineLayoutCreateInfo()
-                .setSetLayouts(descriptorSetLayout)
+                .setSetLayouts(setLayouts)
                 .setPushConstantRanges(pushConstantRange);
 
         auto pipelineLayout =
@@ -276,6 +289,7 @@ namespace FREYA_NAMESPACE
             mDevice,
             mPhysicalDevice,
             mFreyaOptions,
+            mBoneResources,
             renderPass,
             pipelineLayout,
             pipeline,

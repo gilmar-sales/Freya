@@ -2,8 +2,11 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 
 #include <glm/glm.hpp>
+
+#include "Freya/Asset/InstanceTransform.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -12,6 +15,7 @@ namespace FREYA_NAMESPACE
     constexpr std::uint32_t kMaxLodsPerMesh               = 4;
     constexpr std::uint32_t kSceneInstanceFlagCastShadows = 1u;
     constexpr std::uint32_t kSceneInstanceFlagTranslucent = 2u;
+    constexpr std::uint32_t kSceneInstanceFlagSkinned     = 4u;
 
     constexpr std::uint32_t kBindlessWhiteTexture = 0;
     constexpr std::uint32_t kBindlessBlackTexture = 1;
@@ -89,6 +93,9 @@ namespace FREYA_NAMESPACE
         std::uint32_t materialId  = 0;
         std::uint32_t entityId    = 0;
         bool          castShadows = true;
+        /// Offset into Renderer bone palette; `kNoSkin` = rigid.
+        std::uint32_t boneOffset = kNoSkin;
+        std::uint32_t boneCount  = 0;
     };
 
     /**

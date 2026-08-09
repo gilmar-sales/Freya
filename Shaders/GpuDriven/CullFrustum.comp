@@ -47,7 +47,7 @@ struct InstanceTransform {
     uint materialId;
     uint entityId;
     uint flags;
-    uint _pad;
+    uint boneOffset;
 };
 
 layout(push_constant) uniform CullPC {
@@ -94,6 +94,7 @@ layout(binding = 7) uniform sampler2D hizPyramid;
 
 const uint kFlagCastShadows   = 1u;
 const uint kFlagTranslucent   = 2u;
+const uint kFlagSkinned       = 4u;
 const uint kCullModeCamera      = 0u;
 const uint kCullModeShadow      = 1u;
 const uint kCullModeTranslucent = 2u;
@@ -240,8 +241,11 @@ void main()
     if (aabbOutsideFrustum(mvp, mesh.aabbMin.xyz, mesh.aabbMax.xyz))
         return;
 
+    // Skinned AABBs are rest-pose inflated approximations; Hi-Z would false-
+    // cull posed silhouette. Match translucent: frustum-only.
     if (cull.cullMode != kCullModeShadow &&
         cull.cullMode != kCullModeTranslucent &&
+        (inst.flags & kFlagSkinned) == 0u &&
         occludedByHiZ(mvp, mesh.aabbMin.xyz, mesh.aabbMax.xyz))
         return;
 

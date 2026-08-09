@@ -6,25 +6,26 @@
 namespace FREYA_NAMESPACE
 {
     PickPass::PickPass(
-        const skr::Arc<Device>&         device,
-        const skr::Arc<PhysicalDevice>& physicalDevice,
-        const skr::Arc<FreyaOptions>&   freyaOptions,
-        const vk::RenderPass            renderPass,
-        const vk::PipelineLayout        pipelineLayout,
-        const vk::Pipeline              pipeline,
-        const vk::DescriptorSetLayout   descriptorSetLayout,
-        const vk::DescriptorPool        descriptorPool,
-        const vk::DescriptorSet         descriptorSet,
-        const skr::Arc<Buffer>&         uniformBuffer,
-        const skr::Arc<Buffer>&         stagingBuffer,
-        const skr::Arc<Image>&          colorImage,
-        const skr::Arc<Image>&          depthImage,
-        const vk::Framebuffer           framebuffer,
-        const vk::Extent2D              extent) :
+        const skr::Arc<Device>&              device,
+        const skr::Arc<PhysicalDevice>&      physicalDevice,
+        const skr::Arc<FreyaOptions>&        freyaOptions,
+        const skr::Arc<BoneMatrixResources>& boneResources,
+        const vk::RenderPass                 renderPass,
+        const vk::PipelineLayout             pipelineLayout,
+        const vk::Pipeline                   pipeline,
+        const vk::DescriptorSetLayout        descriptorSetLayout,
+        const vk::DescriptorPool             descriptorPool,
+        const vk::DescriptorSet              descriptorSet,
+        const skr::Arc<Buffer>&              uniformBuffer,
+        const skr::Arc<Buffer>&              stagingBuffer,
+        const skr::Arc<Image>&               colorImage,
+        const skr::Arc<Image>&               depthImage,
+        const vk::Framebuffer                framebuffer,
+        const vk::Extent2D                   extent) :
         mDevice(device), mPhysicalDevice(physicalDevice),
-        mFreyaOptions(freyaOptions), mRenderPass(renderPass),
-        mPipelineLayout(pipelineLayout), mPipeline(pipeline),
-        mDescriptorSetLayout(descriptorSetLayout),
+        mFreyaOptions(freyaOptions), mBoneResources(boneResources),
+        mRenderPass(renderPass), mPipelineLayout(pipelineLayout),
+        mPipeline(pipeline), mDescriptorSetLayout(descriptorSetLayout),
         mDescriptorPool(descriptorPool), mDescriptorSet(descriptorSet),
         mUniformBuffer(uniformBuffer), mStagingBuffer(stagingBuffer),
         mColorImage(colorImage), mDepthImage(depthImage),
@@ -117,7 +118,8 @@ namespace FREYA_NAMESPACE
 
     void PickPass::Render(const skr::Arc<CommandPool>&   commandPool,
                           const ProjectionUniformBuffer& projection,
-                          const std::function<void()>&   drawScene)
+                          const std::function<void()>&   drawScene,
+                          const std::uint32_t            frameIndex)
     {
         if (!mFramebuffer || mExtent.width == 0 || mExtent.height == 0)
         {
@@ -157,6 +159,19 @@ namespace FREYA_NAMESPACE
             &mDescriptorSet,
             0,
             nullptr);
+
+        if (mBoneResources)
+        {
+            auto boneSet = mBoneResources->GetSet(frameIndex);
+            commandBuffer.bindDescriptorSets(
+                vk::PipelineBindPoint::eGraphics,
+                mPipelineLayout,
+                1,
+                1,
+                &boneSet,
+                0,
+                nullptr);
+        }
 
         const auto viewport =
             vk::Viewport()

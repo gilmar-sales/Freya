@@ -55,7 +55,7 @@ namespace FREYA_NAMESPACE
         }
 
         (*ctx.pick)->Render(ctx.commandPool, *ctx.projection,
-                            ctx.executePickDraws);
+                            ctx.executePickDraws, ctx.frameIndex);
         (*ctx.pick)->CopyPixel(ctx.commandPool, *ctx.pickX, *ctx.pickY);
         *ctx.pickRequested        = false;
         *ctx.pickAwaitingReadback = true;

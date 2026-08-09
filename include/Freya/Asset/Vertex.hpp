@@ -5,16 +5,10 @@
 namespace FREYA_NAMESPACE
 {
     /**
-     * @brief Vertex format with position, color, normal, tangent, and UV.
+     * @brief Vertex format with PBR attributes + optional skinning data.
      *
-     * Provides static methods to get Vulkan binding and attribute descriptions
-     * for pipeline vertex input configuration.
-     *
-     * @param position Vertex position (x, y, z)
-     * @param color    Vertex color (r, g, b)
-     * @param normal   Vertex normal (x, y, z)
-     * @param tangent  Vertex tangent (x, y, z)
-     * @param texCoord Texture coordinates (u, v)
+     * Static meshes leave `joints` at 0 and `weights` as (1,0,0,0). Skinned
+     * draws still gate on instance `boneOffset != kNoSkin`.
      */
     struct Vertex
     {
@@ -23,13 +17,14 @@ namespace FREYA_NAMESPACE
         glm::vec3 normal;   ///< Normal vector
         glm::vec3 tangent;  ///< Tangent vector
         glm::vec2 texCoord; ///< UV coordinates
+        glm::uvec4 joints { 0 };
+        glm::vec4  weights { 1.f, 0.f, 0.f, 0.f };
 
         /**
          * @brief Returns Vulkan vertex input binding descriptions.
          *
          * Binding 0: Vertex data (stride = sizeof(Vertex))
-         * Binding 1: Instance data (managed by
-         * `Renderer::SetInstanceModels`)
+         * Binding 1: Instance data (`InstanceTransform`)
          */
         static std::vector<vk::VertexInputBindingDescription>
         GetBindingDescription();
@@ -37,10 +32,10 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Returns Vulkan vertex attribute descriptions.
          *
-         * Location 0-4: Vertex attributes (position, color, normal,
-         * tangent, texCoord)
+         * Location 0-4: Vertex attributes
          * Location 5-8 / 9-12: Instance current / previous model
-         * (engine layout)
+         * Location 13: materialId, entityId, flags, boneOffset (uvec4)
+         * Location 14-15: joints / weights
          */
         static std::vector<vk::VertexInputAttributeDescription>
         GetAttributesDescription();

@@ -18,11 +18,13 @@ namespace FREYA_NAMESPACE
         const skr::Arc<Surface>&                     surface,
         const skr::Arc<FreyaOptions>&                freyaOptions,
         const skr::Arc<MaterialDescriptorResources>& materialResources,
+        const skr::Arc<BoneMatrixResources>&         boneResources,
         const skr::Arc<LightService>&                lightService,
         const skr::Arc<skr::ServiceProvider>&        serviceProvider) :
         mDevice(device), mPhysicalDevice(physicalDevice), mSurface(surface),
         mFreyaOptions(freyaOptions), mMaterialResources(materialResources),
-        mLightService(lightService), mServiceProvider(serviceProvider)
+        mBoneResources(boneResources), mLightService(lightService),
+        mServiceProvider(serviceProvider)
     {
     }
 
@@ -272,8 +274,12 @@ namespace FREYA_NAMESPACE
 
         auto& bindlessLayout = mMaterialResources->GetBindlessLayout();
         auto  lightLayout    = mLightService->GetLayout();
-        auto  accumSetLayouts =
-            std::array { cameraSetLayout, bindlessLayout, lightLayout };
+        auto  accumSetLayouts = std::array {
+            cameraSetLayout,
+            bindlessLayout,
+            lightLayout,
+            mBoneResources->GetLayout(),
+        };
         auto accumulateLayout = mDevice->Get().createPipelineLayout(
             vk::PipelineLayoutCreateInfo().setSetLayouts(accumSetLayouts));
 
@@ -533,11 +539,12 @@ namespace FREYA_NAMESPACE
         }
 
         return skr::MakeArc<TranslucentPass>(
-            mDevice, mFreyaOptions, mMaterialResources, mLightService,
-            accumulateRenderPass, resolveRenderPass, accumulateLayout,
-            resolveLayout, accumulatePipeline, resolvePipeline, uniformBuffer,
-            cameraSetLayout, cameraPool, cameraSets, resolveSetLayout,
-            resolvePool, resolveSets, std::move(oitAccum), std::move(oitReveal),
+            mDevice, mFreyaOptions, mMaterialResources, mBoneResources,
+            mLightService, accumulateRenderPass, resolveRenderPass,
+            accumulateLayout, resolveLayout, accumulatePipeline,
+            resolvePipeline, uniformBuffer, cameraSetLayout, cameraPool,
+            cameraSets, resolveSetLayout, resolvePool, resolveSets,
+            std::move(oitAccum), std::move(oitReveal),
             std::move(sceneWithTranslucency),
             std::move(accumulateFramebuffers),
             std::move(resolveFramebuffers), sampler, depthFormat, extent);

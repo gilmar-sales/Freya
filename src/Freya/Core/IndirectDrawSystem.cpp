@@ -467,6 +467,8 @@ namespace FREYA_NAMESPACE
                 if (matInfo.alphaMode == AlphaMode::Blend)
                     flags |= kSceneInstanceFlagTranslucent;
             }
+            if (src.boneOffset != kNoSkin)
+                flags |= kSceneInstanceFlagSkinned;
 
             mSceneInstances[dst] = SceneInstance {
                 .model      = src.model,
@@ -486,6 +488,7 @@ namespace FREYA_NAMESPACE
                 .materialId = src.materialId,
                 .entityId   = src.entityId,
                 .flags      = flags,
+                .boneOffset = src.boneOffset,
             };
         }
 

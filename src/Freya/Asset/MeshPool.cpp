@@ -13,6 +13,11 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <string>
+#include <unordered_map>
+
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 namespace FREYA_NAMESPACE
 {
@@ -172,7 +177,8 @@ namespace FREYA_NAMESPACE
         }
 
         std::uint32_t createMesh(const std::vector<Vertex>&        vertices,
-                                 const std::vector<std::uint32_t>& indicesIn)
+                                 const std::vector<std::uint32_t>& indicesIn,
+                                 const bool inflateAabb = false)
         {
             auto indices = indicesIn;
             if (!indices.empty() && !vertices.empty())
@@ -272,6 +278,15 @@ namespace FREYA_NAMESPACE
                 aabbMin = glm::vec3(0.0f);
                 aabbMax = glm::vec3(0.0f);
             }
+            if (inflateAabb && !vertices.empty())
+            {
+                const glm::vec3 center = 0.5f * (aabbMin + aabbMax);
+                const glm::vec3 extent = 0.5f * (aabbMax - aabbMin);
+                const float radius =
+                    glm::length(extent) * 1.25f;
+                aabbMin = center - glm::vec3(radius);
+                aabbMax = center + glm::vec3(radius);
+            }
 
             const auto lodBase = static_cast<std::uint32_t>(meshLods.size());
             const auto vertexOffUnits = static_cast<std::int32_t>(
@@ -308,6 +323,7 @@ namespace FREYA_NAMESPACE
                 .lodBase  = lodBase,
                 .aabbMin  = aabbMin,
                 .aabbMax  = aabbMax,
+                .skinned  = inflateAabb,
                 .id       = static_cast<std::uint32_t>(meshes.size()),
             };
 
@@ -402,6 +418,279 @@ namespace FREYA_NAMESPACE
             return meshIds;
         }
 
+        static glm::mat4 toGlm(const aiMatrix4x4& m)
+        {
+            // Assimp stores rows contiguously; glm is column-major.
+            return glm::transpose(glm::make_mat4(&m.a1));
+        }
+
+        static std::string aiName(const aiString& s)
+        {
+            return std::string(s.C_Str());
+        }
+
+        void collectBoneNames(const aiScene* scene,
+                              std::unordered_map<std::string, std::uint32_t>&
+                                  nameToIndex,
+                              Skeleton& skeleton)
+        {
+            for (unsigned m = 0; m < scene->mNumMeshes; ++m)
+            {
+                const aiMesh* mesh = scene->mMeshes[m];
+                for (unsigned b = 0; b < mesh->mNumBones; ++b)
+                {
+                    const auto name = aiName(mesh->mBones[b]->mName);
+                    if (nameToIndex.contains(name))
+                        continue;
+                    const auto idx =
+                        static_cast<std::uint32_t>(skeleton.names.size());
+                    nameToIndex.emplace(name, idx);
+                    skeleton.names.push_back(name);
+                    skeleton.parents.push_back(-1);
+                    skeleton.inverseBind.push_back(
+                        toGlm(mesh->mBones[b]->mOffsetMatrix));
+                    skeleton.restLocal.push_back(glm::mat4(1.f));
+                }
+            }
+        }
+
+        void assignParentsAndRest(const aiNode*      node,
+                                  const std::int32_t parentBone,
+                                  std::unordered_map<std::string, std::uint32_t>&
+                                      nameToIndex,
+                                  Skeleton&          skeleton)
+        {
+            const auto name  = aiName(node->mName);
+            std::int32_t self = parentBone;
+            if (const auto it = nameToIndex.find(name); it != nameToIndex.end())
+            {
+                self                         = static_cast<std::int32_t>(it->second);
+                skeleton.parents[it->second] = parentBone;
+                skeleton.restLocal[it->second] =
+                    toGlm(node->mTransformation);
+            }
+            for (unsigned i = 0; i < node->mNumChildren; ++i)
+                assignParentsAndRest(node->mChildren[i], self, nameToIndex,
+                                     skeleton);
+        }
+
+        std::uint32_t processSkinnedMesh(
+            const aiMesh* mesh, const aiScene* scene,
+            const std::unordered_map<std::string, std::uint32_t>& nameToIndex)
+        {
+            std::vector<Vertex>        vertices(mesh->mNumVertices);
+            std::vector<std::uint32_t> indices;
+
+            for (auto i = 0u; i < mesh->mNumVertices; ++i)
+            {
+                const auto& aVertex  = mesh->mVertices[i];
+                const auto& aNormal  = mesh->mNormals
+                                           ? mesh->mNormals[i]
+                                           : aiVector3D(0, 1, 0);
+                const auto& aTangent = mesh->HasTangentsAndBitangents()
+                                           ? mesh->mTangents[i]
+                                           : aiVector3D(1, 0, 0);
+                const auto  aTextCoord =
+                    mesh->HasTextureCoords(0) ? mesh->mTextureCoords[0][i]
+                                              : aiVector3D(0, 0, 0);
+
+                aiColor3D aColor(1.0, 1.0, 1.0);
+                if (scene->mMaterials &&
+                    mesh->mMaterialIndex < scene->mNumMaterials)
+                {
+                    scene->mMaterials[mesh->mMaterialIndex]->Get(
+                        AI_MATKEY_COLOR_DIFFUSE, aColor);
+                }
+
+                vertices[i] = Vertex {
+                    .position = glm::vec3(aVertex.x, aVertex.y, aVertex.z),
+                    .color    = glm::vec3(aColor.r, aColor.g, aColor.b),
+                    .normal   = glm::vec3(aNormal.x, aNormal.y, aNormal.z),
+                    .tangent  = glm::vec3(aTangent.x, aTangent.y, aTangent.z),
+                    .texCoord = glm::vec2(aTextCoord.x, aTextCoord.y),
+                    .joints   = glm::uvec4(0),
+                    .weights  = glm::vec4(0.f),
+                };
+            }
+
+            std::vector<std::uint32_t> weightCounts(mesh->mNumVertices, 0);
+            for (unsigned b = 0; b < mesh->mNumBones; ++b)
+            {
+                const aiBone* bone = mesh->mBones[b];
+                const auto    it   = nameToIndex.find(aiName(bone->mName));
+                if (it == nameToIndex.end())
+                    continue;
+                const std::uint32_t joint = it->second;
+                for (unsigned w = 0; w < bone->mNumWeights; ++w)
+                {
+                    const auto& aw   = bone->mWeights[w];
+                    const auto  vi   = aw.mVertexId;
+                    auto&       slot = weightCounts[vi];
+                    if (slot >= 4 || aw.mWeight <= 0.f)
+                        continue;
+                    vertices[vi].joints[slot]  = joint;
+                    vertices[vi].weights[slot] = aw.mWeight;
+                    ++slot;
+                }
+            }
+
+            for (auto& v : vertices)
+            {
+                const float sum =
+                    v.weights.x + v.weights.y + v.weights.z + v.weights.w;
+                if (sum > 1e-6f)
+                    v.weights /= sum;
+                else
+                    v.weights = glm::vec4(1.f, 0.f, 0.f, 0.f);
+            }
+
+            for (auto i = 0u; i < mesh->mNumFaces; ++i)
+            {
+                const auto& face = mesh->mFaces[i];
+                for (auto j = 0u; j < face.mNumIndices; ++j)
+                    indices.push_back(face.mIndices[j]);
+            }
+
+            return createMesh(vertices, indices, true);
+        }
+
+        void processSkinnedNode(
+            std::vector<std::uint32_t>& meshIds, const aiNode* node,
+            const aiScene* scene,
+            const std::unordered_map<std::string, std::uint32_t>& nameToIndex)
+        {
+            for (unsigned int i = 0; i < node->mNumMeshes; ++i)
+            {
+                const aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+                meshIds.push_back(
+                    processSkinnedMesh(mesh, scene, nameToIndex));
+            }
+            for (unsigned int i = 0; i < node->mNumChildren; ++i)
+                processSkinnedNode(meshIds, node->mChildren[i], scene,
+                                   nameToIndex);
+        }
+
+        static AnimationClip convertAnimation(
+            const aiAnimation* anim,
+            const std::unordered_map<std::string, std::uint32_t>& nameToIndex)
+        {
+            AnimationClip clip;
+            clip.name = aiName(anim->mName);
+            const float tps =
+                anim->mTicksPerSecond > 0.0 ? static_cast<float>(
+                                                  anim->mTicksPerSecond)
+                                            : 25.f;
+            clip.ticksPerSecond = tps;
+            clip.duration =
+                static_cast<float>(anim->mDuration) / std::max(tps, 1e-6f);
+
+            for (unsigned c = 0; c < anim->mNumChannels; ++c)
+            {
+                const aiNodeAnim* ch = anim->mChannels[c];
+                const auto it = nameToIndex.find(aiName(ch->mNodeName));
+                if (it == nameToIndex.end())
+                    continue;
+
+                AnimationChannel out;
+                out.jointIndex = it->second;
+                out.translations.reserve(ch->mNumPositionKeys);
+                for (unsigned i = 0; i < ch->mNumPositionKeys; ++i)
+                {
+                    const auto& k = ch->mPositionKeys[i];
+                    out.translations.push_back(AnimationVecKey {
+                        .time = static_cast<float>(k.mTime) / tps,
+                        .value = glm::vec3(k.mValue.x, k.mValue.y, k.mValue.z),
+                    });
+                }
+                out.rotations.reserve(ch->mNumRotationKeys);
+                for (unsigned i = 0; i < ch->mNumRotationKeys; ++i)
+                {
+                    const auto& k = ch->mRotationKeys[i];
+                    out.rotations.push_back(AnimationQuatKey {
+                        .time = static_cast<float>(k.mTime) / tps,
+                        .value = glm::normalize(glm::quat(
+                            k.mValue.w, k.mValue.x, k.mValue.y, k.mValue.z)),
+                    });
+                }
+                out.scales.reserve(ch->mNumScalingKeys);
+                for (unsigned i = 0; i < ch->mNumScalingKeys; ++i)
+                {
+                    const auto& k = ch->mScalingKeys[i];
+                    out.scales.push_back(AnimationVecKey {
+                        .time = static_cast<float>(k.mTime) / tps,
+                        .value = glm::vec3(k.mValue.x, k.mValue.y, k.mValue.z),
+                    });
+                }
+                clip.channels.push_back(std::move(out));
+            }
+            return clip;
+        }
+
+        SkinnedModel createSkinnedModelFromFile(const std::string& path)
+        {
+            SkinnedModel out;
+            logger->LogTrace("Creating skinned model from file: {}", path);
+            Assimp::Importer importer;
+            importer.SetPropertyInteger(AI_CONFIG_PP_LBW_MAX_WEIGHTS, 4);
+            const aiScene* scene = importer.ReadFile(
+                path,
+                aiProcess_CalcTangentSpace | aiProcess_Triangulate |
+                    aiProcess_SortByPType | aiProcess_GenNormals |
+                    aiProcess_GenUVCoords | aiProcess_JoinIdenticalVertices |
+                    aiProcess_GlobalScale | aiProcess_LimitBoneWeights |
+                    aiProcess_ValidateDataStructure);
+
+            if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE ||
+                !scene->mRootNode)
+            {
+                logger->LogError("Failed loading skinned mesh: {}",
+                                 importer.GetErrorString());
+                return out;
+            }
+
+            std::unordered_map<std::string, std::uint32_t> nameToIndex;
+            collectBoneNames(scene, nameToIndex, out.skeleton);
+            if (out.skeleton.JointCount() == 0)
+            {
+                logger->LogError(
+                    "Skinned load found no bones in '{}'; use "
+                    "CreateMeshFromFile for static models.",
+                    path);
+                return out;
+            }
+
+            assignParentsAndRest(scene->mRootNode, -1, nameToIndex,
+                                 out.skeleton);
+            // Refresh inverse-bind from first bone occurrence (already set);
+            // later meshes may repeat the same bone with same offset.
+            for (unsigned m = 0; m < scene->mNumMeshes; ++m)
+            {
+                const aiMesh* mesh = scene->mMeshes[m];
+                for (unsigned b = 0; b < mesh->mNumBones; ++b)
+                {
+                    const auto name = aiName(mesh->mBones[b]->mName);
+                    const auto it   = nameToIndex.find(name);
+                    if (it == nameToIndex.end())
+                        continue;
+                    out.skeleton.inverseBind[it->second] =
+                        toGlm(mesh->mBones[b]->mOffsetMatrix);
+                }
+            }
+
+            processSkinnedNode(out.meshIds, scene->mRootNode, scene,
+                               nameToIndex);
+
+            for (unsigned a = 0; a < scene->mNumAnimations; ++a)
+                out.clips.push_back(
+                    convertAnimation(scene->mAnimations[a], nameToIndex));
+
+            logger->LogTrace(
+                "Loaded skinned model '{}' ({} meshes, {} joints, {} clips)",
+                path, out.meshIds.size(), out.skeleton.JointCount(),
+                out.clips.size());
+            return out;
+        }
+
         void bindGeometry() const
         {
             constexpr vk::DeviceSize zeroOffset = 0;
@@ -458,6 +747,11 @@ namespace FREYA_NAMESPACE
         const std::string& path)
     {
         return mImpl->createMeshFromFile(path);
+    }
+
+    SkinnedModel MeshPool::CreateSkinnedModelFromFile(const std::string& path)
+    {
+        return mImpl->createSkinnedModelFromFile(path);
     }
 
     bool MeshPool::Contains(const std::uint32_t meshId) const

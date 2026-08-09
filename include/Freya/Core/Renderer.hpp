@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Asset/BoneMatrixResources.hpp"
 #include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"
@@ -220,6 +221,12 @@ namespace FREYA_NAMESPACE
          * Used with DrawInstanced. Prefer UploadSceneInstances for new code.
          */
         void SetInstanceModels(const glm::mat4* models, std::size_t count);
+
+        /**
+         * @brief Upload skinning bone palettes for the current in-flight
+         * frame (current + previous slots for TAA).
+         */
+        void UploadBoneMatrices(std::span<const glm::mat4> bones);
 
         void ClearDrawCommands();
         void ExecuteDrawCommands(bool bindMaterials = true);

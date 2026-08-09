@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Asset/BoneMatrixResources.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
@@ -17,8 +18,8 @@ namespace FREYA_NAMESPACE
      *
      * Owns three depth image arrays (directional CSM cascades, spot
      * lights, and a cube-array for point lights), a single depth-only
-     * render pass, a depth-only graphics pipeline (push-constant light
-     * view-projection, no descriptor sets), one framebuffer per
+     * render pass, a depth-only graphics pipeline (bone SSBO set 0 +
+     * push-constant light view-projection), one framebuffer per
      * cascade/spot layer and per point cube face, a host-visible
      * ShadowUniformBuffer, and a hardware comparison sampler used for
      * PCF-style shadow sampling by the lighting pass.
@@ -27,32 +28,33 @@ namespace FREYA_NAMESPACE
     {
       public:
         ShadowPass(
-            const skr::Arc<Device>&             device,
-            const skr::Arc<PhysicalDevice>&     physicalDevice,
-            const skr::Arc<FreyaOptions>&       freyaOptions,
-            vk::RenderPass                      renderPass,
-            vk::PipelineLayout                  pipelineLayout,
-            vk::Pipeline                        pipeline,
-            vk::Image                           cascadeImage,
-            vk::DeviceMemory                    cascadeMemory,
-            vk::ImageView                       cascadeArrayView,
-            const std::vector<vk::ImageView>&   cascadeLayerViews,
-            const std::vector<vk::Framebuffer>& cascadeFramebuffers,
-            vk::Image                           spotImage,
-            vk::DeviceMemory                    spotMemory,
-            vk::ImageView                       spotArrayView,
-            const std::vector<vk::ImageView>&   spotLayerViews,
-            const std::vector<vk::Framebuffer>& spotFramebuffers,
-            vk::Image                           pointImage,
-            vk::DeviceMemory                    pointMemory,
-            vk::ImageView                       pointArrayView,
-            const std::vector<vk::ImageView>&   pointFaceViews,
-            const std::vector<vk::Framebuffer>& pointFramebuffers,
-            const skr::Arc<Buffer>&             uniformBuffer,
-            vk::Sampler                         compareSampler,
-            std::uint32_t                       cascadeCount,
-            std::uint32_t                       maxSpotShadows,
-            std::uint32_t                       maxPointShadows);
+            const skr::Arc<Device>&               device,
+            const skr::Arc<PhysicalDevice>&       physicalDevice,
+            const skr::Arc<FreyaOptions>&         freyaOptions,
+            const skr::Arc<BoneMatrixResources>&  boneResources,
+            vk::RenderPass                        renderPass,
+            vk::PipelineLayout                    pipelineLayout,
+            vk::Pipeline                          pipeline,
+            vk::Image                             cascadeImage,
+            vk::DeviceMemory                      cascadeMemory,
+            vk::ImageView                         cascadeArrayView,
+            const std::vector<vk::ImageView>&     cascadeLayerViews,
+            const std::vector<vk::Framebuffer>&   cascadeFramebuffers,
+            vk::Image                             spotImage,
+            vk::DeviceMemory                      spotMemory,
+            vk::ImageView                         spotArrayView,
+            const std::vector<vk::ImageView>&     spotLayerViews,
+            const std::vector<vk::Framebuffer>&   spotFramebuffers,
+            vk::Image                             pointImage,
+            vk::DeviceMemory                      pointMemory,
+            vk::ImageView                         pointArrayView,
+            const std::vector<vk::ImageView>&     pointFaceViews,
+            const std::vector<vk::Framebuffer>&   pointFramebuffers,
+            const skr::Arc<Buffer>&               uniformBuffer,
+            vk::Sampler                           compareSampler,
+            std::uint32_t                         cascadeCount,
+            std::uint32_t                         maxSpotShadows,
+            std::uint32_t                         maxPointShadows);
 
         ~ShadowPass();
 
@@ -208,9 +210,13 @@ namespace FREYA_NAMESPACE
 
         void destroyGpuResources();
 
-        skr::Arc<Device>         mDevice;
-        skr::Arc<PhysicalDevice> mPhysicalDevice;
-        skr::Arc<FreyaOptions>   mFreyaOptions;
+        void bindBoneDescriptorSet(vk::CommandBuffer commandBuffer) const;
+
+        skr::Arc<Device>               mDevice;
+        skr::Arc<PhysicalDevice>       mPhysicalDevice;
+        skr::Arc<FreyaOptions>         mFreyaOptions;
+        skr::Arc<BoneMatrixResources>  mBoneResources;
+        std::uint32_t                  mFrameIndex = 0;
 
         vk::RenderPass     mRenderPass;
         vk::PipelineLayout mPipelineLayout;

@@ -1,5 +1,6 @@
 #include "Renderer.hpp"
 
+#include "Freya/Asset/BoneMatrixResources.hpp"
 #include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Builders/BloomPassBuilder.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
@@ -902,6 +903,15 @@ namespace FREYA_NAMESPACE
         if (count == 0 || models == nullptr)
             return;
         mLegacyModels.assign(models, models + count);
+    }
+
+    void Renderer::UploadBoneMatrices(const std::span<const glm::mat4> bones)
+    {
+        if (auto boneResources =
+                mServiceProvider->GetService<BoneMatrixResources>())
+        {
+            boneResources->Upload(GetCurrentFrameIndex(), bones);
+        }
     }
 
     BufferBuilder Renderer::GetBufferBuilder() const

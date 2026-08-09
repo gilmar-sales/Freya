@@ -31,6 +31,8 @@ namespace FREYA_NAMESPACE
 
         glm::vec3 aabbMin { 0.0f };
         glm::vec3 aabbMax { 0.0f };
+        /// True when AABBs were inflated for skinned cull conservatism.
+        bool skinned = false;
 
         std::uint32_t id = 0;
     };

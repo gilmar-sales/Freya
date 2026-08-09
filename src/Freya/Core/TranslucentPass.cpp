@@ -12,6 +12,7 @@ namespace FREYA_NAMESPACE
         const skr::Arc<Device>&                      device,
         const skr::Arc<FreyaOptions>&                freyaOptions,
         const skr::Arc<MaterialDescriptorResources>& materialResources,
+        const skr::Arc<BoneMatrixResources>&         boneResources,
         const skr::Arc<LightService>&                lightService,
         const vk::RenderPass                         accumulateRenderPass,
         const vk::RenderPass                         resolveRenderPass,
@@ -35,7 +36,8 @@ namespace FREYA_NAMESPACE
         const vk::Format                             depthFormat,
         const vk::Extent2D                           extent) :
         mDevice(device), mFreyaOptions(freyaOptions),
-        mMaterialResources(materialResources), mLightService(lightService),
+        mMaterialResources(materialResources), mBoneResources(boneResources),
+        mLightService(lightService),
         mAccumulateRenderPass(accumulateRenderPass),
         mResolveRenderPass(resolveRenderPass),
         mAccumulateLayout(accumulateLayout), mResolveLayout(resolveLayout),
@@ -80,6 +82,7 @@ namespace FREYA_NAMESPACE
         mSceneWithTranslucency.clear();
         mUniformBuffer.reset();
         mMaterialResources.reset();
+        mBoneResources.reset();
         mLightService.reset();
     }
 
@@ -134,6 +137,14 @@ namespace FREYA_NAMESPACE
             commandBuffer.bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics, mAccumulateLayout, 2, 1,
                 &lightSet, 0, nullptr);
+        }
+
+        if (mBoneResources)
+        {
+            auto boneSet = mBoneResources->GetSet(frameIndex);
+            commandBuffer.bindDescriptorSets(
+                vk::PipelineBindPoint::eGraphics, mAccumulateLayout, 3, 1,
+                &boneSet, 0, nullptr);
         }
     }
 

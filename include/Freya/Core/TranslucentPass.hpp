@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Asset/BoneMatrixResources.hpp"
 #include "Freya/Asset/MaterialDescriptorResources.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
@@ -18,8 +19,8 @@ namespace FREYA_NAMESPACE
      *
      * Owns per-frame oitAccum (RGBA16F), oitReveal (R8), and
      * sceneWithTranslucency (HDR) so frames in flight do not race. Accumulate
-     * uses deferred depth (test on / write off) and LightService analytical
-     * lighting (set 2).
+     * uses deferred depth (test on / write off), LightService analytical
+     * lighting (set 2), and bone SSBO (set 3).
      */
     class TranslucentPass
     {
@@ -28,6 +29,7 @@ namespace FREYA_NAMESPACE
             const skr::Arc<Device>&                      device,
             const skr::Arc<FreyaOptions>&                freyaOptions,
             const skr::Arc<MaterialDescriptorResources>& materialResources,
+            const skr::Arc<BoneMatrixResources>&         boneResources,
             const skr::Arc<LightService>&                lightService,
             vk::RenderPass                               accumulateRenderPass,
             vk::RenderPass                               resolveRenderPass,
@@ -82,6 +84,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<Device>                      mDevice;
         skr::Arc<FreyaOptions>                mFreyaOptions;
         skr::Arc<MaterialDescriptorResources> mMaterialResources;
+        skr::Arc<BoneMatrixResources>         mBoneResources;
         skr::Arc<LightService>                mLightService;
 
         vk::RenderPass     mAccumulateRenderPass;

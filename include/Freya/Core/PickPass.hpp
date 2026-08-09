@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Asset/BoneMatrixResources.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
@@ -23,26 +24,28 @@ namespace FREYA_NAMESPACE
      * @brief Offscreen integer ID pass for GPU mouse picking.
      *
      * Owns an R32_UINT color target, depth target, pick pipeline (projection
-     * UBO + entity push constant), and a staging buffer for 1-pixel readback.
+     * UBO set 0, bone SSBO set 1 + entity push constant), and a staging
+     * buffer for 1-pixel readback.
      */
     class PickPass
     {
       public:
-        PickPass(const skr::Arc<Device>&         device,
-                 const skr::Arc<PhysicalDevice>& physicalDevice,
-                 const skr::Arc<FreyaOptions>&   freyaOptions,
-                 vk::RenderPass                  renderPass,
-                 vk::PipelineLayout              pipelineLayout,
-                 vk::Pipeline                    pipeline,
-                 vk::DescriptorSetLayout         descriptorSetLayout,
-                 vk::DescriptorPool              descriptorPool,
-                 vk::DescriptorSet               descriptorSet,
-                 const skr::Arc<Buffer>&         uniformBuffer,
-                 const skr::Arc<Buffer>&         stagingBuffer,
-                 const skr::Arc<Image>&          colorImage,
-                 const skr::Arc<Image>&          depthImage,
-                 vk::Framebuffer                 framebuffer,
-                 vk::Extent2D                    extent);
+        PickPass(const skr::Arc<Device>&              device,
+                 const skr::Arc<PhysicalDevice>&      physicalDevice,
+                 const skr::Arc<FreyaOptions>&        freyaOptions,
+                 const skr::Arc<BoneMatrixResources>& boneResources,
+                 vk::RenderPass                       renderPass,
+                 vk::PipelineLayout                   pipelineLayout,
+                 vk::Pipeline                         pipeline,
+                 vk::DescriptorSetLayout              descriptorSetLayout,
+                 vk::DescriptorPool                   descriptorPool,
+                 vk::DescriptorSet                    descriptorSet,
+                 const skr::Arc<Buffer>&              uniformBuffer,
+                 const skr::Arc<Buffer>&              stagingBuffer,
+                 const skr::Arc<Image>&               colorImage,
+                 const skr::Arc<Image>&               depthImage,
+                 vk::Framebuffer                      framebuffer,
+                 vk::Extent2D                         extent);
 
         ~PickPass();
 
@@ -60,13 +63,14 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Renders entity IDs into the pick buffer.
          *
-         * Clears to kPickMissId, binds the pick pipeline and projection UBO,
-         * then invokes drawScene. drawScene should call PushEntityId per mesh
-         * and issue draws with no material binding.
+         * Clears to kPickMissId, binds the pick pipeline, projection UBO,
+         * and bone SSBO, then invokes drawScene. drawScene should call
+         * PushEntityId per mesh and issue draws with no material binding.
          */
         void Render(const skr::Arc<CommandPool>&   commandPool,
                     const ProjectionUniformBuffer& projection,
-                    const std::function<void()>&   drawScene);
+                    const std::function<void()>&   drawScene,
+                    std::uint32_t                  frameIndex);
 
         /**
          * @brief Pushes the per-draw entity ID push constant.
@@ -100,9 +104,10 @@ namespace FREYA_NAMESPACE
         void destroyFramebufferResources();
         void createFramebuffer();
 
-        skr::Arc<Device>         mDevice;
-        skr::Arc<PhysicalDevice> mPhysicalDevice;
-        skr::Arc<FreyaOptions>   mFreyaOptions;
+        skr::Arc<Device>              mDevice;
+        skr::Arc<PhysicalDevice>      mPhysicalDevice;
+        skr::Arc<FreyaOptions>        mFreyaOptions;
+        skr::Arc<BoneMatrixResources> mBoneResources;
 
         vk::RenderPass          mRenderPass;
         vk::PipelineLayout      mPipelineLayout;

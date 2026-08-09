@@ -51,6 +51,16 @@ namespace FREYA_NAMESPACE
                 .setFormat(vk::Format::eR32G32Sfloat)
                 .setOffset(offsetof(Vertex, texCoord)),
             vk::VertexInputAttributeDescription()
+                .setBinding(0)
+                .setLocation(14)
+                .setFormat(vk::Format::eR32G32B32A32Uint)
+                .setOffset(offsetof(Vertex, joints)),
+            vk::VertexInputAttributeDescription()
+                .setBinding(0)
+                .setLocation(15)
+                .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                .setOffset(offsetof(Vertex, weights)),
+            vk::VertexInputAttributeDescription()
                 .setBinding(1)
                 .setLocation(5)
                 .setFormat(vk::Format::eR32G32B32A32Sfloat)
@@ -99,13 +109,8 @@ namespace FREYA_NAMESPACE
             vk::VertexInputAttributeDescription()
                 .setBinding(1)
                 .setLocation(13)
-                .setFormat(vk::Format::eR32G32Uint)
+                .setFormat(vk::Format::eR32G32B32A32Uint)
                 .setOffset(offsetof(InstanceTransform, materialId)),
-            vk::VertexInputAttributeDescription()
-                .setBinding(1)
-                .setLocation(14)
-                .setFormat(vk::Format::eR32G32Uint)
-                .setOffset(offsetof(InstanceTransform, entityId)),
         };
 
         return attributesDescription;

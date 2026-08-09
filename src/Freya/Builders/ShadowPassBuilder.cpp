@@ -1,5 +1,6 @@
 #include "Freya/Builders/ShadowPassBuilder.hpp"
 
+#include "Freya/Asset/InstanceTransform.hpp"
 #include "Freya/Asset/Vertex.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
@@ -28,7 +29,7 @@ namespace FREYA_NAMESPACE
         auto renderPass = createRenderPass(depthFormat);
 
         // ------------------------------------------------------------------
-        // Depth-only pipeline (push constant mat4, no descriptor sets)
+        // Depth-only pipeline (set 0 = bone SSBO + push constant light VP)
         // ------------------------------------------------------------------
         auto vertShader =
             mServiceProvider->GetService<ShaderModuleBuilder>()
@@ -53,10 +54,9 @@ namespace FREYA_NAMESPACE
                 .setPName("main"),
         };
 
-        // Depth.vert only consumes position (loc 0) and instance
-        // model mat4 (loc 5–8). Stride still covers prevModel;
-        // unused mesh / prevModel attrs are omitted to avoid
-        // validation warnings.
+        // Depth.vert: position, instance model, boneOffset (loc13),
+        // joints/weights. Stride still covers prevModel; unused attrs
+        // are omitted to avoid validation warnings.
         auto vertexBinding = Vertex::GetBindingDescription();
         auto vertexAttributes =
             std::vector<vk::VertexInputAttributeDescription> {
@@ -65,6 +65,16 @@ namespace FREYA_NAMESPACE
                     .setLocation(0)
                     .setFormat(vk::Format::eR32G32B32Sfloat)
                     .setOffset(offsetof(Vertex, position)),
+                vk::VertexInputAttributeDescription()
+                    .setBinding(0)
+                    .setLocation(14)
+                    .setFormat(vk::Format::eR32G32B32A32Uint)
+                    .setOffset(offsetof(Vertex, joints)),
+                vk::VertexInputAttributeDescription()
+                    .setBinding(0)
+                    .setLocation(15)
+                    .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                    .setOffset(offsetof(Vertex, weights)),
                 vk::VertexInputAttributeDescription()
                     .setBinding(1)
                     .setLocation(5)
@@ -85,6 +95,11 @@ namespace FREYA_NAMESPACE
                     .setLocation(8)
                     .setFormat(vk::Format::eR32G32B32A32Sfloat)
                     .setOffset(sizeof(glm::vec4) * 3),
+                vk::VertexInputAttributeDescription()
+                    .setBinding(1)
+                    .setLocation(13)
+                    .setFormat(vk::Format::eR32G32B32A32Uint)
+                    .setOffset(offsetof(InstanceTransform, materialId)),
             };
 
         auto vertexInputInfo =
@@ -147,9 +162,11 @@ namespace FREYA_NAMESPACE
                 .setOffset(0)
                 .setSize(sizeof(ShadowPushConstant));
 
-        auto pipelineLayoutInfo =
-            vk::PipelineLayoutCreateInfo().setPushConstantRanges(
-                pushConstantRange);
+        const auto boneLayout = mBoneResources->GetLayout();
+        auto       pipelineLayoutInfo =
+            vk::PipelineLayoutCreateInfo()
+                .setSetLayouts(boneLayout)
+                .setPushConstantRanges(pushConstantRange);
 
         auto pipelineLayout =
             mDevice->Get().createPipelineLayout(pipelineLayoutInfo);
@@ -255,6 +272,7 @@ namespace FREYA_NAMESPACE
             mDevice,
             mPhysicalDevice,
             mFreyaOptions,
+            mBoneResources,
             renderPass,
             pipelineLayout,
             pipeline,

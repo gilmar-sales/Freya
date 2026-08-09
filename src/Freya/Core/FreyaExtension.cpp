@@ -1,6 +1,7 @@
 #include "FreyaExtension.hpp"
 
 #include "Freya/Builders/BloomPassBuilder.hpp"
+#include "Freya/Builders/BoneMatrixResourcesBuilder.hpp"
 #include "Freya/Builders/CommandPoolBuilder.hpp"
 #include "Freya/Builders/CompositePassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
@@ -18,6 +19,7 @@
 #include "Freya/Builders/TranslucentPassBuilder.hpp"
 #include "Freya/Builders/WindowBuilder.hpp"
 
+#include "Freya/Asset/BoneMatrixResources.hpp"
 #include "Freya/Asset/MaterialDescriptorResources.hpp"
 #include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"
@@ -49,6 +51,7 @@ namespace FREYA_NAMESPACE
         services.AddTransient<ShaderModuleBuilder>();
         services.AddTransient<CommandPoolBuilder>();
         services.AddTransient<MaterialDescriptorResourcesBuilder>();
+        services.AddTransient<BoneMatrixResourcesBuilder>();
         services.AddTransient<DeferredCompressedPassBuilder>();
         services.AddTransient<BloomPassBuilder>();
         services.AddTransient<TaaPassBuilder>();
@@ -130,6 +133,13 @@ namespace FREYA_NAMESPACE
             [](skr::ServiceProvider& serviceProvider) {
                 return serviceProvider
                     .GetService<MaterialDescriptorResourcesBuilder>()
+                    ->Build();
+            });
+
+        services.AddSingleton<BoneMatrixResources>(
+            [](skr::ServiceProvider& serviceProvider) {
+                return serviceProvider
+                    .GetService<BoneMatrixResourcesBuilder>()
                     ->Build();
             });
 

@@ -246,8 +246,11 @@ namespace FREYA_NAMESPACE
             mDevice->Get().updateDescriptorSets(1, &writer, 0, nullptr);
         }
 
-        const auto vertexPipelineSetLayouts =
-            std::array { frameLayouts[0], samplerLayout };
+        const auto vertexPipelineSetLayouts = std::array {
+            frameLayouts[0],
+            samplerLayout,
+            mBoneResources->GetLayout(),
+        };
         auto vertexPipelineLayout = mDevice->Get().createPipelineLayout(
             vk::PipelineLayoutCreateInfo().setSetLayouts(
                 vertexPipelineSetLayouts));
@@ -654,7 +657,7 @@ namespace FREYA_NAMESPACE
             descriptorPool, gbufferImages, sceneColorImage, velocityImage,
             depthImage, framebuffers, lightingRenderPass, lightingFramebuffer,
             lightingSetLayout, lightingDescriptorPool, lightingSets,
-            mMaterialResources, gbufferSampler, extent);
+            mMaterialResources, mBoneResources, gbufferSampler, extent);
     }
 
     vk::RenderPass DeferredCompressedPassBuilder::createGeometryRenderPass()

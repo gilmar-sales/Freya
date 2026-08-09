@@ -10,9 +10,28 @@ auto meshPool = serviceProvider->GetService<fra::MeshPool>();
 // From file (Assimp: FBX, OBJ, …). Returns one ID per mesh in the file.
 auto meshIds = meshPool->CreateMeshFromFile("./Resources/Models/MyModel.fbx");
 
+// Skinned (no PreTransformVertices): joints/weights + shared skeleton/clips.
+fra::SkinnedModel fox =
+    meshPool->CreateSkinnedModelFromFile("./Resources/Models/Fox.glb");
+auto pose = fra::EvaluateSkeletonPose(fox.skeleton, fox.clips[0], timeSec);
+renderer->UploadBoneMatrices(pose);
+// Instances share boneOffset=0 .. JointCount()-1 in the bone palette.
+uploads.push_back({
+    .model = model,
+    .meshId = fox.meshIds[0],
+    .materialId = mat,
+    .entityId = 1,
+    .boneOffset = 0,
+    .boneCount = fox.skeleton.JointCount(),
+});
+
 // From memory (already CPU-side Freya vertices + uint32 indices)
 std::uint32_t meshId = meshPool->CreateMesh(vertices, indices);
 ```
+
+Static meshes leave `Vertex::joints/weights` at defaults and
+`SceneInstanceUpload::boneOffset = fra::kNoSkin`. Skinned draws evaluate a
+second/prev bone palette for TAA velocity (`UploadBoneMatrices`).
 
 Draw submission goes through `Renderer::UploadSceneInstances` (preferred) or
 the legacy `Draw` / `DrawInstanced` helpers.
