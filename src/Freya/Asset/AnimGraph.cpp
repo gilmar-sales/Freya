@@ -203,6 +203,25 @@ namespace FREYA_NAMESPACE
             return;
         }
 
+        if (state.kind == StateKind::Blend2D)
+        {
+            if (state.blendTimes.size() != state.blend2DSamples.size())
+                state.blendTimes.assign(state.blend2DSamples.size(), 0.f);
+
+            const glm::vec2 param { GetFloat(state.blendParam),
+                                    GetFloat(state.blendParamY) };
+            if (state.syncPhase)
+            {
+                state.blendPhase = AdvanceBlend2DPhase(
+                    state.blend2DSamples, param, state.blendPhase, dt);
+                WriteBlend2DTimesFromPhase(
+                    state.blend2DSamples, state.blendTimes, state.blendPhase);
+            }
+            else
+                AdvanceBlend2DTimes(state.blend2DSamples, state.blendTimes, dt);
+            return;
+        }
+
         const float tPrev = clipTime;
         const float rate  = std::max(state.playbackSpeed, 0.f);
         clipTime += dt * rate;
@@ -249,6 +268,13 @@ namespace FREYA_NAMESPACE
             std::vector<float> times = state.blendTimes;
             return EvaluateBlend1D(*mSkeleton, state.blendSamples, times,
                                    GetFloat(state.blendParam));
+        }
+        if (state.kind == StateKind::Blend2D)
+        {
+            std::vector<float> times = state.blendTimes;
+            return EvaluateBlend2D(
+                *mSkeleton, state.blend2DSamples, times,
+                { GetFloat(state.blendParam), GetFloat(state.blendParamY) });
         }
 
         if (state.baked && !state.baked->Empty())
@@ -366,32 +392,85 @@ namespace FREYA_NAMESPACE
         return mStates[mCurrentState].name;
     }
 
+    bool AnimGraph::TryGetLocoGpuSample(AnimLocoGpuSample& out) const
+    {
+        out = {};
+        if (!mSkeleton || mStates.empty() || mCurrentState >= mStates.size())
+            return false;
+        const auto& state = mStates[mCurrentState];
+
+        if (state.kind == StateKind::Blend1D && !state.blendSamples.empty())
+        {
+            std::vector<float> values(state.blendSamples.size());
+            for (std::uint32_t i = 0; i < state.blendSamples.size(); ++i)
+                values[i] = state.blendSamples[i].value;
+            const float param = GetFloat(state.blendParam);
+            const auto  span  = ResolveBlend1D(values, param);
+            const auto& s0    = state.blendSamples[span.i0];
+            const auto& s1    = state.blendSamples[span.i1];
+            out.clipA         = s0.clip;
+            out.clipB         = s1.clip;
+            out.clipC         = s0.clip;
+            out.timeA         = span.i0 < state.blendTimes.size()
+                                    ? state.blendTimes[span.i0]
+                                    : 0.f;
+            out.timeB         = span.i1 < state.blendTimes.size()
+                                    ? state.blendTimes[span.i1]
+                                    : 0.f;
+            out.timeC         = out.timeA;
+            out.wA            = 1.f - span.t;
+            out.wB            = span.t;
+            out.wC            = 0.f;
+            return out.clipA != nullptr;
+        }
+
+        if (state.kind == StateKind::Blend2D && !state.blend2DSamples.empty())
+        {
+            std::vector<glm::vec2> positions(state.blend2DSamples.size());
+            for (std::uint32_t i = 0; i < state.blend2DSamples.size(); ++i)
+                positions[i] = state.blend2DSamples[i].pos;
+            const glm::vec2 param { GetFloat(state.blendParam),
+                                    GetFloat(state.blendParamY) };
+            const auto      tri = ResolveBlend2D(positions, param);
+            const auto&     s0  = state.blend2DSamples[tri.i0];
+            const auto&     s1  = state.blend2DSamples[tri.i1];
+            const auto&     s2  = state.blend2DSamples[tri.i2];
+            out.clipA           = s0.clip;
+            out.clipB           = s1.clip;
+            out.clipC           = s2.clip;
+            out.timeA           = tri.i0 < state.blendTimes.size()
+                                      ? state.blendTimes[tri.i0]
+                                      : 0.f;
+            out.timeB           = tri.i1 < state.blendTimes.size()
+                                      ? state.blendTimes[tri.i1]
+                                      : 0.f;
+            out.timeC           = tri.i2 < state.blendTimes.size()
+                                      ? state.blendTimes[tri.i2]
+                                      : 0.f;
+            out.wA              = tri.w0;
+            out.wB              = tri.w1;
+            out.wC              = tri.w2;
+            return out.clipA != nullptr;
+        }
+        return false;
+    }
+
     bool AnimGraph::TryGetBlend1DGpuSample(
         const AnimationClip*& clipA, float& timeA, const AnimationClip*& clipB,
         float& timeB, float& blendT) const
     {
-        clipA = clipB = nullptr;
-        timeA = timeB = blendT = 0.f;
-        if (!mSkeleton || mStates.empty() || mCurrentState >= mStates.size())
+        AnimLocoGpuSample loco {};
+        if (!TryGetLocoGpuSample(loco) || loco.wC > 1e-6f)
+        {
+            clipA = clipB = nullptr;
+            timeA = timeB = blendT = 0.f;
             return false;
-        const auto& state = mStates[mCurrentState];
-        if (state.kind != StateKind::Blend1D || state.blendSamples.empty())
-            return false;
-
-        std::vector<float> values(state.blendSamples.size());
-        for (std::uint32_t i = 0; i < state.blendSamples.size(); ++i)
-            values[i] = state.blendSamples[i].value;
-        const float param = GetFloat(state.blendParam);
-        const auto  span  = ResolveBlend1D(values, param);
-        const auto& s0    = state.blendSamples[span.i0];
-        const auto& s1    = state.blendSamples[span.i1];
-        clipA             = s0.clip;
-        clipB             = s1.clip;
-        timeA =
-            span.i0 < state.blendTimes.size() ? state.blendTimes[span.i0] : 0.f;
-        timeB =
-            span.i1 < state.blendTimes.size() ? state.blendTimes[span.i1] : 0.f;
-        blendT = span.t;
+        }
+        clipA  = loco.clipA;
+        clipB  = loco.clipB;
+        timeA  = loco.timeA;
+        timeB  = loco.timeB;
+        blendT = loco.wB;
         return clipA != nullptr;
     }
 
@@ -518,6 +597,45 @@ namespace FREYA_NAMESPACE
         return *this;
     }
 
+    AnimGraphBuilder& AnimGraphBuilder::Blend2DState(std::string name,
+                                                     std::string paramX,
+                                                     std::string paramY,
+                                                     const bool  syncPhase)
+    {
+        AnimGraph::State s;
+        s.name        = std::move(name);
+        s.kind        = AnimGraph::StateKind::Blend2D;
+        s.blendParam  = std::move(paramX);
+        s.blendParamY = std::move(paramY);
+        s.syncPhase   = syncPhase;
+        mGraph.mStates.push_back(std::move(s));
+        mLastBlendState = static_cast<std::int32_t>(mGraph.mStates.size() - 1);
+        return *this;
+    }
+
+    AnimGraphBuilder& AnimGraphBuilder::AddBlend2DSample(
+        const float x, const float y, const AnimationClip& clip,
+        const bool loop, const float playbackSpeed, const BakedClip* baked)
+    {
+        if (mLastBlendState < 0)
+            throw std::runtime_error(
+                "AnimGraphBuilder: AddBlend2DSample without Blend2DState");
+
+        auto& st = mGraph.mStates[static_cast<std::uint32_t>(mLastBlendState)];
+        if (st.kind != AnimGraph::StateKind::Blend2D)
+            throw std::runtime_error(
+                "AnimGraphBuilder: AddBlend2DSample on non-Blend2D state");
+
+        Blend2DSample sample;
+        sample.pos           = { x, y };
+        sample.clip          = &clip;
+        sample.baked         = baked;
+        sample.loop          = loop;
+        sample.playbackSpeed = playbackSpeed;
+        st.blend2DSamples.push_back(sample);
+        return *this;
+    }
+
     AnimGraph::Layer& AnimGraphBuilder::lastLayer()
     {
         if (mLastLayer < 0)
@@ -632,6 +750,13 @@ namespace FREYA_NAMESPACE
                         "AnimGraphBuilder: Blend1D needs >= 2 samples");
                 st.blendTimes.assign(st.blendSamples.size(), 0.f);
             }
+            if (st.kind == AnimGraph::StateKind::Blend2D)
+            {
+                if (st.blend2DSamples.size() < 3)
+                    throw std::runtime_error(
+                        "AnimGraphBuilder: Blend2D needs >= 3 samples");
+                st.blendTimes.assign(st.blend2DSamples.size(), 0.f);
+            }
         }
 
         mGraph.mSkeleton = mSkeleton;
@@ -653,6 +778,8 @@ namespace FREYA_NAMESPACE
             {
                 consider(st.clip, st.baked);
                 for (const auto& s : st.blendSamples)
+                    consider(s.clip, s.baked);
+                for (const auto& s : st.blend2DSamples)
                     consider(s.clip, s.baked);
             }
             for (const auto& layer : mGraph.mLayers)
@@ -683,6 +810,11 @@ namespace FREYA_NAMESPACE
                 if (st.kind == AnimGraph::StateKind::Clip && !st.baked)
                     st.baked = resolve(st.clip);
                 for (auto& s : st.blendSamples)
+                {
+                    if (!s.baked)
+                        s.baked = resolve(s.clip);
+                }
+                for (auto& s : st.blend2DSamples)
                 {
                     if (!s.baked)
                         s.baked = resolve(s.clip);

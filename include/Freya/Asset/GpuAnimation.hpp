@@ -44,7 +44,7 @@ namespace FREYA_NAMESPACE
      * @brief Per-actor GPU anim job (std430).
      *
      * Fixed AAA-style overlay contract (not a dynamic layer list):
-     * loco Blend1D → optional masked upper → optional additive → look / IK.
+     * loco Blend1D/2D → optional masked upper → optional additive → look / IK.
      * Weights ≤ 0 leave a slot unused. Shared look/IK joint indices come from
      * GpuAnimPass push constants.
      */
@@ -56,8 +56,13 @@ namespace FREYA_NAMESPACE
         std::uint32_t clipB      = 0;
         float         timeA      = 0.f;
         float         timeB      = 0.f;
-        float         blendT     = 0.f;
+        float         timeC      = 0.f;
         std::uint32_t flags      = GpuAnimFlags::Loop;
+        /// Third loco sample (Blend2D). Unused when `wC == 0`.
+        std::uint32_t clipC = 0;
+        float         wA    = 1.f;
+        float         wB    = 0.f;
+        float         wC    = 0.f;
         /// Slot: OverrideMasked (upper-body, etc.)
         std::uint32_t clipMask   = 0;
         std::uint32_t maskBase   = 0; ///< index into boneMasks[]

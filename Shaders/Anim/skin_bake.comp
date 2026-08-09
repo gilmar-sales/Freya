@@ -56,8 +56,12 @@ struct AnimInstance
     uint  clipB;
     float timeA;
     float timeB;
-    float blendT;
+    float timeC;
     uint  flags;
+    uint  clipC;
+    float wA;
+    float wB;
+    float wC;
     uint  clipMask;
     uint  maskBase;
     float timeMask;
@@ -398,18 +402,35 @@ void main()
     float      wAdd   = clamp(inst.weightAdd, 0.0, 1.0);
     bool       masked = ((inst.flags & kFlagMasked) != 0u) && wMask > 0.0;
     bool       add    = ((inst.flags & kFlagAdd) != 0u) && wAdd > 0.0;
-    ClipHeader hA     = clips[inst.clipA];
-    ClipHeader hB     = clips[inst.clipB];
-    ClipHeader hMask  = clips[inst.clipMask];
-    ClipHeader hAdd   = clips[inst.clipAdd];
+    ClipHeader hA    = clips[inst.clipA];
+    ClipHeader hB    = clips[inst.clipB];
+    ClipHeader hC    = clips[inst.clipC];
+    ClipHeader hMask = clips[inst.clipMask];
+    ClipHeader hAdd  = clips[inst.clipAdd];
+    float      wA    = inst.wA;
+    float      wB    = inst.wB;
+    float      wC    = inst.wC;
 
     for (uint j = 0u; j < jc; ++j)
     {
         BakedJoint ja = sampleJoint(hA, inst.timeA, loop, j);
         BakedJoint jb = sampleJoint(hB, inst.timeB, loop, j);
-        BakedJoint jl = (inst.clipA == inst.clipB || inst.blendT <= 0.0)
-                            ? ja
-                            : lerpJoint(ja, jb, clamp(inst.blendT, 0.0, 1.0));
+        BakedJoint jl;
+        if (wC <= 1e-6)
+        {
+            float t = clamp(wB / max(wA + wB, 1e-6), 0.0, 1.0);
+            jl      = (inst.clipA == inst.clipB || t <= 0.0)
+                          ? ja
+                          : lerpJoint(ja, jb, t);
+        }
+        else
+        {
+            BakedJoint jcJ = sampleJoint(hC, inst.timeC, loop, j);
+            float      w01 = max(wA + wB, 1e-6);
+            BakedJoint ab =
+                lerpJoint(ja, jb, clamp(wB / w01, 0.0, 1.0));
+            jl = lerpJoint(ab, jcJ, clamp(wC, 0.0, 1.0));
+        }
 
         // Fixed slots: masked upper, then additive (same order as AnimGraph).
         if (masked)

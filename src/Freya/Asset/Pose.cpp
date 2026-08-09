@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <string>
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -453,6 +454,241 @@ namespace FREYA_NAMESPACE
         else
             b = RestLocalPose(skeleton);
         return BlendLocalPoses(a, b, span.t);
+    }
+
+    namespace
+    {
+        bool pointInTriangle(const glm::vec2& p, const glm::vec2& a,
+                             const glm::vec2& b, const glm::vec2& c, float& w0,
+                             float& w1, float& w2)
+        {
+            const glm::vec2 v0  = b - a;
+            const glm::vec2 v1  = c - a;
+            const glm::vec2 v2  = p - a;
+            const float     d00 = glm::dot(v0, v0);
+            const float     d01 = glm::dot(v0, v1);
+            const float     d11 = glm::dot(v1, v1);
+            const float     d20 = glm::dot(v2, v0);
+            const float     d21 = glm::dot(v2, v1);
+            const float     den = d00 * d11 - d01 * d01;
+            if (std::abs(den) < 1e-12f)
+                return false;
+            const float inv     = 1.f / den;
+            w1                  = (d11 * d20 - d01 * d21) * inv;
+            w2                  = (d00 * d21 - d01 * d20) * inv;
+            w0                  = 1.f - w1 - w2;
+            constexpr float eps = -1e-4f;
+            return w0 >= eps && w1 >= eps && w2 >= eps;
+        }
+
+        LocalPose sampleBlend2DSample(const Skeleton&      skeleton,
+                                      const Blend2DSample& s, const float time)
+        {
+            if (s.baked && !s.baked->Empty())
+                return SampleBaked(skeleton, *s.baked, time, s.loop);
+            if (s.clip)
+                return SampleClip(skeleton, *s.clip, time, s.loop);
+            return RestLocalPose(skeleton);
+        }
+    } // namespace
+
+    Blend2DTriangle ResolveBlend2D(const std::span<const glm::vec2> positions,
+                                   const glm::vec2                  param)
+    {
+        Blend2DTriangle out {};
+        if (positions.empty())
+            return out;
+        if (positions.size() == 1)
+            return out;
+
+        if (positions.size() == 2)
+        {
+            const glm::vec2 a    = positions[0];
+            const glm::vec2 b    = positions[1];
+            const glm::vec2 ab   = b - a;
+            const float     len2 = glm::dot(ab, ab);
+            float           t    = 0.f;
+            if (len2 > 1e-12f)
+                t = std::clamp(glm::dot(param - a, ab) / len2, 0.f, 1.f);
+            out.i0 = 0;
+            out.i1 = 1;
+            out.i2 = 0;
+            out.w0 = 1.f - t;
+            out.w1 = t;
+            out.w2 = 0.f;
+            return out;
+        }
+
+        float bestArea = std::numeric_limits<float>::max();
+        bool  found    = false;
+        for (std::uint32_t i = 0; i < positions.size(); ++i)
+        {
+            for (std::uint32_t j = i + 1; j < positions.size(); ++j)
+            {
+                for (std::uint32_t k = j + 1; k < positions.size(); ++k)
+                {
+                    float w0 = 0.f, w1 = 0.f, w2 = 0.f;
+                    if (!pointInTriangle(param, positions[i], positions[j],
+                                         positions[k], w0, w1, w2))
+                        continue;
+                    const glm::vec2 e1 = positions[j] - positions[i];
+                    const glm::vec2 e2 = positions[k] - positions[i];
+                    const float     area =
+                        std::abs(e1.x * e2.y - e1.y * e2.x) * 0.5f;
+                    if (area < 1e-10f || area >= bestArea)
+                        continue;
+                    bestArea        = area;
+                    found           = true;
+                    out.i0          = i;
+                    out.i1          = j;
+                    out.i2          = k;
+                    out.w0          = std::max(0.f, w0);
+                    out.w1          = std::max(0.f, w1);
+                    out.w2          = std::max(0.f, w2);
+                    const float sum = out.w0 + out.w1 + out.w2;
+                    if (sum > 1e-6f)
+                    {
+                        out.w0 /= sum;
+                        out.w1 /= sum;
+                        out.w2 /= sum;
+                    }
+                }
+            }
+        }
+        if (found)
+            return out;
+
+        // Outside hull: snap to nearest sample.
+        float         bestD = std::numeric_limits<float>::max();
+        std::uint32_t bestI = 0;
+        for (std::uint32_t i = 0; i < positions.size(); ++i)
+        {
+            const float d =
+                glm::dot(param - positions[i], param - positions[i]);
+            if (d < bestD)
+            {
+                bestD = d;
+                bestI = i;
+            }
+        }
+        out.i0 = out.i1 = out.i2 = bestI;
+        out.w0                   = 1.f;
+        out.w1 = out.w2 = 0.f;
+        return out;
+    }
+
+    void AdvanceBlend2DTimes(const std::span<const Blend2DSample> samples,
+                             const std::span<float> times, const float dt)
+    {
+        if (times.size() < samples.size())
+            return;
+        for (std::uint32_t i = 0; i < samples.size(); ++i)
+        {
+            const auto& s = samples[i];
+            if (!s.clip)
+                continue;
+            times[i] += dt * std::max(s.playbackSpeed, 0.f);
+            if (s.loop && s.clip->duration > 0.f)
+            {
+                times[i] = std::fmod(times[i], s.clip->duration);
+                if (times[i] < 0.f)
+                    times[i] += s.clip->duration;
+            }
+        }
+    }
+
+    float AdvanceBlend2DPhase(const std::span<const Blend2DSample> samples,
+                              const glm::vec2 param, float phase,
+                              const float dt)
+    {
+        if (samples.empty() || dt <= 0.f)
+            return phase;
+
+        std::vector<glm::vec2> positions(samples.size());
+        for (std::uint32_t i = 0; i < samples.size(); ++i)
+            positions[i] = samples[i].pos;
+        const auto tri = ResolveBlend2D(positions, param);
+
+        const auto durationOf = [&](const std::uint32_t idx) {
+            const auto& s = samples[idx];
+            return (s.clip && s.clip->duration > 0.f) ? s.clip->duration : 0.f;
+        };
+        const auto rateOf = [&](const std::uint32_t idx) {
+            return std::max(samples[idx].playbackSpeed, 0.f);
+        };
+
+        float duration =
+            durationOf(tri.i0) * tri.w0 + durationOf(tri.i1) * tri.w1 +
+            durationOf(tri.i2) * tri.w2;
+        float rate = rateOf(tri.i0) * tri.w0 + rateOf(tri.i1) * tri.w1 +
+                     rateOf(tri.i2) * tri.w2;
+        if (duration <= 1e-5f)
+            return phase;
+
+        phase += dt * rate / duration;
+        phase = std::fmod(phase, 1.f);
+        if (phase < 0.f)
+            phase += 1.f;
+        return phase;
+    }
+
+    void WriteBlend2DTimesFromPhase(
+        const std::span<const Blend2DSample> samples,
+        const std::span<float> times, const float phase)
+    {
+        if (times.size() < samples.size())
+            return;
+        const float p = std::clamp(phase, 0.f, 1.f);
+        for (std::uint32_t i = 0; i < samples.size(); ++i)
+        {
+            const auto& s = samples[i];
+            if (!s.clip || s.clip->duration <= 0.f)
+            {
+                times[i] = 0.f;
+                continue;
+            }
+            times[i] = p * s.clip->duration;
+        }
+    }
+
+    LocalPose EvaluateBlend2D(const Skeleton& skeleton,
+                              const std::span<const Blend2DSample>
+                                  samples,
+                              const std::span<float>
+                                              times,
+                              const glm::vec2 param)
+    {
+        if (samples.empty())
+            return RestLocalPose(skeleton);
+
+        std::vector<glm::vec2> positions(samples.size());
+        for (std::uint32_t i = 0; i < samples.size(); ++i)
+            positions[i] = samples[i].pos;
+        const auto tri = ResolveBlend2D(positions, param);
+
+        const float t0 = tri.i0 < times.size() ? times[tri.i0] : 0.f;
+        const float t1 = tri.i1 < times.size() ? times[tri.i1] : 0.f;
+        const float t2 = tri.i2 < times.size() ? times[tri.i2] : 0.f;
+
+        LocalPose a = sampleBlend2DSample(skeleton, samples[tri.i0], t0);
+        if (tri.w1 <= 1e-6f && tri.w2 <= 1e-6f)
+            return a;
+        LocalPose b = sampleBlend2DSample(skeleton, samples[tri.i1], t1);
+        if (tri.w2 <= 1e-6f)
+        {
+            const float sum = tri.w0 + tri.w1;
+            const float t =
+                sum > 1e-6f ? std::clamp(tri.w1 / sum, 0.f, 1.f) : 0.f;
+            return BlendLocalPoses(a, b, t);
+        }
+        LocalPose c = sampleBlend2DSample(skeleton, samples[tri.i2], t2);
+        // Nested lerp preserving barycentric weights.
+        const float w01 = tri.w0 + tri.w1;
+        LocalPose   ab =
+            w01 > 1e-6f
+                ? BlendLocalPoses(a, b, std::clamp(tri.w1 / w01, 0.f, 1.f))
+                : a;
+        return BlendLocalPoses(ab, c, std::clamp(tri.w2, 0.f, 1.f));
     }
 
     std::vector<glm::mat4> LocalToGlobal(const Skeleton&  skeleton,

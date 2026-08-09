@@ -98,6 +98,34 @@ namespace FREYA_NAMESPACE
         float         t  = 0.f; ///< weight toward i1
     };
 
+    /**
+     * @brief Sample on a 2D blend space (e.g. Strafe × Speed).
+     */
+    struct Blend2DSample
+    {
+        glm::vec2            pos { 0.f };
+        const AnimationClip* clip          = nullptr;
+        const BakedClip*     baked         = nullptr;
+        bool                 loop          = true;
+        float                playbackSpeed = 1.f;
+    };
+
+    /**
+     * @brief Triangle + barycentric weights for a Blend2D query.
+     *
+     * `w0+w1+w2 == 1` (within float error). Degenerate cases use one or two
+     * samples (`i2 == i0` and `w2 == 0`).
+     */
+    struct Blend2DTriangle
+    {
+        std::uint32_t i0 = 0;
+        std::uint32_t i1 = 0;
+        std::uint32_t i2 = 0;
+        float         w0 = 1.f;
+        float         w1 = 0.f;
+        float         w2 = 0.f;
+    };
+
     /** First joint whose name contains `needle`, or -1. */
     [[nodiscard]] std::int32_t FindJointIndex(const Skeleton&  skeleton,
                                               std::string_view needle);
@@ -171,6 +199,29 @@ namespace FREYA_NAMESPACE
 
     /** Write times[i] = phase * duration[i] for every sample with a clip. */
     void WriteBlend1DTimesFromPhase(std::span<const Blend1DSample> samples,
+                                    std::span<float> times, float phase);
+
+    /**
+     * @brief Resolve triangle / barycentric weights for a Blend2D query.
+     *
+     * Brute-force triangles over the sample cloud (fine for small N). Outside
+     * the hull snaps to the nearest sample.
+     */
+    Blend2DTriangle ResolveBlend2D(std::span<const glm::vec2> positions,
+                                   glm::vec2                  param);
+
+    LocalPose EvaluateBlend2D(const Skeleton&                skeleton,
+                              std::span<const Blend2DSample> samples,
+                              std::span<float> times, glm::vec2 param);
+
+    void AdvanceBlend2DTimes(std::span<const Blend2DSample> samples,
+                             std::span<float> times, float dt);
+
+    [[nodiscard]] float AdvanceBlend2DPhase(
+        std::span<const Blend2DSample> samples, glm::vec2 param, float phase,
+        float dt);
+
+    void WriteBlend2DTimesFromPhase(std::span<const Blend2DSample> samples,
                                     std::span<float> times, float phase);
 
     /** Local → global joint matrices. */

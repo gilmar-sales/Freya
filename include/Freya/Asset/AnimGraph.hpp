@@ -47,6 +47,24 @@ namespace FREYA_NAMESPACE
     };
 
     /**
+     * @brief GPU loco pack: up to three clips with barycentric weights.
+     *
+     * Blend1D sets `wC = 0`. Blend2D fills a triangle (`wA+wB+wC ≈ 1`).
+     */
+    struct AnimLocoGpuSample
+    {
+        const AnimationClip* clipA = nullptr;
+        const AnimationClip* clipB = nullptr;
+        const AnimationClip* clipC = nullptr;
+        float                timeA = 0.f;
+        float                timeB = 0.f;
+        float                timeC = 0.f;
+        float                wA    = 1.f;
+        float                wB    = 0.f;
+        float                wC    = 0.f;
+    };
+
+    /**
      * @brief Transition predicate for AnimGraph.
      */
     struct AnimCondition
@@ -141,10 +159,13 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] bool             IsBlending() const { return mBlending; }
 
         /**
-         * @brief If current state is Blend1D, write active span times/clips.
-         *
-         * `clipA`/`clipB` are sample clip pointers (may be equal). Used to
-         * drive GPU bake indices from the same phase the CPU graph uses.
+         * @brief Pack current loco state for GPU (Blend1D or Blend2D).
+         */
+        bool TryGetLocoGpuSample(AnimLocoGpuSample& out) const;
+
+        /**
+         * @brief Blend1D-only helper (`blendT` toward clipB). Prefer
+         * #TryGetLocoGpuSample for new code.
          */
         bool TryGetBlend1DGpuSample(const AnimationClip*& clipA, float& timeA,
                                     const AnimationClip*& clipB, float& timeB,
@@ -178,6 +199,7 @@ namespace FREYA_NAMESPACE
         {
             Clip,
             Blend1D,
+            Blend2D,
         };
 
         struct State
@@ -189,7 +211,9 @@ namespace FREYA_NAMESPACE
             float                playbackSpeed = 1.f;
 
             std::string                blendParam;
+            std::string                blendParamY;
             std::vector<Blend1DSample> blendSamples;
+            std::vector<Blend2DSample> blend2DSamples;
             std::vector<float>         blendTimes;
             bool                       syncPhase  = true;
             float                      blendPhase = 0.f;
@@ -295,6 +319,19 @@ namespace FREYA_NAMESPACE
 
         AnimGraphBuilder& AddBlendSample(
             float value, const AnimationClip& clip, bool loop = true,
+            float playbackSpeed = 1.f, const BakedClip* baked = nullptr);
+
+        /**
+         * @brief Begin a Blend2D state (e.g. Strafe × Speed).
+         *
+         * Call AddBlend2DSample for each point in the blend space.
+         */
+        AnimGraphBuilder& Blend2DState(std::string name, std::string paramX,
+                                       std::string paramY,
+                                       bool        syncPhase = true);
+
+        AnimGraphBuilder& AddBlend2DSample(
+            float x, float y, const AnimationClip& clip, bool loop = true,
             float playbackSpeed = 1.f, const BakedClip* baked = nullptr);
 
         /**

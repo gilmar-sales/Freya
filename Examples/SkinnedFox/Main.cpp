@@ -321,12 +321,17 @@ class MainApp final : public fra::AbstractApplication
                 fox.graph =
                     fra::AnimGraphBuilder()
                         .SetSkeleton(&mSkinned.skeleton)
+                        .ParamFloat("Strafe", 0.f)
                         .ParamFloat("Speed", fox.speed)
-                        .Blend1DState("Loco", "Speed")
-                        .AddBlendSample(0.f, *idle, true, 1.f, &mBakeIdle)
-                        .AddBlendSample(1.f, *walk, true, 1.f, &mBakeWalk)
-                        .AddBlendSample(2.f, *run, true, kRunPlayback,
-                                        &mBakeRun)
+                        .Blend2DState("Loco", "Strafe", "Speed")
+                        .AddBlend2DSample(0.f, 0.f, *idle, true, 1.f,
+                                          &mBakeIdle)
+                        .AddBlend2DSample(-1.f, 1.f, *walk, true, 1.f,
+                                          &mBakeWalk)
+                        .AddBlend2DSample(1.f, 1.f, *walk, true, 1.f,
+                                          &mBakeWalk)
+                        .AddBlend2DSample(0.f, 2.f, *run, true, kRunPlayback,
+                                          &mBakeRun)
                         .Layer("Upper", *idle)
                         .LayerMasked(&mUpperMask, 0.85f)
                         .LayerBake(&mBakeIdle)
@@ -342,12 +347,11 @@ class MainApp final : public fra::AbstractApplication
             }
         }
 
-        std::cout
-            << "Anim stack — " << foxCount << " foxes | Blend1D bake@"
-            << mFreyaOptions->animBakeHz << "Hz | upper=" << upperCount
-            << " additive=" << additiveCount << " look=" << lookCount
-            << " ik=" << ikCount << " rootDrive=" << rootCount << '\n'
-            << "  1/2/3/Up/Down=Speed   F1=help   F2..F11=feature toggles\n";
+        std::cout << "Anim stack — " << foxCount << " foxes | Blend2D bake@"
+                  << mFreyaOptions->animBakeHz << "Hz | upper=" << upperCount
+                  << " additive=" << additiveCount << " look=" << lookCount
+                  << " ik=" << ikCount << " rootDrive=" << rootCount << '\n'
+                  << "  1/2/3/Up/Down=Speed  Q/E=Strafe  F1=help  F2..F12\n";
         printFeatureHelp();
         printFeatureStatus();
 
@@ -377,6 +381,7 @@ class MainApp final : public fra::AbstractApplication
     {
         const float dt = mWindow->GetDeltaTime();
         mAnimClock += dt;
+        syncStrafeFromKeys();
 
         if (mLookHeld)
         {
@@ -775,8 +780,25 @@ class MainApp final : public fra::AbstractApplication
             fox.speed         = mSpeed;
             fox.useRootMotion = mSpeed >= 1.5f;
             fox.graph.SetFloat("Speed", mSpeed);
+            fox.graph.SetFloat("Strafe", mStrafe);
         }
-        std::cout << "Speed=" << mSpeed << " (" << mFoxes.size() << " foxes)\n";
+        std::cout << "Speed=" << mSpeed << " Strafe=" << mStrafe << " ("
+                  << mFoxes.size() << " foxes)\n";
+    }
+
+    void syncStrafeFromKeys()
+    {
+        float s = 0.f;
+        if (mKeysHeld.contains(static_cast<std::uint32_t>(fra::KeyCode::Q)))
+            s -= 1.f;
+        if (mKeysHeld.contains(static_cast<std::uint32_t>(fra::KeyCode::E)))
+            s += 1.f;
+        s = std::clamp(s, -1.f, 1.f);
+        if (std::abs(s - mStrafe) < 1e-4f)
+            return;
+        mStrafe = s;
+        for (auto& fox : mFoxes)
+            fox.graph.SetFloat("Strafe", mStrafe);
     }
 
     static const char* onOff(const bool v) { return v ? "ON " : "off"; }
@@ -815,9 +837,9 @@ class MainApp final : public fra::AbstractApplication
                   << "  F11 cycle AnimationQuality "
                      "(Low/Med/High/Ultra/Off)\n"
                   << "  F12 GPU anim: Off → Fox0 golden → Crowd\n"
-                  << "Loco Blend1D uses shared bake @"
+                  << "Loco Blend2D (Strafe×Speed) bake @"
                   << mFreyaOptions->animBakeHz
-                  << "Hz; LOD rates are wall-clock Hz (F11)\n"
+                  << "Hz; Q/E strafe; LOD wall-clock Hz (F11)\n"
                   << "CPU avg line every 1s: anim/skin/boneUp/instUp/"
                      "endFrame/update + animTicks\n";
     }
@@ -1165,20 +1187,22 @@ class MainApp final : public fra::AbstractApplication
         const FoxActor& fox, const std::uint32_t jointCount,
         const GoldenFeatures& feat) const
     {
-        fra::GpuAnimInstance      inst {};
-        const fra::AnimationClip* ca = nullptr;
-        const fra::AnimationClip* cb = nullptr;
-        float                     ta = 0.f, tb = 0.f, bt = 0.f;
+        fra::GpuAnimInstance inst {};
         inst.boneOffset = fox.boneOffset;
         inst.jointCount = jointCount;
         inst.flags      = fra::GpuAnimFlags::Loop;
-        if (fox.graph.TryGetBlend1DGpuSample(ca, ta, cb, tb, bt))
+        fra::AnimLocoGpuSample loco {};
+        if (fox.graph.TryGetLocoGpuSample(loco) && loco.clipA)
         {
-            inst.clipA  = gpuClipIndex(ca);
-            inst.clipB  = gpuClipIndex(cb);
-            inst.timeA  = ta;
-            inst.timeB  = tb;
-            inst.blendT = bt;
+            inst.clipA = gpuClipIndex(loco.clipA);
+            inst.clipB = gpuClipIndex(loco.clipB ? loco.clipB : loco.clipA);
+            inst.clipC = gpuClipIndex(loco.clipC ? loco.clipC : loco.clipA);
+            inst.timeA = loco.timeA;
+            inst.timeB = loco.timeB;
+            inst.timeC = loco.timeC;
+            inst.wA    = loco.wA;
+            inst.wB    = loco.wB;
+            inst.wC    = loco.wC;
         }
         fra::AnimLayerGpuSlots layers {};
         if (fox.graph.TryGetLayerGpuSlots(layers))
@@ -1267,6 +1291,7 @@ class MainApp final : public fra::AbstractApplication
     double        mProfDtSum        = 0.0;
     float         mAnimClock        = 0.f;
     float         mSpeed            = 0.f;
+    float         mStrafe           = 0.f;
     float         mFootstepLogTimer = 0.f;
     std::uint64_t mFootstepTotal    = 0;
     std::uint32_t mFoxMaterial      = 0;
