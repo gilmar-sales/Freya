@@ -168,8 +168,9 @@ class MainApp final : public fra::AbstractApplication
 
         mUpperClip = idle;
         mUpperMask = makeUpperBodyMask(mSkinned.skeleton);
+        mRestPose  = fra::RestLocalPose(mSkinned.skeleton);
 
-        mHeadJoint = findJointAny(mSkinned.skeleton, { "Head", "head" });
+        mHeadJoint       = findJointAny(mSkinned.skeleton, { "Head", "head" });
         const auto thigh = findJointAny(
             mSkinned.skeleton, { "LeftLeg01", "LeftUpLeg", "LeftUpperLeg" });
         const auto shin = findJointAny(
@@ -199,10 +200,11 @@ class MainApp final : public fra::AbstractApplication
         const float originZ =
             -0.5f * static_cast<float>(kFoxGridZ - 1) * kFoxSpacing;
 
-        std::uint32_t upperCount = 0;
-        std::uint32_t lookCount  = 0;
-        std::uint32_t ikCount    = 0;
-        std::uint32_t rootCount  = 0;
+        std::uint32_t upperCount    = 0;
+        std::uint32_t additiveCount = 0;
+        std::uint32_t lookCount     = 0;
+        std::uint32_t ikCount       = 0;
+        std::uint32_t rootCount     = 0;
         mFoxes.reserve(foxCount);
         for (std::uint32_t z = 0; z < kFoxGridZ; ++z)
         {
@@ -210,14 +212,17 @@ class MainApp final : public fra::AbstractApplication
             {
                 const std::uint32_t i = z * kFoxGridX + x;
                 FoxActor            fox;
-                fox.speed         = speedPreset(i);
-                fox.boneOffset    = i * jointCount;
-                fox.useUpperLayer = (i % 4u) == 0u;
-                fox.useLookAt     = mHeadJoint >= 0 && (i % 5u) == 1u;
-                fox.useIk         = mIkReady && (i % 13u) == 0u;
-                fox.useRootMotion = fox.speed >= 1.5f;
+                fox.speed            = speedPreset(i);
+                fox.boneOffset       = i * jointCount;
+                fox.useUpperLayer    = (i % 4u) == 0u;
+                fox.useAdditiveLayer = (i % 4u) == 2u;
+                fox.useLookAt        = mHeadJoint >= 0 && (i % 5u) == 1u;
+                fox.useIk            = mIkReady && (i % 13u) == 0u;
+                fox.useRootMotion    = fox.speed >= 1.5f;
                 if (fox.useUpperLayer)
                     ++upperCount;
+                if (fox.useAdditiveLayer)
+                    ++additiveCount;
                 if (fox.useLookAt)
                     ++lookCount;
                 if (fox.useIk)
@@ -253,8 +258,8 @@ class MainApp final : public fra::AbstractApplication
 
         std::cout << "Anim stack — " << foxCount
                   << " foxes | Blend1D phase-sync | upper=" << upperCount
-                  << " look=" << lookCount << " ik=" << ikCount
-                  << " rootDrive=" << rootCount << '\n'
+                  << " additive=" << additiveCount << " look=" << lookCount
+                  << " ik=" << ikCount << " rootDrive=" << rootCount << '\n'
                   << "  Keys: 1/2/3 presets   Up/Down=Speed\n";
 
         mFoxMaterial = mMaterialPool->Create({
@@ -327,6 +332,22 @@ class MainApp final : public fra::AbstractApplication
                 const auto upper = fra::SampleClip(
                     mSkinned.skeleton, *mUpperClip, fox.upperTime, true);
                 local = fra::BlendMasked(local, upper, mUpperMask, 0.85f);
+            }
+            else if (fox.useAdditiveLayer && mUpperClip)
+            {
+                fox.upperTime += dt;
+                if (mUpperClip->duration > 0.f)
+                {
+                    fox.upperTime =
+                        std::fmod(fox.upperTime, mUpperClip->duration);
+                    if (fox.upperTime < 0.f)
+                        fox.upperTime += mUpperClip->duration;
+                }
+                const auto add = fra::SampleClip(
+                    mSkinned.skeleton, *mUpperClip, fox.upperTime, true);
+                // Survey − rest as additive delta on upper body.
+                local = fra::BlendAdditive(
+                    local, add, mRestPose, mUpperMask, 0.55f);
             }
 
             // Procedural root drive (Fox clips are in-place).
@@ -416,13 +437,14 @@ class MainApp final : public fra::AbstractApplication
     {
         fra::AnimGraph graph;
         glm::mat4      model { 1.f };
-        float          speed         = 0.f;
-        float          upperTime     = 0.f;
-        std::uint32_t  boneOffset    = 0;
-        bool           useUpperLayer = false;
-        bool           useLookAt     = false;
-        bool           useIk         = false;
-        bool           useRootMotion = false;
+        float          speed            = 0.f;
+        float          upperTime        = 0.f;
+        std::uint32_t  boneOffset       = 0;
+        bool           useUpperLayer    = false;
+        bool           useAdditiveLayer = false;
+        bool           useLookAt        = false;
+        bool           useIk            = false;
+        bool           useRootMotion    = false;
     };
 
     void setLookHeld(const bool held)
@@ -505,6 +527,7 @@ class MainApp final : public fra::AbstractApplication
     std::vector<FoxActor>     mFoxes;
     const fra::AnimationClip* mUpperClip = nullptr;
     fra::BoneMask             mUpperMask;
+    fra::LocalPose            mRestPose;
     fra::TwoBoneChain         mLegChain {};
     std::int32_t              mHeadJoint      = -1;
     bool                      mIkReady        = true;

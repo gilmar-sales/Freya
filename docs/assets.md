@@ -41,6 +41,11 @@ if (auto spine = fra::FindJointIndex(fox.skeleton, "Spine"); spine >= 0)
 local = fra::BlendMasked(
     local, fra::SampleClip(fox.skeleton, fox.clips[0], timeSec), upper, 0.8f);
 
+// Additive layer: (clip − rest) on top of locomotion (partial weight + mask).
+local = fra::BlendAdditive(
+    local, fra::SampleClip(fox.skeleton, fox.clips[0], timeSec),
+    fra::RestLocalPose(fox.skeleton), upper, 0.5f);
+
 // Rig MVP (after layers): look-at → two-bone IK → root / locomotion drive.
 fra::ApplyLookAt(fox.skeleton, local, model, headJoint, cameraPos, 0.7f);
 fra::SolveTwoBoneIK(fox.skeleton, local, model, legChain, footTarget, pole, 0.85f);

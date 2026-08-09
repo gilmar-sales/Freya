@@ -119,6 +119,20 @@ namespace FREYA_NAMESPACE
                           const BoneMask& mask, float layerWeight = 1.f);
 
     /**
+     * @brief Additive layer: apply (additive − reference) onto `base`.
+     *
+     * Rotation: `out = slerp(I, add * inverse(ref), w) * base`.
+     * Translation/scale: `base + (add − ref) * w`.
+     * Optional mask scales per-joint weight (same idea as BlendMasked).
+     */
+    LocalPose BlendAdditive(const LocalPose& base, const LocalPose& additive,
+                            const LocalPose& reference, float weight);
+
+    LocalPose BlendAdditive(const LocalPose& base, const LocalPose& additive,
+                            const LocalPose& reference, const BoneMask& mask,
+                            float layerWeight = 1.f);
+
+    /**
      * @brief Resolve which two Blend1D samples to lerp for `param`.
      *
      * `values` must be sorted ascending. Empty → {0,0,0}.

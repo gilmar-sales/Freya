@@ -246,6 +246,74 @@ namespace FREYA_NAMESPACE
         return out;
     }
 
+    namespace
+    {
+        JointTRS applyAdditiveJoint(const JointTRS& base, const JointTRS& add,
+                                    const JointTRS& ref, const float w)
+        {
+            JointTRS out;
+            out.translation =
+                base.translation + (add.translation - ref.translation) * w;
+            out.scale = base.scale + (add.scale - ref.scale) * w;
+            const glm::quat delta =
+                glm::normalize(add.rotation * glm::inverse(ref.rotation));
+            const glm::quat id(1.f, 0.f, 0.f, 0.f);
+            out.rotation =
+                glm::normalize(glm::slerp(id, delta, w) * base.rotation);
+            return out;
+        }
+    } // namespace
+
+    LocalPose BlendAdditive(const LocalPose& base, const LocalPose& additive,
+                            const LocalPose& reference, const float weight)
+    {
+        const float w = std::clamp(weight, 0.f, 1.f);
+        if (w <= 0.f)
+            return base;
+
+        LocalPose  out;
+        const auto n =
+            std::min({ base.Size(), additive.Size(), reference.Size() });
+        out.Resize(n);
+        for (std::uint32_t i = 0; i < n; ++i)
+        {
+            if (w >= 1.f)
+                out.joints[i] =
+                    applyAdditiveJoint(base.joints[i], additive.joints[i],
+                                       reference.joints[i], 1.f);
+            else
+                out.joints[i] = applyAdditiveJoint(
+                    base.joints[i], additive.joints[i], reference.joints[i], w);
+        }
+        return out;
+    }
+
+    LocalPose BlendAdditive(const LocalPose& base, const LocalPose& additive,
+                            const LocalPose& reference, const BoneMask& mask,
+                            const float layerWeight)
+    {
+        const float layer = std::clamp(layerWeight, 0.f, 1.f);
+        if (layer <= 0.f)
+            return base;
+
+        LocalPose  out;
+        const auto n = std::min(
+            { base.Size(), additive.Size(), reference.Size(), mask.Size() });
+        out.Resize(n);
+        for (std::uint32_t i = 0; i < n; ++i)
+        {
+            const float w = std::clamp(mask.weights[i], 0.f, 1.f) * layer;
+            if (w <= 0.f)
+            {
+                out.joints[i] = base.joints[i];
+                continue;
+            }
+            out.joints[i] = applyAdditiveJoint(
+                base.joints[i], additive.joints[i], reference.joints[i], w);
+        }
+        return out;
+    }
+
     Blend1DSpan ResolveBlend1D(const std::span<const float> values,
                                const float                  param)
     {
