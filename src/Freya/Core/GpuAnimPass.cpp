@@ -154,6 +154,8 @@ namespace FREYA_NAMESPACE
         pc.ikMid         = mIkMid;
         pc.ikTip         = mIkTip;
         pc.rootJoint     = mRootJoint;
+        pc.lookLocalForward =
+            glm::vec4(mLookLocalForward, 0.f);
         commandBuffer.pushConstants(
             mPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
             sizeof(PushConstants), &pc);

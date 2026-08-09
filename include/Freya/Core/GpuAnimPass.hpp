@@ -60,13 +60,16 @@ namespace FREYA_NAMESPACE
         void SetRigIndices(const std::uint32_t lookJoint,
                            const std::uint32_t ikRoot,
                            const std::uint32_t ikMid, const std::uint32_t ikTip,
-                           const std::uint32_t rootJoint)
+                           const std::uint32_t rootJoint,
+                           const glm::vec3     lookLocalForward = { 0.f, 0.f,
+                                                               1.f })
         {
-            mLookJoint = lookJoint;
-            mIkRoot    = ikRoot;
-            mIkMid     = ikMid;
-            mIkTip     = ikTip;
-            mRootJoint = rootJoint;
+            mLookJoint         = lookJoint;
+            mIkRoot            = ikRoot;
+            mIkMid             = ikMid;
+            mIkTip             = ikTip;
+            mRootJoint         = rootJoint;
+            mLookLocalForward  = lookLocalForward;
         }
 
         void UploadSkeleton(const GpuSkeletonPack& skeleton);
@@ -104,6 +107,7 @@ namespace FREYA_NAMESPACE
             std::uint32_t ikTip         = 0;
             std::uint32_t rootJoint     = 0xffffffffu;
             std::uint32_t _pad0         = 0;
+            glm::vec4     lookLocalForward { 0.f, 0.f, 1.f, 0.f };
         };
 
         skr::Arc<Device>              mDevice;
@@ -133,7 +137,8 @@ namespace FREYA_NAMESPACE
         std::uint32_t mIkRoot        = 0;
         std::uint32_t mIkMid         = 0;
         std::uint32_t mIkTip         = 0;
-        std::uint32_t mRootJoint     = 0xffffffffu;
+        std::uint32_t mRootJoint         = 0xffffffffu;
+        glm::vec3     mLookLocalForward  = { 0.f, 0.f, 1.f };
     };
 
 } // namespace FREYA_NAMESPACE
