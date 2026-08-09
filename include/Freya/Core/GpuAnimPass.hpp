@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Freya/Asset/BoneMatrixResources.hpp"
+#include "Freya/Asset/GpuAnimDebug.hpp"
 #include "Freya/Asset/GpuAnimation.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
@@ -184,6 +185,8 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] std::uint32_t FindClipSlot(std::uint64_t key) const;
         [[nodiscard]] std::uint32_t JointsPerClipSlot() const;
         [[nodiscard]] std::uint32_t ResidentClipCount() const;
+
+        void CaptureDebugSnapshot(GpuAnimDebugSnapshot& out) const;
 
         void UploadBoneMask(std::span<const float> weights);
         void UploadRestJoints(std::span<const GpuFloatJoint> joints);

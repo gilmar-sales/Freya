@@ -300,8 +300,8 @@ class MainApp final : public fra::AbstractApplication
                 fox.graph =
                     fra::AnimGraphBuilder()
                         .SetSkeleton(&mSkinned.skeleton)
-                        .ParamFloat("Strafe", 0.f)
-                        .ParamFloat("Speed", fox.speed)
+                        .ParamFloat("Strafe", 0.f, -1.f, 1.f)
+                        .ParamFloat("Speed", fox.speed, 0.f, 2.f)
                         .Blend2DState("Loco", "Strafe", "Speed")
                         .AddBlend2DSample(0.f, 0.f, *idle, true, 1.f,
                                           &mBakeIdle)
@@ -444,6 +444,7 @@ class MainApp final : public fra::AbstractApplication
                 fox.graph.Advance(dt, mEnableEvents ? &events : nullptr);
                 if (mEnableEvents)
                 {
+                    mEventRing.PushAll(events);
                     for (const auto& e : events)
                     {
                         if (e.name.rfind("Footstep", 0) == 0)
@@ -518,6 +519,7 @@ class MainApp final : public fra::AbstractApplication
 
             if (mEnableEvents)
             {
+                mEventRing.PushAll(events);
                 for (const auto& e : events)
                 {
                     if (e.name.rfind("Footstep", 0) == 0)
@@ -848,6 +850,50 @@ class MainApp final : public fra::AbstractApplication
                   << " exitDist=" << o.animLodExitDist[0] << '/'
                   << o.animLodExitDist[1] << '/' << o.animLodExitDist[2]
                   << '\n';
+        if (!mFoxes.empty())
+        {
+            fra::AnimGraphDebugSnapshot snap;
+            mFoxes[0].graph.CaptureDebugSnapshot(snap);
+            std::cout << "  fox0 graph state=" << snap.currentState;
+            if (snap.blending)
+                std::cout << " -> " << snap.nextState
+                          << " blend=" << snap.blendAlpha;
+            std::cout << " t=" << snap.currentTime;
+            if (snap.loco.valid)
+                std::cout << " loco=[" << snap.loco.clipA << " "
+                          << snap.loco.wA << "|" << snap.loco.clipB << " "
+                          << snap.loco.wB;
+            if (snap.loco.valid && snap.loco.wC > 1e-4f)
+                std::cout << "|" << snap.loco.clipC << " " << snap.loco.wC;
+            if (snap.loco.valid)
+                std::cout << "]";
+            std::cout << " params f=" << snap.floats.size()
+                      << " b=" << snap.bools.size()
+                      << " layers=" << snap.layers.size() << '\n';
+            for (const auto& p : snap.floats)
+            {
+                std::cout << "    " << p.name << "=" << p.value;
+                if (p.hasRange)
+                    std::cout << " [" << p.minValue << "," << p.maxValue
+                              << "]";
+                std::cout << '\n';
+            }
+            if (auto* gpu = mRenderer->GetGpuAnimPass())
+            {
+                fra::GpuAnimDebugSnapshot gs;
+                gpu->CaptureDebugSnapshot(gs);
+                std::cout << "  gpuAnim en=" << onOff(gs.enabled)
+                          << " quant=" << onOff(gs.quantizedJoints)
+                          << " inst=" << gs.instanceCount
+                          << " clips=" << gs.residentClips << "/"
+                          << gs.maxClips << " slab=" << gs.jointsPerClipSlot
+                          << '\n';
+            }
+            const auto skel = fra::CaptureSkeletonDebug(mSkinned.skeleton);
+            std::cout << "  skeleton joints=" << skel.JointCount()
+                      << " eventRing=" << mEventRing.Size() << "/"
+                      << mEventRing.Capacity() << '\n';
+        }
     }
 
     void setAnimationQuality(const fra::AnimationQuality quality)
@@ -1502,6 +1548,7 @@ class MainApp final : public fra::AbstractApplication
     float         mStrafe           = 0.f;
     float         mFootstepLogTimer = 0.f;
     std::uint64_t mFootstepTotal    = 0;
+    fra::AnimEventRing mEventRing { 64 };
     std::uint32_t mFoxMaterial      = 0;
     std::uint32_t mGroundMesh       = 0;
     std::uint32_t mGroundMaterial   = 0;

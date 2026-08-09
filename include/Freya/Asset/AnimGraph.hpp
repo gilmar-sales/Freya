@@ -13,6 +13,7 @@
 
 namespace FREYA_NAMESPACE
 {
+    struct AnimGraphDebugSnapshot;
     /**
      * @brief How an AnimGraph overlay layer is composited onto the base pose.
      */
@@ -189,6 +190,20 @@ namespace FREYA_NAMESPACE
          */
         bool TryGetPrimaryLayerGpuSample(AnimLayerGpuSample& out) const;
 
+        /**
+         * @brief Fill a toolkit-agnostic snapshot for debug UI (ImGui, etc.).
+         * @see AnimGraphDebugSnapshot
+         */
+        void CaptureDebugSnapshot(AnimGraphDebugSnapshot& out) const;
+
+        /**
+         * @brief Push editable snapshot fields back into the graph.
+         *
+         * Writes floats/bools/triggers/layer enable+weight according to the
+         * snapshot's `apply*` flags. Does not mutate states or transitions.
+         */
+        void ApplyDebugSnapshot(const AnimGraphDebugSnapshot& in);
+
         [[nodiscard]] std::uint32_t LayerCount() const
         {
             return static_cast<std::uint32_t>(mLayers.size());
@@ -250,7 +265,11 @@ namespace FREYA_NAMESPACE
 
         struct FloatParam
         {
-            float value = 0.f;
+            float value        = 0.f;
+            float defaultValue = 0.f;
+            float minValue     = 0.f;
+            float maxValue     = 1.f;
+            bool  hasRange     = false;
         };
         struct BoolParam
         {
@@ -304,6 +323,11 @@ namespace FREYA_NAMESPACE
 
         AnimGraphBuilder& ParamFloat(std::string name,
                                      float       defaultValue = 0.f);
+        /**
+         * @brief Float param with UI range hint (also clamps on Apply snapshot).
+         */
+        AnimGraphBuilder& ParamFloat(std::string name, float defaultValue,
+                                     float minValue, float maxValue);
         AnimGraphBuilder& ParamBool(std::string name,
                                     bool        defaultValue = false);
         AnimGraphBuilder& ParamTrigger(std::string name);

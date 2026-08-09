@@ -148,6 +148,28 @@ namespace FREYA_NAMESPACE
         return n;
     }
 
+    void GpuAnimPass::CaptureDebugSnapshot(GpuAnimDebugSnapshot& out) const
+    {
+        out                   = {};
+        out.enabled           = mEnabled;
+        out.quantizedJoints   = mQuantizedJoints;
+        out.instanceCount     = mInstanceCount;
+        out.skeletonJoints    = mJointCount;
+        out.maxClips          = kMaxClips;
+        out.maxBakedJoints    = MaxBakedJoints();
+        out.jointsPerClipSlot = JointsPerClipSlot();
+        out.residentClips     = ResidentClipCount();
+        out.extractRequests =
+            static_cast<std::uint32_t>(mExtractRequests.size());
+        out.slots.resize(kMaxClips);
+        for (std::uint32_t i = 0; i < kMaxClips; ++i)
+        {
+            const auto& s = mClipSlots[i];
+            out.slots[i]  = { i,         s.key,    s.resident, s.pinned,
+                             s.lastTouch, s.frames, s.joints };
+        }
+    }
+
     void GpuAnimPass::ResetClipCache()
     {
         mClipSlots.fill({});

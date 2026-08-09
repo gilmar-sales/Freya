@@ -1,4 +1,5 @@
 #include "Freya/Asset/AnimGraph.hpp"
+#include "Freya/Asset/AnimGraphDebug.hpp"
 #include "Freya/Asset/BakedAnimation.hpp"
 
 #include <algorithm>
@@ -453,6 +454,174 @@ namespace FREYA_NAMESPACE
         return mStates[mCurrentState].name;
     }
 
+    void AnimGraph::CaptureDebugSnapshot(AnimGraphDebugSnapshot& out) const
+    {
+        out.floats.clear();
+        out.bools.clear();
+        out.triggers.clear();
+        out.layers.clear();
+        out.states.clear();
+        out.transitions.clear();
+        out.loco = {};
+
+        out.currentState = std::string(CurrentStateName());
+        out.blending     = mBlending;
+        out.currentTime  = mCurrentTime;
+        out.nextTime     = mNextTime;
+        out.blendElapsed = mBlendElapsed;
+        out.blendDuration = mBlendDuration;
+        out.blendAlpha =
+            (mBlending && mBlendDuration > 1e-6f)
+                ? std::clamp(mBlendElapsed / mBlendDuration, 0.f, 1.f)
+                : 0.f;
+        out.nextState.clear();
+        if (mBlending && mNextState < mStates.size())
+            out.nextState = mStates[mNextState].name;
+
+        out.floats.reserve(mFloats.size());
+        for (const auto& [name, p] : mFloats)
+            out.floats.push_back({ name, p.value, p.defaultValue, p.minValue,
+                                   p.maxValue, p.hasRange });
+        std::sort(out.floats.begin(), out.floats.end(),
+                  [](const auto& a, const auto& b) { return a.name < b.name; });
+
+        out.bools.reserve(mBools.size());
+        for (const auto& [name, p] : mBools)
+            out.bools.push_back({ name, p.value });
+        std::sort(out.bools.begin(), out.bools.end(),
+                  [](const auto& a, const auto& b) { return a.name < b.name; });
+
+        out.triggers.reserve(mTriggers.size());
+        for (const auto& [name, p] : mTriggers)
+            out.triggers.push_back({ name, p.raised, false });
+        std::sort(out.triggers.begin(), out.triggers.end(),
+                  [](const auto& a, const auto& b) { return a.name < b.name; });
+
+        out.layers.reserve(mLayers.size());
+        for (const auto& L : mLayers)
+        {
+            AnimGraphDebugSnapshot::Layer snap;
+            snap.name            = L.name;
+            snap.clipName        = L.clip ? L.clip->name : std::string {};
+            snap.mode            = L.mode;
+            snap.enabled         = L.enabled;
+            snap.weight          = L.weight;
+            snap.effectiveWeight = effectiveLayerWeight(L);
+            snap.time            = L.time;
+            snap.weightParam     = L.weightParam;
+            out.layers.push_back(std::move(snap));
+        }
+
+        out.states.reserve(mStates.size());
+        for (const auto& S : mStates)
+        {
+            AnimGraphDebugSnapshot::State snap;
+            snap.name       = S.name;
+            snap.blendParam = S.blendParam;
+            snap.blendParamY = S.blendParamY;
+            switch (S.kind)
+            {
+                case StateKind::Clip:
+                    snap.kind        = "Clip";
+                    snap.sampleCount = S.clip ? 1u : 0u;
+                    break;
+                case StateKind::Blend1D:
+                    snap.kind        = "Blend1D";
+                    snap.sampleCount = static_cast<std::uint32_t>(
+                        S.blendSamples.size());
+                    break;
+                case StateKind::Blend2D:
+                    snap.kind        = "Blend2D";
+                    snap.sampleCount = static_cast<std::uint32_t>(
+                        S.blend2DSamples.size());
+                    break;
+            }
+            out.states.push_back(std::move(snap));
+        }
+
+        auto conditionName = [](AnimCondition::Kind k) -> const char* {
+            switch (k)
+            {
+                case AnimCondition::Kind::FloatGreater:
+                    return "FloatGreater";
+                case AnimCondition::Kind::FloatLessEqual:
+                    return "FloatLessEqual";
+                case AnimCondition::Kind::BoolTrue:
+                    return "BoolTrue";
+                case AnimCondition::Kind::BoolFalse:
+                    return "BoolFalse";
+                case AnimCondition::Kind::Trigger:
+                    return "Trigger";
+            }
+            return "?";
+        };
+
+        out.transitions.reserve(mTransitions.size());
+        for (const auto& T : mTransitions)
+        {
+            AnimGraphDebugSnapshot::Transition snap;
+            snap.from =
+                T.from < mStates.size() ? mStates[T.from].name : std::string {};
+            snap.to =
+                T.to < mStates.size() ? mStates[T.to].name : std::string {};
+            snap.condition     = conditionName(T.condition.kind);
+            snap.param         = T.condition.param;
+            snap.threshold     = T.condition.threshold;
+            snap.blendDuration = T.blendDuration;
+            out.transitions.push_back(std::move(snap));
+        }
+
+        AnimLocoGpuSample loco {};
+        if (TryGetLocoGpuSample(loco))
+        {
+            out.loco.valid = true;
+            out.loco.clipA = loco.clipA ? loco.clipA->name : std::string {};
+            out.loco.clipB = loco.clipB ? loco.clipB->name : std::string {};
+            out.loco.clipC = loco.clipC ? loco.clipC->name : std::string {};
+            out.loco.timeA = loco.timeA;
+            out.loco.timeB = loco.timeB;
+            out.loco.timeC = loco.timeC;
+            out.loco.wA    = loco.wA;
+            out.loco.wB    = loco.wB;
+            out.loco.wC    = loco.wC;
+        }
+    }
+
+    void AnimGraph::ApplyDebugSnapshot(const AnimGraphDebugSnapshot& in)
+    {
+        if (in.applyFloats)
+        {
+            for (const auto& p : in.floats)
+            {
+                float v = p.value;
+                if (p.hasRange)
+                    v = std::clamp(v, p.minValue, p.maxValue);
+                SetFloat(p.name, v);
+            }
+        }
+        if (in.applyBools)
+        {
+            for (const auto& p : in.bools)
+                SetBool(p.name, p.value);
+        }
+        if (in.applyTriggers)
+        {
+            for (const auto& t : in.triggers)
+            {
+                if (t.pulse)
+                    SetTrigger(t.name);
+            }
+        }
+        if (in.applyLayers)
+        {
+            for (const auto& L : in.layers)
+            {
+                SetLayerEnabled(L.name, L.enabled);
+                SetLayerWeight(L.name, L.weight);
+            }
+        }
+    }
+
     bool AnimGraph::TryGetLocoGpuSample(AnimLocoGpuSample& out) const
     {
         out = {};
@@ -588,8 +757,25 @@ namespace FREYA_NAMESPACE
     AnimGraphBuilder& AnimGraphBuilder::ParamFloat(std::string name,
                                                    const float defaultValue)
     {
-        mGraph.mFloats[std::move(name)] =
-            AnimGraph::FloatParam { defaultValue };
+        AnimGraph::FloatParam p;
+        p.value        = defaultValue;
+        p.defaultValue = defaultValue;
+        mGraph.mFloats[std::move(name)] = p;
+        return *this;
+    }
+
+    AnimGraphBuilder& AnimGraphBuilder::ParamFloat(std::string name,
+                                                   const float defaultValue,
+                                                   const float minValue,
+                                                   const float maxValue)
+    {
+        AnimGraph::FloatParam p;
+        p.defaultValue = defaultValue;
+        p.minValue     = std::min(minValue, maxValue);
+        p.maxValue     = std::max(minValue, maxValue);
+        p.hasRange     = true;
+        p.value        = std::clamp(defaultValue, p.minValue, p.maxValue);
+        mGraph.mFloats[std::move(name)] = p;
         return *this;
     }
 
