@@ -71,10 +71,17 @@ namespace FREYA_NAMESPACE
         glm::mat4     modelWorld { 1.f };
         glm::vec3     lookTarget { 0.f };
         float         lookWeight = 0.f;
+        /// Per-instance look / two-bone chain (0xffffffff = disabled).
+        std::uint32_t lookJoint = 0xffffffffu;
+        std::uint32_t ikRoot    = 0xffffffffu;
+        std::uint32_t ikMid     = 0xffffffffu;
+        std::uint32_t ikTip     = 0xffffffffu;
+        glm::vec3     lookLocalForward { 0.f, 0.f, 1.f };
+        float         lookMaxYaw = 1.2f; ///< < 0 disables aim clamp
         glm::vec3     ikTarget { 0.f };
         float         ikWeight = 0.f;
         glm::vec3     ikPole { 0.f };
-        float         _pad0 = 0.f;
+        float         lookMaxPitch = 0.8f;
     };
 
     /**

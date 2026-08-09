@@ -69,10 +69,16 @@ struct AnimInstance
     mat4  modelWorld;
     vec3  lookTarget;
     float lookWeight;
+    uint  lookJoint;
+    uint  ikRoot;
+    uint  ikMid;
+    uint  ikTip;
+    vec3  lookLocalForward;
+    float lookMaxYaw;
     vec3  ikTarget;
     float ikWeight;
     vec3  ikPole;
-    float _pad0;
+    float lookMaxPitch;
 };
 
 layout(set = 1, binding = 4) readonly buffer Instances
@@ -104,17 +110,8 @@ layout(push_constant) uniform Push
 {
     uint instanceCount;
     uint jointCount;
-    uint lookJoint;
-    uint ikRoot;
-    uint ikMid;
-    uint ikTip;
     uint rootJoint;
     uint _pad0;
-    vec4 lookLocalForward;
-    float lookMaxYaw;
-    float lookMaxPitch;
-    float _padLook0;
-    float _padLook1;
 } pc;
 
 const uint kFlagLoop   = 1u;
@@ -449,9 +446,9 @@ void main()
     buildFk(base, jc);
 
     float lookW = inst.lookWeight;
-    if (lookW > 0.0 && pc.lookJoint < jc)
+    if (lookW > 0.0 && inst.lookJoint < jc)
     {
-        uint joint   = pc.lookJoint;
+        uint joint   = inst.lookJoint;
         int  pp      = parents[joint];
         mat4 pw      = (pp < 0 || uint(pp) >= jc)
                            ? inst.modelWorld
@@ -464,14 +461,14 @@ void main()
             toTarget          = normalize(toTarget);
             vec4 worldRot     = quatFromMatOrtho(jw);
             vec3 lookFwd =
-                normalize(pc.lookLocalForward.xyz);
+                normalize(inst.lookLocalForward);
             if (dot(lookFwd, lookFwd) < 1e-8)
                 lookFwd = vec3(0.0, 0.0, 1.0);
             vec3 forward = normalize(quatRotate(worldRot, lookFwd));
             // lookMaxYaw < 0 disables aim clamp (debug / golden).
-            if (pc.lookMaxYaw >= 0.0)
-                toTarget = clampAimDirection(forward, toTarget, pc.lookMaxYaw,
-                                             pc.lookMaxPitch);
+            if (inst.lookMaxYaw >= 0.0)
+                toTarget = clampAimDirection(forward, toTarget, inst.lookMaxYaw,
+                                             inst.lookMaxPitch);
             vec4 delta        = quatFromTo(forward, toTarget);
             vec4 desiredWorld = normalize(quatMul(delta, worldRot));
             vec4 parentQ      = quatFromMatOrtho(pw);
@@ -486,11 +483,11 @@ void main()
     }
 
     float ikW = inst.ikWeight;
-    if (ikW > 0.0 && pc.ikRoot < jc && pc.ikMid < jc && pc.ikTip < jc)
+    if (ikW > 0.0 && inst.ikRoot < jc && inst.ikMid < jc && inst.ikTip < jc)
     {
-        uint  root = pc.ikRoot;
-        uint  mid  = pc.ikMid;
-        uint  tip  = pc.ikTip;
+        uint  root = inst.ikRoot;
+        uint  mid  = inst.ikMid;
+        uint  tip  = inst.ikTip;
         vec3  rootW =
             (inst.modelWorld * globalPose[base + root])[3].xyz;
         vec3 midW = (inst.modelWorld * globalPose[base + mid])[3].xyz;

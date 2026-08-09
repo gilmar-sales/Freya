@@ -238,16 +238,9 @@ namespace FREYA_NAMESPACE
             vk::PipelineBindPoint::eCompute, mPipelineLayout, 0, sets, {});
 
         PushConstants pc {};
-        pc.instanceCount    = mInstanceCount;
-        pc.jointCount       = mJointCount;
-        pc.lookJoint        = mLookJoint;
-        pc.ikRoot           = mIkRoot;
-        pc.ikMid            = mIkMid;
-        pc.ikTip            = mIkTip;
-        pc.rootJoint        = mRootJoint;
-        pc.lookLocalForward = glm::vec4(mLookLocalForward, 0.f);
-        pc.lookMaxYaw       = mLookMaxYawRad;
-        pc.lookMaxPitch     = mLookMaxPitchRad;
+        pc.instanceCount = mInstanceCount;
+        pc.jointCount    = mJointCount;
+        pc.rootJoint     = mRootJoint;
         commandBuffer.pushConstants(
             mPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
             sizeof(PushConstants), &pc);

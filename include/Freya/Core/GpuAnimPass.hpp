@@ -67,6 +67,13 @@ namespace FREYA_NAMESPACE
          */
         void SetCopyPrevBones(const bool enabled) { mCopyPrevBones = enabled; }
 
+        /**
+         * @brief Shared skeleton root + optional defaults for instance packing.
+         *
+         * Look / IK joint indices and aim axes are **per instance**
+         * (`GpuAnimInstance`). Defaults stored here can be copied when filling
+         * instances. Only `rootJoint` is pushed each Dispatch (CancelRootXZ).
+         */
         void SetRigIndices(const std::uint32_t lookJoint,
                            const std::uint32_t ikRoot,
                            const std::uint32_t ikMid, const std::uint32_t ikTip,
@@ -85,11 +92,31 @@ namespace FREYA_NAMESPACE
             mLookMaxPitchRad  = lookMaxPitchRad;
         }
 
-        /** Negative max yaw disables aim clamp (raw aim direction). */
+        /** Default look clamp for instance packing (golden may override). */
         void SetLookClamp(const float maxYawRad, const float maxPitchRad)
         {
             mLookMaxYawRad   = maxYawRad;
             mLookMaxPitchRad = maxPitchRad;
+        }
+
+        [[nodiscard]] std::uint32_t GetDefaultLookJoint() const
+        {
+            return mLookJoint;
+        }
+        [[nodiscard]] std::uint32_t GetDefaultIkRoot() const { return mIkRoot; }
+        [[nodiscard]] std::uint32_t GetDefaultIkMid() const { return mIkMid; }
+        [[nodiscard]] std::uint32_t GetDefaultIkTip() const { return mIkTip; }
+        [[nodiscard]] glm::vec3     GetDefaultLookLocalForward() const
+        {
+            return mLookLocalForward;
+        }
+        [[nodiscard]] float GetDefaultLookMaxYaw() const
+        {
+            return mLookMaxYawRad;
+        }
+        [[nodiscard]] float GetDefaultLookMaxPitch() const
+        {
+            return mLookMaxPitchRad;
         }
 
         /**
@@ -164,17 +191,8 @@ namespace FREYA_NAMESPACE
         {
             std::uint32_t instanceCount = 0;
             std::uint32_t jointCount    = 0;
-            std::uint32_t lookJoint     = 0xffffffffu;
-            std::uint32_t ikRoot        = 0;
-            std::uint32_t ikMid         = 0;
-            std::uint32_t ikTip         = 0;
             std::uint32_t rootJoint     = 0xffffffffu;
             std::uint32_t _pad0         = 0;
-            glm::vec4     lookLocalForward { 0.f, 0.f, 1.f, 0.f };
-            float         lookMaxYaw   = 1.2f;
-            float         lookMaxPitch = 0.8f;
-            float         _padLook0    = 0.f;
-            float         _padLook1    = 0.f;
         };
 
         skr::Arc<Device>              mDevice;

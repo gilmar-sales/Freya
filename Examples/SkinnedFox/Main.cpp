@@ -295,8 +295,8 @@ class MainApp final : public fra::AbstractApplication
                     (static_cast<float>(i % 64u) / 64.f) * lodStaggerT;
                 fox.useUpperLayer    = (i % 8u) == 0u || (i % 8u) == 4u;
                 fox.useAdditiveLayer = (i % 8u) == 2u || (i % 8u) == 4u;
-                fox.useLookAt        = mHeadJoint >= 0 && (i % 5u) == 1u;
-                fox.useIk            = mIkReady && (i % 13u) == 0u;
+                fox.useLookAt        = mHeadJoint >= 0 && i == 0u;
+                fox.useIk            = mIkReady && i == 0u;
                 fox.useRootMotion    = fox.speed >= 1.5f;
                 if (fox.useUpperLayer)
                     ++upperCount;
@@ -1033,18 +1033,10 @@ class MainApp final : public fra::AbstractApplication
             { false, false, true, false },  { true, true, true, false },
         };
 
-        auto* gpu = mRenderer->GetGpuAnimPass();
         std::cout << "GPU golden fox0 stages (same graph sample):\n";
         for (std::size_t s = 0; s < 6; ++s)
         {
             const auto& feat = stages[s];
-            if (gpu)
-            {
-                if (feat.lookSkipClamp)
-                    gpu->SetLookClamp(-1.f, -1.f);
-                else
-                    gpu->SetLookClamp(1.2f, 0.8f);
-            }
             fox.graph.SetLayerEnabled("Upper", feat.mask);
             fox.graph.SetLayerEnabled("AddIdle", false);
             const auto cpuLocal = buildCpuPoseForGolden(fox, feat);
@@ -1077,8 +1069,6 @@ class MainApp final : public fra::AbstractApplication
             }
             std::cout << "  " << names[s] << " maxAbsDiff=" << maxAbs << '\n';
         }
-        if (gpu)
-            gpu->SetLookClamp(1.2f, 0.8f);
         syncFoxLayers(fox);
     }
 
@@ -1214,6 +1204,18 @@ class MainApp final : public fra::AbstractApplication
         inst.modelWorld = fox.model;
         if (mEnableRootMotion && fox.useRootMotion)
             inst.flags |= fra::GpuAnimFlags::CancelRootXZ;
+        // Per-instance look / IK chain (defaults shared across foxes here).
+        if (mHeadJoint >= 0)
+            inst.lookJoint = static_cast<std::uint32_t>(mHeadJoint);
+        if (mIkReady)
+        {
+            inst.ikRoot = mLegChain.root;
+            inst.ikMid  = mLegChain.mid;
+            inst.ikTip  = mLegChain.tip;
+        }
+        inst.lookLocalForward = kLookLocalForward;
+        inst.lookMaxYaw       = feat.lookSkipClamp ? -1.f : 1.2f;
+        inst.lookMaxPitch     = feat.lookSkipClamp ? -1.f : 0.8f;
         if (feat.look)
         {
             inst.lookTarget = mCameraPos;
