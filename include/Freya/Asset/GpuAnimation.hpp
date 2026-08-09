@@ -35,33 +35,39 @@ namespace FREYA_NAMESPACE
     namespace GpuAnimFlags
     {
         constexpr std::uint32_t Loop          = 1u;
-        constexpr std::uint32_t MaskedOverlay = 2u;
-        constexpr std::uint32_t Additive      = 4u;
+        constexpr std::uint32_t MaskedOverlay = 2u; ///< upper slot active
+        constexpr std::uint32_t Additive      = 4u; ///< additive slot active
         constexpr std::uint32_t CancelRootXZ  = 8u;
     } // namespace GpuAnimFlags
 
     /**
-     * @brief Per-actor GPU anim job (std430, 160 bytes).
+     * @brief Per-actor GPU anim job (std430).
      *
-     * Loco Blend1D + optional mask/additive layer, then optional look-at /
-     * two-bone IK using `modelWorld` and world-space targets. Weights ≤0
-     * disable look/IK. Shared joint indices come from GpuAnimPass push
-     * constants.
+     * Fixed AAA-style overlay contract (not a dynamic layer list):
+     * loco Blend1D → optional masked upper → optional additive → look / IK.
+     * Weights ≤ 0 leave a slot unused. Shared look/IK joint indices come from
+     * GpuAnimPass push constants.
      */
     struct GpuAnimInstance
     {
-        std::uint32_t boneOffset  = 0;
-        std::uint32_t jointCount  = 0;
-        std::uint32_t clipA       = 0;
-        std::uint32_t clipB       = 0;
-        float         timeA       = 0.f;
-        float         timeB       = 0.f;
-        float         blendT      = 0.f;
-        std::uint32_t flags       = GpuAnimFlags::Loop;
-        std::uint32_t clipLayer   = 0;
-        std::uint32_t maskBase    = 0; ///< index into boneMasks[]
-        float         timeLayer   = 0.f;
-        float         layerWeight = 0.f;
+        std::uint32_t boneOffset = 0;
+        std::uint32_t jointCount = 0;
+        std::uint32_t clipA      = 0;
+        std::uint32_t clipB      = 0;
+        float         timeA      = 0.f;
+        float         timeB      = 0.f;
+        float         blendT     = 0.f;
+        std::uint32_t flags      = GpuAnimFlags::Loop;
+        /// Slot: OverrideMasked (upper-body, etc.)
+        std::uint32_t clipMask   = 0;
+        std::uint32_t maskBase   = 0; ///< index into boneMasks[]
+        float         timeMask   = 0.f;
+        float         weightMask = 0.f;
+        /// Slot: Additive (idle breathe / recoil, …)
+        std::uint32_t clipAdd   = 0;
+        std::uint32_t _padLayer = 0;
+        float         timeAdd   = 0.f;
+        float         weightAdd = 0.f;
         glm::mat4     modelWorld { 1.f };
         glm::vec3     lookTarget { 0.f };
         float         lookWeight = 0.f;

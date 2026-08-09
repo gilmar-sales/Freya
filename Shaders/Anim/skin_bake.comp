@@ -58,10 +58,14 @@ struct AnimInstance
     float timeB;
     float blendT;
     uint  flags;
-    uint  clipLayer;
+    uint  clipMask;
     uint  maskBase;
-    float timeLayer;
-    float layerWeight;
+    float timeMask;
+    float weightMask;
+    uint  clipAdd;
+    uint  _padLayer;
+    float timeAdd;
+    float weightAdd;
     mat4  modelWorld;
     vec3  lookTarget;
     float lookWeight;
@@ -392,13 +396,15 @@ void main()
 
     uint       base   = id * kMaxJoints;
     bool       loop   = (inst.flags & kFlagLoop) != 0u;
-    bool       masked = (inst.flags & kFlagMasked) != 0u;
-    bool       add    = (inst.flags & kFlagAdd) != 0u && !masked;
     bool       rootXZ = (inst.flags & kFlagRootXZ) != 0u;
-    float      layerW = clamp(inst.layerWeight, 0.0, 1.0);
+    float      wMask  = clamp(inst.weightMask, 0.0, 1.0);
+    float      wAdd   = clamp(inst.weightAdd, 0.0, 1.0);
+    bool       masked = ((inst.flags & kFlagMasked) != 0u) && wMask > 0.0;
+    bool       add    = ((inst.flags & kFlagAdd) != 0u) && wAdd > 0.0;
     ClipHeader hA     = clips[inst.clipA];
     ClipHeader hB     = clips[inst.clipB];
-    ClipHeader hL     = clips[inst.clipLayer];
+    ClipHeader hMask  = clips[inst.clipMask];
+    ClipHeader hAdd   = clips[inst.clipAdd];
 
     for (uint j = 0u; j < jc; ++j)
     {
@@ -408,21 +414,27 @@ void main()
                             ? ja
                             : lerpJoint(ja, jb, clamp(inst.blendT, 0.0, 1.0));
 
-        if ((masked || add) && layerW > 0.0)
+        // Fixed slots: masked upper, then additive (same order as AnimGraph).
+        if (masked)
         {
-            float u = clamp(boneMasks[inst.maskBase + j], 0.0, 1.0) * layerW;
+            float u = clamp(boneMasks[inst.maskBase + j], 0.0, 1.0) * wMask;
             if (u > 0.0)
             {
-                BakedJoint overlay = sampleJoint(hL, inst.timeLayer, loop, j);
-                if (masked)
-                {
-                    if (u >= 1.0)
-                        jl = overlay;
-                    else
-                        jl = lerpJoint(jl, overlay, u);
-                }
+                BakedJoint overlay =
+                    sampleJoint(hMask, inst.timeMask, loop, j);
+                if (u >= 1.0)
+                    jl = overlay;
                 else
-                    jl = applyAdditiveJoint(jl, overlay, restJoints[j], u);
+                    jl = lerpJoint(jl, overlay, u);
+            }
+        }
+        if (add)
+        {
+            float u = clamp(boneMasks[inst.maskBase + j], 0.0, 1.0) * wAdd;
+            if (u > 0.0)
+            {
+                BakedJoint overlay = sampleJoint(hAdd, inst.timeAdd, loop, j);
+                jl = applyAdditiveJoint(jl, overlay, restJoints[j], u);
             }
         }
 

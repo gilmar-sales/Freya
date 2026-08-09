@@ -48,6 +48,48 @@ namespace FREYA_NAMESPACE
         return fallback;
     }
 
+    std::int32_t AnimGraph::findLayer(const std::string_view name) const
+    {
+        for (std::uint32_t i = 0; i < mLayers.size(); ++i)
+        {
+            if (mLayers[i].name == name)
+                return static_cast<std::int32_t>(i);
+        }
+        return -1;
+    }
+
+    void AnimGraph::SetLayerEnabled(const std::string_view name,
+                                    const bool             enabled)
+    {
+        const auto idx = findLayer(name);
+        if (idx >= 0)
+            mLayers[static_cast<std::uint32_t>(idx)].enabled = enabled;
+    }
+
+    void AnimGraph::SetLayerWeight(const std::string_view name,
+                                   const float            weight)
+    {
+        const auto idx = findLayer(name);
+        if (idx >= 0)
+            mLayers[static_cast<std::uint32_t>(idx)].weight = weight;
+    }
+
+    bool AnimGraph::IsLayerEnabled(const std::string_view name) const
+    {
+        const auto idx = findLayer(name);
+        return idx >= 0 && mLayers[static_cast<std::uint32_t>(idx)].enabled;
+    }
+
+    float AnimGraph::effectiveLayerWeight(const Layer& layer) const
+    {
+        if (!layer.enabled)
+            return 0.f;
+        float w = layer.weight;
+        if (!layer.weightParam.empty())
+            w *= GetFloat(layer.weightParam, 1.f);
+        return std::clamp(w, 0.f, 1.f);
+    }
+
     bool AnimGraph::evaluateCondition(const AnimCondition& c) const
     {
         switch (c.kind)
@@ -176,6 +218,26 @@ namespace FREYA_NAMESPACE
                 *state.clip, tPrev, clipTime, state.loop, *outEvents);
     }
 
+    void AnimGraph::advanceLayers(const float dt)
+    {
+        for (auto& layer : mLayers)
+        {
+            if (!layer.clip && !(layer.baked && !layer.baked->Empty()))
+                continue;
+            const float dur  = layer.baked && !layer.baked->Empty()
+                                   ? layer.baked->duration
+                                   : (layer.clip ? layer.clip->duration : 0.f);
+            const float rate = std::max(layer.playbackSpeed, 0.f);
+            layer.time += dt * rate;
+            if (dur > 0.f && layer.loop)
+            {
+                layer.time = std::fmod(layer.time, dur);
+                if (layer.time < 0.f)
+                    layer.time += dur;
+            }
+        }
+    }
+
     LocalPose AnimGraph::sampleState(const State& state,
                                      const float  clipTime) const
     {
@@ -194,6 +256,43 @@ namespace FREYA_NAMESPACE
         return state.clip
                    ? SampleClip(*mSkeleton, *state.clip, clipTime, state.loop)
                    : RestLocalPose(*mSkeleton);
+    }
+
+    LocalPose AnimGraph::sampleLayer(const Layer& layer) const
+    {
+        if (!mSkeleton)
+            return {};
+        if (layer.baked && !layer.baked->Empty())
+            return SampleBaked(*mSkeleton, *layer.baked, layer.time,
+                               layer.loop);
+        return layer.clip
+                   ? SampleClip(*mSkeleton, *layer.clip, layer.time, layer.loop)
+                   : RestLocalPose(*mSkeleton);
+    }
+
+    LocalPose AnimGraph::applyLayers(LocalPose base) const
+    {
+        if (!mSkeleton || mLayers.empty())
+            return base;
+
+        const LocalPose rest = RestLocalPose(*mSkeleton);
+        for (const auto& layer : mLayers)
+        {
+            const float w = effectiveLayerWeight(layer);
+            if (w <= 1e-6f)
+                continue;
+            const LocalPose overlay = sampleLayer(layer);
+            if (layer.mode == AnimLayerMode::Additive)
+            {
+                if (layer.mask)
+                    base = BlendAdditive(base, overlay, rest, *layer.mask, w);
+                else
+                    base = BlendAdditive(base, overlay, rest, w);
+            }
+            else if (layer.mask)
+                base = BlendMasked(base, overlay, *layer.mask, w);
+        }
+        return base;
     }
 
     LocalPose AnimGraph::evaluateState(
@@ -217,6 +316,7 @@ namespace FREYA_NAMESPACE
 
         if (!mBlending)
         {
+            advanceLayers(dt);
             clearTriggers();
             return;
         }
@@ -233,6 +333,7 @@ namespace FREYA_NAMESPACE
             mBlending     = false;
         }
 
+        advanceLayers(dt);
         clearTriggers();
     }
 
@@ -243,12 +344,12 @@ namespace FREYA_NAMESPACE
 
         LocalPose fromPose = sampleState(mStates[mCurrentState], mCurrentTime);
         if (!mBlending)
-            return fromPose;
+            return applyLayers(std::move(fromPose));
 
         const LocalPose toPose = sampleState(mStates[mNextState], mNextTime);
         const float     alpha =
             std::clamp(mBlendElapsed / mBlendDuration, 0.f, 1.f);
-        return BlendLocalPoses(fromPose, toPose, alpha);
+        return applyLayers(BlendLocalPoses(fromPose, toPose, alpha));
     }
 
     LocalPose AnimGraph::Evaluate(const float                       dt,
@@ -292,6 +393,50 @@ namespace FREYA_NAMESPACE
             span.i1 < state.blendTimes.size() ? state.blendTimes[span.i1] : 0.f;
         blendT = span.t;
         return clipA != nullptr;
+    }
+
+    bool AnimGraph::TryGetLayerGpuSlots(AnimLayerGpuSlots& out) const
+    {
+        out = {};
+        for (const auto& layer : mLayers)
+        {
+            const float w = effectiveLayerWeight(layer);
+            if (w <= 1e-6f || !layer.clip)
+                continue;
+            AnimLayerGpuSample* dest = nullptr;
+            if (layer.mode == AnimLayerMode::Additive)
+            {
+                if (out.additive.active)
+                    continue;
+                dest = &out.additive;
+            }
+            else
+            {
+                if (out.masked.active)
+                    continue;
+                dest = &out.masked;
+            }
+            dest->active = true;
+            dest->mode   = layer.mode;
+            dest->clip   = layer.clip;
+            dest->time   = layer.time;
+            dest->weight = w;
+            if (out.masked.active && out.additive.active)
+                break;
+        }
+        return out.masked.active || out.additive.active;
+    }
+
+    bool AnimGraph::TryGetPrimaryLayerGpuSample(AnimLayerGpuSample& out) const
+    {
+        AnimLayerGpuSlots slots {};
+        if (!TryGetLayerGpuSlots(slots))
+        {
+            out = {};
+            return false;
+        }
+        out = slots.masked.active ? slots.masked : slots.additive;
+        return out.active;
     }
 
     AnimGraphBuilder& AnimGraphBuilder::SetSkeleton(const Skeleton* skeleton)
@@ -370,6 +515,63 @@ namespace FREYA_NAMESPACE
         sample.loop          = loop;
         sample.playbackSpeed = playbackSpeed;
         st.blendSamples.push_back(sample);
+        return *this;
+    }
+
+    AnimGraph::Layer& AnimGraphBuilder::lastLayer()
+    {
+        if (mLastLayer < 0)
+            throw std::runtime_error(
+                "AnimGraphBuilder: layer op without Layer()");
+        return mGraph.mLayers[static_cast<std::uint32_t>(mLastLayer)];
+    }
+
+    AnimGraphBuilder& AnimGraphBuilder::Layer(std::string          name,
+                                              const AnimationClip& clip,
+                                              const bool           loop,
+                                              const float playbackSpeed)
+    {
+        AnimGraph::Layer layer;
+        layer.name          = std::move(name);
+        layer.clip          = &clip;
+        layer.loop          = loop;
+        layer.playbackSpeed = playbackSpeed;
+        layer.enabled       = false; // opt-in via SetLayerEnabled
+        mGraph.mLayers.push_back(std::move(layer));
+        mLastLayer      = static_cast<std::int32_t>(mGraph.mLayers.size() - 1);
+        mLastBlendState = -1;
+        return *this;
+    }
+
+    AnimGraphBuilder& AnimGraphBuilder::LayerMasked(const BoneMask* mask,
+                                                    const float     weight)
+    {
+        auto& layer  = lastLayer();
+        layer.mode   = AnimLayerMode::OverrideMasked;
+        layer.mask   = mask;
+        layer.weight = weight;
+        return *this;
+    }
+
+    AnimGraphBuilder& AnimGraphBuilder::LayerAdditive(const float     weight,
+                                                      const BoneMask* mask)
+    {
+        auto& layer  = lastLayer();
+        layer.mode   = AnimLayerMode::Additive;
+        layer.mask   = mask;
+        layer.weight = weight;
+        return *this;
+    }
+
+    AnimGraphBuilder& AnimGraphBuilder::LayerWeightParam(std::string floatParam)
+    {
+        lastLayer().weightParam = std::move(floatParam);
+        return *this;
+    }
+
+    AnimGraphBuilder& AnimGraphBuilder::LayerBake(const BakedClip* baked)
+    {
+        lastLayer().baked = baked;
         return *this;
     }
 
@@ -453,6 +655,8 @@ namespace FREYA_NAMESPACE
                 for (const auto& s : st.blendSamples)
                     consider(s.clip, s.baked);
             }
+            for (const auto& layer : mGraph.mLayers)
+                consider(layer.clip, layer.baked);
 
             mGraph.mBakedClips.clear();
             mGraph.mBakedClips.reserve(ordered.size());
@@ -483,6 +687,11 @@ namespace FREYA_NAMESPACE
                     if (!s.baked)
                         s.baked = resolve(s.clip);
                 }
+            }
+            for (auto& layer : mGraph.mLayers)
+            {
+                if (!layer.baked)
+                    layer.baked = resolve(layer.clip);
             }
         }
 

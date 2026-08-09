@@ -14,6 +14,39 @@
 namespace FREYA_NAMESPACE
 {
     /**
+     * @brief How an AnimGraph overlay layer is composited onto the base pose.
+     */
+    enum class AnimLayerMode : std::uint8_t
+    {
+        OverrideMasked = 0, ///< BlendMasked
+        Additive       = 1, ///< BlendAdditive vs rest pose
+    };
+
+    /**
+     * @brief GPU bridge for one graph overlay layer.
+     */
+    struct AnimLayerGpuSample
+    {
+        bool                 active = false;
+        AnimLayerMode        mode   = AnimLayerMode::OverrideMasked;
+        const AnimationClip* clip   = nullptr;
+        float                time   = 0.f;
+        float                weight = 0.f;
+    };
+
+    /**
+     * @brief Fixed GPU overlay contract: at most one masked + one additive.
+     *
+     * Matches #GpuAnimInstance dual slots (crowd-safe). Extra graph layers of
+     * the same mode are ignored on the GPU path (first wins).
+     */
+    struct AnimLayerGpuSlots
+    {
+        AnimLayerGpuSample masked;
+        AnimLayerGpuSample additive;
+    };
+
+    /**
      * @brief Transition predicate for AnimGraph.
      */
     struct AnimCondition
@@ -58,10 +91,12 @@ namespace FREYA_NAMESPACE
     };
 
     /**
-     * @brief Gameplay animation state machine with clip / Blend1D + crossfade.
+     * @brief Gameplay animation state machine with clip / Blend1D + crossfade
+     *        and optional overlay layers (mask / additive) for GPU/CPU.
      *
      * States reference AnimationClip pointers owned by the app/asset.
-     * Evaluate(dt) advances time, resolves transitions, blends poses.
+     * Evaluate(dt) advances time, resolves transitions, blends poses, then
+     * applies enabled layers in authoring order.
      */
     class AnimGraph
     {
@@ -75,17 +110,21 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] bool  GetBool(std::string_view name,
                                     bool             fallback = false) const;
 
+        void               SetLayerEnabled(std::string_view name, bool enabled);
+        void               SetLayerWeight(std::string_view name, float weight);
+        [[nodiscard]] bool IsLayerEnabled(std::string_view name) const;
+
         /**
          * @brief Tick graph (transitions + phase/time) without sampling poses.
          *
-         * Use with TryGetBlend1DGpuSample + GPU skin, or call SampleCurrent()
-         * for a CPU local pose afterward.
+         * Advances base state and all layers. Use with GPU sample APIs, or
+         * call SampleCurrent() for a CPU local pose afterward.
          */
         void Advance(float                             dt,
                      std::vector<FiredAnimationEvent>* outEvents = nullptr);
 
         /**
-         * @brief Sample the current state into a local pose (no time advance).
+         * @brief Sample the current state + layers into a local pose.
          */
         [[nodiscard]] LocalPose SampleCurrent() const;
 
@@ -110,6 +149,25 @@ namespace FREYA_NAMESPACE
         bool TryGetBlend1DGpuSample(const AnimationClip*& clipA, float& timeA,
                                     const AnimationClip*& clipB, float& timeB,
                                     float& blendT) const;
+
+        /**
+         * @brief Pack enabled layers into the fixed GPU dual-slot contract.
+         *
+         * First OverrideMasked and first Additive with weight &gt; 0 fill the
+         * slots (CPU may still stack more layers in SampleCurrent).
+         */
+        bool TryGetLayerGpuSlots(AnimLayerGpuSlots& out) const;
+
+        /**
+         * @brief First enabled overlay (legacy helper; prefer
+         * #TryGetLayerGpuSlots).
+         */
+        bool TryGetPrimaryLayerGpuSample(AnimLayerGpuSample& out) const;
+
+        [[nodiscard]] std::uint32_t LayerCount() const
+        {
+            return static_cast<std::uint32_t>(mLayers.size());
+        }
 
         [[nodiscard]] const Skeleton* GetSkeleton() const { return mSkeleton; }
 
@@ -139,6 +197,21 @@ namespace FREYA_NAMESPACE
             const BakedClip* baked = nullptr; ///< optional clip-state bake
         };
 
+        struct Layer
+        {
+            std::string          name;
+            const AnimationClip* clip          = nullptr;
+            const BakedClip*     baked         = nullptr;
+            bool                 loop          = true;
+            float                playbackSpeed = 1.f;
+            float                weight        = 1.f;
+            std::string          weightParam;
+            AnimLayerMode        mode    = AnimLayerMode::OverrideMasked;
+            const BoneMask*      mask    = nullptr;
+            bool                 enabled = true;
+            float                time    = 0.f;
+        };
+
         struct Transition
         {
             std::uint32_t from = 0;
@@ -165,15 +238,21 @@ namespace FREYA_NAMESPACE
         void      tryStartTransition();
         void      advanceState(State& state, float& clipTime, float dt,
                                std::vector<FiredAnimationEvent>* outEvents);
+        void      advanceLayers(float dt);
         LocalPose sampleState(const State& state, float clipTime) const;
+        LocalPose sampleLayer(const Layer& layer) const;
+        LocalPose applyLayers(LocalPose base) const;
+        [[nodiscard]] float effectiveLayerWeight(const Layer& layer) const;
+        [[nodiscard]] std::int32_t findLayer(std::string_view name) const;
         LocalPose evaluateState(State& state, float& clipTime, float dt,
                                 std::vector<FiredAnimationEvent>* outEvents);
 
         const Skeleton*         mSkeleton = nullptr;
         std::vector<State>      mStates;
+        std::vector<Layer>      mLayers;
         std::vector<Transition> mTransitions;
         std::uint32_t           mEntryState = 0;
-        /// Owned bakes; Blend1DSample::baked / State::baked point here.
+        /// Owned bakes; Blend1DSample::baked / State::baked / Layer::baked.
         std::vector<BakedClip> mBakedClips;
 
         std::unordered_map<std::string, FloatParam>   mFloats;
@@ -219,10 +298,25 @@ namespace FREYA_NAMESPACE
             float playbackSpeed = 1.f, const BakedClip* baked = nullptr);
 
         /**
-         * @brief Bake every clip referenced by states at `bakeHz` into the
-         *        graph (Evaluate uses SampleBaked). Call before Build().
+         * @brief Add an overlay layer (clip) applied after the base state.
          *
-         * Pass bakeHz <= 0 to disable (keyframe SampleClip path).
+         * Follow with LayerMasked / LayerAdditive. Layers advance in Advance
+         * and composite in SampleCurrent. GPU packing uses at most one masked
+         * and one additive slot (#TryGetLayerGpuSlots).
+         */
+        AnimGraphBuilder& Layer(std::string name, const AnimationClip& clip,
+                                bool loop = true, float playbackSpeed = 1.f);
+
+        AnimGraphBuilder& LayerMasked(const BoneMask* mask, float weight = 1.f);
+        AnimGraphBuilder& LayerAdditive(float           weight = 1.f,
+                                        const BoneMask* mask   = nullptr);
+        AnimGraphBuilder& LayerWeightParam(std::string floatParam);
+        AnimGraphBuilder& LayerBake(const BakedClip* baked);
+
+        /**
+         * @brief Bake every clip referenced by states/layers at `bakeHz`.
+         *
+         * Pass bakeHz &lt;= 0 to disable (keyframe SampleClip path).
          */
         AnimGraphBuilder& EnableBaking(float bakeHz = 30.f);
 
@@ -236,12 +330,14 @@ namespace FREYA_NAMESPACE
         AnimGraph Build();
 
       private:
-        [[nodiscard]] std::int32_t findState(std::string_view name) const;
+        [[nodiscard]] std::int32_t      findState(std::string_view name) const;
+        [[nodiscard]] AnimGraph::Layer& lastLayer();
 
         const Skeleton* mSkeleton = nullptr;
         AnimGraph       mGraph;
         std::string     mEntryName;
         std::int32_t    mLastBlendState = -1;
+        std::int32_t    mLastLayer      = -1;
         float           mBakeHz         = 0.f;
     };
 
