@@ -21,6 +21,7 @@ namespace FREYA_NAMESPACE
         static constexpr std::uint32_t kMaxInstances   = 2048;
         static constexpr std::uint32_t kMaxClips       = 8;
         static constexpr std::uint32_t kMaxBakedJoints = 65536;
+        static constexpr std::uint32_t kMaxMaskFloats  = kMaxJoints;
 
         GpuAnimPass(const skr::Arc<Device>&              device,
                     const skr::Arc<BoneMatrixResources>& boneResources,
@@ -34,6 +35,8 @@ namespace FREYA_NAMESPACE
                     const skr::Arc<Buffer>&              clipHeaderBuffer,
                     const skr::Arc<Buffer>&              jointsBuffer,
                     const skr::Arc<Buffer>&              instanceBuffer,
+                    const skr::Arc<Buffer>&              boneMaskBuffer,
+                    const skr::Arc<Buffer>&              restJointsBuffer,
                     const skr::Arc<Buffer>&              readbackBuffer);
 
         ~GpuAnimPass();
@@ -54,6 +57,8 @@ namespace FREYA_NAMESPACE
 
         void UploadSkeleton(const GpuSkeletonPack& skeleton);
         void UploadBakes(const GpuBakePack& pack);
+        void UploadBoneMask(std::span<const float> weights);
+        void UploadRestJoints(std::span<const GpuBakedJoint> joints);
         void UploadInstances(std::span<const GpuAnimInstance> instances);
 
         [[nodiscard]] std::uint32_t GetInstanceCount() const
@@ -96,6 +101,8 @@ namespace FREYA_NAMESPACE
         skr::Arc<Buffer> mClipHeaderBuffer;
         skr::Arc<Buffer> mJointsBuffer;
         skr::Arc<Buffer> mInstanceBuffer;
+        skr::Arc<Buffer> mBoneMaskBuffer;
+        skr::Arc<Buffer> mRestJointsBuffer;
         skr::Arc<Buffer> mReadbackBuffer;
 
         bool          mEnabled       = false;

@@ -26,6 +26,10 @@ namespace FREYA_NAMESPACE
             GpuAnimPass::kMaxBakedJoints * sizeof(GpuBakedJoint));
         const auto instBytes = static_cast<std::uint32_t>(
             GpuAnimPass::kMaxInstances * sizeof(GpuAnimInstance));
+        const auto maskBytes = static_cast<std::uint32_t>(
+            GpuAnimPass::kMaxMaskFloats * sizeof(float));
+        const auto restBytes = static_cast<std::uint32_t>(
+            GpuAnimPass::kMaxJoints * sizeof(GpuBakedJoint));
         const auto readbackBytes = static_cast<std::uint32_t>(
             GpuAnimPass::kMaxJoints * sizeof(glm::mat4));
 
@@ -53,6 +57,14 @@ namespace FREYA_NAMESPACE
                 .SetUsage(BufferUsage::Storage)
                 .SetSize(instBytes)
                 .Build();
+        auto maskBuf = BufferBuilder(mDevice)
+                           .SetUsage(BufferUsage::Storage)
+                           .SetSize(std::max(maskBytes, 256u))
+                           .Build();
+        auto restBuf = BufferBuilder(mDevice)
+                           .SetUsage(BufferUsage::Storage)
+                           .SetSize(restBytes)
+                           .Build();
         auto readbackBuf =
             BufferBuilder(mDevice)
                 .SetUsage(BufferUsage::Readback)
@@ -85,6 +97,16 @@ namespace FREYA_NAMESPACE
                 .setDescriptorType(vk::DescriptorType::eStorageBuffer)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eCompute),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(5)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eCompute),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(6)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eCompute),
         };
         auto animSetLayout = mDevice->Get().createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo().setBindings(animBindings));
@@ -92,7 +114,7 @@ namespace FREYA_NAMESPACE
         const auto poolSizes = std::array {
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eStorageBuffer)
-                .setDescriptorCount(5),
+                .setDescriptorCount(7),
         };
         auto animPool = mDevice->Get().createDescriptorPool(
             vk::DescriptorPoolCreateInfo().setMaxSets(1).setPoolSizes(
@@ -124,6 +146,8 @@ namespace FREYA_NAMESPACE
         writeSsbo(2, clipHdrBuf, std::max(clipHdrBytes, 256u));
         writeSsbo(3, jointsBuf, jointsBytes);
         writeSsbo(4, instanceBuf, instBytes);
+        writeSsbo(5, maskBuf, std::max(maskBytes, 256u));
+        writeSsbo(6, restBuf, restBytes);
 
         const auto pushRange =
             vk::PushConstantRange()
@@ -156,7 +180,7 @@ namespace FREYA_NAMESPACE
         return skr::MakeArc<GpuAnimPass>(
             mDevice, mBoneResources, pipelineLayout, pipeline, animSetLayout,
             animPool, animSet, parentsBuf, invBindBuf, clipHdrBuf, jointsBuf,
-            instanceBuf, readbackBuf);
+            instanceBuf, maskBuf, restBuf, readbackBuf);
     }
 
 } // namespace FREYA_NAMESPACE

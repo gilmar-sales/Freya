@@ -220,6 +220,14 @@ class MainApp final : public fra::AbstractApplication
         mUpperMask = makeUpperBodyMask(mSkinned.skeleton);
         mRestPose  = fra::RestLocalPose(mSkinned.skeleton);
 
+        if (auto* gpu = mRenderer->GetGpuAnimPass())
+        {
+            const auto jc = mSkinned.skeleton.JointCount();
+            gpu->UploadBoneMask(fra::PackBoneMask(mUpperMask, jc));
+            gpu->UploadRestJoints(fra::PackRestJoints(mRestPose, jc));
+            std::cout << "GPU anim mask+rest uploaded\n";
+        }
+
         mHeadJoint       = findJointAny(mSkinned.skeleton, { "Head", "head" });
         const auto thigh = findJointAny(
             mSkinned.skeleton, { "LeftLeg01", "LeftUpLeg", "LeftUpperLeg" });
@@ -426,6 +434,21 @@ class MainApp final : public fra::AbstractApplication
                     }
                 }
                 fox.pendingDt = 0.f;
+
+                const bool tickLayer =
+                    (mEnableUpperMask && fox.useUpperLayer) ||
+                    (mEnableAdditive && fox.useAdditiveLayer);
+                if (tickLayer && mUpperClip)
+                {
+                    fox.upperTime += dt;
+                    if (mUpperClip->duration > 0.f)
+                    {
+                        fox.upperTime =
+                            std::fmod(fox.upperTime, mUpperClip->duration);
+                        if (fox.upperTime < 0.f)
+                            fox.upperTime += mUpperClip->duration;
+                    }
+                }
             }
             else
                 fox.pendingDt += dt;
@@ -468,7 +491,7 @@ class MainApp final : public fra::AbstractApplication
                 fra::GpuAnimInstance      inst {};
                 inst.boneOffset = fox.boneOffset;
                 inst.jointCount = jointCount;
-                inst.flags      = 1u;
+                inst.flags      = fra::GpuAnimFlags::Loop;
                 if (fox.graph.TryGetBlend1DGpuSample(ca, ta, cb, tb, bt))
                 {
                     inst.clipA  = gpuClipIndex(ca);
@@ -476,6 +499,22 @@ class MainApp final : public fra::AbstractApplication
                     inst.timeA  = ta;
                     inst.timeB  = tb;
                     inst.blendT = bt;
+                }
+                if (mEnableUpperMask && fox.useUpperLayer && mUpperClip)
+                {
+                    inst.flags |= fra::GpuAnimFlags::MaskedOverlay;
+                    inst.clipLayer   = gpuClipIndex(mUpperClip);
+                    inst.maskBase    = 0;
+                    inst.timeLayer   = fox.upperTime;
+                    inst.layerWeight = 0.85f;
+                }
+                else if (mEnableAdditive && fox.useAdditiveLayer && mUpperClip)
+                {
+                    inst.flags |= fra::GpuAnimFlags::Additive;
+                    inst.clipLayer   = gpuClipIndex(mUpperClip);
+                    inst.maskBase    = 0;
+                    inst.timeLayer   = fox.upperTime;
+                    inst.layerWeight = 0.55f;
                 }
                 gpuInstances.push_back(inst);
 
@@ -603,7 +642,7 @@ class MainApp final : public fra::AbstractApplication
                 fra::GpuAnimInstance      inst {};
                 inst.boneOffset = fox.boneOffset;
                 inst.jointCount = jointCount;
-                inst.flags      = 1u;
+                inst.flags      = fra::GpuAnimFlags::Loop;
                 if (fox.graph.TryGetBlend1DGpuSample(ca, ta, cb, tb, bt))
                 {
                     inst.clipA  = gpuClipIndex(ca);
@@ -1049,7 +1088,7 @@ class MainApp final : public fra::AbstractApplication
             case GpuAnimMode::Fox0:
                 mGpuAnimMode    = GpuAnimMode::Crowd;
                 mGpuCrowdSeeded = false;
-                std::cout << "GpuAnim Crowd (LOD active list, loco only)\n";
+                std::cout << "GpuAnim Crowd (LOD + GPU mask/additive layers)\n";
                 break;
             case GpuAnimMode::Crowd:
                 mGpuAnimMode = GpuAnimMode::Off;

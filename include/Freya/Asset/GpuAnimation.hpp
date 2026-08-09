@@ -1,8 +1,10 @@
 #pragma once
 
 #include "Freya/Asset/BakedAnimation.hpp"
+#include "Freya/Asset/Pose.hpp"
 #include "Freya/Asset/Skeleton.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -30,16 +32,34 @@ namespace FREYA_NAMESPACE
         std::uint32_t jointsBase = 0; ///< index into joints[]
     };
 
+    namespace GpuAnimFlags
+    {
+        constexpr std::uint32_t Loop          = 1u;
+        constexpr std::uint32_t MaskedOverlay = 2u;
+        constexpr std::uint32_t Additive      = 4u;
+    } // namespace GpuAnimFlags
+
+    /**
+     * @brief Per-actor GPU anim job (std430).
+     *
+     * Layer: optional third clip + per-joint mask. `flags` selects
+     * MaskedOverlay or Additive (mutually exclusive). Additive samples
+     * rest pose from the restJoints SSBO.
+     */
     struct GpuAnimInstance
     {
-        std::uint32_t boneOffset = 0;
-        std::uint32_t jointCount = 0;
-        std::uint32_t clipA      = 0;
-        std::uint32_t clipB      = 0;
-        float         timeA      = 0.f;
-        float         timeB      = 0.f;
-        float         blendT     = 0.f;
-        std::uint32_t flags      = 1u; ///< bit0 = loop
+        std::uint32_t boneOffset  = 0;
+        std::uint32_t jointCount  = 0;
+        std::uint32_t clipA       = 0;
+        std::uint32_t clipB       = 0;
+        float         timeA       = 0.f;
+        float         timeB       = 0.f;
+        float         blendT      = 0.f;
+        std::uint32_t flags       = GpuAnimFlags::Loop;
+        std::uint32_t clipLayer   = 0;
+        std::uint32_t maskBase    = 0; ///< index into boneMasks[]
+        float         timeLayer   = 0.f;
+        float         layerWeight = 0.f;
     };
 
     [[nodiscard]] inline GpuBakedJoint ToGpuJoint(const JointTRS& j)
@@ -98,6 +118,28 @@ namespace FREYA_NAMESPACE
         if (p.inverseBind.size() < p.jointCount)
             p.inverseBind.resize(p.jointCount, glm::mat4(1.f));
         return p;
+    }
+
+    [[nodiscard]] inline std::vector<float> PackBoneMask(
+        const BoneMask& mask, std::uint32_t jointCount)
+    {
+        std::vector<float> out(jointCount, 0.f);
+        const auto         n = std::min(jointCount, mask.Size());
+        for (std::uint32_t i = 0; i < n; ++i)
+            out[i] = std::clamp(mask.weights[i], 0.f, 1.f);
+        return out;
+    }
+
+    [[nodiscard]] inline std::vector<GpuBakedJoint> PackRestJoints(
+        const LocalPose& rest, const std::uint32_t jointCount)
+    {
+        std::vector<GpuBakedJoint> out(jointCount);
+        const auto                 n = std::min(jointCount, rest.Size());
+        for (std::uint32_t i = 0; i < n; ++i)
+            out[i] = ToGpuJoint(rest.joints[i]);
+        for (std::uint32_t i = n; i < jointCount; ++i)
+            out[i].q = glm::vec4(0.f, 0.f, 0.f, 1.f);
+        return out;
     }
 
 } // namespace FREYA_NAMESPACE

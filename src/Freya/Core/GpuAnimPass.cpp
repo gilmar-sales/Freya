@@ -18,13 +18,16 @@ namespace FREYA_NAMESPACE
         const skr::Arc<Buffer>&              clipHeaderBuffer,
         const skr::Arc<Buffer>&              jointsBuffer,
         const skr::Arc<Buffer>&              instanceBuffer,
+        const skr::Arc<Buffer>&              boneMaskBuffer,
+        const skr::Arc<Buffer>&              restJointsBuffer,
         const skr::Arc<Buffer>&              readbackBuffer) :
         mDevice(device), mBoneResources(boneResources),
         mPipelineLayout(pipelineLayout), mPipeline(pipeline),
         mAnimSetLayout(animSetLayout), mAnimPool(animPool), mAnimSet(animSet),
         mParentsBuffer(parentsBuffer), mInvBindBuffer(invBindBuffer),
         mClipHeaderBuffer(clipHeaderBuffer), mJointsBuffer(jointsBuffer),
-        mInstanceBuffer(instanceBuffer), mReadbackBuffer(readbackBuffer)
+        mInstanceBuffer(instanceBuffer), mBoneMaskBuffer(boneMaskBuffer),
+        mRestJointsBuffer(restJointsBuffer), mReadbackBuffer(readbackBuffer)
     {
     }
 
@@ -79,6 +82,28 @@ namespace FREYA_NAMESPACE
         mJointsBuffer->Copy(
             pack.joints.data(),
             static_cast<std::uint32_t>(jointCount * sizeof(GpuBakedJoint)));
+    }
+
+    void GpuAnimPass::UploadBoneMask(const std::span<const float> weights)
+    {
+        if (!mBoneMaskBuffer || weights.empty())
+            return;
+        const auto n = std::min(static_cast<std::uint32_t>(weights.size()),
+                                kMaxMaskFloats);
+        mBoneMaskBuffer->Copy(weights.data(),
+                              static_cast<std::uint32_t>(n * sizeof(float)));
+    }
+
+    void GpuAnimPass::UploadRestJoints(
+        const std::span<const GpuBakedJoint> joints)
+    {
+        if (!mRestJointsBuffer || joints.empty())
+            return;
+        const auto n =
+            std::min(static_cast<std::uint32_t>(joints.size()), kMaxJoints);
+        mRestJointsBuffer->Copy(
+            joints.data(),
+            static_cast<std::uint32_t>(n * sizeof(GpuBakedJoint)));
     }
 
     void GpuAnimPass::UploadInstances(

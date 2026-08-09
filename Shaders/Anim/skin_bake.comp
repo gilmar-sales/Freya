@@ -54,11 +54,25 @@ struct AnimInstance
     float timeB;
     float blendT;
     uint  flags;
+    uint  clipLayer;
+    uint  maskBase;
+    float timeLayer;
+    float layerWeight;
 };
 
 layout(set = 1, binding = 4) readonly buffer Instances
 {
     AnimInstance instances[];
+};
+
+layout(set = 1, binding = 5) readonly buffer BoneMasks
+{
+    float boneMasks[];
+};
+
+layout(set = 1, binding = 6) readonly buffer RestJoints
+{
+    BakedJoint restJoints[];
 };
 
 layout(push_constant) uniform Push
@@ -68,6 +82,10 @@ layout(push_constant) uniform Push
     uint _pad0;
     uint _pad1;
 } pc;
+
+const uint kFlagLoop    = 1u;
+const uint kFlagMasked  = 2u;
+const uint kFlagAdd     = 4u;
 
 vec4 quatSlerp(vec4 a, vec4 b, float t)
 {
@@ -81,6 +99,23 @@ vec4 quatSlerp(vec4 a, vec4 b, float t)
         return normalize(mix(a, b, t));
     float theta = acos(clamp(cosTheta, -1.0, 1.0));
     return (a * sin((1.0 - t) * theta) + b * sin(t * theta)) / sin(theta);
+}
+
+vec4 quatConjugate(vec4 q)
+{
+    return vec4(-q.xyz, q.w);
+}
+
+vec4 quatMul(vec4 a, vec4 b)
+{
+    return vec4(a.w * b.xyz + b.w * a.xyz + cross(a.xyz, b.xyz),
+                a.w * b.w - dot(a.xyz, b.xyz));
+}
+
+vec4 quatInverse(vec4 q)
+{
+    // Unit quats: conjugate == inverse.
+    return quatConjugate(q);
 }
 
 mat4 quatToMat(vec4 q)
@@ -98,7 +133,6 @@ mat4 quatToMat(vec4 q)
 mat4 trsMat(vec3 t, vec4 q, vec3 s)
 {
     mat4 r = quatToMat(q);
-    // Column-major: scale columns of rotation, translation in col3.
     mat4 m;
     m[0] = vec4(r[0].xyz * s.x, 0.0);
     m[1] = vec4(r[1].xyz * s.y, 0.0);
@@ -120,6 +154,20 @@ BakedJoint lerpJoint(BakedJoint a, BakedJoint b, float t)
     o.s    = mix(a.s, b.s, t);
     o.pad0 = 0.0;
     o.pad1 = 0.0;
+    return o;
+}
+
+BakedJoint applyAdditiveJoint(BakedJoint base, BakedJoint add, BakedJoint ref,
+                              float w)
+{
+    BakedJoint o;
+    o.t            = base.t + (add.t - ref.t) * w;
+    o.s            = base.s + (add.s - ref.s) * w;
+    vec4 delta     = normalize(quatMul(add.q, quatInverse(ref.q)));
+    vec4 id        = vec4(0.0, 0.0, 0.0, 1.0);
+    o.q            = normalize(quatMul(quatSlerp(id, delta, w), base.q));
+    o.pad0         = 0.0;
+    o.pad1         = 0.0;
     return o;
 }
 
@@ -180,9 +228,13 @@ void main()
     if (jc == 0u)
         return;
 
-    bool       loop = (inst.flags & 1u) != 0u;
-    ClipHeader hA   = clips[inst.clipA];
-    ClipHeader hB   = clips[inst.clipB];
+    bool       loop   = (inst.flags & kFlagLoop) != 0u;
+    bool       masked = (inst.flags & kFlagMasked) != 0u;
+    bool       add    = (inst.flags & kFlagAdd) != 0u && !masked;
+    float      layerW = clamp(inst.layerWeight, 0.0, 1.0);
+    ClipHeader hA     = clips[inst.clipA];
+    ClipHeader hB     = clips[inst.clipB];
+    ClipHeader hL     = clips[inst.clipLayer];
 
     mat4 localM[128];
     mat4 globalM[128];
@@ -194,7 +246,27 @@ void main()
         BakedJoint jl = (inst.clipA == inst.clipB || inst.blendT <= 0.0)
                             ? ja
                             : lerpJoint(ja, jb, clamp(inst.blendT, 0.0, 1.0));
-        localM[j]     = trsMat(jl.t, jl.q, jl.s);
+
+        if ((masked || add) && layerW > 0.0)
+        {
+            float u = clamp(boneMasks[inst.maskBase + j], 0.0, 1.0) * layerW;
+            if (u > 0.0)
+            {
+                BakedJoint overlay =
+                    sampleJoint(hL, inst.timeLayer, loop, j);
+                if (masked)
+                {
+                    if (u >= 1.0)
+                        jl = overlay;
+                    else
+                        jl = lerpJoint(jl, overlay, u);
+                }
+                else
+                    jl = applyAdditiveJoint(jl, overlay, restJoints[j], u);
+            }
+        }
+
+        localM[j] = trsMat(jl.t, jl.q, jl.s);
     }
 
     for (uint j = 0u; j < jc; ++j)
