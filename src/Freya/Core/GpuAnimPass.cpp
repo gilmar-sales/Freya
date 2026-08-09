@@ -140,6 +140,35 @@ namespace FREYA_NAMESPACE
             mBoneResources->RecordCopyCurrentToPrev(commandBuffer, frameIndex);
         }
 
+        recordCompute(commandBuffer, frameIndex);
+    }
+
+    void GpuAnimPass::DispatchImmediate(
+        const skr::Arc<CommandPool>& commandPool,
+        const std::uint32_t          frameIndex) const
+    {
+        if (!mEnabled || mInstanceCount == 0 || !mBoneResources || !mPipeline ||
+            !mDevice)
+            return;
+
+        mDevice->Get().waitIdle();
+
+        auto cb = commandPool->CreateCommandBuffer();
+        cb.begin(vk::CommandBufferBeginInfo().setFlags(
+            vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
+        recordCompute(cb, frameIndex);
+        cb.end();
+
+        const auto submitInfo =
+            vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(&cb);
+        mDevice->GetGraphicsQueue().submit(submitInfo);
+        mDevice->GetGraphicsQueue().waitIdle();
+        commandPool->FreeCommandBuffer(cb);
+    }
+
+    void GpuAnimPass::recordCompute(const vk::CommandBuffer commandBuffer,
+                                    const std::uint32_t     frameIndex) const
+    {
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, mPipeline);
         const auto boneSet = mBoneResources->GetSet(frameIndex);
         const auto sets    = std::array { boneSet, mAnimSet };
@@ -154,8 +183,9 @@ namespace FREYA_NAMESPACE
         pc.ikMid         = mIkMid;
         pc.ikTip         = mIkTip;
         pc.rootJoint     = mRootJoint;
-        pc.lookLocalForward =
-            glm::vec4(mLookLocalForward, 0.f);
+        pc.lookLocalForward = glm::vec4(mLookLocalForward, 0.f);
+        pc.lookMaxYaw       = mLookMaxYawRad;
+        pc.lookMaxPitch     = mLookMaxPitchRad;
         commandBuffer.pushConstants(
             mPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
             sizeof(PushConstants), &pc);

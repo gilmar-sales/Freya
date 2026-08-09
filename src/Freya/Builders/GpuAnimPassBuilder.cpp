@@ -183,7 +183,8 @@ namespace FREYA_NAMESPACE
                 .setStageFlags(vk::ShaderStageFlagBits::eCompute)
                 .setOffset(0)
                 .setSize(static_cast<std::uint32_t>(sizeof(std::uint32_t) * 8u +
-                                                    sizeof(glm::vec4)));
+                                                    sizeof(glm::vec4) +
+                                                    sizeof(float) * 4u));
 
         const auto setLayouts =
             std::array { mBoneResources->GetLayout(), animSetLayout };

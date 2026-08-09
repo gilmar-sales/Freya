@@ -62,7 +62,9 @@ namespace FREYA_NAMESPACE
                            const std::uint32_t ikMid, const std::uint32_t ikTip,
                            const std::uint32_t rootJoint,
                            const glm::vec3     lookLocalForward = { 0.f, 0.f,
-                                                               1.f })
+                                                               1.f },
+                           const float         lookMaxYawRad   = 1.2f,
+                           const float         lookMaxPitchRad = 0.8f)
         {
             mLookJoint         = lookJoint;
             mIkRoot            = ikRoot;
@@ -70,6 +72,15 @@ namespace FREYA_NAMESPACE
             mIkTip             = ikTip;
             mRootJoint         = rootJoint;
             mLookLocalForward  = lookLocalForward;
+            mLookMaxYawRad     = lookMaxYawRad;
+            mLookMaxPitchRad   = lookMaxPitchRad;
+        }
+
+        /** Negative max yaw disables clampSwing (raw quatFromTo). */
+        void SetLookClamp(const float maxYawRad, const float maxPitchRad)
+        {
+            mLookMaxYawRad   = maxYawRad;
+            mLookMaxPitchRad = maxPitchRad;
         }
 
         void UploadSkeleton(const GpuSkeletonPack& skeleton);
@@ -87,6 +98,13 @@ namespace FREYA_NAMESPACE
                       std::uint32_t                frameIndex) const;
 
         /**
+         * @brief One-shot submit + waitIdle (golden / debug compares).
+         * Does not carry/copy prev bones.
+         */
+        void DispatchImmediate(const skr::Arc<CommandPool>& commandPool,
+                               std::uint32_t                frameIndex) const;
+
+        /**
          * @brief Device idle + copy bones slice to readback → `out`.
          */
         bool ReadbackBones(const skr::Arc<CommandPool>& commandPool,
@@ -97,6 +115,9 @@ namespace FREYA_NAMESPACE
                                out) const;
 
       private:
+        void recordCompute(vk::CommandBuffer commandBuffer,
+                           std::uint32_t     frameIndex) const;
+
         struct PushConstants
         {
             std::uint32_t instanceCount = 0;
@@ -108,6 +129,10 @@ namespace FREYA_NAMESPACE
             std::uint32_t rootJoint     = 0xffffffffu;
             std::uint32_t _pad0         = 0;
             glm::vec4     lookLocalForward { 0.f, 0.f, 1.f, 0.f };
+            float         lookMaxYaw   = 1.2f;
+            float         lookMaxPitch = 0.8f;
+            float         _padLook0    = 0.f;
+            float         _padLook1    = 0.f;
         };
 
         skr::Arc<Device>              mDevice;
@@ -138,7 +163,9 @@ namespace FREYA_NAMESPACE
         std::uint32_t mIkMid         = 0;
         std::uint32_t mIkTip         = 0;
         std::uint32_t mRootJoint         = 0xffffffffu;
-        glm::vec3     mLookLocalForward  = { 0.f, 0.f, 1.f };
+        glm::vec3     mLookLocalForward = { 0.f, 0.f, 1.f };
+        float         mLookMaxYawRad    = 1.2f;
+        float         mLookMaxPitchRad  = 0.8f;
     };
 
 } // namespace FREYA_NAMESPACE

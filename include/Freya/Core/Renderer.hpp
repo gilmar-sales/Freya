@@ -312,6 +312,12 @@ namespace FREYA_NAMESPACE
                                   std::uint32_t        boneOffset,
                                   std::span<glm::mat4> out);
 
+        /**
+         * @brief Upload + one-shot GPU anim dispatch + wait (golden stages).
+         */
+        bool DispatchGpuAnimImmediate(
+            std::span<const GpuAnimInstance> instances, std::uint32_t frameIndex);
+
         void UpdateModel(const glm::mat4& model) const;
 
         [[nodiscard]] BufferBuilder       GetBufferBuilder() const;

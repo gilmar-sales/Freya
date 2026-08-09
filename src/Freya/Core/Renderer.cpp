@@ -942,6 +942,19 @@ namespace FREYA_NAMESPACE
             static_cast<std::uint32_t>(out.size()), out);
     }
 
+    bool Renderer::DispatchGpuAnimImmediate(
+        const std::span<const GpuAnimInstance> instances,
+        const std::uint32_t                    frameIndex)
+    {
+        if (!mGpuAnimPass || instances.empty())
+            return false;
+        mGpuAnimPass->SetCopyPrevBones(false);
+        mGpuAnimPass->UploadInstances(instances);
+        mGpuAnimPass->SetEnabled(true);
+        mGpuAnimPass->DispatchImmediate(mCommandPool, frameIndex);
+        return true;
+    }
+
     BufferBuilder Renderer::GetBufferBuilder() const
     {
         return BufferBuilder(mDevice);

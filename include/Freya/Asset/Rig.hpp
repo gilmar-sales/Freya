@@ -25,7 +25,8 @@ namespace FREYA_NAMESPACE
      *
      * Uses the joint's current global forward (`localForward` in joint space,
      * typically +Z for glTF). Clamps yaw/pitch relative to the animated pose.
-     * `weight` in [0,1] blends the correction.
+     * `weight` in [0,1] blends the correction. Pass `maxYawRad` < 0 to
+     * skip swing clamp (raw aim).
      *
      * @return false if indices / pose are invalid.
      */

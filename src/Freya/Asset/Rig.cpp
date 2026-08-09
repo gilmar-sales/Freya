@@ -30,17 +30,6 @@ namespace FREYA_NAMESPACE
             return glm::normalize(q);
         }
 
-        glm::quat clampSwing(const glm::quat& delta, const float maxYaw,
-                             const float maxPitch)
-        {
-            // Decompose roughly into yaw (Y) + pitch (X) in parent axes.
-            glm::vec3 e = glm::eulerAngles(delta);
-            e.y         = std::clamp(e.y, -maxYaw, maxYaw);
-            e.x         = std::clamp(e.x, -maxPitch, maxPitch);
-            e.z         = 0.f;
-            return glm::normalize(glm::quat(e));
-        }
-
         glm::mat4 parentWorld(const Skeleton&               skeleton,
                               const std::vector<glm::mat4>& global,
                               const std::uint32_t           joint,
@@ -54,22 +43,79 @@ namespace FREYA_NAMESPACE
             return modelWorld * global[static_cast<std::uint32_t>(p)];
         }
 
+        float length2(const glm::vec3& v)
+        {
+            return glm::dot(v, v);
+        }
+
+        glm::quat quatFromMatOrtho(const glm::mat4& m)
+        {
+            glm::vec3 c0(m[0]);
+            glm::vec3 c1(m[1]);
+            const glm::vec3 c2src(m[2]);
+            c0 = glm::normalize(c0);
+            c1 = c1 - glm::dot(c0, c1) * c0;
+            if (length2(c1) < 1e-10f)
+            {
+                glm::vec3 tmp = std::abs(c0.y) < 0.9f ? glm::vec3(0, 1, 0)
+                                                      : glm::vec3(1, 0, 0);
+                c1            = glm::normalize(glm::cross(tmp, c0));
+            }
+            else
+                c1 = glm::normalize(c1);
+            glm::vec3 c2 = glm::cross(c0, c1);
+            if (glm::dot(c2, c2src) < 0.f)
+            {
+                c1 = -c1;
+                c2 = -c2;
+            }
+            return glm::normalize(glm::quat_cast(glm::mat3(c0, c1, c2)));
+        }
+
+        /**
+         * @brief Clamp aim direction around `forward` with yaw/pitch limits.
+         *
+         * Yaw about world-up×forward (right); pitch about that right.
+         * Avoids quat→euler round-trips for CPU/GPU parity.
+         */
+        glm::vec3 clampAimDirection(glm::vec3 forward, glm::vec3 toTarget,
+                                    const float maxYaw, const float maxPitch)
+        {
+            forward  = glm::normalize(forward);
+            toTarget = glm::normalize(toTarget);
+            glm::vec3 right = glm::cross(glm::vec3(0.f, 1.f, 0.f), forward);
+            if (length2(right) < 1e-8f)
+                right = glm::cross(glm::vec3(1.f, 0.f, 0.f), forward);
+            right              = glm::normalize(right);
+            const glm::vec3 up = glm::cross(forward, right);
+            const float     x  = glm::dot(toTarget, right);
+            const float     y  = glm::dot(toTarget, up);
+            const float     z  = glm::dot(toTarget, forward);
+            float           yaw =
+                std::atan2(x, z);
+            float pitch = std::atan2(y, std::sqrt(x * x + z * z));
+            yaw         = std::clamp(yaw, -maxYaw, maxYaw);
+            pitch       = std::clamp(pitch, -maxPitch, maxPitch);
+            const float cp = std::cos(pitch);
+            const float sp = std::sin(pitch);
+            const float cy = std::cos(yaw);
+            const float sy = std::sin(yaw);
+            const glm::vec3 local(sy * cp, sp, cy * cp);
+            return glm::normalize(right * local.x + up * local.y +
+                                  forward * local.z);
+        }
+
         void setLocalRotation(LocalPose& local, const std::uint32_t joint,
                               const glm::quat& worldRot,
                               const glm::mat4& parentW, const float weight)
         {
             if (joint >= local.Size())
                 return;
-            const glm::quat parentQ = glm::normalize(glm::quat_cast(parentW));
+            const glm::quat parentQ = quatFromMatOrtho(parentW);
             const glm::quat desiredLocal =
                 glm::normalize(glm::inverse(parentQ) * worldRot);
             local.joints[joint].rotation = glm::normalize(
                 glm::slerp(local.joints[joint].rotation, desiredLocal, weight));
-        }
-
-        float length2(const glm::vec3& v)
-        {
-            return glm::dot(v, v);
         }
     } // namespace
 
@@ -102,12 +148,14 @@ namespace FREYA_NAMESPACE
             return false;
         toTarget = glm::normalize(toTarget);
 
-        const glm::quat worldRot = glm::normalize(glm::quat_cast(jw));
+        const glm::quat worldRot = quatFromMatOrtho(jw);
         const glm::vec3 forward =
             glm::normalize(worldRot * glm::normalize(localForward));
 
-        glm::quat delta = quatFromTo(forward, toTarget);
-        delta           = clampSwing(delta, maxYawRad, maxPitchRad);
+        if (maxYawRad >= 0.f)
+            toTarget =
+                clampAimDirection(forward, toTarget, maxYawRad, maxPitchRad);
+        const glm::quat delta        = quatFromTo(forward, toTarget);
         const glm::quat desiredWorld = glm::normalize(delta * worldRot);
 
         const float w = std::clamp(weight, 0.f, 1.f);
