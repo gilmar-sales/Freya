@@ -11,6 +11,39 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+namespace
+{
+    constexpr std::uint32_t kFoxGridX    = 40;
+    constexpr std::uint32_t kFoxGridZ    = 25;
+    constexpr float         kFoxSpacing  = 2.1f;
+    constexpr float         kFoxScale    = 0.02f;
+    constexpr float         kRunPlayback = 1.85f;
+
+    const fra::AnimationClip* findClip(const fra::SkinnedModel& model,
+                                       std::string_view         needle)
+    {
+        for (const auto& clip : model.clips)
+        {
+            if (clip.name.find(needle) != std::string::npos)
+                return &clip;
+        }
+        return nullptr;
+    }
+
+    float speedPreset(const std::uint32_t index)
+    {
+        switch (index % 3u)
+        {
+            case 0:
+                return 0.f;
+            case 1:
+                return 1.f;
+            default:
+                return 2.f;
+        }
+    }
+} // namespace
+
 class MainApp final : public fra::AbstractApplication
 {
   public:
@@ -29,6 +62,7 @@ class MainApp final : public fra::AbstractApplication
         mEventManager->Subscribe<fra::KeyPressedEvent>(
             [this](const fra::KeyPressedEvent& event) {
                 mKeysHeld.insert(static_cast<std::uint32_t>(event.key));
+                onKeyPressed(event.key);
             });
         mEventManager->Subscribe<fra::KeyReleasedEvent>(
             [this](const fra::KeyReleasedEvent& event) {
@@ -65,21 +99,92 @@ class MainApp final : public fra::AbstractApplication
             return;
         }
 
-        mClipIndex = 0;
-        for (std::uint32_t i = 0; i < mSkinned.clips.size(); ++i)
+        const auto* idle = findClip(mSkinned, "Survey");
+        const auto* walk = findClip(mSkinned, "Walk");
+        const auto* run  = findClip(mSkinned, "Run");
+        if (!idle)
+            idle = mSkinned.clips.empty() ? nullptr : &mSkinned.clips[0];
+        if (!walk)
+            walk = idle;
+        if (!run)
+            run = walk;
+
+        if (!(idle && walk && run))
         {
-            if (mSkinned.clips[i].name.find("Walk") != std::string::npos)
+            std::cerr << "Fox.glb has no animation clips\n";
+            return;
+        }
+
+        const auto     jointCount = mSkinned.skeleton.JointCount();
+        constexpr auto foxCount   = kFoxGridX * kFoxGridZ;
+        const float    originX =
+            -0.5f * static_cast<float>(kFoxGridX - 1) * kFoxSpacing;
+        const float originZ =
+            -0.5f * static_cast<float>(kFoxGridZ - 1) * kFoxSpacing;
+
+        mFoxes.reserve(foxCount);
+        for (std::uint32_t z = 0; z < kFoxGridZ; ++z)
+        {
+            for (std::uint32_t x = 0; x < kFoxGridX; ++x)
             {
-                mClipIndex = i;
-                break;
+                const std::uint32_t i = z * kFoxGridX + x;
+                FoxActor            fox;
+                fox.speed      = speedPreset(i);
+                fox.boneOffset = i * jointCount;
+                fox.model      = glm::scale(
+                    glm::translate(
+                        glm::mat4(1.f),
+                        glm::vec3(
+                            originX + static_cast<float>(x) * kFoxSpacing,
+                            0.02f,
+                            originZ + static_cast<float>(z) * kFoxSpacing)),
+                    glm::vec3(kFoxScale));
+
+                fox.graph =
+                    fra::AnimGraphBuilder()
+                        .SetSkeleton(&mSkinned.skeleton)
+                        .ParamFloat("Speed", fox.speed)
+                        .State("Idle", *idle)
+                        .State("Walk", *walk)
+                        .State("Run", *run, true, kRunPlayback)
+                        .Entry("Idle")
+                        .Transition(
+                            "Idle", "Run",
+                            fra::AnimCondition::FloatGreater("Speed", 1.5f),
+                            0.2f)
+                        .Transition(
+                            "Idle", "Walk",
+                            fra::AnimCondition::FloatGreater("Speed", 0.1f),
+                            0.25f)
+                        .Transition(
+                            "Walk", "Idle",
+                            fra::AnimCondition::FloatLessEqual("Speed", 0.1f),
+                            0.25f)
+                        .Transition(
+                            "Walk", "Run",
+                            fra::AnimCondition::FloatGreater("Speed", 1.5f),
+                            0.2f)
+                        .Transition(
+                            "Run", "Idle",
+                            fra::AnimCondition::FloatLessEqual("Speed", 0.1f),
+                            0.25f)
+                        .Transition(
+                            "Run", "Walk",
+                            fra::AnimCondition::FloatLessEqual("Speed", 1.5f),
+                            0.2f)
+                        .Build();
+
+                // Desync clip phase across the herd.
+                (void) fox.graph.Evaluate(0.17f * static_cast<float>(i % 17));
+                mFoxes.push_back(std::move(fox));
             }
         }
-        if (mSkinned.clips.empty())
-            std::cerr << "Fox.glb has no animation clips\n";
-        else
-            std::cout << "Playing clip '" << mSkinned.clips[mClipIndex].name
-                      << "' (" << mSkinned.skeleton.JointCount() << " joints, "
-                      << mSkinned.meshIds.size() << " meshes)\n";
+
+        std::cout << "AnimGraph Idle/Walk/Run — " << foxCount << " foxes, "
+                  << jointCount << " joints each (Run @" << kRunPlayback
+                  << "x)\n"
+                  << "  Keys: 1=Idle 2=Walk 3=Run   Up/Down=Speed "
+                     "(all foxes)\n";
 
         mFoxMaterial = mMaterialPool->Create({
             .albedoFactor    = { 0.82f, 0.45f, 0.18f, 1.f },
@@ -87,7 +192,7 @@ class MainApp final : public fra::AbstractApplication
             .metalnessFactor = 0.0f,
         });
 
-        mGroundMesh = createGroundMesh();
+        mGroundMesh     = createGroundMesh();
         mGroundMaterial = mMaterialPool->Create({
             .albedoFactor    = { 0.35f, 0.38f, 0.32f, 1.f },
             .roughnessFactor = 0.9f,
@@ -99,15 +204,13 @@ class MainApp final : public fra::AbstractApplication
         key.castShadows = true;
         mLightService->AddLight(key);
 
-        mModel =
-            glm::scale(glm::translate(glm::mat4(1.f), glm::vec3(0.f, 0.02f, 0.f)),
-                       glm::vec3(0.02f));
+        mCameraPos = { 0.f, 28.f, 55.f };
+        mPitch     = -28.f;
     }
 
     void Update() override
     {
         const float dt = mWindow->GetDeltaTime();
-        mAnimTime += dt;
 
         if (mLookHeld)
         {
@@ -120,7 +223,7 @@ class MainApp final : public fra::AbstractApplication
             front   = glm::normalize(front);
             const glm::vec3 right =
                 glm::normalize(glm::cross(front, glm::vec3(0, 1, 0)));
-            const float speed = 8.f * dt;
+            const float speed = 12.f * dt;
             if (mKeysHeld.contains(static_cast<std::uint32_t>(fra::KeyCode::W)))
                 mCameraPos += front * speed;
             if (mKeysHeld.contains(static_cast<std::uint32_t>(fra::KeyCode::S)))
@@ -133,19 +236,21 @@ class MainApp final : public fra::AbstractApplication
 
         mRenderer->BeginFrame();
 
-        if (!mSkinned.clips.empty())
+        const auto             jointCount = mSkinned.skeleton.JointCount();
+        std::vector<glm::mat4> allBones;
+        allBones.reserve(mFoxes.size() * jointCount);
+        for (auto& fox : mFoxes)
         {
-            const auto& clip = mSkinned.clips[mClipIndex];
-            auto        pose =
-                fra::EvaluateSkeletonPose(mSkinned.skeleton, clip, mAnimTime);
-            mRenderer->UploadBoneMatrices(pose);
+            const auto local = fox.graph.Evaluate(dt);
+            const auto skin = fra::PoseToSkinMatrices(mSkinned.skeleton, local);
+            allBones.insert(allBones.end(), skin.begin(), skin.end());
         }
-        else
+        if (allBones.empty())
         {
-            const auto rest = fra::EvaluateSkeletonPose(
-                mSkinned.skeleton, fra::AnimationClip {}, 0.f);
-            mRenderer->UploadBoneMatrices(rest);
+            allBones = fra::PoseToSkinMatrices(
+                mSkinned.skeleton, fra::RestLocalPose(mSkinned.skeleton));
         }
+        mRenderer->UploadBoneMatrices(allBones);
 
         const float yawRad   = glm::radians(mYaw);
         const float pitchRad = glm::radians(mPitch);
@@ -154,30 +259,34 @@ class MainApp final : public fra::AbstractApplication
         front.y = std::sin(pitchRad);
         front.z = std::sin(yawRad) * std::cos(pitchRad);
         front   = glm::normalize(front);
-        mRenderer->UpdateCamera(mCameraPos, mCameraPos + front,
-                                glm::vec3(0.f, 1.f, 0.f));
+        mRenderer->UpdateCamera(
+            mCameraPos, mCameraPos + front, glm::vec3(0.f, 1.f, 0.f));
 
         std::vector<fra::SceneInstanceUpload> instances;
-        instances.reserve(mSkinned.meshIds.size() + 1);
-        for (std::uint32_t i = 0; i < mSkinned.meshIds.size(); ++i)
+        instances.reserve(mFoxes.size() * mSkinned.meshIds.size() + 1);
+        std::uint32_t entity = 1;
+        for (const auto& fox : mFoxes)
         {
-            instances.push_back(fra::SceneInstanceUpload {
-                .model       = mModel,
-                .meshId      = mSkinned.meshIds[i],
-                .materialId  = mFoxMaterial,
-                .entityId    = 1u + i,
-                .castShadows = true,
-                .boneOffset  = 0u,
-                .boneCount   = mSkinned.skeleton.JointCount(),
-            });
+            for (const auto meshId : mSkinned.meshIds)
+            {
+                instances.push_back(fra::SceneInstanceUpload {
+                    .model       = fox.model,
+                    .meshId      = meshId,
+                    .materialId  = mFoxMaterial,
+                    .entityId    = entity++,
+                    .castShadows = true,
+                    .boneOffset  = fox.boneOffset,
+                    .boneCount   = jointCount,
+                });
+            }
         }
         instances.push_back(fra::SceneInstanceUpload {
             .model = glm::scale(
                 glm::translate(glm::mat4(1.f), glm::vec3(0.f, -0.05f, 0.f)),
-                glm::vec3(40.f, 1.f, 40.f)),
+                glm::vec3(120.f, 1.f, 80.f)),
             .meshId      = mGroundMesh,
             .materialId  = mGroundMaterial,
-            .entityId    = 100u,
+            .entityId    = 100000u,
             .castShadows = false,
         });
         mRenderer->UploadSceneInstances(instances);
@@ -185,10 +294,53 @@ class MainApp final : public fra::AbstractApplication
     }
 
   private:
+    struct FoxActor
+    {
+        fra::AnimGraph graph;
+        glm::mat4      model { 1.f };
+        float          speed      = 0.f;
+        std::uint32_t  boneOffset = 0;
+    };
+
     void setLookHeld(const bool held)
     {
         mLookHeld = held;
         mWindow->SetMouseGrab(held);
+    }
+
+    void setSpeed(const float speed)
+    {
+        mSpeed = std::clamp(speed, 0.f, 3.f);
+        for (auto& fox : mFoxes)
+        {
+            fox.speed = mSpeed;
+            fox.graph.SetFloat("Speed", mSpeed);
+        }
+        std::cout << "Speed=" << mSpeed << " (" << mFoxes.size() << " foxes)\n";
+    }
+
+    void onKeyPressed(const fra::KeyCode key)
+    {
+        switch (key)
+        {
+            case fra::KeyCode::Num1:
+                setSpeed(0.f);
+                break;
+            case fra::KeyCode::Num2:
+                setSpeed(1.f);
+                break;
+            case fra::KeyCode::Num3:
+                setSpeed(2.f);
+                break;
+            case fra::KeyCode::Up:
+                setSpeed(mSpeed + 0.25f);
+                break;
+            case fra::KeyCode::Down:
+                setSpeed(mSpeed - 0.25f);
+                break;
+            default:
+                break;
+        }
     }
 
     std::uint32_t createGroundMesh()
@@ -225,19 +377,18 @@ class MainApp final : public fra::AbstractApplication
     skr::Arc<fra::LightService> mLightService;
     skr::Arc<fra::FreyaOptions> mFreyaOptions;
 
-    fra::SkinnedModel mSkinned;
-    std::uint32_t     mClipIndex    = 0;
-    std::uint32_t     mFoxMaterial  = 0;
-    std::uint32_t     mGroundMesh     = 0;
-    std::uint32_t     mGroundMaterial = 0;
-    glm::mat4         mModel { 1.f };
-    float             mAnimTime = 0.f;
+    fra::SkinnedModel     mSkinned;
+    std::vector<FoxActor> mFoxes;
+    float                 mSpeed          = 0.f;
+    std::uint32_t         mFoxMaterial    = 0;
+    std::uint32_t         mGroundMesh     = 0;
+    std::uint32_t         mGroundMaterial = 0;
 
     std::unordered_set<std::uint32_t> mKeysHeld;
     bool                              mLookHeld  = false;
-    glm::vec3                         mCameraPos = { 0.8f, 1.2f, 3.5f };
+    glm::vec3                         mCameraPos = { 0.f, 28.f, 55.f };
     float                             mYaw       = -90.f;
-    float                             mPitch     = -12.f;
+    float                             mPitch     = -28.f;
 };
 
 int main(int, const char**)
@@ -246,7 +397,9 @@ int main(int, const char**)
         skr::ApplicationBuilder()
             .WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
                 freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
-                    freyaOptions.SetTitle("SkinnedFox — Walk [RMB+WASD]")
+                    freyaOptions
+                        .SetTitle(
+                            "SkinnedFox — 1000 foxes 1/2/3 Idle/Walk/Run")
                         .SetWidth(1600)
                         .SetHeight(900)
                         .SetVSync(false)

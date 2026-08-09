@@ -13,8 +13,26 @@ auto meshIds = meshPool->CreateMeshFromFile("./Resources/Models/MyModel.fbx");
 // Skinned (no PreTransformVertices): joints/weights + shared skeleton/clips.
 fra::SkinnedModel fox =
     meshPool->CreateSkinnedModelFromFile("./Resources/Models/Fox.glb");
-auto pose = fra::EvaluateSkeletonPose(fox.skeleton, fox.clips[0], timeSec);
-renderer->UploadBoneMatrices(pose);
+
+// Pose API: SampleClip → blend → PoseToSkinMatrices → UploadBoneMatrices.
+// EvaluateSkeletonPose is a thin wrapper for a single clip.
+auto skin = fra::PoseToSkinMatrices(
+    fox.skeleton, fra::SampleClip(fox.skeleton, fox.clips[0], timeSec));
+renderer->UploadBoneMatrices(skin);
+
+// AnimGraph MVP: float/bool/trigger params, ClipStates, crossfade transitions.
+auto graph = fra::AnimGraphBuilder()
+                 .SetSkeleton(&fox.skeleton)
+                 .ParamFloat("Speed")
+                 .State("Idle", fox.clips[0])
+                 .State("Walk", fox.clips[1])
+                 .Entry("Idle")
+                 .Transition("Idle", "Walk",
+                             fra::AnimCondition::FloatGreater("Speed", 0.1f))
+                 .Build();
+graph.SetFloat("Speed", 1.f);
+renderer->UploadBoneMatrices(
+    fra::PoseToSkinMatrices(fox.skeleton, graph.Evaluate(dt)));
 // Instances share boneOffset=0 .. JointCount()-1 in the bone palette.
 uploads.push_back({
     .model = model,

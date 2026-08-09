@@ -21,7 +21,7 @@ namespace FREYA_NAMESPACE
     class BoneMatrixResources
     {
       public:
-        static constexpr std::uint32_t kDefaultCapacity = 4096;
+        static constexpr std::uint32_t kDefaultCapacity = 32768;
 
         BoneMatrixResources(const skr::Arc<Device>& device,
                             std::uint32_t           frameCount,
