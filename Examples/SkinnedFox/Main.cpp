@@ -225,7 +225,13 @@ class MainApp final : public fra::AbstractApplication
             const auto jc = mSkinned.skeleton.JointCount();
             gpu->UploadBoneMask(fra::PackBoneMask(mUpperMask, jc));
             gpu->UploadRestJoints(fra::PackRestJoints(mRestPose, jc));
-            std::cout << "GPU anim mask+rest uploaded\n";
+            const auto root = fra::FindRootJoint(mSkinned.skeleton);
+            gpu->SetRigIndices(
+                mHeadJoint >= 0 ? static_cast<std::uint32_t>(mHeadJoint)
+                                : 0xffffffffu,
+                mLegChain.root, mLegChain.mid, mLegChain.tip,
+                root >= 0 ? static_cast<std::uint32_t>(root) : 0xffffffffu);
+            std::cout << "GPU anim mask+rest+rig uploaded\n";
         }
 
         mHeadJoint       = findJointAny(mSkinned.skeleton, { "Head", "head" });
@@ -515,6 +521,28 @@ class MainApp final : public fra::AbstractApplication
                     inst.maskBase    = 0;
                     inst.timeLayer   = fox.upperTime;
                     inst.layerWeight = 0.55f;
+                }
+                inst.modelWorld = fox.model;
+                if (mEnableRootMotion && fox.useRootMotion)
+                    inst.flags |= fra::GpuAnimFlags::CancelRootXZ;
+                if (mEnableLookAt && fox.useLookAt && mHeadJoint >= 0)
+                {
+                    inst.lookTarget = mCameraPos;
+                    inst.lookWeight = 0.75f;
+                }
+                if (mEnableIk && fox.useIk && mIkReady)
+                {
+                    const glm::vec3 pos(fox.model[3]);
+                    const glm::vec3 fwd = glm::normalize(
+                        glm::mat3(fox.model) * glm::vec3(0.f, 0.f, -1.f));
+                    const float bob =
+                        0.12f *
+                        std::sin(mAnimClock * 3.f +
+                                 static_cast<float>(fox.boneOffset) * 0.01f);
+                    inst.ikTarget =
+                        pos + fwd * 0.55f + glm::vec3(0.f, 0.15f + bob, 0.f);
+                    inst.ikPole   = pos + glm::vec3(0.25f, 0.4f, 0.f);
+                    inst.ikWeight = 0.85f;
                 }
                 gpuInstances.push_back(inst);
 
@@ -1088,7 +1116,7 @@ class MainApp final : public fra::AbstractApplication
             case GpuAnimMode::Fox0:
                 mGpuAnimMode    = GpuAnimMode::Crowd;
                 mGpuCrowdSeeded = false;
-                std::cout << "GpuAnim Crowd (LOD + GPU mask/additive layers)\n";
+                std::cout << "GpuAnim Crowd (LOD + layers/look/IK on GPU)\n";
                 break;
             case GpuAnimMode::Crowd:
                 mGpuAnimMode = GpuAnimMode::Off;

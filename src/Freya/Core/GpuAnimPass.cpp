@@ -20,6 +20,8 @@ namespace FREYA_NAMESPACE
         const skr::Arc<Buffer>&              instanceBuffer,
         const skr::Arc<Buffer>&              boneMaskBuffer,
         const skr::Arc<Buffer>&              restJointsBuffer,
+        const skr::Arc<Buffer>&              localScratchBuffer,
+        const skr::Arc<Buffer>&              globalScratchBuffer,
         const skr::Arc<Buffer>&              readbackBuffer) :
         mDevice(device), mBoneResources(boneResources),
         mPipelineLayout(pipelineLayout), mPipeline(pipeline),
@@ -27,7 +29,10 @@ namespace FREYA_NAMESPACE
         mParentsBuffer(parentsBuffer), mInvBindBuffer(invBindBuffer),
         mClipHeaderBuffer(clipHeaderBuffer), mJointsBuffer(jointsBuffer),
         mInstanceBuffer(instanceBuffer), mBoneMaskBuffer(boneMaskBuffer),
-        mRestJointsBuffer(restJointsBuffer), mReadbackBuffer(readbackBuffer)
+        mRestJointsBuffer(restJointsBuffer),
+        mLocalScratchBuffer(localScratchBuffer),
+        mGlobalScratchBuffer(globalScratchBuffer),
+        mReadbackBuffer(readbackBuffer)
     {
     }
 
@@ -144,6 +149,11 @@ namespace FREYA_NAMESPACE
         PushConstants pc {};
         pc.instanceCount = mInstanceCount;
         pc.jointCount    = mJointCount;
+        pc.lookJoint     = mLookJoint;
+        pc.ikRoot        = mIkRoot;
+        pc.ikMid         = mIkMid;
+        pc.ikTip         = mIkTip;
+        pc.rootJoint     = mRootJoint;
         commandBuffer.pushConstants(
             mPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
             sizeof(PushConstants), &pc);

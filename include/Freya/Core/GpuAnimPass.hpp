@@ -37,6 +37,8 @@ namespace FREYA_NAMESPACE
                     const skr::Arc<Buffer>&              instanceBuffer,
                     const skr::Arc<Buffer>&              boneMaskBuffer,
                     const skr::Arc<Buffer>&              restJointsBuffer,
+                    const skr::Arc<Buffer>&              localScratchBuffer,
+                    const skr::Arc<Buffer>&              globalScratchBuffer,
                     const skr::Arc<Buffer>&              readbackBuffer);
 
         ~GpuAnimPass();
@@ -54,6 +56,18 @@ namespace FREYA_NAMESPACE
          * palettes.
          */
         void SetCopyPrevBones(const bool enabled) { mCopyPrevBones = enabled; }
+
+        void SetRigIndices(const std::uint32_t lookJoint,
+                           const std::uint32_t ikRoot,
+                           const std::uint32_t ikMid, const std::uint32_t ikTip,
+                           const std::uint32_t rootJoint)
+        {
+            mLookJoint = lookJoint;
+            mIkRoot    = ikRoot;
+            mIkMid     = ikMid;
+            mIkTip     = ikTip;
+            mRootJoint = rootJoint;
+        }
 
         void UploadSkeleton(const GpuSkeletonPack& skeleton);
         void UploadBakes(const GpuBakePack& pack);
@@ -84,8 +98,12 @@ namespace FREYA_NAMESPACE
         {
             std::uint32_t instanceCount = 0;
             std::uint32_t jointCount    = 0;
+            std::uint32_t lookJoint     = 0xffffffffu;
+            std::uint32_t ikRoot        = 0;
+            std::uint32_t ikMid         = 0;
+            std::uint32_t ikTip         = 0;
+            std::uint32_t rootJoint     = 0xffffffffu;
             std::uint32_t _pad0         = 0;
-            std::uint32_t _pad1         = 0;
         };
 
         skr::Arc<Device>              mDevice;
@@ -103,12 +121,19 @@ namespace FREYA_NAMESPACE
         skr::Arc<Buffer> mInstanceBuffer;
         skr::Arc<Buffer> mBoneMaskBuffer;
         skr::Arc<Buffer> mRestJointsBuffer;
+        skr::Arc<Buffer> mLocalScratchBuffer;
+        skr::Arc<Buffer> mGlobalScratchBuffer;
         skr::Arc<Buffer> mReadbackBuffer;
 
         bool          mEnabled       = false;
         bool          mCopyPrevBones = true;
         std::uint32_t mInstanceCount = 0;
         std::uint32_t mJointCount    = 0;
+        std::uint32_t mLookJoint     = 0xffffffffu;
+        std::uint32_t mIkRoot        = 0;
+        std::uint32_t mIkMid         = 0;
+        std::uint32_t mIkTip         = 0;
+        std::uint32_t mRootJoint     = 0xffffffffu;
     };
 
 } // namespace FREYA_NAMESPACE

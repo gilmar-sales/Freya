@@ -37,14 +37,16 @@ namespace FREYA_NAMESPACE
         constexpr std::uint32_t Loop          = 1u;
         constexpr std::uint32_t MaskedOverlay = 2u;
         constexpr std::uint32_t Additive      = 4u;
+        constexpr std::uint32_t CancelRootXZ  = 8u;
     } // namespace GpuAnimFlags
 
     /**
-     * @brief Per-actor GPU anim job (std430).
+     * @brief Per-actor GPU anim job (std430, 160 bytes).
      *
-     * Layer: optional third clip + per-joint mask. `flags` selects
-     * MaskedOverlay or Additive (mutually exclusive). Additive samples
-     * rest pose from the restJoints SSBO.
+     * Loco Blend1D + optional mask/additive layer, then optional look-at /
+     * two-bone IK using `modelWorld` and world-space targets. Weights ≤0
+     * disable look/IK. Shared joint indices come from GpuAnimPass push
+     * constants.
      */
     struct GpuAnimInstance
     {
@@ -60,6 +62,13 @@ namespace FREYA_NAMESPACE
         std::uint32_t maskBase    = 0; ///< index into boneMasks[]
         float         timeLayer   = 0.f;
         float         layerWeight = 0.f;
+        glm::mat4     modelWorld { 1.f };
+        glm::vec3     lookTarget { 0.f };
+        float         lookWeight = 0.f;
+        glm::vec3     ikTarget { 0.f };
+        float         ikWeight = 0.f;
+        glm::vec3     ikPole { 0.f };
+        float         _pad0 = 0.f;
     };
 
     [[nodiscard]] inline GpuBakedJoint ToGpuJoint(const JointTRS& j)

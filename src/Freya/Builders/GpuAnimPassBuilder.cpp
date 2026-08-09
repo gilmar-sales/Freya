@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <iostream>
 
 namespace FREYA_NAMESPACE
 {
@@ -30,6 +31,12 @@ namespace FREYA_NAMESPACE
             GpuAnimPass::kMaxMaskFloats * sizeof(float));
         const auto restBytes = static_cast<std::uint32_t>(
             GpuAnimPass::kMaxJoints * sizeof(GpuBakedJoint));
+        const auto scratchCount =
+            GpuAnimPass::kMaxInstances * GpuAnimPass::kMaxJoints;
+        const auto localScratchBytes = static_cast<std::uint32_t>(
+            scratchCount * sizeof(GpuBakedJoint));
+        const auto globalScratchBytes =
+            static_cast<std::uint32_t>(scratchCount * sizeof(glm::mat4));
         const auto readbackBytes = static_cast<std::uint32_t>(
             GpuAnimPass::kMaxJoints * sizeof(glm::mat4));
 
@@ -65,6 +72,16 @@ namespace FREYA_NAMESPACE
                            .SetUsage(BufferUsage::Storage)
                            .SetSize(restBytes)
                            .Build();
+        auto localScratchBuf =
+            BufferBuilder(mDevice)
+                .SetUsage(BufferUsage::Storage)
+                .SetSize(localScratchBytes)
+                .Build();
+        auto globalScratchBuf =
+            BufferBuilder(mDevice)
+                .SetUsage(BufferUsage::Storage)
+                .SetSize(globalScratchBytes)
+                .Build();
         auto readbackBuf =
             BufferBuilder(mDevice)
                 .SetUsage(BufferUsage::Readback)
@@ -107,6 +124,16 @@ namespace FREYA_NAMESPACE
                 .setDescriptorType(vk::DescriptorType::eStorageBuffer)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eCompute),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(7)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eCompute),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(8)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eCompute),
         };
         auto animSetLayout = mDevice->Get().createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo().setBindings(animBindings));
@@ -114,7 +141,7 @@ namespace FREYA_NAMESPACE
         const auto poolSizes = std::array {
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eStorageBuffer)
-                .setDescriptorCount(7),
+                .setDescriptorCount(9),
         };
         auto animPool = mDevice->Get().createDescriptorPool(
             vk::DescriptorPoolCreateInfo().setMaxSets(1).setPoolSizes(
@@ -148,12 +175,14 @@ namespace FREYA_NAMESPACE
         writeSsbo(4, instanceBuf, instBytes);
         writeSsbo(5, maskBuf, std::max(maskBytes, 256u));
         writeSsbo(6, restBuf, restBytes);
+        writeSsbo(7, localScratchBuf, localScratchBytes);
+        writeSsbo(8, globalScratchBuf, globalScratchBytes);
 
         const auto pushRange =
             vk::PushConstantRange()
                 .setStageFlags(vk::ShaderStageFlagBits::eCompute)
                 .setOffset(0)
-                .setSize(sizeof(std::uint32_t) * 4u);
+                .setSize(sizeof(std::uint32_t) * 8u);
 
         const auto setLayouts =
             std::array { mBoneResources->GetLayout(), animSetLayout };
@@ -167,6 +196,8 @@ namespace FREYA_NAMESPACE
                          .setModule(shader->Get())
                          .setPName("main");
 
+        std::cout << "[GpuAnimPass] createComputePipeline (skin_bake)...\n"
+                  << std::flush;
         auto pipeline =
             mDevice->Get()
                 .createComputePipeline(
@@ -174,13 +205,15 @@ namespace FREYA_NAMESPACE
                     vk::ComputePipelineCreateInfo().setStage(stage).setLayout(
                         pipelineLayout))
                 .value;
+        std::cout << "[GpuAnimPass] createComputePipeline OK\n" << std::flush;
 
         mDevice->Get().destroyShaderModule(shader->Get());
 
         return skr::MakeArc<GpuAnimPass>(
             mDevice, mBoneResources, pipelineLayout, pipeline, animSetLayout,
             animPool, animSet, parentsBuf, invBindBuf, clipHdrBuf, jointsBuf,
-            instanceBuf, maskBuf, restBuf, readbackBuf);
+            instanceBuf, maskBuf, restBuf, localScratchBuf, globalScratchBuf,
+            readbackBuf);
     }
 
 } // namespace FREYA_NAMESPACE
