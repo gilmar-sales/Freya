@@ -250,7 +250,8 @@ class MainApp final : public fra::AbstractApplication
         const float originZ =
             -0.5f * static_cast<float>(kFoxGridZ - 1) * kFoxSpacing;
 
-        const auto    lodMaxPeriod  = fra::AnimLodMaxPeriod(*mFreyaOptions);
+        const float   lodMinHz      = fra::AnimLodMinHz(*mFreyaOptions);
+        const float   lodStaggerT   = 1.f / std::max(lodMinHz, 1.f);
         std::uint32_t upperCount    = 0;
         std::uint32_t additiveCount = 0;
         std::uint32_t lookCount     = 0;
@@ -263,10 +264,11 @@ class MainApp final : public fra::AbstractApplication
             {
                 const std::uint32_t i = z * kFoxGridX + x;
                 FoxActor            fox;
-                fox.speed         = speedPreset(i);
-                fox.boneOffset    = i * jointCount;
-                fox.stagger       = static_cast<std::uint8_t>(i % lodMaxPeriod);
-                fox.useUpperLayer = (i % 4u) == 0u;
+                fox.speed      = speedPreset(i);
+                fox.boneOffset = i * jointCount;
+                fox.lodAccum =
+                    (static_cast<float>(i % 64u) / 64.f) * lodStaggerT;
+                fox.useUpperLayer    = (i % 4u) == 0u;
                 fox.useAdditiveLayer = (i % 4u) == 2u;
                 fox.useLookAt        = mHeadJoint >= 0 && (i % 5u) == 1u;
                 fox.useIk            = mIkReady && (i % 13u) == 0u;
@@ -397,10 +399,10 @@ class MainApp final : public fra::AbstractApplication
             const glm::vec3 foxPos(fox.model[3]);
             fra::UpdateAnimLodTier(
                 *mFreyaOptions, fox.lodTier, glm::length(foxPos - mCameraPos));
-            const auto period = fra::AnimLodPeriod(*mFreyaOptions, fox.lodTier);
-            const bool due = ((mAnimFrameIndex + fox.stagger) % period) == 0u;
-            const bool forceGpuSeed = gpuCrowd && !mGpuCrowdSeeded;
-            const bool mustEval =
+            const float hz  = fra::AnimLodHz(*mFreyaOptions, fox.lodTier);
+            const bool  due = fra::ConsumeAnimLodTick(fox.lodAccum, dt, hz);
+            const bool  forceGpuSeed = gpuCrowd && !mGpuCrowdSeeded;
+            const bool  mustEval =
                 due || forceGpuSeed ||
                 (!gpuCrowd && fox.skinCache.size() != jointCount) ||
                 (gpuFox0 && &fox == &mFoxes[0]);
@@ -621,7 +623,6 @@ class MainApp final : public fra::AbstractApplication
             if (gpuFox0 && &fox == &mFoxes[0])
                 mGpuFox0CpuSkin = fox.skinCache;
         }
-        ++mAnimFrameIndex;
         msAnim = SecondsF(Clock::now() - tAnim0).count() * 1000.0 - msSkin;
         mProfAnimUpdates += animUpdates;
 
@@ -775,10 +776,10 @@ class MainApp final : public fra::AbstractApplication
         float                  speed            = 0.f;
         float                  upperTime        = 0.f;
         float                  pendingDt        = 0.f;
+        float                  lodAccum         = 0.f;
         std::uint32_t          boneOffset       = 0;
         std::uint32_t          footsteps        = 0;
         std::uint8_t           lodTier          = 0;
-        std::uint8_t           stagger          = 0;
         bool                   useUpperLayer    = false;
         bool                   useAdditiveLayer = false;
         bool                   useLookAt        = false;
@@ -842,7 +843,7 @@ class MainApp final : public fra::AbstractApplication
                   << "  F12 GPU anim: Off → Fox0 golden → Crowd\n"
                   << "Loco Blend1D uses shared bake @"
                   << mFreyaOptions->animBakeHz
-                  << "Hz; LOD bands from FreyaOptions\n"
+                  << "Hz; LOD rates are wall-clock Hz (F11)\n"
                   << "CPU avg line every 1s: anim/skin/boneUp/instUp/"
                      "endFrame/update + animTicks\n";
     }
@@ -860,10 +861,10 @@ class MainApp final : public fra::AbstractApplication
                   << " events=" << onOff(mEnableEvents)
                   << " animQ=" << animQualityName(mAnimationQuality)
                   << " lod=" << onOff(o.enableAnimLod) << '\n'
-                  << "  lodPeriods=" << o.animLodPeriod[0] << '/'
-                  << o.animLodPeriod[1] << '/' << o.animLodPeriod[2] << '/'
-                  << o.animLodPeriod[3] << " exitDist=" << o.animLodExitDist[0]
-                  << '/' << o.animLodExitDist[1] << '/' << o.animLodExitDist[2]
+                  << "  lodHz=" << o.animLodHz[0] << '/' << o.animLodHz[1]
+                  << '/' << o.animLodHz[2] << '/' << o.animLodHz[3]
+                  << " exitDist=" << o.animLodExitDist[0] << '/'
+                  << o.animLodExitDist[1] << '/' << o.animLodExitDist[2]
                   << '\n';
     }
 
@@ -871,9 +872,11 @@ class MainApp final : public fra::AbstractApplication
     {
         mAnimationQuality = quality;
         fra::ApplyAnimationQuality(*mFreyaOptions, quality);
-        const auto maxP = fra::AnimLodMaxPeriod(*mFreyaOptions);
+        const float staggerT =
+            1.f / std::max(fra::AnimLodMinHz(*mFreyaOptions), 1.f);
         for (std::uint32_t i = 0; i < mFoxes.size(); ++i)
-            mFoxes[i].stagger = static_cast<std::uint8_t>(i % maxP);
+            mFoxes[i].lodAccum =
+                (static_cast<float>(i % 64u) / 64.f) * staggerT;
         std::cout << "AnimationQuality " << animQualityName(quality) << '\n';
         printFeatureStatus();
     }
@@ -1073,7 +1076,6 @@ class MainApp final : public fra::AbstractApplication
     float         mProfReportTimer  = 0.f;
     std::uint32_t mProfFrames       = 0;
     std::uint32_t mProfAnimUpdates  = 0;
-    std::uint32_t mAnimFrameIndex   = 0;
     double        mProfAnimMs       = 0.0;
     double        mProfSkinMs       = 0.0;
     double        mProfBoneMs       = 0.0;

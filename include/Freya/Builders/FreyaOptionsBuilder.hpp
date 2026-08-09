@@ -242,7 +242,7 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief Applies an AnimationQuality preset (LOD distances /
-         * periods / bakeHz). Per-field setters still override after.
+         * Hz rates / bakeHz). Per-field setters still override after.
          */
         FreyaOptionsBuilder& SetAnimationQuality(AnimationQuality quality)
         {

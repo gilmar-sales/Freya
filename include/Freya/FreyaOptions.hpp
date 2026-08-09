@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 #include <glm/glm.hpp>
@@ -74,18 +75,19 @@ namespace FREYA_NAMESPACE
     };
 
     /**
-     * @brief CPU animation rate LOD preset (crowd / many skinned actors).
+     * @brief Animation rate LOD preset (crowd / many skinned actors).
      *
-     * Controls distance bands and per-tier update periods. Playback never
-     * freezes: skipped frames keep the last skin palette and accumulate dt.
-     * Applied via FreyaOptionsBuilder::SetAnimationQuality.
+     * Controls distance bands and per-tier pose update rates in Hz
+     * (wall-clock), independent of display FPS. Playback never freezes:
+     * skipped frames keep the last skin palette. Applied via
+     * FreyaOptionsBuilder::SetAnimationQuality.
      */
     enum class AnimationQuality
     {
-        Low,    ///< short Near band, long Far periods
+        Low,    ///< short Near band, lower Far Hz
         Medium, ///< balanced 4-tier bands
         High,   ///< wider Near / Mid (default)
-        Ultra,  ///< all actors evaluate every frame
+        Ultra,  ///< all actors skin every display frame
         Off     ///< disable rate LOD (same as Ultra for cost)
     };
 
@@ -174,8 +176,8 @@ namespace FREYA_NAMESPACE
 
         /// When false, every skinned actor evaluates / skins each frame.
         bool enableAnimLod = true;
-        /// Update every N display frames for tiers 0..3 (Near→Far).
-        std::uint32_t animLodPeriod[4] = { 1, 2, 4, 8 };
+        /// Target pose updates/sec for tiers 0..3 (Near→Far). Capped by FPS.
+        float animLodHz[4] = { 60.f, 30.f, 15.f, 8.f };
         /// Leave tier i toward i+1 when distance exceeds (metres).
         float animLodExitDist[3] = { 20.f, 38.f, 55.f };
         /// Enter tier i from i+1 when distance falls below (hysteresis).
@@ -377,12 +379,12 @@ namespace FREYA_NAMESPACE
             options.animLodExitDist[2]  = e2;
             options.animLodEnterDist[2] = n2;
         };
-        auto setPeriods = [&](const std::uint32_t p0, const std::uint32_t p1,
-                              const std::uint32_t p2, const std::uint32_t p3) {
-            options.animLodPeriod[0] = std::max(1u, p0);
-            options.animLodPeriod[1] = std::max(1u, p1);
-            options.animLodPeriod[2] = std::max(1u, p2);
-            options.animLodPeriod[3] = std::max(1u, p3);
+        auto setHz = [&](const float h0, const float h1, const float h2,
+                         const float h3) {
+            options.animLodHz[0] = std::max(1.f, h0);
+            options.animLodHz[1] = std::max(1.f, h1);
+            options.animLodHz[2] = std::max(1.f, h2);
+            options.animLodHz[3] = std::max(1.f, h3);
         };
 
         switch (quality)
@@ -390,48 +392,69 @@ namespace FREYA_NAMESPACE
             case AnimationQuality::Off:
             case AnimationQuality::Ultra:
                 options.enableAnimLod = false;
-                setPeriods(1, 1, 1, 1);
+                setHz(1000.f, 1000.f, 1000.f, 1000.f);
                 setBands(1e6f, 1e6f, 1e6f, 1e6f, 1e6f, 1e6f);
                 options.animBakeHz = 30.f;
                 break;
             case AnimationQuality::Low:
                 options.enableAnimLod = true;
-                setPeriods(1, 3, 6, 12);
+                setHz(30.f, 15.f, 8.f, 4.f);
                 setBands(8.f, 6.f, 18.f, 14.f, 32.f, 26.f);
                 options.animBakeHz = 20.f;
                 break;
             case AnimationQuality::Medium:
                 options.enableAnimLod = true;
-                setPeriods(1, 2, 4, 8);
+                setHz(45.f, 22.f, 12.f, 6.f);
                 setBands(12.f, 10.f, 24.f, 20.f, 42.f, 36.f);
                 options.animBakeHz = 30.f;
                 break;
             case AnimationQuality::High:
                 options.enableAnimLod = true;
-                setPeriods(1, 2, 4, 8);
+                setHz(60.f, 30.f, 15.f, 8.f);
                 setBands(20.f, 17.f, 38.f, 32.f, 55.f, 48.f);
                 options.animBakeHz = 30.f;
                 break;
         }
     }
 
-    [[nodiscard]] inline std::uint32_t AnimLodPeriod(const FreyaOptions& o,
-                                                     const std::uint8_t  tier)
+    [[nodiscard]] inline float AnimLodHz(const FreyaOptions& o,
+                                         const std::uint8_t  tier)
     {
         if (!o.enableAnimLod)
-            return 1u;
+            return 1e6f;
         const auto i = std::min<std::uint8_t>(tier, 3u);
-        return std::max(1u, o.animLodPeriod[i]);
+        return std::max(1.f, o.animLodHz[i]);
     }
 
-    [[nodiscard]] inline std::uint32_t AnimLodMaxPeriod(const FreyaOptions& o)
+    [[nodiscard]] inline float AnimLodMinHz(const FreyaOptions& o)
     {
         if (!o.enableAnimLod)
-            return 1u;
-        return std::max(std::max(std::max(1u, o.animLodPeriod[0]),
-                                 std::max(1u, o.animLodPeriod[1])),
-                        std::max(std::max(1u, o.animLodPeriod[2]),
-                                 std::max(1u, o.animLodPeriod[3])));
+            return 1e6f;
+        return std::min(std::min(std::max(1.f, o.animLodHz[0]),
+                                 std::max(1.f, o.animLodHz[1])),
+                        std::min(std::max(1.f, o.animLodHz[2]),
+                                 std::max(1.f, o.animLodHz[3])));
+    }
+
+    /**
+     * @brief Advance a per-actor LOD accumulator; true when a pose update
+     * is due this display frame. Rate is wall-clock Hz (capped by FPS).
+     */
+    inline bool ConsumeAnimLodTick(float& accum, const float dt, const float hz)
+    {
+        if (hz >= 1e5f)
+        {
+            accum = 0.f;
+            return true;
+        }
+        const float interval = 1.f / std::max(hz, 1.f);
+        accum += dt;
+        if (accum < interval)
+            return false;
+        accum -= interval;
+        if (accum >= interval)
+            accum = std::fmod(accum, interval);
+        return true;
     }
 
     /**
