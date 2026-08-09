@@ -21,6 +21,7 @@ auto skin = fra::PoseToSkinMatrices(
 renderer->UploadBoneMatrices(skin);
 
 // AnimGraph: Blend1D locomotion on a float param (Idle↔Walk↔Run).
+// syncPhase=true (default) keeps feet aligned while blending gaits.
 auto graph = fra::AnimGraphBuilder()
                  .SetSkeleton(&fox.skeleton)
                  .ParamFloat("Speed")

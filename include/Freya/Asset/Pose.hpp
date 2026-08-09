@@ -138,6 +138,21 @@ namespace FREYA_NAMESPACE
     void AdvanceBlend1DTimes(std::span<const Blend1DSample> samples,
                              std::span<float> times, float dt);
 
+    /**
+     * @brief Advance a shared normalized phase for Blend1D locomotion sync.
+     *
+     * Uses the active span at `param`: phase rate is the lerp of the two
+     * samples' (playbackSpeed / duration). Keeps Walk/Run feet aligned while
+     * blending. Returns the wrapped phase in [0,1).
+     */
+    [[nodiscard]] float AdvanceBlend1DPhase(
+        std::span<const Blend1DSample> samples, float param, float phase,
+        float dt);
+
+    /** Write times[i] = phase * duration[i] for every sample with a clip. */
+    void WriteBlend1DTimesFromPhase(std::span<const Blend1DSample> samples,
+                                    std::span<float> times, float phase);
+
     /** Local → global joint matrices. */
     std::vector<glm::mat4> LocalToGlobal(const Skeleton&  skeleton,
                                          const LocalPose& local);

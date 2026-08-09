@@ -252,8 +252,9 @@ class MainApp final : public fra::AbstractApplication
         }
 
         std::cout << "Anim stack — " << foxCount
-                  << " foxes | upper=" << upperCount << " look=" << lookCount
-                  << " ik=" << ikCount << " rootDrive=" << rootCount << '\n'
+                  << " foxes | Blend1D phase-sync | upper=" << upperCount
+                  << " look=" << lookCount << " ik=" << ikCount
+                  << " rootDrive=" << rootCount << '\n'
                   << "  Keys: 1/2/3 presets   Up/Down=Speed\n";
 
         mFoxMaterial = mMaterialPool->Create({

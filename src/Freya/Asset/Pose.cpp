@@ -292,6 +292,64 @@ namespace FREYA_NAMESPACE
         }
     }
 
+    float AdvanceBlend1DPhase(const std::span<const Blend1DSample> samples,
+                              const float param, float phase, const float dt)
+    {
+        if (samples.empty() || dt <= 0.f)
+            return phase;
+
+        std::vector<float> values(samples.size());
+        for (std::uint32_t i = 0; i < samples.size(); ++i)
+            values[i] = samples[i].value;
+
+        const auto  span = ResolveBlend1D(values, param);
+        const auto& s0   = samples[span.i0];
+        const auto& s1   = samples[span.i1];
+
+        const float d0 =
+            (s0.clip && s0.clip->duration > 0.f) ? s0.clip->duration : 0.f;
+        const float d1 =
+            (s1.clip && s1.clip->duration > 0.f) ? s1.clip->duration : 0.f;
+        const float r0 = std::max(s0.playbackSpeed, 0.f);
+        const float r1 = std::max(s1.playbackSpeed, 0.f);
+
+        float duration = glm::mix(d0, d1, span.t);
+        float rate     = glm::mix(r0, r1, span.t);
+        if (duration <= 1e-5f)
+        {
+            // Fall back to whichever sample has a usable length.
+            duration = std::max(d0, d1);
+            rate     = (d0 >= d1) ? r0 : r1;
+        }
+        if (duration <= 1e-5f)
+            return phase;
+
+        phase += dt * rate / duration;
+        phase = std::fmod(phase, 1.f);
+        if (phase < 0.f)
+            phase += 1.f;
+        return phase;
+    }
+
+    void WriteBlend1DTimesFromPhase(
+        const std::span<const Blend1DSample> samples,
+        const std::span<float> times, const float phase)
+    {
+        if (times.size() < samples.size())
+            return;
+        const float p = std::clamp(phase, 0.f, 1.f);
+        for (std::uint32_t i = 0; i < samples.size(); ++i)
+        {
+            const auto& s = samples[i];
+            if (!s.clip || s.clip->duration <= 0.f)
+            {
+                times[i] = 0.f;
+                continue;
+            }
+            times[i] = p * s.clip->duration;
+        }
+    }
+
     LocalPose EvaluateBlend1D(const Skeleton&                      skeleton,
                               const std::span<const Blend1DSample> samples,
                               const std::span<float> times, const float param)

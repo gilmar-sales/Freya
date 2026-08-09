@@ -100,8 +100,17 @@ namespace FREYA_NAMESPACE
             if (state.blendTimes.size() != state.blendSamples.size())
                 state.blendTimes.assign(state.blendSamples.size(), 0.f);
 
-            AdvanceBlend1DTimes(state.blendSamples, state.blendTimes, dt);
             const float param = GetFloat(state.blendParam);
+            if (state.syncPhase)
+            {
+                state.blendPhase = AdvanceBlend1DPhase(
+                    state.blendSamples, param, state.blendPhase, dt);
+                WriteBlend1DTimesFromPhase(
+                    state.blendSamples, state.blendTimes, state.blendPhase);
+            }
+            else
+                AdvanceBlend1DTimes(state.blendSamples, state.blendTimes, dt);
+
             return EvaluateBlend1D(
                 *mSkeleton, state.blendSamples, state.blendTimes, param);
         }
@@ -204,13 +213,14 @@ namespace FREYA_NAMESPACE
         return *this;
     }
 
-    AnimGraphBuilder& AnimGraphBuilder::Blend1DState(std::string name,
-                                                     std::string param)
+    AnimGraphBuilder& AnimGraphBuilder::Blend1DState(
+        std::string name, std::string param, const bool syncPhase)
     {
         AnimGraph::State s;
         s.name       = std::move(name);
         s.kind       = AnimGraph::StateKind::Blend1D;
         s.blendParam = std::move(param);
+        s.syncPhase  = syncPhase;
         mGraph.mStates.push_back(std::move(s));
         mLastBlendState = static_cast<std::int32_t>(mGraph.mStates.size() - 1);
         return *this;

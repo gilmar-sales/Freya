@@ -104,6 +104,8 @@ namespace FREYA_NAMESPACE
             std::string                blendParam;
             std::vector<Blend1DSample> blendSamples;
             std::vector<float>         blendTimes;
+            bool                       syncPhase  = true;
+            float                      blendPhase = 0.f;
         };
 
         struct Transition
@@ -169,8 +171,11 @@ namespace FREYA_NAMESPACE
          * @brief Begin a Blend1D state driven by float param (e.g. "Speed").
          *
          * Call AddBlendSample afterwards (ascending `value` order).
+         * When `syncPhase` is true (default), Walk/Run share a normalized
+         * cycle so feet stay aligned while blending.
          */
-        AnimGraphBuilder& Blend1DState(std::string name, std::string param);
+        AnimGraphBuilder& Blend1DState(std::string name, std::string param,
+                                       bool syncPhase = true);
 
         AnimGraphBuilder& AddBlendSample(float value, const AnimationClip& clip,
                                          bool  loop          = true,
