@@ -5,6 +5,7 @@
 #include "Freya/Core/Buffer.hpp"
 
 #include <assimp/Importer.hpp>
+#include <assimp/config.h>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <meshoptimizer.h>
@@ -373,13 +374,18 @@ namespace FREYA_NAMESPACE
             logger->LogTrace("Creating mesh from file: {}", path);
             auto             meshIds = std::vector<std::uint32_t>();
             Assimp::Importer importer;
-            const aiScene*   scene = importer.ReadFile(
+            // Without KEEP_HIERARCHY, PreTransformVertices collapses every
+            // submesh into one — Blend materials (e.g. lamp bulb) cannot be
+            // assigned and disappear into the opaque body draw.
+            importer.SetPropertyBool(AI_CONFIG_PP_PTV_KEEP_HIERARCHY, true);
+            // Do not OptimizeMeshes: shared placeholder materials in glTF
+            // would re-merge named parts (body/bulb/switch) after PTV.
+            const aiScene* scene = importer.ReadFile(
                 path,
                 aiProcess_CalcTangentSpace | aiProcess_Triangulate |
                     aiProcess_SortByPType | aiProcess_GenNormals |
-                    aiProcess_GenUVCoords | aiProcess_OptimizeMeshes |
-                    aiProcess_JoinIdenticalVertices | aiProcess_GlobalScale |
-                    aiProcess_PreTransformVertices |
+                    aiProcess_GenUVCoords | aiProcess_JoinIdenticalVertices |
+                    aiProcess_GlobalScale | aiProcess_PreTransformVertices |
                     aiProcess_ValidateDataStructure);
 
             if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE ||
@@ -391,6 +397,8 @@ namespace FREYA_NAMESPACE
             }
 
             processNode(meshIds, scene->mRootNode, scene);
+            logger->LogTrace("Loaded {} mesh(es) from {}", meshIds.size(),
+                             path);
             return meshIds;
         }
 

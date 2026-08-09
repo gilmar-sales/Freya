@@ -33,6 +33,7 @@
 #include "Freya/Core/SsaoPass.hpp"
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Core/TaaPass.hpp"
+#include "Freya/Core/TranslucentPass.hpp"
 #include "Freya/Core/Window.hpp"
 
 #include "Freya/Builders/BufferBuilder.hpp"

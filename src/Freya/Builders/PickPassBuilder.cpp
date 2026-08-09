@@ -1,5 +1,6 @@
 #include "Freya/Builders/PickPassBuilder.hpp"
 
+#include "Freya/Asset/InstanceTransform.hpp"
 #include "Freya/Asset/Vertex.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
@@ -133,6 +134,13 @@ namespace FREYA_NAMESPACE
                     .setLocation(8)
                     .setFormat(vk::Format::eR32G32B32A32Sfloat)
                     .setOffset(sizeof(glm::vec4) * 3),
+                // materialId + entityId as uvec2 (see InstanceTransform /
+                // pick.vert)
+                vk::VertexInputAttributeDescription()
+                    .setBinding(1)
+                    .setLocation(13)
+                    .setFormat(vk::Format::eR32G32Uint)
+                    .setOffset(offsetof(InstanceTransform, materialId)),
             };
 
         auto vertexInputInfo =

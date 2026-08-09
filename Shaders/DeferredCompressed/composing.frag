@@ -1,10 +1,9 @@
 #version 450
 
-// Final composite: opaque (+ optional HDR tonemap), translucent, bloom.
+// Final composite: HDR scene (opaque + WBOIT resolve) + bloom, optional tonemap.
 
-layout(binding = 0) uniform sampler2D inOpaque;
-layout(binding = 1) uniform sampler2D inTranslucent;
-layout(binding = 2) uniform sampler2D inBloom;
+layout(binding = 0) uniform sampler2D inScene;
+layout(binding = 1) uniform sampler2D inBloom;
 
 layout(push_constant) uniform PushConstants {
     float tonemapHdr;    // 1 = ACES+gamma, 0 = LDR passthrough
@@ -24,12 +23,8 @@ vec3 ACESFilm(vec3 x) {
 }
 
 void main() {
-    vec4 opaqueColor = texture(inOpaque, inTexCoord);
-    vec4 transColor = texture(inTranslucent, inTexCoord);
-    vec4 bloomColor = texture(inBloom, inTexCoord);
-
-    vec3 color = mix(opaqueColor.rgb, transColor.rgb, transColor.a);
-    color += bloomColor.rgb * pc.bloomStrength;
+    vec3 color = texture(inScene, inTexCoord).rgb;
+    color += texture(inBloom, inTexCoord).rgb * pc.bloomStrength;
 
     if (pc.tonemapHdr > 0.5) {
         color = ACESFilm(color);

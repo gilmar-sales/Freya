@@ -30,6 +30,7 @@ namespace FREYA_NAMESPACE
         const skr::Arc<CommandPool>&                 commandPool,
         const skr::Arc<MeshPool>&                    meshPool,
         const skr::Arc<MaterialDescriptorResources>& materials,
+        const skr::Arc<MaterialPool>&                materialPool,
         const std::uint32_t                          frameCount,
         const vk::Pipeline                           cullPipeline,
         const vk::PipelineLayout                     cullPipelineLayout,
@@ -42,9 +43,10 @@ namespace FREYA_NAMESPACE
         skr::Arc<Image>
             hizFallbackImage) :
         mDevice(device), mCommandPool(commandPool), mMeshPool(meshPool),
-        mMaterials(materials), mFrameCount(std::max(1u, frameCount)),
-        mCullPipeline(cullPipeline), mCullPipelineLayout(cullPipelineLayout),
-        mCullSetLayout(cullSetLayout), mCullDescriptorPool(cullDescriptorPool),
+        mMaterials(materials), mMaterialPool(materialPool),
+        mFrameCount(std::max(1u, frameCount)), mCullPipeline(cullPipeline),
+        mCullPipelineLayout(cullPipelineLayout), mCullSetLayout(cullSetLayout),
+        mCullDescriptorPool(cullDescriptorPool),
         mCullDescriptorSets(std::move(cullDescriptorSets)),
         mHiZ(std::move(hiz)), mHizFallbackImage(std::move(hizFallbackImage))
     {
@@ -115,7 +117,11 @@ namespace FREYA_NAMESPACE
         ++mCullDescVersion;
         if (mCullDescVersion == 0)
             mCullDescVersion = 1;
-        mCullDescRefreshedThisFrame = false;
+        // Do not clear mCullDescRefreshedThisFrame. A mid-frame rewrite of the
+        // cull descriptor set (e.g. Hi-Z becoming ready after Geometry cull,
+        // then Translucent DispatchCull) invalidates the recording CB. The
+        // next UploadSceneInstances / first cull of the following frame picks
+        // up the new version.
     }
 
     void IndirectDrawSystem::refreshCullDescriptorsIfNeeded()
@@ -154,9 +160,9 @@ namespace FREYA_NAMESPACE
             return;
         }
 
-        const auto capacity = std::max(
-            instanceCount,
-            std::max(frame.capacity * 2, kInitialInstanceCapacity));
+        const auto capacity =
+            std::max(instanceCount,
+                     std::max(frame.capacity * 2, kInitialInstanceCapacity));
 
         frame.sceneInstances =
             BufferBuilder(mDevice)
@@ -178,10 +184,11 @@ namespace FREYA_NAMESPACE
                 .SetUsage(BufferUsage::Indirect)
                 .SetSize(sizeof(vk::DrawIndexedIndirectCommand) * capacity)
                 .Build();
-        frame.drawCount = BufferBuilder(mDevice)
-                              .SetUsage(BufferUsage::Indirect)
-                              .SetSize(sizeof(std::uint32_t))
-                              .Build();
+        frame.drawCount =
+            BufferBuilder(mDevice)
+                .SetUsage(BufferUsage::Indirect)
+                .SetSize(sizeof(std::uint32_t))
+                .Build();
         frame.capacity = capacity;
 
         bumpCullDescVersion();
@@ -384,15 +391,19 @@ namespace FREYA_NAMESPACE
         auto& frame = currentFrame();
         if (!frame.drawCount)
             return;
-        const std::uint32_t zero = 0;
-        frame.drawCount->Copy(&zero, sizeof(zero));
+        // Must be a GPU cmd — a host memcpy during CB recording is overwritten
+        // by earlier cull dispatches at submit time, so a later cull (e.g.
+        // Translucent after Camera) would atomicAdd on the stale count and
+        // redraw previous opaque slots.
+        mCommandPool->GetCommandBuffer().fillBuffer(
+            frame.drawCount->Get(), 0, sizeof(std::uint32_t), 0);
     }
 
     void IndirectDrawSystem::UploadSceneInstances(
         const std::span<const SceneInstanceUpload> uploads,
         const std::uint32_t                        frameIndex)
     {
-        mFrameIndex = frameIndex % mFrameCount;
+        mFrameIndex                 = frameIndex % mFrameCount;
         mCullDescRefreshedThisFrame = false;
 
         if (uploads.empty())
@@ -448,8 +459,14 @@ namespace FREYA_NAMESPACE
         for (std::uint32_t dst = 0; dst < mInstanceCount; ++dst)
         {
             const auto& src = uploads[sortKeys[dst].uploadIndex];
-            const auto  flags =
-                src.castShadows ? kSceneInstanceFlagCastShadows : 0u;
+            auto flags = src.castShadows ? kSceneInstanceFlagCastShadows : 0u;
+            if (mMaterialPool)
+            {
+                const auto& matInfo =
+                    mMaterialPool->GetCreateInfo(src.materialId);
+                if (matInfo.alphaMode == AlphaMode::Blend)
+                    flags |= kSceneInstanceFlagTranslucent;
+            }
 
             mSceneInstances[dst] = SceneInstance {
                 .model      = src.model,
@@ -496,6 +513,9 @@ namespace FREYA_NAMESPACE
         pc.instanceCount = mInstanceCount;
         pc.cullMode      = static_cast<std::uint32_t>(mode);
         pc.reverseZ      = reverseZ ? 1u : 0u;
+        // Opaque Hi-Z must not occlusion-cull translucents: Blend surfaces are
+        // absent from the depth buffer, and objects like a bulb inside a lamp
+        // cage would be incorrectly discarded. Frustum-only for that pass.
         pc.hizEnabled =
             (mode == CullMode::Camera && mHiZ && mHiZ->IsReady()) ? 1u : 0u;
         pc.lodPixelRef = 256.0f;
@@ -551,7 +571,7 @@ namespace FREYA_NAMESPACE
                 .setSize(VK_WHOLE_SIZE),
             vk::BufferMemoryBarrier()
                 .setSrcAccessMask(vk::AccessFlagBits::eIndirectCommandRead |
-                                  vk::AccessFlagBits::eHostWrite |
+                                  vk::AccessFlagBits::eTransferWrite |
                                   vk::AccessFlagBits::eShaderWrite)
                 .setDstAccessMask(vk::AccessFlagBits::eShaderRead |
                                   vk::AccessFlagBits::eShaderWrite)
@@ -573,6 +593,7 @@ namespace FREYA_NAMESPACE
 
         cb.pipelineBarrier(
             vk::PipelineStageFlagBits::eHost |
+                vk::PipelineStageFlagBits::eTransfer |
                 vk::PipelineStageFlagBits::eDrawIndirect |
                 vk::PipelineStageFlagBits::eVertexInput |
                 vk::PipelineStageFlagBits::eComputeShader,

@@ -88,9 +88,9 @@ class MainApp final : public fra::AbstractApplication
                     return;
                 }
 
-                const bool increase = isHeld(fra::KeyCode::LShift) ||
-                                      isHeld(fra::KeyCode::RShift);
-                const float sign = increase ? 1.0f : -1.0f;
+                const bool  increase = isHeld(fra::KeyCode::LShift) ||
+                                       isHeld(fra::KeyCode::RShift);
+                const float sign     = increase ? 1.0f : -1.0f;
 
                 if (event.key == fra::KeyCode::Num1 ||
                     event.key == fra::KeyCode::Kp1)
@@ -159,7 +159,7 @@ class MainApp final : public fra::AbstractApplication
             .roughnessFactor = 0.35f,
             .metalnessFactor = 0.2f,
         });
-        mShipMaterial = mMaterialPool->Create({
+        mShipMaterial   = mMaterialPool->Create({
             .albedoFactor    = { 0.62f, 0.64f, 0.68f, 1.0f },
             .roughnessFactor = 0.4f,
             .metalnessFactor = 0.65f,
@@ -169,8 +169,8 @@ class MainApp final : public fra::AbstractApplication
             "./Resources/Models/DamagedHelmet.gltf");
         mDragonMeshes = mMeshPool->CreateMeshFromFile(
             "./Resources/Models/DragonAttenuation.gltf");
-        mShipMeshes = mMeshPool->CreateMeshFromFile(
-            "./Resources/Models/ally_ship.glb");
+        mShipMeshes =
+            mMeshPool->CreateMeshFromFile("./Resources/Models/ally_ship.glb");
 
         if (mHelmetMeshes.empty())
             std::cerr << "Failed to load DamagedHelmet.gltf\n";
@@ -211,8 +211,8 @@ class MainApp final : public fra::AbstractApplication
         mRenderer->BeginFrame();
 
         const glm::vec3 forward = cameraForward();
-        mRenderer->UpdateCamera(mCameraPos, mCameraPos + forward,
-                                glm::vec3(0.0f, 1.0f, 0.0f));
+        mRenderer->UpdateCamera(
+            mCameraPos, mCameraPos + forward, glm::vec3(0.0f, 1.0f, 0.0f));
 
         std::vector<fra::SceneInstanceUpload> instances;
         instances.reserve(mInstances.size());
@@ -275,9 +275,9 @@ class MainApp final : public fra::AbstractApplication
             mInstances.push_back(ground);
         }
 
-        const auto helmetModel =
-            glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(-1.6f, 0.0f, 0.0f)),
-                       glm::vec3(1.15f));
+        const auto helmetModel = glm::scale(
+            glm::translate(glm::mat4(1.0f), glm::vec3(-1.6f, 0.0f, 0.0f)),
+            glm::vec3(1.15f));
         for (const auto meshId : mHelmetMeshes)
         {
             Instance inst {};
@@ -289,9 +289,9 @@ class MainApp final : public fra::AbstractApplication
         }
 
         // Node transforms are baked via PreTransformVertices.
-        const auto dragonModel =
-            glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(1.8f, 0.0f, 0.0f)),
-                       glm::vec3(1.0f));
+        const auto dragonModel = glm::scale(
+            glm::translate(glm::mat4(1.0f), glm::vec3(1.8f, 0.0f, 0.0f)),
+            glm::vec3(1.0f));
         for (const auto meshId : mDragonMeshes)
         {
             Instance inst {};

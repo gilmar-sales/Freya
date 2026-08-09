@@ -49,11 +49,18 @@ std::uint32_t material = materialPool->Create(fra::MaterialCreateInfo {
     .metalnessFactor = 1.f,
     .emissiveFactor  = { 1.f, 1.f, 1.f },
     .aoFactor        = 1.f,   // constant AO into G-buffer
-    .alphaCutoff     = 0.f,   // 0 = off; else discard when alpha < cutoff
+    .alphaCutoff     = 0.f,   // Mask: discard when alpha < cutoff
+    .alphaMode       = fra::AlphaMode::Opaque, // Opaque | Mask | Blend
 });
 
 materialPool->Update(material, updatedCreateInfo);
 ```
+
+`AlphaMode::Opaque` / `Mask` stay in the deferred MDI camera cull. `Mask`
+uses `alphaCutoff` cutout in the G-buffer. `AlphaMode::Blend` is filtered
+into the Weighted Blended OIT pass (`CullMode::Translucent`); use
+`albedoFactor.a` (and albedo alpha) for coverage, and typically
+`castShadows = false` on glass instances.
 
 Descriptor set 1 bindings:
 
@@ -63,7 +70,7 @@ Descriptor set 1 bindings:
 | 5 | `MaterialFactorsUniform` (48 bytes): factors, `aoFactor` in `emissive.w`, `alphaCutoff` |
 
 Empty texture optionals use engine fallbacks (white or black). Alpha cutout
-samples albedo alpha × `albedoFactor.a` in the G-buffer pass only.
+samples albedo alpha × `albedoFactor.a` in the G-buffer pass only (Mask).
 
 ## Vertex
 

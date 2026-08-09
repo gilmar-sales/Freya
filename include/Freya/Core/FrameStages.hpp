@@ -51,6 +51,18 @@ namespace FREYA_NAMESPACE
         void                      Execute(RenderFrameContext& ctx) override;
     };
 
+    class TranslucentFrameStage : public IFrameStage
+    {
+      public:
+        [[nodiscard]] const char* Name() const override
+        {
+            return "Translucent";
+        }
+        void Rebuild(RenderFrameContext&   ctx,
+                     skr::ServiceProvider& sp) override;
+        void Execute(RenderFrameContext& ctx) override;
+    };
+
     class BloomFrameStage : public IFrameStage
     {
       public:

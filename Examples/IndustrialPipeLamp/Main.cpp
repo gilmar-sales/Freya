@@ -151,8 +151,28 @@ class MainApp final : public fra::AbstractApplication
               .emissive  = mSofaEmissive,
               .metalness = mSofaMetalness });
 
+        // Warm amber glass — low coverage; GGX/Fresnel in oit_accum add shine.
+        mBulbMaterial = mMaterialPool->Create({
+            .emissive        = mSofaEmissive,
+            .albedoFactor    = { 0.42f, 0.26f, 0.10f, 0.10f },
+            .roughnessFactor = 0.04f,
+            .metalnessFactor = 0.0f,
+            .emissiveFactor  = { 0.40f, 0.24f, 0.08f },
+            .alphaMode       = fra::AlphaMode::Blend,
+        });
+
         mSofaModel = mMeshPool->CreateMeshFromFile(
             "./Resources/Models/industrial_pipe_lamp.glb");
+        // GLB node order with KEEP_HIERARCHY: body (0), bulb (1), switch (2).
+        mBulbMeshId =
+            mSofaModel.size() > 1 ? mSofaModel[1] : std::uint32_t { ~0u };
+        if (mBulbMeshId == ~0u)
+        {
+            std::cerr
+                << "Lamp GLB has " << mSofaModel.size()
+                << " mesh(es); expected body/bulb/switch — "
+                   "bulb Blend material will not apply\n";
+        }
 
         mGroundMesh     = createGroundMesh();
         mGroundMaterial = mMaterialPool->Create({});
@@ -271,6 +291,24 @@ class MainApp final : public fra::AbstractApplication
             glm::vec3(1.0f, 0.92f, 0.85f),
             1.5f));
 
+        // One warm spot per lamp bulb (follow mModelMatrix each frame).
+        mBulbSpotIndices.clear();
+        for (std::uint32_t i = 0; i < 2; ++i)
+        {
+            auto spot = fra::MakeSpotLight(
+                glm::vec3(0.0f),
+                glm::vec3(0.0f, -1.0f, 0.0f),
+                glm::vec3(1.0f, 0.82f, 0.55f),
+                28.0f,
+                glm::radians(28.0f),
+                glm::radians(48.0f),
+                22.0f);
+            spot.castShadows = true;
+            mBulbSpotIndices.push_back(
+                static_cast<std::uint32_t>(mLightService->AddLight(spot)));
+        }
+        updateBulbSpots();
+
         std::cout
             << "Controls: RMB look | WASD move | Space/Q up | Ctrl/E down | "
                "Esc release mouse\n"
@@ -341,6 +379,8 @@ class MainApp final : public fra::AbstractApplication
                                          glm::vec3(28.0f));
         }
 
+        updateBulbSpots();
+
         mRenderer->BeginFrame();
 
         const glm::vec3 forward = cameraForward();
@@ -352,14 +392,19 @@ class MainApp final : public fra::AbstractApplication
         instances.reserve(mSofaModel.size() * 2 + 1);
         for (const auto& mesh : mSofaModel)
         {
+            const bool isBulb = mesh == mBulbMeshId;
+            // Body mesh includes the thin bulb cage wires — those cast nasty
+            // self-shadows onto the glass / floor. Keep shadows off for it.
+            const bool isBody =
+                !mSofaModel.empty() && mesh == mSofaModel.front();
             for (std::uint32_t i = 0; i < 2; ++i)
             {
                 instances.push_back(fra::SceneInstanceUpload {
                     .model       = mModelMatrix[i],
                     .meshId      = mesh,
-                    .materialId  = mSofaMaterial,
+                    .materialId  = isBulb ? mBulbMaterial : mSofaMaterial,
                     .entityId    = i + 1,
-                    .castShadows = true,
+                    .castShadows = !isBulb && !isBody,
                 });
             }
         }
@@ -372,8 +417,8 @@ class MainApp final : public fra::AbstractApplication
         });
         mRenderer->UploadSceneInstances(instances);
 
-        // EndFrame advances to lighting → translucent → composite
-        // and draws the fullscreen triangles for lighting + composite.
+        // EndFrame: Pick → Shadow → Geometry → Lighting → TAA →
+        // Translucent (WBOIT) → Bloom → Composite.
         mRenderer->EndFrame();
     }
 
@@ -453,6 +498,34 @@ class MainApp final : public fra::AbstractApplication
             mCameraPos += glm::normalize(move) * kMoveSpeed * dt;
     }
 
+    void updateBulbSpots()
+    {
+        // Local bulb center after Assimp KEEP_HIERARCHY pre-transform
+        // (node translation + mesh AABB center of Roundcube.005).
+        constexpr glm::vec3 kBulbLocal { 0.0f, 0.360f, 0.062f };
+        // Cage opens slightly toward +Z; bias aim down/out of the fixture.
+        constexpr glm::vec3 kAimLocal { 0.0f, -0.85f, 0.45f };
+
+        for (std::size_t i = 0;
+             i < mBulbSpotIndices.size() && i < 2;
+             ++i)
+        {
+            const auto* current =
+                mLightService->GetLight(mBulbSpotIndices[i]);
+            if (current == nullptr)
+                continue;
+
+            const glm::mat4& model = mModelMatrix[i];
+            fra::Light       spot = *current;
+            spot.position =
+                glm::vec3(model * glm::vec4(kBulbLocal, 1.0f));
+            const glm::vec3 aim = glm::mat3(model) * kAimLocal;
+            if (glm::dot(aim, aim) > 1e-8f)
+                spot.direction = glm::normalize(aim);
+            mLightService->UpdateLight(mBulbSpotIndices[i], spot);
+        }
+    }
+
     void setLightCastShadows(std::uint32_t index, bool enabled)
     {
         const auto* current = mLightService->GetLight(index);
@@ -474,7 +547,11 @@ class MainApp final : public fra::AbstractApplication
         setLightCastShadows(mDirectionalIndex, all || mode == 1);
         setLightCastShadows(mWarmPointIndex, all || mode == 2);
         setLightCastShadows(mCoolPointIndex, all || mode == 3);
+        // Orbiting spots are diagnostic — only mode 4 (reserve shadow slots
+        // for the per-bulb spots in the default "all" mode).
         for (const auto spotIndex : mSpotIndices)
+            setLightCastShadows(spotIndex, mode == 4);
+        for (const auto spotIndex : mBulbSpotIndices)
             setLightCastShadows(spotIndex, all || mode == 4);
 
         static constexpr const char* kNames[] = {
@@ -653,6 +730,8 @@ class MainApp final : public fra::AbstractApplication
     std::uint32_t         mSofaEmissive {};
     std::uint32_t         mSofaMetalness {};
     std::uint32_t         mSofaMaterial {};
+    std::uint32_t         mBulbMaterial {};
+    std::uint32_t         mBulbMeshId { ~0u };
 
     std::uint32_t mGroundMesh {};
     std::uint32_t mGroundMaterial {};
@@ -682,6 +761,7 @@ class MainApp final : public fra::AbstractApplication
     std::uint32_t              mWarmPointIndex   = 0;
     std::uint32_t              mCoolPointIndex   = 0;
     std::vector<std::uint32_t> mSpotIndices;
+    std::vector<std::uint32_t> mBulbSpotIndices;
     int                        mShadowCasterMode = 0;
 };
 

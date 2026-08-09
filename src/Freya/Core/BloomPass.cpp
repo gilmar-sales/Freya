@@ -12,21 +12,23 @@ namespace FREYA_NAMESPACE
         vk::Pipeline                                thresholdPipeline,
         vk::Pipeline                                downsamplePipeline,
         vk::Pipeline                                upsamplePipeline,
-        const skr::Arc<Image>&                      bloomThresholdImage,
-        const skr::Arc<Image>&                      bloomDownImage,
-        const skr::Arc<Image>&                      bloomUpImage,
+        std::vector<skr::Arc<Image>>                bloomThresholdImages,
+        std::vector<skr::Arc<Image>>                bloomDownImages,
+        std::vector<skr::Arc<Image>>                bloomUpImages,
         const std::vector<vk::Framebuffer>&         framebuffers,
         vk::DescriptorPool                          descriptorPool,
         const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
-        const std::vector<vk::DescriptorSet>&       descriptorSets) :
+        const std::vector<vk::DescriptorSet>&       descriptorSets,
+        const vk::Sampler                           sampler) :
         mDevice(device), mFreyaOptions(freyaOptions), mSurface(surface),
         mHalfExtent(halfExtent), mRenderPass(renderPass),
         mPipelineLayout(pipelineLayout),
-        mBloomThresholdImage(bloomThresholdImage),
-        mBloomDownImage(bloomDownImage), mBloomUpImage(bloomUpImage),
-        mFramebuffers(framebuffers), mDescriptorPool(descriptorPool),
+        mBloomThresholdImages(std::move(bloomThresholdImages)),
+        mBloomDownImages(std::move(bloomDownImages)),
+        mBloomUpImages(std::move(bloomUpImages)), mFramebuffers(framebuffers),
+        mDescriptorPool(descriptorPool),
         mDescriptorSetLayouts(descriptorSetLayouts),
-        mDescriptorSets(descriptorSets)
+        mDescriptorSets(descriptorSets), mSampler(sampler)
     {
         mPipelines[BloomThresholdSubpass]  = thresholdPipeline;
         mPipelines[BloomDownsampleSubpass] = downsamplePipeline;
@@ -51,10 +53,43 @@ namespace FREYA_NAMESPACE
 
         vkDevice.destroyPipelineLayout(mPipelineLayout);
         vkDevice.destroyRenderPass(mRenderPass);
+        if (mSampler)
+            vkDevice.destroySampler(mSampler);
 
-        mBloomThresholdImage.reset();
-        mBloomDownImage.reset();
-        mBloomUpImage.reset();
+        mBloomThresholdImages.clear();
+        mBloomDownImages.clear();
+        mBloomUpImages.clear();
+    }
+
+    skr::Arc<Image> BloomPass::GetBloomUpImage(
+        const std::uint32_t frameIndex) const
+    {
+        if (frameIndex >= mBloomUpImages.size())
+            return {};
+        return mBloomUpImages[frameIndex];
+    }
+
+    void BloomPass::SetThresholdInput(const std::uint32_t    frameIndex,
+                                      const skr::Arc<Image>& sourceImage)
+    {
+        if (!sourceImage || !mSampler)
+            return;
+        const auto setIndex = frameIndex * 3u + BloomThresholdSubpass;
+        if (setIndex >= mDescriptorSets.size())
+            return;
+
+        auto info = vk::DescriptorImageInfo()
+                        .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                        .setImageView(sourceImage->GetImageView())
+                        .setSampler(mSampler);
+        auto writer =
+            vk::WriteDescriptorSet()
+                .setDstSet(mDescriptorSets[setIndex])
+                .setDstBinding(0)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setImageInfo(info);
+        mDevice->Get().updateDescriptorSets(1, &writer, 0, nullptr);
     }
 
     vk::Pipeline& BloomPass::GetPipeline(const std::uint32_t subpass)
@@ -62,8 +97,8 @@ namespace FREYA_NAMESPACE
         return mPipelines[subpass];
     }
 
-    void BloomPass::Begin(const skr::Arc<SwapChain>    swapChain,
-                          const skr::Arc<CommandPool>& commandPool) const
+    void BloomPass::Begin(const skr::Arc<CommandPool>& commandPool,
+                          const std::uint32_t          frameIndex) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
         mDevice->BeginDebugLabel(commandBuffer, DebugLabel::Bloom);
@@ -74,19 +109,17 @@ namespace FREYA_NAMESPACE
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // up
         };
 
-        const auto imageIndex = swapChain->GetCurrentImageIndex();
-
         commandBuffer.beginRenderPass(
             vk::RenderPassBeginInfo()
                 .setRenderPass(mRenderPass)
-                .setFramebuffer(mFramebuffers[imageIndex])
+                .setFramebuffer(mFramebuffers[frameIndex])
                 .setRenderArea(
                     vk::Rect2D().setOffset({ 0, 0 }).setExtent(mHalfExtent))
                 .setClearValues(clearValues),
             vk::SubpassContents::eInline);
 
         mLabelActive = false;
-        BindPipeline(BloomThresholdSubpass, commandPool, 0);
+        BindPipeline(BloomThresholdSubpass, commandPool, frameIndex);
     }
 
     void BloomPass::NextSubpass(const skr::Arc<CommandPool>& commandPool) const
@@ -116,12 +149,13 @@ namespace FREYA_NAMESPACE
             subpass == BloomDownsampleSubpass ||
             subpass == BloomUpsampleSubpass)
         {
+            const auto setIndex = frameIndex * 3u + subpass;
             commandBuffer.bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics,
                 mPipelineLayout,
                 0,
                 1,
-                &mDescriptorSets[subpass],
+                &mDescriptorSets[setIndex],
                 0,
                 nullptr);
         }

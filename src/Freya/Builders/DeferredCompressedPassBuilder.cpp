@@ -272,8 +272,6 @@ namespace FREYA_NAMESPACE
         auto sceneColorImage = createImage(ImageUsage::GBufferSceneColor);
         auto velocityImage   = createImage(ImageUsage::GBufferVelocity);
         auto depthImage      = createImage(ImageUsage::Depth);
-        auto translucentImage =
-            createImage(ImageUsage::Color, vk::Format::eR8G8B8A8Unorm);
 
         std::vector<skr::Arc<Image>> gbufferImages = { albedoImage, normalImage,
                                                        pbrImage };
@@ -650,9 +648,9 @@ namespace FREYA_NAMESPACE
             fullscreenPipelineLayout, depthPipeline, gbufferPipeline,
             lightingPipeline, uniformBuffer, frameLayouts, descriptorSets,
             descriptorPool, gbufferImages, sceneColorImage, velocityImage,
-            depthImage, translucentImage, framebuffers, lightingRenderPass,
-            lightingFramebuffer, lightingSetLayout, lightingDescriptorPool,
-            lightingSets, mMaterialResources, gbufferSampler, extent);
+            depthImage, framebuffers, lightingRenderPass, lightingFramebuffer,
+            lightingSetLayout, lightingDescriptorPool, lightingSets,
+            mMaterialResources, gbufferSampler, extent);
     }
 
     vk::RenderPass DeferredCompressedPassBuilder::createGeometryRenderPass()

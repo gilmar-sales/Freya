@@ -129,16 +129,20 @@ namespace FREYA_NAMESPACE
                 }
             });
 
-        // Create bloom result image (full-res blit target)
+        // Create bloom result images (full-res blit target, one per frame)
         const auto extent = getRenderExtent();
-        mBloomResultImage =
-            mServiceProvider->GetService<ImageBuilder>()
-                ->SetUsage(ImageUsage::Color)
-                .SetFormat(vk::Format::eR16G16B16A16Sfloat)
-                .SetWidth(extent.width)
-                .SetHeight(extent.height)
-                .SetSamples(vk::SampleCountFlagBits::e1)
-                .Build();
+        mBloomResultImages.resize(mFreyaOptions->frameCount);
+        for (std::uint32_t i = 0; i < mFreyaOptions->frameCount; ++i)
+        {
+            mBloomResultImages[i] =
+                mServiceProvider->GetService<ImageBuilder>()
+                    ->SetUsage(ImageUsage::Color)
+                    .SetFormat(vk::Format::eR16G16B16A16Sfloat)
+                    .SetWidth(extent.width)
+                    .SetHeight(extent.height)
+                    .SetSamples(vk::SampleCountFlagBits::e1)
+                    .Build();
+        }
 
         // Create a linear sampler for bloom result
         mBloomResultSampler = mDevice->Get().createSampler(
@@ -150,19 +154,14 @@ namespace FREYA_NAMESPACE
                 .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
                 .setAddressModeW(vk::SamplerAddressMode::eClampToEdge));
 
-        // Initialize composite descriptor sets for deferred rendering.
-        for (auto frame = 0; frame < mFreyaOptions->frameCount; frame++)
-        {
-            mCompositePass->UpdateDescriptorSet(
-                frame, mDeferredPass->GetSceneColorImage(),
-                mDeferredPass->GetTranslucentImage(), mBloomResultImage,
-                mBloomResultSampler);
-        }
+        // Initialize composite after first stage rebuild (needs translucent).
+        // Descriptor sets are filled in CompositeFrameStage::Rebuild.
 
         if (!mFreyaOptions->enableSsao)
             mSsaoFallbackImage = createSsaoFallbackImage();
 
         registerDefaultFrameStages();
+        rebuildSceneResources();
     }
 
     Renderer::~Renderer()
@@ -170,9 +169,10 @@ namespace FREYA_NAMESPACE
         mDevice->Get().waitIdle();
 
         mDevice->Get().destroySampler(mBloomResultSampler);
-        mBloomResultImage.reset();
+        mBloomResultImages.clear();
         mTaaPass.reset();
         mSsaoPass.reset();
+        mTranslucentPass.reset();
         mBloomPass.reset();
         mCompositePass.reset();
         mSwapChain.reset();
@@ -204,15 +204,19 @@ namespace FREYA_NAMESPACE
     {
         const auto extent = getRenderExtent();
 
-        mBloomResultImage.reset();
-        mBloomResultImage =
-            mServiceProvider->GetService<ImageBuilder>()
-                ->SetUsage(ImageUsage::Color)
-                .SetFormat(vk::Format::eR16G16B16A16Sfloat)
-                .SetWidth(extent.width)
-                .SetHeight(extent.height)
-                .SetSamples(vk::SampleCountFlagBits::e1)
-                .Build();
+        mBloomResultImages.clear();
+        mBloomResultImages.resize(mFreyaOptions->frameCount);
+        for (std::uint32_t i = 0; i < mFreyaOptions->frameCount; ++i)
+        {
+            mBloomResultImages[i] =
+                mServiceProvider->GetService<ImageBuilder>()
+                    ->SetUsage(ImageUsage::Color)
+                    .SetFormat(vk::Format::eR16G16B16A16Sfloat)
+                    .SetWidth(extent.width)
+                    .SetHeight(extent.height)
+                    .SetSamples(vk::SampleCountFlagBits::e1)
+                    .Build();
+        }
 
         mPrevViewProjection = glm::mat4(1.0f);
         mTaaFrameIndex      = 0;
@@ -239,6 +243,7 @@ namespace FREYA_NAMESPACE
             std::make_shared<DeferredGeometryFrameStage>(),
             std::make_shared<SsaoLightingFrameStage>(),
             std::make_shared<TaaFrameStage>(),
+            std::make_shared<TranslucentFrameStage>(),
             std::make_shared<BloomFrameStage>(),
             std::make_shared<CompositeFrameStage>(),
         };
@@ -247,29 +252,31 @@ namespace FREYA_NAMESPACE
     RenderFrameContext Renderer::makeFrameContext()
     {
         RenderFrameContext ctx;
-        ctx.commandPool          = mCommandPool;
-        ctx.swapChain            = mSwapChain;
-        ctx.options              = mFreyaOptions;
-        ctx.renderExtent         = getRenderExtent();
-        ctx.frameIndex           = mSwapChain->GetCurrentFrameIndex();
-        ctx.cameraNear           = mCameraNear;
-        ctx.projection           = &mCurrentProjection;
-        ctx.deferred             = &mDeferredPass;
-        ctx.ssao                 = &mSsaoPass;
-        ctx.taa                  = &mTaaPass;
-        ctx.bloom                = &mBloomPass;
-        ctx.composite            = &mCompositePass;
-        ctx.shadow               = &mShadowPass;
-        ctx.pick                 = &mPickPass;
-        ctx.lights               = &mLightService;
-        ctx.bloomResultImage     = &mBloomResultImage;
-        ctx.ssaoFallbackImage    = &mSsaoFallbackImage;
-        ctx.bloomResultSampler   = &mBloomResultSampler;
-        ctx.outputTarget         = &mOutputTarget;
-        ctx.pickRequested        = &mPickRequested;
-        ctx.pickX                = &mPickX;
-        ctx.pickY                = &mPickY;
-        ctx.pickAwaitingReadback = &mPickAwaitingReadback;
+        ctx.commandPool                = mCommandPool;
+        ctx.swapChain                  = mSwapChain;
+        ctx.options                    = mFreyaOptions;
+        ctx.renderExtent               = getRenderExtent();
+        ctx.frameIndex                 = mSwapChain->GetCurrentFrameIndex();
+        ctx.cameraNear                 = mCameraNear;
+        ctx.projection                 = &mCurrentProjection;
+        ctx.deferred                   = &mDeferredPass;
+        ctx.ssao                       = &mSsaoPass;
+        ctx.taa                        = &mTaaPass;
+        ctx.translucent                = &mTranslucentPass;
+        ctx.bloom                      = &mBloomPass;
+        ctx.composite                  = &mCompositePass;
+        ctx.shadow                     = &mShadowPass;
+        ctx.pick                       = &mPickPass;
+        ctx.lights                     = &mLightService;
+        ctx.bloomResultImages          = &mBloomResultImages;
+        ctx.ssaoFallbackImage          = &mSsaoFallbackImage;
+        ctx.bloomResultSampler         = &mBloomResultSampler;
+        ctx.outputTarget               = &mOutputTarget;
+        ctx.pickRequested              = &mPickRequested;
+        ctx.pickX                      = &mPickX;
+        ctx.pickY                      = &mPickY;
+        ctx.pickAwaitingReadback       = &mPickAwaitingReadback;
+        ctx.drawPipelineLayoutOverride = &mDrawPipelineLayoutOverride;
 
         ctx.executeDraws = [this](bool bindMaterials) {
             ExecuteDrawCommands(bindMaterials);
@@ -284,11 +291,14 @@ namespace FREYA_NAMESPACE
             mIndirectDraw->BuildHiZ(mDeferredPass->GetDepthImage(),
                                     mFreyaOptions->ReverseZ);
         };
-        ctx.blitBloomToFullRes = [this]() { blitBloomToFullRes(mCommandPool); };
+        ctx.blitBloomToFullRes = [this]() {
+            blitBloomToFullRes(mCommandPool,
+                               mSwapChain->GetCurrentFrameIndex());
+        };
         ctx.beginComposite =
-            [this](std::uint32_t frameIndex, const skr::Arc<Image>& opaque,
-                   const skr::Arc<Image>& translucent, bool tonemapHdr) {
-                beginComposite(frameIndex, opaque, translucent, tonemapHdr);
+            [this](std::uint32_t frameIndex, const skr::Arc<Image>& scene,
+                   bool tonemapHdr) {
+                beginComposite(frameIndex, scene, tonemapHdr);
             };
         ctx.commitTaaHistory = [this]() { commitTaaHistory(); };
         ctx.resizePickPass   = [this](vk::Extent2D extent) {
@@ -545,15 +555,11 @@ namespace FREYA_NAMESPACE
     }
 
     void Renderer::beginComposite(const std::uint32_t    frameIndex,
-                                  const skr::Arc<Image>& opaqueImage,
-                                  const skr::Arc<Image>& translucentImage,
+                                  const skr::Arc<Image>& sceneImage,
                                   const bool             tonemapHdr)
     {
         mCompositePass->UpdateDescriptorSet(
-            frameIndex,
-            opaqueImage,
-            translucentImage,
-            mBloomResultImage,
+            frameIndex, sceneImage, mBloomResultImages[frameIndex],
             mBloomResultSampler);
 
         if (mOutputTarget)
@@ -738,15 +744,20 @@ namespace FREYA_NAMESPACE
     }
 
     void Renderer::blitBloomToFullRes(
-        const skr::Arc<CommandPool>& commandPool) const
+        const skr::Arc<CommandPool>& commandPool,
+        const std::uint32_t          frameIndex) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
         mDevice->BeginDebugLabel(commandBuffer, DebugLabel::BloomBlit);
 
-        auto       bloomUpImage = mBloomPass->GetBloomUpImage();
-        const auto extent       = getRenderExtent();
-        const auto bloomExtent  = ScaledExtent(
-            extent, mFreyaOptions->bloomResolutionDivisor);
+        auto bloomUpImage = mBloomPass->GetBloomUpImage(frameIndex);
+        auto bloomResult  = mBloomResultImages[frameIndex];
+        if (!bloomUpImage || !bloomResult)
+            return;
+
+        const auto extent = getRenderExtent();
+        const auto bloomExtent =
+            ScaledExtent(extent, mFreyaOptions->bloomResolutionDivisor);
         const auto srcW = static_cast<int32_t>(bloomExtent.width);
         const auto srcH = static_cast<int32_t>(bloomExtent.height);
 
@@ -774,7 +785,7 @@ namespace FREYA_NAMESPACE
         // Transition bloom result to transfer destination
         auto dstBarrier =
             vk::ImageMemoryBarrier()
-                .setImage(mBloomResultImage->GetImage())
+                .setImage(bloomResult->GetImage())
                 .setSrcAccessMask(vk::AccessFlagBits::eNone)
                 .setDstAccessMask(vk::AccessFlagBits::eTransferWrite)
                 .setOldLayout(vk::ImageLayout::eUndefined)
@@ -808,9 +819,8 @@ namespace FREYA_NAMESPACE
                         .setBaseArrayLayer(0)
                         .setLayerCount(1));
 
-        auto srcOffsets =
-            std::array { vk::Offset3D { 0, 0, 0 },
-                         vk::Offset3D { srcW, srcH, 1 } };
+        auto srcOffsets = std::array { vk::Offset3D { 0, 0, 0 },
+                                       vk::Offset3D { srcW, srcH, 1 } };
         auto dstOffsets = std::array {
             vk::Offset3D { 0, 0, 0 },
             vk::Offset3D { static_cast<int32_t>(extent.width),
@@ -824,13 +834,13 @@ namespace FREYA_NAMESPACE
 
         commandBuffer.blitImage(
             bloomUpImage->GetImage(), vk::ImageLayout::eTransferSrcOptimal,
-            mBloomResultImage->GetImage(), vk::ImageLayout::eTransferDstOptimal,
+            bloomResult->GetImage(), vk::ImageLayout::eTransferDstOptimal,
             blitRegions, vk::Filter::eLinear);
 
         // Transition bloom result to shader read-only
         auto finalBarrier =
             vk::ImageMemoryBarrier()
-                .setImage(mBloomResultImage->GetImage())
+                .setImage(bloomResult->GetImage())
                 .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
                 .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
                 .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
@@ -853,6 +863,8 @@ namespace FREYA_NAMESPACE
 
     vk::PipelineLayout Renderer::GetActivePipelineLayout() const
     {
+        if (mDrawPipelineLayoutOverride)
+            return mDrawPipelineLayoutOverride;
         return mDeferredPass->GetVertexPipelineLayout();
     }
 

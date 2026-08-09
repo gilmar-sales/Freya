@@ -92,8 +92,11 @@ layout(std430, binding = 6) buffer DrawCountBuffer {
 
 layout(binding = 7) uniform sampler2D hizPyramid;
 
-const uint kFlagCastShadows = 1u;
-const uint kCullModeShadow  = 1u;
+const uint kFlagCastShadows   = 1u;
+const uint kFlagTranslucent   = 2u;
+const uint kCullModeCamera      = 0u;
+const uint kCullModeShadow      = 1u;
+const uint kCullModeTranslucent = 2u;
 
 bool aabbOutsideFrustum(mat4 mvp, vec3 bmin, vec3 bmax)
 {
@@ -222,6 +225,12 @@ void main()
     if (cull.cullMode == kCullModeShadow &&
         (inst.flags & kFlagCastShadows) == 0u)
         return;
+    if (cull.cullMode == kCullModeTranslucent &&
+        (inst.flags & kFlagTranslucent) == 0u)
+        return;
+    if (cull.cullMode == kCullModeCamera &&
+        (inst.flags & kFlagTranslucent) != 0u)
+        return;
 
     MeshInfo mesh = meshes[inst.meshId];
     if (mesh.lodCount == 0u)
@@ -232,6 +241,7 @@ void main()
         return;
 
     if (cull.cullMode != kCullModeShadow &&
+        cull.cullMode != kCullModeTranslucent &&
         occludedByHiZ(mvp, mesh.aabbMin.xyz, mesh.aabbMax.xyz))
         return;
 

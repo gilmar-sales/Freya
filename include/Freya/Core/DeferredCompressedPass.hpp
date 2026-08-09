@@ -61,7 +61,6 @@ namespace FREYA_NAMESPACE
             const skr::Arc<Image>&                       sceneColorImage,
             const skr::Arc<Image>&                       velocityImage,
             const skr::Arc<Image>&                       depthImage,
-            const skr::Arc<Image>&                       translucentImage,
             const std::vector<vk::Framebuffer>&          framebuffers,
             const vk::RenderPass                         lightingRenderPass,
             const vk::Framebuffer                        lightingFramebuffer,
@@ -91,10 +90,6 @@ namespace FREYA_NAMESPACE
         /// HDR scene color (emissive + lighting). Used as composite “opaque”.
         skr::Arc<Image> GetOpaqueImage() const { return mSceneColorImage; }
         skr::Arc<Image> GetSceneColorImage() const { return mSceneColorImage; }
-        skr::Arc<Image> GetTranslucentImage() const
-        {
-            return mTranslucentImage;
-        }
         skr::Arc<Image> GetDepthImage() const { return mDepthImage; }
         skr::Arc<Image> GetVelocityImage() const { return mVelocityImage; }
         skr::Arc<Image> GetAlbedoImage() const { return mGBufferImages[0]; }
@@ -178,7 +173,6 @@ namespace FREYA_NAMESPACE
         skr::Arc<Image>              mSceneColorImage;
         skr::Arc<Image>              mVelocityImage;
         skr::Arc<Image>              mDepthImage;
-        skr::Arc<Image>              mTranslucentImage;
 
         std::vector<vk::Framebuffer> mFramebuffers;
         vk::Framebuffer              mLightingFramebuffer;
@@ -192,10 +186,10 @@ namespace FREYA_NAMESPACE
         skr::Arc<MaterialDescriptorResources> mMaterialResources;
         vk::Sampler                           mGbufferSampler;
 
-        mutable bool          mLabelActive    = false;
-        mutable bool          mLightingActive = false;
-        mutable std::uint32_t mCurrentSubpass = DefDepthPrePass;
-        mutable vk::ImageView mBoundSsaoView  = {};
+        mutable bool                       mLabelActive    = false;
+        mutable bool                       mLightingActive = false;
+        mutable std::uint32_t              mCurrentSubpass = DefDepthPrePass;
+        mutable std::vector<vk::ImageView> mBoundSsaoViews;
 
         static const char* GetSubpassLabel(std::uint32_t subpass);
         static DebugRegion GetSubpassRegion(std::uint32_t subpass);

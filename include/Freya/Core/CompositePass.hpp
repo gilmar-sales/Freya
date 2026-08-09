@@ -70,16 +70,14 @@ namespace FREYA_NAMESPACE
         void End(const skr::Arc<CommandPool> commandPool) const;
 
         void UpdateDescriptorSet(std::uint32_t          frameIndex,
-                                 const skr::Arc<Image>& opaqueImage,
-                                 const skr::Arc<Image>& translucentImage,
+                                 const skr::Arc<Image>& sceneImage,
                                  const skr::Arc<Image>& bloomResultImage,
                                  vk::Sampler            sampler);
 
       private:
         struct BoundImages
         {
-            vk::ImageView opaque {};
-            vk::ImageView translucent {};
+            vk::ImageView scene {};
             vk::ImageView bloom {};
             vk::Sampler   sampler {};
         };

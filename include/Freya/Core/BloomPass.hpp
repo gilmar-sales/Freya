@@ -38,13 +38,14 @@ namespace FREYA_NAMESPACE
             vk::Pipeline                                thresholdPipeline,
             vk::Pipeline                                downsamplePipeline,
             vk::Pipeline                                upsamplePipeline,
-            const skr::Arc<Image>&                      bloomThresholdImage,
-            const skr::Arc<Image>&                      bloomDownImage,
-            const skr::Arc<Image>&                      bloomUpImage,
+            std::vector<skr::Arc<Image>>                bloomThresholdImages,
+            std::vector<skr::Arc<Image>>                bloomDownImages,
+            std::vector<skr::Arc<Image>>                bloomUpImages,
             const std::vector<vk::Framebuffer>&         framebuffers,
             vk::DescriptorPool                          descriptorPool,
             const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
-            const std::vector<vk::DescriptorSet>&       descriptorSets);
+            const std::vector<vk::DescriptorSet>&       descriptorSets,
+            vk::Sampler                                 sampler);
 
         ~BloomPass();
 
@@ -52,7 +53,8 @@ namespace FREYA_NAMESPACE
 
         vk::Pipeline& GetPipeline(std::uint32_t subpass);
 
-        skr::Arc<Image> GetBloomUpImage() const { return mBloomUpImage; }
+        [[nodiscard]] skr::Arc<Image> GetBloomUpImage(
+            std::uint32_t frameIndex) const;
 
         std::size_t GetFramebufferCount() const { return mFramebuffers.size(); }
         vk::Framebuffer& GetFramebuffer(std::size_t index)
@@ -60,8 +62,8 @@ namespace FREYA_NAMESPACE
             return mFramebuffers[index];
         }
 
-        void Begin(const skr::Arc<SwapChain>    swapChain,
-                   const skr::Arc<CommandPool>& commandPool) const;
+        void Begin(const skr::Arc<CommandPool>& commandPool,
+                   std::uint32_t                frameIndex) const;
 
         void NextSubpass(const skr::Arc<CommandPool>& commandPool) const;
 
@@ -78,6 +80,15 @@ namespace FREYA_NAMESPACE
 
         void End(const skr::Arc<CommandPool> commandPool) const;
 
+        /**
+         * @brief Point this frame's threshold pass at a HDR source image.
+         *
+         * Call only while the corresponding in-flight fence has been waited
+         * (e.g. from Rebuild after device idle, or after WaitNextFrame).
+         */
+        void SetThresholdInput(std::uint32_t          frameIndex,
+                               const skr::Arc<Image>& sourceImage);
+
       private:
         skr::Arc<Device>       mDevice;
         skr::Arc<FreyaOptions> mFreyaOptions;
@@ -90,15 +101,16 @@ namespace FREYA_NAMESPACE
 
         std::array<vk::Pipeline, 3> mPipelines;
 
-        skr::Arc<Image> mBloomThresholdImage;
-        skr::Arc<Image> mBloomDownImage;
-        skr::Arc<Image> mBloomUpImage;
+        std::vector<skr::Arc<Image>> mBloomThresholdImages;
+        std::vector<skr::Arc<Image>> mBloomDownImages;
+        std::vector<skr::Arc<Image>> mBloomUpImages;
 
         std::vector<vk::Framebuffer> mFramebuffers;
 
         vk::DescriptorPool                   mDescriptorPool;
         std::vector<vk::DescriptorSetLayout> mDescriptorSetLayouts;
         std::vector<vk::DescriptorSet>       mDescriptorSets;
+        vk::Sampler                          mSampler {};
 
         mutable bool mLabelActive = false;
 

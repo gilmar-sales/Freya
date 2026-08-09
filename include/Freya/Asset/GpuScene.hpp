@@ -11,14 +11,16 @@ namespace FREYA_NAMESPACE
     constexpr std::uint32_t kMaxMeshInfos                 = 4096;
     constexpr std::uint32_t kMaxLodsPerMesh               = 4;
     constexpr std::uint32_t kSceneInstanceFlagCastShadows = 1u;
+    constexpr std::uint32_t kSceneInstanceFlagTranslucent = 2u;
 
     constexpr std::uint32_t kBindlessWhiteTexture = 0;
     constexpr std::uint32_t kBindlessBlackTexture = 1;
 
     enum class CullMode : std::uint32_t
     {
-        Camera = 0,
-        Shadow = 1,
+        Camera      = 0,
+        Shadow      = 1,
+        Translucent = 2,
     };
 
     /**
@@ -99,7 +101,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t roughnessIndex = kBindlessWhiteTexture;
         std::uint32_t emissiveIndex  = kBindlessBlackTexture;
         std::uint32_t metalnessIndex = kBindlessBlackTexture;
-        std::uint32_t _pad0          = 0;
+        std::uint32_t alphaMode      = 0; ///< AlphaMode as uint
         std::uint32_t _pad1          = 0;
         std::uint32_t _pad2          = 0;
         glm::vec4     albedoFactor   = glm::vec4(1.0f);

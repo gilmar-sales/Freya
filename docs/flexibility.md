@@ -14,7 +14,7 @@ deferred stack without forking the renderer.
 | Frame graph | `Renderer::InsertFrameStage` / `ReplaceFrameStage` |
 | Textures from memory | `TexturePool::CreateTextureFromMemory` |
 | Meshes from memory | `MeshPool::CreateMesh(vertices, indices)` |
-| Materials | `MaterialCreateInfo` (+ `aoFactor`, `alphaCutoff`) |
+| Materials | `MaterialCreateInfo` (+ `aoFactor`, `alphaCutoff`, `AlphaMode`) |
 
 ## Feature flags
 
@@ -94,7 +94,7 @@ TAA motion vectors use G-buffer velocity (current unjittered VP vs
 
 `Renderer::EndScene` runs an ordered list of `IFrameStage` adapters:
 
-`Pick → Shadow → DeferredGeometry → SsaoLighting → Taa → Bloom → Composite`
+`Pick → Shadow → DeferredGeometry → SsaoLighting → Taa → Translucent → Bloom → Composite`
 
 ```cpp
 #include <Freya/Vulkan.hpp>
@@ -111,10 +111,15 @@ Pass GPU objects themselves are unchanged; stages only wrap orchestration.
 Not in this release (documented for planning):
 
 - Forward / alternate full pipelines
-- Real translucency path (attachment exists; geometry path incomplete)
 - Dedicated AO CIS map / material shader variants
 - HDR / wide color-space swapchain policy
 - Event unsubscribe API
 - Public PCH without Vulkan (headers are split; PCH still pulls vulkan.hpp)
+- Physical glass (transmission / IOR / refraction) beyond Weighted Blended OIT
+
+WBOIT translucency is implemented: `AlphaMode::Blend` instances use a
+dedicated MDI cull (`CullMode::Translucent`), accumulate into weighted OIT
+targets, resolve over TAA/opaque before Bloom, then Composite tonemaps the
+combined HDR scene.
 
 See also [API boundary](api-boundary.md).

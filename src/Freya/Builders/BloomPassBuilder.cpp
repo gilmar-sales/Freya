@@ -70,7 +70,7 @@ namespace FREYA_NAMESPACE
             ScaledExtent(fullExtent, mFreyaOptions->bloomResolutionDivisor);
 
         // ------------------------------------------------------------------
-        // Bloom images at half resolution
+        // Bloom images at half resolution (one set per in-flight frame)
         // ------------------------------------------------------------------
         auto createBloomImage = [&]() {
             return mServiceProvider->GetService<ImageBuilder>()
@@ -82,9 +82,16 @@ namespace FREYA_NAMESPACE
                 .Build();
         };
 
-        auto bloomThresholdImage = createBloomImage();
-        auto bloomDownImage      = createBloomImage();
-        auto bloomUpImage        = createBloomImage();
+        const auto                     frameCount = mFreyaOptions->frameCount;
+        std::vector<skr::Arc<Image>> bloomThresholdImages(frameCount);
+        std::vector<skr::Arc<Image>> bloomDownImages(frameCount);
+        std::vector<skr::Arc<Image>> bloomUpImages(frameCount);
+        for (std::uint32_t i = 0; i < frameCount; ++i)
+        {
+            bloomThresholdImages[i] = createBloomImage();
+            bloomDownImages[i]      = createBloomImage();
+            bloomUpImages[i]        = createBloomImage();
+        }
 
         // ------------------------------------------------------------------
         // Descriptor set layout:
@@ -141,11 +148,11 @@ namespace FREYA_NAMESPACE
                 .setAddressModeW(vk::SamplerAddressMode::eClampToEdge));
 
         // Write descriptor sets per frame
-        for (auto frame = 0; frame < mFreyaOptions->frameCount; frame++)
+        for (std::uint32_t frame = 0; frame < frameCount; frame++)
         {
             auto baseIdx = frame * 3;
 
-            // Threshold set: binding 0 = emissive sampler
+            // Threshold set: binding 0 = emissive / HDR scene sampler
             auto emissiveInfo =
                 vk::DescriptorImageInfo()
                     .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
@@ -162,11 +169,11 @@ namespace FREYA_NAMESPACE
                     .setImageInfo(emissiveInfo),
                 nullptr);
 
-            // Downsample set: binding 0 = threshold texture (via sampler)
+            // Downsample set: binding 0 = this frame's threshold texture
             auto thresholdSamplerInfo =
                 vk::DescriptorImageInfo()
                     .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                    .setImageView(bloomThresholdImage->GetImageView())
+                    .setImageView(bloomThresholdImages[frame]->GetImageView())
                     .setSampler(defaultSampler);
 
             mDevice->Get().updateDescriptorSets(
@@ -179,11 +186,11 @@ namespace FREYA_NAMESPACE
                     .setImageInfo(thresholdSamplerInfo),
                 nullptr);
 
-            // Upsample set: binding 0 = down texture (via sampler)
+            // Upsample set: binding 0 = this frame's down texture
             auto downSamplerInfo =
                 vk::DescriptorImageInfo()
                     .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                    .setImageView(bloomDownImage->GetImageView())
+                    .setImageView(bloomDownImages[frame]->GetImageView())
                     .setSampler(defaultSampler);
 
             mDevice->Get().updateDescriptorSets(
@@ -196,13 +203,6 @@ namespace FREYA_NAMESPACE
                     .setImageInfo(downSamplerInfo),
                 nullptr);
         }
-
-        // Extract per-subpass descriptor sets (frame 0 reference for pipeline
-        // creation)
-        std::vector<vk::DescriptorSet> perSubpassSets = {
-            allSets[BloomThresholdSubpass], allSets[BloomDownsampleSubpass],
-            allSets[BloomUpsampleSubpass]
-        };
 
         // ------------------------------------------------------------------
         // Pipeline layout (+ push constants for bloom threshold)
@@ -316,17 +316,16 @@ namespace FREYA_NAMESPACE
         mDevice->Get().destroyShaderModule(upFrag->Get());
 
         // ------------------------------------------------------------------
-        // Framebuffers
+        // Framebuffers (indexed by in-flight frame, not swapchain image)
         // ------------------------------------------------------------------
-        auto frames       = swapChain->GetFrames();
-        auto framebuffers = std::vector<vk::Framebuffer>(frames.size());
+        auto framebuffers = std::vector<vk::Framebuffer>(frameCount);
 
-        for (std::size_t i = 0; i < frames.size(); i++)
+        for (std::uint32_t i = 0; i < frameCount; i++)
         {
             auto fbAttachments = std::vector<vk::ImageView> {
-                bloomThresholdImage->GetImageView(),
-                bloomDownImage->GetImageView(),
-                bloomUpImage->GetImageView(),
+                bloomThresholdImages[i]->GetImageView(),
+                bloomDownImages[i]->GetImageView(),
+                bloomUpImages[i]->GetImageView(),
             };
             auto fbInfo =
                 vk::FramebufferCreateInfo()
@@ -344,11 +343,12 @@ namespace FREYA_NAMESPACE
         return skr::MakeArc<BloomPass>(
             mDevice, mFreyaOptions, mSurface, halfExtent, renderPass,
             pipelineLayout, thresholdPipeline, downsamplePipeline,
-            upsamplePipeline, bloomThresholdImage, bloomDownImage, bloomUpImage,
-            framebuffers, descriptorPool,
+            upsamplePipeline, std::move(bloomThresholdImages),
+            std::move(bloomDownImages), std::move(bloomUpImages), framebuffers,
+            descriptorPool,
             std::vector<vk::DescriptorSetLayout>(
                 layouts.size(), descriptorSetLayout),
-            finalSets);
+            finalSets, defaultSampler);
     }
 
     vk::RenderPass BloomPassBuilder::createRenderPass() const

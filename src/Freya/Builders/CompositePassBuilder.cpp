@@ -58,8 +58,7 @@ namespace FREYA_NAMESPACE
                 .Build();
 
         // ------------------------------------------------------------------
-        // Descriptor set layout: 3 combined image samplers (opaque,
-        // translucent, bloom)
+        // Descriptor set layout: scene (WBOIT-resolved HDR) + bloom
         // ------------------------------------------------------------------
         auto bindings = std::array {
             vk::DescriptorSetLayoutBinding()
@@ -70,12 +69,6 @@ namespace FREYA_NAMESPACE
                 .setPImmutableSamplers(nullptr),
             vk::DescriptorSetLayoutBinding()
                 .setBinding(1)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
-                .setPImmutableSamplers(nullptr),
-            vk::DescriptorSetLayoutBinding()
-                .setBinding(2)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
@@ -93,7 +86,7 @@ namespace FREYA_NAMESPACE
         // ------------------------------------------------------------------
         auto poolSize = vk::DescriptorPoolSize()
                             .setType(vk::DescriptorType::eCombinedImageSampler)
-                            .setDescriptorCount(3 * mFreyaOptions->frameCount);
+                            .setDescriptorCount(2 * mFreyaOptions->frameCount);
 
         auto poolInfo = vk::DescriptorPoolCreateInfo()
                             .setPoolSizeCount(1)

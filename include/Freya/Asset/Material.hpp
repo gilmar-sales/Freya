@@ -11,6 +11,19 @@
 namespace FREYA_NAMESPACE
 {
     /**
+     * @brief Surface coverage mode for materials.
+     *
+     * Opaque/Mask stay in the deferred MDI stream. Blend is culled into the
+     * separate WBOIT translucent MDI pass (order-independent).
+     */
+    enum class AlphaMode : std::uint32_t
+    {
+        Opaque = 0,
+        Mask   = 1,
+        Blend  = 2,
+    };
+
+    /**
      * @brief Parameters for creating or updating a material.
      *
      * Empty texture optionals use white/black fallbacks (current look).
@@ -22,14 +35,15 @@ namespace FREYA_NAMESPACE
      * @param emissive         Emissive texture ID (optional)
      * @param metalness        Metalness map texture ID (optional)
      * @param albedoFactor     Multiplies sampled albedo (default white);
-     *                         .a multiplies albedo alpha for cutout
+     *                         .a multiplies albedo alpha for Mask/Blend
      * @param roughnessFactor  Multiplies sampled roughness (default 1)
      * @param metalnessFactor  Multiplies sampled metalness (default 1;
      *                         black metalness fallback → 0)
      * @param emissiveFactor   Multiplies sampled emissive (default white)
      * @param aoFactor         Constant AO written to G-buffer (default 1)
-     * @param alphaCutoff      Discard when albedo.a * factor.a < cutoff;
-     *                         0 disables cutout
+     * @param alphaCutoff      Mask discard threshold (albedo.a * factor.a);
+     *                         ignored when alphaMode is not Mask
+     * @param alphaMode        Opaque, Mask (cutout), or Blend (WBOIT)
      */
     struct MaterialCreateInfo
     {
@@ -45,6 +59,7 @@ namespace FREYA_NAMESPACE
         glm::vec3 emissiveFactor { 1.f, 1.f, 1.f };
         float     aoFactor    = 1.f;
         float     alphaCutoff = 0.f;
+        AlphaMode alphaMode   = AlphaMode::Opaque;
     };
 
     /**

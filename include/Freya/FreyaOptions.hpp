@@ -129,12 +129,12 @@ namespace FREYA_NAMESPACE
         std::uint32_t ssaoResolutionDivisor = 2;
         /// Hemisphere radius in view-space meters (LearnOpenGL SSAO).
         /// Human-scale creases ≈ 0.3–1.0.
-        float         ssaoRadius            = 0.5f;
+        float ssaoRadius = 0.5f;
         /// View-Z acne bias (LearnOpenGL default 0.025).
-        float         ssaoBias              = 0.025f;
-        float         ssaoPower             = 1.5f;
-        float         ssaoIntensity         = 0.5f;
-        SsaoDebugView ssaoDebugView         = SsaoDebugView::None;
+        float         ssaoBias      = 0.025f;
+        float         ssaoPower     = 1.5f;
+        float         ssaoIntensity = 0.5f;
+        SsaoDebugView ssaoDebugView = SsaoDebugView::None;
 
         /// Blend weight toward current frame (0–1). Higher = less ghosting.
         float taaCurrentWeight = 0.1f;

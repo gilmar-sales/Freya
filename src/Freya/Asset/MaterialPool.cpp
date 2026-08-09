@@ -189,6 +189,7 @@ namespace FREYA_NAMESPACE
         gpu.roughMetal     = { info.roughnessFactor, info.metalnessFactor };
         gpu.materialId     = static_cast<float>(material.id & 0xFFu);
         gpu.alphaCutoff    = info.alphaCutoff;
+        gpu.alphaMode      = static_cast<std::uint32_t>(info.alphaMode);
 
         mMaterialsRes->WriteMaterial(material.id, gpu);
     }

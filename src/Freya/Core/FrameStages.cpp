@@ -6,6 +6,7 @@
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/SsaoPassBuilder.hpp"
 #include "Freya/Builders/TaaPassBuilder.hpp"
+#include "Freya/Builders/TranslucentPassBuilder.hpp"
 #include "Freya/Core/BloomPass.hpp"
 #include "Freya/Core/DebugLabels.hpp"
 #include "Freya/Core/Device.hpp"
@@ -216,18 +217,81 @@ namespace FREYA_NAMESPACE
                              (*ctx.deferred)->GetDepthImage());
     }
 
+    void TranslucentFrameStage::Rebuild(RenderFrameContext&   ctx,
+                                        skr::ServiceProvider& sp)
+    {
+        if (!ctx.translucent || !ctx.deferred || !*ctx.deferred)
+            return;
+        ctx.translucent->reset();
+        *ctx.translucent = sp.GetService<TranslucentPassBuilder>()->Build(
+            ctx.swapChain, (*ctx.deferred)->GetDepthImage(), ctx.renderExtent);
+    }
+
+    void TranslucentFrameStage::Execute(RenderFrameContext& ctx)
+    {
+        if (!ctx.translucent || !*ctx.translucent || !ctx.deferred ||
+            !*ctx.deferred || !ctx.projection)
+            return;
+
+        (*ctx.translucent)->UpdateProjection(*ctx.projection, ctx.frameIndex);
+
+        if (ctx.dispatchCull)
+        {
+            const auto viewProj =
+                ctx.projection->unjitteredProjection * ctx.projection->view;
+            ctx.dispatchCull(viewProj, CullMode::Translucent);
+        }
+
+        auto layout = (*ctx.translucent)->GetAccumulatePipelineLayout();
+        if (ctx.drawPipelineLayoutOverride)
+            *ctx.drawPipelineLayoutOverride = layout;
+
+        (*ctx.translucent)->BeginAccumulate(ctx.commandPool, ctx.frameIndex);
+        SetFullViewport(ctx.commandPool, ctx.renderExtent);
+        if (ctx.executeDraws)
+            ctx.executeDraws(true);
+        (*ctx.translucent)->EndAccumulate(ctx.commandPool);
+
+        if (ctx.drawPipelineLayoutOverride)
+            *ctx.drawPipelineLayoutOverride = vk::PipelineLayout {};
+
+        const auto opaque =
+            (ctx.taa && *ctx.taa) ? (*ctx.taa)->GetOutputImage()
+                                  : (*ctx.deferred)->GetSceneColorImage();
+        (*ctx.translucent)->Resolve(ctx.commandPool, opaque, ctx.frameIndex);
+    }
+
     void BloomFrameStage::Rebuild(RenderFrameContext&   ctx,
                                   skr::ServiceProvider& sp)
     {
         if (!ctx.bloom)
             return;
         ctx.bloom->reset();
-        if (!ctx.options->enableBloom || !ctx.deferred || !*ctx.deferred)
+        if (!ctx.options->enableBloom)
             return;
+
+        // Builder needs a valid initial HDR view; wire each frame afterwards.
+        skr::Arc<Image> bloomSource;
+        if (ctx.translucent && *ctx.translucent)
+            bloomSource = (*ctx.translucent)->GetSceneWithTranslucency(0);
+        else if (ctx.deferred && *ctx.deferred)
+            bloomSource = (*ctx.deferred)->GetSceneColorImage();
+        if (!bloomSource)
+            return;
+
         *ctx.bloom = sp.GetService<BloomPassBuilder>()->Build(
-            ctx.swapChain,
-            (*ctx.deferred)->GetSceneColorImage(),
-            ctx.renderExtent);
+            ctx.swapChain, bloomSource, ctx.renderExtent);
+
+        if (ctx.translucent && *ctx.translucent)
+        {
+            for (std::uint32_t frame = 0; frame < ctx.options->frameCount;
+                 ++frame)
+            {
+                if (auto src =
+                        (*ctx.translucent)->GetSceneWithTranslucency(frame))
+                    (*ctx.bloom)->SetThresholdInput(frame, src);
+            }
+        }
     }
 
     void BloomFrameStage::Execute(RenderFrameContext& ctx)
@@ -235,8 +299,12 @@ namespace FREYA_NAMESPACE
         if (!ctx.bloom || !*ctx.bloom)
         {
             // Keep composite bloom tap black when bloom is disabled.
-            if (ctx.bloomResultImage && *ctx.bloomResultImage)
+            if (ctx.bloomResultImages &&
+                ctx.frameIndex < ctx.bloomResultImages->size() &&
+                (*ctx.bloomResultImages)[ctx.frameIndex])
             {
+                const auto& bloomResult =
+                    (*ctx.bloomResultImages)[ctx.frameIndex];
                 const auto commandBuffer = ctx.commandPool->GetCommandBuffer();
                 ctx.commandPool->GetDevice()->BeginDebugLabel(
                     commandBuffer, DebugLabel::BloomClear);
@@ -255,7 +323,7 @@ namespace FREYA_NAMESPACE
                         .setNewLayout(vk::ImageLayout::eTransferDstOptimal)
                         .setSrcAccessMask({})
                         .setDstAccessMask(vk::AccessFlagBits::eTransferWrite)
-                        .setImage((*ctx.bloomResultImage)->GetImage())
+                        .setImage(bloomResult->GetImage())
                         .setSubresourceRange(range);
                 commandBuffer.pipelineBarrier(
                     vk::PipelineStageFlagBits::eTopOfPipe,
@@ -267,7 +335,7 @@ namespace FREYA_NAMESPACE
 
                 constexpr vk::ClearColorValue clearBlack { 0.f, 0.f, 0.f, 0.f };
                 commandBuffer.clearColorImage(
-                    (*ctx.bloomResultImage)->GetImage(),
+                    bloomResult->GetImage(),
                     vk::ImageLayout::eTransferDstOptimal,
                     clearBlack,
                     range);
@@ -310,7 +378,7 @@ namespace FREYA_NAMESPACE
         commandBuffer.setViewport(0, 1, &bloomViewport);
         commandBuffer.setScissor(0, 1, &bloomScissor);
 
-        (*ctx.bloom)->Begin(ctx.swapChain, ctx.commandPool);
+        (*ctx.bloom)->Begin(ctx.commandPool, ctx.frameIndex);
         (*ctx.bloom)->DrawFullscreenTriangle(ctx.commandPool);
         (*ctx.bloom)
             ->AdvanceSubpass(BloomDownsampleSubpass, ctx.commandPool,
@@ -335,33 +403,48 @@ namespace FREYA_NAMESPACE
         *ctx.composite =
             sp.GetService<CompositePassBuilder>()->Build(ctx.swapChain);
 
-        if (!ctx.deferred || !*ctx.deferred || !ctx.bloomResultImage ||
-            !*ctx.bloomResultImage || !ctx.bloomResultSampler)
+        if (!ctx.bloomResultImages || !ctx.bloomResultSampler ||
+            ctx.bloomResultImages->empty())
             return;
 
         for (auto frame = 0; frame < ctx.options->frameCount; frame++)
         {
+            skr::Arc<Image> scene;
+            if (ctx.translucent && *ctx.translucent)
+                scene = (*ctx.translucent)->GetSceneWithTranslucency(frame);
+            else if (ctx.deferred && *ctx.deferred)
+                scene = (*ctx.deferred)->GetSceneColorImage();
+            if (!scene ||
+                static_cast<std::size_t>(frame) >=
+                    ctx.bloomResultImages->size() ||
+                !(*ctx.bloomResultImages)[frame])
+                continue;
             (*ctx.composite)
-                ->UpdateDescriptorSet(
-                    frame, (*ctx.deferred)->GetSceneColorImage(),
-                    (*ctx.deferred)->GetTranslucentImage(),
-                    *ctx.bloomResultImage, *ctx.bloomResultSampler);
+                ->UpdateDescriptorSet(frame, scene,
+                                      (*ctx.bloomResultImages)[frame],
+                                      *ctx.bloomResultSampler);
         }
     }
 
     void CompositeFrameStage::Execute(RenderFrameContext& ctx)
     {
-        if (!ctx.deferred || !*ctx.deferred || !ctx.beginComposite)
+        if (!ctx.beginComposite)
             return;
 
         SetFullViewport(ctx.commandPool, ctx.renderExtent);
 
-        const auto compositeOpaque =
-            (ctx.taa && *ctx.taa) ? (*ctx.taa)->GetOutputImage()
-                                  : (*ctx.deferred)->GetSceneColorImage();
-        ctx.beginComposite(ctx.frameIndex,
-                           compositeOpaque,
-                           (*ctx.deferred)->GetTranslucentImage(),
+        skr::Arc<Image> scene;
+        if (ctx.translucent && *ctx.translucent)
+            scene =
+                (*ctx.translucent)->GetSceneWithTranslucency(ctx.frameIndex);
+        else if (ctx.taa && *ctx.taa)
+            scene = (*ctx.taa)->GetOutputImage();
+        else if (ctx.deferred && *ctx.deferred)
+            scene = (*ctx.deferred)->GetSceneColorImage();
+        if (!scene)
+            return;
+
+        ctx.beginComposite(ctx.frameIndex, scene,
                            ctx.options->ssaoDebugView == SsaoDebugView::None);
         if (ctx.commitTaaHistory)
             ctx.commitTaaHistory();

@@ -5,16 +5,17 @@
 
 namespace FREYA_NAMESPACE
 {
-    HiZPyramid::HiZPyramid(const skr::Arc<Device>&        device,
-                           const vk::Pipeline             copyPipeline,
-                           const vk::PipelineLayout       copyLayout,
-                           const vk::Pipeline             reducePipeline,
-                           const vk::PipelineLayout       reduceLayout,
-                           const vk::DescriptorSetLayout  copySetLayout,
-                           const vk::DescriptorSetLayout  reduceSetLayout,
-                           const vk::DescriptorPool       descriptorPool,
-                           const vk::Sampler              depthSampler,
-                           const std::uint32_t            frameCount) :
+    HiZPyramid::HiZPyramid(
+        const skr::Arc<Device>&       device,
+        const vk::Pipeline            copyPipeline,
+        const vk::PipelineLayout      copyLayout,
+        const vk::Pipeline            reducePipeline,
+        const vk::PipelineLayout      reduceLayout,
+        const vk::DescriptorSetLayout copySetLayout,
+        const vk::DescriptorSetLayout reduceSetLayout,
+        const vk::DescriptorPool      descriptorPool,
+        const vk::Sampler             depthSampler,
+        const std::uint32_t           frameCount) :
         mDevice(device), mCopyPipeline(copyPipeline), mCopyLayout(copyLayout),
         mReducePipeline(reducePipeline), mReduceLayout(reduceLayout),
         mCopySetLayout(copySetLayout), mReduceSetLayout(reduceSetLayout),
@@ -87,11 +88,11 @@ namespace FREYA_NAMESPACE
         mReady  = false;
         mWidth  = width;
         mHeight = height;
-        mMipLevels = std::min(
-            kMaxMipLevels,
-            static_cast<std::uint32_t>(
-                std::floor(std::log2(std::max(width, height)))) +
-                1u);
+        mMipLevels =
+            std::min(kMaxMipLevels,
+                     static_cast<std::uint32_t>(
+                         std::floor(std::log2(std::max(width, height)))) +
+                         1u);
         ++mPyramidGeneration;
         if (mPyramidGeneration == 0)
             mPyramidGeneration = 1;
@@ -123,10 +124,9 @@ namespace FREYA_NAMESPACE
         const auto memType =
             mDevice->GetPhysicalDevice()->QueryCompatibleMemoryType(
                 reqs.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal);
-        auto memory = vkDevice.allocateMemory(
-            vk::MemoryAllocateInfo()
-                .setAllocationSize(reqs.size)
-                .setMemoryTypeIndex(memType));
+        auto memory = vkDevice.allocateMemory(vk::MemoryAllocateInfo()
+                                                  .setAllocationSize(reqs.size)
+                                                  .setMemoryTypeIndex(memType));
         vkDevice.bindImageMemory(image, memory, 0);
 
         const auto fullViewInfo =
@@ -164,8 +164,8 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void HiZPyramid::writeFrameDescriptors(
-        const std::uint32_t frame, const skr::Arc<Image>& depthImage)
+    void HiZPyramid::writeFrameDescriptors(const std::uint32_t    frame,
+                                           const skr::Arc<Image>& depthImage)
     {
         const auto copySet   = mCopySets[frame];
         const auto depthView = depthImage->GetImageView();
@@ -175,10 +175,9 @@ namespace FREYA_NAMESPACE
                 .setSampler(mDepthSampler)
                 .setImageView(depthView)
                 .setImageLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal);
-        const auto mip0Info =
-            vk::DescriptorImageInfo()
-                .setImageView(mMipViews[0])
-                .setImageLayout(vk::ImageLayout::eGeneral);
+        const auto mip0Info = vk::DescriptorImageInfo()
+                                  .setImageView(mMipViews[0])
+                                  .setImageLayout(vk::ImageLayout::eGeneral);
 
         const auto copyWrites = std::array {
             vk::WriteDescriptorSet()
@@ -201,14 +200,12 @@ namespace FREYA_NAMESPACE
         {
             const auto reduceSet =
                 mReduceSets[frame * reduceStride + (mip - 1u)];
-            const auto srcInfo =
-                vk::DescriptorImageInfo()
-                    .setImageView(mMipViews[mip - 1])
-                    .setImageLayout(vk::ImageLayout::eGeneral);
-            const auto dstInfo =
-                vk::DescriptorImageInfo()
-                    .setImageView(mMipViews[mip])
-                    .setImageLayout(vk::ImageLayout::eGeneral);
+            const auto srcInfo = vk::DescriptorImageInfo()
+                                     .setImageView(mMipViews[mip - 1])
+                                     .setImageLayout(vk::ImageLayout::eGeneral);
+            const auto dstInfo = vk::DescriptorImageInfo()
+                                     .setImageView(mMipViews[mip])
+                                     .setImageLayout(vk::ImageLayout::eGeneral);
             const auto reduceWrites = std::array {
                 vk::WriteDescriptorSet()
                     .setDstSet(reduceSet)
@@ -281,8 +278,8 @@ namespace FREYA_NAMESPACE
         } copyPc { mWidth, mHeight, reverseZ ? 1u : 0u, 0 };
 
         cb.bindPipeline(vk::PipelineBindPoint::eCompute, mCopyPipeline);
-        cb.bindDescriptorSets(vk::PipelineBindPoint::eCompute, mCopyLayout, 0, 1,
-                              &copySet, 0, nullptr);
+        cb.bindDescriptorSets(vk::PipelineBindPoint::eCompute, mCopyLayout, 0,
+                              1, &copySet, 0, nullptr);
         cb.pushConstants(mCopyLayout, vk::ShaderStageFlagBits::eCompute, 0,
                          sizeof(CopyPC), &copyPc);
         cb.dispatch((mWidth + 7u) / 8u, (mHeight + 7u) / 8u, 1);

@@ -22,7 +22,7 @@ struct MaterialGPU {
     uint roughnessIndex;
     uint emissiveIndex;
     uint metalnessIndex;
-    uint _pad0;
+    uint alphaMode; // 0 Opaque, 1 Mask, 2 Blend
     uint _pad1;
     uint _pad2;
     vec4 albedoFactor;
@@ -55,10 +55,16 @@ vec3 srgbToLinear(vec3 c) {
 void main() {
     MaterialGPU mat = materials[inMaterialId];
 
+    // Blend surfaces must not reach the G-buffer (culled via
+    // kFlagTranslucent). Defensive discard if they ever do.
+    if (mat.alphaMode == 2u)
+        discard;
+
     vec4 albedoSample =
         texture(uTextures[nonuniformEXT(mat.albedoIndex)], inTexCoord);
     float alpha = albedoSample.a * mat.albedoFactor.a;
-    if (mat.alphaCutoff > 0.0 && alpha < mat.alphaCutoff)
+    if ((mat.alphaMode == 1u || mat.alphaCutoff > 0.0) &&
+        alpha < mat.alphaCutoff)
         discard;
 
     vec3 sampled =

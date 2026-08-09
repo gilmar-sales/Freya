@@ -1,5 +1,6 @@
 #include "Freya/Builders/IndirectDrawSystemBuilder.hpp"
 
+#include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
 #include "Freya/Core/HiZPyramid.hpp"
 #include "Freya/Core/Image.hpp"
@@ -297,7 +298,8 @@ namespace FREYA_NAMESPACE
                                 fallbackMem, vk::Format::eR32Sfloat, 1);
 
         return skr::MakeArc<IndirectDrawSystem>(
-            mDevice, mCommandPool, mMeshPool, mMaterials, frameCount,
+            mDevice, mCommandPool, mMeshPool, mMaterials,
+            mServiceProvider->GetService<MaterialPool>(), frameCount,
             cullPipeline, cullPipelineLayout, cullSetLayout, cullDescriptorPool,
             std::move(cullDescriptorSets), std::move(hiz),
             std::move(fallbackImageArc));

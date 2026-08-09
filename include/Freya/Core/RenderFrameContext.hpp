@@ -11,6 +11,7 @@
 #include "Freya/Core/SsaoPass.hpp"
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Core/TaaPass.hpp"
+#include "Freya/Core/TranslucentPass.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 #include "Freya/FreyaOptions.hpp"
 
@@ -43,12 +44,13 @@ namespace FREYA_NAMESPACE
         skr::Arc<DeferredCompressedPass>* deferred           = nullptr;
         skr::Arc<SsaoPass>*               ssao               = nullptr;
         skr::Arc<TaaPass>*                taa                = nullptr;
+        skr::Arc<TranslucentPass>*        translucent        = nullptr;
         skr::Arc<BloomPass>*              bloom              = nullptr;
         skr::Arc<CompositePass>*          composite          = nullptr;
         skr::Arc<ShadowPass>*             shadow             = nullptr;
         skr::Arc<PickPass>*               pick               = nullptr;
         skr::Arc<LightService>*           lights             = nullptr;
-        skr::Arc<Image>*                  bloomResultImage   = nullptr;
+        std::vector<skr::Arc<Image>>*     bloomResultImages  = nullptr;
         skr::Arc<Image>*                  ssaoFallbackImage  = nullptr;
         vk::Sampler*                      bloomResultSampler = nullptr;
         skr::Arc<RenderTarget>*           outputTarget       = nullptr;
@@ -58,13 +60,14 @@ namespace FREYA_NAMESPACE
         std::uint32_t* pickY                = nullptr;
         bool*          pickAwaitingReadback = nullptr;
 
+        vk::PipelineLayout* drawPipelineLayoutOverride = nullptr;
+
         std::function<void(const glm::mat4&, CullMode)> dispatchCull;
         std::function<void(bool bindMaterials)>         executeDraws;
         std::function<void()>                           executePickDraws;
         std::function<void()>                           buildHiZ;
         std::function<void()>                           blitBloomToFullRes;
-        std::function<void(std::uint32_t, const skr::Arc<Image>&,
-                           const skr::Arc<Image>&, bool)>
+        std::function<void(std::uint32_t, const skr::Arc<Image>&, bool)>
                                           beginComposite;
         std::function<void()>             commitTaaHistory;
         std::function<void(vk::Extent2D)> resizePickPass;

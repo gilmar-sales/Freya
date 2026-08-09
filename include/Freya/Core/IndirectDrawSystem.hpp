@@ -3,6 +3,7 @@
 #include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Asset/InstanceTransform.hpp"
 #include "Freya/Asset/MaterialDescriptorResources.hpp"
+#include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
@@ -32,6 +33,7 @@ namespace FREYA_NAMESPACE
             const skr::Arc<CommandPool>&                 commandPool,
             const skr::Arc<MeshPool>&                    meshPool,
             const skr::Arc<MaterialDescriptorResources>& materials,
+            const skr::Arc<MaterialPool>&                materialPool,
             std::uint32_t                                frameCount,
             vk::Pipeline                                 cullPipeline,
             vk::PipelineLayout                           cullPipelineLayout,
@@ -241,6 +243,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<CommandPool>                 mCommandPool;
         skr::Arc<MeshPool>                    mMeshPool;
         skr::Arc<MaterialDescriptorResources> mMaterials;
+        skr::Arc<MaterialPool>                mMaterialPool;
 
         std::uint32_t mFrameCount = 1;
         std::uint32_t mFrameIndex = 0;

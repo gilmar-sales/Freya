@@ -22,6 +22,7 @@
 #include "Freya/Core/SsaoPass.hpp"
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Core/TaaPass.hpp"
+#include "Freya/Core/TranslucentPass.hpp"
 #include "Freya/Events/EventManager.hpp"
 
 #include <limits>
@@ -288,7 +289,8 @@ namespace FREYA_NAMESPACE
         }
 
       private:
-        void blitBloomToFullRes(const skr::Arc<CommandPool>& commandPool) const;
+        void blitBloomToFullRes(const skr::Arc<CommandPool>& commandPool,
+                                std::uint32_t                frameIndex) const;
 
         [[nodiscard]] vk::Extent2D getRenderExtent() const;
 
@@ -297,8 +299,7 @@ namespace FREYA_NAMESPACE
         void resizePickPass(vk::Extent2D extent);
 
         void beginComposite(std::uint32_t          frameIndex,
-                            const skr::Arc<Image>& opaqueImage,
-                            const skr::Arc<Image>& translucentImage,
+                            const skr::Arc<Image>& sceneImage,
                             bool                   tonemapHdr = false);
 
         ProjectionUniformBuffer prepareDeferredProjection(
@@ -323,6 +324,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<Device>                 mDevice;
         skr::Arc<SwapChain>              mSwapChain;
         skr::Arc<DeferredCompressedPass> mDeferredPass;
+        skr::Arc<TranslucentPass>        mTranslucentPass;
         skr::Arc<BloomPass>              mBloomPass;
         skr::Arc<TaaPass>                mTaaPass;
         skr::Arc<SsaoPass>               mSsaoPass;
@@ -345,6 +347,8 @@ namespace FREYA_NAMESPACE
         skr::Arc<MaterialPool>       mMaterialPool;
         skr::Arc<IndirectDrawSystem> mIndirectDraw;
 
+        vk::PipelineLayout mDrawPipelineLayoutOverride = {};
+
         std::optional<WindowResizeEvent> mResizeEvent;
 
         ProjectionUniformBuffer mCurrentProjection;
@@ -352,8 +356,8 @@ namespace FREYA_NAMESPACE
         std::uint32_t           mTaaFrameIndex = 0;
         vk::Sampler             mBloomResultSampler;
 
-        skr::Arc<Image> mBloomResultImage;
-        skr::Arc<Image> mSsaoFallbackImage;
+        std::vector<skr::Arc<Image>> mBloomResultImages;
+        skr::Arc<Image>              mSsaoFallbackImage;
 
         std::vector<DrawCommand>         mDrawCommands;
         std::vector<SceneInstanceUpload> mLegacyUploads;

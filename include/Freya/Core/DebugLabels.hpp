@@ -38,6 +38,8 @@ namespace FREYA_NAMESPACE
                                                          1.0f };
         inline constexpr std::array<float, 4> BloomColor { 0.72f, 0.42f, 0.95f,
                                                            1.0f };
+        inline constexpr std::array<float, 4> TranslucentColor { 0.45f, 0.70f,
+                                                                 0.95f, 1.0f };
         inline constexpr std::array<float, 4> CompositeColor { 0.95f, 0.42f,
                                                                0.42f, 1.0f };
 
@@ -82,6 +84,9 @@ namespace FREYA_NAMESPACE
         inline constexpr DebugRegion BloomBlit { "Bloom Blit", BloomColor };
         inline constexpr DebugRegion BloomClear { "Bloom Clear", BloomColor };
 
+        inline constexpr DebugRegion Translucent { "Translucent WBOIT",
+                                                   TranslucentColor };
+
         inline constexpr DebugRegion Composite { "Composite", CompositeColor };
         inline constexpr DebugRegion UI { "UI", CompositeColor };
 
@@ -104,6 +109,8 @@ namespace FREYA_NAMESPACE
                 return { "SSAO + Lighting", SsaoColor };
             if (view == "Taa")
                 return { "TAA", TaaColor };
+            if (view == "Translucent")
+                return { "Translucent WBOIT", TranslucentColor };
             if (view == "Bloom")
                 return { "Bloom", BloomColor };
             if (view == "Composite")

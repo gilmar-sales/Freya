@@ -15,6 +15,7 @@
 #include "Freya/Builders/SsaoPassBuilder.hpp"
 #include "Freya/Builders/SurfaceBuilder.hpp"
 #include "Freya/Builders/TaaPassBuilder.hpp"
+#include "Freya/Builders/TranslucentPassBuilder.hpp"
 #include "Freya/Builders/WindowBuilder.hpp"
 
 #include "Freya/Asset/MaterialDescriptorResources.hpp"
@@ -53,6 +54,7 @@ namespace FREYA_NAMESPACE
         services.AddTransient<TaaPassBuilder>();
         services.AddTransient<SsaoPassBuilder>();
         services.AddTransient<CompositePassBuilder>();
+        services.AddTransient<TranslucentPassBuilder>();
         services.AddTransient<ShadowPassBuilder>();
         services.AddTransient<PickPassBuilder>();
         services.AddTransient<IndirectDrawSystemBuilder>();

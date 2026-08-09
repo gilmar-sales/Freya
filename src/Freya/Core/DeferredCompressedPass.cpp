@@ -22,7 +22,6 @@ namespace FREYA_NAMESPACE
         const skr::Arc<Image>&                       sceneColorImage,
         const skr::Arc<Image>&                       velocityImage,
         const skr::Arc<Image>&                       depthImage,
-        const skr::Arc<Image>&                       translucentImage,
         const std::vector<vk::Framebuffer>&          framebuffers,
         const vk::RenderPass                         lightingRenderPass,
         const vk::Framebuffer                        lightingFramebuffer,
@@ -40,13 +39,12 @@ namespace FREYA_NAMESPACE
         mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool),
         mGBufferImages(gbufferImages), mSceneColorImage(sceneColorImage),
         mVelocityImage(velocityImage), mDepthImage(depthImage),
-        mTranslucentImage(translucentImage), mFramebuffers(framebuffers),
-        mLightingFramebuffer(lightingFramebuffer), mExtent(extent),
-        mLightingRenderPass(lightingRenderPass),
+        mFramebuffers(framebuffers), mLightingFramebuffer(lightingFramebuffer),
+        mExtent(extent), mLightingRenderPass(lightingRenderPass),
         mLightingSetLayout(lightingSetLayout),
         mLightingDescriptorPool(lightingDescriptorPool),
         mLightingSets(lightingSets), mMaterialResources(materialResources),
-        mGbufferSampler(gbufferSampler)
+        mGbufferSampler(gbufferSampler), mBoundSsaoViews(lightingSets.size())
     {
         mPipelines[DefDepthPrePass] = depthPrepassPipeline;
         mPipelines[DefGBufferPass]  = gbufferPipeline;
@@ -85,7 +83,6 @@ namespace FREYA_NAMESPACE
         mDepthImage.reset();
         mSceneColorImage.reset();
         mVelocityImage.reset();
-        mTranslucentImage.reset();
         mMaterialResources.reset();
 
         mUniformBuffer.reset();
@@ -102,47 +99,6 @@ namespace FREYA_NAMESPACE
         const skr::Arc<CommandPool>& commandPool) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
-
-        // Keep composite translucent input defined (unused by this pass).
-        {
-            auto range =
-                vk::ImageSubresourceRange()
-                    .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                    .setBaseMipLevel(0)
-                    .setLevelCount(1)
-                    .setBaseArrayLayer(0)
-                    .setLayerCount(1);
-
-            auto toTransfer =
-                vk::ImageMemoryBarrier()
-                    .setOldLayout(vk::ImageLayout::eUndefined)
-                    .setNewLayout(vk::ImageLayout::eTransferDstOptimal)
-                    .setSrcAccessMask({})
-                    .setDstAccessMask(vk::AccessFlagBits::eTransferWrite)
-                    .setImage(mTranslucentImage->GetImage())
-                    .setSubresourceRange(range);
-            commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,
-                                          vk::PipelineStageFlagBits::eTransfer,
-                                          {}, nullptr, nullptr, toTransfer);
-
-            commandBuffer.clearColorImage(
-                mTranslucentImage->GetImage(),
-                vk::ImageLayout::eTransferDstOptimal,
-                vk::ClearColorValue(std::array { 0.f, 0.f, 0.f, 0.f }), range);
-
-            auto toSampled =
-                vk::ImageMemoryBarrier()
-                    .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
-                    .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                    .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
-                    .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
-                    .setImage(mTranslucentImage->GetImage())
-                    .setSubresourceRange(range);
-            commandBuffer.pipelineBarrier(
-                vk::PipelineStageFlagBits::eTransfer,
-                vk::PipelineStageFlagBits::eFragmentShader, {}, nullptr,
-                nullptr, toSampled);
-        }
 
         mDevice->BeginDebugLabel(commandBuffer, DebugLabel::DeferredGeometry);
 
@@ -271,26 +227,28 @@ namespace FREYA_NAMESPACE
         auto commandBuffer = commandPool->GetCommandBuffer();
 
         const auto ssaoView = ssaoImage->GetImageView();
-        if (mBoundSsaoView != ssaoView)
+        if (frameIndex < mLightingSets.size() &&
+            (frameIndex >= mBoundSsaoViews.size() ||
+             mBoundSsaoViews[frameIndex] != ssaoView))
         {
+            if (frameIndex >= mBoundSsaoViews.size())
+                mBoundSsaoViews.resize(mLightingSets.size());
+
             const auto ssaoInfo =
                 vk::DescriptorImageInfo {}
                     .setSampler(mGbufferSampler)
                     .setImageView(ssaoView)
                     .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 
-            for (auto& set : mLightingSets)
-            {
-                const auto ssaoWrite =
-                    vk::WriteDescriptorSet {}
-                        .setDstSet(set)
-                        .setDstBinding(15)
-                        .setDescriptorType(
-                            vk::DescriptorType::eCombinedImageSampler)
-                        .setImageInfo(ssaoInfo);
-                mDevice->Get().updateDescriptorSets(ssaoWrite, nullptr);
-            }
-            mBoundSsaoView = ssaoView;
+            const auto ssaoWrite =
+                vk::WriteDescriptorSet {}
+                    .setDstSet(mLightingSets[frameIndex])
+                    .setDstBinding(15)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setImageInfo(ssaoInfo);
+            mDevice->Get().updateDescriptorSets(ssaoWrite, nullptr);
+            mBoundSsaoViews[frameIndex] = ssaoView;
         }
 
         mDevice->BeginDebugLabel(commandBuffer, DebugLabel::DeferredLighting);

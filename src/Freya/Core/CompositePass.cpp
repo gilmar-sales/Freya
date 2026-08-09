@@ -122,39 +122,30 @@ namespace FREYA_NAMESPACE
     }
 
     void CompositePass::UpdateDescriptorSet(
-        const std::uint32_t frameIndex, const skr::Arc<Image>& opaqueImage,
-        const skr::Arc<Image>& translucentImage,
+        const std::uint32_t frameIndex, const skr::Arc<Image>& sceneImage,
         const skr::Arc<Image>& bloomResultImage, vk::Sampler sampler)
     {
         if (frameIndex >= mBoundImages.size())
             return;
 
-        const auto opaqueView = opaqueImage->GetImageView();
-        const auto translView = translucentImage->GetImageView();
-        const auto bloomView  = bloomResultImage->GetImageView();
+        const auto sceneView = sceneImage->GetImageView();
+        const auto bloomView = bloomResultImage->GetImageView();
 
         auto& bound = mBoundImages[frameIndex];
-        if (bound.opaque == opaqueView && bound.translucent == translView &&
-            bound.bloom == bloomView && bound.sampler == sampler)
+        if (bound.scene == sceneView && bound.bloom == bloomView &&
+            bound.sampler == sampler)
         {
             return;
         }
 
-        bound.opaque      = opaqueView;
-        bound.translucent = translView;
-        bound.bloom       = bloomView;
-        bound.sampler     = sampler;
+        bound.scene   = sceneView;
+        bound.bloom   = bloomView;
+        bound.sampler = sampler;
 
-        auto opaqueInfo =
+        auto sceneInfo =
             vk::DescriptorImageInfo()
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setImageView(opaqueView)
-                .setSampler(sampler);
-
-        auto translInfo =
-            vk::DescriptorImageInfo()
-                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setImageView(translView)
+                .setImageView(sceneView)
                 .setSampler(sampler);
 
         auto bloomInfo =
@@ -169,16 +160,10 @@ namespace FREYA_NAMESPACE
                 .setDstBinding(0)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1)
-                .setImageInfo(opaqueInfo),
+                .setImageInfo(sceneInfo),
             vk::WriteDescriptorSet()
                 .setDstSet(mDescriptorSets[frameIndex])
                 .setDstBinding(1)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setImageInfo(translInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(mDescriptorSets[frameIndex])
-                .setDstBinding(2)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1)
                 .setImageInfo(bloomInfo),
