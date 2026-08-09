@@ -936,8 +936,7 @@ namespace FREYA_NAMESPACE
     {
         if (!mDevice || !mServiceProvider)
             return;
-        const bool wasEnabled =
-            mGpuAnimPass && mGpuAnimPass->IsEnabled();
+        const bool wasEnabled = mGpuAnimPass && mGpuAnimPass->IsEnabled();
         mDevice->Get().waitIdle();
         mGpuAnimPass.reset();
         mGpuAnimPass =
@@ -985,6 +984,14 @@ namespace FREYA_NAMESPACE
             return false;
         return mGpuAnimPass->PollJointExtract(
             GetCurrentFrameIndex(), out, outCount);
+    }
+
+    bool Renderer::PollGpuAnimTiming(GpuAnimTimingSample& out)
+    {
+        out = {};
+        if (!mGpuAnimPass)
+            return false;
+        return mGpuAnimPass->PollTiming(GetCurrentFrameIndex(), out);
     }
 
     BufferBuilder Renderer::GetBufferBuilder() const

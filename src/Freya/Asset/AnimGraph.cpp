@@ -464,11 +464,11 @@ namespace FREYA_NAMESPACE
         out.transitions.clear();
         out.loco = {};
 
-        out.currentState = std::string(CurrentStateName());
-        out.blending     = mBlending;
-        out.currentTime  = mCurrentTime;
-        out.nextTime     = mNextTime;
-        out.blendElapsed = mBlendElapsed;
+        out.currentState  = std::string(CurrentStateName());
+        out.blending      = mBlending;
+        out.currentTime   = mCurrentTime;
+        out.nextTime      = mNextTime;
+        out.blendElapsed  = mBlendElapsed;
         out.blendDuration = mBlendDuration;
         out.blendAlpha =
             (mBlending && mBlendDuration > 1e-6f)
@@ -516,8 +516,8 @@ namespace FREYA_NAMESPACE
         for (const auto& S : mStates)
         {
             AnimGraphDebugSnapshot::State snap;
-            snap.name       = S.name;
-            snap.blendParam = S.blendParam;
+            snap.name        = S.name;
+            snap.blendParam  = S.blendParam;
             snap.blendParamY = S.blendParamY;
             switch (S.kind)
             {
@@ -526,14 +526,14 @@ namespace FREYA_NAMESPACE
                     snap.sampleCount = S.clip ? 1u : 0u;
                     break;
                 case StateKind::Blend1D:
-                    snap.kind        = "Blend1D";
-                    snap.sampleCount = static_cast<std::uint32_t>(
-                        S.blendSamples.size());
+                    snap.kind = "Blend1D";
+                    snap.sampleCount =
+                        static_cast<std::uint32_t>(S.blendSamples.size());
                     break;
                 case StateKind::Blend2D:
-                    snap.kind        = "Blend2D";
-                    snap.sampleCount = static_cast<std::uint32_t>(
-                        S.blend2DSamples.size());
+                    snap.kind = "Blend2D";
+                    snap.sampleCount =
+                        static_cast<std::uint32_t>(S.blend2DSamples.size());
                     break;
             }
             out.states.push_back(std::move(snap));
@@ -758,8 +758,8 @@ namespace FREYA_NAMESPACE
                                                    const float defaultValue)
     {
         AnimGraph::FloatParam p;
-        p.value        = defaultValue;
-        p.defaultValue = defaultValue;
+        p.value                         = defaultValue;
+        p.defaultValue                  = defaultValue;
         mGraph.mFloats[std::move(name)] = p;
         return *this;
     }

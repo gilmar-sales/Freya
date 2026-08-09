@@ -186,7 +186,8 @@ namespace FREYA_NAMESPACE
         float animBakeHz = 30.f;
         /// When true, GPU clip/rest joints use 16 B quantized storage
         /// (`skin_bake_quant`); otherwise full float TRS (`skin_bake`).
-        /// Toggle requires rebuilding GpuAnimPass (see Renderer::RebuildGpuAnimPass).
+        /// Toggle requires rebuilding GpuAnimPass (see
+        /// Renderer::RebuildGpuAnimPass).
         bool quantizeGpuAnimJoints = true;
     };
 

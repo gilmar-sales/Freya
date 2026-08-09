@@ -35,6 +35,8 @@ namespace FREYA_NAMESPACE
         static constexpr std::uint32_t kMaxBakedJointsQuant = 196608;
         static constexpr std::uint32_t kMaxMaskFloats       = kMaxJoints;
         static constexpr std::uint32_t kMaxExtractJoints    = 64;
+        /// carryBegin, carryEnd, bakeBegin, bakeEnd per FiF slot.
+        static constexpr std::uint32_t kTimestampQueriesPerSlot = 4;
 
         GpuAnimPass(const skr::Arc<Device>&              device,
                     const skr::Arc<BoneMatrixResources>& boneResources,
@@ -156,6 +158,20 @@ namespace FREYA_NAMESPACE
                                              out,
                               std::uint32_t* outCount = nullptr) const;
 
+        /**
+         * @brief Read carry/bake GPU timestamps for the previous FiF slot.
+         *
+         * Call at Update start (same cadence as #PollJointExtract). Returns
+         * false when queries are unavailable or results are not ready yet.
+         */
+        bool PollTiming(std::uint32_t        frameIndex,
+                        GpuAnimTimingSample& out) const;
+
+        [[nodiscard]] bool HasTimestampQueries() const
+        {
+            return static_cast<bool>(mTimestampPool);
+        }
+
         void UploadSkeleton(const GpuSkeletonPack& skeleton);
         /**
          * @brief Bulk replace: reset clip slots, upload pack into slots
@@ -177,7 +193,7 @@ namespace FREYA_NAMESPACE
          * @brief Find or upload clip; may evict unpinned LRU when full.
          * @return slot index, or 0xffffffff on failure.
          */
-        [[nodiscard]] std::uint32_t EnsureClipResident(std::uint64_t key,
+        [[nodiscard]] std::uint32_t EnsureClipResident(std::uint64_t    key,
                                                        const BakedClip& clip);
         void PinClipSlot(std::uint32_t slot, bool pinned);
         void TouchClipSlot(std::uint32_t slot);
@@ -223,10 +239,20 @@ namespace FREYA_NAMESPACE
                            std::uint32_t     frameIndex) const;
         void recordJointExtract(vk::CommandBuffer commandBuffer,
                                 std::uint32_t     frameIndex) const;
+        void createTimestampPool();
+        void writeTimestamp(vk::CommandBuffer         commandBuffer,
+                            std::uint32_t             queryIndex,
+                            vk::PipelineStageFlagBits stage) const;
 
         [[nodiscard]] std::uint32_t extractSlot(std::uint32_t frameIndex) const
         {
             return mFrameCount == 0 ? 0u : (frameIndex % mFrameCount);
+        }
+
+        [[nodiscard]] std::uint32_t timestampQueryBase(
+            std::uint32_t frameIndex) const
+        {
+            return extractSlot(frameIndex) * kTimestampQueriesPerSlot;
         }
 
         [[nodiscard]] vk::DeviceSize extractSlotBytes() const
@@ -297,6 +323,13 @@ namespace FREYA_NAMESPACE
         mutable std::vector<std::uint32_t>                       mExtractCounts;
         mutable std::vector<std::uint8_t>                        mExtractValid;
         mutable std::vector<std::uint32_t> mExtractSourceFrame;
+
+        vk::QueryPool                      mTimestampPool     = nullptr;
+        float                              mTimestampPeriodNs = 0.f;
+        mutable std::vector<std::uint8_t>  mTimingPending;
+        mutable std::vector<std::uint8_t>  mTimingHasCarry;
+        mutable std::vector<std::uint32_t> mTimingInstanceCount;
+        mutable std::vector<std::uint32_t> mTimingSourceFrame;
     };
 
 } // namespace FREYA_NAMESPACE

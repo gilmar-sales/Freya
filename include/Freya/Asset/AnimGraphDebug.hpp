@@ -42,7 +42,7 @@ namespace FREYA_NAMESPACE
             float       defaultValue = 0.f;
             float       minValue     = 0.f;
             float       maxValue     = 1.f;
-            bool        hasRange     = false; ///< if true, clamp / use [min,max]
+            bool        hasRange = false; ///< if true, clamp / use [min,max]
         };
         struct BoolParam
         {
@@ -52,26 +52,26 @@ namespace FREYA_NAMESPACE
         struct TriggerParam
         {
             std::string name;
-            bool raised = false; ///< current pending latch (read)
-            bool pulse  = false; ///< set true in UI to fire on Apply
+            bool        raised = false; ///< current pending latch (read)
+            bool        pulse  = false; ///< set true in UI to fire on Apply
         };
         struct Layer
         {
             std::string   name;
             std::string   clipName;
-            AnimLayerMode mode           = AnimLayerMode::OverrideMasked;
-            bool          enabled        = true;
-            float         weight         = 1.f;
+            AnimLayerMode mode            = AnimLayerMode::OverrideMasked;
+            bool          enabled         = true;
+            float         weight          = 1.f;
             float         effectiveWeight = 0.f;
-            float         time           = 0.f;
+            float         time            = 0.f;
             std::string   weightParam;
         };
         struct State
         {
-            std::string name;
-            std::string kind; ///< "Clip" | "Blend1D" | "Blend2D"
-            std::string blendParam;
-            std::string blendParamY;
+            std::string   name;
+            std::string   kind; ///< "Clip" | "Blend1D" | "Blend2D"
+            std::string   blendParam;
+            std::string   blendParamY;
             std::uint32_t sampleCount = 0;
         };
         struct Transition

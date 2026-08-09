@@ -38,19 +38,76 @@ namespace FREYA_NAMESPACE
         mLocalScratchBuffer(localScratchBuffer),
         mGlobalScratchBuffer(globalScratchBuffer),
         mReadbackBuffer(readbackBuffer), mExtractRingBuffer(extractRingBuffer),
-        mQuantizedJoints(quantizedJoints),
-        mFrameCount(std::max(1u, frameCount))
+        mQuantizedJoints(quantizedJoints), mFrameCount(std::max(1u, frameCount))
     {
         mExtractMeta.resize(mFrameCount);
         mExtractCounts.resize(mFrameCount, 0);
         mExtractValid.resize(mFrameCount, 0);
         mExtractSourceFrame.resize(mFrameCount, 0);
+        mTimingPending.resize(mFrameCount, 0);
+        mTimingHasCarry.resize(mFrameCount, 0);
+        mTimingInstanceCount.resize(mFrameCount, 0);
+        mTimingSourceFrame.resize(mFrameCount, 0);
+        createTimestampPool();
+    }
+
+    void GpuAnimPass::createTimestampPool()
+    {
+        mTimestampPool     = nullptr;
+        mTimestampPeriodNs = 0.f;
+        if (!mDevice)
+            return;
+
+        auto physical = mDevice->GetPhysicalDevice();
+        if (!physical)
+            return;
+
+        const auto props = physical->Get().getProperties();
+        if (props.limits.timestampPeriod <= 0.f)
+            return;
+
+        const auto family = mDevice->GetQueueFamilyIndices().graphicsFamily;
+        if (!family)
+            return;
+        const auto qProps = physical->Get().getQueueFamilyProperties();
+        if (*family >= qProps.size() || qProps[*family].timestampValidBits == 0)
+            return;
+
+        const auto queryCount = mFrameCount * kTimestampQueriesPerSlot;
+        try
+        {
+            mTimestampPool = mDevice->Get().createQueryPool(
+                vk::QueryPoolCreateInfo()
+                    .setQueryType(vk::QueryType::eTimestamp)
+                    .setQueryCount(queryCount));
+            mTimestampPeriodNs = props.limits.timestampPeriod;
+        }
+        catch (const vk::SystemError&)
+        {
+            mTimestampPool     = nullptr;
+            mTimestampPeriodNs = 0.f;
+        }
+    }
+
+    void GpuAnimPass::writeTimestamp(
+        const vk::CommandBuffer         commandBuffer,
+        const std::uint32_t             queryIndex,
+        const vk::PipelineStageFlagBits stage) const
+    {
+        if (!mTimestampPool)
+            return;
+        commandBuffer.writeTimestamp(stage, mTimestampPool, queryIndex);
     }
 
     GpuAnimPass::~GpuAnimPass()
     {
         if (!mDevice)
             return;
+        if (mTimestampPool)
+        {
+            mDevice->Get().destroyQueryPool(mTimestampPool);
+            mTimestampPool = nullptr;
+        }
         if (mPipeline)
             mDevice->Get().destroyPipeline(mPipeline);
         if (mPipelineLayout)
@@ -113,6 +170,41 @@ namespace FREYA_NAMESPACE
         return true;
     }
 
+    bool GpuAnimPass::PollTiming(const std::uint32_t  frameIndex,
+                                 GpuAnimTimingSample& out) const
+    {
+        out = {};
+        if (!mTimestampPool || mTimestampPeriodNs <= 0.f || mFrameCount == 0)
+            return false;
+
+        const auto prev =
+            (extractSlot(frameIndex) + mFrameCount - 1u) % mFrameCount;
+        if (!mTimingPending[prev])
+            return false;
+
+        std::array<std::uint64_t, kTimestampQueriesPerSlot> stamps {};
+        const auto first  = prev * kTimestampQueriesPerSlot;
+        const auto result = mDevice->Get().getQueryPoolResults(
+            mTimestampPool, first, kTimestampQueriesPerSlot, sizeof(stamps),
+            stamps.data(), sizeof(std::uint64_t), vk::QueryResultFlagBits::e64);
+        if (result != vk::Result::eSuccess)
+            return false;
+
+        auto deltaMs = [&](const std::uint64_t a, const std::uint64_t b) {
+            if (b < a)
+                return 0.f;
+            return static_cast<float>(b - a) * mTimestampPeriodNs * 1.0e-6f;
+        };
+
+        out.valid         = true;
+        out.hasCarry      = mTimingHasCarry[prev] != 0;
+        out.carryMs       = out.hasCarry ? deltaMs(stamps[0], stamps[1]) : 0.f;
+        out.bakeMs        = deltaMs(stamps[2], stamps[3]);
+        out.instanceCount = mTimingInstanceCount[prev];
+        out.sourceFrame   = mTimingSourceFrame[prev];
+        return true;
+    }
+
     void GpuAnimPass::UploadSkeleton(const GpuSkeletonPack& skeleton)
     {
         mJointCount = std::min(skeleton.jointCount, kMaxJoints);
@@ -150,23 +242,24 @@ namespace FREYA_NAMESPACE
 
     void GpuAnimPass::CaptureDebugSnapshot(GpuAnimDebugSnapshot& out) const
     {
-        out                   = {};
-        out.enabled           = mEnabled;
-        out.quantizedJoints   = mQuantizedJoints;
-        out.instanceCount     = mInstanceCount;
-        out.skeletonJoints    = mJointCount;
-        out.maxClips          = kMaxClips;
-        out.maxBakedJoints    = MaxBakedJoints();
-        out.jointsPerClipSlot = JointsPerClipSlot();
-        out.residentClips     = ResidentClipCount();
+        out                         = {};
+        out.enabled                 = mEnabled;
+        out.quantizedJoints         = mQuantizedJoints;
+        out.timestampQueriesEnabled = HasTimestampQueries();
+        out.instanceCount           = mInstanceCount;
+        out.skeletonJoints          = mJointCount;
+        out.maxClips                = kMaxClips;
+        out.maxBakedJoints          = MaxBakedJoints();
+        out.jointsPerClipSlot       = JointsPerClipSlot();
+        out.residentClips           = ResidentClipCount();
         out.extractRequests =
             static_cast<std::uint32_t>(mExtractRequests.size());
         out.slots.resize(kMaxClips);
         for (std::uint32_t i = 0; i < kMaxClips; ++i)
         {
             const auto& s = mClipSlots[i];
-            out.slots[i]  = { i,         s.key,    s.resident, s.pinned,
-                             s.lastTouch, s.frames, s.joints };
+            out.slots[i]  = { i,           s.key,    s.resident, s.pinned,
+                              s.lastTouch, s.frames, s.joints };
         }
     }
 
@@ -229,8 +322,8 @@ namespace FREYA_NAMESPACE
             clip.jointCount == 0 || !mClipHeaderBuffer || !mJointsBuffer)
             return false;
 
-        const auto slab     = JointsPerClipSlot();
-        const auto need     = clip.frameCount * clip.jointCount;
+        const auto slab = JointsPerClipSlot();
+        const auto need = clip.frameCount * clip.jointCount;
         if (need > slab || need != clip.joints.size())
             return false;
 
@@ -240,8 +333,8 @@ namespace FREYA_NAMESPACE
             &header, sizeof(GpuClipHeader),
             static_cast<std::uint64_t>(slot) * sizeof(GpuClipHeader));
 
-        const auto jointStride = mQuantizedJoints ? sizeof(GpuQuantJoint)
-                                                  : sizeof(GpuFloatJoint);
+        const auto jointStride =
+            mQuantizedJoints ? sizeof(GpuQuantJoint) : sizeof(GpuFloatJoint);
         const auto byteOff =
             static_cast<std::uint64_t>(jointsBase) * jointStride;
 
@@ -262,14 +355,14 @@ namespace FREYA_NAMESPACE
                 byteOff);
         }
 
-        auto&            meta    = mClipSlots[slot];
-        const bool       keepPin = meta.resident && meta.key == key && meta.pinned;
-        meta.key                 = key;
-        meta.resident            = true;
-        meta.pinned              = keepPin;
-        meta.frames              = clip.frameCount;
-        meta.joints              = clip.jointCount;
-        meta.lastTouch           = ++mClipTouchClock;
+        auto&      meta    = mClipSlots[slot];
+        const bool keepPin = meta.resident && meta.key == key && meta.pinned;
+        meta.key           = key;
+        meta.resident      = true;
+        meta.pinned        = keepPin;
+        meta.frames        = clip.frameCount;
+        meta.joints        = clip.jointCount;
+        meta.lastTouch     = ++mClipTouchClock;
         return true;
     }
 
@@ -358,19 +451,19 @@ namespace FREYA_NAMESPACE
             {
                 if (srcBase + need > pack.quantJoints.size())
                     continue;
-                mJointsBuffer->Copy(pack.quantJoints.data() + srcBase,
-                                    static_cast<std::uint64_t>(need) *
-                                        jointStride,
-                                    dstOff);
+                mJointsBuffer->Copy(
+                    pack.quantJoints.data() + srcBase,
+                    static_cast<std::uint64_t>(need) * jointStride,
+                    dstOff);
             }
             else
             {
                 if (srcBase + need > pack.floatJoints.size())
                     continue;
-                mJointsBuffer->Copy(pack.floatJoints.data() + srcBase,
-                                    static_cast<std::uint64_t>(need) *
-                                        jointStride,
-                                    dstOff);
+                mJointsBuffer->Copy(
+                    pack.floatJoints.data() + srcBase,
+                    static_cast<std::uint64_t>(need) * jointStride,
+                    dstOff);
             }
 
             auto& meta     = mClipSlots[i];
@@ -435,18 +528,46 @@ namespace FREYA_NAMESPACE
         if (!mEnabled || mInstanceCount == 0 || !mBoneResources || !mPipeline)
             return;
 
-        auto commandBuffer = commandPool->GetCommandBuffer();
+        auto       commandBuffer = commandPool->GetCommandBuffer();
+        const auto slot          = extractSlot(frameIndex);
+        const auto qBase         = timestampQueryBase(frameIndex);
+
+        if (mTimestampPool)
+        {
+            commandBuffer.resetQueryPool(
+                mTimestampPool, qBase, kTimestampQueriesPerSlot);
+            mTimingPending[slot]       = 1;
+            mTimingHasCarry[slot]      = mCopyPrevBones ? 1 : 0;
+            mTimingInstanceCount[slot] = mInstanceCount;
+            mTimingSourceFrame[slot]   = frameIndex;
+        }
 
         if (mCopyPrevBones)
         {
+            writeTimestamp(commandBuffer, qBase + 0,
+                           vk::PipelineStageFlagBits::eTopOfPipe);
             // Sparse LOD: seed this FiF slot from last frame so foxes not in
             // the active list keep a continuous pose (not a stale ring entry).
             mBoneResources->RecordCarryBonesFromPreviousFrame(commandBuffer,
                                                               frameIndex);
             mBoneResources->RecordCopyCurrentToPrev(commandBuffer, frameIndex);
+            writeTimestamp(commandBuffer, qBase + 1,
+                           vk::PipelineStageFlagBits::eTransfer);
+        }
+        else if (mTimestampPool)
+        {
+            // Keep query indices stable when carry is disabled.
+            writeTimestamp(commandBuffer, qBase + 0,
+                           vk::PipelineStageFlagBits::eTopOfPipe);
+            writeTimestamp(commandBuffer, qBase + 1,
+                           vk::PipelineStageFlagBits::eTopOfPipe);
         }
 
+        writeTimestamp(commandBuffer, qBase + 2,
+                       vk::PipelineStageFlagBits::eComputeShader);
         recordCompute(commandBuffer, frameIndex);
+        writeTimestamp(commandBuffer, qBase + 3,
+                       vk::PipelineStageFlagBits::eComputeShader);
         recordJointExtract(commandBuffer, frameIndex);
     }
 

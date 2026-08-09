@@ -340,6 +340,11 @@ namespace FREYA_NAMESPACE
         bool PollGpuAnimJointExtract(std::span<GpuJointExtractSample> out,
                                      std::uint32_t* outCount = nullptr);
 
+        /**
+         * @brief Poll N+1 GpuAnimPass carry/bake GPU timestamps.
+         */
+        bool PollGpuAnimTiming(GpuAnimTimingSample& out);
+
         void UpdateModel(const glm::mat4& model) const;
 
         [[nodiscard]] BufferBuilder       GetBufferBuilder() const;

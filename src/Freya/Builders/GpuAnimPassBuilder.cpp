@@ -12,20 +12,18 @@ namespace FREYA_NAMESPACE
 {
     skr::Arc<GpuAnimPass> GpuAnimPassBuilder::Build()
     {
-        const bool quantize = mFreyaOptions->quantizeGpuAnimJoints;
-        const auto shaderPath =
-            mFreyaOptions->shaderRoot +
-            (quantize ? "/Anim/skin_bake_quant.comp.spv"
-                      : "/Anim/skin_bake.comp.spv");
-        auto shader = mServiceProvider->GetService<ShaderModuleBuilder>()
-                          ->SetFilePath(shaderPath)
-                          .Build();
+        const bool quantize   = mFreyaOptions->quantizeGpuAnimJoints;
+        const auto shaderPath = mFreyaOptions->shaderRoot +
+                                (quantize ? "/Anim/skin_bake_quant.comp.spv"
+                                          : "/Anim/skin_bake.comp.spv");
+        auto       shader = mServiceProvider->GetService<ShaderModuleBuilder>()
+                                ->SetFilePath(shaderPath)
+                                .Build();
 
-        const auto jointStride = quantize ? sizeof(GpuQuantJoint)
-                                          : sizeof(GpuFloatJoint);
-        const auto maxBakeJoints =
-            quantize ? GpuAnimPass::kMaxBakedJointsQuant
-                     : GpuAnimPass::kMaxBakedJointsFloat;
+        const auto jointStride =
+            quantize ? sizeof(GpuQuantJoint) : sizeof(GpuFloatJoint);
+        const auto maxBakeJoints = quantize ? GpuAnimPass::kMaxBakedJointsQuant
+                                            : GpuAnimPass::kMaxBakedJointsFloat;
 
         const auto parentsBytes = static_cast<std::uint32_t>(
             GpuAnimPass::kMaxJoints * sizeof(std::int32_t));
@@ -39,8 +37,8 @@ namespace FREYA_NAMESPACE
             GpuAnimPass::kMaxInstances * sizeof(GpuAnimInstance));
         const auto maskBytes = static_cast<std::uint32_t>(
             GpuAnimPass::kMaxMaskFloats * sizeof(float));
-        const auto restBytes = static_cast<std::uint32_t>(
-            GpuAnimPass::kMaxJoints * jointStride);
+        const auto restBytes =
+            static_cast<std::uint32_t>(GpuAnimPass::kMaxJoints * jointStride);
         const auto scratchCount =
             GpuAnimPass::kMaxInstances * GpuAnimPass::kMaxJoints;
         const auto localScratchBytes =

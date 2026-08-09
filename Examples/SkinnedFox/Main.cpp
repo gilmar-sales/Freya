@@ -390,7 +390,9 @@ class MainApp final : public fra::AbstractApplication
 
         mRenderer->BeginFrame();
 
-        // N+1 joint extracts from last GPU anim Dispatch (Crowd / heroes).
+        // N+1 GPU anim timing + joint extracts from last Dispatch.
+        fra::GpuAnimTimingSample gpuTiming {};
+        const bool gpuTimingOk = mRenderer->PollGpuAnimTiming(gpuTiming);
         if (mGpuAnimMode == GpuAnimMode::Crowd)
         {
             fra::GpuJointExtractSample samples[4] {};
@@ -418,14 +420,18 @@ class MainApp final : public fra::AbstractApplication
             mEnableDebugDraw && mRenderer->IsDebugDrawEnabled();
         std::uint32_t foxIndex    = 0;
         std::uint32_t animUpdates = 0;
-        double        msAnim      = 0.0;
+        std::uint32_t lodHist[4]  = {};
+        double        msAdv       = 0.0;
+        double        msEval      = 0.0;
+        double        msPack      = 0.0;
         double        msSkin      = 0.0;
-        const auto    tAnim0      = Clock::now();
         for (auto& fox : mFoxes)
         {
             const glm::vec3 foxPos(fox.model[3]);
             fra::UpdateAnimLodTier(
                 *mFreyaOptions, fox.lodTier, glm::length(foxPos - mCameraPos));
+            const auto tier = std::min<std::uint8_t>(fox.lodTier, 3);
+            ++lodHist[tier];
             const float hz  = fra::AnimLodHz(*mFreyaOptions, fox.lodTier);
             const bool  due = fra::ConsumeAnimLodTick(fox.lodAccum, dt, hz);
             const bool  forceGpuSeed = gpuCrowd && !mGpuCrowdSeeded;
@@ -434,30 +440,10 @@ class MainApp final : public fra::AbstractApplication
                 (!gpuCrowd && fox.skinCache.size() != jointCount) ||
                 (gpuFox0 && &fox == &mFoxes[0]);
 
-            // Crowd: advance the anim clock every display frame with wall dt
-            // so Near/Far share the same playback rate. LOD only gates the
-            // GPU skin dispatch (pose may hold between skins).
-            if (gpuCrowd && mEnableAnimGraph)
-            {
-                events.clear();
-                syncFoxLayers(fox);
-                fox.graph.Advance(dt, mEnableEvents ? &events : nullptr);
-                if (mEnableEvents)
-                {
-                    mEventRing.PushAll(events);
-                    for (const auto& e : events)
-                    {
-                        if (e.name.rfind("Footstep", 0) == 0)
-                        {
-                            ++fox.footsteps;
-                            ++mFootstepTotal;
-                        }
-                    }
-                }
-                fox.pendingDt = 0.f;
-            }
-            else
-                fox.pendingDt += dt;
+            // Crowd: Advance at the same wall-clock LOD Hz as GPU skin
+            // (pendingDt accumulates between ticks). Playback rate stays
+            // correct; clip events fire in bursts at lod rate for far foxes.
+            fox.pendingDt += dt;
 
             if (mEnableRootMotion && fox.useRootMotion)
             {
@@ -481,24 +467,40 @@ class MainApp final : public fra::AbstractApplication
 
             events.clear();
             syncFoxLayers(fox);
-            if (mEnableAnimGraph && !gpuCrowd)
+            if (mEnableAnimGraph && (gpuCrowd || isFox0))
             {
-                // Fox0 golden: Advance then SampleCurrent (CPU reference).
-                if (isFox0)
-                    fox.graph.Advance(stepDt,
-                                      mEnableEvents ? &events : nullptr);
+                // Crowd LOD tick / Fox0 golden: Advance then pack or sample.
+                const auto t0 = Clock::now();
+                fox.graph.Advance(stepDt, mEnableEvents ? &events : nullptr);
+                msAdv += SecondsF(Clock::now() - t0).count() * 1000.0;
+                if (mEnableEvents)
+                {
+                    mEventRing.PushAll(events);
+                    for (const auto& e : events)
+                    {
+                        if (e.name.rfind("Footstep", 0) == 0)
+                        {
+                            ++fox.footsteps;
+                            ++mFootstepTotal;
+                        }
+                    }
+                }
             }
 
             fra::LocalPose local;
             if (gpuCrowd)
             {
+                const auto           t0 = Clock::now();
                 fra::GpuAnimInstance inst =
                     makeGpuAnimInstance(fox, jointCount);
                 gpuInstances.push_back(inst);
+                msPack += SecondsF(Clock::now() - t0).count() * 1000.0;
 
                 if (drawDebug && foxIndex < 12u)
                 {
-                    local = fox.graph.SampleCurrent();
+                    const auto t1 = Clock::now();
+                    local         = fox.graph.SampleCurrent();
+                    msEval += SecondsF(Clock::now() - t1).count() * 1000.0;
                     debugDraw.DrawSkeleton(mSkinned.skeleton, local, fox.model,
                                            { 0.2f, 0.95f, 0.45f, 0.9f });
                 }
@@ -508,16 +510,18 @@ class MainApp final : public fra::AbstractApplication
 
             if (mEnableAnimGraph)
             {
+                const auto t0 = Clock::now();
                 if (isFox0)
                     local = fox.graph.SampleCurrent();
                 else
                     local = fox.graph.Evaluate(
                         stepDt, mEnableEvents ? &events : nullptr);
+                msEval += SecondsF(Clock::now() - t0).count() * 1000.0;
             }
             else
                 local = fra::RestLocalPose(mSkinned.skeleton);
 
-            if (mEnableEvents)
+            if (mEnableEvents && !isFox0)
             {
                 mEventRing.PushAll(events);
                 for (const auto& e : events)
@@ -583,7 +587,11 @@ class MainApp final : public fra::AbstractApplication
             ++foxIndex;
 
             if (isFox0)
+            {
+                const auto t0 = Clock::now();
                 gpuInstances.push_back(makeGpuAnimInstance(fox, jointCount));
+                msPack += SecondsF(Clock::now() - t0).count() * 1000.0;
+            }
 
             const auto tSkin0 = Clock::now();
             fox.skinCache = fra::PoseToSkinMatrices(mSkinned.skeleton, local);
@@ -593,7 +601,6 @@ class MainApp final : public fra::AbstractApplication
             if (isFox0)
                 mGpuFox0CpuSkin = fox.skinCache;
         }
-        msAnim = SecondsF(Clock::now() - tAnim0).count() * 1000.0 - msSkin;
         mProfAnimUpdates += animUpdates;
 
         mFootstepLogTimer += dt;
@@ -690,12 +697,23 @@ class MainApp final : public fra::AbstractApplication
         }
 
         ++mProfFrames;
-        mProfAnimMs += msAnim;
+        mProfAdvMs += msAdv;
+        mProfEvalMs += msEval;
+        mProfPackMs += msPack;
         mProfSkinMs += msSkin;
         mProfBoneMs += msBoneUpload;
         mProfInstMs += msInstances;
         mProfEndMs += msEndFrame;
         mProfUpdateMs += msUpdate;
+        mProfGpuInstSum += static_cast<std::uint32_t>(gpuInstances.size());
+        for (int i = 0; i < 4; ++i)
+            mProfLodSum[i] += lodHist[i];
+        if (gpuTimingOk && gpuTiming.valid)
+        {
+            mProfGpuCarryMs += static_cast<double>(gpuTiming.carryMs);
+            mProfGpuBakeMs += static_cast<double>(gpuTiming.bakeMs);
+            ++mProfGpuSamples;
+        }
         mProfDtSum += dt;
         mProfReportTimer += dt;
         if (mProfReportTimer >= 1.f && mProfFrames > 0)
@@ -704,27 +722,48 @@ class MainApp final : public fra::AbstractApplication
             const double fps =
                 mProfDtSum > 0.0 ? static_cast<double>(mProfFrames) / mProfDtSum
                                  : 0.0;
-            std::cout << "CPU avg  fps=" << fps << "  anim="
-                      << (mProfAnimMs / n) << "ms  skin=" << (mProfSkinMs / n)
-                      << "ms  boneUp=" << (mProfBoneMs / n)
-                      << "ms  instUp=" << (mProfInstMs / n)
-                      << "ms  endFrame=" << (mProfEndMs / n) << "ms  update="
-                      << (mProfUpdateMs / n) << "ms  (foxes=" << mFoxes.size()
-                      << " animTicks=" << (mProfAnimUpdates / n)
-                      << " inst=" << instances.size()
-                      << " bones=" << allBones.size() << ")\n";
-            if (mGpuAnimMode == GpuAnimMode::Crowd && mGpuExtractReady)
+            const double gpuInstAvg = mProfGpuInstSum / n;
+            const double paletteMiB =
+                (gpuInstAvg * static_cast<double>(jointCount) * 64.0 * 2.0) /
+                (1024.0 * 1024.0);
+            const bool quant = mFreyaOptions->quantizeGpuAnimJoints;
+            std::cout << "anim_prof mode=" << gpuAnimModeName(mGpuAnimMode)
+                      << " q=" << animQualityName(mAnimationQuality)
+                      << " quant=" << (quant ? 1 : 0) << " fps=" << fps
+                      << " adv_ms=" << (mProfAdvMs / n) << " eval_ms="
+                      << (mProfEvalMs / n) << " pack_ms=" << (mProfPackMs / n)
+                      << " skin_ms=" << (mProfSkinMs / n) << " boneUp_ms="
+                      << (mProfBoneMs / n) << " instUp_ms=" << (mProfInstMs / n)
+                      << " end_ms=" << (mProfEndMs / n)
+                      << " upd_ms=" << (mProfUpdateMs / n);
+            if (mProfGpuSamples > 0)
             {
-                const glm::vec3 t(mGpuExtractHeadSkin[3]);
-                std::cout << "  GPU extract N+1 fox0 head skin.t=(" << t.x
-                          << ", " << t.y << ", " << t.z << ")\n";
+                const double g = static_cast<double>(mProfGpuSamples);
+                std::cout << " gpu_carry_ms=" << (mProfGpuCarryMs / g)
+                          << " gpu_bake_ms=" << (mProfGpuBakeMs / g);
             }
+            else
+            {
+                std::cout << " gpu_carry_ms=n/a gpu_bake_ms=n/a";
+            }
+            std::cout << " gpu_inst=" << gpuInstAvg
+                      << " lod=" << (mProfLodSum[0] / n) << '/'
+                      << (mProfLodSum[1] / n) << '/' << (mProfLodSum[2] / n)
+                      << '/' << (mProfLodSum[3] / n)
+                      << " foxes=" << mFoxes.size() << " joints=" << jointCount
+                      << " animTicks=" << (mProfAnimUpdates / n)
+                      << " palette_MiB=" << paletteMiB << '\n';
             mProfReportTimer = 0.f;
             mProfFrames      = 0;
-            mProfAnimMs = mProfSkinMs = mProfBoneMs = 0.0;
-            mProfInstMs = mProfEndMs = mProfUpdateMs = 0.0;
-            mProfDtSum                               = 0.0;
-            mProfAnimUpdates                         = 0;
+            mProfAdvMs = mProfEvalMs = mProfPackMs = mProfSkinMs = 0.0;
+            mProfBoneMs = mProfInstMs = mProfEndMs = mProfUpdateMs = 0.0;
+            mProfGpuCarryMs = mProfGpuBakeMs = 0.0;
+            mProfDtSum                       = 0.0;
+            mProfAnimUpdates                 = 0;
+            mProfGpuInstSum                  = 0;
+            mProfGpuSamples                  = 0;
+            mProfLodSum[0] = mProfLodSum[1] = mProfLodSum[2] = mProfLodSum[3] =
+                0;
         }
     }
 
@@ -802,33 +841,46 @@ class MainApp final : public fra::AbstractApplication
         return "?";
     }
 
+    static const char* gpuAnimModeName(const GpuAnimMode mode)
+    {
+        switch (mode)
+        {
+            case GpuAnimMode::Off:
+                return "Off";
+            case GpuAnimMode::Fox0:
+                return "Fox0";
+            case GpuAnimMode::Crowd:
+                return "Crowd";
+        }
+        return "?";
+    }
+
     void printFeatureHelp() const
     {
-        std::cout << "Feature toggles:\n"
-                  << "  F1  help/status\n"
-                  << "  F2  cast shadows (foxes)\n"
-                  << "  F3  debug draw\n"
-                  << "  F4  AnimGraph evaluate (off = rest pose)\n"
-                  << "  F5  upper BlendMasked layer\n"
-                  << "  F6  additive upper layer\n"
-                  << "  F7  look-at\n"
-                  << "  F8  two-bone IK\n"
-                  << "  F9  quantize GPU bake (float ↔ 16B; rebuild pass)\n"
-                  << "  F10 clip events / footstep log (CPU Advance; works "
-                     "with GPU Crowd/Blend2D)\n"
-                  << "  F11 cycle AnimationQuality "
-                     "(Low/Med/High/Ultra/Off)\n"
-                  << "  F12 GPU anim: Off → Fox0 golden → Crowd\n"
-                  << "  R   root/locomotion drive\n"
-                  << "  T   stream next clip into GPU ring (LRU)\n"
-                  << "Loco Blend2D (Strafe×Speed) bake @"
-                  << mFreyaOptions->animBakeHz
-                  << "Hz; Q/E strafe; LOD wall-clock Hz (F11)\n"
-                  << "GPU bake "
-                  << (mFreyaOptions->quantizeGpuAnimJoints ? "quantized"
-                                                           : "float")
-                  << "; CPU avg line every 1s: anim/skin/boneUp/instUp/"
-                     "endFrame/update + animTicks\n";
+        std::cout
+            << "Feature toggles:\n"
+            << "  F1  help/status\n"
+            << "  F2  cast shadows (foxes)\n"
+            << "  F3  debug draw\n"
+            << "  F4  AnimGraph evaluate (off = rest pose)\n"
+            << "  F5  upper BlendMasked layer\n"
+            << "  F6  additive upper layer\n"
+            << "  F7  look-at\n"
+            << "  F8  two-bone IK\n"
+            << "  F9  quantize GPU bake (float ↔ 16B; rebuild pass)\n"
+            << "  F10 clip events / footstep log (CPU Advance; Crowd "
+               "fires at animLodHz)\n"
+            << "  F11 cycle AnimationQuality "
+               "(Low/Med/High/Ultra/Off)\n"
+            << "  F12 GPU anim: Off → Fox0 golden → Crowd\n"
+            << "  R   root/locomotion drive\n"
+            << "  T   stream next clip into GPU ring (LRU)\n"
+            << "Loco Blend2D (Strafe×Speed) bake @" << mFreyaOptions->animBakeHz
+            << "Hz; Q/E strafe; LOD wall-clock Hz (F11)\n"
+            << "GPU bake "
+            << (mFreyaOptions->quantizeGpuAnimJoints ? "quantized" : "float")
+            << "; anim_prof line every 1s (CPU split + GPU "
+               "carry/bake timestamps)\n";
     }
 
     void printFeatureStatus() const
@@ -860,9 +912,8 @@ class MainApp final : public fra::AbstractApplication
                           << " blend=" << snap.blendAlpha;
             std::cout << " t=" << snap.currentTime;
             if (snap.loco.valid)
-                std::cout << " loco=[" << snap.loco.clipA << " "
-                          << snap.loco.wA << "|" << snap.loco.clipB << " "
-                          << snap.loco.wB;
+                std::cout << " loco=[" << snap.loco.clipA << " " << snap.loco.wA
+                          << "|" << snap.loco.clipB << " " << snap.loco.wB;
             if (snap.loco.valid && snap.loco.wC > 1e-4f)
                 std::cout << "|" << snap.loco.clipC << " " << snap.loco.wC;
             if (snap.loco.valid)
@@ -874,8 +925,7 @@ class MainApp final : public fra::AbstractApplication
             {
                 std::cout << "    " << p.name << "=" << p.value;
                 if (p.hasRange)
-                    std::cout << " [" << p.minValue << "," << p.maxValue
-                              << "]";
+                    std::cout << " [" << p.minValue << "," << p.maxValue << "]";
                 std::cout << '\n';
             }
             if (auto* gpu = mRenderer->GetGpuAnimPass())
@@ -885,9 +935,8 @@ class MainApp final : public fra::AbstractApplication
                 std::cout << "  gpuAnim en=" << onOff(gs.enabled)
                           << " quant=" << onOff(gs.quantizedJoints)
                           << " inst=" << gs.instanceCount
-                          << " clips=" << gs.residentClips << "/"
-                          << gs.maxClips << " slab=" << gs.jointsPerClipSlot
-                          << '\n';
+                          << " clips=" << gs.residentClips << "/" << gs.maxClips
+                          << " slab=" << gs.jointsPerClipSlot << '\n';
             }
             const auto skel = fra::CaptureSkeletonDebug(mSkinned.skeleton);
             std::cout << "  skeleton joints=" << skel.JointCount()
@@ -1065,24 +1114,24 @@ class MainApp final : public fra::AbstractApplication
     std::vector<StreamClipEntry> mStreamCatalog;
     std::size_t                  mStreamCatalogIndex = 0;
     std::uint32_t                mStreamedUpperSlot  = 0xffffffffu;
-    std::int32_t              mHeadJoint         = -1;
-    bool                      mIkReady           = true;
-    bool                      mEnableShadows     = true;
-    bool                      mEnableDebugDraw   = false;
-    bool                      mEnableAnimGraph   = true;
-    bool                      mEnableUpperMask   = true;
-    bool                      mEnableAdditive    = true;
-    bool                      mEnableLookAt      = true;
-    bool                      mEnableIk          = true;
-    bool                      mEnableRootMotion  = true;
-    bool                      mEnableEvents      = true;
-    fra::AnimationQuality     mAnimationQuality  = fra::AnimationQuality::High;
-    GpuAnimMode               mGpuAnimMode       = GpuAnimMode::Off;
-    bool                      mGpuAnimGoldenOnce = false;
-    bool                      mGpuCrowdSeeded    = false;
-    bool                      mGpuExtractReady   = false;
-    glm::mat4                 mGpuExtractHeadSkin { 1.f };
-    std::vector<glm::mat4>    mGpuFox0CpuSkin;
+    std::int32_t                 mHeadJoint          = -1;
+    bool                         mIkReady            = true;
+    bool                         mEnableShadows      = true;
+    bool                         mEnableDebugDraw    = false;
+    bool                         mEnableAnimGraph    = true;
+    bool                         mEnableUpperMask    = true;
+    bool                         mEnableAdditive     = true;
+    bool                         mEnableLookAt       = true;
+    bool                         mEnableIk           = true;
+    bool                         mEnableRootMotion   = true;
+    bool                         mEnableEvents       = true;
+    fra::AnimationQuality  mAnimationQuality  = fra::AnimationQuality::High;
+    GpuAnimMode            mGpuAnimMode       = GpuAnimMode::Off;
+    bool                   mGpuAnimGoldenOnce = false;
+    bool                   mGpuCrowdSeeded    = false;
+    bool                   mGpuExtractReady   = false;
+    glm::mat4              mGpuExtractHeadSkin { 1.f };
+    std::vector<glm::mat4> mGpuFox0CpuSkin;
 
     struct GoldenFeatures
     {
@@ -1097,8 +1146,8 @@ class MainApp final : public fra::AbstractApplication
         gpu.UploadSkeleton(fra::PackSkeleton(mSkinned.skeleton));
         gpu.ResetClipCache();
 
-        const auto uploadPinned = [&](const std::uint32_t slot,
-                                      const char* name,
+        const auto uploadPinned = [&](const std::uint32_t   slot,
+                                      const char*           name,
                                       const fra::BakedClip& bake) {
             const auto key = fra::GpuClipKey(name);
             if (!gpu.UploadClipSlot(slot, key, bake))
@@ -1138,8 +1187,8 @@ class MainApp final : public fra::AbstractApplication
             if (!clip)
                 return;
             StreamClipEntry e;
-            e.label = std::string(clip->name) + "@" + std::to_string(int(hz)) +
-                      tag;
+            e.label =
+                std::string(clip->name) + "@" + std::to_string(int(hz)) + tag;
             e.key  = fra::GpuClipKey(e.label);
             e.bake = fra::BakeClip(mSkinned.skeleton, *clip, hz);
             // Skip loco pins' exact bakeHz copies so T cycles extras / Lo.
@@ -1166,12 +1215,10 @@ class MainApp final : public fra::AbstractApplication
         std::cout << "GPU stream catalog entries=" << mStreamCatalog.size()
                   << '\n';
         for (std::size_t i = 0; i < mStreamCatalog.size() && i < 12; ++i)
-            std::cout << "  stream " << mStreamCatalog[i].label
-                      << " frames=" << mStreamCatalog[i].bake.frameCount
-                      << '\n';
+            std::cout << "  stream " << mStreamCatalog[i].label << " frames="
+                      << mStreamCatalog[i].bake.frameCount << '\n';
         if (mStreamCatalog.size() > 12)
-            std::cout << "  ... +" << (mStreamCatalog.size() - 12)
-                      << " more\n";
+            std::cout << "  ... +" << (mStreamCatalog.size() - 12) << " more\n";
     }
 
     void streamNextCatalogClip()
@@ -1186,9 +1233,9 @@ class MainApp final : public fra::AbstractApplication
             mStreamCatalog[mStreamCatalogIndex % mStreamCatalog.size()];
         ++mStreamCatalogIndex;
 
-        const auto before   = gpu->FindClipSlot(e.key);
+        const auto before    = gpu->FindClipSlot(e.key);
         const auto resBefore = gpu->ResidentClipCount();
-        const auto slot     = gpu->EnsureClipResident(e.key, e.bake);
+        const auto slot      = gpu->EnsureClipResident(e.key, e.bake);
         if (slot == 0xffffffffu)
         {
             std::cout << "Stream FAIL " << e.label
@@ -1197,8 +1244,7 @@ class MainApp final : public fra::AbstractApplication
         }
         mStreamedUpperSlot = slot;
         const bool hit     = before == slot;
-        const bool evicted =
-            !hit && resBefore >= fra::GpuAnimPass::kMaxClips;
+        const bool evicted = !hit && resBefore >= fra::GpuAnimPass::kMaxClips;
         std::cout << "Stream " << e.label << " -> slot=" << slot
                   << (hit ? " (hit)" : " (miss/upload)")
                   << (evicted ? " [LRU evict]" : "")
@@ -1211,9 +1257,9 @@ class MainApp final : public fra::AbstractApplication
         std::uint32_t uploads = 0, hits = 0, fails = 0, evicts = 0;
         for (const auto& e : mStreamCatalog)
         {
-            const auto before   = gpu.FindClipSlot(e.key);
+            const auto before    = gpu.FindClipSlot(e.key);
             const auto resBefore = gpu.ResidentClipCount();
-            const auto slot     = gpu.EnsureClipResident(e.key, e.bake);
+            const auto slot      = gpu.EnsureClipResident(e.key, e.bake);
             if (slot == 0xffffffffu)
             {
                 ++fails;
@@ -1254,7 +1300,7 @@ class MainApp final : public fra::AbstractApplication
     {
         mFreyaOptions->quantizeGpuAnimJoints =
             !mFreyaOptions->quantizeGpuAnimJoints;
-        mStreamedUpperSlot = 0xffffffffu;
+        mStreamedUpperSlot  = 0xffffffffu;
         const bool wasCrowd = mGpuAnimMode == GpuAnimMode::Crowd;
         const bool wasFox0  = mGpuAnimMode == GpuAnimMode::Fox0;
         mRenderer->RebuildGpuAnimPass();
@@ -1398,8 +1444,8 @@ class MainApp final : public fra::AbstractApplication
                     };
                     mRenderer->SetGpuAnimJointExtract({ &req, 1 });
                 }
-                std::cout << "GpuAnim Crowd (LOD + layers/look/IK on GPU; "
-                             "fox0 head extract N+1)\n";
+                std::cout << "GpuAnim Crowd (Advance+skin at animLodHz; "
+                             "layers/look/IK on GPU; fox0 head extract N+1)\n";
                 break;
             case GpuAnimMode::Crowd:
                 mGpuAnimMode     = GpuAnimMode::Off;
@@ -1471,8 +1517,8 @@ class MainApp final : public fra::AbstractApplication
             mStreamedUpperSlot != 0xffffffffu && mEnableUpperMask)
         {
             inst.flags |= fra::GpuAnimFlags::MaskedOverlay;
-            inst.clipMask   = mStreamedUpperSlot;
-            inst.maskBase   = 0;
+            inst.clipMask = mStreamedUpperSlot;
+            inst.maskBase = 0;
             if (inst.weightMask <= 0.f)
             {
                 inst.timeMask   = inst.timeA;
@@ -1533,25 +1579,32 @@ class MainApp final : public fra::AbstractApplication
         return 0u;
     }
 
-    float         mProfReportTimer  = 0.f;
-    std::uint32_t mProfFrames       = 0;
-    std::uint32_t mProfAnimUpdates  = 0;
-    double        mProfAnimMs       = 0.0;
-    double        mProfSkinMs       = 0.0;
-    double        mProfBoneMs       = 0.0;
-    double        mProfInstMs       = 0.0;
-    double        mProfEndMs        = 0.0;
-    double        mProfUpdateMs     = 0.0;
-    double        mProfDtSum        = 0.0;
-    float         mAnimClock        = 0.f;
-    float         mSpeed            = 0.f;
-    float         mStrafe           = 0.f;
-    float         mFootstepLogTimer = 0.f;
-    std::uint64_t mFootstepTotal    = 0;
+    float              mProfReportTimer  = 0.f;
+    std::uint32_t      mProfFrames       = 0;
+    std::uint32_t      mProfAnimUpdates  = 0;
+    std::uint32_t      mProfGpuInstSum   = 0;
+    std::uint32_t      mProfLodSum[4]    = {};
+    double             mProfAdvMs        = 0.0;
+    double             mProfEvalMs       = 0.0;
+    double             mProfPackMs       = 0.0;
+    double             mProfSkinMs       = 0.0;
+    double             mProfBoneMs       = 0.0;
+    double             mProfInstMs       = 0.0;
+    double             mProfEndMs        = 0.0;
+    double             mProfUpdateMs     = 0.0;
+    double             mProfGpuCarryMs   = 0.0;
+    double             mProfGpuBakeMs    = 0.0;
+    std::uint32_t      mProfGpuSamples   = 0;
+    double             mProfDtSum        = 0.0;
+    float              mAnimClock        = 0.f;
+    float              mSpeed            = 0.f;
+    float              mStrafe           = 0.f;
+    float              mFootstepLogTimer = 0.f;
+    std::uint64_t      mFootstepTotal    = 0;
     fra::AnimEventRing mEventRing { 64 };
-    std::uint32_t mFoxMaterial      = 0;
-    std::uint32_t mGroundMesh       = 0;
-    std::uint32_t mGroundMaterial   = 0;
+    std::uint32_t      mFoxMaterial    = 0;
+    std::uint32_t      mGroundMesh     = 0;
+    std::uint32_t      mGroundMaterial = 0;
 
     std::unordered_set<std::uint32_t> mKeysHeld;
     bool                              mLookHeld  = false;

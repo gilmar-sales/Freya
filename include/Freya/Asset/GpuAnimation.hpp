@@ -153,6 +153,22 @@ namespace FREYA_NAMESPACE
         glm::mat4     skinMatrix { 1.f };
     };
 
+    /**
+     * @brief N+1 GPU timing for one GpuAnimPass::Dispatch (prev FiF slot).
+     *
+     * `valid` is false until a Dispatch has completed for the previous slot,
+     * or when the device has no usable timestamp queries.
+     */
+    struct GpuAnimTimingSample
+    {
+        bool          valid         = false;
+        bool          hasCarry      = false;
+        float         carryMs       = 0.f;
+        float         bakeMs        = 0.f;
+        std::uint32_t instanceCount = 0;
+        std::uint32_t sourceFrame   = 0;
+    };
+
     /// Pack unit quaternion: omit largest abs component (index in bits 31..30),
     /// store the other three as 10-bit values in [-1/sqrt(2), 1/sqrt(2)].
     [[nodiscard]] inline std::uint32_t PackQuatSmallestThree(glm::quat q)
@@ -180,10 +196,9 @@ namespace FREYA_NAMESPACE
         {
             if (i == maxI)
                 continue;
-            const float n =
-                std::clamp((v[i] / kRange) * 0.5f + 0.5f, 0.f, 1.f);
-            auto bits = static_cast<std::uint32_t>(n * 1023.f + 0.5f);
-            bits      = std::min(bits, 1023u);
+            const float n = std::clamp((v[i] / kRange) * 0.5f + 0.5f, 0.f, 1.f);
+            auto        bits = static_cast<std::uint32_t>(n * 1023.f + 0.5f);
+            bits             = std::min(bits, 1023u);
             out |= bits << shift;
             shift -= 10;
         }
@@ -203,8 +218,7 @@ namespace FREYA_NAMESPACE
     {
         GpuQuantJoint g;
         g.quatBits = PackQuatSmallestThree(j.rotation);
-        g.txy =
-            glm::packHalf2x16(glm::vec2(j.translation.x, j.translation.y));
+        g.txy  = glm::packHalf2x16(glm::vec2(j.translation.x, j.translation.y));
         g.tzsx = glm::packHalf2x16(glm::vec2(j.translation.z, j.scale.x));
         g.sysz = glm::packHalf2x16(glm::vec2(j.scale.y, j.scale.z));
         return g;
@@ -265,9 +279,8 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] std::uint32_t JointCount() const
         {
-            return quantized
-                       ? static_cast<std::uint32_t>(quantJoints.size())
-                       : static_cast<std::uint32_t>(floatJoints.size());
+            return quantized ? static_cast<std::uint32_t>(quantJoints.size())
+                             : static_cast<std::uint32_t>(floatJoints.size());
         }
     };
 
@@ -289,15 +302,15 @@ namespace FREYA_NAMESPACE
             pack.headers.push_back(h);
             if (quantize)
             {
-                pack.quantJoints.reserve(pack.quantJoints.size() +
-                                         c.joints.size());
+                pack.quantJoints.reserve(
+                    pack.quantJoints.size() + c.joints.size());
                 for (const auto& j : c.joints)
                     pack.quantJoints.push_back(ToGpuQuantJoint(j));
             }
             else
             {
-                pack.floatJoints.reserve(pack.floatJoints.size() +
-                                         c.joints.size());
+                pack.floatJoints.reserve(
+                    pack.floatJoints.size() + c.joints.size());
                 for (const auto& j : c.joints)
                     pack.floatJoints.push_back(ToGpuFloatJoint(j));
             }

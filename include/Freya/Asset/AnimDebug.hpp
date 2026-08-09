@@ -60,7 +60,7 @@ namespace FREYA_NAMESPACE
         out.joints.resize(n);
         for (std::uint32_t i = 0; i < n; ++i)
         {
-            out.joints[i].index  = i;
+            out.joints[i].index = i;
             out.joints[i].parent =
                 i < skeleton.parents.size() ? skeleton.parents[i] : -1;
             out.joints[i].name =
@@ -75,9 +75,8 @@ namespace FREYA_NAMESPACE
     {
         PoseWorldDebugSnapshot out;
         const auto             globals = LocalToGlobal(skeleton, local);
-        const auto             n =
-            std::min(skeleton.JointCount(),
-                     static_cast<std::uint32_t>(globals.size()));
+        const auto n = std::min(skeleton.JointCount(),
+                                static_cast<std::uint32_t>(globals.size()));
         out.joints.resize(n);
         for (std::uint32_t i = 0; i < n; ++i)
         {

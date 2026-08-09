@@ -24,15 +24,16 @@ namespace FREYA_NAMESPACE
             std::uint32_t joints    = 0; ///< per-frame joint count
         };
 
-        bool          enabled           = false;
-        bool          quantizedJoints   = false;
-        std::uint32_t instanceCount     = 0;
-        std::uint32_t skeletonJoints    = 0;
-        std::uint32_t maxClips          = 0;
-        std::uint32_t maxBakedJoints    = 0;
-        std::uint32_t jointsPerClipSlot = 0;
-        std::uint32_t residentClips     = 0;
-        std::uint32_t extractRequests   = 0;
+        bool          enabled                 = false;
+        bool          quantizedJoints         = false;
+        bool          timestampQueriesEnabled = false;
+        std::uint32_t instanceCount           = 0;
+        std::uint32_t skeletonJoints          = 0;
+        std::uint32_t maxClips                = 0;
+        std::uint32_t maxBakedJoints          = 0;
+        std::uint32_t jointsPerClipSlot       = 0;
+        std::uint32_t residentClips           = 0;
+        std::uint32_t extractRequests         = 0;
 
         std::vector<ClipSlot> slots;
     };
