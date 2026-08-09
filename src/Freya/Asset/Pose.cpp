@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -89,6 +90,64 @@ namespace FREYA_NAMESPACE
         joints.assign(jointCount, JointTRS {});
     }
 
+    void BoneMask::Resize(const std::uint32_t jointCount, const float fill)
+    {
+        weights.assign(jointCount, fill);
+    }
+
+    void BoneMask::SetJoint(const std::uint32_t joint, const float weight)
+    {
+        if (joint < weights.size())
+            weights[joint] = std::clamp(weight, 0.f, 1.f);
+    }
+
+    void BoneMask::SetSubtree(const Skeleton&     skeleton,
+                              const std::uint32_t root, const float weight)
+    {
+        const auto n = skeleton.JointCount();
+        if (weights.size() < n)
+            Resize(n, 0.f);
+        if (root >= n)
+            return;
+
+        const float w = std::clamp(weight, 0.f, 1.f);
+        weights[root] = w;
+        for (std::uint32_t i = 0; i < n; ++i)
+        {
+            auto p = skeleton.parents[i];
+            while (p >= 0)
+            {
+                if (static_cast<std::uint32_t>(p) == root)
+                {
+                    weights[i] = w;
+                    break;
+                }
+                p = skeleton.parents[static_cast<std::uint32_t>(p)];
+            }
+        }
+    }
+
+    BoneMask BoneMask::Filled(const std::uint32_t jointCount,
+                              const float         weight)
+    {
+        BoneMask m;
+        m.Resize(jointCount, std::clamp(weight, 0.f, 1.f));
+        return m;
+    }
+
+    std::int32_t FindJointIndex(const Skeleton&        skeleton,
+                                const std::string_view needle)
+    {
+        if (needle.empty())
+            return -1;
+        for (std::uint32_t i = 0; i < skeleton.names.size(); ++i)
+        {
+            if (skeleton.names[i].find(needle) != std::string::npos)
+                return static_cast<std::int32_t>(i);
+        }
+        return -1;
+    }
+
     LocalPose RestLocalPose(const Skeleton& skeleton)
     {
         LocalPose  pose;
@@ -152,6 +211,111 @@ namespace FREYA_NAMESPACE
                 glm::mix(a.joints[i].scale, b.joints[i].scale, u);
         }
         return out;
+    }
+
+    LocalPose BlendMasked(const LocalPose& base, const LocalPose& overlay,
+                          const BoneMask& mask, const float layerWeight)
+    {
+        const float layer = std::clamp(layerWeight, 0.f, 1.f);
+        if (layer <= 0.f)
+            return base;
+
+        LocalPose  out;
+        const auto n = std::min({ base.Size(), overlay.Size(), mask.Size() });
+        out.Resize(n);
+        for (std::uint32_t i = 0; i < n; ++i)
+        {
+            const float u = std::clamp(mask.weights[i], 0.f, 1.f) * layer;
+            if (u <= 0.f)
+            {
+                out.joints[i] = base.joints[i];
+                continue;
+            }
+            if (u >= 1.f)
+            {
+                out.joints[i] = overlay.joints[i];
+                continue;
+            }
+            out.joints[i].translation = glm::mix(
+                base.joints[i].translation, overlay.joints[i].translation, u);
+            out.joints[i].rotation = glm::normalize(glm::slerp(
+                base.joints[i].rotation, overlay.joints[i].rotation, u));
+            out.joints[i].scale =
+                glm::mix(base.joints[i].scale, overlay.joints[i].scale, u);
+        }
+        return out;
+    }
+
+    Blend1DSpan ResolveBlend1D(const std::span<const float> values,
+                               const float                  param)
+    {
+        Blend1DSpan span {};
+        if (values.empty())
+            return span;
+        if (values.size() == 1 || param <= values.front())
+            return span;
+        if (param >= values.back())
+        {
+            span.i0 = span.i1 = static_cast<std::uint32_t>(values.size() - 1);
+            span.t            = 0.f;
+            return span;
+        }
+
+        std::uint32_t next = 1;
+        while (next < values.size() && param > values[next])
+            ++next;
+        span.i0       = next - 1;
+        span.i1       = next;
+        const float a = values[span.i0];
+        const float b = values[span.i1];
+        span.t = (b > a) ? std::clamp((param - a) / (b - a), 0.f, 1.f) : 0.f;
+        return span;
+    }
+
+    void AdvanceBlend1DTimes(const std::span<const Blend1DSample> samples,
+                             const std::span<float> times, const float dt)
+    {
+        if (times.size() < samples.size())
+            return;
+        for (std::uint32_t i = 0; i < samples.size(); ++i)
+        {
+            const auto& s = samples[i];
+            if (!s.clip)
+                continue;
+            times[i] += dt * std::max(s.playbackSpeed, 0.f);
+            if (s.loop && s.clip->duration > 0.f)
+            {
+                times[i] = std::fmod(times[i], s.clip->duration);
+                if (times[i] < 0.f)
+                    times[i] += s.clip->duration;
+            }
+        }
+    }
+
+    LocalPose EvaluateBlend1D(const Skeleton&                      skeleton,
+                              const std::span<const Blend1DSample> samples,
+                              const std::span<float> times, const float param)
+    {
+        if (samples.empty())
+            return RestLocalPose(skeleton);
+
+        std::vector<float> values(samples.size());
+        for (std::uint32_t i = 0; i < samples.size(); ++i)
+            values[i] = samples[i].value;
+
+        const auto  span = ResolveBlend1D(values, param);
+        const auto& s0   = samples[span.i0];
+        const auto& s1   = samples[span.i1];
+        const float t0   = span.i0 < times.size() ? times[span.i0] : 0.f;
+        const float t1   = span.i1 < times.size() ? times[span.i1] : 0.f;
+
+        LocalPose a = s0.clip ? SampleClip(skeleton, *s0.clip, t0, s0.loop)
+                              : RestLocalPose(skeleton);
+        if (span.i0 == span.i1 || span.t <= 0.f)
+            return a;
+        LocalPose b = s1.clip ? SampleClip(skeleton, *s1.clip, t1, s1.loop)
+                              : RestLocalPose(skeleton);
+        return BlendLocalPoses(a, b, span.t);
     }
 
     std::vector<glm::mat4> LocalToGlobal(const Skeleton&  skeleton,

@@ -4,6 +4,8 @@
 #include "Freya/Asset/Skeleton.hpp"
 
 #include <cstdint>
+#include <span>
+#include <string_view>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -38,6 +40,27 @@ namespace FREYA_NAMESPACE
     };
 
     /**
+     * @brief Per-joint overlay weights in [0,1] for layered blending.
+     */
+    struct BoneMask
+    {
+        std::vector<float> weights;
+
+        void Resize(std::uint32_t jointCount, float fill = 0.f);
+        [[nodiscard]] std::uint32_t Size() const
+        {
+            return static_cast<std::uint32_t>(weights.size());
+        }
+
+        void SetJoint(std::uint32_t joint, float weight);
+        /** Set `root` and all descendants to `weight`. */
+        void SetSubtree(const Skeleton& skeleton, std::uint32_t root,
+                        float weight);
+
+        static BoneMask Filled(std::uint32_t jointCount, float weight);
+    };
+
+    /**
      * @brief Root-bone delta between two clip times (for root motion).
      */
     struct RootMotionDelta
@@ -45,6 +68,33 @@ namespace FREYA_NAMESPACE
         glm::vec3 translation { 0.f };
         glm::quat rotation { 1.f, 0.f, 0.f, 0.f };
     };
+
+    /**
+     * @brief Clip sample on a 1D blend axis (e.g. Speed 0/1/2).
+     */
+    struct Blend1DSample
+    {
+        float                value         = 0.f;
+        const AnimationClip* clip          = nullptr;
+        bool                 loop          = true;
+        float                playbackSpeed = 1.f;
+    };
+
+    /**
+     * @brief Adjacent samples + lerp t for a Blend1D parameter.
+     *
+     * Samples must be sorted ascending by `value`.
+     */
+    struct Blend1DSpan
+    {
+        std::uint32_t i0 = 0;
+        std::uint32_t i1 = 0;
+        float         t  = 0.f; ///< weight toward i1
+    };
+
+    /** First joint whose name contains `needle`, or -1. */
+    [[nodiscard]] std::int32_t FindJointIndex(const Skeleton&  skeleton,
+                                              std::string_view needle);
 
     /** Rest pose from skeleton.restLocal (decomposed). */
     LocalPose RestLocalPose(const Skeleton& skeleton);
@@ -59,6 +109,34 @@ namespace FREYA_NAMESPACE
 
     /** Nlerp / slerp blend of two local poses (t in [0,1]). */
     LocalPose BlendLocalPoses(const LocalPose& a, const LocalPose& b, float t);
+
+    /**
+     * @brief Layer `overlay` onto `base` using per-joint mask * layerWeight.
+     *
+     * `out[j] = lerp(base[j], overlay[j], mask[j] * layerWeight)`.
+     */
+    LocalPose BlendMasked(const LocalPose& base, const LocalPose& overlay,
+                          const BoneMask& mask, float layerWeight = 1.f);
+
+    /**
+     * @brief Resolve which two Blend1D samples to lerp for `param`.
+     *
+     * `values` must be sorted ascending. Empty → {0,0,0}.
+     */
+    Blend1DSpan ResolveBlend1D(std::span<const float> values, float param);
+
+    /**
+     * @brief Sample and blend clips along a 1D parameter (Idle↔Walk↔Run).
+     *
+     * `times` is per-sample playback time. Resized to samples.size() if empty.
+     */
+    LocalPose EvaluateBlend1D(const Skeleton&                skeleton,
+                              std::span<const Blend1DSample> samples,
+                              std::span<float> times, float param);
+
+    /** Advance each sample's time by dt * playbackSpeed (with loop wrap). */
+    void AdvanceBlend1DTimes(std::span<const Blend1DSample> samples,
+                             std::span<float> times, float dt);
 
     /** Local → global joint matrices. */
     std::vector<glm::mat4> LocalToGlobal(const Skeleton&  skeleton,

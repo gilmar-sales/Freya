@@ -14,25 +14,32 @@ auto meshIds = meshPool->CreateMeshFromFile("./Resources/Models/MyModel.fbx");
 fra::SkinnedModel fox =
     meshPool->CreateSkinnedModelFromFile("./Resources/Models/Fox.glb");
 
-// Pose API: SampleClip → blend → PoseToSkinMatrices → UploadBoneMatrices.
+// Pose API: SampleClip → Blend1D / BlendMasked → PoseToSkinMatrices.
 // EvaluateSkeletonPose is a thin wrapper for a single clip.
 auto skin = fra::PoseToSkinMatrices(
     fox.skeleton, fra::SampleClip(fox.skeleton, fox.clips[0], timeSec));
 renderer->UploadBoneMatrices(skin);
 
-// AnimGraph MVP: float/bool/trigger params, ClipStates, crossfade transitions.
+// AnimGraph: Blend1D locomotion on a float param (Idle↔Walk↔Run).
 auto graph = fra::AnimGraphBuilder()
                  .SetSkeleton(&fox.skeleton)
                  .ParamFloat("Speed")
-                 .State("Idle", fox.clips[0])
-                 .State("Walk", fox.clips[1])
-                 .Entry("Idle")
-                 .Transition("Idle", "Walk",
-                             fra::AnimCondition::FloatGreater("Speed", 0.1f))
+                 .Blend1DState("Loco", "Speed")
+                 .AddBlendSample(0.f, fox.clips[0])
+                 .AddBlendSample(1.f, fox.clips[1])
+                 .AddBlendSample(2.f, fox.clips[2], true, 1.85f)
+                 .Entry("Loco")
                  .Build();
-graph.SetFloat("Speed", 1.f);
-renderer->UploadBoneMatrices(
-    fra::PoseToSkinMatrices(fox.skeleton, graph.Evaluate(dt)));
+graph.SetFloat("Speed", 1.35f); // continuous blend Walk↔Run
+auto local = graph.Evaluate(dt);
+
+// Bone mask layer: upper-body overlay without stomping the gait.
+fra::BoneMask upper = fra::BoneMask::Filled(fox.skeleton.JointCount(), 0.f);
+if (auto spine = fra::FindJointIndex(fox.skeleton, "Spine"); spine >= 0)
+    upper.SetSubtree(fox.skeleton, static_cast<std::uint32_t>(spine), 1.f);
+local = fra::BlendMasked(
+    local, fra::SampleClip(fox.skeleton, fox.clips[0], timeSec), upper, 0.8f);
+renderer->UploadBoneMatrices(fra::PoseToSkinMatrices(fox.skeleton, local));
 // Instances share boneOffset=0 .. JointCount()-1 in the bone palette.
 uploads.push_back({
     .model = model,

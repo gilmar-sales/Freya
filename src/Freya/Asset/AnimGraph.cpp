@@ -92,6 +92,34 @@ namespace FREYA_NAMESPACE
         }
     }
 
+    LocalPose AnimGraph::evaluateState(State& state, float& clipTime,
+                                       const float dt)
+    {
+        if (state.kind == StateKind::Blend1D)
+        {
+            if (state.blendTimes.size() != state.blendSamples.size())
+                state.blendTimes.assign(state.blendSamples.size(), 0.f);
+
+            AdvanceBlend1DTimes(state.blendSamples, state.blendTimes, dt);
+            const float param = GetFloat(state.blendParam);
+            return EvaluateBlend1D(
+                *mSkeleton, state.blendSamples, state.blendTimes, param);
+        }
+
+        const float rate = std::max(state.playbackSpeed, 0.f);
+        clipTime += dt * rate;
+        if (state.clip && state.clip->duration > 0.f && state.loop)
+        {
+            clipTime = std::fmod(clipTime, state.clip->duration);
+            if (clipTime < 0.f)
+                clipTime += state.clip->duration;
+        }
+
+        return state.clip
+                   ? SampleClip(*mSkeleton, *state.clip, clipTime, state.loop)
+                   : RestLocalPose(*mSkeleton);
+    }
+
     LocalPose AnimGraph::Evaluate(const float dt)
     {
         if (!mSkeleton || mStates.empty())
@@ -99,20 +127,8 @@ namespace FREYA_NAMESPACE
 
         tryStartTransition();
 
-        auto&       curState = mStates[mCurrentState];
-        const float curRate  = std::max(curState.playbackSpeed, 0.f);
-        mCurrentTime += dt * curRate;
-        if (curState.clip && curState.clip->duration > 0.f && curState.loop)
-        {
-            mCurrentTime = std::fmod(mCurrentTime, curState.clip->duration);
-            if (mCurrentTime < 0.f)
-                mCurrentTime += curState.clip->duration;
-        }
-
         LocalPose fromPose =
-            curState.clip ? SampleClip(*mSkeleton, *curState.clip, mCurrentTime,
-                                       curState.loop)
-                          : RestLocalPose(*mSkeleton);
+            evaluateState(mStates[mCurrentState], mCurrentTime, dt);
 
         if (!mBlending)
         {
@@ -120,20 +136,7 @@ namespace FREYA_NAMESPACE
             return fromPose;
         }
 
-        auto&       nextState = mStates[mNextState];
-        const float nextRate  = std::max(nextState.playbackSpeed, 0.f);
-        mNextTime += dt * nextRate;
-        if (nextState.clip && nextState.clip->duration > 0.f && nextState.loop)
-        {
-            mNextTime = std::fmod(mNextTime, nextState.clip->duration);
-            if (mNextTime < 0.f)
-                mNextTime += nextState.clip->duration;
-        }
-
-        LocalPose toPose =
-            nextState.clip ? SampleClip(*mSkeleton, *nextState.clip, mNextTime,
-                                        nextState.loop)
-                           : RestLocalPose(*mSkeleton);
+        LocalPose toPose = evaluateState(mStates[mNextState], mNextTime, dt);
 
         mBlendElapsed += dt;
         const float alpha =
@@ -192,10 +195,46 @@ namespace FREYA_NAMESPACE
     {
         AnimGraph::State s;
         s.name          = std::move(name);
+        s.kind          = AnimGraph::StateKind::Clip;
         s.clip          = &clip;
         s.loop          = loop;
         s.playbackSpeed = playbackSpeed;
         mGraph.mStates.push_back(std::move(s));
+        mLastBlendState = -1;
+        return *this;
+    }
+
+    AnimGraphBuilder& AnimGraphBuilder::Blend1DState(std::string name,
+                                                     std::string param)
+    {
+        AnimGraph::State s;
+        s.name       = std::move(name);
+        s.kind       = AnimGraph::StateKind::Blend1D;
+        s.blendParam = std::move(param);
+        mGraph.mStates.push_back(std::move(s));
+        mLastBlendState = static_cast<std::int32_t>(mGraph.mStates.size() - 1);
+        return *this;
+    }
+
+    AnimGraphBuilder& AnimGraphBuilder::AddBlendSample(
+        const float value, const AnimationClip& clip, const bool loop,
+        const float playbackSpeed)
+    {
+        if (mLastBlendState < 0)
+            throw std::runtime_error(
+                "AnimGraphBuilder: AddBlendSample without Blend1DState");
+
+        auto& st = mGraph.mStates[static_cast<std::uint32_t>(mLastBlendState)];
+        if (!st.blendSamples.empty() && value < st.blendSamples.back().value)
+            throw std::runtime_error(
+                "AnimGraphBuilder: Blend1D samples must be ascending");
+
+        Blend1DSample sample;
+        sample.value         = value;
+        sample.clip          = &clip;
+        sample.loop          = loop;
+        sample.playbackSpeed = playbackSpeed;
+        st.blendSamples.push_back(sample);
         return *this;
     }
 
@@ -240,6 +279,17 @@ namespace FREYA_NAMESPACE
             throw std::runtime_error("AnimGraphBuilder: skeleton required");
         if (mGraph.mStates.empty())
             throw std::runtime_error("AnimGraphBuilder: no states");
+
+        for (auto& st : mGraph.mStates)
+        {
+            if (st.kind == AnimGraph::StateKind::Blend1D)
+            {
+                if (st.blendSamples.size() < 2)
+                    throw std::runtime_error(
+                        "AnimGraphBuilder: Blend1D needs >= 2 samples");
+                st.blendTimes.assign(st.blendSamples.size(), 0.f);
+            }
+        }
 
         mGraph.mSkeleton = mSkeleton;
         if (!mEntryName.empty())

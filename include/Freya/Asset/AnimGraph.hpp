@@ -57,7 +57,7 @@ namespace FREYA_NAMESPACE
     };
 
     /**
-     * @brief Simple gameplay animation state machine with crossfade.
+     * @brief Gameplay animation state machine with clip / Blend1D + crossfade.
      *
      * States reference AnimationClip pointers owned by the app/asset.
      * Evaluate(dt) advances time, resolves transitions, blends poses.
@@ -87,12 +87,23 @@ namespace FREYA_NAMESPACE
       private:
         friend class AnimGraphBuilder;
 
+        enum class StateKind : std::uint8_t
+        {
+            Clip,
+            Blend1D,
+        };
+
         struct State
         {
             std::string          name;
+            StateKind            kind          = StateKind::Clip;
             const AnimationClip* clip          = nullptr;
             bool                 loop          = true;
             float                playbackSpeed = 1.f;
+
+            std::string                blendParam;
+            std::vector<Blend1DSample> blendSamples;
+            std::vector<float>         blendTimes;
         };
 
         struct Transition
@@ -116,9 +127,10 @@ namespace FREYA_NAMESPACE
             bool raised = false;
         };
 
-        bool evaluateCondition(const AnimCondition& c) const;
-        void clearTriggers();
-        void tryStartTransition();
+        bool      evaluateCondition(const AnimCondition& c) const;
+        void      clearTriggers();
+        void      tryStartTransition();
+        LocalPose evaluateState(State& state, float& clipTime, float dt);
 
         const Skeleton*         mSkeleton = nullptr;
         std::vector<State>      mStates;
@@ -152,6 +164,18 @@ namespace FREYA_NAMESPACE
 
         AnimGraphBuilder& State(std::string name, const AnimationClip& clip,
                                 bool loop = true, float playbackSpeed = 1.f);
+
+        /**
+         * @brief Begin a Blend1D state driven by float param (e.g. "Speed").
+         *
+         * Call AddBlendSample afterwards (ascending `value` order).
+         */
+        AnimGraphBuilder& Blend1DState(std::string name, std::string param);
+
+        AnimGraphBuilder& AddBlendSample(float value, const AnimationClip& clip,
+                                         bool  loop          = true,
+                                         float playbackSpeed = 1.f);
+
         AnimGraphBuilder& Entry(std::string_view stateName);
 
         AnimGraphBuilder& Transition(std::string_view from,
@@ -167,6 +191,7 @@ namespace FREYA_NAMESPACE
         const Skeleton* mSkeleton = nullptr;
         AnimGraph       mGraph;
         std::string     mEntryName;
+        std::int32_t    mLastBlendState = -1;
     };
 
 } // namespace FREYA_NAMESPACE
