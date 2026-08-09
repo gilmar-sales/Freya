@@ -6,6 +6,7 @@
 #include "Freya/Builders/DebugDrawPassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/DeviceBuilder.hpp"
+#include "Freya/Builders/GpuAnimPassBuilder.hpp"
 #include "Freya/Builders/PhysicalDeviceBuilder.hpp"
 #include "Freya/Builders/SsaoPassBuilder.hpp"
 #include "Freya/Builders/SurfaceBuilder.hpp"
@@ -75,6 +76,9 @@ namespace FREYA_NAMESPACE
             mServiceProvider->GetService<DebugDrawPassBuilder>()->Build(
                 mSwapChain);
 
+        auto gpuAnimPass =
+            mServiceProvider->GetService<GpuAnimPassBuilder>()->Build();
+
         auto lightService = mServiceProvider->GetService<LightService>();
         auto shadowPass   = mServiceProvider->GetService<ShadowPass>();
         auto pickPass     = mServiceProvider->GetService<PickPass>();
@@ -91,6 +95,7 @@ namespace FREYA_NAMESPACE
             ssaoPass,
             compositePass,
             debugDrawPass,
+            gpuAnimPass,
             mCommandPool,
             lightService,
             shadowPass,

@@ -21,6 +21,7 @@
 #include "Freya/Core/DeferredCompressedPass.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/FrameStages.hpp"
+#include "Freya/Core/GpuAnimPass.hpp"
 #include "Freya/Core/HiZPyramid.hpp"
 #include "Freya/Core/IBLService.hpp"
 #include "Freya/Core/IFrameStage.hpp"

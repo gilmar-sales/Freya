@@ -76,6 +76,20 @@ namespace FREYA_NAMESPACE
                                     bool             fallback = false) const;
 
         /**
+         * @brief Tick graph (transitions + phase/time) without sampling poses.
+         *
+         * Use with TryGetBlend1DGpuSample + GPU skin, or call SampleCurrent()
+         * for a CPU local pose afterward.
+         */
+        void Advance(float                             dt,
+                     std::vector<FiredAnimationEvent>* outEvents = nullptr);
+
+        /**
+         * @brief Sample the current state into a local pose (no time advance).
+         */
+        [[nodiscard]] LocalPose SampleCurrent() const;
+
+        /**
          * @brief Tick graph and return blended local pose.
          *
          * When `outEvents` is non-null, appends clip markers crossed this tick
@@ -86,6 +100,16 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] std::string_view CurrentStateName() const;
         [[nodiscard]] bool             IsBlending() const { return mBlending; }
+
+        /**
+         * @brief If current state is Blend1D, write active span times/clips.
+         *
+         * `clipA`/`clipB` are sample clip pointers (may be equal). Used to
+         * drive GPU bake indices from the same phase the CPU graph uses.
+         */
+        bool TryGetBlend1DGpuSample(const AnimationClip*& clipA, float& timeA,
+                                    const AnimationClip*& clipB, float& timeB,
+                                    float& blendT) const;
 
         [[nodiscard]] const Skeleton* GetSkeleton() const { return mSkeleton; }
 
@@ -139,6 +163,9 @@ namespace FREYA_NAMESPACE
         bool      evaluateCondition(const AnimCondition& c) const;
         void      clearTriggers();
         void      tryStartTransition();
+        void      advanceState(State& state, float& clipTime, float dt,
+                               std::vector<FiredAnimationEvent>* outEvents);
+        LocalPose sampleState(const State& state, float clipTime) const;
         LocalPose evaluateState(State& state, float& clipTime, float dt,
                                 std::vector<FiredAnimationEvent>* outEvents);
 

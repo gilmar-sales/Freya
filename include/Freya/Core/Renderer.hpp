@@ -13,6 +13,7 @@
 #include "Freya/Core/DebugDrawPass.hpp"
 #include "Freya/Core/DeferredCompressedPass.hpp"
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/GpuAnimPass.hpp"
 #include "Freya/Core/IFrameStage.hpp"
 #include "Freya/Core/IndirectDrawSystem.hpp"
 #include "Freya/Core/Instance.hpp"
@@ -65,6 +66,7 @@ namespace FREYA_NAMESPACE
                  const skr::Arc<SsaoPass>&               ssaoPass,
                  const skr::Arc<CompositePass>&          compositePass,
                  const skr::Arc<DebugDrawPass>&          debugDrawPass,
+                 const skr::Arc<GpuAnimPass>&            gpuAnimPass,
                  const skr::Arc<CommandPool>&            commandPool,
                  const skr::Arc<LightService>&           lightService,
                  const skr::Arc<ShadowPass>&             shadowPass,
@@ -284,6 +286,32 @@ namespace FREYA_NAMESPACE
         }
         [[nodiscard]] DebugDraw& GetDebugDraw() { return mDebugDraw; }
 
+        void SetGpuAnimEnabled(bool enabled)
+        {
+            if (mGpuAnimPass)
+                mGpuAnimPass->SetEnabled(enabled);
+        }
+
+        [[nodiscard]] bool IsGpuAnimEnabled() const
+        {
+            return mGpuAnimPass && mGpuAnimPass->IsEnabled();
+        }
+
+        [[nodiscard]] GpuAnimPass* GetGpuAnimPass()
+        {
+            return mGpuAnimPass.get();
+        }
+
+        /**
+         * @brief After GPU anim dispatch + idle, read bone matrices back.
+         *
+         * Pass the frame index used for Upload/Dispatch (before Present
+         * advances the swapchain frame).
+         */
+        bool ReadbackGpuAnimBones(std::uint32_t        frameIndex,
+                                  std::uint32_t        boneOffset,
+                                  std::span<glm::mat4> out);
+
         void UpdateModel(const glm::mat4& model) const;
 
         [[nodiscard]] BufferBuilder       GetBufferBuilder() const;
@@ -347,6 +375,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<SsaoPass>               mSsaoPass;
         skr::Arc<CompositePass>          mCompositePass;
         skr::Arc<DebugDrawPass>          mDebugDrawPass;
+        skr::Arc<GpuAnimPass>            mGpuAnimPass;
         DebugDraw                        mDebugDraw;
         bool                             mDebugDrawEnabled = false;
         skr::Arc<CommandPool>            mCommandPool;

@@ -1,0 +1,209 @@
+#version 450
+
+layout(local_size_x = 64) in;
+
+layout(set = 0, binding = 0) writeonly buffer Bones
+{
+    mat4 bones[];
+};
+
+layout(set = 1, binding = 0) readonly buffer ParentsBuf
+{
+    int parents[];
+};
+
+layout(set = 1, binding = 1) readonly buffer InvBindBuf
+{
+    mat4 inverseBind[];
+};
+
+struct ClipHeader
+{
+    float duration;
+    uint  frameCount;
+    uint  jointCount;
+    uint  jointsBase;
+};
+
+struct BakedJoint
+{
+    vec3  t;
+    float pad0;
+    vec4  q;
+    vec3  s;
+    float pad1;
+};
+
+layout(set = 1, binding = 2) readonly buffer ClipHeaders
+{
+    ClipHeader clips[];
+};
+
+layout(set = 1, binding = 3) readonly buffer ClipJoints
+{
+    BakedJoint joints[];
+};
+
+struct AnimInstance
+{
+    uint  boneOffset;
+    uint  jointCount;
+    uint  clipA;
+    uint  clipB;
+    float timeA;
+    float timeB;
+    float blendT;
+    uint  flags;
+};
+
+layout(set = 1, binding = 4) readonly buffer Instances
+{
+    AnimInstance instances[];
+};
+
+layout(push_constant) uniform Push
+{
+    uint instanceCount;
+    uint jointCount;
+    uint _pad0;
+    uint _pad1;
+} pc;
+
+vec4 quatSlerp(vec4 a, vec4 b, float t)
+{
+    float cosTheta = dot(a, b);
+    if (cosTheta < 0.0)
+    {
+        b        = -b;
+        cosTheta = -cosTheta;
+    }
+    if (cosTheta > 0.9995)
+        return normalize(mix(a, b, t));
+    float theta = acos(clamp(cosTheta, -1.0, 1.0));
+    return (a * sin((1.0 - t) * theta) + b * sin(t * theta)) / sin(theta);
+}
+
+mat4 quatToMat(vec4 q)
+{
+    float x = q.x, y = q.y, z = q.z, w = q.w;
+    float xx = x * x, yy = y * y, zz = z * z;
+    float xy = x * y, xz = x * z, yz = y * z;
+    float wx = w * x, wy = w * y, wz = w * z;
+    return mat4(1.0 - 2.0 * (yy + zz), 2.0 * (xy + wz), 2.0 * (xz - wy), 0.0,
+                2.0 * (xy - wz), 1.0 - 2.0 * (xx + zz), 2.0 * (yz + wx), 0.0,
+                2.0 * (xz + wy), 2.0 * (yz - wx), 1.0 - 2.0 * (xx + yy), 0.0,
+                0.0, 0.0, 0.0, 1.0);
+}
+
+mat4 trsMat(vec3 t, vec4 q, vec3 s)
+{
+    mat4 r = quatToMat(q);
+    // Column-major: scale columns of rotation, translation in col3.
+    mat4 m;
+    m[0] = vec4(r[0].xyz * s.x, 0.0);
+    m[1] = vec4(r[1].xyz * s.y, 0.0);
+    m[2] = vec4(r[2].xyz * s.z, 0.0);
+    m[3] = vec4(t, 1.0);
+    return m;
+}
+
+BakedJoint fetchJoint(ClipHeader h, uint frame, uint joint)
+{
+    return joints[h.jointsBase + frame * h.jointCount + joint];
+}
+
+BakedJoint lerpJoint(BakedJoint a, BakedJoint b, float t)
+{
+    BakedJoint o;
+    o.t    = mix(a.t, b.t, t);
+    o.q    = quatSlerp(a.q, b.q, t);
+    o.s    = mix(a.s, b.s, t);
+    o.pad0 = 0.0;
+    o.pad1 = 0.0;
+    return o;
+}
+
+BakedJoint sampleJoint(ClipHeader h, float timeSec, bool loop, uint joint)
+{
+    if (h.frameCount == 0u)
+    {
+        BakedJoint z;
+        z.t    = vec3(0.0);
+        z.q    = vec4(0.0, 0.0, 0.0, 1.0);
+        z.s    = vec3(1.0);
+        z.pad0 = 0.0;
+        z.pad1 = 0.0;
+        return z;
+    }
+    if (h.frameCount == 1u)
+        return fetchJoint(h, 0u, joint);
+
+    float t = timeSec;
+    if (loop && h.duration > 0.0)
+    {
+        t = mod(t, h.duration);
+        if (t < 0.0)
+            t += h.duration;
+    }
+    else
+        t = clamp(t, 0.0, max(h.duration, 0.0));
+
+    float u = 0.0;
+    if (loop && h.duration > 0.0)
+        u = (t / h.duration) * float(h.frameCount);
+    else if (h.duration > 0.0)
+        u = clamp((t / h.duration) * float(h.frameCount - 1u), 0.0,
+                  float(h.frameCount - 1u));
+
+    uint  f0 = uint(floor(u));
+    float a  = fract(u);
+    if (loop)
+        f0 %= h.frameCount;
+    else
+        f0 = min(f0, h.frameCount - 1u);
+    uint f1 =
+        loop ? ((f0 + 1u) % h.frameCount) : min(f0 + 1u, h.frameCount - 1u);
+
+    if (a <= 1e-6 || f0 == f1)
+        return fetchJoint(h, f0, joint);
+    return lerpJoint(fetchJoint(h, f0, joint), fetchJoint(h, f1, joint), a);
+}
+
+void main()
+{
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= pc.instanceCount)
+        return;
+
+    AnimInstance inst = instances[id];
+    uint         jc   = min(min(inst.jointCount, pc.jointCount), 128u);
+    if (jc == 0u)
+        return;
+
+    bool       loop = (inst.flags & 1u) != 0u;
+    ClipHeader hA   = clips[inst.clipA];
+    ClipHeader hB   = clips[inst.clipB];
+
+    mat4 localM[128];
+    mat4 globalM[128];
+
+    for (uint j = 0u; j < jc; ++j)
+    {
+        BakedJoint ja = sampleJoint(hA, inst.timeA, loop, j);
+        BakedJoint jb = sampleJoint(hB, inst.timeB, loop, j);
+        BakedJoint jl = (inst.clipA == inst.clipB || inst.blendT <= 0.0)
+                            ? ja
+                            : lerpJoint(ja, jb, clamp(inst.blendT, 0.0, 1.0));
+        localM[j]     = trsMat(jl.t, jl.q, jl.s);
+    }
+
+    for (uint j = 0u; j < jc; ++j)
+    {
+        int p = parents[j];
+        if (p >= 0 && uint(p) < jc)
+            globalM[j] = globalM[uint(p)] * localM[j];
+        else
+            globalM[j] = localM[j];
+        bones[inst.boneOffset + j] = globalM[j] * inverseBind[j];
+    }
+}

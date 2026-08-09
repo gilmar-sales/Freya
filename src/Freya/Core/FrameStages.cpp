@@ -421,9 +421,9 @@ namespace FREYA_NAMESPACE
                 !(*ctx.bloomResultImages)[frame])
                 continue;
             (*ctx.composite)
-                ->UpdateDescriptorSet(frame, scene,
-                                      (*ctx.bloomResultImages)[frame],
-                                      *ctx.bloomResultSampler);
+                ->UpdateDescriptorSet(
+                    frame, scene, (*ctx.bloomResultImages)[frame],
+                    *ctx.bloomResultSampler);
         }
     }
 
@@ -465,6 +465,13 @@ namespace FREYA_NAMESPACE
     {
         if (ctx.drawDebugOverlay)
             ctx.drawDebugOverlay();
+    }
+
+    void GpuAnimFrameStage::Execute(RenderFrameContext& ctx)
+    {
+        if (!ctx.gpuAnim || !*ctx.gpuAnim)
+            return;
+        (*ctx.gpuAnim)->Dispatch(ctx.commandPool, ctx.frameIndex);
     }
 
 } // namespace FREYA_NAMESPACE

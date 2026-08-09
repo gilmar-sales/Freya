@@ -44,6 +44,8 @@ namespace FREYA_NAMESPACE
                                                                0.42f, 1.0f };
         inline constexpr std::array<float, 4> DebugDrawColor { 0.20f, 0.95f,
                                                                0.55f, 1.0f };
+        inline constexpr std::array<float, 4> GpuAnimColor { 0.55f, 0.35f,
+                                                             0.95f, 1.0f };
 
         // --- Top-level / pass roots ----------------------------------------
         inline constexpr DebugRegion Frame { "Frame", FrameColor };
@@ -91,6 +93,7 @@ namespace FREYA_NAMESPACE
 
         inline constexpr DebugRegion Composite { "Composite", CompositeColor };
         inline constexpr DebugRegion DebugDraw { "Debug Draw", DebugDrawColor };
+        inline constexpr DebugRegion GpuAnim { "GPU Anim", GpuAnimColor };
         inline constexpr DebugRegion UI { "UI", CompositeColor };
 
         /**
@@ -120,6 +123,8 @@ namespace FREYA_NAMESPACE
                 return { "Composite", CompositeColor };
             if (view == "DebugDraw")
                 return { "Debug Draw", DebugDrawColor };
+            if (view == "GpuAnim")
+                return { "GPU Anim", GpuAnimColor };
 
             return { name, FrameColor };
         }

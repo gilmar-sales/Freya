@@ -22,6 +22,7 @@
 #include "Freya/Asset/AnimationClip.hpp"
 #include "Freya/Asset/BakedAnimation.hpp"
 #include "Freya/Asset/BoneMatrixResources.hpp"
+#include "Freya/Asset/GpuAnimation.hpp"
 #include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Asset/Material.hpp"
 #include "Freya/Asset/MaterialPool.hpp"

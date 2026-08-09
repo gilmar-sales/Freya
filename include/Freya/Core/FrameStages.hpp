@@ -90,4 +90,17 @@ namespace FREYA_NAMESPACE
         void                      Execute(RenderFrameContext& ctx) override;
     };
 
+    /**
+     * @brief GPU animation compute (fills bone SSBO). Runs before Pick.
+     *
+     * No-op while GpuAnimPass is disabled or instanceCount == 0 (CPU upload
+     * path unchanged).
+     */
+    class GpuAnimFrameStage : public IFrameStage
+    {
+      public:
+        [[nodiscard]] const char* Name() const override { return "GpuAnim"; }
+        void                      Execute(RenderFrameContext& ctx) override;
+    };
+
 } // namespace FREYA_NAMESPACE

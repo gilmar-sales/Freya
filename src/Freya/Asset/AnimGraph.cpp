@@ -132,9 +132,8 @@ namespace FREYA_NAMESPACE
         }
     } // namespace
 
-    LocalPose AnimGraph::evaluateState(
-        State& state, float& clipTime, const float dt,
-        std::vector<FiredAnimationEvent>* outEvents)
+    void AnimGraph::advanceState(State& state, float& clipTime, const float dt,
+                                 std::vector<FiredAnimationEvent>* outEvents)
     {
         if (state.kind == StateKind::Blend1D)
         {
@@ -151,7 +150,6 @@ namespace FREYA_NAMESPACE
                     state.blendSamples, param, state.blendPhase, dt);
                 WriteBlend1DTimesFromPhase(
                     state.blendSamples, state.blendTimes, state.blendPhase);
-                // Rebuild prev times from previous phase for accurate windows.
                 WriteBlend1DTimesFromPhase(
                     state.blendSamples, prevTimes, prevPhase);
             }
@@ -160,9 +158,7 @@ namespace FREYA_NAMESPACE
 
             collectDominantBlendEvents(state.blendSamples, prevTimes,
                                        state.blendTimes, param, outEvents);
-
-            return EvaluateBlend1D(
-                *mSkeleton, state.blendSamples, state.blendTimes, param);
+            return;
         }
 
         const float tPrev = clipTime;
@@ -178,6 +174,20 @@ namespace FREYA_NAMESPACE
         if (outEvents && state.clip)
             CollectFiredClipEvents(
                 *state.clip, tPrev, clipTime, state.loop, *outEvents);
+    }
+
+    LocalPose AnimGraph::sampleState(const State& state,
+                                     const float  clipTime) const
+    {
+        if (!mSkeleton)
+            return {};
+
+        if (state.kind == StateKind::Blend1D)
+        {
+            std::vector<float> times = state.blendTimes;
+            return EvaluateBlend1D(*mSkeleton, state.blendSamples, times,
+                                   GetFloat(state.blendParam));
+        }
 
         if (state.baked && !state.baked->Empty())
             return SampleBaked(*mSkeleton, *state.baked, clipTime, state.loop);
@@ -186,32 +196,36 @@ namespace FREYA_NAMESPACE
                    : RestLocalPose(*mSkeleton);
     }
 
-    LocalPose AnimGraph::Evaluate(const float                       dt,
-                                  std::vector<FiredAnimationEvent>* outEvents)
+    LocalPose AnimGraph::evaluateState(
+        State& state, float& clipTime, const float dt,
+        std::vector<FiredAnimationEvent>* outEvents)
+    {
+        advanceState(state, clipTime, dt, outEvents);
+        return sampleState(state, clipTime);
+    }
+
+    void AnimGraph::Advance(const float                       dt,
+                            std::vector<FiredAnimationEvent>* outEvents)
     {
         if (!mSkeleton || mStates.empty())
-            return {};
+            return;
 
         tryStartTransition();
 
-        LocalPose fromPose = evaluateState(mStates[mCurrentState], mCurrentTime,
-                                           dt, mBlending ? nullptr : outEvents);
+        advanceState(mStates[mCurrentState], mCurrentTime, dt,
+                     mBlending ? nullptr : outEvents);
 
         if (!mBlending)
         {
             clearTriggers();
-            return fromPose;
+            return;
         }
 
-        // Crossfade: emit markers from the incoming state only.
-        LocalPose toPose =
-            evaluateState(mStates[mNextState], mNextTime, dt, outEvents);
+        advanceState(mStates[mNextState], mNextTime, dt, outEvents);
 
         mBlendElapsed += dt;
         const float alpha =
             std::clamp(mBlendElapsed / mBlendDuration, 0.f, 1.f);
-        LocalPose blended = BlendLocalPoses(fromPose, toPose, alpha);
-
         if (alpha >= 1.f)
         {
             mCurrentState = mNextState;
@@ -220,7 +234,28 @@ namespace FREYA_NAMESPACE
         }
 
         clearTriggers();
-        return blended;
+    }
+
+    LocalPose AnimGraph::SampleCurrent() const
+    {
+        if (!mSkeleton || mStates.empty())
+            return {};
+
+        LocalPose fromPose = sampleState(mStates[mCurrentState], mCurrentTime);
+        if (!mBlending)
+            return fromPose;
+
+        const LocalPose toPose = sampleState(mStates[mNextState], mNextTime);
+        const float     alpha =
+            std::clamp(mBlendElapsed / mBlendDuration, 0.f, 1.f);
+        return BlendLocalPoses(fromPose, toPose, alpha);
+    }
+
+    LocalPose AnimGraph::Evaluate(const float                       dt,
+                                  std::vector<FiredAnimationEvent>* outEvents)
+    {
+        Advance(dt, outEvents);
+        return SampleCurrent();
     }
 
     std::string_view AnimGraph::CurrentStateName() const
@@ -228,6 +263,35 @@ namespace FREYA_NAMESPACE
         if (mStates.empty() || mCurrentState >= mStates.size())
             return {};
         return mStates[mCurrentState].name;
+    }
+
+    bool AnimGraph::TryGetBlend1DGpuSample(
+        const AnimationClip*& clipA, float& timeA, const AnimationClip*& clipB,
+        float& timeB, float& blendT) const
+    {
+        clipA = clipB = nullptr;
+        timeA = timeB = blendT = 0.f;
+        if (!mSkeleton || mStates.empty() || mCurrentState >= mStates.size())
+            return false;
+        const auto& state = mStates[mCurrentState];
+        if (state.kind != StateKind::Blend1D || state.blendSamples.empty())
+            return false;
+
+        std::vector<float> values(state.blendSamples.size());
+        for (std::uint32_t i = 0; i < state.blendSamples.size(); ++i)
+            values[i] = state.blendSamples[i].value;
+        const float param = GetFloat(state.blendParam);
+        const auto  span  = ResolveBlend1D(values, param);
+        const auto& s0    = state.blendSamples[span.i0];
+        const auto& s1    = state.blendSamples[span.i1];
+        clipA             = s0.clip;
+        clipB             = s1.clip;
+        timeA =
+            span.i0 < state.blendTimes.size() ? state.blendTimes[span.i0] : 0.f;
+        timeB =
+            span.i1 < state.blendTimes.size() ? state.blendTimes[span.i1] : 0.f;
+        blendT = span.t;
+        return clipA != nullptr;
     }
 
     AnimGraphBuilder& AnimGraphBuilder::SetSkeleton(const Skeleton* skeleton)

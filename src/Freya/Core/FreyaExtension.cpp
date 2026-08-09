@@ -6,6 +6,7 @@
 #include "Freya/Builders/CompositePassBuilder.hpp"
 #include "Freya/Builders/DebugDrawPassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
+#include "Freya/Builders/GpuAnimPassBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/IndirectDrawSystemBuilder.hpp"
 #include "Freya/Builders/LightServiceBuilder.hpp"
@@ -59,6 +60,7 @@ namespace FREYA_NAMESPACE
         services.AddTransient<SsaoPassBuilder>();
         services.AddTransient<CompositePassBuilder>();
         services.AddTransient<DebugDrawPassBuilder>();
+        services.AddTransient<GpuAnimPassBuilder>();
         services.AddTransient<TranslucentPassBuilder>();
         services.AddTransient<ShadowPassBuilder>();
         services.AddTransient<PickPassBuilder>();
@@ -140,8 +142,7 @@ namespace FREYA_NAMESPACE
 
         services.AddSingleton<BoneMatrixResources>(
             [](skr::ServiceProvider& serviceProvider) {
-                return serviceProvider
-                    .GetService<BoneMatrixResourcesBuilder>()
+                return serviceProvider.GetService<BoneMatrixResourcesBuilder>()
                     ->Build();
             });
 

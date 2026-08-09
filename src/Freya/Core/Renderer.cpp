@@ -79,6 +79,7 @@ namespace FREYA_NAMESPACE
         const skr::Arc<SsaoPass>&               ssaoPass,
         const skr::Arc<CompositePass>&          compositePass,
         const skr::Arc<DebugDrawPass>&          debugDrawPass,
+        const skr::Arc<GpuAnimPass>&            gpuAnimPass,
         const skr::Arc<CommandPool>&            commandPool,
         const skr::Arc<LightService>&           lightService,
         const skr::Arc<ShadowPass>&             shadowPass,
@@ -90,7 +91,7 @@ namespace FREYA_NAMESPACE
         mDevice(device), mSwapChain(swapChain), mDeferredPass(deferredPass),
         mBloomPass(bloomPass), mTaaPass(taaPass), mSsaoPass(ssaoPass),
         mCompositePass(compositePass), mDebugDrawPass(debugDrawPass),
-        mCommandPool(commandPool),
+        mGpuAnimPass(gpuAnimPass), mCommandPool(commandPool),
         mLightService(lightService), mShadowPass(shadowPass),
         mPickPass(pickPass), mServiceProvider(serviceProvider),
         mFreyaOptions(freyaOptions), mEventManager(eventManager),
@@ -241,6 +242,7 @@ namespace FREYA_NAMESPACE
     void Renderer::registerDefaultFrameStages()
     {
         mFrameStages = {
+            std::make_shared<GpuAnimFrameStage>(),
             std::make_shared<PickFrameStage>(),
             std::make_shared<ShadowFrameStage>(),
             std::make_shared<DeferredGeometryFrameStage>(),
@@ -270,6 +272,7 @@ namespace FREYA_NAMESPACE
         ctx.bloom                      = &mBloomPass;
         ctx.composite                  = &mCompositePass;
         ctx.debugDrawPass              = &mDebugDrawPass;
+        ctx.gpuAnim                    = &mGpuAnimPass;
         ctx.shadow                     = &mShadowPass;
         ctx.pick                       = &mPickPass;
         ctx.lights                     = &mLightService;
@@ -316,11 +319,10 @@ namespace FREYA_NAMESPACE
             // ImGui/output-target path owns the swapchain; skip overlay.
             if (mOutputTarget)
                 return;
-            const glm::mat4 viewProj =
-                mCurrentProjection.unjitteredProjection *
-                mCurrentProjection.view;
-            mDebugDrawPass->Draw(mSwapChain, mCommandPool, mDebugDraw.Vertices(),
-                                 viewProj);
+            const glm::mat4 viewProj = mCurrentProjection.unjitteredProjection *
+                                       mCurrentProjection.view;
+            mDebugDrawPass->Draw(mSwapChain, mCommandPool,
+                                 mDebugDraw.Vertices(), viewProj);
         };
         return ctx;
     }
@@ -760,9 +762,8 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void Renderer::blitBloomToFullRes(
-        const skr::Arc<CommandPool>& commandPool,
-        const std::uint32_t          frameIndex) const
+    void Renderer::blitBloomToFullRes(const skr::Arc<CommandPool>& commandPool,
+                                      const std::uint32_t frameIndex) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
         mDevice->BeginDebugLabel(commandBuffer, DebugLabel::BloomBlit);
@@ -928,6 +929,17 @@ namespace FREYA_NAMESPACE
         {
             boneResources->Upload(GetCurrentFrameIndex(), bones);
         }
+    }
+
+    bool Renderer::ReadbackGpuAnimBones(const std::uint32_t        frameIndex,
+                                        const std::uint32_t        boneOffset,
+                                        const std::span<glm::mat4> out)
+    {
+        if (!mGpuAnimPass)
+            return false;
+        return mGpuAnimPass->ReadbackBones(
+            mCommandPool, frameIndex, boneOffset,
+            static_cast<std::uint32_t>(out.size()), out);
     }
 
     BufferBuilder Renderer::GetBufferBuilder() const
