@@ -6,6 +6,7 @@
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
 
+#include <array>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -155,7 +156,35 @@ namespace FREYA_NAMESPACE
                               std::uint32_t* outCount = nullptr) const;
 
         void UploadSkeleton(const GpuSkeletonPack& skeleton);
+        /**
+         * @brief Bulk replace: reset clip slots, upload pack into slots
+         * 0..n-1 (pinned). Prefer #EnsureClipResident / #UploadClipSlot for
+         * streaming.
+         */
         void UploadBakes(const GpuBakePack& pack);
+        /**
+         * @brief Clear all clip slots and zero headers on GPU.
+         */
+        void ResetClipCache();
+        /**
+         * @brief Write one baked clip into a fixed slot (slab allocator).
+         * @return false if slot OOB, empty clip, or joints exceed slab.
+         */
+        bool UploadClipSlot(std::uint32_t slot, std::uint64_t key,
+                            const BakedClip& clip);
+        /**
+         * @brief Find or upload clip; may evict unpinned LRU when full.
+         * @return slot index, or 0xffffffff on failure.
+         */
+        [[nodiscard]] std::uint32_t EnsureClipResident(std::uint64_t key,
+                                                       const BakedClip& clip);
+        void PinClipSlot(std::uint32_t slot, bool pinned);
+        void TouchClipSlot(std::uint32_t slot);
+        void EvictClipSlot(std::uint32_t slot);
+        [[nodiscard]] std::uint32_t FindClipSlot(std::uint64_t key) const;
+        [[nodiscard]] std::uint32_t JointsPerClipSlot() const;
+        [[nodiscard]] std::uint32_t ResidentClipCount() const;
+
         void UploadBoneMask(std::span<const float> weights);
         void UploadRestJoints(std::span<const GpuFloatJoint> joints);
         void UploadRestJoints(std::span<const GpuQuantJoint> joints);
@@ -245,6 +274,19 @@ namespace FREYA_NAMESPACE
         glm::vec3     mLookLocalForward = { 0.f, 0.f, 1.f };
         float         mLookMaxYawRad    = 1.2f;
         float         mLookMaxPitchRad  = 0.8f;
+
+        struct ClipSlotMeta
+        {
+            std::uint64_t key       = 0;
+            bool          resident  = false;
+            bool          pinned    = false;
+            std::uint64_t lastTouch = 0;
+            std::uint32_t frames    = 0;
+            std::uint32_t joints    = 0;
+        };
+
+        std::array<ClipSlotMeta, kMaxClips> mClipSlots {};
+        std::uint64_t                       mClipTouchClock = 1;
 
         std::vector<GpuJointExtractRequest> mExtractRequests;
         /// Per FiF slot: request snapshot + count + validity for Poll.

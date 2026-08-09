@@ -210,6 +210,49 @@ namespace FREYA_NAMESPACE
         return g;
     }
 
+    [[nodiscard]] inline std::uint64_t GpuClipKey(std::string_view name)
+    {
+        // FNV-1a 64 — stable across runs (std::hash is not).
+        std::uint64_t h = 14695981039346656037ull;
+        for (unsigned char c : name)
+        {
+            h ^= c;
+            h *= 1099511628211ull;
+        }
+        return h == 0 ? 1ull : h;
+    }
+
+    [[nodiscard]] inline GpuClipHeader MakeGpuClipHeader(
+        const BakedClip& clip, const std::uint32_t jointsBase)
+    {
+        GpuClipHeader h;
+        h.duration   = clip.duration;
+        h.frameCount = clip.frameCount;
+        h.jointCount = clip.jointCount;
+        h.jointsBase = jointsBase;
+        return h;
+    }
+
+    [[nodiscard]] inline std::vector<GpuFloatJoint> PackClipJointsFloat(
+        const BakedClip& clip)
+    {
+        std::vector<GpuFloatJoint> out;
+        out.reserve(clip.joints.size());
+        for (const auto& j : clip.joints)
+            out.push_back(ToGpuFloatJoint(j));
+        return out;
+    }
+
+    [[nodiscard]] inline std::vector<GpuQuantJoint> PackClipJointsQuant(
+        const BakedClip& clip)
+    {
+        std::vector<GpuQuantJoint> out;
+        out.reserve(clip.joints.size());
+        for (const auto& j : clip.joints)
+            out.push_back(ToGpuQuantJoint(j));
+        return out;
+    }
+
     /**
      * @brief Pack clips into contiguous headers + joints for one SSBO.
      */

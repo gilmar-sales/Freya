@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <string>
 
 namespace FREYA_NAMESPACE
 {
@@ -133,36 +134,230 @@ namespace FREYA_NAMESPACE
             static_cast<std::uint32_t>(inv.size() * sizeof(glm::mat4)));
     }
 
+    std::uint32_t GpuAnimPass::JointsPerClipSlot() const
+    {
+        return MaxBakedJoints() / kMaxClips;
+    }
+
+    std::uint32_t GpuAnimPass::ResidentClipCount() const
+    {
+        std::uint32_t n = 0;
+        for (const auto& s : mClipSlots)
+            if (s.resident)
+                ++n;
+        return n;
+    }
+
+    void GpuAnimPass::ResetClipCache()
+    {
+        mClipSlots.fill({});
+        mClipTouchClock = 1;
+        if (!mClipHeaderBuffer)
+            return;
+        std::vector<GpuClipHeader> empty(kMaxClips);
+        mClipHeaderBuffer->Copy(
+            empty.data(),
+            static_cast<std::uint32_t>(empty.size() * sizeof(GpuClipHeader)));
+    }
+
+    void GpuAnimPass::TouchClipSlot(const std::uint32_t slot)
+    {
+        if (slot >= kMaxClips || !mClipSlots[slot].resident)
+            return;
+        mClipSlots[slot].lastTouch = ++mClipTouchClock;
+    }
+
+    void GpuAnimPass::PinClipSlot(const std::uint32_t slot, const bool pinned)
+    {
+        if (slot >= kMaxClips || !mClipSlots[slot].resident)
+            return;
+        mClipSlots[slot].pinned = pinned;
+    }
+
+    std::uint32_t GpuAnimPass::FindClipSlot(const std::uint64_t key) const
+    {
+        if (key == 0)
+            return 0xffffffffu;
+        for (std::uint32_t i = 0; i < kMaxClips; ++i)
+        {
+            if (mClipSlots[i].resident && mClipSlots[i].key == key)
+                return i;
+        }
+        return 0xffffffffu;
+    }
+
+    void GpuAnimPass::EvictClipSlot(const std::uint32_t slot)
+    {
+        if (slot >= kMaxClips)
+            return;
+        mClipSlots[slot] = {};
+        if (!mClipHeaderBuffer)
+            return;
+        const GpuClipHeader empty {};
+        mClipHeaderBuffer->Copy(
+            &empty, sizeof(GpuClipHeader),
+            static_cast<std::uint64_t>(slot) * sizeof(GpuClipHeader));
+    }
+
+    bool GpuAnimPass::UploadClipSlot(const std::uint32_t slot,
+                                     const std::uint64_t key,
+                                     const BakedClip&    clip)
+    {
+        if (slot >= kMaxClips || key == 0 || clip.frameCount == 0 ||
+            clip.jointCount == 0 || !mClipHeaderBuffer || !mJointsBuffer)
+            return false;
+
+        const auto slab     = JointsPerClipSlot();
+        const auto need     = clip.frameCount * clip.jointCount;
+        if (need > slab || need != clip.joints.size())
+            return false;
+
+        const auto jointsBase = slot * slab;
+        const auto header     = MakeGpuClipHeader(clip, jointsBase);
+        mClipHeaderBuffer->Copy(
+            &header, sizeof(GpuClipHeader),
+            static_cast<std::uint64_t>(slot) * sizeof(GpuClipHeader));
+
+        const auto jointStride = mQuantizedJoints ? sizeof(GpuQuantJoint)
+                                                  : sizeof(GpuFloatJoint);
+        const auto byteOff =
+            static_cast<std::uint64_t>(jointsBase) * jointStride;
+
+        if (mQuantizedJoints)
+        {
+            const auto packed = PackClipJointsQuant(clip);
+            mJointsBuffer->Copy(
+                packed.data(),
+                static_cast<std::uint64_t>(packed.size()) * jointStride,
+                byteOff);
+        }
+        else
+        {
+            const auto packed = PackClipJointsFloat(clip);
+            mJointsBuffer->Copy(
+                packed.data(),
+                static_cast<std::uint64_t>(packed.size()) * jointStride,
+                byteOff);
+        }
+
+        auto&            meta    = mClipSlots[slot];
+        const bool       keepPin = meta.resident && meta.key == key && meta.pinned;
+        meta.key                 = key;
+        meta.resident            = true;
+        meta.pinned              = keepPin;
+        meta.frames              = clip.frameCount;
+        meta.joints              = clip.jointCount;
+        meta.lastTouch           = ++mClipTouchClock;
+        return true;
+    }
+
+    std::uint32_t GpuAnimPass::EnsureClipResident(const std::uint64_t key,
+                                                  const BakedClip&    clip)
+    {
+        const auto existing = FindClipSlot(key);
+        if (existing != 0xffffffffu)
+        {
+            TouchClipSlot(existing);
+            return existing;
+        }
+
+        std::uint32_t freeSlot = 0xffffffffu;
+        for (std::uint32_t i = 0; i < kMaxClips; ++i)
+        {
+            if (!mClipSlots[i].resident)
+            {
+                freeSlot = i;
+                break;
+            }
+        }
+
+        if (freeSlot == 0xffffffffu)
+        {
+            std::uint64_t oldest = ~0ull;
+            for (std::uint32_t i = 0; i < kMaxClips; ++i)
+            {
+                const auto& s = mClipSlots[i];
+                if (!s.resident || s.pinned)
+                    continue;
+                if (s.lastTouch < oldest)
+                {
+                    oldest   = s.lastTouch;
+                    freeSlot = i;
+                }
+            }
+            if (freeSlot == 0xffffffffu)
+                return 0xffffffffu;
+            EvictClipSlot(freeSlot);
+        }
+
+        if (!UploadClipSlot(freeSlot, key, clip))
+            return 0xffffffffu;
+        return freeSlot;
+    }
+
     void GpuAnimPass::UploadBakes(const GpuBakePack& pack)
     {
         if (pack.quantized != mQuantizedJoints)
             return;
 
+        ResetClipCache();
+
+        // Rebuild contiguous pack into per-slot slabs (slots 0..n pinned).
+        // Prefer EnsureClipResident with source BakedClips when streaming;
+        // this path keeps a one-shot bulk load for simple demos.
         const auto clipCount = std::min(
             static_cast<std::uint32_t>(pack.headers.size()), kMaxClips);
         if (clipCount == 0)
             return;
 
-        mClipHeaderBuffer->Copy(
-            pack.headers.data(),
-            static_cast<std::uint32_t>(clipCount * sizeof(GpuClipHeader)));
+        const auto slab = JointsPerClipSlot();
+        for (std::uint32_t i = 0; i < clipCount; ++i)
+        {
+            const auto& srcH = pack.headers[i];
+            if (srcH.frameCount == 0 || srcH.jointCount == 0)
+                continue;
+            const auto need = srcH.frameCount * srcH.jointCount;
+            if (need > slab)
+                continue;
 
-        const auto jointCap = MaxBakedJoints();
-        if (mQuantizedJoints)
-        {
-            const auto jointCount = std::min(
-                static_cast<std::uint32_t>(pack.quantJoints.size()), jointCap);
-            mJointsBuffer->Copy(
-                pack.quantJoints.data(),
-                static_cast<std::uint32_t>(jointCount * sizeof(GpuQuantJoint)));
-        }
-        else
-        {
-            const auto jointCount = std::min(
-                static_cast<std::uint32_t>(pack.floatJoints.size()), jointCap);
-            mJointsBuffer->Copy(
-                pack.floatJoints.data(),
-                static_cast<std::uint32_t>(jointCount * sizeof(GpuFloatJoint)));
+            GpuClipHeader h = srcH;
+            h.jointsBase    = i * slab;
+            mClipHeaderBuffer->Copy(
+                &h, sizeof(GpuClipHeader),
+                static_cast<std::uint64_t>(i) * sizeof(GpuClipHeader));
+
+            const auto jointStride = mQuantizedJoints ? sizeof(GpuQuantJoint)
+                                                      : sizeof(GpuFloatJoint);
+            const auto dstOff =
+                static_cast<std::uint64_t>(h.jointsBase) * jointStride;
+            const auto srcBase = srcH.jointsBase;
+
+            if (mQuantizedJoints)
+            {
+                if (srcBase + need > pack.quantJoints.size())
+                    continue;
+                mJointsBuffer->Copy(pack.quantJoints.data() + srcBase,
+                                    static_cast<std::uint64_t>(need) *
+                                        jointStride,
+                                    dstOff);
+            }
+            else
+            {
+                if (srcBase + need > pack.floatJoints.size())
+                    continue;
+                mJointsBuffer->Copy(pack.floatJoints.data() + srcBase,
+                                    static_cast<std::uint64_t>(need) *
+                                        jointStride,
+                                    dstOff);
+            }
+
+            auto& meta     = mClipSlots[i];
+            meta.key       = GpuClipKey(std::to_string(i));
+            meta.resident  = true;
+            meta.pinned    = true;
+            meta.frames    = srcH.frameCount;
+            meta.joints    = srcH.jointCount;
+            meta.lastTouch = ++mClipTouchClock;
         }
     }
 

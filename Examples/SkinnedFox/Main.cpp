@@ -212,10 +212,12 @@ class MainApp final : public fra::AbstractApplication
         mUpperClip = idle;
         mUpperMask = makeUpperBodyMask(mSkinned.skeleton);
         mRestPose  = fra::RestLocalPose(mSkinned.skeleton);
+        buildStreamCatalog();
 
         if (auto* gpu = mRenderer->GetGpuAnimPass())
         {
             uploadGpuAnimAssets(*gpu);
+            selfTestStreamRing(*gpu);
             gpu->SetCopyPrevBones(false);
         }
 
@@ -816,6 +818,7 @@ class MainApp final : public fra::AbstractApplication
                      "(Low/Med/High/Ultra/Off)\n"
                   << "  F12 GPU anim: Off → Fox0 golden → Crowd\n"
                   << "  R   root/locomotion drive\n"
+                  << "  T   stream next clip into GPU ring (LRU)\n"
                   << "Loco Blend2D (Strafe×Speed) bake @"
                   << mFreyaOptions->animBakeHz
                   << "Hz; Q/E strafe; LOD wall-clock Hz (F11)\n"
@@ -951,6 +954,9 @@ class MainApp final : public fra::AbstractApplication
             case fra::KeyCode::R:
                 toggle(mEnableRootMotion, "RootMotion");
                 break;
+            case fra::KeyCode::T:
+                streamNextCatalogClip();
+                break;
             default:
                 break;
         }
@@ -1002,6 +1008,17 @@ class MainApp final : public fra::AbstractApplication
     fra::BoneMask             mUpperMask;
     fra::LocalPose            mRestPose;
     fra::TwoBoneChain         mLegChain {};
+
+    struct StreamClipEntry
+    {
+        std::string    label;
+        std::uint64_t  key = 0;
+        fra::BakedClip bake;
+    };
+
+    std::vector<StreamClipEntry> mStreamCatalog;
+    std::size_t                  mStreamCatalogIndex = 0;
+    std::uint32_t                mStreamedUpperSlot  = 0xffffffffu;
     std::int32_t              mHeadJoint         = -1;
     bool                      mIkReady           = true;
     bool                      mEnableShadows     = true;
@@ -1031,18 +1048,145 @@ class MainApp final : public fra::AbstractApplication
 
     void uploadGpuAnimAssets(fra::GpuAnimPass& gpu)
     {
-        const bool quant = mFreyaOptions->quantizeGpuAnimJoints;
         gpu.UploadSkeleton(fra::PackSkeleton(mSkinned.skeleton));
-        const fra::BakedClip clips[3] = { mBakeIdle, mBakeWalk, mBakeRun };
-        gpu.UploadBakes(fra::PackBakedClips(clips, quant));
+        gpu.ResetClipCache();
+
+        const auto uploadPinned = [&](const std::uint32_t slot,
+                                      const char* name,
+                                      const fra::BakedClip& bake) {
+            const auto key = fra::GpuClipKey(name);
+            if (!gpu.UploadClipSlot(slot, key, bake))
+            {
+                std::cout << "GPU clip slot " << slot << " (" << name
+                          << ") upload failed\n";
+                return;
+            }
+            gpu.PinClipSlot(slot, true);
+        };
+        uploadPinned(0, "Idle", mBakeIdle);
+        uploadPinned(1, "Walk", mBakeWalk);
+        uploadPinned(2, "Run", mBakeRun);
+
         const auto jc = mSkinned.skeleton.JointCount();
         gpu.UploadBoneMask(fra::PackBoneMask(mUpperMask, jc));
-        if (quant)
+        if (mFreyaOptions->quantizeGpuAnimJoints)
             gpu.UploadRestJoints(fra::PackRestJointsQuant(mRestPose, jc));
         else
             gpu.UploadRestJoints(fra::PackRestJointsFloat(mRestPose, jc));
         std::cout << "GPU anim bake+mask+rest uploaded ("
-                  << (quant ? "quantized 16B" : "float 48B") << ")\n";
+                  << (mFreyaOptions->quantizeGpuAnimJoints ? "quantized 16B"
+                                                           : "float 48B")
+                  << ") pinned=3 resident=" << gpu.ResidentClipCount()
+                  << " slabJoints=" << gpu.JointsPerClipSlot() << '\n';
+    }
+
+    void buildStreamCatalog()
+    {
+        mStreamCatalog.clear();
+        mStreamCatalogIndex = 0;
+        const float bakeHz  = std::max(1.f, mFreyaOptions->animBakeHz);
+        const float loHz    = std::max(1.f, bakeHz * 0.5f);
+
+        auto add = [&](const fra::AnimationClip* clip, const float hz,
+                       const char* tag) {
+            if (!clip)
+                return;
+            StreamClipEntry e;
+            e.label = std::string(clip->name) + "@" + std::to_string(int(hz)) +
+                      tag;
+            e.key  = fra::GpuClipKey(e.label);
+            e.bake = fra::BakeClip(mSkinned.skeleton, *clip, hz);
+            // Skip loco pins' exact bakeHz copies so T cycles extras / Lo.
+            if (e.bake.frameCount > 0 && e.bake.jointCount > 0)
+                mStreamCatalog.push_back(std::move(e));
+        };
+
+        for (const auto& clip : mSkinned.clips)
+        {
+            add(&clip, bakeHz, "");
+            add(&clip, loHz, "_Lo");
+        }
+        // Pad with unique keys (same pose data) so cycling T past free slots
+        // exercises LRU eviction of unpinned residents.
+        const auto padTarget = fra::GpuAnimPass::kMaxClips + 4u;
+        while (mStreamCatalog.size() < padTarget)
+        {
+            StreamClipEntry e;
+            e.label = "Pad_" + std::to_string(mStreamCatalog.size());
+            e.key   = fra::GpuClipKey(e.label);
+            e.bake  = mBakeIdle;
+            mStreamCatalog.push_back(std::move(e));
+        }
+        std::cout << "GPU stream catalog entries=" << mStreamCatalog.size()
+                  << '\n';
+        for (std::size_t i = 0; i < mStreamCatalog.size() && i < 12; ++i)
+            std::cout << "  stream " << mStreamCatalog[i].label
+                      << " frames=" << mStreamCatalog[i].bake.frameCount
+                      << '\n';
+        if (mStreamCatalog.size() > 12)
+            std::cout << "  ... +" << (mStreamCatalog.size() - 12)
+                      << " more\n";
+    }
+
+    void streamNextCatalogClip()
+    {
+        auto* gpu = mRenderer->GetGpuAnimPass();
+        if (!gpu || mStreamCatalog.empty())
+        {
+            std::cout << "Stream: no catalog / no GpuAnimPass\n";
+            return;
+        }
+        const auto& e =
+            mStreamCatalog[mStreamCatalogIndex % mStreamCatalog.size()];
+        ++mStreamCatalogIndex;
+
+        const auto before   = gpu->FindClipSlot(e.key);
+        const auto resBefore = gpu->ResidentClipCount();
+        const auto slot     = gpu->EnsureClipResident(e.key, e.bake);
+        if (slot == 0xffffffffu)
+        {
+            std::cout << "Stream FAIL " << e.label
+                      << " (cache full of pinned?)\n";
+            return;
+        }
+        mStreamedUpperSlot = slot;
+        const bool hit     = before == slot;
+        const bool evicted =
+            !hit && resBefore >= fra::GpuAnimPass::kMaxClips;
+        std::cout << "Stream " << e.label << " -> slot=" << slot
+                  << (hit ? " (hit)" : " (miss/upload)")
+                  << (evicted ? " [LRU evict]" : "")
+                  << " resident=" << gpu->ResidentClipCount() << "/"
+                  << fra::GpuAnimPass::kMaxClips << '\n';
+    }
+
+    void selfTestStreamRing(fra::GpuAnimPass& gpu)
+    {
+        std::uint32_t uploads = 0, hits = 0, fails = 0, evicts = 0;
+        for (const auto& e : mStreamCatalog)
+        {
+            const auto before   = gpu.FindClipSlot(e.key);
+            const auto resBefore = gpu.ResidentClipCount();
+            const auto slot     = gpu.EnsureClipResident(e.key, e.bake);
+            if (slot == 0xffffffffu)
+            {
+                ++fails;
+                continue;
+            }
+            if (before == slot)
+                ++hits;
+            else
+            {
+                ++uploads;
+                if (resBefore >= fra::GpuAnimPass::kMaxClips)
+                    ++evicts;
+            }
+            mStreamedUpperSlot = slot;
+        }
+        std::cout << "Stream self-test uploads=" << uploads << " hits=" << hits
+                  << " evicts=" << evicts << " fails=" << fails
+                  << " resident=" << gpu.ResidentClipCount() << "/"
+                  << fra::GpuAnimPass::kMaxClips << '\n';
     }
 
     void bindGpuAnimRig(fra::GpuAnimPass& gpu)
@@ -1064,6 +1208,7 @@ class MainApp final : public fra::AbstractApplication
     {
         mFreyaOptions->quantizeGpuAnimJoints =
             !mFreyaOptions->quantizeGpuAnimJoints;
+        mStreamedUpperSlot = 0xffffffffu;
         const bool wasCrowd = mGpuAnimMode == GpuAnimMode::Crowd;
         const bool wasFox0  = mGpuAnimMode == GpuAnimMode::Fox0;
         mRenderer->RebuildGpuAnimPass();
@@ -1273,6 +1418,19 @@ class MainApp final : public fra::AbstractApplication
                 inst.weightAdd = layers.additive.weight;
                 if (!layers.masked.active)
                     inst.maskBase = 0;
+            }
+        }
+        // Fox0: preview last streamed clip as upper masked overlay.
+        if (!mFoxes.empty() && &fox == &mFoxes[0] &&
+            mStreamedUpperSlot != 0xffffffffu && mEnableUpperMask)
+        {
+            inst.flags |= fra::GpuAnimFlags::MaskedOverlay;
+            inst.clipMask   = mStreamedUpperSlot;
+            inst.maskBase   = 0;
+            if (inst.weightMask <= 0.f)
+            {
+                inst.timeMask   = inst.timeA;
+                inst.weightMask = 0.85f;
             }
         }
         inst.modelWorld = fox.model;
