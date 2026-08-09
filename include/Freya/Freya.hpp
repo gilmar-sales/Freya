@@ -26,6 +26,7 @@
 #include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Asset/Pose.hpp"
+#include "Freya/Asset/Rig.hpp"
 #include "Freya/Asset/Skeleton.hpp"
 #include "Freya/Asset/SkinnedModel.hpp"
 #include "Freya/Asset/TexturePool.hpp"

@@ -39,6 +39,14 @@ if (auto spine = fra::FindJointIndex(fox.skeleton, "Spine"); spine >= 0)
     upper.SetSubtree(fox.skeleton, static_cast<std::uint32_t>(spine), 1.f);
 local = fra::BlendMasked(
     local, fra::SampleClip(fox.skeleton, fox.clips[0], timeSec), upper, 0.8f);
+
+// Rig MVP (after layers): look-at → two-bone IK → root / locomotion drive.
+fra::ApplyLookAt(fox.skeleton, local, model, headJoint, cameraPos, 0.7f);
+fra::SolveTwoBoneIK(fox.skeleton, local, model, legChain, footTarget, pole, 0.85f);
+model = fra::DrivePlanarLocomotion(model, metersPerSec, dt);
+fra::CancelRootTranslationXZ(fox.skeleton, local);
+// Or from authored curves: IntegrateRootMotion(model, ExtractRootDelta(...));
+
 renderer->UploadBoneMatrices(fra::PoseToSkinMatrices(fox.skeleton, local));
 // Instances share boneOffset=0 .. JointCount()-1 in the bone palette.
 uploads.push_back({
