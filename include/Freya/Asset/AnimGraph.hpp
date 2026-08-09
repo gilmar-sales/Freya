@@ -76,8 +76,12 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief Tick graph and return blended local pose.
+         *
+         * When `outEvents` is non-null, appends clip markers crossed this tick
+         * (e.g. Footstep.L / Footstep.R).
          */
-        LocalPose Evaluate(float dt);
+        LocalPose Evaluate(
+            float dt, std::vector<FiredAnimationEvent>* outEvents = nullptr);
 
         [[nodiscard]] std::string_view CurrentStateName() const;
         [[nodiscard]] bool             IsBlending() const { return mBlending; }
@@ -132,7 +136,8 @@ namespace FREYA_NAMESPACE
         bool      evaluateCondition(const AnimCondition& c) const;
         void      clearTriggers();
         void      tryStartTransition();
-        LocalPose evaluateState(State& state, float& clipTime, float dt);
+        LocalPose evaluateState(State& state, float& clipTime, float dt,
+                                std::vector<FiredAnimationEvent>* outEvents);
 
         const Skeleton*         mSkeleton = nullptr;
         std::vector<State>      mStates;

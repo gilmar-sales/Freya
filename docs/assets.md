@@ -32,7 +32,9 @@ auto graph = fra::AnimGraphBuilder()
                  .Entry("Loco")
                  .Build();
 graph.SetFloat("Speed", 1.35f); // continuous blend Walk↔Run
-auto local = graph.Evaluate(dt);
+std::vector<fra::FiredAnimationEvent> events;
+auto local = graph.Evaluate(dt, &events);
+// events may contain Footstep.L / Footstep.R when Walk/Run markers fire.
 
 // Bone mask layer: upper-body overlay without stomping the gait.
 fra::BoneMask upper = fra::BoneMask::Filled(fox.skeleton.JointCount(), 0.f);

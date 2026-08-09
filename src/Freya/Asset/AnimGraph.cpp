@@ -92,30 +92,78 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    LocalPose AnimGraph::evaluateState(State& state, float& clipTime,
-                                       const float dt)
+    namespace
+    {
+        void collectDominantBlendEvents(
+            const std::vector<Blend1DSample>& samples,
+            const std::vector<float>&         prevTimes,
+            const std::vector<float>& currTimes, const float param,
+            std::vector<FiredAnimationEvent>* outEvents)
+        {
+            if (!outEvents || samples.empty())
+                return;
+
+            std::vector<float> values(samples.size());
+            for (std::uint32_t i = 0; i < samples.size(); ++i)
+                values[i] = samples[i].value;
+            const auto span = ResolveBlend1D(values, param);
+
+            const auto emit = [&](const std::uint32_t idx) {
+                if (idx >= samples.size() || !samples[idx].clip)
+                    return;
+                const float t0 = idx < prevTimes.size() ? prevTimes[idx] : 0.f;
+                const float t1 = idx < currTimes.size() ? currTimes[idx] : 0.f;
+                CollectFiredClipEvents(
+                    *samples[idx].clip, t0, t1, samples[idx].loop, *outEvents);
+            };
+
+            if (span.i0 == span.i1 || span.t < 0.5f)
+                emit(span.i0);
+            else if (span.t > 0.5f)
+                emit(span.i1);
+            else
+            {
+                emit(span.i0);
+                emit(span.i1);
+            }
+        }
+    } // namespace
+
+    LocalPose AnimGraph::evaluateState(
+        State& state, float& clipTime, const float dt,
+        std::vector<FiredAnimationEvent>* outEvents)
     {
         if (state.kind == StateKind::Blend1D)
         {
             if (state.blendTimes.size() != state.blendSamples.size())
                 state.blendTimes.assign(state.blendSamples.size(), 0.f);
 
-            const float param = GetFloat(state.blendParam);
+            const float        param     = GetFloat(state.blendParam);
+            std::vector<float> prevTimes = state.blendTimes;
+            const float        prevPhase = state.blendPhase;
+
             if (state.syncPhase)
             {
                 state.blendPhase = AdvanceBlend1DPhase(
                     state.blendSamples, param, state.blendPhase, dt);
                 WriteBlend1DTimesFromPhase(
                     state.blendSamples, state.blendTimes, state.blendPhase);
+                // Rebuild prev times from previous phase for accurate windows.
+                WriteBlend1DTimesFromPhase(
+                    state.blendSamples, prevTimes, prevPhase);
             }
             else
                 AdvanceBlend1DTimes(state.blendSamples, state.blendTimes, dt);
+
+            collectDominantBlendEvents(state.blendSamples, prevTimes,
+                                       state.blendTimes, param, outEvents);
 
             return EvaluateBlend1D(
                 *mSkeleton, state.blendSamples, state.blendTimes, param);
         }
 
-        const float rate = std::max(state.playbackSpeed, 0.f);
+        const float tPrev = clipTime;
+        const float rate  = std::max(state.playbackSpeed, 0.f);
         clipTime += dt * rate;
         if (state.clip && state.clip->duration > 0.f && state.loop)
         {
@@ -124,20 +172,25 @@ namespace FREYA_NAMESPACE
                 clipTime += state.clip->duration;
         }
 
+        if (outEvents && state.clip)
+            CollectFiredClipEvents(
+                *state.clip, tPrev, clipTime, state.loop, *outEvents);
+
         return state.clip
                    ? SampleClip(*mSkeleton, *state.clip, clipTime, state.loop)
                    : RestLocalPose(*mSkeleton);
     }
 
-    LocalPose AnimGraph::Evaluate(const float dt)
+    LocalPose AnimGraph::Evaluate(const float                       dt,
+                                  std::vector<FiredAnimationEvent>* outEvents)
     {
         if (!mSkeleton || mStates.empty())
             return {};
 
         tryStartTransition();
 
-        LocalPose fromPose =
-            evaluateState(mStates[mCurrentState], mCurrentTime, dt);
+        LocalPose fromPose = evaluateState(mStates[mCurrentState], mCurrentTime,
+                                           dt, mBlending ? nullptr : outEvents);
 
         if (!mBlending)
         {
@@ -145,7 +198,9 @@ namespace FREYA_NAMESPACE
             return fromPose;
         }
 
-        LocalPose toPose = evaluateState(mStates[mNextState], mNextTime, dt);
+        // Crossfade: emit markers from the incoming state only.
+        LocalPose toPose =
+            evaluateState(mStates[mNextState], mNextTime, dt, outEvents);
 
         mBlendElapsed += dt;
         const float alpha =

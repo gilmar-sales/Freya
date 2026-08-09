@@ -166,6 +166,26 @@ class MainApp final : public fra::AbstractApplication
             return;
         }
 
+        // Author footsteps when the asset has no markers (Fox.glb).
+        for (auto& clip : mSkinned.clips)
+        {
+            if (clip.name.find("Walk") != std::string::npos ||
+                clip.name.find("Run") != std::string::npos)
+                fra::EnsureDefaultFootstepEvents(clip);
+        }
+
+        // Re-resolve pointers after mutating clips vector is safe — clips
+        // storage is stable; refresh in case Ensure ran on those entries.
+        idle = findClip(mSkinned, "Survey");
+        walk = findClip(mSkinned, "Walk");
+        run  = findClip(mSkinned, "Run");
+        if (!idle)
+            idle = mSkinned.clips.empty() ? nullptr : &mSkinned.clips[0];
+        if (!walk)
+            walk = idle;
+        if (!run)
+            run = walk;
+
         mUpperClip = idle;
         mUpperMask = makeUpperBodyMask(mSkinned.skeleton);
         mRestPose  = fra::RestLocalPose(mSkinned.skeleton);
@@ -316,9 +336,20 @@ class MainApp final : public fra::AbstractApplication
         const auto             jointCount = mSkinned.skeleton.JointCount();
         std::vector<glm::mat4> allBones;
         allBones.reserve(mFoxes.size() * jointCount);
+        std::vector<fra::FiredAnimationEvent> events;
+        events.reserve(8);
         for (auto& fox : mFoxes)
         {
-            auto local = fox.graph.Evaluate(dt);
+            events.clear();
+            auto local = fox.graph.Evaluate(dt, &events);
+            for (const auto& e : events)
+            {
+                if (e.name.rfind("Footstep", 0) == 0)
+                {
+                    ++fox.footsteps;
+                    ++mFootstepTotal;
+                }
+            }
             if (fox.useUpperLayer && mUpperClip)
             {
                 fox.upperTime += dt;
@@ -384,6 +415,14 @@ class MainApp final : public fra::AbstractApplication
             const auto skin = fra::PoseToSkinMatrices(mSkinned.skeleton, local);
             allBones.insert(allBones.end(), skin.begin(), skin.end());
         }
+
+        mFootstepLogTimer += dt;
+        if (mFootstepLogTimer >= 2.f)
+        {
+            mFootstepLogTimer = 0.f;
+            std::cout << "Footsteps total=" << mFootstepTotal << '\n';
+        }
+
         if (allBones.empty())
         {
             allBones = fra::PoseToSkinMatrices(
@@ -440,6 +479,7 @@ class MainApp final : public fra::AbstractApplication
         float          speed            = 0.f;
         float          upperTime        = 0.f;
         std::uint32_t  boneOffset       = 0;
+        std::uint32_t  footsteps        = 0;
         bool           useUpperLayer    = false;
         bool           useAdditiveLayer = false;
         bool           useLookAt        = false;
@@ -531,9 +571,11 @@ class MainApp final : public fra::AbstractApplication
     fra::TwoBoneChain         mLegChain {};
     std::int32_t              mHeadJoint      = -1;
     bool                      mIkReady        = true;
-    float                     mAnimClock      = 0.f;
-    float                     mSpeed          = 0.f;
-    std::uint32_t             mFoxMaterial    = 0;
+    float                     mAnimClock        = 0.f;
+    float                     mSpeed            = 0.f;
+    float                     mFootstepLogTimer = 0.f;
+    std::uint64_t             mFootstepTotal    = 0;
+    std::uint32_t             mFoxMaterial      = 0;
     std::uint32_t             mGroundMesh     = 0;
     std::uint32_t             mGroundMaterial = 0;
 
