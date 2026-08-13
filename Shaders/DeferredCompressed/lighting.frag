@@ -220,8 +220,9 @@ float SampleCascadeShadow(vec3 worldPos, vec3 N, vec3 L) {
     float ts = max(shadows.cascadeTexelSize[cascade], 1e-6);
     // Receiver bias in world units from cascade density, then convert to
     // light NDC via lightVP (ortho Z range varies wildly per cascade).
-    float worldBias = ts * (2.5 + 3.5 * slope) * max(shadows.params.y, 1.0);
-    vec3 biased = worldPos + N * (worldBias * 0.7) + lightDir * (worldBias * 0.6);
+    float worldBias = ts * (3.0 + 5.0 * slope) * max(shadows.params.y, 1.0);
+    vec3 biased =
+        worldPos + N * (worldBias * 0.9) + lightDir * (worldBias * 0.35);
 
     vec4 clip = shadows.cascadeViewProj[cascade] * vec4(biased, 1.0);
     vec3 ndc = clip.xyz / clip.w;
@@ -235,9 +236,11 @@ float SampleCascadeShadow(vec3 worldPos, vec3 N, vec3 L) {
     float depthBiasAmount =
         max(shadows.params.x * (3.0 + 4.5 * slope), ndcBias * 1.15);
 
-    // Directional: ~1 texel. Relies on hardware compare PCF; avoids Poisson
-    // neighbor acne on large receivers.
-    float uvRadius = 1.0 / ShadowMapResolution();
+    // Soft PCF radius from the configured light size (pcss.x/y), floored at
+    // one texel. Spreading the Poisson taps blurs isolated map-texel speckle
+    // (which reads as black dots) into smooth penumbra instead of hard dots.
+    float uvRadius =
+        max(SoftUvRadius(ts, shadows.pcss.y), 1.0 / ShadowMapResolution());
 
     float shadow = SoftShadow2DUV(cascadeShadowMap,
                                   shadows.cascadeViewProj[cascade], biased,
@@ -252,9 +255,9 @@ float SampleCascadeShadow(vec3 worldPos, vec3 N, vec3 L) {
             int nextCascade = cascade + 1;
             float tsNext = max(shadows.cascadeTexelSize[nextCascade], 1e-6);
             float worldBiasNext =
-                tsNext * (2.5 + 3.5 * slope) * max(shadows.params.y, 1.0);
-            vec3 biasedNext = worldPos + N * (worldBiasNext * 0.7) +
-                              lightDir * (worldBiasNext * 0.6);
+                tsNext * (3.0 + 5.0 * slope) * max(shadows.params.y, 1.0);
+            vec3 biasedNext = worldPos + N * (worldBiasNext * 0.9) +
+                              lightDir * (worldBiasNext * 0.35);
 
             vec4 clipNext =
                 shadows.cascadeViewProj[nextCascade] * vec4(biasedNext, 1.0);
