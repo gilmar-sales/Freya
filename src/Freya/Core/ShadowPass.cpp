@@ -561,9 +561,6 @@ namespace FREYA_NAMESPACE
         const std::function<void(const glm::mat4&)>& prepareCull,
         const std::function<void()>&                 drawScene) const
     {
-        if (!mHasDirectionalShadow)
-            return;
-
         auto commandBuffer = commandPool->GetCommandBuffer();
         mDevice->BeginDebugLabel(commandBuffer, DebugLabel::ShadowCascades);
 
@@ -586,12 +583,13 @@ namespace FREYA_NAMESPACE
         for (std::uint32_t i = 0; i < mCascadeCount; ++i)
         {
             char label[64];
-            std::snprintf(label, sizeof(label), "CSM Cascade %u", i);
+            std::snprintf(label, sizeof(label), "CSM Cascade %u%s", i,
+                          mHasDirectionalShadow ? "" : " (clear)");
             mDevice->BeginDebugLabel(
                 commandBuffer, label, DebugLabel::ShadowColor);
 
             const auto lightVP = mShadowData.cascadeViewProj[i];
-            if (prepareCull)
+            if (mHasDirectionalShadow && prepareCull)
                 prepareCull(lightVP);
 
             commandBuffer.beginRenderPass(
@@ -602,26 +600,29 @@ namespace FREYA_NAMESPACE
                     .setClearValues(clearValue),
                 vk::SubpassContents::eInline);
 
-            commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
-                                       mPipeline);
-            bindBoneDescriptorSet(commandBuffer);
-            commandBuffer.setViewport(0, 1, &viewport);
-            commandBuffer.setScissor(0, 1, &scissor);
+            if (mHasDirectionalShadow)
+            {
+                commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+                                           mPipeline);
+                bindBoneDescriptorSet(commandBuffer);
+                commandBuffer.setViewport(0, 1, &viewport);
+                commandBuffer.setScissor(0, 1, &scissor);
 
-            ShadowPushConstant pc {};
-            pc.lightVP     = lightVP;
-            pc.lightPosFar = glm::vec4(0.0f);
-            pc.reverseZAndPad =
-                glm::vec4(mShadowData.reverseZ.x, 0.0f, 0.0f, 0.0f);
-            commandBuffer.pushConstants(
-                mPipelineLayout,
-                vk::ShaderStageFlagBits::eVertex |
-                    vk::ShaderStageFlagBits::eFragment,
-                0,
-                sizeof(ShadowPushConstant),
-                &pc);
+                ShadowPushConstant pc {};
+                pc.lightVP     = lightVP;
+                pc.lightPosFar = glm::vec4(0.0f);
+                pc.reverseZAndPad =
+                    glm::vec4(mShadowData.reverseZ.x, 0.0f, 0.0f, 0.0f);
+                commandBuffer.pushConstants(
+                    mPipelineLayout,
+                    vk::ShaderStageFlagBits::eVertex |
+                        vk::ShaderStageFlagBits::eFragment,
+                    0,
+                    sizeof(ShadowPushConstant),
+                    &pc);
 
-            drawScene();
+                drawScene();
+            }
 
             commandBuffer.endRenderPass();
             mDevice->EndDebugLabel(commandBuffer);
