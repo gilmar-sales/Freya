@@ -81,11 +81,10 @@ namespace FREYA_NAMESPACE
                 .SetWidth(kNoiseSize)
                 .SetHeight(kNoiseSize)
                 .SetChannels(3)
+                .SetMipLevels(1)
                 .SetData(noiseData.data())
                 .Build();
 
-        // Depth sampling (clamp). Noise reuses nearest with REPEAT via
-        // a second sampler so AO tiling does not bleed at screen edges.
         auto nearestSampler = mDevice->Get().createSampler(
             vk::SamplerCreateInfo()
                 .setMagFilter(vk::Filter::eNearest)
