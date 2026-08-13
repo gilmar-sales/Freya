@@ -98,7 +98,8 @@ namespace FREYA_NAMESPACE
                 .setSamplerAnisotropy(features2.features.samplerAnisotropy)
                 .setImageCubeArray(true)
                 .setMultiDrawIndirect(true)
-                .setDrawIndirectFirstInstance(true);
+                .setDrawIndirectFirstInstance(true)
+                .setIndependentBlend(true);
 
         auto features2Enable = vk::PhysicalDeviceFeatures2 {}
                                    .setFeatures(enabledFeatures)
