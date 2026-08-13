@@ -62,6 +62,9 @@ namespace FREYA_NAMESPACE
             const std::vector<vk::ImageView>& layerViews,
             std::uint32_t                     resolution) const;
 
+        void transitionToReadOnly(vk::Image     image,
+                                  std::uint32_t layerCount) const;
+
         skr::Arc<Device>               mDevice;
         skr::Arc<PhysicalDevice>       mPhysicalDevice;
         skr::Arc<FreyaOptions>         mFreyaOptions;

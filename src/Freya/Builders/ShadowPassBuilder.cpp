@@ -3,6 +3,7 @@
 #include "Freya/Asset/InstanceTransform.hpp"
 #include "Freya/Asset/Vertex.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
+#include "Freya/Builders/CommandPoolBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
 #include "Freya/Core/ShaderModule.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
@@ -201,6 +202,7 @@ namespace FREYA_NAMESPACE
             cascadeCount,
             false,
             vk::ImageViewType::e2DArray);
+        transitionToReadOnly(cascade.image, cascadeCount);
 
         // Zero slots still need a sampled view for lighting descriptors.
         // Use a 1×1 stub so Low/zero configs avoid full-resolution VRAM.
@@ -215,6 +217,7 @@ namespace FREYA_NAMESPACE
             spotLayers,
             false,
             vk::ImageViewType::e2DArray);
+        transitionToReadOnly(spot.image, spotLayers);
 
         auto point = createArrayImage(
             depthFormat,
@@ -222,6 +225,7 @@ namespace FREYA_NAMESPACE
             pointLayers,
             true,
             vk::ImageViewType::eCubeArray);
+        transitionToReadOnly(point.image, pointLayers);
 
         auto cascadeFramebuffers =
             createFramebuffers(renderPass, cascade.layerViews, resolution);
@@ -429,6 +433,64 @@ namespace FREYA_NAMESPACE
         }
 
         return ArrayImage { image, memory, arrayView, layerViews };
+    }
+
+    void ShadowPassBuilder::transitionToReadOnly(
+        vk::Image image, const std::uint32_t layerCount) const
+    {
+        if (!image || layerCount == 0)
+            return;
+
+        const auto commandPool =
+            mServiceProvider->GetService<CommandPoolBuilder>()
+                ->SetCount(1)
+                .Build();
+
+        const auto commandBuffer = commandPool->CreateCommandBuffer();
+
+        commandBuffer.begin(vk::CommandBufferBeginInfo().setFlags(
+            vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
+
+        auto range =
+            vk::ImageSubresourceRange()
+                .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                .setBaseMipLevel(0)
+                .setLevelCount(1)
+                .setBaseArrayLayer(0)
+                .setLayerCount(layerCount);
+
+        auto barrier =
+            vk::ImageMemoryBarrier()
+                .setOldLayout(vk::ImageLayout::eUndefined)
+                .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                .setImage(image)
+                .setSubresourceRange(range)
+                .setSrcAccessMask({})
+                .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
+
+        commandBuffer.pipelineBarrier(
+            vk::PipelineStageFlagBits::eTopOfPipe,
+            vk::PipelineStageFlagBits::eFragmentShader,
+            vk::DependencyFlags(),
+            0,
+            nullptr,
+            0,
+            nullptr,
+            1,
+            &barrier);
+
+        commandBuffer.end();
+
+        const auto submitInfo =
+            vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(
+                &commandBuffer);
+
+        mDevice->GetTransferQueue().submit(submitInfo);
+        mDevice->GetTransferQueue().waitIdle();
+
+        commandPool->FreeCommandBuffer(commandBuffer);
     }
 
     std::vector<vk::Framebuffer> ShadowPassBuilder::createFramebuffers(
