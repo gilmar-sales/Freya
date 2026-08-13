@@ -39,6 +39,18 @@ namespace FREYA_NAMESPACE
          */
         static std::vector<vk::VertexInputAttributeDescription>
         GetAttributesDescription();
+
+        /**
+         * @brief Returns a reduced attribute set for the depth prepass.
+         *
+         * Includes only attributes consumed by `depth.vert`: position,
+         * current instance model (`Location 5-8`), instance ids (13),
+         * joints (14) and weights (15). Omits color/normal/tangent/texcoord
+         * (1-4) and previous model (9-12) to silence validation warnings and
+         * reduce per-vertex fetch work.
+         */
+        static std::vector<vk::VertexInputAttributeDescription>
+        GetDepthAttributesDescription();
     };
 
 } // namespace FREYA_NAMESPACE

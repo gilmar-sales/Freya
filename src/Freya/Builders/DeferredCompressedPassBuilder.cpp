@@ -548,10 +548,16 @@ namespace FREYA_NAMESPACE
                 .setSetLayouts(lightingPipelineLayouts)
                 .setPushConstantRanges(lightingPushRange));
 
+        auto depthAttributes = Vertex::GetDepthAttributesDescription();
+        auto depthVertexInputInfo =
+            vk::PipelineVertexInputStateCreateInfo()
+                .setVertexBindingDescriptions(vertexBinding)
+                .setVertexAttributeDescriptions(depthAttributes);
+
         auto depthInfoPipe =
             vk::GraphicsPipelineCreateInfo()
                 .setStages(depthStages)
-                .setPVertexInputState(&vertexInputInfo)
+                .setPVertexInputState(&depthVertexInputInfo)
                 .setPInputAssemblyState(&inputAssembly)
                 .setPViewportState(&viewportState)
                 .setPRasterizationState(&rasterizer)

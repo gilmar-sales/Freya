@@ -115,4 +115,56 @@ namespace FREYA_NAMESPACE
 
         return attributesDescription;
     }
+
+    std::vector<vk::VertexInputAttributeDescription> Vertex::
+        GetDepthAttributesDescription()
+    {
+        static auto depthAttributes = std::vector {
+            vk::VertexInputAttributeDescription()
+                .setBinding(0)
+                .setLocation(0)
+                .setFormat(vk::Format::eR32G32B32Sfloat)
+                .setOffset(offsetof(Vertex, position)),
+            vk::VertexInputAttributeDescription()
+                .setBinding(0)
+                .setLocation(14)
+                .setFormat(vk::Format::eR32G32B32A32Uint)
+                .setOffset(offsetof(Vertex, joints)),
+            vk::VertexInputAttributeDescription()
+                .setBinding(0)
+                .setLocation(15)
+                .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                .setOffset(offsetof(Vertex, weights)),
+            vk::VertexInputAttributeDescription()
+                .setBinding(1)
+                .setLocation(5)
+                .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                .setOffset(offsetof(InstanceTransform, model)),
+            vk::VertexInputAttributeDescription()
+                .setBinding(1)
+                .setLocation(6)
+                .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                .setOffset(
+                    offsetof(InstanceTransform, model) + sizeof(glm::vec4)),
+            vk::VertexInputAttributeDescription()
+                .setBinding(1)
+                .setLocation(7)
+                .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                .setOffset(
+                    offsetof(InstanceTransform, model) + sizeof(glm::vec4) * 2),
+            vk::VertexInputAttributeDescription()
+                .setBinding(1)
+                .setLocation(8)
+                .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                .setOffset(
+                    offsetof(InstanceTransform, model) + sizeof(glm::vec4) * 3),
+            vk::VertexInputAttributeDescription()
+                .setBinding(1)
+                .setLocation(13)
+                .setFormat(vk::Format::eR32G32B32A32Uint)
+                .setOffset(offsetof(InstanceTransform, materialId)),
+        };
+
+        return depthAttributes;
+    }
 } // namespace FREYA_NAMESPACE
