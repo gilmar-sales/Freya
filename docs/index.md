@@ -5,13 +5,26 @@ A Vulkan-based rendering engine powered by [Skirnir](https://github.com/gilmar-s
 ## Features
 
 - **Vulkan-backed rendering** - Modern graphics API with high performance
-- **Deferred & Forward rendering** - Choose between rendering strategies
+- **Deferred rendering** - G-buffer path with SSAO, TAA, bloom, and HDR composite
+- **Composable frame stages** - Insert or replace steps in `Renderer::EndScene`
+- **Feature flags** - Toggle SSAO / TAA / Bloom and set `shaderRoot` via options
 - **Custom render targets** - Redirect scene output to an offscreen
   `RenderTarget` at runtime (see [Core](core.md)); not configured via FreyaOptions
-- **Asset management** - Built-in support for meshes, textures, and materials
+- **Asset management** - Meshes, textures (file or memory), and PBR materials
+- **Skinned animation** - AnimGraph, bake, CPU or GPU skin palettes, LOD
+  (see [Animation](animation.md))
 - **Event system** - Flexible pub/sub event handling for window, keyboard, mouse, and gamepad
-- **Builder pattern** - Fluent API for constructing renderer components
+- **Builder pattern** - Fluent API plus `FreyaExtension` configure hooks
 - **Skirnir integration** - IoC container for dependency injection
+
+## Headers
+
+```cpp
+#include <Freya/Freya.hpp>    // app surface
+#include <Freya/Vulkan.hpp>   // Renderer, passes, advanced builders
+```
+
+See [API boundary](api-boundary.md) and [Flexibility](flexibility.md).
 
 ## Dependencies
 
@@ -24,7 +37,7 @@ A Vulkan-based rendering engine powered by [Skirnir](https://github.com/gilmar-s
 ## Quick Start
 
 ```cpp
-#include <Freya/Core/AbstractApplication.hpp>
+#include <Freya/Freya.hpp>
 
 class MainApp final : public fra::AbstractApplication
 {
@@ -75,13 +88,8 @@ int main(int argc, const char** argv)
 
 ```
 Freya/
-├── src/Freya/
-│   ├── Core/           # Core engine components
-│   ├── Builders/       # Builder classes for fluent construction
-│   ├── Asset/          # Mesh, Texture, Material management
-│   ├── Events/         # Event system (pub/sub)
-│   └── Containers/     # Custom container data structures
-├── include/Freya/      # Public headers
+├── include/Freya/      # Public headers (Freya.hpp, Vulkan.hpp, …)
+├── src/Freya/          # .cpp implementations + Vendor/
 ├── Examples/           # Example applications
 ├── Shaders/            # GLSL/Vulkan shaders
 └── docs/               # Documentation
@@ -99,8 +107,7 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
         .SetVSync(true)
         .SetFullscreen(false)
         .SetSampleCount(4)
-        .SetDrawDistance(1000.0f)
-        .SetRenderingStrategy(fra::RenderingStrategy::Forward);
+        .SetDrawDistance(1000.0f);
 });
 ```
 
@@ -113,7 +120,7 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `height` | `std::uint32_t` | `600` | Window height |
 | `vSync` | `bool` | `true` | Vertical synchronization |
 | `fullscreen` | `bool` | `true` | Fullscreen mode |
-| `sampleCount` | `std::uint32_t` | `8` | MSAA sample count |
+| `sampleCount` | `std::uint32_t` | `1` | Retained for compatibility (scene path is single-sample) |
 | `frameCount` | `std::uint32_t` | `4` | Number of frames in flight |
 | `drawDistance` | `float` | `1000.0f` | Render distance |
 | `maxLights` | `std::uint32_t` | `16` | Max analytical lights (`MAX_LIGHTS`) |
@@ -126,7 +133,21 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `shadowBias` | `float` | `0.002f` | Depth bias when sampling shadows |
 | `maxSpotShadows` | `std::uint32_t` | `4` | Max concurrent spot shadow maps |
 | `maxPointShadows` | `std::uint32_t` | `2` | Max concurrent point cube shadows |
-| `renderingStrategy` | `RenderingStrategy` | `Forward` | Forward or Deferred |
+| `shadowSampleCount` | `std::uint32_t` | `16` | Soft-shadow Poisson taps (1–16) |
+| `shaderRoot` | `std::string` | `./Resources/Shaders` | SPIR-V directory root |
+| `enableSsao` | `bool` | `true` | Run SSAO compute pass |
+| `enableTaa` | `bool` | `true` | Run TAA resolve + jitter |
+| `enableBloom` | `bool` | `true` | Run bloom extract/blur |
+| `ssaoResolutionDivisor` | `uint` | `2` | SSAO res = full / N (1,2,4) |
+| `taaCurrentWeight` | `float` | `0.1` | TAA blend toward current |
+| `bloomStrength` | `float` | `0.8` | Bloom mix in composite |
+
+Use `SetShadowQuality` / `SetSsaoQuality` / `SetTaaQuality` /
+`SetBloomQuality` (`Low`–`Ultra`) for presets; runtime mirrors on `Renderer`.
+
+
+Use `FreyaOptionsBuilder::SetShadowQuality(Low|Medium|High|Ultra)` to set
+resolution, cascades, spot/point slots, and tap count together.
 
 ## Services
 

@@ -1,82 +1,56 @@
 #include "DeferredCompressedPass.hpp"
 
-#include <vulkan/vulkan.h>
-
-namespace
-{
-    void beginDebugLabel(const vk::CommandBuffer& cmd,
-                         const char*              name,
-                         const vk::Device&        device)
-    {
-        auto func = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(
-            device.getProcAddr("vkCmdBeginDebugUtilsLabelEXT"));
-        if (!func)
-            return;
-
-        VkDebugUtilsLabelEXT label {};
-        label.sType      = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
-        label.pLabelName = name;
-        func(static_cast<VkCommandBuffer>(cmd), &label);
-    }
-
-    void endDebugLabel(const vk::CommandBuffer& cmd, const vk::Device& device)
-    {
-        auto func = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(
-            device.getProcAddr("vkCmdEndDebugUtilsLabelEXT"));
-        if (!func)
-            return;
-
-        func(static_cast<VkCommandBuffer>(cmd));
-    }
-} // anonymous namespace
+#include <glm/gtc/matrix_inverse.hpp>
 
 namespace FREYA_NAMESPACE
 {
     DeferredCompressedPass::DeferredCompressedPass(
-        const skr::Arc<Device>&                     device,
-        const skr::Arc<FreyaOptions>&               freyaOptions,
-        const skr::Arc<Surface>&                    surface,
-        const vk::RenderPass                        renderPass,
-        const vk::PipelineLayout                    vertexPipelineLayout,
-        const vk::PipelineLayout                    fullscreenPipelineLayout,
-        const vk::Pipeline                          depthPrepassPipeline,
-        const vk::Pipeline                          gbufferPipeline,
-        const vk::Pipeline                          lightingPipeline,
-        const vk::Pipeline                          translucentPipeline,
-        const skr::Arc<Buffer>&                     uniformBuffer,
-        const std::vector<vk::DescriptorSetLayout>& descriptorSetLayouts,
-        const std::vector<vk::DescriptorSet>&       descriptorSets,
-        const vk::DescriptorPool                    descriptorPool,
-        const std::vector<skr::Arc<Image>>&         gbufferImages,
-        const skr::Arc<Image>&                      emissiveImage,
-        const skr::Arc<Image>&                      depthImage,
-        const skr::Arc<Image>&                      translucentImage,
-        const skr::Arc<Image>&                      opaqueImage,
-        const std::vector<vk::Framebuffer>&         framebuffers,
-        const vk::DescriptorSetLayout               inputAttachmentLayout,
-        const vk::DescriptorPool                    inputAttachmentPool,
-        const std::vector<vk::DescriptorSet>&       lightingInputSets,
-        const vk::DescriptorSetLayout               samplerLayout,
-        const vk::DescriptorPool                    samplerDescriptorPool,
-        const vk::Extent2D                          extent) :
+        const skr::Arc<Device>&                      device,
+        const skr::Arc<FreyaOptions>&                freyaOptions,
+        const skr::Arc<Surface>&                     surface,
+        const vk::RenderPass                         renderPass,
+        const vk::PipelineLayout                     vertexPipelineLayout,
+        const vk::PipelineLayout                     fullscreenPipelineLayout,
+        const vk::Pipeline                           depthPrepassPipeline,
+        const vk::Pipeline                           gbufferPipeline,
+        const vk::Pipeline                           lightingPipeline,
+        const skr::Arc<Buffer>&                      uniformBuffer,
+        const std::vector<vk::DescriptorSetLayout>&  descriptorSetLayouts,
+        const std::vector<vk::DescriptorSet>&        descriptorSets,
+        const vk::DescriptorPool                     descriptorPool,
+        const std::vector<skr::Arc<Image>>&          gbufferImages,
+        const skr::Arc<Image>&                       sceneColorImage,
+        const skr::Arc<Image>&                       velocityImage,
+        const skr::Arc<Image>&                       depthImage,
+        const std::vector<vk::Framebuffer>&          framebuffers,
+        const vk::RenderPass                         lightingRenderPass,
+        const vk::Framebuffer                        lightingFramebuffer,
+        const vk::DescriptorSetLayout                lightingSetLayout,
+        const vk::DescriptorPool                     lightingDescriptorPool,
+        const std::vector<vk::DescriptorSet>&        lightingSets,
+        const skr::Arc<MaterialDescriptorResources>& materialResources,
+        const skr::Arc<BoneMatrixResources>&         boneResources,
+        const vk::Sampler                            gbufferSampler,
+        const vk::Extent2D                           extent) :
         mDevice(device), mFreyaOptions(freyaOptions), mSurface(surface),
         mRenderPass(renderPass), mVertexPipelineLayout(vertexPipelineLayout),
         mFullscreenPipelineLayout(fullscreenPipelineLayout),
         mUniformBuffer(uniformBuffer),
         mDescriptorSetLayouts(descriptorSetLayouts),
         mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool),
-        mGBufferImages(gbufferImages), mEmissiveImage(emissiveImage),
-        mDepthImage(depthImage), mTranslucentImage(translucentImage),
-        mOpaqueImage(opaqueImage), mFramebuffers(framebuffers), mExtent(extent),
-        mInputAttachmentLayout(inputAttachmentLayout),
-        mInputAttachmentPool(inputAttachmentPool),
-        mLightingInputSets(lightingInputSets), mSamplerLayout(samplerLayout),
-        mSamplerDescriptorPool(samplerDescriptorPool)
+        mGBufferImages(gbufferImages), mSceneColorImage(sceneColorImage),
+        mVelocityImage(velocityImage), mDepthImage(depthImage),
+        mFramebuffers(framebuffers), mLightingFramebuffer(lightingFramebuffer),
+        mExtent(extent), mLightingRenderPass(lightingRenderPass),
+        mLightingSetLayout(lightingSetLayout),
+        mLightingDescriptorPool(lightingDescriptorPool),
+        mLightingSets(lightingSets), mMaterialResources(materialResources),
+        mBoneResources(boneResources), mGbufferSampler(gbufferSampler),
+        mBoundSsaoViews(lightingSets.size())
     {
-        mPipelines[DefDepthPrePass]    = depthPrepassPipeline;
-        mPipelines[DefGBufferPass]     = gbufferPipeline;
-        mPipelines[DefLightingPass]    = lightingPipeline;
-        mPipelines[DefTranslucentPass] = translucentPipeline;
+        mPipelines[DefDepthPrePass] = depthPrepassPipeline;
+        mPipelines[DefGBufferPass]  = gbufferPipeline;
+        mPipelines[DefLightingPass] = lightingPipeline;
     }
 
     DeferredCompressedPass::~DeferredCompressedPass()
@@ -86,11 +60,10 @@ namespace FREYA_NAMESPACE
         for (auto& fb : mFramebuffers)
             vkDevice.destroyFramebuffer(fb);
 
-        vkDevice.destroyDescriptorPool(mInputAttachmentPool);
-        vkDevice.destroyDescriptorSetLayout(mInputAttachmentLayout);
+        vkDevice.destroyFramebuffer(mLightingFramebuffer);
 
-        vkDevice.destroyDescriptorPool(mSamplerDescriptorPool);
-        vkDevice.destroyDescriptorSetLayout(mSamplerLayout);
+        vkDevice.destroyDescriptorPool(mLightingDescriptorPool);
+        vkDevice.destroyDescriptorSetLayout(mLightingSetLayout);
 
         vkDevice.destroyDescriptorPool(mDescriptorPool);
 
@@ -104,12 +77,15 @@ namespace FREYA_NAMESPACE
         vkDevice.destroyPipelineLayout(mFullscreenPipelineLayout);
 
         vkDevice.destroyRenderPass(mRenderPass);
+        vkDevice.destroyRenderPass(mLightingRenderPass);
+
+        vkDevice.destroySampler(mGbufferSampler);
 
         mGBufferImages.clear();
         mDepthImage.reset();
-        mEmissiveImage.reset();
-        mTranslucentImage.reset();
-        mOpaqueImage.reset();
+        mSceneColorImage.reset();
+        mVelocityImage.reset();
+        mMaterialResources.reset();
 
         mUniformBuffer.reset();
     }
@@ -126,21 +102,19 @@ namespace FREYA_NAMESPACE
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
 
-        beginDebugLabel(commandBuffer, "Gbuffer+Lighting Pass", mDevice->Get());
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::DeferredGeometry);
 
-        // 8 clear values (no backbuffer — composite pass handles it)
         auto clearValues = std::vector<vk::ClearValue> {
             vk::ClearValue().setDepthStencil(
                 vk::ClearDepthStencilValue().setDepth(
-                    mFreyaOptions->ReverseZ ? 0.0f : 1.0f)),       // depth
-            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // position
-            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // normal
+                    mFreyaOptions->ReverseZ ? 0.0f : 1.0f)),
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // albedo
-            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // emissive
             vk::ClearValue().setColor(
-                { 0.0f, 0.5f, 0.0f, 0.0f }), // material RG (metal, rough)
-            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // transl.
-            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // opaque
+                { 0.5f, 0.5f, 0.5f, 1.0f / 3.0f }), // normal + receiveShadow
+            vk::ClearValue().setColor(
+                { 0.5f, 0.0f, 1.0f, 0.0f }), // rough, metal, AO, free
+            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // scene HDR
+            vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // velocity
         };
 
         const auto imageIndex = swapChain->GetCurrentImageIndex();
@@ -176,19 +150,47 @@ namespace FREYA_NAMESPACE
 
         if (mLabelActive)
         {
-            endDebugLabel(commandBuffer, mDevice->Get());
+            mDevice->EndDebugLabel(commandBuffer);
         }
 
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                                    mPipelines[subpass]);
 
-        beginDebugLabel(commandBuffer, GetSubpassLabel(subpass),
-                        mDevice->Get());
-        mLabelActive    = true;
+        // Lighting uses a single pass label from BeginLighting().
+        if (subpass != DefLightingPass)
+        {
+            mDevice->BeginDebugLabel(commandBuffer, GetSubpassRegion(subpass));
+            mLabelActive = true;
+        }
+        else
+        {
+            mLabelActive = false;
+        }
         mCurrentSubpass = subpass;
 
-        if (subpass == DefDepthPrePass || subpass == DefGBufferPass ||
-            subpass == DefTranslucentPass)
+        if (subpass == DefLightingPass)
+        {
+            commandBuffer.bindDescriptorSets(
+                vk::PipelineBindPoint::eGraphics,
+                mFullscreenPipelineLayout,
+                0,
+                1,
+                &mLightingSets[frameIndex],
+                0,
+                nullptr);
+            if (mMaterialResources)
+            {
+                commandBuffer.bindDescriptorSets(
+                    vk::PipelineBindPoint::eGraphics,
+                    mFullscreenPipelineLayout,
+                    1,
+                    1,
+                    &mMaterialResources->GetBindlessSet(),
+                    0,
+                    nullptr);
+            }
+        }
+        else
         {
             commandBuffer.bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics,
@@ -198,18 +200,18 @@ namespace FREYA_NAMESPACE
                 &mDescriptorSets[frameIndex],
                 0,
                 nullptr);
-        }
-
-        if (subpass == DefLightingPass)
-        {
-            commandBuffer.bindDescriptorSets(
-                vk::PipelineBindPoint::eGraphics,
-                mFullscreenPipelineLayout,
-                0,
-                1,
-                &mLightingInputSets[frameIndex],
-                0,
-                nullptr);
+            if (mBoneResources)
+            {
+                auto boneSet = mBoneResources->GetSet(frameIndex);
+                commandBuffer.bindDescriptorSets(
+                    vk::PipelineBindPoint::eGraphics,
+                    mVertexPipelineLayout,
+                    2,
+                    1,
+                    &boneSet,
+                    0,
+                    nullptr);
+            }
         }
     }
 
@@ -222,10 +224,86 @@ namespace FREYA_NAMESPACE
         BindPipeline(subpass, commandPool, frameIndex);
     }
 
-    void DeferredCompressedPass::DrawFullscreenTriangle(
+    void DeferredCompressedPass::DrawLighting(
+        const skr::Arc<CommandPool>& commandPool, const std::uint32_t,
+        const bool                   ssaoDebug) const
+    {
+        auto commandBuffer = commandPool->GetCommandBuffer();
+
+        struct LightingPush
+        {
+            std::uint32_t debugMode;
+            std::uint32_t pad0;
+            std::uint32_t pad1;
+            std::uint32_t pad2;
+        } push { ssaoDebug ? 1u : 0u, 0u, 0u, 0u };
+
+        commandBuffer.pushConstants(
+            mFullscreenPipelineLayout, vk::ShaderStageFlagBits::eFragment, 0,
+            sizeof(LightingPush), &push);
+        commandBuffer.draw(3, 1, 0, 0);
+    }
+
+    void DeferredCompressedPass::BeginLighting(
+        const skr::Arc<CommandPool>& commandPool,
+        const skr::Arc<Image>&       ssaoImage,
+        const std::uint32_t          frameIndex) const
+    {
+        auto commandBuffer = commandPool->GetCommandBuffer();
+
+        const auto ssaoView = ssaoImage->GetImageView();
+        if (frameIndex < mLightingSets.size() &&
+            (frameIndex >= mBoundSsaoViews.size() ||
+             mBoundSsaoViews[frameIndex] != ssaoView))
+        {
+            if (frameIndex >= mBoundSsaoViews.size())
+                mBoundSsaoViews.resize(mLightingSets.size());
+
+            const auto ssaoInfo =
+                vk::DescriptorImageInfo {}
+                    .setSampler(mGbufferSampler)
+                    .setImageView(ssaoView)
+                    .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+
+            const auto ssaoWrite =
+                vk::WriteDescriptorSet {}
+                    .setDstSet(mLightingSets[frameIndex])
+                    .setDstBinding(15)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setImageInfo(ssaoInfo);
+            mDevice->Get().updateDescriptorSets(ssaoWrite, nullptr);
+            mBoundSsaoViews[frameIndex] = ssaoView;
+        }
+
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::DeferredLighting);
+
+        commandBuffer.beginRenderPass(
+            vk::RenderPassBeginInfo()
+                .setRenderPass(mLightingRenderPass)
+                .setFramebuffer(mLightingFramebuffer)
+                .setRenderArea(
+                    vk::Rect2D().setOffset({ 0, 0 }).setExtent(mExtent)),
+            vk::SubpassContents::eInline);
+
+        mLightingActive = true;
+        BindPipeline(DefLightingPass, commandPool, frameIndex);
+    }
+
+    void DeferredCompressedPass::EndLighting(
         const skr::Arc<CommandPool>& commandPool) const
     {
-        commandPool->GetCommandBuffer().draw(3, 1, 0, 0);
+        auto commandBuffer = commandPool->GetCommandBuffer();
+
+        if (mLabelActive)
+        {
+            mDevice->EndDebugLabel(commandBuffer);
+            mLabelActive = false;
+        }
+
+        commandBuffer.endRenderPass();
+        mDevice->EndDebugLabel(commandBuffer);
+        mLightingActive = false;
     }
 
     void DeferredCompressedPass::End(
@@ -235,55 +313,45 @@ namespace FREYA_NAMESPACE
 
         if (mLabelActive)
         {
-            endDebugLabel(commandBuffer, mDevice->Get());
+            mDevice->EndDebugLabel(commandBuffer);
             mLabelActive = false;
         }
 
         commandBuffer.endRenderPass();
-
-        endDebugLabel(commandBuffer, mDevice->Get());
+        mDevice->EndDebugLabel(commandBuffer);
     }
 
     void DeferredCompressedPass::UpdateProjection(
         const ProjectionUniformBuffer& buffer,
         const std::uint32_t            frameIndex) const
     {
+        auto upload = buffer;
+        upload.invViewProjection =
+            glm::inverse(buffer.projection * buffer.view);
+
         const auto offset = frameIndex * sizeof(ProjectionUniformBuffer);
-        mUniformBuffer->Copy(&buffer, sizeof(ProjectionUniformBuffer), offset);
-
-        auto bufferInfo =
-            vk::DescriptorBufferInfo()
-                .setBuffer(mUniformBuffer->Get())
-                .setOffset(offset)
-                .setRange(sizeof(ProjectionUniformBuffer));
-
-        const auto descriptorWriter =
-            vk::WriteDescriptorSet()
-                .setDstSet(mDescriptorSets[frameIndex])
-                .setDstBinding(0)
-                .setDstArrayElement(0)
-                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-                .setDescriptorCount(1)
-                .setBufferInfo(bufferInfo);
-
-        mDevice->Get().updateDescriptorSets(1, &descriptorWriter, 0, nullptr);
+        mUniformBuffer->Copy(&upload, sizeof(ProjectionUniformBuffer), offset);
     }
 
     const char* DeferredCompressedPass::GetSubpassLabel(
         const std::uint32_t subpass)
     {
+        return GetSubpassRegion(subpass).name;
+    }
+
+    DebugRegion DeferredCompressedPass::GetSubpassRegion(
+        const std::uint32_t subpass)
+    {
         switch (subpass)
         {
             case DefDepthPrePass:
-                return "Depth Pre-pass";
+                return DebugLabel::DepthPrePass;
             case DefGBufferPass:
-                return "G-buffer";
+                return DebugLabel::GBuffer;
             case DefLightingPass:
-                return "Lighting";
-            case DefTranslucentPass:
-                return "Translucent";
+                return DebugLabel::DeferredLighting;
             default:
-                return "Unknown";
+                return { "Unknown", DebugLabel::GeometryColor };
         }
     }
 

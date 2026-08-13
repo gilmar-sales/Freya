@@ -1,114 +1,127 @@
 # Assets
 
-Freya provides a comprehensive asset management system for meshes, textures, and materials.
+Freya manages meshes, textures, and PBR materials through pool services.
 
 ## MeshPool
-
-Manages mesh resources loaded from 3D model files.
 
 ```cpp
 auto meshPool = serviceProvider->GetService<fra::MeshPool>();
 
-// Load mesh from file (supports FBX, OBJ, etc. via Assimp)
-std::vector<unsigned> mesh = meshPool->CreateMeshFromFile("./Resources/Models/MyModel.fbx");
+// From file (Assimp: FBX, OBJ, …). Returns one ID per mesh in the file.
+auto meshIds = meshPool->CreateMeshFromFile("./Resources/Models/MyModel.fbx");
 
-// Draw the mesh
-meshPool->Draw(mesh[0]);
-meshPool->DrawInstanced(mesh[0], instanceCount);
+// Skinned (no PreTransformVertices): joints/weights + shared skeleton/clips.
+fra::SkinnedModel fox =
+    meshPool->CreateSkinnedModelFromFile("./Resources/Models/Fox.glb");
+
+// Full stack (AnimGraph, bake, CPU/GPU skin, LOD, look/IK): see Animation.
+renderer->UploadBoneMatrices(fra::EvaluateSkeletonPose(
+    fox.skeleton, fox.clips[0], timeSec));
+
+// From memory (already CPU-side Freya vertices + uint32 indices)
+std::uint32_t meshId = meshPool->CreateMesh(vertices, indices);
 ```
 
-## TexturePool
+Static meshes leave `Vertex::joints/weights` at defaults and
+`SceneInstanceUpload::boneOffset = fra::kNoSkin`. Skinned draws use a
+second/prev bone palette for TAA velocity. Full animation docs:
+[Animation](animation.md).
 
-Manages texture resources.
+Draw submission goes through `Renderer::UploadSceneInstances` (preferred) or
+the legacy `Draw` / `DrawInstanced` helpers.
+
+## TexturePool
 
 ```cpp
 auto texturePool = serviceProvider->GetService<fra::TexturePool>();
 
-// Load texture from file
-std::uint32_t textureId = texturePool->CreateTextureFromFile("./Resources/Textures/mytexture.png");
+std::uint32_t fromFile =
+    texturePool->CreateTextureFromFile("./Resources/Textures/albedo.png");
 
-// Create empty texture with specified properties using ImageBuilder
-std::uint32_t emptyTexture = mRenderer->GetImageBuilder()
-    .SetWidth(1024)
-    .SetHeight(1024)
-    .SetFormat(vk::Format::eR8G8B8A8Srgb)
-    .SetUsage(ImageUsage::Texture)
-    .Build();
+// RGBA8 (or other channel count) already in memory
+std::vector<std::uint8_t> rgba = /* ... */;
+std::uint32_t fromMemory = texturePool->CreateTextureFromMemory(
+    rgba.data(), width, height, /*channels=*/4);
 ```
 
-## MaterialPool
+Both paths create a mipmapped image and linear anisotropic sampler.
 
-Manages materials combining multiple textures (albedo, normal, roughness, etc.).
+## MaterialPool
 
 ```cpp
 auto materialPool = serviceProvider->GetService<fra::MaterialPool>();
 
-// Create material with texture maps
-std::uint32_t material = materialPool->Create({
-    albedoTextureId,    // Base color
-    normalTextureId,     // Normal map
-    roughnessTextureId   // Roughness map
+std::uint32_t material = materialPool->Create(fra::MaterialCreateInfo {
+    .albedo     = albedoId,
+    .normal     = normalId,
+    .roughness  = roughnessId,
+    .emissive   = emissiveId,
+    .metalness  = metalnessId,
+    .albedoFactor    = { 1.f, 1.f, 1.f, 1.f },
+    .roughnessFactor = 1.f,
+    .metalnessFactor = 1.f,
+    .emissiveFactor  = { 1.f, 1.f, 1.f },
+    .aoFactor        = 1.f,   // constant AO into G-buffer
+    .alphaCutoff     = 0.f,   // Mask: discard when alpha < cutoff
+    .alphaMode       = fra::AlphaMode::Opaque, // Opaque | Mask | Blend
+    .clearcoat          = 0.f,    // deferred GGX clearcoat weight
+    .clearcoatRoughness = 0.03f,  // glTF-style default
 });
 
-// Bind material for rendering
-materialPool->Bind(material);
+materialPool->Update(material, updatedCreateInfo);
 ```
 
-## Material Structure
+`AlphaMode::Opaque` / `Mask` stay in the deferred MDI camera cull. `Mask`
+uses `alphaCutoff` cutout in the G-buffer. `AlphaMode::Blend` is filtered
+into the Weighted Blended OIT pass (`CullMode::Translucent`); use
+`albedoFactor.a` (and albedo alpha) for coverage, and typically
+`castShadows = false` on glass instances.
 
-Materials in Freya use a PBR (Physically Based Rendering) workflow with:
+`clearcoat` (>0) enables a second dielectric GGX lobe in deferred lighting
+(F0=0.04). The weight is stored in G-buffer PBR.a; `clearcoatRoughness` is
+looked up from the bindless `MaterialGPU` table via albedo.a material ID.
 
-| Channel | Type | Description |
-|---------|------|-------------|
-| Albedo | `uint32_t` | Base color texture |
-| Normal | `uint32_t` | Normal map |
-| Roughness | `uint32_t` | Roughness map |
+Descriptor set 1 bindings:
+
+| Binding | Content |
+|---------|---------|
+| 0–4 | Combined image samplers: albedo, normal, roughness, emissive, metalness |
+| 5 | `MaterialFactorsUniform` (48 bytes): factors, `aoFactor` in `emissive.w`, `alphaCutoff` |
+
+Empty texture optionals use engine fallbacks (white or black). Alpha cutout
+samples albedo alpha × `albedoFactor.a` in the G-buffer pass only (Mask).
 
 ## Vertex
-
-Vertex data structure for mesh rendering.
 
 ```cpp
 struct Vertex
 {
     glm::vec3 position;
+    glm::vec3 color;
     glm::vec3 normal;
+    glm::vec3 tangent;
     glm::vec2 texCoord;
 };
 ```
 
-## Asset Loading Example
+## Instancing (GPU-driven MDI)
+
+Prefer `Renderer::UploadSceneInstances` with one record per logical instance.
+Contiguous uploads that share the same `meshId` become **one** multi-draw
+indirect command; frustum cull (compute) atomic-compacts visible instances.
+
+**Contract:** sort by `(meshId, entityId)` when possible (Freya skips its
+internal sort if already ordered by vertex/index chunk + mesh + entity).
+TAA `prevModel` is resolved by `entityId` (first frame / new ids: `prev ==
+model`).
 
 ```cpp
-void StartUp() override
-{
-    // Load textures
-    std::uint32_t albedo = mTexturePool->CreateTextureFromFile(
-        "./Resources/Textures/MyModel_BaseColor.png");
-    std::uint32_t normal = mTexturePool->CreateTextureFromFile(
-        "./Resources/Textures/MyModel_Normal.png");
-    std::uint32_t roughness = mTexturePool->CreateTextureFromFile(
-        "./Resources/Textures/MyModel_Roughness.png");
-
-    // Create material
-    std::uint32_t material = mMaterialPool->Create({albedo, normal, roughness});
-
-    // Load mesh
-    std::vector<unsigned> mesh = mMeshPool->CreateMeshFromFile(
-        "./Resources/Models/MyModel.fbx");
-}
-
-void Update() override
-{
-    mRenderer->BeginFrame();
-
-    mMaterialPool->Bind(material);
-
-    for (const auto& submesh : mesh)
-    {
-        mMeshPool->Draw(submesh);
-    }
-
-    mRenderer->EndFrame();
-}
+std::vector<fra::SceneInstanceUpload> instances;
+// Prefer push order: same mesh contiguous, entityId ascending within mesh.
+instances.push_back({ .model = M, .meshId = mesh, .materialId = mat,
+                      .entityId = id, .castShadows = true });
+mRenderer->UploadSceneInstances(instances);
 ```
+
+Legacy path: `SetInstanceModels` + `Draw` / `DrawInstanced` still works and is
+expanded into `UploadSceneInstances` internally.

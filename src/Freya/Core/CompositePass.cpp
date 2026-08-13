@@ -20,7 +20,7 @@ namespace FREYA_NAMESPACE
         mCompositePipeline(compositePipeline), mFramebuffers(framebuffers),
         mDescriptorPool(descriptorPool),
         mDescriptorSetLayout(descriptorSetLayout),
-        mDescriptorSets(descriptorSets)
+        mDescriptorSets(descriptorSets), mBoundImages(descriptorSets.size())
     {
     }
 
@@ -40,10 +40,13 @@ namespace FREYA_NAMESPACE
 
     void CompositePass::Begin(const skr::Arc<SwapChain>    swapChain,
                               const skr::Arc<CommandPool>& commandPool,
-                              const vk::ClearValue&        clearColor) const
+                              const vk::ClearValue&        clearColor,
+                              const DebugRegion&           region) const
     {
         auto       commandBuffer = commandPool->GetCommandBuffer();
         const auto imageIndex    = swapChain->GetCurrentImageIndex();
+
+        mDevice->BeginDebugLabel(commandBuffer, region);
 
         auto clearValues = std::vector<vk::ClearValue> { clearColor };
 
@@ -61,10 +64,13 @@ namespace FREYA_NAMESPACE
                               const vk::Framebuffer        framebuffer,
                               const vk::Extent2D           extent,
                               const skr::Arc<CommandPool>& commandPool,
-                              const vk::ClearValue&        clearColor) const
+                              const vk::ClearValue&        clearColor,
+                              const DebugRegion&           region) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
         auto clearValues   = std::vector<vk::ClearValue> { clearColor };
+
+        mDevice->BeginDebugLabel(commandBuffer, region);
 
         commandBuffer.beginRenderPass(
             vk::RenderPassBeginInfo()
@@ -94,37 +100,58 @@ namespace FREYA_NAMESPACE
     }
 
     void CompositePass::DrawFullscreenTriangle(
-        const skr::Arc<CommandPool>& commandPool) const
+        const skr::Arc<CommandPool>& commandPool, const float tonemapHdr) const
     {
-        commandPool->GetCommandBuffer().draw(3, 1, 0, 0);
+        auto commandBuffer = commandPool->GetCommandBuffer();
+        struct Push
+        {
+            float tonemapHdr;
+            float bloomStrength;
+        } push { tonemapHdr, mFreyaOptions->bloomStrength };
+        commandBuffer.pushConstants(
+            mPipelineLayout, vk::ShaderStageFlagBits::eFragment, 0,
+            sizeof(Push), &push);
+        commandBuffer.draw(3, 1, 0, 0);
     }
 
     void CompositePass::End(const skr::Arc<CommandPool> commandPool) const
     {
-        commandPool->GetCommandBuffer().endRenderPass();
+        auto commandBuffer = commandPool->GetCommandBuffer();
+        commandBuffer.endRenderPass();
+        mDevice->EndDebugLabel(commandBuffer);
     }
 
     void CompositePass::UpdateDescriptorSet(
-        const std::uint32_t frameIndex, const skr::Arc<Image>& opaqueImage,
-        const skr::Arc<Image>& translucentImage,
-        const skr::Arc<Image>& bloomResultImage, vk::Sampler sampler) const
+        const std::uint32_t frameIndex, const skr::Arc<Image>& sceneImage,
+        const skr::Arc<Image>& bloomResultImage, vk::Sampler sampler)
     {
-        auto opaqueInfo =
-            vk::DescriptorImageInfo()
-                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setImageView(opaqueImage->GetImageView())
-                .setSampler(sampler);
+        if (frameIndex >= mBoundImages.size())
+            return;
 
-        auto translInfo =
+        const auto sceneView = sceneImage->GetImageView();
+        const auto bloomView = bloomResultImage->GetImageView();
+
+        auto& bound = mBoundImages[frameIndex];
+        if (bound.scene == sceneView && bound.bloom == bloomView &&
+            bound.sampler == sampler)
+        {
+            return;
+        }
+
+        bound.scene   = sceneView;
+        bound.bloom   = bloomView;
+        bound.sampler = sampler;
+
+        auto sceneInfo =
             vk::DescriptorImageInfo()
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setImageView(translucentImage->GetImageView())
+                .setImageView(sceneView)
                 .setSampler(sampler);
 
         auto bloomInfo =
             vk::DescriptorImageInfo()
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setImageView(bloomResultImage->GetImageView())
+                .setImageView(bloomView)
                 .setSampler(sampler);
 
         auto writes = std::array {
@@ -133,16 +160,10 @@ namespace FREYA_NAMESPACE
                 .setDstBinding(0)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1)
-                .setImageInfo(opaqueInfo),
+                .setImageInfo(sceneInfo),
             vk::WriteDescriptorSet()
                 .setDstSet(mDescriptorSets[frameIndex])
                 .setDstBinding(1)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setImageInfo(translInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(mDescriptorSets[frameIndex])
-                .setDstBinding(2)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1)
                 .setImageInfo(bloomInfo),

@@ -25,16 +25,15 @@ namespace FREYA_NAMESPACE
         // ------------------------------------------------------------------
         // Shaders
         // ------------------------------------------------------------------
-        auto loadShader = [&](const std::string& path) {
+        const auto& root       = mFreyaOptions->shaderRoot;
+        auto        loadShader = [&](const std::string& relative) {
             return mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath(path)
+                ->SetFilePath(root + "/" + relative)
                 .Build();
         };
 
-        auto vertShader = loadShader(
-            "./Resources/Shaders/DeferredCompressed/composing.vert.spv");
-        auto fragShader = loadShader(
-            "./Resources/Shaders/DeferredCompressed/composing.frag.spv");
+        auto vertShader = loadShader("DeferredCompressed/composing.vert.spv");
+        auto fragShader = loadShader("DeferredCompressed/composing.frag.spv");
 
         auto stages = std::array {
             vk::PipelineShaderStageCreateInfo()
@@ -59,8 +58,7 @@ namespace FREYA_NAMESPACE
                 .Build();
 
         // ------------------------------------------------------------------
-        // Descriptor set layout: 3 combined image samplers (opaque,
-        // translucent, bloom)
+        // Descriptor set layout: scene (WBOIT-resolved HDR) + bloom
         // ------------------------------------------------------------------
         auto bindings = std::array {
             vk::DescriptorSetLayoutBinding()
@@ -71,12 +69,6 @@ namespace FREYA_NAMESPACE
                 .setPImmutableSamplers(nullptr),
             vk::DescriptorSetLayoutBinding()
                 .setBinding(1)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
-                .setPImmutableSamplers(nullptr),
-            vk::DescriptorSetLayoutBinding()
-                .setBinding(2)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment)
@@ -94,7 +86,7 @@ namespace FREYA_NAMESPACE
         // ------------------------------------------------------------------
         auto poolSize = vk::DescriptorPoolSize()
                             .setType(vk::DescriptorType::eCombinedImageSampler)
-                            .setDescriptorCount(3 * mFreyaOptions->frameCount);
+                            .setDescriptorCount(2 * mFreyaOptions->frameCount);
 
         auto poolInfo = vk::DescriptorPoolCreateInfo()
                             .setPoolSizeCount(1)
@@ -115,10 +107,17 @@ namespace FREYA_NAMESPACE
         auto descriptorSets = mDevice->Get().allocateDescriptorSets(allocInfo);
 
         // ------------------------------------------------------------------
-        // Pipeline layout
+        // Pipeline layout (+ push constant for deferred HDR tonemap)
         // ------------------------------------------------------------------
+        auto pushRange = vk::PushConstantRange()
+                             .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                             .setOffset(0)
+                             .setSize(sizeof(float) * 2);
+
         auto pipelineLayoutInfo =
-            vk::PipelineLayoutCreateInfo().setSetLayouts(descriptorSetLayout);
+            vk::PipelineLayoutCreateInfo()
+                .setSetLayouts(descriptorSetLayout)
+                .setPushConstantRanges(pushRange);
 
         auto pipelineLayout =
             mDevice->Get().createPipelineLayout(pipelineLayoutInfo);

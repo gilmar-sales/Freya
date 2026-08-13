@@ -77,11 +77,11 @@ function(add_shader_target)
 
     if(GLSLC)
         file(GLOB_RECURSE _sources
-            "${ARG_FROM}/*.vert" "${ARG_FROM}/*.frag"
+            "${ARG_FROM}/*.vert" "${ARG_FROM}/*.frag" "${ARG_FROM}/*.comp"
         )
 
         if(NOT _sources)
-            message(WARNING "add_shader_target: no .vert/.frag files found in ${ARG_FROM}")
+            message(WARNING "add_shader_target: no .vert/.frag/.comp files found in ${ARG_FROM}")
             add_custom_target(${ARG_TARGET} ALL)
             return()
         endif()
@@ -92,12 +92,14 @@ function(add_shader_target)
             get_filename_component(_name ${_src} NAME)
             set(_spv "${ARG_INTO}/${_dir}/${_name}.spv")
 
+            get_filename_component(_srcdir ${_src} DIRECTORY)
+            file(GLOB _inc_deps "${_srcdir}/*.inc")
             add_custom_command(
                 OUTPUT  ${_spv}
                 COMMAND ${CMAKE_COMMAND} -E make_directory
                         "${ARG_INTO}/${_dir}"
-                COMMAND ${GLSLC} -o ${_spv} ${_src}
-                DEPENDS ${_src}
+                COMMAND ${GLSLC} -I${_srcdir} -I${ARG_FROM} -o ${_spv} ${_src}
+                DEPENDS ${_src} ${_inc_deps}
                 COMMENT "Compiling ${_rel} → ${_name}.spv"
                 VERBATIM
             )

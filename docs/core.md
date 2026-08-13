@@ -33,23 +33,40 @@ class MyApp final : public fra::AbstractApplication
 
 ## Renderer
 
-Main rendering coordinator. Handles frame management, swap chain, and rendering commands.
+Main rendering coordinator. Handles frame management, swap chain, and an
+ordered list of `IFrameStage` adapters that drive the deferred stack.
 
 ```cpp
 mRenderer->BeginFrame();
-// ... rendering commands ...
-mRenderer->EndFrame();
+// record draws via Draw / DrawInstanced
+mRenderer->EndFrame(); // EndScene + Present
 ```
+
+### Frame stages
+
+Default order:
+
+`Pick → Shadow → DeferredGeometry → SsaoLighting → Taa → Bloom → Composite`
+
+```cpp
+#include <Freya/Vulkan.hpp>
+
+mRenderer->InsertFrameStage("Composite", myStage);
+mRenderer->ReplaceFrameStage("Bloom", myBloom);
+```
+
+See [Flexibility](flexibility.md).
 
 ### Key Methods
 
 | Method | Description |
 |--------|-------------|
 | `BeginFrame()` | Start a new frame |
-| `EndScene()` | Finish scene/bloom/composite; with an output target, begin the UI swapchain pass |
+| `EndScene()` | Run frame stages; with an output target, begin the UI swapchain pass |
 | `Present()` | End UI pass (if open), submit the command buffer, and present |
 | `EndFrame()` | `EndScene()` + `Present()` (no mid-frame UI) |
 | `RebuildSwapChain()` | Recreate swap chain (e.g., on resize) |
+| `InsertFrameStage` / `ReplaceFrameStage` | Customize the frame graph |
 | `SetVSync(bool)` | Enable/disable vertical sync |
 | `SetSamples(uint32_t)` | Set MSAA sample count |
 | `SetDrawDistance(float)` | Set render distance |
@@ -61,6 +78,8 @@ mRenderer->EndFrame();
 | `GetUIRenderPass()` | Swapchain render pass for UI (ImGui pipeline init) |
 | `GetCommandBuffer()` | Current-frame command buffer |
 | `BindBuffer(Buffer)` | Bind a buffer for rendering |
+| `SetInstanceModels(const mat4*, size_t)` | Legacy instance matrices (with DrawInstanced) |
+| `UploadSceneInstances(span)` | Prefer: GPU-driven scene table (batched MDI + cull) |
 | `GetCurrentFrameIndex()` | Get current frame index |
 | `GetFrameCount()` | Get total frame count |
 | `CalculateProjectionMatrix(float near, float far)` | Calculate projection matrix |
@@ -136,10 +155,6 @@ Vulkan swap chain for framebuffer management.
 
 Vulkan physical device (GPU) selection and properties.
 
-## RenderPass
-
-Vulkan render pass configuration.
-
 ## CommandPool
 
 Command buffer pool for recording rendering commands.
@@ -159,7 +174,7 @@ Uniform buffer for shader data.
 ## LightService
 
 Manages analytical lights (point, directional, spot, area) and uploads them
-to a shared UBO used by Forward and DeferredCompressed lighting.
+to a shared UBO used by DeferredCompressed lighting.
 
 `FreyaOptions::maxLights` (default 16, see `MAX_LIGHTS`) caps how many lights
 `AddLight` accepts. Shader arrays are fixed at 16 entries.
@@ -171,7 +186,7 @@ to a shared UBO used by Forward and DeferredCompressed lighting.
 | Point | `MakePointLight(pos, color, radius, intensity)` | Attenuates by distance |
 | Directional | `MakeDirectionalLight(dir, color, intensity)` | Direction is normalized |
 | Spot | `MakeSpotLight(pos, dir, color, radius, innerRad, outerRad, intensity)` | Cone angles in radians; stored as cosines |
-| Area | `MakeAreaLight(center, normal, tangent, halfW, halfH, color, intensity)` | Rect panel; LTC in Forward + Deferred |
+| Area | `MakeAreaLight(center, normal, tangent, halfW, halfH, color, intensity)` | Rect panel; LTC in Deferred lighting |
 
 Spot/inner and outer cutoffs on `Light` are **cosines** of the cone half-angles.
 The spot factory converts radians for you.
@@ -260,12 +275,11 @@ procedural sky; if the file is missing, the procedural sky is used as well.
 | LTC matrix/ampl | Linearly Transformed Cosines for area lights |
 
 Configure with `SetIblIntensity` / `SetEnvironmentMapPath` on
-`FreyaOptionsBuilder`. Forward set 0 bindings 2–4 sample IBL; bindings 5–6
-are LTC LUTs. Deferred lighting bindings 7–9 sample IBL; 10–11 are LTC.
+`FreyaOptionsBuilder`. Deferred lighting bindings 7–9 sample IBL; 10–11 are LTC.
 
 ## Shadows
 
-`ShadowPass` runs before Forward / Deferred geometry each frame and produces:
+`ShadowPass` runs before deferred geometry each frame and produces:
 
 | Target | Technique | Limit |
 |--------|-----------|--------|
@@ -273,14 +287,25 @@ are LTC LUTs. Deferred lighting bindings 7–9 sample IBL; 10–11 are LTC.
 | Spot | Perspective depth map (2D array) | `maxSpotShadows` (0–4) |
 | Point | Cube array (6 faces each) | `maxPointShadows` (0–2) |
 
-Configure via `FreyaOptionsBuilder`: `SetShadowCascadeCount`,
-`SetShadowMapResolution`, `SetShadowBias`, `SetMaxSpotShadows`,
-`SetMaxPointShadows`. Defaults: 4 cascades, 2048², bias `0.002`, 4 spot /
-2 point slots.
+Configure via `FreyaOptionsBuilder`: `SetShadowQuality` presets
+(`Low` / `Medium` / `High` / `Ultra`) or individual setters
+(`SetShadowCascadeCount`, `SetShadowMapResolution`, `SetShadowBias`,
+`SetMaxSpotShadows`, `SetMaxPointShadows`, `SetShadowSampleCount`).
+
+| Preset | Resolution | Cascades | Spot | Point | Soft taps |
+|--------|------------|----------|------|-------|-----------|
+| Low | 512² | 2 | 2 | 2 | 4 |
+| Medium | 1024² | 3 | 4 | 2 | 8 |
+| High | 2048² | 4 | 4 | 2 | 16 |
+| Ultra | 4096² | 4 | 4 | 2 | 16 |
+
+Defaults without a preset: 4 cascades, 2048², bias `0.002`, 4 spot /
+2 point slots, 16 soft-shadow taps. Spot/point budgets of `0` keep a 1×1
+descriptor stub instead of a full-resolution atlas.
 
 Lighting shaders multiply each light’s radiance by a PCF shadow factor
-(hardware compare samplers). Forward set 0 bindings 7–10 hold the shadow UBO
-and cascade / spot / point maps; Deferred lighting uses bindings 12–15.
+(hardware compare samplers). Deferred lighting bindings 12–15 hold the shadow
+UBO and cascade / spot / point maps.
 
 ## DeferredCompressedPass
 

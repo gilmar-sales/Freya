@@ -41,18 +41,68 @@ namespace FREYA_NAMESPACE
             queueCreateInfos.push_back(queueCreateInfo);
         }
 
-        auto physicalDeviceFeatures = mPhysicalDevice->Get().getFeatures();
+        auto vulkan12Features = vk::PhysicalDeviceVulkan12Features {};
+        auto features2 =
+            vk::PhysicalDeviceFeatures2 {}.setPNext(&vulkan12Features);
+        mPhysicalDevice->Get().getFeatures2(&features2);
 
-        mLogger->Assert(physicalDeviceFeatures.imageCubeArray,
+        mLogger->Assert(features2.features.imageCubeArray,
                         "Physical device does not support imageCubeArray "
                         "(required for point shadow maps)");
+        mLogger->Assert(features2.features.multiDrawIndirect,
+                        "Physical device does not support multiDrawIndirect "
+                        "(required for GPU-driven draws)");
+        mLogger->Assert(
+            features2.features.drawIndirectFirstInstance,
+            "Physical device does not support drawIndirectFirstInstance "
+            "(required for GPU-driven draws)");
+        mLogger->Assert(vulkan12Features.drawIndirectCount,
+                        "Physical device does not support drawIndirectCount "
+                        "(required for GPU-driven draws)");
+        mLogger->Assert(vulkan12Features.descriptorIndexing,
+                        "Physical device does not support descriptorIndexing "
+                        "(required for bindless materials)");
+        mLogger->Assert(
+            vulkan12Features.runtimeDescriptorArray,
+            "Physical device does not support runtimeDescriptorArray "
+            "(required for bindless materials)");
+        mLogger->Assert(
+            vulkan12Features.shaderSampledImageArrayNonUniformIndexing,
+            "Physical device does not support "
+            "shaderSampledImageArrayNonUniformIndexing "
+            "(required for bindless materials)");
+        mLogger->Assert(vulkan12Features.descriptorBindingPartiallyBound,
+                        "Physical device does not support "
+                        "descriptorBindingPartiallyBound "
+                        "(required for bindless materials)");
+        mLogger->Assert(
+            vulkan12Features.descriptorBindingSampledImageUpdateAfterBind,
+            "Physical device does not support "
+            "descriptorBindingSampledImageUpdateAfterBind "
+            "(required for bindless materials)");
 
-        auto deviceFeatures =
+        auto enabled12 =
+            vk::PhysicalDeviceVulkan12Features {}
+                .setDrawIndirectCount(true)
+                .setDescriptorIndexing(true)
+                .setRuntimeDescriptorArray(true)
+                .setShaderSampledImageArrayNonUniformIndexing(true)
+                .setDescriptorBindingPartiallyBound(true)
+                .setDescriptorBindingSampledImageUpdateAfterBind(true)
+                .setDescriptorBindingStorageBufferUpdateAfterBind(true);
+
+        auto enabledFeatures =
             vk::PhysicalDeviceFeatures()
-                .setDepthClamp(physicalDeviceFeatures.depthClamp)
+                .setDepthClamp(features2.features.depthClamp)
                 .setDepthBounds(false)
-                .setSamplerAnisotropy(physicalDeviceFeatures.samplerAnisotropy)
-                .setImageCubeArray(true);
+                .setSamplerAnisotropy(features2.features.samplerAnisotropy)
+                .setImageCubeArray(true)
+                .setMultiDrawIndirect(true)
+                .setDrawIndirectFirstInstance(true);
+
+        auto features2Enable = vk::PhysicalDeviceFeatures2 {}
+                                   .setFeatures(enabledFeatures)
+                                   .setPNext(&enabled12);
 
         // TODO: use optional extensions for memory priority
         auto optionalExtensions =
@@ -64,9 +114,9 @@ namespace FREYA_NAMESPACE
 
         auto createInfo =
             vk::DeviceCreateInfo()
+                .setPNext(&features2Enable)
                 .setQueueCreateInfoCount(queueCreateInfos.size())
                 .setPQueueCreateInfos(queueCreateInfos.data())
-                .setPEnabledFeatures(&deviceFeatures)
                 .setEnabledExtensionCount(mDeviceExtensions.size())
                 .setPpEnabledExtensionNames(mDeviceExtensions.data());
 

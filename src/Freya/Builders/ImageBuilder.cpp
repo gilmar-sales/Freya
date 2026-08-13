@@ -69,18 +69,34 @@ namespace FREYA_NAMESPACE
                     vk::ImageUsageFlagBits::eColorAttachment |
                     vk::ImageUsageFlagBits::eTransientAttachment);
                 break;
-            case ImageUsage::GBufferPosition:
-            case ImageUsage::GBufferNormal:
             case ImageUsage::GBufferAlbedo:
-            case ImageUsage::GBufferMetalness:
-            case ImageUsage::GBufferRoughness:
-                imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment |
-                                   vk::ImageUsageFlagBits::eInputAttachment);
-                break;
-            case ImageUsage::GBufferEmissive:
-                // Need eSampled for cross-pass bloom read
+            case ImageUsage::GBufferNormal:
+            case ImageUsage::GBufferPbr:
+            case ImageUsage::GBufferVelocity:
                 imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment |
                                    vk::ImageUsageFlagBits::eInputAttachment |
+                                   vk::ImageUsageFlagBits::eSampled);
+                break;
+            case ImageUsage::GBufferSceneColor:
+                // Geometry emissive + lighting accumulation; sampled by
+                // bloom/TAA
+                imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment |
+                                   vk::ImageUsageFlagBits::eSampled);
+                break;
+            case ImageUsage::TaaHistory:
+            case ImageUsage::TaaDepthHistory:
+                imageInfo.setUsage(vk::ImageUsageFlagBits::eStorage |
+                                   vk::ImageUsageFlagBits::eSampled |
+                                   vk::ImageUsageFlagBits::eTransferDst);
+                break;
+            case ImageUsage::HiZDepth:
+                imageInfo.setUsage(vk::ImageUsageFlagBits::eStorage |
+                                   vk::ImageUsageFlagBits::eSampled |
+                                   vk::ImageUsageFlagBits::eTransferSrc |
+                                   vk::ImageUsageFlagBits::eTransferDst);
+                break;
+            case ImageUsage::Ssao:
+                imageInfo.setUsage(vk::ImageUsageFlagBits::eStorage |
                                    vk::ImageUsageFlagBits::eSampled);
                 break;
             default:
@@ -329,12 +345,15 @@ namespace FREYA_NAMESPACE
             case ImageUsage::Color:
             case ImageUsage::Sampling:
             case ImageUsage::Texture:
-            case ImageUsage::GBufferPosition:
-            case ImageUsage::GBufferNormal:
             case ImageUsage::GBufferAlbedo:
-            case ImageUsage::GBufferEmissive:
-            case ImageUsage::GBufferMetalness:
-            case ImageUsage::GBufferRoughness:
+            case ImageUsage::GBufferNormal:
+            case ImageUsage::GBufferPbr:
+            case ImageUsage::GBufferSceneColor:
+            case ImageUsage::GBufferVelocity:
+            case ImageUsage::TaaHistory:
+            case ImageUsage::TaaDepthHistory:
+            case ImageUsage::HiZDepth:
+            case ImageUsage::Ssao:
                 aspect = vk::ImageAspectFlagBits::eColor;
                 break;
             case ImageUsage::Depth:
@@ -388,23 +407,33 @@ namespace FREYA_NAMESPACE
             case ImageUsage::Sampling:
                 mFormat = mSurface->QuerySurfaceFormat().format;
                 break;
-            case ImageUsage::GBufferPosition:
-                mFormat = vk::Format::eR16G16B16A16Sfloat;
+            case ImageUsage::GBufferAlbedo:
+                // UNORM: albedo in gamma space; mat ID in A (not sRGB)
+                mFormat = vk::Format::eR8G8B8A8Unorm;
                 break;
             case ImageUsage::GBufferNormal:
+                mFormat = vk::Format::eA2B10G10R10UnormPack32;
+                break;
+            case ImageUsage::GBufferPbr:
+                // R roughness, G metallic, B AO, A free
+                mFormat = vk::Format::eR8G8B8A8Unorm;
+                break;
+            case ImageUsage::GBufferSceneColor:
                 mFormat = vk::Format::eR16G16B16A16Sfloat;
                 break;
-            case ImageUsage::GBufferAlbedo:
-                mFormat = vk::Format::eR8G8B8A8Srgb;
+            case ImageUsage::GBufferVelocity:
+                mFormat = vk::Format::eR16G16Sfloat;
                 break;
-            case ImageUsage::GBufferEmissive:
+            case ImageUsage::TaaHistory:
                 mFormat = vk::Format::eR16G16B16A16Sfloat;
                 break;
-            case ImageUsage::GBufferMetalness:
-                // RG: metalness + roughness (see gbuffer outMaterial)
-                mFormat = vk::Format::eR8G8Unorm;
+            case ImageUsage::TaaDepthHistory:
+                mFormat = vk::Format::eR16Sfloat;
                 break;
-            case ImageUsage::GBufferRoughness:
+            case ImageUsage::HiZDepth:
+                mFormat = vk::Format::eR32Sfloat;
+                break;
+            case ImageUsage::Ssao:
                 mFormat = vk::Format::eR8Unorm;
                 break;
             default:

@@ -1,6 +1,34 @@
 # Builders
 
-Freya uses the builder pattern to provide a fluent API for constructing engine components.
+Freya uses the builder pattern to provide a fluent API for constructing engine
+components. When using `FreyaExtension`, prefer its configure hooks instead of
+constructing builders manually.
+
+## FreyaExtension hooks
+
+```cpp
+.WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
+    freya.WithOptions([](fra::FreyaOptionsBuilder& o) {
+        o.SetTitle("My App")
+         .SetShaderRoot("./Resources/Shaders")
+         .SetEnableBloom(true);
+    })
+    .WithInstance([](fra::InstanceBuilder& b) {
+        b.SetApplicationVersion(1, 0, 0);
+    })
+    .WithPhysicalDevice([](fra::PhysicalDeviceBuilder& b) {
+        b.PreferDeviceType(vk::PhysicalDeviceType::eDiscreteGpu);
+    })
+    .WithDevice([](fra::DeviceBuilder& b) {
+        b.AddExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    })
+    .WithSwapChain([](fra::SwapChainBuilder& b) {
+        b.PreferPresentMode(vk::PresentModeKHR::eFifo);
+    });
+})
+```
+
+Shader SPIR-V paths are `shaderRoot + "/DeferredCompressed|Shadow|Pick/…"`.
 
 ## Overview
 
@@ -35,24 +63,22 @@ auto instance = InstanceBuilder(logger)
 
 ## DeviceBuilder
 
-Creates Vulkan logical `Device`.
+Creates Vulkan logical `Device`. Supports `AddExtension` / `AddExtensions`.
 
 ```cpp
-auto device = DeviceBuilder()
-    .SetPhysicalDevice(physicalDevice)
-    .SetSurface(surface)
-    .SetCommandPool(commandPool)
+auto device = serviceProvider->GetService<fra::DeviceBuilder>()
+    ->AddExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
     .Build();
 ```
 
 ## PhysicalDeviceBuilder
 
-Selects and configures Vulkan `PhysicalDevice` (GPU).
+Selects and configures Vulkan `PhysicalDevice` (GPU). Use
+`PreferDeviceType` or `SetTypePriorities`.
 
 ```cpp
-auto physicalDevice = PhysicalDeviceBuilder()
-    .SetSurface(surface)
-    .SetDeviceTypePreference(vk::PhysicalDeviceType::eDiscreteGpu)
+auto physicalDevice = serviceProvider->GetService<fra::PhysicalDeviceBuilder>()
+    ->PreferDeviceType(vk::PhysicalDeviceType::eDiscreteGpu)
     .Build();
 ```
 
@@ -83,19 +109,6 @@ auto swapChain = SwapChainBuilder()
     .Build();
 ```
 
-## RenderPassBuilder
-
-Creates Vulkan `RenderPass`.
-
-```cpp
-auto renderPass = RenderPassBuilder()
-    .SetSurface(surface)
-    .SetPhysicalDevice(physicalDevice)
-    .SetDevice(device)
-    .SetSamples(4)
-    .Build();
-```
-
 ## CommandPoolBuilder
 
 Creates `CommandPool` for command buffer management.
@@ -109,12 +122,12 @@ auto commandPool = CommandPoolBuilder()
 
 ## RendererBuilder
 
-Creates the main `Renderer` instance.
+Creates the main `Renderer` instance (deferred compressed scene path).
 
 ```cpp
 auto renderer = RendererBuilder(
     instance, surface, physicalDevice, device,
-    commandPool, swapChain, renderPass, eventManager,
+    commandPool, swapChain, eventManager,
     window, freyaOptions, serviceProvider)
     .Build();
 ```
@@ -212,17 +225,21 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
         .SetSampleCount(8)
         .SetFullscreen(false)
         .SetDrawDistance(1000.0f)
-        .SetRenderingStrategy(fra::RenderingStrategy::Forward);
+        .SetShadowQuality(fra::ShadowQuality::Medium);
 });
 ```
 
+`SetShadowQuality` applies Low / Medium / High / Ultra budgets for shadow map
+resolution, cascade count, spot/point slots, and soft-shadow tap count.
+Individual setters can still override fields after the preset.
+
 ## DeferredCompressedPassBuilder
 
-Creates deferred rendering passes with G-buffer compression.
+Creates the deferred geometry / lighting passes (G-buffer + Scene Color HDR).
 
 ```cpp
 auto deferredPass = DeferredCompressedPassBuilder(device, surface, freyaOptions, serviceProvider)
-    .Build();
+    .Build(swapChain);
 ```
 
-Used for deferred rendering strategies to efficiently compress G-buffer data.
+Built internally by `RendererBuilder`; not typically constructed by apps.

@@ -5,25 +5,27 @@
 
 namespace FREYA_NAMESPACE
 {
-    PickPass::PickPass(const skr::Arc<Device>&         device,
-                       const skr::Arc<PhysicalDevice>& physicalDevice,
-                       const skr::Arc<FreyaOptions>&   freyaOptions,
-                       const vk::RenderPass            renderPass,
-                       const vk::PipelineLayout        pipelineLayout,
-                       const vk::Pipeline              pipeline,
-                       const vk::DescriptorSetLayout   descriptorSetLayout,
-                       const vk::DescriptorPool        descriptorPool,
-                       const vk::DescriptorSet         descriptorSet,
-                       const skr::Arc<Buffer>&         uniformBuffer,
-                       const skr::Arc<Buffer>&         stagingBuffer,
-                       const skr::Arc<Image>&          colorImage,
-                       const skr::Arc<Image>&          depthImage,
-                       const vk::Framebuffer           framebuffer,
-                       const vk::Extent2D              extent) :
+    PickPass::PickPass(
+        const skr::Arc<Device>&              device,
+        const skr::Arc<PhysicalDevice>&      physicalDevice,
+        const skr::Arc<FreyaOptions>&        freyaOptions,
+        const skr::Arc<BoneMatrixResources>& boneResources,
+        const vk::RenderPass                 renderPass,
+        const vk::PipelineLayout             pipelineLayout,
+        const vk::Pipeline                   pipeline,
+        const vk::DescriptorSetLayout        descriptorSetLayout,
+        const vk::DescriptorPool             descriptorPool,
+        const vk::DescriptorSet              descriptorSet,
+        const skr::Arc<Buffer>&              uniformBuffer,
+        const skr::Arc<Buffer>&              stagingBuffer,
+        const skr::Arc<Image>&               colorImage,
+        const skr::Arc<Image>&               depthImage,
+        const vk::Framebuffer                framebuffer,
+        const vk::Extent2D                   extent) :
         mDevice(device), mPhysicalDevice(physicalDevice),
-        mFreyaOptions(freyaOptions), mRenderPass(renderPass),
-        mPipelineLayout(pipelineLayout), mPipeline(pipeline),
-        mDescriptorSetLayout(descriptorSetLayout),
+        mFreyaOptions(freyaOptions), mBoneResources(boneResources),
+        mRenderPass(renderPass), mPipelineLayout(pipelineLayout),
+        mPipeline(pipeline), mDescriptorSetLayout(descriptorSetLayout),
         mDescriptorPool(descriptorPool), mDescriptorSet(descriptorSet),
         mUniformBuffer(uniformBuffer), mStagingBuffer(stagingBuffer),
         mColorImage(colorImage), mDepthImage(depthImage),
@@ -77,7 +79,7 @@ namespace FREYA_NAMESPACE
     void PickPass::createFramebuffer()
     {
         const std::array attachments = { mColorImage->GetImageView(),
-                                          mDepthImage->GetImageView() };
+                                         mDepthImage->GetImageView() };
 
         const auto info =
             vk::FramebufferCreateInfo()
@@ -90,9 +92,9 @@ namespace FREYA_NAMESPACE
         mFramebuffer = mDevice->Get().createFramebuffer(info);
     }
 
-    void PickPass::Resize(const vk::Extent2D       extent,
-                          const skr::Arc<Image>&   colorImage,
-                          const skr::Arc<Image>&   depthImage)
+    void PickPass::Resize(const vk::Extent2D     extent,
+                          const skr::Arc<Image>& colorImage,
+                          const skr::Arc<Image>& depthImage)
     {
         if (extent.width == 0 || extent.height == 0)
         {
@@ -108,15 +110,16 @@ namespace FREYA_NAMESPACE
         mDevice->Get().waitIdle();
         destroyFramebufferResources();
 
-        mExtent      = extent;
-        mColorImage  = colorImage;
-        mDepthImage  = depthImage;
+        mExtent     = extent;
+        mColorImage = colorImage;
+        mDepthImage = depthImage;
         createFramebuffer();
     }
 
     void PickPass::Render(const skr::Arc<CommandPool>&   commandPool,
                           const ProjectionUniformBuffer& projection,
-                          const std::function<void()>&   drawScene)
+                          const std::function<void()>&   drawScene,
+                          const std::uint32_t            frameIndex)
     {
         if (!mFramebuffer || mExtent.width == 0 || mExtent.height == 0)
         {
@@ -126,9 +129,10 @@ namespace FREYA_NAMESPACE
         mUniformBuffer->Copy(&projection, sizeof(ProjectionUniformBuffer));
 
         auto& commandBuffer = commandPool->GetCommandBuffer();
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::Pick);
 
-        const auto clearColor = vk::ClearColorValue().setUint32(
-            { kPickMissId, 0u, 0u, 0u });
+        const auto clearColor =
+            vk::ClearColorValue().setUint32({ kPickMissId, 0u, 0u, 0u });
         const auto clearDepth = vk::ClearDepthStencilValue().setDepth(
             mFreyaOptions->ReverseZ ? 0.0f : 1.0f);
 
@@ -141,18 +145,33 @@ namespace FREYA_NAMESPACE
             vk::RenderPassBeginInfo()
                 .setRenderPass(mRenderPass)
                 .setFramebuffer(mFramebuffer)
-                .setRenderArea(vk::Rect2D().setOffset({ 0, 0 }).setExtent(mExtent))
+                .setRenderArea(
+                    vk::Rect2D().setOffset({ 0, 0 }).setExtent(mExtent))
                 .setClearValues(clearValues);
 
         commandBuffer.beginRenderPass(beginInfo, vk::SubpassContents::eInline);
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, mPipeline);
-        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                                         mPipelineLayout,
-                                         0,
-                                         1,
-                                         &mDescriptorSet,
-                                         0,
-                                         nullptr);
+        commandBuffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics,
+            mPipelineLayout,
+            0,
+            1,
+            &mDescriptorSet,
+            0,
+            nullptr);
+
+        if (mBoneResources)
+        {
+            auto boneSet = mBoneResources->GetSet(frameIndex);
+            commandBuffer.bindDescriptorSets(
+                vk::PipelineBindPoint::eGraphics,
+                mPipelineLayout,
+                1,
+                1,
+                &boneSet,
+                0,
+                nullptr);
+        }
 
         const auto viewport =
             vk::Viewport()
@@ -171,6 +190,7 @@ namespace FREYA_NAMESPACE
         drawScene();
 
         commandBuffer.endRenderPass();
+        mDevice->EndDebugLabel(commandBuffer);
     }
 
     void PickPass::PushEntityId(const skr::Arc<CommandPool>& commandPool,
@@ -198,6 +218,7 @@ namespace FREYA_NAMESPACE
         const auto clampedY = std::min(y, mExtent.height - 1);
 
         auto& commandBuffer = commandPool->GetCommandBuffer();
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::PickCopy);
 
         // Transition ID image from color-attachment (final layout of the pick
         // render pass: TransferSrcOptimal) — render pass already leaves it in
@@ -211,13 +232,13 @@ namespace FREYA_NAMESPACE
                 .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
                 .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
                 .setImage(mColorImage->GetImage())
-                .setSubresourceRange(vk::ImageSubresourceRange()
-                                         .setAspectMask(
-                                             vk::ImageAspectFlagBits::eColor)
-                                         .setBaseMipLevel(0)
-                                         .setLevelCount(1)
-                                         .setBaseArrayLayer(0)
-                                         .setLayerCount(1));
+                .setSubresourceRange(
+                    vk::ImageSubresourceRange()
+                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                        .setBaseMipLevel(0)
+                        .setLevelCount(1)
+                        .setBaseArrayLayer(0)
+                        .setLayerCount(1));
 
         commandBuffer.pipelineBarrier(
             vk::PipelineStageFlagBits::eColorAttachmentOutput,
@@ -235,23 +256,26 @@ namespace FREYA_NAMESPACE
                 .setBufferOffset(0)
                 .setBufferRowLength(0)
                 .setBufferImageHeight(0)
-                .setImageSubresource(vk::ImageSubresourceLayers()
-                                         .setAspectMask(
-                                             vk::ImageAspectFlagBits::eColor)
-                                         .setMipLevel(0)
-                                         .setBaseArrayLayer(0)
-                                         .setLayerCount(1))
+                .setImageSubresource(
+                    vk::ImageSubresourceLayers()
+                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                        .setMipLevel(0)
+                        .setBaseArrayLayer(0)
+                        .setLayerCount(1))
                 .setImageOffset(vk::Offset3D(
                     static_cast<std::int32_t>(clampedX),
                     static_cast<std::int32_t>(clampedY),
                     0))
                 .setImageExtent(vk::Extent3D(1, 1, 1));
 
-        commandBuffer.copyImageToBuffer(mColorImage->GetImage(),
-                                        vk::ImageLayout::eTransferSrcOptimal,
-                                        mStagingBuffer->Get(),
-                                        1,
-                                        &region);
+        commandBuffer.copyImageToBuffer(
+            mColorImage->GetImage(),
+            vk::ImageLayout::eTransferSrcOptimal,
+            mStagingBuffer->Get(),
+            1,
+            &region);
+
+        mDevice->EndDebugLabel(commandBuffer);
     }
 
     std::uint32_t PickPass::ReadPixel() const
@@ -261,19 +285,11 @@ namespace FREYA_NAMESPACE
             return kPickMissId;
         }
 
-        void* mapped = mDevice->Get().mapMemory(
-            mStagingBuffer->GetMemory(),
-            0,
-            sizeof(std::uint32_t),
-            vk::MemoryMapFlagBits {});
+        const void* mapped = mStagingBuffer->GetMapped();
+        if (!mapped)
+            return kPickMissId;
 
-        std::uint32_t value = kPickMissId;
-        if (mapped)
-        {
-            value = *static_cast<const std::uint32_t*>(mapped);
-            mDevice->Get().unmapMemory(mStagingBuffer->GetMemory());
-        }
-        return value;
+        return *static_cast<const std::uint32_t*>(mapped);
     }
 
 } // namespace FREYA_NAMESPACE

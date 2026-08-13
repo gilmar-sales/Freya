@@ -1,4 +1,5 @@
 #include "Freya/Asset/Vertex.hpp"
+#include "Freya/Asset/InstanceTransform.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -13,7 +14,7 @@ namespace FREYA_NAMESPACE
                 .setInputRate(vk::VertexInputRate::eVertex),
             vk::VertexInputBindingDescription()
                 .setBinding(1)
-                .setStride(sizeof(glm::mat4))
+                .setStride(sizeof(InstanceTransform))
                 .setInputRate(vk::VertexInputRate::eInstance)
         };
 
@@ -50,25 +51,66 @@ namespace FREYA_NAMESPACE
                 .setFormat(vk::Format::eR32G32Sfloat)
                 .setOffset(offsetof(Vertex, texCoord)),
             vk::VertexInputAttributeDescription()
+                .setBinding(0)
+                .setLocation(14)
+                .setFormat(vk::Format::eR32G32B32A32Uint)
+                .setOffset(offsetof(Vertex, joints)),
+            vk::VertexInputAttributeDescription()
+                .setBinding(0)
+                .setLocation(15)
+                .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                .setOffset(offsetof(Vertex, weights)),
+            vk::VertexInputAttributeDescription()
                 .setBinding(1)
                 .setLocation(5)
                 .setFormat(vk::Format::eR32G32B32A32Sfloat)
-                .setOffset(0),
+                .setOffset(offsetof(InstanceTransform, model)),
             vk::VertexInputAttributeDescription()
                 .setBinding(1)
                 .setLocation(6)
                 .setFormat(vk::Format::eR32G32B32A32Sfloat)
-                .setOffset(sizeof(glm::vec4)),
+                .setOffset(
+                    offsetof(InstanceTransform, model) + sizeof(glm::vec4)),
             vk::VertexInputAttributeDescription()
                 .setBinding(1)
                 .setLocation(7)
                 .setFormat(vk::Format::eR32G32B32A32Sfloat)
-                .setOffset(sizeof(glm::vec4) * 2),
+                .setOffset(
+                    offsetof(InstanceTransform, model) + sizeof(glm::vec4) * 2),
             vk::VertexInputAttributeDescription()
                 .setBinding(1)
                 .setLocation(8)
                 .setFormat(vk::Format::eR32G32B32A32Sfloat)
-                .setOffset(sizeof(glm::vec4) * 3)
+                .setOffset(
+                    offsetof(InstanceTransform, model) + sizeof(glm::vec4) * 3),
+            vk::VertexInputAttributeDescription()
+                .setBinding(1)
+                .setLocation(9)
+                .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                .setOffset(offsetof(InstanceTransform, prevModel)),
+            vk::VertexInputAttributeDescription()
+                .setBinding(1)
+                .setLocation(10)
+                .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                .setOffset(
+                    offsetof(InstanceTransform, prevModel) + sizeof(glm::vec4)),
+            vk::VertexInputAttributeDescription()
+                .setBinding(1)
+                .setLocation(11)
+                .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                .setOffset(offsetof(InstanceTransform, prevModel) +
+                           sizeof(glm::vec4) * 2),
+            vk::VertexInputAttributeDescription()
+                .setBinding(1)
+                .setLocation(12)
+                .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                .setOffset(offsetof(InstanceTransform, prevModel) +
+                           sizeof(glm::vec4) * 3),
+            vk::VertexInputAttributeDescription()
+                .setBinding(1)
+                .setLocation(13)
+                .setFormat(vk::Format::eR32G32B32A32Uint)
+                .setOffset(offsetof(InstanceTransform, materialId)),
         };
 
         return attributesDescription;

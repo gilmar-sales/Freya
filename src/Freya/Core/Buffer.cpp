@@ -3,6 +3,8 @@
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
 
+#include <cstring>
+
 namespace FREYA_NAMESPACE
 {
     /**
@@ -11,6 +13,11 @@ namespace FREYA_NAMESPACE
     Buffer::~Buffer()
     {
         mDevice->Get().waitIdle();
+        if (mMapped)
+        {
+            mDevice->Get().unmapMemory(mMemory);
+            mMapped = nullptr;
+        }
         mDevice->Get().destroyBuffer(mBuffer);
         mDevice->Get().freeMemory(mMemory);
     }
@@ -36,7 +43,7 @@ namespace FREYA_NAMESPACE
                 break;
             case BufferUsage::Index:
                 commandPool->GetCommandBuffer().bindIndexBuffer(
-                    mBuffer, 0, vk::IndexType::eUint16);
+                    mBuffer, 0, vk::IndexType::eUint32);
                 break;
             case BufferUsage::Instance:
                 commandPool->GetCommandBuffer().bindVertexBuffers(
@@ -48,10 +55,10 @@ namespace FREYA_NAMESPACE
     }
 
     /**
-     * @brief Copies data into buffer memory via mapping.
+     * @brief Copies data into buffer memory via the persistent mapping.
      *
      * Only performs copy if size fits within buffer and data is not null.
-     * Uses memcpy to transfer data to device memory.
+     * Falls back to a one-shot map when no persistent mapping exists.
      *
      * @param data  Source data pointer
      * @param size  Size of data to copy
@@ -60,15 +67,30 @@ namespace FREYA_NAMESPACE
     void Buffer::Copy(const void* data, const std::uint64_t size,
                       const std::uint64_t offset)
     {
-        if (mSize >= size && data != nullptr)
+        if (mSize < size + offset || data == nullptr)
+            return;
+
+        if (mMapped)
         {
-            void* deviceData = mDevice->Get().mapMemory(
-                mMemory, offset, size, vk::MemoryMapFlagBits {});
-
-            memcpy(deviceData, data, size);
-
-            mDevice->Get().unmapMemory(mMemory);
+            std::memcpy(static_cast<std::byte*>(mMapped) + offset, data, size);
+            if (!mHostCoherent)
+            {
+                const auto range =
+                    vk::MappedMemoryRange()
+                        .setMemory(mMemory)
+                        .setOffset(offset)
+                        .setSize(size);
+                mDevice->Get().flushMappedMemoryRanges(range);
+            }
+            return;
         }
+
+        void* deviceData = mDevice->Get().mapMemory(
+            mMemory, offset, size, vk::MemoryMapFlagBits {});
+
+        std::memcpy(deviceData, data, size);
+
+        mDevice->Get().unmapMemory(mMemory);
     }
 
 } // namespace FREYA_NAMESPACE

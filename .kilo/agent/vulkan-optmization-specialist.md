@@ -32,7 +32,7 @@ Core Components:
 
 Builders (all in src/Freya/Builders/):
 - InstanceBuilder, DeviceBuilder, PhysicalDeviceBuilder, SurfaceBuilder
-- SwapChainBuilder, RenderPassBuilder, RendererBuilder, ShaderModuleBuilder
+- SwapChainBuilder, RendererBuilder, ShaderModuleBuilder
 - WindowBuilder, ImageBuilder, FreyaOptionsBuilder
 
 Data flow:

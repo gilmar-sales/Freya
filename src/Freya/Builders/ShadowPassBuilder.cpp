@@ -1,5 +1,6 @@
 #include "Freya/Builders/ShadowPassBuilder.hpp"
 
+#include "Freya/Asset/InstanceTransform.hpp"
 #include "Freya/Asset/Vertex.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
@@ -28,16 +29,18 @@ namespace FREYA_NAMESPACE
         auto renderPass = createRenderPass(depthFormat);
 
         // ------------------------------------------------------------------
-        // Depth-only pipeline (push constant mat4, no descriptor sets)
+        // Depth-only pipeline (set 0 = bone SSBO + push constant light VP)
         // ------------------------------------------------------------------
         auto vertShader =
             mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath("./Resources/Shaders/Shadow/depth.vert.spv")
+                ->SetFilePath(
+                    mFreyaOptions->shaderRoot + "/Shadow/depth.vert.spv")
                 .Build();
 
         auto fragShader =
             mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath("./Resources/Shaders/Shadow/depth.frag.spv")
+                ->SetFilePath(
+                    mFreyaOptions->shaderRoot + "/Shadow/depth.frag.spv")
                 .Build();
 
         auto stages = std::array {
@@ -51,9 +54,9 @@ namespace FREYA_NAMESPACE
                 .setPName("main"),
         };
 
-        // Depth.vert only consumes position (loc 0) and instance
-        // mat4 (loc 5–8). Declaring unused mesh attrs triggers
-        // validation warnings.
+        // Depth.vert: position, instance model, boneOffset (loc13),
+        // joints/weights. Stride still covers prevModel; unused attrs
+        // are omitted to avoid validation warnings.
         auto vertexBinding = Vertex::GetBindingDescription();
         auto vertexAttributes =
             std::vector<vk::VertexInputAttributeDescription> {
@@ -62,6 +65,16 @@ namespace FREYA_NAMESPACE
                     .setLocation(0)
                     .setFormat(vk::Format::eR32G32B32Sfloat)
                     .setOffset(offsetof(Vertex, position)),
+                vk::VertexInputAttributeDescription()
+                    .setBinding(0)
+                    .setLocation(14)
+                    .setFormat(vk::Format::eR32G32B32A32Uint)
+                    .setOffset(offsetof(Vertex, joints)),
+                vk::VertexInputAttributeDescription()
+                    .setBinding(0)
+                    .setLocation(15)
+                    .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                    .setOffset(offsetof(Vertex, weights)),
                 vk::VertexInputAttributeDescription()
                     .setBinding(1)
                     .setLocation(5)
@@ -82,6 +95,11 @@ namespace FREYA_NAMESPACE
                     .setLocation(8)
                     .setFormat(vk::Format::eR32G32B32A32Sfloat)
                     .setOffset(sizeof(glm::vec4) * 3),
+                vk::VertexInputAttributeDescription()
+                    .setBinding(1)
+                    .setLocation(13)
+                    .setFormat(vk::Format::eR32G32B32A32Uint)
+                    .setOffset(offsetof(InstanceTransform, materialId)),
             };
 
         auto vertexInputInfo =
@@ -103,10 +121,17 @@ namespace FREYA_NAMESPACE
                 .setDepthClampEnable(false)
                 .setRasterizerDiscardEnable(false)
                 .setPolygonMode(vk::PolygonMode::eFill)
-                .setCullMode(vk::CullModeFlagBits::eBack)
+                // Front-face cull stores back-face depths (AAA default):
+                // reduces acne and keeps hollow/inner shells out of the map.
+                .setCullMode(vk::CullModeFlagBits::eFront)
                 .setFrontFace(vk::FrontFace::eCounterClockwise)
                 .setLineWidth(1.0f)
-                .setDepthBiasEnable(false);
+                .setDepthBiasEnable(true)
+                .setDepthBiasConstantFactor(
+                    mFreyaOptions->ReverseZ ? -2.25f : 2.25f)
+                .setDepthBiasClamp(0.0f)
+                .setDepthBiasSlopeFactor(
+                    mFreyaOptions->ReverseZ ? -2.75f : 2.75f);
 
         auto multisampling =
             vk::PipelineMultisampleStateCreateInfo()
@@ -132,13 +157,16 @@ namespace FREYA_NAMESPACE
 
         auto pushConstantRange =
             vk::PushConstantRange()
-                .setStageFlags(vk::ShaderStageFlagBits::eVertex)
+                .setStageFlags(vk::ShaderStageFlagBits::eVertex |
+                               vk::ShaderStageFlagBits::eFragment)
                 .setOffset(0)
-                .setSize(sizeof(glm::mat4));
+                .setSize(sizeof(ShadowPushConstant));
 
-        auto pipelineLayoutInfo =
-            vk::PipelineLayoutCreateInfo().setPushConstantRanges(
-                pushConstantRange);
+        const auto boneLayout = mBoneResources->GetLayout();
+        auto       pipelineLayoutInfo =
+            vk::PipelineLayoutCreateInfo()
+                .setSetLayouts(boneLayout)
+                .setPushConstantRanges(pushConstantRange);
 
         auto pipelineLayout =
             mDevice->Get().createPipelineLayout(pipelineLayoutInfo);
@@ -174,34 +202,42 @@ namespace FREYA_NAMESPACE
             false,
             vk::ImageViewType::e2DArray);
 
+        // Zero slots still need a sampled view for lighting descriptors.
+        // Use a 1×1 stub so Low/zero configs avoid full-resolution VRAM.
+        const auto spotLayers      = maxSpot == 0 ? 1u : maxSpot;
+        const auto spotResolution  = maxSpot == 0 ? 1u : resolution;
+        const auto pointLayers     = maxPoint == 0 ? 6u : maxPoint * 6;
+        const auto pointResolution = maxPoint == 0 ? 1u : resolution;
+
         auto spot = createArrayImage(
             depthFormat,
-            resolution,
-            std::max(1u, maxSpot),
+            spotResolution,
+            spotLayers,
             false,
             vk::ImageViewType::e2DArray);
 
         auto point = createArrayImage(
             depthFormat,
-            resolution,
-            std::max(6u, maxPoint * 6),
+            pointResolution,
+            pointLayers,
             true,
             vk::ImageViewType::eCubeArray);
 
         auto cascadeFramebuffers =
             createFramebuffers(renderPass, cascade.layerViews, resolution);
         auto spotFramebuffers =
-            createFramebuffers(renderPass, spot.layerViews, resolution);
+            createFramebuffers(renderPass, spot.layerViews, spotResolution);
         auto pointFramebuffers =
-            createFramebuffers(renderPass, point.layerViews, resolution);
+            createFramebuffers(renderPass, point.layerViews, pointResolution);
 
         // ------------------------------------------------------------------
-        // Shadow uniform buffer (single host-visible copy, not ring-buffered)
+        // Shadow uniform buffer (ring-buffered per in-flight frame)
         // ------------------------------------------------------------------
         auto uniformBuffer =
             BufferBuilder(mDevice)
                 .SetUsage(BufferUsage::Uniform)
-                .SetSize(sizeof(ShadowUniformBuffer))
+                .SetSize(sizeof(ShadowUniformBuffer) *
+                         mFreyaOptions->frameCount)
                 .Build();
 
         // ------------------------------------------------------------------
@@ -215,7 +251,11 @@ namespace FREYA_NAMESPACE
                 .setAddressModeU(vk::SamplerAddressMode::eClampToBorder)
                 .setAddressModeV(vk::SamplerAddressMode::eClampToBorder)
                 .setAddressModeW(vk::SamplerAddressMode::eClampToBorder)
-                .setBorderColor(vk::BorderColor::eFloatOpaqueWhite)
+                // Reverse-Z clear/far is 0; white (1) makes out-of-bounds PCF
+                // fail Greater and look like grain at cascade UV edges.
+                .setBorderColor(mFreyaOptions->ReverseZ
+                                    ? vk::BorderColor::eFloatOpaqueBlack
+                                    : vk::BorderColor::eFloatOpaqueWhite)
                 .setAnisotropyEnable(false)
                 .setMaxAnisotropy(1.0f)
                 .setUnnormalizedCoordinates(false)
@@ -228,29 +268,11 @@ namespace FREYA_NAMESPACE
 
         auto compareSampler = mDevice->Get().createSampler(compareSamplerInfo);
 
-        auto regularSamplerInfo =
-            vk::SamplerCreateInfo()
-                .setMagFilter(vk::Filter::eNearest)
-                .setMinFilter(vk::Filter::eNearest)
-                .setMipmapMode(vk::SamplerMipmapMode::eNearest)
-                .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
-                .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
-                .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
-                .setBorderColor(vk::BorderColor::eFloatOpaqueWhite)
-                .setAnisotropyEnable(false)
-                .setMaxAnisotropy(1.0f)
-                .setUnnormalizedCoordinates(false)
-                .setCompareEnable(false)
-                .setMinLod(0.0f)
-                .setMaxLod(0.0f)
-                .setMipLodBias(0.0f);
-
-        auto regularSampler = mDevice->Get().createSampler(regularSamplerInfo);
-
         return skr::MakeArc<ShadowPass>(
             mDevice,
             mPhysicalDevice,
             mFreyaOptions,
+            mBoneResources,
             renderPass,
             pipelineLayout,
             pipeline,
@@ -271,7 +293,6 @@ namespace FREYA_NAMESPACE
             pointFramebuffers,
             uniformBuffer,
             compareSampler,
-            regularSampler,
             cascadeCount,
             maxSpot,
             maxPoint);

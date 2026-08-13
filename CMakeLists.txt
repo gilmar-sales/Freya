@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.29)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(Freya LANGUAGES CXX VERSION 0.23.0)
+project(Freya LANGUAGES CXX VERSION 0.38.2)
 
 find_package(Vulkan REQUIRED)
 
@@ -19,7 +19,7 @@ include(FetchContent)
 FetchContent_Declare(
         SDL
         GIT_REPOSITORY "https://github.com/libsdl-org/SDL.git"
-        GIT_TAG "release-3.4.10"
+        GIT_TAG "release-3.4.14"
         GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(SDL)
@@ -43,10 +43,18 @@ FetchContent_MakeAvailable(assimp)
 FetchContent_Declare(
         skirnir
         GIT_REPOSITORY "https://github.com/gilmar-sales/Skirnir.git"
-        GIT_TAG "v0.22.1"
+        GIT_TAG "v0.23.1"
         GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(skirnir)
+
+FetchContent_Declare(
+        meshoptimizer
+        GIT_REPOSITORY "https://github.com/zeux/meshoptimizer.git"
+        GIT_TAG "v1.2"
+        GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(meshoptimizer)
 
 if(${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
         option(FREYA_BUILD_EXAMPLES "Build freyr examples" ON)
@@ -62,9 +70,24 @@ add_library(Freya ${Freya_SRCS})
 add_library(Freya::Freya ALIAS Freya)
 
 target_compile_features(Freya PUBLIC cxx_std_26)
-target_include_directories(Freya PUBLIC include src ${Vulkan_INCLUDE_DIRS})
+target_include_directories(Freya
+        PUBLIC
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                $<INSTALL_INTERFACE:include>
+                ${Vulkan_INCLUDE_DIRS}
+        PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}/src
+                # Same-directory style includes in .cpp ("Renderer.hpp")
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Core
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Builders
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Asset
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Events
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Containers
+)
 target_link_libraries(Freya PUBLIC
-        SDL3::SDL3 glm assimp ${Vulkan_LIBRARIES} skirnir::skirnir)
+        SDL3::SDL3 glm assimp meshoptimizer ${Vulkan_LIBRARIES}
+        skirnir::skirnir)
 
 target_precompile_headers(Freya PUBLIC
         <memory>

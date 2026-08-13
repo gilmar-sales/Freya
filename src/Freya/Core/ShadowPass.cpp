@@ -5,43 +5,45 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdio>
 #include <limits>
+#include <utility>
 
 namespace FREYA_NAMESPACE
 {
     ShadowPass::ShadowPass(
-        const skr::Arc<Device>&             device,
-        const skr::Arc<PhysicalDevice>&     physicalDevice,
-        const skr::Arc<FreyaOptions>&       freyaOptions,
-        const vk::RenderPass                renderPass,
-        const vk::PipelineLayout            pipelineLayout,
-        const vk::Pipeline                  pipeline,
-        const vk::Image                     cascadeImage,
-        const vk::DeviceMemory              cascadeMemory,
-        const vk::ImageView                 cascadeArrayView,
-        const std::vector<vk::ImageView>&   cascadeLayerViews,
-        const std::vector<vk::Framebuffer>& cascadeFramebuffers,
-        const vk::Image                     spotImage,
-        const vk::DeviceMemory              spotMemory,
-        const vk::ImageView                 spotArrayView,
-        const std::vector<vk::ImageView>&   spotLayerViews,
-        const std::vector<vk::Framebuffer>& spotFramebuffers,
-        const vk::Image                     pointImage,
-        const vk::DeviceMemory              pointMemory,
-        const vk::ImageView                 pointArrayView,
-        const std::vector<vk::ImageView>&   pointFaceViews,
-        const std::vector<vk::Framebuffer>& pointFramebuffers,
-        const skr::Arc<Buffer>&             uniformBuffer,
-        const vk::Sampler                   compareSampler,
-        const vk::Sampler                   regularSampler,
-        const std::uint32_t                 cascadeCount,
-        const std::uint32_t                 maxSpotShadows,
-        const std::uint32_t                 maxPointShadows) :
+        const skr::Arc<Device>&              device,
+        const skr::Arc<PhysicalDevice>&      physicalDevice,
+        const skr::Arc<FreyaOptions>&        freyaOptions,
+        const skr::Arc<BoneMatrixResources>& boneResources,
+        const vk::RenderPass                 renderPass,
+        const vk::PipelineLayout             pipelineLayout,
+        const vk::Pipeline                   pipeline,
+        const vk::Image                      cascadeImage,
+        const vk::DeviceMemory               cascadeMemory,
+        const vk::ImageView                  cascadeArrayView,
+        const std::vector<vk::ImageView>&    cascadeLayerViews,
+        const std::vector<vk::Framebuffer>&  cascadeFramebuffers,
+        const vk::Image                      spotImage,
+        const vk::DeviceMemory               spotMemory,
+        const vk::ImageView                  spotArrayView,
+        const std::vector<vk::ImageView>&    spotLayerViews,
+        const std::vector<vk::Framebuffer>&  spotFramebuffers,
+        const vk::Image                      pointImage,
+        const vk::DeviceMemory               pointMemory,
+        const vk::ImageView                  pointArrayView,
+        const std::vector<vk::ImageView>&    pointFaceViews,
+        const std::vector<vk::Framebuffer>&  pointFramebuffers,
+        const skr::Arc<Buffer>&              uniformBuffer,
+        const vk::Sampler                    compareSampler,
+        const std::uint32_t                  cascadeCount,
+        const std::uint32_t                  maxSpotShadows,
+        const std::uint32_t                  maxPointShadows) :
         mDevice(device), mPhysicalDevice(physicalDevice),
-        mFreyaOptions(freyaOptions), mRenderPass(renderPass),
-        mPipelineLayout(pipelineLayout), mPipeline(pipeline),
-        mCascadeImage(cascadeImage), mCascadeMemory(cascadeMemory),
-        mCascadeArrayView(cascadeArrayView),
+        mFreyaOptions(freyaOptions), mBoneResources(boneResources),
+        mRenderPass(renderPass), mPipelineLayout(pipelineLayout),
+        mPipeline(pipeline), mCascadeImage(cascadeImage),
+        mCascadeMemory(cascadeMemory), mCascadeArrayView(cascadeArrayView),
         mCascadeLayerViews(cascadeLayerViews),
         mCascadeFramebuffers(cascadeFramebuffers), mSpotImage(spotImage),
         mSpotMemory(spotMemory), mSpotArrayView(spotArrayView),
@@ -49,15 +51,26 @@ namespace FREYA_NAMESPACE
         mPointImage(pointImage), mPointMemory(pointMemory),
         mPointArrayView(pointArrayView), mPointFaceViews(pointFaceViews),
         mPointFramebuffers(pointFramebuffers), mUniformBuffer(uniformBuffer),
-        mCompareSampler(compareSampler), mSampler(regularSampler),
-        mCascadeCount(cascadeCount), mMaxSpotShadows(maxSpotShadows),
-        mMaxPointShadows(maxPointShadows),
-        mResolution(freyaOptions->shadowMapResolution)
+        mCompareSampler(compareSampler), mCascadeCount(cascadeCount),
+        mMaxSpotShadows(maxSpotShadows), mMaxPointShadows(maxPointShadows),
+        mResolution(freyaOptions->shadowMapResolution),
+        mSpotResolution(
+            maxSpotShadows == 0 ? 1u : freyaOptions->shadowMapResolution),
+        mPointResolution(
+            maxPointShadows == 0 ? 1u : freyaOptions->shadowMapResolution)
     {
     }
 
     ShadowPass::~ShadowPass()
     {
+        destroyGpuResources();
+    }
+
+    void ShadowPass::destroyGpuResources()
+    {
+        if (!mDevice)
+            return;
+
         auto& vkDevice = mDevice->Get();
 
         for (auto& fb : mCascadeFramebuffers)
@@ -66,6 +79,9 @@ namespace FREYA_NAMESPACE
             vkDevice.destroyFramebuffer(fb);
         for (auto& fb : mPointFramebuffers)
             vkDevice.destroyFramebuffer(fb);
+        mCascadeFramebuffers.clear();
+        mSpotFramebuffers.clear();
+        mPointFramebuffers.clear();
 
         for (auto& view : mCascadeLayerViews)
             vkDevice.destroyImageView(view);
@@ -73,6 +89,9 @@ namespace FREYA_NAMESPACE
             vkDevice.destroyImageView(view);
         for (auto& view : mPointFaceViews)
             vkDevice.destroyImageView(view);
+        mCascadeLayerViews.clear();
+        mSpotLayerViews.clear();
+        mPointFaceViews.clear();
 
         if (mCascadeArrayView)
             vkDevice.destroyImageView(mCascadeArrayView);
@@ -80,6 +99,9 @@ namespace FREYA_NAMESPACE
             vkDevice.destroyImageView(mSpotArrayView);
         if (mPointArrayView)
             vkDevice.destroyImageView(mPointArrayView);
+        mCascadeArrayView = VK_NULL_HANDLE;
+        mSpotArrayView    = VK_NULL_HANDLE;
+        mPointArrayView   = VK_NULL_HANDLE;
 
         if (mCascadeImage)
         {
@@ -96,15 +118,90 @@ namespace FREYA_NAMESPACE
             vkDevice.destroyImage(mPointImage);
             vkDevice.freeMemory(mPointMemory);
         }
+        mCascadeImage  = VK_NULL_HANDLE;
+        mCascadeMemory = VK_NULL_HANDLE;
+        mSpotImage     = VK_NULL_HANDLE;
+        mSpotMemory    = VK_NULL_HANDLE;
+        mPointImage    = VK_NULL_HANDLE;
+        mPointMemory   = VK_NULL_HANDLE;
 
-        vkDevice.destroySampler(mCompareSampler);
-        vkDevice.destroySampler(mSampler);
+        if (mCompareSampler)
+            vkDevice.destroySampler(mCompareSampler);
+        mCompareSampler = VK_NULL_HANDLE;
 
-        vkDevice.destroyPipeline(mPipeline);
-        vkDevice.destroyPipelineLayout(mPipelineLayout);
-        vkDevice.destroyRenderPass(mRenderPass);
+        if (mPipeline)
+            vkDevice.destroyPipeline(mPipeline);
+        if (mPipelineLayout)
+            vkDevice.destroyPipelineLayout(mPipelineLayout);
+        if (mRenderPass)
+            vkDevice.destroyRenderPass(mRenderPass);
+        mPipeline       = VK_NULL_HANDLE;
+        mPipelineLayout = VK_NULL_HANDLE;
+        mRenderPass     = VK_NULL_HANDLE;
 
         mUniformBuffer.reset();
+    }
+
+    void ShadowPass::StealResourcesFrom(ShadowPass& other)
+    {
+        if (this == &other)
+            return;
+
+        destroyGpuResources();
+
+        mRenderPass     = other.mRenderPass;
+        mPipelineLayout = other.mPipelineLayout;
+        mPipeline       = other.mPipeline;
+
+        mCascadeImage        = other.mCascadeImage;
+        mCascadeMemory       = other.mCascadeMemory;
+        mCascadeArrayView    = other.mCascadeArrayView;
+        mCascadeLayerViews   = std::move(other.mCascadeLayerViews);
+        mCascadeFramebuffers = std::move(other.mCascadeFramebuffers);
+
+        mSpotImage        = other.mSpotImage;
+        mSpotMemory       = other.mSpotMemory;
+        mSpotArrayView    = other.mSpotArrayView;
+        mSpotLayerViews   = std::move(other.mSpotLayerViews);
+        mSpotFramebuffers = std::move(other.mSpotFramebuffers);
+
+        mPointImage        = other.mPointImage;
+        mPointMemory       = other.mPointMemory;
+        mPointArrayView    = other.mPointArrayView;
+        mPointFaceViews    = std::move(other.mPointFaceViews);
+        mPointFramebuffers = std::move(other.mPointFramebuffers);
+
+        mUniformBuffer  = std::move(other.mUniformBuffer);
+        mCompareSampler = other.mCompareSampler;
+        mBoneResources  = other.mBoneResources;
+
+        mCascadeCount    = other.mCascadeCount;
+        mMaxSpotShadows  = other.mMaxSpotShadows;
+        mMaxPointShadows = other.mMaxPointShadows;
+        mResolution      = other.mResolution;
+        mSpotResolution  = other.mSpotResolution;
+        mPointResolution = other.mPointResolution;
+        mFrameIndex      = other.mFrameIndex;
+
+        mShadowData           = {};
+        mHasDirectionalShadow = false;
+        mActiveSpotCount      = 0;
+        mActivePointCount     = 0;
+
+        other.mRenderPass       = VK_NULL_HANDLE;
+        other.mPipelineLayout   = VK_NULL_HANDLE;
+        other.mPipeline         = VK_NULL_HANDLE;
+        other.mCascadeImage     = VK_NULL_HANDLE;
+        other.mCascadeMemory    = VK_NULL_HANDLE;
+        other.mCascadeArrayView = VK_NULL_HANDLE;
+        other.mSpotImage        = VK_NULL_HANDLE;
+        other.mSpotMemory       = VK_NULL_HANDLE;
+        other.mSpotArrayView    = VK_NULL_HANDLE;
+        other.mPointImage       = VK_NULL_HANDLE;
+        other.mPointMemory      = VK_NULL_HANDLE;
+        other.mPointArrayView   = VK_NULL_HANDLE;
+        other.mCompareSampler   = VK_NULL_HANDLE;
+        other.mUniformBuffer.reset();
     }
 
     void ShadowPass::Update(const LightService& lights,
@@ -112,17 +209,34 @@ namespace FREYA_NAMESPACE
                             const glm::mat4&    cameraProj,
                             const glm::vec3&    cameraPos,
                             const float         nearPlane,
-                            const float         drawDistance)
+                            const float         drawDistance,
+                            const std::uint32_t frameIndex)
     {
         (void) cameraPos;
+        mFrameIndex = frameIndex;
 
         mShadowData = ShadowUniformBuffer {};
 
-        mShadowData.params =
-            glm::vec4(mFreyaOptions->shadowBias,
-                      0.5f * mFreyaOptions->shadowBias,
-                      static_cast<float>(mCascadeCount),
-                      1.5f);
+        const float softScale = 1.0f;
+        // params.x = depth bias in light NDC (receiver).
+        // params.y = normal offset in shadow-map texels (receiver).
+        mShadowData.params = glm::vec4(
+            std::max(0.0005f, mFreyaOptions->shadowBias),
+            std::clamp(mFreyaOptions->shadowBias * 1000.0f, 1.25f, 4.0f),
+            0.0f,
+            // Soft scale magnitude; sign encodes Reverse-Z for shaders.
+            mFreyaOptions->ReverseZ ? softScale : -softScale);
+        mShadowData.reverseZ =
+            glm::vec4(mFreyaOptions->ReverseZ ? 1.0f : 0.0f,
+                      static_cast<float>(std::max(mResolution, 1u)),
+                      0.0f,
+                      0.0f);
+        mShadowData.pcss = glm::vec4(
+            std::max(0.0f, mFreyaOptions->shadowLightSize),
+            std::max(1.0f, mFreyaOptions->shadowMaxSoftness),
+            std::clamp(mFreyaOptions->shadowMinVisibility, 0.0f, 0.95f),
+            static_cast<float>(
+                std::clamp(mFreyaOptions->shadowSampleCount, 1u, 16u)));
 
         // ------------------------------------------------------------------
         // Directional CSM: first shadow-casting directional light wins.
@@ -140,8 +254,10 @@ namespace FREYA_NAMESPACE
             }
         }
 
-        if (sun != nullptr)
+        mHasDirectionalShadow = sun != nullptr;
+        if (mHasDirectionalShadow)
         {
+            mShadowData.params.z = static_cast<float>(mCascadeCount);
             computeCascades(*sun, cameraView, cameraProj, nearPlane,
                             drawDistance);
         }
@@ -189,7 +305,8 @@ namespace FREYA_NAMESPACE
             mShadowData.pointLightIndex[slot] = static_cast<float>(i);
         }
 
-        mUniformBuffer->Copy(&mShadowData, sizeof(ShadowUniformBuffer));
+        mUniformBuffer->Copy(&mShadowData, sizeof(ShadowUniformBuffer),
+                             GetUniformBufferOffset(frameIndex));
     }
 
     void ShadowPass::computeCascades(const Light&     sun,
@@ -198,7 +315,15 @@ namespace FREYA_NAMESPACE
                                      const float      nearPlane,
                                      const float      drawDistance)
     {
-        constexpr float lambda = 0.8f;
+        // Practical split over the shadow range (not full drawDistance —
+        // 1000-unit far planes starve near cascades and inflate ortho Z
+        // precision issues that read as floor acne).
+        constexpr float kMaxDirectionalShadowDistance = 80.0f;
+        const float     cascadeFar =
+            std::min(drawDistance, kMaxDirectionalShadowDistance);
+
+        // Practical split: lower λ keeps more texels near the camera.
+        constexpr float lambda = 0.55f;
 
         std::array<float, MAX_SHADOW_CASCADES> splits {};
         for (std::uint32_t i = 1; i <= mCascadeCount; ++i)
@@ -207,9 +332,8 @@ namespace FREYA_NAMESPACE
                 static_cast<float>(i) / static_cast<float>(mCascadeCount);
 
             const auto logSplit =
-                nearPlane * std::pow(drawDistance / nearPlane, p);
-            const auto uniformSplit =
-                nearPlane + (drawDistance - nearPlane) * p;
+                nearPlane * std::pow(cascadeFar / nearPlane, p);
+            const auto uniformSplit = nearPlane + (cascadeFar - nearPlane) * p;
 
             splits[i - 1] = lambda * logSplit + (1.0f - lambda) * uniformSplit;
         }
@@ -226,6 +350,8 @@ namespace FREYA_NAMESPACE
         const auto up = std::abs(lightDir.y) < 0.99f
                             ? glm::vec3(0.0f, 1.0f, 0.0f)
                             : glm::vec3(1.0f, 0.0f, 0.0f);
+
+        const auto resolution = static_cast<float>(std::max(mResolution, 1u));
 
         for (std::uint32_t i = 0; i < mCascadeCount; ++i)
         {
@@ -258,9 +384,41 @@ namespace FREYA_NAMESPACE
             }
             center /= 8.0f;
 
-            const auto lightView =
-                glm::lookAt(center - lightDir * drawDistance, center, up);
+            // Bounding sphere keeps cascades stable when the camera rotates
+            // (AABB would resize and swim).
+            float radius = 0.0f;
+            for (const auto& worldCorner : worldCorners)
+            {
+                radius = std::max(radius, glm::length(worldCorner - center));
+            }
+            radius = std::ceil(radius * 16.0f) / 16.0f;
 
+            // Pull the light eye from cascade geometry, never from camera
+            // far — using drawDistance here made outer cascades get
+            // near <= 0 when radius + pad exceeded that distance.
+            constexpr float zPad     = 25.0f;
+            constexpr float pullEps  = 1.0f;
+            const float     pullBack = radius + zPad + pullEps;
+
+            // Snap the light-space center to the shadow-map texel grid so
+            // cascades do not shimmer when the camera translates.
+            const auto texelSize = (2.0f * radius) / resolution;
+            auto       lightView =
+                glm::lookAt(center - lightDir * pullBack, center, up);
+            auto centerLS = glm::vec3(lightView * glm::vec4(center, 1.0f));
+            if (texelSize > 1e-6f)
+            {
+                centerLS.x = std::floor(centerLS.x / texelSize) * texelSize;
+                centerLS.y = std::floor(centerLS.y / texelSize) * texelSize;
+            }
+            const auto snappedCenter =
+                glm::vec3(glm::inverse(lightView) * glm::vec4(centerLS, 1.0f));
+            lightView = glm::lookAt(
+                snappedCenter - lightDir * pullBack, snappedCenter, up);
+
+            // Tight light-space AABB of the frustum slice (sphere was used
+            // only for center stability). Padding keeps casters just outside
+            // the camera frustum from being clipped off the map.
             auto minB = glm::vec3(std::numeric_limits<float>::max());
             auto maxB = glm::vec3(std::numeric_limits<float>::lowest());
             for (const auto& worldCorner : worldCorners)
@@ -271,16 +429,24 @@ namespace FREYA_NAMESPACE
                 maxB = glm::max(maxB, lightSpace);
             }
 
-            // Extend the near/far range so casters just outside the
-            // visible frustum slice still land inside the ortho box.
-            constexpr auto zMult = 10.0f;
-            auto           minZ  = minB.z;
-            auto           maxZ  = maxB.z;
-            minZ                 = (minZ < 0.0f) ? minZ * zMult : minZ / zMult;
-            maxZ                 = (maxZ < 0.0f) ? maxZ / zMult : maxZ * zMult;
+            constexpr float xyPadFrac = 0.1f;
+            const auto      extentX   = std::max(maxB.x - minB.x, 1e-3f);
+            const auto      extentY   = std::max(maxB.y - minB.y, 1e-3f);
+            minB.x -= extentX * xyPadFrac;
+            maxB.x += extentX * xyPadFrac;
+            minB.y -= extentY * xyPadFrac;
+            maxB.y += extentY * xyPadFrac;
 
-            const auto near = -maxZ;
-            const auto far  = -minZ;
+            // Extend Z so casters slightly outside the camera frustum
+            // slice still land in the ortho box.
+            minB.z -= zPad;
+            maxB.z += zPad;
+
+            // Always keep a valid positive near/far (Ortho with near<=0
+            // breaks Reverse-Z Greater depth and looks like self-shadow
+            // acne on lit surfaces).
+            const auto near = std::max(1e-3f, -maxB.z);
+            const auto far  = std::max(near + 1e-3f, -minB.z);
 
             auto lightProj =
                 mFreyaOptions->ReverseZ
@@ -290,6 +456,13 @@ namespace FREYA_NAMESPACE
 
             mShadowData.cascadeViewProj[i] = lightProj * lightView;
             mShadowData.cascadeSplits[i]   = splitFar;
+            // Padded AABB extent / resolution — used for UV soft radius and
+            // receiver normal offset proportional to cascade density.
+            const auto worldTexel =
+                std::max(extentX * (1.0f + 2.0f * xyPadFrac),
+                         extentY * (1.0f + 2.0f * xyPadFrac)) /
+                resolution;
+            mShadowData.cascadeTexelSize[static_cast<int>(i)] = worldTexel;
         }
     }
 
@@ -340,29 +513,59 @@ namespace FREYA_NAMESPACE
         constexpr auto near       = 0.05f;
         const auto     farClamped = std::max(far, near + 0.01f);
 
+        // Cube faces: keep GLM Y as-is. Flipping Y (as for 2D spot/CSM) breaks
+        // Vulkan samplerCube face orientation vs. world-dir lookup.
         auto proj = mFreyaOptions->ReverseZ
                         ? glm::perspective(glm::half_pi<float>(), 1.0f,
                                            farClamped, near)
                         : glm::perspective(glm::half_pi<float>(), 1.0f, near,
                                            farClamped);
-        proj[1][1] *= -1.0f;
 
         return proj * view;
     }
 
-    void ShadowPass::Render(const skr::Arc<CommandPool>& commandPool,
-                            const std::function<void()>& drawScene) const
+    void ShadowPass::Render(
+        const skr::Arc<CommandPool>&                 commandPool,
+        const std::function<void(const glm::mat4&)>& prepareCull,
+        const std::function<void()>&                 drawScene) const
     {
-        renderCascades(commandPool, drawScene);
-        renderSpots(commandPool, drawScene);
-        renderPoints(commandPool, drawScene);
+        auto commandBuffer = commandPool->GetCommandBuffer();
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::Shadow);
+
+        renderCascades(commandPool, prepareCull, drawScene);
+        renderSpots(commandPool, prepareCull, drawScene);
+        renderPoints(commandPool, prepareCull, drawScene);
+
+        mDevice->EndDebugLabel(commandBuffer);
+    }
+
+    void ShadowPass::bindBoneDescriptorSet(
+        const vk::CommandBuffer commandBuffer) const
+    {
+        if (!mBoneResources)
+            return;
+
+        auto boneSet = mBoneResources->GetSet(mFrameIndex);
+        commandBuffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics,
+            mPipelineLayout,
+            0,
+            1,
+            &boneSet,
+            0,
+            nullptr);
     }
 
     void ShadowPass::renderCascades(
-        const skr::Arc<CommandPool>& commandPool,
-        const std::function<void()>& drawScene) const
+        const skr::Arc<CommandPool>&                 commandPool,
+        const std::function<void(const glm::mat4&)>& prepareCull,
+        const std::function<void()>&                 drawScene) const
     {
+        if (!mHasDirectionalShadow)
+            return;
+
         auto commandBuffer = commandPool->GetCommandBuffer();
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::ShadowCascades);
 
         const auto viewport =
             vk::Viewport()
@@ -382,6 +585,15 @@ namespace FREYA_NAMESPACE
 
         for (std::uint32_t i = 0; i < mCascadeCount; ++i)
         {
+            char label[64];
+            std::snprintf(label, sizeof(label), "CSM Cascade %u", i);
+            mDevice->BeginDebugLabel(
+                commandBuffer, label, DebugLabel::ShadowColor);
+
+            const auto lightVP = mShadowData.cascadeViewProj[i];
+            if (prepareCull)
+                prepareCull(lightVP);
+
             commandBuffer.beginRenderPass(
                 vk::RenderPassBeginInfo()
                     .setRenderPass(mRenderPass)
@@ -392,25 +604,36 @@ namespace FREYA_NAMESPACE
 
             commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                                        mPipeline);
+            bindBoneDescriptorSet(commandBuffer);
             commandBuffer.setViewport(0, 1, &viewport);
             commandBuffer.setScissor(0, 1, &scissor);
 
-            const auto lightVP = mShadowData.cascadeViewProj[i];
+            ShadowPushConstant pc {};
+            pc.lightVP     = lightVP;
+            pc.lightPosFar = glm::vec4(0.0f);
+            pc.reverseZAndPad =
+                glm::vec4(mShadowData.reverseZ.x, 0.0f, 0.0f, 0.0f);
             commandBuffer.pushConstants(
                 mPipelineLayout,
-                vk::ShaderStageFlagBits::eVertex,
+                vk::ShaderStageFlagBits::eVertex |
+                    vk::ShaderStageFlagBits::eFragment,
                 0,
-                sizeof(glm::mat4),
-                &lightVP);
+                sizeof(ShadowPushConstant),
+                &pc);
 
             drawScene();
 
             commandBuffer.endRenderPass();
+            mDevice->EndDebugLabel(commandBuffer);
         }
+
+        mDevice->EndDebugLabel(commandBuffer);
     }
 
-    void ShadowPass::renderSpots(const skr::Arc<CommandPool>& commandPool,
-                                 const std::function<void()>& drawScene) const
+    void ShadowPass::renderSpots(
+        const skr::Arc<CommandPool>&                 commandPool,
+        const std::function<void(const glm::mat4&)>& prepareCull,
+        const std::function<void()>&                 drawScene) const
     {
         // Clear every allocated layer every frame so unused slots leave
         // SHADER_READ_ONLY_OPTIMAL (descriptor samples the full array).
@@ -418,18 +641,19 @@ namespace FREYA_NAMESPACE
             return;
 
         auto commandBuffer = commandPool->GetCommandBuffer();
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::ShadowSpots);
 
         const auto viewport =
             vk::Viewport()
                 .setX(0.0f)
                 .setY(0.0f)
-                .setWidth(static_cast<float>(mResolution))
-                .setHeight(static_cast<float>(mResolution))
+                .setWidth(static_cast<float>(mSpotResolution))
+                .setHeight(static_cast<float>(mSpotResolution))
                 .setMinDepth(0.0f)
                 .setMaxDepth(1.0f);
 
         const auto scissor = vk::Rect2D().setOffset({ 0, 0 }).setExtent(
-            { mResolution, mResolution });
+            { mSpotResolution, mSpotResolution });
 
         const auto clearValue = vk::ClearValue().setDepthStencil(
             vk::ClearDepthStencilValue().setDepth(
@@ -437,6 +661,19 @@ namespace FREYA_NAMESPACE
 
         for (std::uint32_t i = 0; i < mSpotFramebuffers.size(); ++i)
         {
+            char label[64];
+            std::snprintf(label, sizeof(label), "Spot Shadow %u%s", i,
+                          (i < mActiveSpotCount) ? "" : " (clear)");
+            mDevice->BeginDebugLabel(
+                commandBuffer, label, DebugLabel::ShadowColor);
+
+            if (i < mActiveSpotCount)
+            {
+                const auto lightVP = mShadowData.spotViewProj[i];
+                if (prepareCull)
+                    prepareCull(lightVP);
+            }
+
             commandBuffer.beginRenderPass(
                 vk::RenderPassBeginInfo()
                     .setRenderPass(mRenderPass)
@@ -449,26 +686,38 @@ namespace FREYA_NAMESPACE
             {
                 commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                                            mPipeline);
+                bindBoneDescriptorSet(commandBuffer);
                 commandBuffer.setViewport(0, 1, &viewport);
                 commandBuffer.setScissor(0, 1, &scissor);
 
-                const auto lightVP = mShadowData.spotViewProj[i];
+                const auto         lightVP = mShadowData.spotViewProj[i];
+                ShadowPushConstant pc {};
+                pc.lightVP     = lightVP;
+                pc.lightPosFar = glm::vec4(0.0f);
+                pc.reverseZAndPad =
+                    glm::vec4(mShadowData.reverseZ.x, 0.0f, 0.0f, 0.0f);
                 commandBuffer.pushConstants(
                     mPipelineLayout,
-                    vk::ShaderStageFlagBits::eVertex,
+                    vk::ShaderStageFlagBits::eVertex |
+                        vk::ShaderStageFlagBits::eFragment,
                     0,
-                    sizeof(glm::mat4),
-                    &lightVP);
+                    sizeof(ShadowPushConstant),
+                    &pc);
 
                 drawScene();
             }
 
             commandBuffer.endRenderPass();
+            mDevice->EndDebugLabel(commandBuffer);
         }
+
+        mDevice->EndDebugLabel(commandBuffer);
     }
 
-    void ShadowPass::renderPoints(const skr::Arc<CommandPool>& commandPool,
-                                  const std::function<void()>& drawScene) const
+    void ShadowPass::renderPoints(
+        const skr::Arc<CommandPool>&                 commandPool,
+        const std::function<void(const glm::mat4&)>& prepareCull,
+        const std::function<void()>&                 drawScene) const
     {
         // Same as spots: clear every cube face so unused point slots are
         // not left in UNDEFINED when the cube-array is sampled.
@@ -476,36 +725,48 @@ namespace FREYA_NAMESPACE
             return;
 
         auto commandBuffer = commandPool->GetCommandBuffer();
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::ShadowPoints);
 
         const auto viewport =
             vk::Viewport()
                 .setX(0.0f)
                 .setY(0.0f)
-                .setWidth(static_cast<float>(mResolution))
-                .setHeight(static_cast<float>(mResolution))
+                .setWidth(static_cast<float>(mPointResolution))
+                .setHeight(static_cast<float>(mPointResolution))
                 .setMinDepth(0.0f)
                 .setMaxDepth(1.0f);
 
         const auto scissor = vk::Rect2D().setOffset({ 0, 0 }).setExtent(
-            { mResolution, mResolution });
+            { mPointResolution, mPointResolution });
 
         const auto clearValue = vk::ClearValue().setDepthStencil(
             vk::ClearDepthStencilValue().setDepth(
                 mFreyaOptions->ReverseZ ? 0.0f : 1.0f));
 
-        const auto pointSlotCount = static_cast<std::uint32_t>(
-            mPointFramebuffers.size() / 6);
+        const auto pointSlotCount =
+            static_cast<std::uint32_t>(mPointFramebuffers.size() / 6);
 
         for (std::uint32_t p = 0; p < pointSlotCount; ++p)
         {
             const auto      posFar = mShadowData.pointLightPosFar[p];
             const glm::vec3 position(posFar);
-            const auto      far = posFar.w;
+            const auto      far    = posFar.w;
             const bool      active = p < mActivePointCount;
 
             for (std::uint32_t face = 0; face < 6; ++face)
             {
                 const auto framebufferIndex = p * 6 + face;
+
+                char label[64];
+                std::snprintf(label, sizeof(label), "Point Shadow %u Face %u%s",
+                              p, face, active ? "" : " (clear)");
+                mDevice->BeginDebugLabel(
+                    commandBuffer, label, DebugLabel::ShadowColor);
+
+                const auto lightVP =
+                    computePointFaceViewProj(position, far, face);
+                if (active && prepareCull)
+                    prepareCull(lightVP);
 
                 commandBuffer.beginRenderPass(
                     vk::RenderPassBeginInfo()
@@ -519,24 +780,30 @@ namespace FREYA_NAMESPACE
                 {
                     commandBuffer.bindPipeline(
                         vk::PipelineBindPoint::eGraphics, mPipeline);
+                    bindBoneDescriptorSet(commandBuffer);
                     commandBuffer.setViewport(0, 1, &viewport);
                     commandBuffer.setScissor(0, 1, &scissor);
 
-                    const auto lightVP =
-                        computePointFaceViewProj(position, far, face);
+                    ShadowPushConstant pc {};
+                    pc.lightVP        = lightVP;
+                    pc.lightPosFar    = posFar;
+                    pc.reverseZAndPad = mShadowData.reverseZ;
                     commandBuffer.pushConstants(
                         mPipelineLayout,
-                        vk::ShaderStageFlagBits::eVertex,
+                        vk::ShaderStageFlagBits::eVertex |
+                            vk::ShaderStageFlagBits::eFragment,
                         0,
-                        sizeof(glm::mat4),
-                        &lightVP);
+                        sizeof(ShadowPushConstant),
+                        &pc);
 
                     drawScene();
                 }
 
                 commandBuffer.endRenderPass();
+                mDevice->EndDebugLabel(commandBuffer);
             }
         }
-    }
 
+        mDevice->EndDebugLabel(commandBuffer);
+    }
 } // namespace FREYA_NAMESPACE

@@ -1,0 +1,667 @@
+// Included by skin_bake.comp / skin_bake_quant.comp (set FREYA_JOINT_QUANT).
+// Scratch SSBOs hold per-instance local TRS + global mats so the compiler
+// does not try to allocate BakedJoint[128]/mat4[128] in private memory
+// (that hangs many drivers at createComputePipeline).
+
+#ifndef FREYA_JOINT_QUANT
+#define FREYA_JOINT_QUANT 0
+#endif
+
+layout(local_size_x = 64) in;
+
+layout(set = 0, binding = 0) writeonly buffer Bones
+{
+    mat4 bones[];
+};
+
+layout(set = 1, binding = 0) readonly buffer ParentsBuf
+{
+    int parents[];
+};
+
+layout(set = 1, binding = 1) readonly buffer InvBindBuf
+{
+    mat4 inverseBind[];
+};
+
+struct ClipHeader
+{
+    float duration;
+    uint  frameCount;
+    uint  jointCount;
+    uint  jointsBase;
+};
+
+struct BakedJoint
+{
+    vec3  t;
+    float pad0;
+    vec4  q;
+    vec3  s;
+    float pad1;
+};
+
+#if FREYA_JOINT_QUANT
+/// 16-byte clip/rest storage (CPU: GpuQuantJoint). Decode before blend.
+struct QuantJoint
+{
+    uint quatBits;
+    uint txy;
+    uint tzsx;
+    uint sysz;
+};
+#endif
+
+layout(set = 1, binding = 2) readonly buffer ClipHeaders
+{
+    ClipHeader clips[];
+};
+
+layout(set = 1, binding = 3) readonly buffer ClipJoints
+{
+#if FREYA_JOINT_QUANT
+    QuantJoint joints[];
+#else
+    BakedJoint joints[];
+#endif
+};
+
+struct AnimInstance
+{
+    uint  boneOffset;
+    uint  jointCount;
+    uint  clipA;
+    uint  clipB;
+    float timeA;
+    float timeB;
+    float timeC;
+    uint  flags;
+    uint  clipC;
+    float wA;
+    float wB;
+    float wC;
+    uint  clipMask;
+    uint  maskBase;
+    float timeMask;
+    float weightMask;
+    uint  clipAdd;
+    uint  _padLayer;
+    float timeAdd;
+    float weightAdd;
+    mat4  modelWorld;
+    vec3  lookTarget;
+    float lookWeight;
+    uint  lookJoint;
+    uint  ikRoot;
+    uint  ikMid;
+    uint  ikTip;
+    vec3  lookLocalForward;
+    float lookMaxYaw;
+    vec3  ikTarget;
+    float ikWeight;
+    vec3  ikPole;
+    float lookMaxPitch;
+};
+
+layout(set = 1, binding = 4) readonly buffer Instances
+{
+    AnimInstance instances[];
+};
+
+layout(set = 1, binding = 5) readonly buffer BoneMasks
+{
+    float boneMasks[];
+};
+
+layout(set = 1, binding = 6) readonly buffer RestJoints
+{
+#if FREYA_JOINT_QUANT
+    QuantJoint restJoints[];
+#else
+    BakedJoint restJoints[];
+#endif
+};
+
+layout(set = 1, binding = 7) buffer LocalScratch
+{
+    BakedJoint localPose[];
+};
+
+layout(set = 1, binding = 8) buffer GlobalScratch
+{
+    mat4 globalPose[];
+};
+
+layout(push_constant) uniform Push
+{
+    uint instanceCount;
+    uint jointCount;
+    uint rootJoint;
+    uint _pad0;
+} pc;
+
+const uint kFlagLoop   = 1u;
+const uint kFlagMasked = 2u;
+const uint kFlagAdd    = 4u;
+const uint kFlagRootXZ = 8u;
+const uint kMaxJoints  = 128u;
+const float kPi        = 3.14159265359;
+
+vec4 quatSlerp(vec4 a, vec4 b, float t)
+{
+    float cosTheta = dot(a, b);
+    if (cosTheta < 0.0)
+    {
+        b        = -b;
+        cosTheta = -cosTheta;
+    }
+    if (cosTheta > 0.9995)
+        return normalize(mix(a, b, t));
+    float theta = acos(clamp(cosTheta, -1.0, 1.0));
+    return (a * sin((1.0 - t) * theta) + b * sin(t * theta)) / sin(theta);
+}
+
+vec3 quatRotate(vec4 q, vec3 v)
+{
+    vec3 t = 2.0 * cross(q.xyz, v);
+    return v + q.w * t + cross(q.xyz, t);
+}
+
+vec4 quatMul(vec4 a, vec4 b)
+{
+    return vec4(a.w * b.xyz + b.w * a.xyz + cross(a.xyz, b.xyz),
+                a.w * b.w - dot(a.xyz, b.xyz));
+}
+
+vec4 quatInverse(vec4 q)
+{
+    return vec4(-q.xyz, q.w);
+}
+
+vec4 angleAxis(float angle, vec3 axis)
+{
+    float s = sin(angle * 0.5);
+    return vec4(normalize(axis) * s, cos(angle * 0.5));
+}
+
+vec4 quatFromTo(vec3 from, vec3 to)
+{
+    from    = normalize(from);
+    to      = normalize(to);
+    float d = dot(from, to);
+    if (d > 0.9999)
+        return vec4(0.0, 0.0, 0.0, 1.0);
+    if (d < -0.9999)
+    {
+        vec3 axis = cross(vec3(1.0, 0.0, 0.0), from);
+        if (dot(axis, axis) < 1e-8)
+            axis = cross(vec3(0.0, 1.0, 0.0), from);
+        return angleAxis(kPi, axis);
+    }
+    return normalize(vec4(cross(from, to), d + 1.0));
+}
+
+vec4 quatFromMat(mat4 m)
+{
+    vec3  c0 = m[0].xyz;
+    vec3  c1 = m[1].xyz;
+    vec3  c2 = m[2].xyz;
+    float fourXSquaredMinus1 = c0.x - c1.y - c2.z;
+    float fourYSquaredMinus1 = c1.y - c0.x - c2.z;
+    float fourZSquaredMinus1 = c2.z - c0.x - c1.y;
+    float fourWSquaredMinus1 = c0.x + c1.y + c2.z;
+
+    int   biggestIndex              = 0;
+    float fourBiggestSquaredMinus1 = fourWSquaredMinus1;
+    if (fourXSquaredMinus1 > fourBiggestSquaredMinus1)
+    {
+        fourBiggestSquaredMinus1 = fourXSquaredMinus1;
+        biggestIndex             = 1;
+    }
+    if (fourYSquaredMinus1 > fourBiggestSquaredMinus1)
+    {
+        fourBiggestSquaredMinus1 = fourYSquaredMinus1;
+        biggestIndex             = 2;
+    }
+    if (fourZSquaredMinus1 > fourBiggestSquaredMinus1)
+    {
+        fourBiggestSquaredMinus1 = fourZSquaredMinus1;
+        biggestIndex             = 3;
+    }
+
+    float biggestVal = sqrt(fourBiggestSquaredMinus1 + 1.0) * 0.5;
+    float mult       = 0.25 / biggestVal;
+
+    if (biggestIndex == 0)
+        return vec4((c1.z - c2.y) * mult, (c2.x - c0.z) * mult,
+                    (c0.y - c1.x) * mult, biggestVal);
+    if (biggestIndex == 1)
+        return vec4(biggestVal, (c0.y + c1.x) * mult, (c2.x + c0.z) * mult,
+                    (c1.z - c2.y) * mult);
+    if (biggestIndex == 2)
+        return vec4((c0.y + c1.x) * mult, biggestVal, (c1.z + c2.y) * mult,
+                    (c2.x - c0.z) * mult);
+    return vec4((c2.x + c0.z) * mult, (c1.z + c2.y) * mult, biggestVal,
+                (c0.y - c1.x) * mult);
+}
+
+vec4 quatFromMatOrtho(mat4 m)
+{
+    vec3 c0 = normalize(m[0].xyz);
+    vec3 c1 = m[1].xyz;
+    vec3 c2src = m[2].xyz;
+    c1 = c1 - dot(c0, c1) * c0;
+    if (dot(c1, c1) < 1e-10)
+    {
+        vec3 tmp = abs(c0.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+        c1       = normalize(cross(tmp, c0));
+    }
+    else
+        c1 = normalize(c1);
+    vec3 c2 = cross(c0, c1);
+    if (dot(c2, c2src) < 0.0)
+    {
+        c1 = -c1;
+        c2 = -c2;
+    }
+    mat4 ortho = mat4(vec4(c0, 0.0), vec4(c1, 0.0), vec4(c2, 0.0),
+                      vec4(0.0, 0.0, 0.0, 1.0));
+    return normalize(quatFromMat(ortho));
+}
+
+vec3 clampAimDirection(vec3 forward, vec3 toTarget, float maxYaw, float maxPitch)
+{
+    forward  = normalize(forward);
+    toTarget = normalize(toTarget);
+    vec3 right = cross(vec3(0.0, 1.0, 0.0), forward);
+    if (dot(right, right) < 1e-8)
+        right = cross(vec3(1.0, 0.0, 0.0), forward);
+    right     = normalize(right);
+    vec3 up   = cross(forward, right);
+    float x   = dot(toTarget, right);
+    float y   = dot(toTarget, up);
+    float z   = dot(toTarget, forward);
+    float yaw = atan(x, z);
+    float pitch = atan(y, sqrt(x * x + z * z));
+    yaw   = clamp(yaw, -maxYaw, maxYaw);
+    pitch = clamp(pitch, -maxPitch, maxPitch);
+    float cp = cos(pitch);
+    float sp = sin(pitch);
+    float cy = cos(yaw);
+    float sy = sin(yaw);
+    vec3 local = vec3(sy * cp, sp, cy * cp);
+    return normalize(right * local.x + up * local.y + forward * local.z);
+}
+
+mat4 quatToMat(vec4 q)
+{
+    float x = q.x, y = q.y, z = q.z, w = q.w;
+    float xx = x * x, yy = y * y, zz = z * z;
+    float xy = x * y, xz = x * z, yz = y * z;
+    float wx = w * x, wy = w * y, wz = w * z;
+    return mat4(1.0 - 2.0 * (yy + zz), 2.0 * (xy + wz), 2.0 * (xz - wy), 0.0,
+                2.0 * (xy - wz), 1.0 - 2.0 * (xx + zz), 2.0 * (yz + wx), 0.0,
+                2.0 * (xz + wy), 2.0 * (yz - wx), 1.0 - 2.0 * (xx + yy), 0.0,
+                0.0, 0.0, 0.0, 1.0);
+}
+
+mat4 trsMat(vec3 t, vec4 q, vec3 s)
+{
+    mat4 r = quatToMat(q);
+    mat4 m;
+    m[0] = vec4(r[0].xyz * s.x, 0.0);
+    m[1] = vec4(r[1].xyz * s.y, 0.0);
+    m[2] = vec4(r[2].xyz * s.z, 0.0);
+    m[3] = vec4(t, 1.0);
+    return m;
+}
+
+#if FREYA_JOINT_QUANT
+vec4 decodeQuatSmallestThree(uint bits)
+{
+    const float kRange = 0.7071067811865476;
+    uint maxI          = bits >> 30;
+    float a = (float((bits >> 20) & 1023u) / 1023.0) * 2.0 - 1.0;
+    float b = (float((bits >> 10) & 1023u) / 1023.0) * 2.0 - 1.0;
+    float c = (float(bits & 1023u) / 1023.0) * 2.0 - 1.0;
+    a *= kRange;
+    b *= kRange;
+    c *= kRange;
+    float comps[4];
+    uint  oi = 0u;
+    for (uint i = 0u; i < 4u; ++i)
+    {
+        if (i == maxI)
+            continue;
+        float v = (oi == 0u) ? a : ((oi == 1u) ? b : c);
+        comps[i] = v;
+        oi++;
+    }
+    float sumsq   = a * a + b * b + c * c;
+    comps[maxI]   = sqrt(max(0.0, 1.0 - sumsq));
+    return normalize(vec4(comps[0], comps[1], comps[2], comps[3]));
+}
+
+BakedJoint decodeJoint(QuantJoint p)
+{
+    BakedJoint o;
+    o.q    = decodeQuatSmallestThree(p.quatBits);
+    vec2 txy  = unpackHalf2x16(p.txy);
+    vec2 tzsx = unpackHalf2x16(p.tzsx);
+    vec2 sysz = unpackHalf2x16(p.sysz);
+    o.t    = vec3(txy.x, txy.y, tzsx.x);
+    o.s    = vec3(tzsx.y, sysz.x, sysz.y);
+    o.pad0 = 0.0;
+    o.pad1 = 0.0;
+    return o;
+}
+#endif
+
+BakedJoint fetchJoint(ClipHeader h, uint frame, uint joint)
+{
+#if FREYA_JOINT_QUANT
+    return decodeJoint(joints[h.jointsBase + frame * h.jointCount + joint]);
+#else
+    return joints[h.jointsBase + frame * h.jointCount + joint];
+#endif
+}
+
+BakedJoint lerpJoint(BakedJoint a, BakedJoint b, float t)
+{
+    BakedJoint o;
+    o.t    = mix(a.t, b.t, t);
+    o.q    = quatSlerp(a.q, b.q, t);
+    o.s    = mix(a.s, b.s, t);
+    o.pad0 = 0.0;
+    o.pad1 = 0.0;
+    return o;
+}
+
+BakedJoint applyAdditiveJoint(BakedJoint base, BakedJoint add, BakedJoint ref,
+                              float w)
+{
+    BakedJoint o;
+    o.t        = base.t + (add.t - ref.t) * w;
+    o.s        = base.s + (add.s - ref.s) * w;
+    vec4 delta = normalize(quatMul(add.q, quatInverse(ref.q)));
+    vec4 id    = vec4(0.0, 0.0, 0.0, 1.0);
+    o.q        = normalize(quatMul(quatSlerp(id, delta, w), base.q));
+    o.pad0     = 0.0;
+    o.pad1     = 0.0;
+    return o;
+}
+
+BakedJoint sampleJoint(ClipHeader h, float timeSec, bool loop, uint joint)
+{
+    if (h.frameCount == 0u)
+    {
+        BakedJoint z;
+        z.t    = vec3(0.0);
+        z.q    = vec4(0.0, 0.0, 0.0, 1.0);
+        z.s    = vec3(1.0);
+        z.pad0 = 0.0;
+        z.pad1 = 0.0;
+        return z;
+    }
+    if (h.frameCount == 1u)
+        return fetchJoint(h, 0u, joint);
+
+    float t = timeSec;
+    if (loop && h.duration > 0.0)
+    {
+        t = mod(t, h.duration);
+        if (t < 0.0)
+            t += h.duration;
+    }
+    else
+        t = clamp(t, 0.0, max(h.duration, 0.0));
+
+    float u = 0.0;
+    if (loop && h.duration > 0.0)
+        u = (t / h.duration) * float(h.frameCount);
+    else if (h.duration > 0.0)
+        u = clamp((t / h.duration) * float(h.frameCount - 1u), 0.0,
+                  float(h.frameCount - 1u));
+
+    uint  f0 = uint(floor(u));
+    float a  = fract(u);
+    if (loop)
+        f0 %= h.frameCount;
+    else
+        f0 = min(f0, h.frameCount - 1u);
+    uint f1 =
+        loop ? ((f0 + 1u) % h.frameCount) : min(f0 + 1u, h.frameCount - 1u);
+
+    if (a <= 1e-6 || f0 == f1)
+        return fetchJoint(h, f0, joint);
+    return lerpJoint(fetchJoint(h, f0, joint), fetchJoint(h, f1, joint), a);
+}
+
+void buildFk(uint base, uint jc)
+{
+    for (uint j = 0u; j < jc; ++j)
+    {
+        BakedJoint lj     = localPose[base + j];
+        mat4       localM = trsMat(lj.t, lj.q, lj.s);
+        int        p      = parents[j];
+        if (p >= 0 && uint(p) < jc)
+            globalPose[base + j] = globalPose[base + uint(p)] * localM;
+        else
+            globalPose[base + j] = localM;
+    }
+}
+
+void main()
+{
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= pc.instanceCount)
+        return;
+
+    AnimInstance inst = instances[id];
+    uint         jc   = min(min(inst.jointCount, pc.jointCount), kMaxJoints);
+    if (jc == 0u)
+        return;
+
+    uint       base   = id * kMaxJoints;
+    bool       loop   = (inst.flags & kFlagLoop) != 0u;
+    bool       rootXZ = (inst.flags & kFlagRootXZ) != 0u;
+    float      wMask  = clamp(inst.weightMask, 0.0, 1.0);
+    float      wAdd   = clamp(inst.weightAdd, 0.0, 1.0);
+    bool       masked = ((inst.flags & kFlagMasked) != 0u) && wMask > 0.0;
+    bool       add    = ((inst.flags & kFlagAdd) != 0u) && wAdd > 0.0;
+    ClipHeader hA    = clips[inst.clipA];
+    ClipHeader hB    = clips[inst.clipB];
+    ClipHeader hC    = clips[inst.clipC];
+    ClipHeader hMask = clips[inst.clipMask];
+    ClipHeader hAdd  = clips[inst.clipAdd];
+    float      wA    = inst.wA;
+    float      wB    = inst.wB;
+    float      wC    = inst.wC;
+
+    for (uint j = 0u; j < jc; ++j)
+    {
+        BakedJoint ja = sampleJoint(hA, inst.timeA, loop, j);
+        BakedJoint jb = sampleJoint(hB, inst.timeB, loop, j);
+        BakedJoint jl;
+        if (wC <= 1e-6)
+        {
+            float t = clamp(wB / max(wA + wB, 1e-6), 0.0, 1.0);
+            jl      = (inst.clipA == inst.clipB || t <= 0.0)
+                          ? ja
+                          : lerpJoint(ja, jb, t);
+        }
+        else
+        {
+            BakedJoint jcJ = sampleJoint(hC, inst.timeC, loop, j);
+            float      w01 = max(wA + wB, 1e-6);
+            BakedJoint ab =
+                lerpJoint(ja, jb, clamp(wB / w01, 0.0, 1.0));
+            jl = lerpJoint(ab, jcJ, clamp(wC, 0.0, 1.0));
+        }
+
+        // Fixed slots: masked upper, then additive (same order as AnimGraph).
+        if (masked)
+        {
+            float u = clamp(boneMasks[inst.maskBase + j], 0.0, 1.0) * wMask;
+            if (u > 0.0)
+            {
+                BakedJoint overlay =
+                    sampleJoint(hMask, inst.timeMask, loop, j);
+                if (u >= 1.0)
+                    jl = overlay;
+                else
+                    jl = lerpJoint(jl, overlay, u);
+            }
+        }
+        if (add)
+        {
+            float u = clamp(boneMasks[inst.maskBase + j], 0.0, 1.0) * wAdd;
+            if (u > 0.0)
+            {
+                BakedJoint overlay = sampleJoint(hAdd, inst.timeAdd, loop, j);
+#if FREYA_JOINT_QUANT
+                jl = applyAdditiveJoint(jl, overlay, decodeJoint(restJoints[j]),
+                                        u);
+#else
+                jl = applyAdditiveJoint(jl, overlay, restJoints[j], u);
+#endif
+            }
+        }
+
+        if (rootXZ && pc.rootJoint != 0xffffffffu && j == pc.rootJoint)
+        {
+            jl.t.x = 0.0;
+            jl.t.z = 0.0;
+        }
+        localPose[base + j] = jl;
+    }
+
+    buildFk(base, jc);
+
+    float lookW = inst.lookWeight;
+    if (lookW > 0.0 && inst.lookJoint < jc)
+    {
+        uint joint   = inst.lookJoint;
+        int  pp      = parents[joint];
+        mat4 pw      = (pp < 0 || uint(pp) >= jc)
+                           ? inst.modelWorld
+                           : (inst.modelWorld * globalPose[base + uint(pp)]);
+        mat4 jw      = inst.modelWorld * globalPose[base + joint];
+        vec3 eye     = jw[3].xyz;
+        vec3 toTarget = inst.lookTarget - eye;
+        if (dot(toTarget, toTarget) >= 1e-10)
+        {
+            toTarget          = normalize(toTarget);
+            vec4 worldRot     = quatFromMatOrtho(jw);
+            vec3 lookFwd =
+                normalize(inst.lookLocalForward);
+            if (dot(lookFwd, lookFwd) < 1e-8)
+                lookFwd = vec3(0.0, 0.0, 1.0);
+            vec3 forward = normalize(quatRotate(worldRot, lookFwd));
+            // lookMaxYaw < 0 disables aim clamp (debug / golden).
+            if (inst.lookMaxYaw >= 0.0)
+                toTarget = clampAimDirection(forward, toTarget, inst.lookMaxYaw,
+                                             inst.lookMaxPitch);
+            vec4 delta        = quatFromTo(forward, toTarget);
+            vec4 desiredWorld = normalize(quatMul(delta, worldRot));
+            vec4 parentQ      = quatFromMatOrtho(pw);
+            vec4 desiredLocal =
+                normalize(quatMul(quatInverse(parentQ), desiredWorld));
+            BakedJoint lj = localPose[base + joint];
+            lj.q          = normalize(
+                quatSlerp(lj.q, desiredLocal, clamp(lookW, 0.0, 1.0)));
+            localPose[base + joint] = lj;
+            buildFk(base, jc);
+        }
+    }
+
+    float ikW = inst.ikWeight;
+    if (ikW > 0.0 && inst.ikRoot < jc && inst.ikMid < jc && inst.ikTip < jc)
+    {
+        uint  root = inst.ikRoot;
+        uint  mid  = inst.ikMid;
+        uint  tip  = inst.ikTip;
+        vec3  rootW =
+            (inst.modelWorld * globalPose[base + root])[3].xyz;
+        vec3 midW = (inst.modelWorld * globalPose[base + mid])[3].xyz;
+        vec3 tipW = (inst.modelWorld * globalPose[base + tip])[3].xyz;
+        float lenA = length(midW - rootW);
+        float lenB = length(tipW - midW);
+        vec3  toTarget = inst.ikTarget - rootW;
+        float dist     = length(toTarget);
+        if (lenA >= 1e-6 && lenB >= 1e-6 && dist >= 1e-6)
+        {
+            float maxReach = lenA + lenB - 1e-4;
+            float minReach = abs(lenA - lenB) + 1e-4;
+            dist           = clamp(dist, minReach, maxReach);
+            toTarget       = normalize(toTarget) * dist;
+
+            float cosRoot = (lenA * lenA + dist * dist - lenB * lenB) /
+                            (2.0 * lenA * dist);
+            float rootAngle = acos(clamp(cosRoot, -1.0, 1.0));
+
+            vec3 poleDir = inst.ikPole - rootW;
+            vec3 axis    = cross(toTarget, poleDir);
+            if (dot(axis, axis) < 1e-8)
+                axis = cross(toTarget, vec3(0.0, 1.0, 0.0));
+            if (dot(axis, axis) < 1e-8)
+                axis = cross(toTarget, vec3(1.0, 0.0, 0.0));
+            axis = normalize(axis);
+
+            vec3 unitTarget = normalize(toTarget);
+            vec3 bentDir    = normalize(
+                (quatToMat(angleAxis(rootAngle, axis)) * vec4(unitTarget, 0.0))
+                    .xyz);
+            vec3  desiredMid = rootW + bentDir * lenA;
+            vec3  desiredTip = rootW + unitTarget * dist;
+            float w          = clamp(ikW, 0.0, 1.0);
+
+            {
+                vec3 curDir = normalize(midW - rootW);
+                vec3 desDir = normalize(desiredMid - rootW);
+                vec4 dQ     = quatFromTo(curDir, desDir);
+                mat4 jw     = inst.modelWorld * globalPose[base + root];
+                // Match CPU setLocalRotation: ortho quat_cast on TRS mats.
+                vec4 wr = normalize(quatMul(dQ, quatFromMatOrtho(jw)));
+                int  pp = parents[root];
+                mat4 pw = (pp < 0 || uint(pp) >= jc)
+                              ? inst.modelWorld
+                              : (inst.modelWorld *
+                                 globalPose[base + uint(pp)]);
+                vec4 parentQ = quatFromMatOrtho(pw);
+                vec4 desiredLocal =
+                    normalize(quatMul(quatInverse(parentQ), wr));
+                BakedJoint lj = localPose[base + root];
+                lj.q = normalize(quatSlerp(lj.q, desiredLocal, w));
+                localPose[base + root] = lj;
+                buildFk(base, jc);
+            }
+
+            {
+                vec3 midW2  = (inst.modelWorld * globalPose[base + mid])[3].xyz;
+                vec3 tipW2  = (inst.modelWorld * globalPose[base + tip])[3].xyz;
+                vec3 curDir = normalize(tipW2 - midW2);
+                vec3 desDir = normalize(desiredTip - midW2);
+                vec4 dQ     = quatFromTo(curDir, desDir);
+                mat4 jw     = inst.modelWorld * globalPose[base + mid];
+                vec4 wr     = normalize(quatMul(dQ, quatFromMatOrtho(jw)));
+                int  pp     = parents[mid];
+                mat4 pw     = (pp < 0 || uint(pp) >= jc)
+                                  ? inst.modelWorld
+                                  : (inst.modelWorld *
+                                     globalPose[base + uint(pp)]);
+                vec4 parentQ = quatFromMatOrtho(pw);
+                vec4 desiredLocal =
+                    normalize(quatMul(quatInverse(parentQ), wr));
+                BakedJoint lj = localPose[base + mid];
+                lj.q = normalize(quatSlerp(lj.q, desiredLocal, w));
+                localPose[base + mid] = lj;
+                buildFk(base, jc);
+            }
+        }
+    }
+
+    for (uint j = 0u; j < jc; ++j)
+        bones[inst.boneOffset + j] =
+            globalPose[base + j] * inverseBind[j];
+}

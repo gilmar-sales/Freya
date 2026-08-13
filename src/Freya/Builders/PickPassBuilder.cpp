@@ -1,5 +1,6 @@
 #include "Freya/Builders/PickPassBuilder.hpp"
 
+#include "Freya/Asset/InstanceTransform.hpp"
 #include "Freya/Asset/Vertex.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
@@ -16,8 +17,8 @@ namespace FREYA_NAMESPACE
     skr::Arc<PickPass> PickPassBuilder::Build(const vk::Extent2D extent)
     {
         const auto depthFormat = mPhysicalDevice->GetDepthFormat();
-        const auto width  = std::max(1u, extent.width);
-        const auto height = std::max(1u, extent.height);
+        const auto width       = std::max(1u, extent.width);
+        const auto height      = std::max(1u, extent.height);
 
         auto renderPass = createRenderPass(depthFormat);
 
@@ -37,22 +38,18 @@ namespace FREYA_NAMESPACE
         auto descriptorSetLayout =
             mDevice->Get().createDescriptorSetLayout(layoutInfo);
 
-        const auto poolSize =
-            vk::DescriptorPoolSize()
-                .setType(vk::DescriptorType::eUniformBuffer)
-                .setDescriptorCount(1);
+        const auto poolSize = vk::DescriptorPoolSize()
+                                  .setType(vk::DescriptorType::eUniformBuffer)
+                                  .setDescriptorCount(1);
 
         const auto poolInfo =
-            vk::DescriptorPoolCreateInfo()
-                .setPoolSizes(poolSize)
-                .setMaxSets(1);
+            vk::DescriptorPoolCreateInfo().setPoolSizes(poolSize).setMaxSets(1);
 
         auto descriptorPool = mDevice->Get().createDescriptorPool(poolInfo);
 
-        const auto allocInfo =
-            vk::DescriptorSetAllocateInfo()
-                .setDescriptorPool(descriptorPool)
-                .setSetLayouts(descriptorSetLayout);
+        const auto allocInfo = vk::DescriptorSetAllocateInfo()
+                                   .setDescriptorPool(descriptorPool)
+                                   .setSetLayouts(descriptorSetLayout);
 
         auto descriptorSet =
             mDevice->Get().allocateDescriptorSets(allocInfo).front();
@@ -90,12 +87,12 @@ namespace FREYA_NAMESPACE
         // ------------------------------------------------------------------
         auto vertShader =
             mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath("./Resources/Shaders/Pick/pick.vert.spv")
+                ->SetFilePath(mFreyaOptions->shaderRoot + "/Pick/pick.vert.spv")
                 .Build();
 
         auto fragShader =
             mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath("./Resources/Shaders/Pick/pick.frag.spv")
+                ->SetFilePath(mFreyaOptions->shaderRoot + "/Pick/pick.frag.spv")
                 .Build();
 
         auto stages = std::array {
@@ -118,6 +115,16 @@ namespace FREYA_NAMESPACE
                     .setFormat(vk::Format::eR32G32B32Sfloat)
                     .setOffset(offsetof(Vertex, position)),
                 vk::VertexInputAttributeDescription()
+                    .setBinding(0)
+                    .setLocation(14)
+                    .setFormat(vk::Format::eR32G32B32A32Uint)
+                    .setOffset(offsetof(Vertex, joints)),
+                vk::VertexInputAttributeDescription()
+                    .setBinding(0)
+                    .setLocation(15)
+                    .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                    .setOffset(offsetof(Vertex, weights)),
+                vk::VertexInputAttributeDescription()
                     .setBinding(1)
                     .setLocation(5)
                     .setFormat(vk::Format::eR32G32B32A32Sfloat)
@@ -137,6 +144,12 @@ namespace FREYA_NAMESPACE
                     .setLocation(8)
                     .setFormat(vk::Format::eR32G32B32A32Sfloat)
                     .setOffset(sizeof(glm::vec4) * 3),
+                // materialId + entityId + flags + boneOffset (uvec4)
+                vk::VertexInputAttributeDescription()
+                    .setBinding(1)
+                    .setLocation(13)
+                    .setFormat(vk::Format::eR32G32B32A32Uint)
+                    .setOffset(offsetof(InstanceTransform, materialId)),
             };
 
         auto vertexInputInfo =
@@ -187,10 +200,9 @@ namespace FREYA_NAMESPACE
                                    vk::ColorComponentFlagBits::eB |
                                    vk::ColorComponentFlagBits::eA);
 
-        auto colorBlending =
-            vk::PipelineColorBlendStateCreateInfo()
-                .setLogicOpEnable(false)
-                .setAttachments(colorBlendAttachment);
+        auto colorBlending = vk::PipelineColorBlendStateCreateInfo()
+                                 .setLogicOpEnable(false)
+                                 .setAttachments(colorBlendAttachment);
 
         auto dynamicStates = std::vector { vk::DynamicState::eViewport,
                                            vk::DynamicState::eScissor };
@@ -205,9 +217,13 @@ namespace FREYA_NAMESPACE
                 .setOffset(0)
                 .setSize(sizeof(std::uint32_t));
 
+        auto setLayouts = std::array {
+            descriptorSetLayout,
+            mBoneResources->GetLayout(),
+        };
         auto pipelineLayoutInfo =
             vk::PipelineLayoutCreateInfo()
-                .setSetLayouts(descriptorSetLayout)
+                .setSetLayouts(setLayouts)
                 .setPushConstantRanges(pushConstantRange);
 
         auto pipelineLayout =
@@ -257,7 +273,7 @@ namespace FREYA_NAMESPACE
                 .Build();
 
         const std::array attachments = { colorImage->GetImageView(),
-                                          depthImage->GetImageView() };
+                                         depthImage->GetImageView() };
 
         const auto fbInfo =
             vk::FramebufferCreateInfo()
@@ -273,6 +289,7 @@ namespace FREYA_NAMESPACE
             mDevice,
             mPhysicalDevice,
             mFreyaOptions,
+            mBoneResources,
             renderPass,
             pipelineLayout,
             pipeline,
@@ -310,17 +327,16 @@ namespace FREYA_NAMESPACE
                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
-                .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+                .setFinalLayout(
+                    vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
         const auto colorRef =
-            vk::AttachmentReference()
-                .setAttachment(0)
-                .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+            vk::AttachmentReference().setAttachment(0).setLayout(
+                vk::ImageLayout::eColorAttachmentOptimal);
 
         const auto depthRef =
-            vk::AttachmentReference()
-                .setAttachment(1)
-                .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+            vk::AttachmentReference().setAttachment(1).setLayout(
+                vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
         const auto subpass =
             vk::SubpassDescription()

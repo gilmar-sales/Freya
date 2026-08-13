@@ -103,11 +103,11 @@ namespace FREYA_NAMESPACE
                 glm::vec4(mLights[i].color, mLights[i].radius);
             data.lightDirectionsAndCutoff[i] =
                 glm::vec4(mLights[i].direction, mLights[i].innerCutoff);
-            data.lightOuterCutoffAndIntensity[i] =
-                glm::vec4(mLights[i].outerCutoff,
-                          mLights[i].intensity,
-                          mLights[i].halfHeight,
-                          mLights[i].castShadows ? 1.0f : 0.0f);
+            data.lightOuterCutoffAndIntensity[i] = glm::vec4(
+                mLights[i].outerCutoff,
+                mLights[i].intensity,
+                mLights[i].halfHeight,
+                (mShadowsEnabled && mLights[i].castShadows) ? 1.0f : 0.0f);
             data.lightAreaTangents[i] = glm::vec4(mLights[i].tangent, 0.0f);
         }
 
@@ -166,14 +166,16 @@ namespace FREYA_NAMESPACE
     }
 
     void LightService::Update(std::uint32_t    frameIndex,
-                              const glm::vec3& viewPosition)
+                              const glm::vec3& viewPosition,
+                              const glm::vec3& cameraForward)
     {
         LightUniformBuffer data = {};
 
-        data.lightCount   = mLightCount;
-        data.iblIntensity = mIblIntensity;
-        data.exposure     = mExposure;
-        data.viewPosition = glm::vec4(viewPosition, 1.0f);
+        data.lightCount    = mLightCount;
+        data.iblIntensity  = mIblIntensity;
+        data.exposure      = mExposure;
+        data.viewPosition  = glm::vec4(viewPosition, 1.0f);
+        data.cameraForward = glm::vec4(cameraForward, 0.0f);
 
         for (std::uint32_t i = 0; i < mLightCount; ++i)
         {
@@ -183,35 +185,18 @@ namespace FREYA_NAMESPACE
                 glm::vec4(mLights[i].color, mLights[i].radius);
             data.lightDirectionsAndCutoff[i] =
                 glm::vec4(mLights[i].direction, mLights[i].innerCutoff);
-            data.lightOuterCutoffAndIntensity[i] =
-                glm::vec4(mLights[i].outerCutoff,
-                          mLights[i].intensity,
-                          mLights[i].halfHeight,
-                          mLights[i].castShadows ? 1.0f : 0.0f);
+            data.lightOuterCutoffAndIntensity[i] = glm::vec4(
+                mLights[i].outerCutoff,
+                mLights[i].intensity,
+                mLights[i].halfHeight,
+                (mShadowsEnabled && mLights[i].castShadows) ? 1.0f : 0.0f);
             data.lightAreaTangents[i] = glm::vec4(mLights[i].tangent, 0.0f);
         }
 
-        // Copy to ring-buffer offset for this frame
+        // Copy to ring-buffer offset for this frame (descriptor offset is
+        // fixed at create time).
         const auto offset = frameIndex * sizeof(LightUniformBuffer);
         mBuffer->Copy(&data, sizeof(LightUniformBuffer), offset);
-
-        // Update descriptor sets with correct offset
-        auto bufferInfo =
-            vk::DescriptorBufferInfo()
-                .setBuffer(mBuffer->Get())
-                .setOffset(offset)
-                .setRange(sizeof(LightUniformBuffer));
-
-        auto writer =
-            vk::WriteDescriptorSet()
-                .setDstSet(mSets[frameIndex])
-                .setDstBinding(0)
-                .setDstArrayElement(0)
-                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-                .setDescriptorCount(1)
-                .setBufferInfo(bufferInfo);
-
-        mDevice->Get().updateDescriptorSets(1, &writer, 0, nullptr);
     }
 
     void LightService::createDescriptorResources()

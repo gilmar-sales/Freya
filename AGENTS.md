@@ -4,16 +4,17 @@
 
 - CMake 3.29+, requires Vulkan SDK and **GCC 16+** (C++26 reflection via
   `-freflection`; Clang/MSVC are not supported yet). All deps fetched via
-  `FetchContent`: SDL3, glm, assimp, skirnir.
+  `FetchContent`: SDL3, glm, assimp, meshoptimizer, skirnir.
 - Pinned dependency versions:
 
-  | Dependency  | Version / Tag    |
-  |-------------|------------------|
-  | SDL3        | `release-3.4.10` |
-  | glm         | `1.0.3`          |
-  | assimp      | `v6.0.5`         |
-  | skirnir     | `v0.22.1`        |
-  | stb_image.h | `v2.30` (vendored in `src/Freya/Vendor/`) |
+  | Dependency     | Version / Tag    |
+  |----------------|------------------|
+  | SDL3           | `release-3.4.10` |
+  | glm            | `1.0.3`          |
+  | assimp         | `v6.0.5`         |
+  | meshoptimizer  | `v1.2`           |
+  | skirnir        | `v0.23.0`        |
+  | stb_image.h    | `v2.30` (vendored in `src/Freya/Vendor/`) |
 - Static lib only (`BUILD_SHARED_LIBS OFF`).
 - `build/` is the active build directory (Ninja, used by CI). `.gitignore` patterns `cmake-build-*/` and `build/` (but `build/` is committed — do not delete it).
 - **Generator: Ninja is mandatory.** Always pass `-G Ninja` when configuring (CI uses Ninja, and the shader copy targets in `cmake/CompileShaders.cmake` rely on Ninja generator behavior). Do not use the default generator.
@@ -58,10 +59,10 @@ The CI `ctest` step runs against an empty suite.
 
 | Path | Purpose |
 |---|---|
-| `src/Freya/` | Library source: `Core/` (Renderer, Window, RenderPass, DeferredCompressedPass, etc.), `Builders/` (builder for every core object), `Asset/` (MeshPool, TexturePool, MaterialPool), `Containers/` (SparseSet, MeshSet), `Events/` (input event system), `Vendor/` (stb_image.h). Also `Pch.hpp`, `FreyaOptions.hpp`. |
-| `include/Freya/` | Public headers — umbrella `Freya.hpp` pulls in all public types. |
+| `include/Freya/` | Public headers. Umbrella `Freya.hpp` (app surface) and `Vulkan.hpp` (Renderer, passes, builders). Sources implement types declared here. |
+| `src/Freya/` | Library `.cpp` plus `Vendor/` (`stb_image.h`). Headers live under `include/Freya/`. |
 | `Examples/IndustrialPipeLamp/` | Only example; binary lands at `build/Examples/IndustrialPipeLamp/IndustrialPipeLamp`. |
-| `Shaders/` | GLSL sources in three variants: `Forward/`, `Deferred/`, `DeferredCompressed/`. |
+| `Shaders/` | GLSL sources: `DeferredCompressed/`, `Shadow/`, `Pick/`. |
 | `textures/` | Root-level texture (not used by the IndustrialPipeLamp example, which uses its own `Examples/IndustrialPipeLamp/Resources/Textures/`). |
 | `docs/` | MkDocs-material documentation, deployed via `mkdocs gh-deploy`. |
 | `.kilo/` | Kilo CLI config: agent definitions (`.kilo/agent/`) and plans (`.kilo/plans/`). |
@@ -93,4 +94,7 @@ The CI `ctest` step runs against an empty suite.
 - Extend `fra::AbstractApplication`; implement `StartUp()` and `Update()`.
 - Use `skr::ApplicationBuilder` with `WithExtension<fra::FreyaExtension>()` to configure.
 - Services (Renderer, Window, MeshPool, TexturePool, MaterialPool, LightService) obtained via `serviceProvider->GetService<T>()`.
-- FreyaOptions: title, dimensions, vSync, fullscreen, sampleCount, frameCount, clearColor, drawDistance, maxLights, ReverseZ, renderingStrategy (`Forward` | `Deferred`).
+- FreyaOptions: title, dimensions, vSync, fullscreen, sampleCount, frameCount,
+  clearColor, drawDistance, maxLights, ReverseZ, shaderRoot,
+  enableSsao/enableTaa/enableBloom.
+- Advanced Vulkan types: `#include <Freya/Vulkan.hpp>`.
