@@ -159,6 +159,11 @@ namespace FREYA_NAMESPACE
 
         const bool ssaoDebug =
             ctx.options->ssaoDebugView != SsaoDebugView::None;
+        std::uint32_t lightingDebug = 0;
+        if (ssaoDebug)
+            lightingDebug = 1;
+        else if (ctx.options->shadowDebug)
+            lightingDebug = 2;
 
         skr::Arc<Image> ssaoImage;
         if (ctx.ssao && *ctx.ssao)
@@ -190,7 +195,7 @@ namespace FREYA_NAMESPACE
             ->BeginLighting(ctx.commandPool, ssaoImage, ctx.frameIndex);
         SetFullViewport(ctx.commandPool, ctx.renderExtent);
         (*ctx.deferred)
-            ->DrawLighting(ctx.commandPool, ctx.frameIndex, ssaoDebug);
+            ->DrawLighting(ctx.commandPool, ctx.frameIndex, lightingDebug);
         (*ctx.deferred)->EndLighting(ctx.commandPool);
     }
 
@@ -446,7 +451,8 @@ namespace FREYA_NAMESPACE
             return;
 
         ctx.beginComposite(ctx.frameIndex, scene,
-                           ctx.options->ssaoDebugView == SsaoDebugView::None);
+                           ctx.options->ssaoDebugView == SsaoDebugView::None &&
+                               !ctx.options->shadowDebug);
         if (ctx.commitTaaHistory)
             ctx.commitTaaHistory();
     }

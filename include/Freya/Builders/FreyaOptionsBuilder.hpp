@@ -383,6 +383,12 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        FreyaOptionsBuilder& SetShadowDebug(bool enable)
+        {
+            mFreyaOptions->shadowDebug = enable;
+            return *this;
+        }
+
         FreyaOptionsBuilder& SetEnableSsao(bool enable)
         {
             mFreyaOptions->enableSsao = enable;

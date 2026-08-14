@@ -18,11 +18,9 @@ namespace FREYA_NAMESPACE
      *
      * Owns three depth image arrays (directional CSM cascades, spot
      * lights, and a cube-array for point lights), a single depth-only
-     * render pass, a depth-only graphics pipeline (bone SSBO set 0 +
-     * push-constant light view-projection), one framebuffer per
-     * cascade/spot layer and per point cube face, a host-visible
-     * ShadowUniformBuffer, and a hardware comparison sampler used for
-     * PCF-style shadow sampling by the lighting pass.
+     * render pass, hardware-depth and linear-depth pipelines, one
+     * framebuffer per cascade/spot layer and per point cube face, a
+     * host-visible ShadowUniformBuffer, and a comparison sampler.
      */
     class ShadowPass
     {
@@ -35,6 +33,7 @@ namespace FREYA_NAMESPACE
             vk::RenderPass                       renderPass,
             vk::PipelineLayout                   pipelineLayout,
             vk::Pipeline                         pipeline,
+            vk::Pipeline                         pointPipeline,
             vk::Image                            cascadeImage,
             vk::DeviceMemory                     cascadeMemory,
             vk::ImageView                        cascadeArrayView,
@@ -221,6 +220,7 @@ namespace FREYA_NAMESPACE
         vk::RenderPass     mRenderPass;
         vk::PipelineLayout mPipelineLayout;
         vk::Pipeline       mPipeline;
+        vk::Pipeline       mPointPipeline;
 
         // Directional CSM cascade resources (2D array).
         vk::Image                    mCascadeImage;

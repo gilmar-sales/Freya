@@ -45,6 +45,20 @@ namespace FREYA_NAMESPACE
         void Diamond(const glm::vec3& center, float size,
                      const glm::vec4& color);
 
+        void Circle(const glm::vec3& center, const glm::vec3& normal,
+                    float radius, const glm::vec4& color,
+                    std::uint32_t segments = 28);
+        void Sphere(const glm::vec3& center, float radius,
+                    const glm::vec4& color, std::uint32_t segments = 24);
+        void Cone(const glm::vec3& apex, const glm::vec3& direction,
+                  float length, float halfAngleRad, const glm::vec4& color,
+                  std::uint32_t segments = 20);
+        void Arrow(const glm::vec3& from, const glm::vec3& to,
+                   const glm::vec4& color);
+        void Rect(const glm::vec3& center, const glm::vec3& normal,
+                  const glm::vec3& tangent, float halfWidth, float halfHeight,
+                  const glm::vec4& color);
+
         /**
          * @brief Draw skeleton bones from a local pose (parent→child segments).
          */

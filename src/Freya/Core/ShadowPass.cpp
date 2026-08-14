@@ -19,6 +19,7 @@ namespace FREYA_NAMESPACE
         const vk::RenderPass                 renderPass,
         const vk::PipelineLayout             pipelineLayout,
         const vk::Pipeline                   pipeline,
+        const vk::Pipeline                   pointPipeline,
         const vk::Image                      cascadeImage,
         const vk::DeviceMemory               cascadeMemory,
         const vk::ImageView                  cascadeArrayView,
@@ -42,7 +43,8 @@ namespace FREYA_NAMESPACE
         mDevice(device), mPhysicalDevice(physicalDevice),
         mFreyaOptions(freyaOptions), mBoneResources(boneResources),
         mRenderPass(renderPass), mPipelineLayout(pipelineLayout),
-        mPipeline(pipeline), mCascadeImage(cascadeImage),
+        mPipeline(pipeline), mPointPipeline(pointPipeline),
+        mCascadeImage(cascadeImage),
         mCascadeMemory(cascadeMemory), mCascadeArrayView(cascadeArrayView),
         mCascadeLayerViews(cascadeLayerViews),
         mCascadeFramebuffers(cascadeFramebuffers), mSpotImage(spotImage),
@@ -131,11 +133,14 @@ namespace FREYA_NAMESPACE
 
         if (mPipeline)
             vkDevice.destroyPipeline(mPipeline);
+        if (mPointPipeline)
+            vkDevice.destroyPipeline(mPointPipeline);
         if (mPipelineLayout)
             vkDevice.destroyPipelineLayout(mPipelineLayout);
         if (mRenderPass)
             vkDevice.destroyRenderPass(mRenderPass);
         mPipeline       = VK_NULL_HANDLE;
+        mPointPipeline  = VK_NULL_HANDLE;
         mPipelineLayout = VK_NULL_HANDLE;
         mRenderPass     = VK_NULL_HANDLE;
 
@@ -152,6 +157,7 @@ namespace FREYA_NAMESPACE
         mRenderPass     = other.mRenderPass;
         mPipelineLayout = other.mPipelineLayout;
         mPipeline       = other.mPipeline;
+        mPointPipeline  = other.mPointPipeline;
 
         mCascadeImage        = other.mCascadeImage;
         mCascadeMemory       = other.mCascadeMemory;
@@ -191,6 +197,7 @@ namespace FREYA_NAMESPACE
         other.mRenderPass       = VK_NULL_HANDLE;
         other.mPipelineLayout   = VK_NULL_HANDLE;
         other.mPipeline         = VK_NULL_HANDLE;
+        other.mPointPipeline    = VK_NULL_HANDLE;
         other.mCascadeImage     = VK_NULL_HANDLE;
         other.mCascadeMemory    = VK_NULL_HANDLE;
         other.mCascadeArrayView = VK_NULL_HANDLE;
@@ -318,7 +325,7 @@ namespace FREYA_NAMESPACE
         // Practical split over the shadow range (not full drawDistance —
         // 1000-unit far planes starve near cascades and inflate ortho Z
         // precision issues that read as floor acne).
-        constexpr float kMaxDirectionalShadowDistance = 80.0f;
+        constexpr float kMaxDirectionalShadowDistance = 160.0f;
         const float     cascadeFar =
             std::min(drawDistance, kMaxDirectionalShadowDistance);
 
@@ -429,7 +436,7 @@ namespace FREYA_NAMESPACE
                 maxB = glm::max(maxB, lightSpace);
             }
 
-            constexpr float xyPadFrac = 0.1f;
+            constexpr float xyPadFrac = 0.25f;
             const auto      extentX   = std::max(maxB.x - minB.x, 1e-3f);
             const auto      extentY   = std::max(maxB.y - minB.y, 1e-3f);
             minB.x -= extentX * xyPadFrac;
@@ -452,7 +459,6 @@ namespace FREYA_NAMESPACE
                 mFreyaOptions->ReverseZ
                     ? glm::ortho(minB.x, maxB.x, minB.y, maxB.y, far, near)
                     : glm::ortho(minB.x, maxB.x, minB.y, maxB.y, near, far);
-            lightProj[1][1] *= -1.0f;
 
             mShadowData.cascadeViewProj[i] = lightProj * lightView;
             mShadowData.cascadeSplits[i]   = splitFar;
@@ -513,8 +519,6 @@ namespace FREYA_NAMESPACE
         constexpr auto near       = 0.05f;
         const auto     farClamped = std::max(far, near + 0.01f);
 
-        // Cube faces: keep GLM Y as-is. Flipping Y (as for 2D spot/CSM) breaks
-        // Vulkan samplerCube face orientation vs. world-dir lookup.
         auto proj = mFreyaOptions->ReverseZ
                         ? glm::perspective(glm::half_pi<float>(), 1.0f,
                                            farClamped, near)
@@ -780,7 +784,7 @@ namespace FREYA_NAMESPACE
                 if (active)
                 {
                     commandBuffer.bindPipeline(
-                        vk::PipelineBindPoint::eGraphics, mPipeline);
+                        vk::PipelineBindPoint::eGraphics, mPointPipeline);
                     bindBoneDescriptorSet(commandBuffer);
                     commandBuffer.setViewport(0, 1, &viewport);
                     commandBuffer.setScissor(0, 1, &scissor);

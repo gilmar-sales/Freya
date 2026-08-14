@@ -139,6 +139,7 @@ namespace FREYA_NAMESPACE
         std::string shaderRoot = "./Resources/Shaders";
 
         bool enableShadows = true;
+        bool shadowDebug   = false;
         bool enableSsao    = true;
         bool enableTaa     = true;
         bool enableBloom   = true;

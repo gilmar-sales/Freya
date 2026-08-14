@@ -38,22 +38,17 @@ namespace FREYA_NAMESPACE
                     mFreyaOptions->shaderRoot + "/Shadow/depth.vert.spv")
                 .Build();
 
-        auto fragShader =
+        auto fragHwShader =
+            mServiceProvider->GetService<ShaderModuleBuilder>()
+                ->SetFilePath(
+                    mFreyaOptions->shaderRoot + "/Shadow/depth_hw.frag.spv")
+                .Build();
+
+        auto fragPointShader =
             mServiceProvider->GetService<ShaderModuleBuilder>()
                 ->SetFilePath(
                     mFreyaOptions->shaderRoot + "/Shadow/depth.frag.spv")
                 .Build();
-
-        auto stages = std::array {
-            vk::PipelineShaderStageCreateInfo()
-                .setStage(vk::ShaderStageFlagBits::eVertex)
-                .setModule(vertShader->Get())
-                .setPName("main"),
-            vk::PipelineShaderStageCreateInfo()
-                .setStage(vk::ShaderStageFlagBits::eFragment)
-                .setModule(fragShader->Get())
-                .setPName("main"),
-        };
 
         // Depth.vert: position, instance model, boneOffset (loc13),
         // joints/weights. Stride still covers prevModel; unused attrs
@@ -122,9 +117,7 @@ namespace FREYA_NAMESPACE
                 .setDepthClampEnable(false)
                 .setRasterizerDiscardEnable(false)
                 .setPolygonMode(vk::PolygonMode::eFill)
-                // Front-face cull stores back-face depths (AAA default):
-                // reduces acne and keeps hollow/inner shells out of the map.
-                .setCullMode(vk::CullModeFlagBits::eFront)
+                .setCullMode(vk::CullModeFlagBits::eNone)
                 .setFrontFace(vk::FrontFace::eCounterClockwise)
                 .setLineWidth(1.0f)
                 .setDepthBiasEnable(true)
@@ -172,26 +165,52 @@ namespace FREYA_NAMESPACE
         auto pipelineLayout =
             mDevice->Get().createPipelineLayout(pipelineLayoutInfo);
 
-        auto pipelineInfo =
-            vk::GraphicsPipelineCreateInfo()
-                .setStages(stages)
-                .setPVertexInputState(&vertexInputInfo)
-                .setPInputAssemblyState(&inputAssembly)
-                .setPViewportState(&viewportState)
-                .setPRasterizationState(&rasterizer)
-                .setPMultisampleState(&multisampling)
-                .setPDepthStencilState(&depthStencil)
-                .setPDynamicState(&dynamicState)
-                .setLayout(pipelineLayout)
-                .setRenderPass(renderPass)
-                .setSubpass(0)
-                .setBasePipelineHandle(nullptr);
+        auto makePipeline =
+            [&](const vk::ArrayProxy<const vk::PipelineShaderStageCreateInfo>
+                    pipelineStages) {
+                auto info =
+                    vk::GraphicsPipelineCreateInfo()
+                        .setStages(pipelineStages)
+                        .setPVertexInputState(&vertexInputInfo)
+                        .setPInputAssemblyState(&inputAssembly)
+                        .setPViewportState(&viewportState)
+                        .setPRasterizationState(&rasterizer)
+                        .setPMultisampleState(&multisampling)
+                        .setPDepthStencilState(&depthStencil)
+                        .setPDynamicState(&dynamicState)
+                        .setLayout(pipelineLayout)
+                        .setRenderPass(renderPass)
+                        .setSubpass(0)
+                        .setBasePipelineHandle(nullptr);
+                return mDevice->Get()
+                    .createGraphicsPipeline(nullptr, info)
+                    .value;
+            };
 
-        auto pipeline =
-            mDevice->Get().createGraphicsPipeline(nullptr, pipelineInfo).value;
+        // Cascade/spot: hardware depth. Point: linear distance in depth.frag.
+        auto vertStage =
+            vk::PipelineShaderStageCreateInfo()
+                .setStage(vk::ShaderStageFlagBits::eVertex)
+                .setModule(vertShader->Get())
+                .setPName("main");
+        auto fragHwStage =
+            vk::PipelineShaderStageCreateInfo()
+                .setStage(vk::ShaderStageFlagBits::eFragment)
+                .setModule(fragHwShader->Get())
+                .setPName("main");
+        auto fragPointStage =
+            vk::PipelineShaderStageCreateInfo()
+                .setStage(vk::ShaderStageFlagBits::eFragment)
+                .setModule(fragPointShader->Get())
+                .setPName("main");
+
+        auto pipeline = makePipeline(std::array { vertStage, fragHwStage });
+        auto pointPipeline =
+            makePipeline(std::array { vertStage, fragPointStage });
 
         mDevice->Get().destroyShaderModule(vertShader->Get());
-        mDevice->Get().destroyShaderModule(fragShader->Get());
+        mDevice->Get().destroyShaderModule(fragHwShader->Get());
+        mDevice->Get().destroyShaderModule(fragPointShader->Get());
 
         // ------------------------------------------------------------------
         // Depth image arrays (cascades, spot, point cube array)
@@ -280,6 +299,7 @@ namespace FREYA_NAMESPACE
             renderPass,
             pipelineLayout,
             pipeline,
+            pointPipeline,
             cascade.image,
             cascade.memory,
             cascade.arrayView,

@@ -128,6 +128,16 @@ namespace FREYA_NAMESPACE
 
         void SetSsaoDebugView(SsaoDebugView view);
 
+        void SetShadowDebug(bool enable)
+        {
+            mFreyaOptions->shadowDebug = enable;
+        }
+
+        [[nodiscard]] bool GetShadowDebug() const
+        {
+            return mFreyaOptions->shadowDebug;
+        }
+
         [[nodiscard]] SsaoDebugView GetSsaoDebugView() const
         {
             return mFreyaOptions->ssaoDebugView;

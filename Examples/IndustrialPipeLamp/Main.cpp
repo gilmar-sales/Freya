@@ -51,6 +51,25 @@ class MainApp final : public fra::AbstractApplication
                     cycleBloomQuality();
                     return;
                 }
+                if (event.key == fra::KeyCode::F3)
+                {
+                    mShowLightGizmos = !mShowLightGizmos;
+                    mRenderer->SetDebugDrawEnabled(mShowLightGizmos);
+                    std::cout
+                        << "Light gizmos: " << (mShowLightGizmos ? "on" : "off")
+                        << '\n';
+                    updateTitle();
+                    return;
+                }
+                if (event.key == fra::KeyCode::F9)
+                {
+                    const bool next = !mRenderer->GetShadowDebug();
+                    mRenderer->SetShadowDebug(next);
+                    std::cout
+                        << "Shadow debug: " << (next ? "on" : "off") << '\n';
+                    updateTitle();
+                    return;
+                }
 
                 if (event.key == fra::KeyCode::Escape && mLookHeld)
                 {
@@ -119,6 +138,7 @@ class MainApp final : public fra::AbstractApplication
             });
 
         updateTitle();
+        mRenderer->SetDebugDrawEnabled(mShowLightGizmos);
         mRenderer->ClearProjections();
 
         // Two full-size lamps on the ground plane + the plane itself.
@@ -213,13 +233,13 @@ class MainApp final : public fra::AbstractApplication
             AnimatedLight warm {};
             warm.speed        = 1.0f;
             warm.phaseOffset  = 0.0f;
-            warm.radiusOffset = 4.0f;
+            warm.radiusOffset = 1.5f;
             warm.kind         = AnimatedLightKind::Point;
             auto point        = fra::MakePointLight(
-                glm::vec3(12.0f, 6.0f, 0.0f),
+                glm::vec3(10.0f, 12.0f, 0.0f),
                 glm::vec3(1.0f, 0.45f, 0.3f),
-                50.0f,
-                14.0f);
+                48.0f,
+                8.0f);
             point.castShadows = false;
             warm.index =
                 static_cast<std::uint32_t>(mLightService->AddLight(point));
@@ -231,13 +251,13 @@ class MainApp final : public fra::AbstractApplication
             AnimatedLight cool {};
             cool.speed        = 1.2f;
             cool.phaseOffset  = 2.1f;
-            cool.radiusOffset = 5.0f;
+            cool.radiusOffset = 2.0f;
             cool.kind         = AnimatedLightKind::Point;
             auto point        = fra::MakePointLight(
-                glm::vec3(-12.0f, 6.0f, 0.0f),
+                glm::vec3(-10.0f, 12.0f, 0.0f),
                 glm::vec3(0.3f, 0.5f, 1.0f),
-                50.0f,
-                14.0f);
+                48.0f,
+                8.0f);
             point.castShadows = false;
             cool.index =
                 static_cast<std::uint32_t>(mLightService->AddLight(point));
@@ -254,10 +274,10 @@ class MainApp final : public fra::AbstractApplication
             glm::vec3 color;
         };
         const SpotSeed spotSeeds[] = {
-            { 0.90f, 4.0f, 3.0f, { 0.95f, 0.95f, 1.00f } },
-            { 0.75f, 0.8f, 6.0f, { 1.00f, 0.85f, 0.55f } },
-            { 1.05f, 2.6f, 2.0f, { 0.55f, 0.85f, 1.00f } },
-            { 0.85f, 5.2f, 7.5f, { 1.00f, 0.55f, 0.70f } },
+            { 0.90f, 4.0f, 1.0f, { 0.95f, 0.95f, 1.00f } },
+            { 0.75f, 0.8f, 2.2f, { 1.00f, 0.85f, 0.55f } },
+            { 1.05f, 2.6f, 0.5f, { 0.55f, 0.85f, 1.00f } },
+            { 0.85f, 5.2f, 2.8f, { 1.00f, 0.55f, 0.70f } },
         };
         for (const auto& seed : spotSeeds)
         {
@@ -271,10 +291,10 @@ class MainApp final : public fra::AbstractApplication
                 glm::vec3(0.0f, 12.0f, 10.0f),
                 glm::vec3(0.0f, -1.0f, -0.5f),
                 seed.color,
-                55.0f,
-                glm::radians(12.0f),
-                glm::radians(22.0f),
-                10.0f);
+                50.0f,
+                glm::radians(14.0f),
+                glm::radians(24.0f),
+                7.0f);
             spot.castShadows = false;
             spotAnim.index =
                 static_cast<std::uint32_t>(mLightService->AddLight(spot));
@@ -304,7 +324,7 @@ class MainApp final : public fra::AbstractApplication
                 glm::radians(28.0f),
                 glm::radians(48.0f),
                 22.0f);
-            spot.castShadows = true;
+            spot.castShadows = false;
             mBulbSpotIndices.push_back(
                 static_cast<std::uint32_t>(mLightService->AddLight(spot)));
         }
@@ -314,7 +334,8 @@ class MainApp final : public fra::AbstractApplication
             << "Controls: RMB look | WASD move | Space/Q up | Ctrl/E down | "
                "Esc release mouse\n"
             << "Shadow test: 0=all  1=directional  2=warm point  "
-               "3=cool point  4=all spots\n"
+               "3=cool point  4=all spots | F3 light gizmos | "
+               "F9 shadow factor\n"
             << "TAA check: lamp 0 orbits — ghost trail => bad velocity; "
                "F5–F8 cycle quality (Low→Med→High→Ultra→Off)\n";
 
@@ -331,7 +352,7 @@ class MainApp final : public fra::AbstractApplication
         for (auto& animated : mAnimatedLights)
         {
             const float offset = animated.phaseOffset;
-            const float radius = 14.0f + animated.radiusOffset;
+            const float radius = 10.0f + animated.radiusOffset;
 
             const float x =
                 radius * std::cos(animated.speed * mCurrentTime + offset);
@@ -339,8 +360,8 @@ class MainApp final : public fra::AbstractApplication
                 radius *
                 std::sin(animated.speed * mCurrentTime + offset * 1.3f);
             const float y =
-                3.0f +
-                2.0f * std::sin(animated.speed * 0.7f * mCurrentTime + offset);
+                12.0f +
+                1.5f * std::sin(animated.speed * 0.7f * mCurrentTime + offset);
             const glm::vec3 position(x, y, z);
 
             if (animated.kind == AnimatedLightKind::Point)
@@ -355,13 +376,12 @@ class MainApp final : public fra::AbstractApplication
                 continue;
             }
 
-            fra::Light spot = *current;
-            spot.position   = position;
-            // Spot aims at the origin (sofa cluster)
-            const glm::vec3 toOrigin = glm::vec3(0.0f) - position;
-            if (glm::length(toOrigin) > 1e-4f)
+            fra::Light spot          = *current;
+            spot.position            = position;
+            const glm::vec3 toTarget = glm::vec3(0.0f, -6.0f, 0.0f) - position;
+            if (glm::length(toTarget) > 1e-4f)
             {
-                spot.direction = glm::normalize(toOrigin);
+                spot.direction = glm::normalize(toTarget);
             }
             mLightService->UpdateLight(animated.index, spot);
         }
@@ -383,6 +403,10 @@ class MainApp final : public fra::AbstractApplication
         updateBulbSpots();
 
         mRenderer->BeginFrame();
+        if (mShowLightGizmos)
+        {
+            drawLightGizmos();
+        }
 
         const glm::vec3 forward = cameraForward();
         mRenderer->UpdateCamera(mCameraPos,
@@ -394,10 +418,6 @@ class MainApp final : public fra::AbstractApplication
         for (const auto& mesh : mSofaModel)
         {
             const bool isBulb = mesh == mBulbMeshId;
-            // Body mesh includes the thin bulb cage wires — those cast nasty
-            // self-shadows onto the glass / floor. Keep shadows off for it.
-            const bool isBody =
-                !mSofaModel.empty() && mesh == mSofaModel.front();
             for (std::uint32_t i = 0; i < 2; ++i)
             {
                 instances.push_back(fra::SceneInstanceUpload {
@@ -405,7 +425,7 @@ class MainApp final : public fra::AbstractApplication
                     .meshId      = mesh,
                     .materialId  = isBulb ? mBulbMaterial : mSofaMaterial,
                     .entityId    = i + 1,
-                    .castShadows = !isBulb && !isBody,
+                    .castShadows = !isBulb,
                 });
             }
         }
@@ -430,7 +450,7 @@ class MainApp final : public fra::AbstractApplication
 
     std::uint32_t createGroundMesh()
     {
-        constexpr float half = 30.0f;
+        constexpr float half = 80.0f;
         const auto      tint = glm::vec3(0.72f, 0.72f, 0.76f);
         const auto      up   = glm::vec3(0.0f, 1.0f, 0.0f);
         const auto      tan  = glm::vec3(1.0f, 0.0f, 0.0f);
@@ -548,8 +568,10 @@ class MainApp final : public fra::AbstractApplication
         // for the per-bulb spots in the default "all" mode).
         for (const auto spotIndex : mSpotIndices)
             setLightCastShadows(spotIndex, mode == 4);
+        // Bulb spots sit inside the housing; they must not own shadow slots
+        // in the default mode or the floor umbra is a huge near-field blob.
         for (const auto spotIndex : mBulbSpotIndices)
-            setLightCastShadows(spotIndex, all || mode == 4);
+            setLightCastShadows(spotIndex, false);
 
         static constexpr const char* kNames[] = {
             "all", "directional", "warm point", "cool point", "all spots",
@@ -702,7 +724,62 @@ class MainApp final : public fra::AbstractApplication
             " [F6] TAA " + qName(static_cast<int>(mRenderer->GetTaaQuality())) +
             " [F7] Blm " +
             qName(static_cast<int>(mRenderer->GetBloomQuality())) + " [F8] | " +
-            shadowName + " [0-4]";
+            (mRenderer->GetShadowDebug() ? "shdDBG " : "") +
+            (mShowLightGizmos ? "gizmo " : "") + shadowName + " [0-4]";
+    }
+
+    void drawLightGizmos()
+    {
+        auto&      dd    = mRenderer->GetDebugDraw();
+        const auto count = mLightService->GetLightCount();
+        for (std::uint32_t i = 0; i < count; ++i)
+        {
+            const auto* light = mLightService->GetLight(i);
+            if (light == nullptr)
+            {
+                continue;
+            }
+
+            const auto peak = std::max(
+                { light->color.r, light->color.g, light->color.b, 0.2f });
+            glm::vec4 color(light->color / peak,
+                            light->castShadows ? 1.0f : 0.4f);
+
+            const auto type = static_cast<fra::LightType>(
+                static_cast<std::uint32_t>(light->type + 0.5f));
+            switch (type)
+            {
+                case fra::LightType::Point:
+                    dd.Sphere(light->position, 0.7f, color, 16);
+                    dd.Circle(
+                        light->position, { 0.0f, 1.0f, 0.0f }, light->radius,
+                        { color.r, color.g, color.b, color.a * 0.35f }, 32);
+                    break;
+                case fra::LightType::Spot: {
+                    const auto outer =
+                        std::clamp(light->outerCutoff, -1.0f, 1.0f);
+                    const auto half = std::acos(outer);
+                    const auto len  = std::min(light->radius * 0.45f, 18.0f);
+                    dd.Cone(light->position, light->direction, len, half,
+                            color);
+                    dd.Sphere(light->position, 0.35f, color, 10);
+                    break;
+                }
+                case fra::LightType::Directional: {
+                    constexpr glm::vec3 kAnchor(0.0f, 42.0f, 0.0f);
+                    const auto dir = glm::length(light->direction) > 1e-4f
+                                         ? glm::normalize(light->direction)
+                                         : glm::vec3(0.0f, -1.0f, 0.0f);
+                    dd.Arrow(kAnchor - dir * 18.0f, kAnchor + dir * 8.0f,
+                             color);
+                    break;
+                }
+                case fra::LightType::Area:
+                    dd.Rect(light->position, light->direction, light->tangent,
+                            light->outerCutoff, light->halfHeight, color);
+                    break;
+            }
+        }
     }
 
     enum class AnimatedLightKind
@@ -760,6 +837,7 @@ class MainApp final : public fra::AbstractApplication
     std::vector<std::uint32_t> mSpotIndices;
     std::vector<std::uint32_t> mBulbSpotIndices;
     int                        mShadowCasterMode = 0;
+    bool                       mShowLightGizmos  = true;
 };
 
 int main(int argc, const char** argv)

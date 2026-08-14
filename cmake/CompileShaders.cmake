@@ -76,7 +76,7 @@ function(add_shader_target)
     endif()
 
     if(GLSLC)
-        file(GLOB_RECURSE _sources
+        file(GLOB_RECURSE _sources CONFIGURE_DEPENDS
             "${ARG_FROM}/*.vert" "${ARG_FROM}/*.frag" "${ARG_FROM}/*.comp"
         )
 

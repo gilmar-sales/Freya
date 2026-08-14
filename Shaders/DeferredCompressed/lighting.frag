@@ -77,7 +77,7 @@ layout(std430, set = 1, binding = 1) readonly buffer MaterialBuffer {
 };
 
 layout(push_constant) uniform LightingPush {
-    uint debugMode; // 0 = lit, 1 = grayscale SSAO
+    uint debugMode; // 0 = lit, 1 = SSAO, 2 = shadow factor
     uint _pad0;
     uint _pad1;
     uint _pad2;
@@ -280,6 +280,11 @@ float SampleCascadeShadow(vec3 worldPos, vec3 N, vec3 L) {
     return shadow;
 }
 
+float ShadowDistanceFade(float dist, float far) {
+    float fadeStart = max(far * 0.5, far - 8.0);
+    return 1.0 - smoothstep(fadeStart, far, dist);
+}
+
 float SampleSpotShadow(int lightIndex, vec3 worldPos, vec3 N, vec3 L) {
     int slot = -1;
     for (int s = 0; s < 4; ++s) {
@@ -292,19 +297,33 @@ float SampleSpotShadow(int lightIndex, vec3 worldPos, vec3 N, vec3 L) {
         return 1.0;
 
     vec3 lightPos = lights.lightPositions[lightIndex].xyz;
-    float distHint = max(length(lightPos - worldPos), 1.0);
+    vec3 aim = normalize(lights.lightDirectionsAndCutoff[lightIndex].xyz);
+    float outer = lights.lightOuterCutoffAndIntensity[lightIndex].x;
+    vec3 fromLight = worldPos - lightPos;
+    float distHint = length(fromLight);
+    if (distHint < 1e-5)
+        return 1.0;
+    if (dot(fromLight / distHint, aim) < outer)
+        return 1.0;
+
+    float radius = lights.lightColorsAndRadius[lightIndex].w;
+    float fade = ShadowDistanceFade(distHint, radius);
+    if (fade <= 0.0)
+        return 1.0;
+
     float nDotL = max(dot(N, normalize(L)), 0.0);
     float slope = sqrt(max(1.0 - nDotL * nDotL, 0.0));
-    // Approximate texel at receiver for a ~90° cone (conservative).
     float texelWorld = (2.0 * distHint) / ShadowMapResolution();
     float normalScale = texelWorld * shadows.params.y * (0.5 + 1.5 * slope);
     float lightPush = texelWorld * (1.0 + slope);
     vec3 biased = worldPos + N * normalScale + normalize(L) * lightPush;
     float depthBiasAmount = shadows.params.x * (1.0 + 1.5 * slope);
 
-    return SoftShadow2DUV(spotShadowMap, shadows.spotViewProj[slot], biased,
-                          float(slot), depthBiasAmount,
-                          SoftUvRadius(texelWorld, shadows.pcss.y));
+    return mix(1.0,
+               SoftShadow2DUV(spotShadowMap, shadows.spotViewProj[slot],
+                              biased, float(slot), depthBiasAmount,
+                              SoftUvRadius(texelWorld, shadows.pcss.y)),
+               fade);
 }
 
 float SamplePointShadow(int lightIndex, vec3 worldPos, vec3 N) {
@@ -361,7 +380,8 @@ float SamplePointShadow(int lightIndex, vec3 worldPos, vec3 N) {
         result += texture(pointShadowMap, vec4(sampleDir, float(slot)),
                           depthRef);
     }
-    return result / float(tapCount);
+    float fade = ShadowDistanceFade(distToLight, far);
+    return mix(1.0, result / float(tapCount), fade);
 }
 
 float GetShadowFactor(int i, float lightType, vec3 worldPos, vec3 N,
@@ -624,8 +644,36 @@ void main() {
     // Grayscale AO debug: sky stays white; no ACES (composite tonemap off).
     if (push.debugMode != 0u) {
         bool sky = reverseZ ? (depth <= 1e-6) : (depth >= 0.999999);
-        float ao = sky ? 1.0 : ssao;
-        outColor = vec4(vec3(ao), 0.0);
+        if (push.debugMode == 1u) {
+            float ao = sky ? 1.0 : ssao;
+            outColor = vec4(vec3(ao), 0.0);
+            return;
+        }
+        if (sky) {
+            outColor = vec4(1.0, 1.0, 1.0, 0.0);
+            return;
+        }
+        vec3 fragPos = ReconstructWorldPos(inUV, depth);
+        vec3 N = normalize(texture(inNormal, inUV).rgb * 2.0 - 1.0);
+        uint flags = UnpackFlags(texture(inNormal, inUV).a);
+        bool receiveShadow = (flags == kFlagReceiveShadow);
+        float minShadow = 1.0;
+        for (int i = 0; i < int(lights.lightCount); i++) {
+            float lightType = lights.lightPositions[i].w;
+            if (lightType >= 2.5)
+                continue;
+            vec3 lightPos = lights.lightPositions[i].xyz;
+            vec3 lightDir = lights.lightDirectionsAndCutoff[i].xyz;
+            vec3 L;
+            if (lightType >= 0.5 && lightType < 1.5)
+                L = normalize(-lightDir);
+            else
+                L = normalize(lightPos - fragPos);
+            float s = GetShadowFactor(i, lightType, fragPos, N, L,
+                                      receiveShadow);
+            minShadow = min(minShadow, s);
+        }
+        outColor = vec4(vec3(minShadow), 0.0);
         return;
     }
 
