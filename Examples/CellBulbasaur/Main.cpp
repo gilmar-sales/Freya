@@ -93,6 +93,8 @@ class MainApp final : public fra::AbstractApplication
             cell.strength        = 1.0f;
             cell.edgeColor       = { 0.05f, 0.08f, 0.04f, 1.0f };
             cell.reverseZ        = mFreyaOptions->ReverseZ ? 1.0f : 0.0f;
+            cell.shadowLift      = 0.1f;
+            cell.edgeWidth       = 2.5f;
             mCellEffect->SetPushConstants(cell);
             mRenderer->InsertFrameStage("Bloom", mCellEffect->MakeStage());
         }
@@ -159,12 +161,12 @@ class MainApp final : public fra::AbstractApplication
                 mIdleClip = &mSkinned.clips.front();
         }
 
-        // mLightService->AddLight(fra::MakeDirectionalLight(
-        //     glm::vec3(-0.4f, -1.0f, -0.35f), glm::vec3(1.0f, 0.98f, 0.92f),
-        //     1.6f));
-        // mLightService->AddLight(fra::MakePointLight(
-        //     glm::vec3(2.2f, 2.4f, 2.0f), glm::vec3(0.85f, 0.95f, 0.7f), 6.0f,
-        //     8.0f));
+        mLightService->AddLight(fra::MakeDirectionalLight(
+            glm::vec3(-0.4f, -1.0f, -0.35f), glm::vec3(1.0f, 0.98f, 0.92f),
+            1.6f));
+        mLightService->AddLight(fra::MakePointLight(
+            glm::vec3(2.2f, 2.4f, 2.0f), glm::vec3(0.85f, 0.95f, 0.7f), 6.0f,
+            8.0f));
 
         buildSceneInstances();
         updateTitle();
@@ -416,12 +418,13 @@ int main(int, const char**)
                         .SetVSync(true)
                         .WithReverseZ()
                         .SetSampleCount(1)
-                        .SetIblIntensity(0.25f)
+                        .SetIblIntensity(0.0f)
                         .SetExposure(0.85f)
-                        .SetShadowQuality(fra::ShadowQuality::High)
-                        .SetTaaQuality(fra::TaaQuality::Off)
-                        .SetBloomQuality(fra::BloomQuality::Off)
-                        .SetSsaoQuality(fra::SsaoQuality::Medium);
+                        .SetEnvironmentMapPath("")
+                        .SetShadowQuality(fra::ShadowQuality::Ultra)
+                        .SetTaaQuality(fra::TaaQuality::Ultra)
+                        .SetBloomQuality(fra::BloomQuality::Ultra)
+                        .SetSsaoQuality(fra::SsaoQuality::Ultra);
                 });
             })
             .Build<MainApp>();

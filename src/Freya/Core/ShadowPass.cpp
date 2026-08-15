@@ -487,7 +487,7 @@ namespace FREYA_NAMESPACE
         const auto fov =
             std::clamp(halfAngle * 2.0f, 0.01f, glm::pi<float>() - 0.01f);
 
-        constexpr auto near = 0.1f;
+        constexpr auto near = 0.01f;
         const auto     far  = std::max(light.radius, near + 0.01f);
 
         auto proj = mFreyaOptions->ReverseZ

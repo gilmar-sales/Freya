@@ -42,7 +42,9 @@ namespace FREYA_NAMESPACE
         float     edgeNormalScale = 2.0f;
         float     strength        = 1.0f;
         glm::vec4 edgeColor { 0.02f, 0.02f, 0.04f, 1.0f };
-        float     reverseZ = 0.0f;
+        float     reverseZ   = 0.0f;
+        float     shadowLift = 0.22f; ///< Darkest toon band (0 = black)
+        float     edgeWidth  = 1.0f;  ///< Outline width at 1080p (scales by H)
     };
 
     /**

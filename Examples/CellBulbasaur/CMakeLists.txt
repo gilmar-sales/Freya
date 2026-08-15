@@ -16,12 +16,15 @@ add_dependencies(CellBulbasaur ${Shaders_OUTPUT_TARGETS})
 
 file(COPY Resources DESTINATION ${CMAKE_BINARY_DIR}/Examples/CellBulbasaur)
 
-set(_freya_default_ibl
+set(_freya_studio_ibl
     "${CMAKE_SOURCE_DIR}/Resources/studio_small_09_4k.hdr")
-if(EXISTS "${_freya_default_ibl}")
-    file(MAKE_DIRECTORY
-        "${CMAKE_BINARY_DIR}/Examples/CellBulbasaur/Resources/Environments")
-    file(COPY "${_freya_default_ibl}"
-         DESTINATION
-         "${CMAKE_BINARY_DIR}/Examples/CellBulbasaur/Resources/Environments")
-endif()
+set(_freya_outdoor_ibl
+    "${CMAKE_SOURCE_DIR}/Resources/horn-koppe_spring_4k.hdr")
+file(MAKE_DIRECTORY
+    "${CMAKE_BINARY_DIR}/Examples/CellBulbasaur/Resources/Environments")
+foreach(_ibl IN ITEMS ${_freya_studio_ibl} ${_freya_outdoor_ibl})
+    if(EXISTS "${_ibl}")
+        file(COPY "${_ibl}" DESTINATION
+             "${CMAKE_BINARY_DIR}/Examples/CellBulbasaur/Resources/Environments")
+    endif()
+endforeach()

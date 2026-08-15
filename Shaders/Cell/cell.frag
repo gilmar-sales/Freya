@@ -20,6 +20,8 @@ layout(push_constant) uniform CellPush {
     float strength;
     vec4 edgeColor;
     float reverseZ;
+    float shadowLift;
+    float edgeWidth;
 } push;
 
 float SampleDepth(vec2 uv) {
@@ -54,21 +56,29 @@ void main() {
 
     float bands = max(push.bands, 1.0);
     float luma = dot(scene, vec3(0.2126, 0.7152, 0.0722));
-    float quantized = floor(luma * bands + 0.5) / bands;
-    vec3 cel = (luma > 1e-5) ? scene * (quantized / luma) : scene;
+    vec3 albedoLin = pow(max(texture(inAlbedo, inUV).rgb, vec3(0.0)), vec3(2.2));
+    float albedoLuma =
+        max(dot(albedoLin, vec3(0.2126, 0.7152, 0.0722)), 1e-4);
+    vec3 chroma = (luma > 1e-4) ? scene / luma : albedoLin / albedoLuma;
+    float lift = clamp(push.shadowLift, 0.0, 1.0);
+    float quantized = max(floor(luma * bands + 0.5) / bands, lift);
+    vec3 cel = chroma * quantized;
 
     ivec2 size = textureSize(inDepth, 0);
     vec2 texel = 1.0 / vec2(size);
+    float widthPx =
+        max(push.edgeWidth, 1.0) * max(float(size.y) / 1080.0, 1.0);
+    vec2 step = texel * widthPx;
 
-    float gx = SampleDepth(inUV + vec2(texel.x, 0.0)) -
-               SampleDepth(inUV - vec2(texel.x, 0.0));
-    float gy = SampleDepth(inUV + vec2(0.0, texel.y)) -
-               SampleDepth(inUV - vec2(0.0, texel.y));
+    float gx = SampleDepth(inUV + vec2(step.x, 0.0)) -
+               SampleDepth(inUV - vec2(step.x, 0.0));
+    float gy = SampleDepth(inUV + vec2(0.0, step.y)) -
+               SampleDepth(inUV - vec2(0.0, step.y));
     float edgeDepth = length(vec2(gx, gy)) * push.edgeDepthScale;
 
     vec3 n0 = SampleNormal(inUV);
-    vec3 nx = SampleNormal(inUV + vec2(texel.x, 0.0));
-    vec3 ny = SampleNormal(inUV - vec2(0.0, texel.y));
+    vec3 nx = SampleNormal(inUV + vec2(step.x, 0.0));
+    vec3 ny = SampleNormal(inUV - vec2(0.0, step.y));
     float edgeNormal =
         (1.0 - clamp(dot(n0, nx), 0.0, 1.0)) +
         (1.0 - clamp(dot(n0, ny), 0.0, 1.0));
