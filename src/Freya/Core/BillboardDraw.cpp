@@ -85,10 +85,11 @@ namespace FREYA_NAMESPACE
         }
     } // namespace
 
-    void BillboardDraw::Text(const glm::vec3& worldPos, std::string_view utf8,
-                             const FontAtlas& font, const float heightMeters,
-                             const glm::vec4& color, const BillboardAlign align,
-                             const BillboardLayer layer)
+    void BillboardDraw::Text(
+        const glm::vec3& worldPos, std::string_view utf8, const FontAtlas& font,
+        const float heightMeters, const glm::vec4& color,
+        const float outlineWidthPx, const glm::vec4& outlineColor,
+        const BillboardAlign align, const BillboardLayer layer)
     {
         if (!font.Valid() || heightMeters <= 0.f || utf8.empty())
             return;
@@ -127,17 +128,21 @@ namespace FREYA_NAMESPACE
                 continue;
 
             Billboard b {};
-            b.worldPos     = worldPos;
-            b.size         = { gw, gh };
-            b.color        = color;
-            b.uvRect       = g.uvRect;
-            b.textureIndex = font.HeapIndex();
-            b.align        = align;
-            b.blend        = BillboardBlend::Alpha;
-            b.layer        = layer;
-            b.depthTest    = true;
-            b.sdf          = true;
-            b.clipMax      = 1.f;
+            b.worldPos      = worldPos;
+            b.size          = { gw, gh };
+            b.color         = color;
+            b.uvRect        = g.uvRect;
+            b.textureIndex  = font.HeapIndex();
+            b.align         = align;
+            b.blend         = BillboardBlend::Alpha;
+            b.layer         = layer;
+            b.depthTest     = true;
+            b.sdf           = true;
+            b.clipMax       = 1.f;
+            const float pad = std::max(font.Padding(), 1.f);
+            b.outlineWidth =
+                std::clamp(outlineWidthPx / pad * 0.5f, 0.f, 0.49f);
+            b.outlineColor = outlineColor;
             b.localOffset  = {
                 origin + p.pen +
                     0.5f * (g.planeLeft + g.planeRight) * heightMeters,

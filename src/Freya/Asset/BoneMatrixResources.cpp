@@ -101,8 +101,8 @@ namespace FREYA_NAMESPACE
             mDevice->Get().destroyDescriptorSetLayout(mLayout);
     }
 
-    void BoneMatrixResources::Upload(
-        const std::uint32_t frameIndex, const std::span<const glm::mat4> bones)
+    void BoneMatrixResources::Upload(const std::uint32_t frameIndex,
+                                     const std::span<const glm::mat4> bones)
     {
         const auto count =
             std::min(static_cast<std::uint32_t>(bones.size()), mCapacity);

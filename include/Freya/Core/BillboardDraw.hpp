@@ -43,10 +43,12 @@ namespace FREYA_NAMESPACE
         glm::vec4     color { 1.f };
         glm::vec4     uvRect { 0.f, 0.f, 1.f, 1.f };
         glm::vec2     localOffset { 0.f };
-        glm::vec2     _pad { 0.f };
+        float         outlineWidth = 0.f;
+        float         _pad         = 0.f;
+        glm::vec4     outlineColor { 0.f, 0.f, 0.f, 1.f };
     };
 
-    static_assert(sizeof(BillboardGpuInstance) == 80,
+    static_assert(sizeof(BillboardGpuInstance) == 96,
                   "BillboardGpuInstance must match GLSL std430");
 
     /**
@@ -69,6 +71,8 @@ namespace FREYA_NAMESPACE
         bool           sdf          = false;
         float          clipMax      = 1.f;
         glm::vec2      localOffset { 0.f };
+        float          outlineWidth = 0.f; ///< SDF units, 0 = no outline
+        glm::vec4      outlineColor { 0.f, 0.f, 0.f, 1.f };
     };
 
     /**
@@ -102,12 +106,16 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief Latin-1 LTR nameplate: one SDF quad per glyph, centered.
+         *
+         * @param outlineWidthPx Outline in atlas pixels (SDF padding range).
+         *                       2 with the default 8px pad is a typical halo.
          */
         void Text(const glm::vec3& worldPos, std::string_view utf8,
                   const class FontAtlas& font, float heightMeters,
-                  const glm::vec4& color,
-                  BillboardAlign   align = BillboardAlign::Cylindrical,
-                  BillboardLayer   layer = BillboardLayer::Ui);
+                  const glm::vec4& color, float outlineWidthPx = 0.f,
+                  const glm::vec4& outlineColor = { 0.f, 0.f, 0.f, 1.f },
+                  BillboardAlign   align        = BillboardAlign::Cylindrical,
+                  BillboardLayer   layer        = BillboardLayer::Ui);
 
       private:
         std::uint32_t          mMaxQuads = kDefaultMaxQuads;

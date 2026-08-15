@@ -42,11 +42,14 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] float PixelHeight() const { return mPixelHeight; }
 
+        [[nodiscard]] float Padding() const { return mPadding; }
+
       private:
         static constexpr std::uint32_t kInvalid = ~0u;
 
         std::uint32_t                           mTextureId   = kInvalid;
         float                                   mPixelHeight = 48.f;
+        float                                   mPadding     = 8.f;
         std::unordered_map<char32_t, FontGlyph> mGlyphs;
     };
 

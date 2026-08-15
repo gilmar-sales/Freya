@@ -30,6 +30,8 @@ namespace FREYA_NAMESPACE
             g.color        = b.color;
             g.uvRect       = b.uvRect;
             g.localOffset  = b.localOffset;
+            g.outlineWidth = b.outlineWidth;
+            g.outlineColor = b.outlineColor;
             return g;
         }
     } // namespace

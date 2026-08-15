@@ -54,6 +54,7 @@ namespace FREYA_NAMESPACE
     {
         FontAtlas atlas;
         atlas.mPixelHeight = pixelHeight;
+        atlas.mPadding     = static_cast<float>(std::max(1u, padding));
 
         auto ttf = ReadFile(path);
         if (ttf.empty())

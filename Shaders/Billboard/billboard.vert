@@ -10,7 +10,9 @@ struct BillboardInstance
     vec4 color;
     vec4 uvRect;
     vec2 localOffset;
-    vec2 _pad;
+    float outlineWidth;
+    float _pad;
+    vec4 outlineColor;
 };
 
 layout(std430, set = 0, binding = 0) readonly buffer InstanceBuffer
@@ -31,6 +33,8 @@ layout(location = 2) flat out uint vTextureIndex;
 layout(location = 3) out float vClipU;
 layout(location = 4) out float vClipMax;
 layout(location = 5) flat out uint vFlags;
+layout(location = 6) out vec4 vOutlineColor;
+layout(location = 7) out float vOutlineWidth;
 
 const uint kCylindrical = 1u;
 
@@ -71,4 +75,6 @@ void main()
     vClipU        = uv01.x;
     vClipMax      = inst.clipMax;
     vFlags        = inst.flags;
+    vOutlineColor = inst.outlineColor;
+    vOutlineWidth = inst.outlineWidth;
 }
