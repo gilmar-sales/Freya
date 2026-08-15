@@ -66,10 +66,9 @@ namespace FREYA_NAMESPACE
         return id;
     }
 
-    std::uint32_t TexturePool::CreateTextureFromMemory(const void*   pixels,
-                                                       std::uint32_t width,
-                                                       std::uint32_t height,
-                                                       std::uint32_t channels)
+    std::uint32_t TexturePool::CreateTextureFromMemory(
+        const void* pixels, std::uint32_t width, std::uint32_t height,
+        std::uint32_t channels, std::uint32_t mipLevelCount)
     {
         mLogger->LogTrace("TexturePool::CreateTextureFromMemory:");
         mLogger->LogTrace("\tSize: {}x{} channels={}", width, height, channels);
@@ -80,15 +79,18 @@ namespace FREYA_NAMESPACE
         const auto stagingBuffer =
             queryStagingBuffer(width * height * channels);
 
-        const auto image =
+        auto builder =
             mServiceProvider->GetService<ImageBuilder>()
                 ->SetUsage(ImageUsage::Texture)
                 .SetWidth(width)
                 .SetHeight(height)
                 .SetChannels(channels)
                 .SetStagingBuffer(stagingBuffer)
-                .SetData(const_cast<void*>(pixels))
-                .Build();
+                .SetData(const_cast<void*>(pixels));
+        if (mipLevelCount > 0)
+            builder.SetMipLevels(mipLevelCount);
+
+        const auto image = builder.Build();
 
         const auto mipLevels = image->GetMipLevels();
 

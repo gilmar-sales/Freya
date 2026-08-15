@@ -20,10 +20,10 @@ namespace FREYA_NAMESPACE
             if (mLive.size() >= maxParticles)
                 break;
             ParticleDesc p {};
-            p.pos      = origin;
-            p.vel      = velocity +
-                    glm::vec3(jitter(mRng), jitter(mRng), jitter(mRng)) *
-                        velocityJitter;
+            p.pos = origin;
+            p.vel =
+                velocity + glm::vec3(jitter(mRng), jitter(mRng), jitter(mRng)) *
+                               velocityJitter;
             p.lifetime = lifetime;
             p.size0    = size0;
             p.size1    = size1;
@@ -43,15 +43,15 @@ namespace FREYA_NAMESPACE
         {
             const float t = std::clamp(p.age / p.lifetime, 0.f, 1.f);
             Billboard   b {};
-            b.worldPos      = p.pos + p.vel * p.age;
-            const float sz  = glm::mix(p.size0, p.size1, t);
-            b.size          = { sz, sz };
-            b.color         = glm::mix(p.color0, p.color1, t);
-            b.textureIndex  = textureIndex;
-            b.align         = BillboardAlign::Screen;
-            b.blend         = blend;
-            b.layer         = BillboardLayer::Vfx;
-            b.depthTest     = true;
+            b.worldPos     = p.pos + p.vel * p.age;
+            const float sz = glm::mix(p.size0, p.size1, t);
+            b.size         = { sz, sz };
+            b.color        = glm::mix(p.color0, p.color1, t);
+            b.textureIndex = textureIndex;
+            b.align        = BillboardAlign::Screen;
+            b.blend        = blend;
+            b.layer        = BillboardLayer::Vfx;
+            b.depthTest    = true;
             draw.Quad(b);
         }
     }

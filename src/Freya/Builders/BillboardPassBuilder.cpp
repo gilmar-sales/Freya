@@ -80,9 +80,10 @@ namespace FREYA_NAMESPACE
                     vk::PipelineStageFlagBits::eColorAttachmentOutput |
                     vk::PipelineStageFlagBits::eEarlyFragmentTests |
                     vk::PipelineStageFlagBits::eLateFragmentTests)
-                .setSrcAccessMask(vk::AccessFlagBits::eShaderRead |
-                                  vk::AccessFlagBits::eColorAttachmentWrite |
-                                  vk::AccessFlagBits::eDepthStencilAttachmentRead)
+                .setSrcAccessMask(
+                    vk::AccessFlagBits::eShaderRead |
+                    vk::AccessFlagBits::eColorAttachmentWrite |
+                    vk::AccessFlagBits::eDepthStencilAttachmentRead)
                 .setDstAccessMask(
                     vk::AccessFlagBits::eColorAttachmentWrite |
                     vk::AccessFlagBits::eColorAttachmentRead |
@@ -152,8 +153,9 @@ namespace FREYA_NAMESPACE
                     vk::PipelineStageFlagBits::eColorAttachmentOutput |
                     vk::PipelineStageFlagBits::eEarlyFragmentTests |
                     vk::PipelineStageFlagBits::eLateFragmentTests)
-                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite |
-                                  vk::AccessFlagBits::eDepthStencilAttachmentRead)
+                .setSrcAccessMask(
+                    vk::AccessFlagBits::eColorAttachmentWrite |
+                    vk::AccessFlagBits::eDepthStencilAttachmentRead)
                 .setDstAccessMask(
                     vk::AccessFlagBits::eColorAttachmentWrite |
                     vk::AccessFlagBits::eColorAttachmentRead |
@@ -191,10 +193,11 @@ namespace FREYA_NAMESPACE
                 .setPName("main"),
         };
 
-        auto vertexInput   = vk::PipelineVertexInputStateCreateInfo();
-        auto inputAssembly = vk::PipelineInputAssemblyStateCreateInfo()
-                                 .setTopology(vk::PrimitiveTopology::eTriangleList)
-                                 .setPrimitiveRestartEnable(false);
+        auto vertexInput = vk::PipelineVertexInputStateCreateInfo();
+        auto inputAssembly =
+            vk::PipelineInputAssemblyStateCreateInfo()
+                .setTopology(vk::PrimitiveTopology::eTriangleList)
+                .setPrimitiveRestartEnable(false);
         auto viewportState = vk::PipelineViewportStateCreateInfo()
                                  .setViewportCount(1)
                                  .setScissorCount(1);
@@ -221,14 +224,14 @@ namespace FREYA_NAMESPACE
                 .setBlendEnable(true)
                 .setSrcColorBlendFactor(additive ? vk::BlendFactor::eSrcAlpha
                                                  : vk::BlendFactor::eSrcAlpha)
-                .setDstColorBlendFactor(additive
-                                            ? vk::BlendFactor::eOne
-                                            : vk::BlendFactor::eOneMinusSrcAlpha)
+                .setDstColorBlendFactor(
+                    additive ? vk::BlendFactor::eOne
+                             : vk::BlendFactor::eOneMinusSrcAlpha)
                 .setColorBlendOp(vk::BlendOp::eAdd)
                 .setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
-                .setDstAlphaBlendFactor(additive
-                                            ? vk::BlendFactor::eOne
-                                            : vk::BlendFactor::eOneMinusSrcAlpha)
+                .setDstAlphaBlendFactor(
+                    additive ? vk::BlendFactor::eOne
+                             : vk::BlendFactor::eOneMinusSrcAlpha)
                 .setAlphaBlendOp(vk::BlendOp::eAdd)
                 .setColorWriteMask(vk::ColorComponentFlagBits::eR |
                                    vk::ColorComponentFlagBits::eG |
@@ -240,7 +243,7 @@ namespace FREYA_NAMESPACE
 
         const auto compare = mFreyaOptions->ReverseZ ? vk::CompareOp::eGreater
                                                      : vk::CompareOp::eLess;
-        auto depthStencil =
+        auto       depthStencil =
             vk::PipelineDepthStencilStateCreateInfo()
                 .setDepthTestEnable(depthTest)
                 .setDepthWriteEnable(false)
@@ -268,8 +271,7 @@ namespace FREYA_NAMESPACE
     }
 
     skr::Arc<BillboardPass> BillboardPassBuilder::Build(
-        const skr::Arc<SwapChain>& swapChain,
-        const skr::Arc<Image>&     depthImage)
+        const skr::Arc<SwapChain>& swapChain, const skr::Arc<Image>& depthImage)
     {
         const auto depthFormat = mPhysicalDevice->GetDepthFormat();
         auto       hdrPass     = createHdrRenderPass(depthFormat);
@@ -294,11 +296,10 @@ namespace FREYA_NAMESPACE
         auto setLayout = mDevice->Get().createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo().setBindings(instanceBinding));
 
-        auto pushRange =
-            vk::PushConstantRange()
-                .setStageFlags(vk::ShaderStageFlagBits::eVertex)
-                .setOffset(0)
-                .setSize(sizeof(BillboardPush));
+        auto pushRange = vk::PushConstantRange()
+                             .setStageFlags(vk::ShaderStageFlagBits::eVertex)
+                             .setOffset(0)
+                             .setSize(sizeof(BillboardPush));
 
         auto setLayouts =
             std::array { setLayout, mMaterials->GetBindlessLayout() };
@@ -336,13 +337,12 @@ namespace FREYA_NAMESPACE
             static_cast<std::uint64_t>(maxQuads) * sizeof(BillboardGpuInstance);
 
         const auto frameCount = mFreyaOptions->frameCount;
-        auto poolSize         = vk::DescriptorPoolSize()
-                            .setType(vk::DescriptorType::eStorageBuffer)
-                            .setDescriptorCount(frameCount);
-        auto pool = mDevice->Get().createDescriptorPool(
-            vk::DescriptorPoolCreateInfo()
-                .setPoolSizes(poolSize)
-                .setMaxSets(frameCount));
+        auto       poolSize   = vk::DescriptorPoolSize()
+                                    .setType(vk::DescriptorType::eStorageBuffer)
+                                    .setDescriptorCount(frameCount);
+        auto       pool       = mDevice->Get().createDescriptorPool(
+            vk::DescriptorPoolCreateInfo().setPoolSizes(poolSize).setMaxSets(
+                frameCount));
 
         std::vector<vk::DescriptorSetLayout> layouts(frameCount, setLayout);
         auto sets = mDevice->Get().allocateDescriptorSets(
@@ -352,7 +352,7 @@ namespace FREYA_NAMESPACE
 
         std::vector<skr::Arc<Buffer>> buffers;
         buffers.reserve(frameCount);
-        std::vector<vk::WriteDescriptorSet>  writes;
+        std::vector<vk::WriteDescriptorSet>   writes;
         std::vector<vk::DescriptorBufferInfo> infos;
         infos.reserve(frameCount);
         writes.reserve(frameCount);
@@ -366,21 +366,21 @@ namespace FREYA_NAMESPACE
                                 .setBuffer(buffers.back()->Get())
                                 .setOffset(0)
                                 .setRange(byteSize));
-            writes.push_back(vk::WriteDescriptorSet()
-                                 .setDstSet(sets[i])
-                                 .setDstBinding(0)
-                                 .setDescriptorType(
-                                     vk::DescriptorType::eStorageBuffer)
-                                 .setDescriptorCount(1)
-                                 .setBufferInfo(infos.back()));
+            writes.push_back(
+                vk::WriteDescriptorSet()
+                    .setDstSet(sets[i])
+                    .setDstBinding(0)
+                    .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                    .setDescriptorCount(1)
+                    .setBufferInfo(infos.back()));
         }
         mDevice->Get().updateDescriptorSets(writes, nullptr);
 
         const auto extent = swapChain->GetExtent();
         auto       pass   = skr::MakeArc<BillboardPass>(
             mDevice, mFreyaOptions, mMaterials, hdrPass, ldrPass,
-            pipelineLayout, setLayout, pool, sets, std::move(buffers), hdr,
-            ldr, std::vector<vk::Framebuffer> {}, extent, maxQuads);
+            pipelineLayout, setLayout, pool, sets, std::move(buffers), hdr, ldr,
+            std::vector<vk::Framebuffer> {}, extent, maxQuads);
 
         if (depthImage)
         {

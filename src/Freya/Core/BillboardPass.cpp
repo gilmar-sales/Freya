@@ -19,15 +19,17 @@ namespace FREYA_NAMESPACE
         BillboardGpuInstance ToGpu(const Billboard& b)
         {
             BillboardGpuInstance g {};
-            g.worldPos      = b.worldPos;
-            g.clipMax       = b.clipMax;
-            g.size          = b.size;
-            g.textureIndex  = b.textureIndex;
-            g.flags         = b.align == BillboardAlign::Cylindrical
+            g.worldPos     = b.worldPos;
+            g.clipMax      = b.clipMax;
+            g.size         = b.size;
+            g.textureIndex = b.textureIndex;
+            g.flags        = (b.align == BillboardAlign::Cylindrical
                                   ? kBillboardFlagCylindrical
-                                  : 0u;
-            g.color         = b.color;
-            g.uvRect        = b.uvRect;
+                                  : 0u) |
+                             (b.sdf ? kBillboardFlagSdf : 0u);
+            g.color        = b.color;
+            g.uvRect       = b.uvRect;
+            g.localOffset  = b.localOffset;
             return g;
         }
     } // namespace
@@ -36,13 +38,12 @@ namespace FREYA_NAMESPACE
         const skr::Arc<Device>&                      device,
         const skr::Arc<FreyaOptions>&                freyaOptions,
         const skr::Arc<MaterialDescriptorResources>& materials,
-        const vk::RenderPass                         hdrRenderPass,
-        const vk::RenderPass                         ldrRenderPass,
-        const vk::PipelineLayout                     pipelineLayout,
-        const vk::DescriptorSetLayout                setLayout,
-        const vk::DescriptorPool                     descriptorPool,
-        const std::vector<vk::DescriptorSet>&        instanceSets,
-        std::vector<skr::Arc<Buffer>>                instanceBuffers,
+        const vk::RenderPass hdrRenderPass, const vk::RenderPass ldrRenderPass,
+        const vk::PipelineLayout              pipelineLayout,
+        const vk::DescriptorSetLayout         setLayout,
+        const vk::DescriptorPool              descriptorPool,
+        const std::vector<vk::DescriptorSet>& instanceSets,
+        std::vector<skr::Arc<Buffer>>         instanceBuffers,
         const Pipelines hdrPipelines, const Pipelines ldrPipelines,
         std::vector<vk::Framebuffer> ldrFramebuffers, const vk::Extent2D extent,
         const std::uint32_t maxQuads) :
@@ -146,7 +147,7 @@ namespace FREYA_NAMESPACE
         if (!depth || !swapChain || !mLdrRenderPass)
             return;
 
-        mLdrDepthView   = depth->GetImageView();
+        mLdrDepthView      = depth->GetImageView();
         const auto& frames = swapChain->GetFrames();
         const auto  extent = swapChain->GetExtent();
         mExtent            = extent;
@@ -175,12 +176,11 @@ namespace FREYA_NAMESPACE
         return depthTest ? p.alphaDepth : p.alphaNoDepth;
     }
 
-    void BillboardPass::Draw(const skr::Arc<CommandPool>& commandPool,
-                             const skr::Arc<SwapChain>&   swapChain,
-                             const BillboardTarget        target,
-                             const BillboardLayer         layer,
-                             const BillboardDraw&         source,
-                             const glm::mat4& view, const glm::mat4& proj) const
+    void BillboardPass::Draw(
+        const skr::Arc<CommandPool>& commandPool,
+        const skr::Arc<SwapChain>& swapChain, const BillboardTarget target,
+        const BillboardLayer layer, const BillboardDraw& source,
+        const glm::mat4& view, const glm::mat4& proj) const
     {
         if (source.Empty() || !commandPool || !swapChain)
             return;
@@ -202,15 +202,15 @@ namespace FREYA_NAMESPACE
         if (!framebuffer)
             return;
 
-        const auto renderPass = target == BillboardTarget::Hdr ? mHdrRenderPass
-                                                               : mLdrRenderPass;
+        const auto renderPass =
+            target == BillboardTarget::Hdr ? mHdrRenderPass : mLdrRenderPass;
         if (!renderPass)
             return;
 
         struct Batch
         {
-            BillboardBlend blend;
-            bool           depthTest;
+            BillboardBlend                    blend;
+            bool                              depthTest;
             std::vector<BillboardGpuInstance> gpu;
         };
         Batch batches[4] = {
@@ -233,7 +233,7 @@ namespace FREYA_NAMESPACE
         if (total == 0)
             return;
 
-        total = std::min(total, mMaxQuads);
+        total                 = std::min(total, mMaxQuads);
         std::uint32_t written = 0;
         for (auto& b : batches)
         {
@@ -273,10 +273,10 @@ namespace FREYA_NAMESPACE
         const auto bytes = packed.size() * sizeof(BillboardGpuInstance);
         mInstanceBuffers[frameIndex]->Copy(packed.data(), bytes);
 
-        const auto cmd = commandPool->GetCommandBuffer();
-        const auto label =
-            target == BillboardTarget::Hdr ? DebugLabel::BillboardVfx
-                                           : DebugLabel::BillboardUi;
+        const auto cmd   = commandPool->GetCommandBuffer();
+        const auto label = target == BillboardTarget::Hdr
+                               ? DebugLabel::BillboardVfx
+                               : DebugLabel::BillboardUi;
         mDevice->BeginDebugLabel(cmd, label);
 
         cmd.beginRenderPass(
@@ -297,9 +297,9 @@ namespace FREYA_NAMESPACE
         cmd.setScissor(0, vk::Rect2D({ 0, 0 }, mExtent));
 
         auto bindless = mMaterials->GetBindlessSet();
-        cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                               mPipelineLayout, 0, 1,
-                               &mInstanceSets[frameIndex], 0, nullptr);
+        cmd.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics, mPipelineLayout, 0, 1,
+            &mInstanceSets[frameIndex], 0, nullptr);
         cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
                                mPipelineLayout, 1, 1, &bindless, 0, nullptr);
 

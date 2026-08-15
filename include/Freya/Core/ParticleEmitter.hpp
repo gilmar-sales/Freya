@@ -37,16 +37,16 @@ namespace FREYA_NAMESPACE
         float          size1     = 0.02f;
         glm::vec4      color0 { 0.35f, 0.85f, 1.f, 1.f };
         glm::vec4      color1 { 0.1f, 0.2f, 1.f, 0.f };
-        BillboardBlend blend         = BillboardBlend::Additive;
-        std::uint32_t  textureIndex  = 0;
-        std::uint32_t  maxParticles  = 256;
+        BillboardBlend blend        = BillboardBlend::Additive;
+        std::uint32_t  textureIndex = 0;
+        std::uint32_t  maxParticles = 256;
 
         void Tick(float dt, BillboardDraw& draw);
 
       private:
-        float                    mAccum = 0.f;
+        float                     mAccum = 0.f;
         std::vector<ParticleDesc> mLive;
-        std::mt19937             mRng { 0xC0FFEEu };
+        std::mt19937              mRng { 0xC0FFEEu };
     };
 
 } // namespace FREYA_NAMESPACE

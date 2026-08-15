@@ -405,7 +405,10 @@ namespace FREYA_NAMESPACE
                 mFormat = mDevice->GetPhysicalDevice()->GetDepthFormat();
                 break;
             case ImageUsage::Texture:
-                mFormat = vk::Format::eR8G8B8A8Unorm;
+                if (mChannels == 1)
+                    mFormat = vk::Format::eR8Unorm;
+                else
+                    mFormat = vk::Format::eR8G8B8A8Unorm;
                 break;
             case ImageUsage::Sampling:
                 mFormat = mSurface->QuerySurfaceFormat().format;

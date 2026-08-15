@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <span>
+#include <string_view>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -27,6 +28,7 @@ namespace FREYA_NAMESPACE
     };
 
     constexpr std::uint32_t kBillboardFlagCylindrical = 1u;
+    constexpr std::uint32_t kBillboardFlagSdf         = 2u;
 
     /**
      * @brief GPU instance (std430). Keep in sync with billboard.vert.
@@ -40,9 +42,11 @@ namespace FREYA_NAMESPACE
         std::uint32_t flags        = 0;
         glm::vec4     color { 1.f };
         glm::vec4     uvRect { 0.f, 0.f, 1.f, 1.f };
+        glm::vec2     localOffset { 0.f };
+        glm::vec2     _pad { 0.f };
     };
 
-    static_assert(sizeof(BillboardGpuInstance) == 64,
+    static_assert(sizeof(BillboardGpuInstance) == 80,
                   "BillboardGpuInstance must match GLSL std430");
 
     /**
@@ -53,16 +57,18 @@ namespace FREYA_NAMESPACE
      */
     struct Billboard
     {
-        glm::vec3        worldPos { 0.f };
-        glm::vec2        size { 1.f };
-        glm::vec4        color { 1.f };
-        glm::vec4        uvRect { 0.f, 0.f, 1.f, 1.f };
-        std::uint32_t    textureIndex = 0;
-        BillboardAlign   align        = BillboardAlign::Screen;
-        BillboardBlend   blend        = BillboardBlend::Alpha;
-        BillboardLayer   layer        = BillboardLayer::Vfx;
-        bool             depthTest    = true;
-        float            clipMax      = 1.f;
+        glm::vec3      worldPos { 0.f };
+        glm::vec2      size { 1.f };
+        glm::vec4      color { 1.f };
+        glm::vec4      uvRect { 0.f, 0.f, 1.f, 1.f };
+        std::uint32_t  textureIndex = 0;
+        BillboardAlign align        = BillboardAlign::Screen;
+        BillboardBlend blend        = BillboardBlend::Alpha;
+        BillboardLayer layer        = BillboardLayer::Vfx;
+        bool           depthTest    = true;
+        bool           sdf          = false;
+        float          clipMax      = 1.f;
+        glm::vec2      localOffset { 0.f };
     };
 
     /**
@@ -94,8 +100,17 @@ namespace FREYA_NAMESPACE
         void HealthBar(const glm::vec3& headPos, float width, float height,
                        float fill01, const glm::vec4& bg, const glm::vec4& fg);
 
+        /**
+         * @brief Latin-1 LTR nameplate: one SDF quad per glyph, centered.
+         */
+        void Text(const glm::vec3& worldPos, std::string_view utf8,
+                  const class FontAtlas& font, float heightMeters,
+                  const glm::vec4& color,
+                  BillboardAlign   align = BillboardAlign::Cylindrical,
+                  BillboardLayer   layer = BillboardLayer::Ui);
+
       private:
-        std::uint32_t         mMaxQuads = kDefaultMaxQuads;
+        std::uint32_t          mMaxQuads = kDefaultMaxQuads;
         std::vector<Billboard> mQuads;
     };
 

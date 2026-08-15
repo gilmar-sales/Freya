@@ -180,6 +180,11 @@ class MainApp final : public fra::AbstractApplication
         mMagic.color1         = glm::vec4(0.1f, 0.4f, 0.2f, 0.0f);
         mMagic.blend          = fra::BillboardBlend::Additive;
 
+        mFont = fra::FontAtlas::Create(
+            *mTexturePool, "./Resources/Fonts/NotoSans-Regular.ttf");
+        if (!mFont.Valid())
+            std::cerr << "Failed to load NotoSans-Regular.ttf\n";
+
         buildSceneInstances();
         updateTitle();
 
@@ -242,6 +247,10 @@ class MainApp final : public fra::AbstractApplication
         bb.HealthBar(glm::vec3(1.2f, 1.25f, 0.0f), 0.85f, 0.08f, pbrHp,
                      glm::vec4(0.08f, 0.08f, 0.08f, 0.85f),
                      glm::vec4(0.85f, 0.35f, 0.25f, 1.0f));
+        bb.Text(glm::vec3(-1.2f, 1.42f, 0.0f), "Cell", mFont, 0.16f,
+                glm::vec4(0.95f, 0.98f, 0.92f, 1.0f));
+        bb.Text(glm::vec3(1.2f, 1.42f, 0.0f), "PBR", mFont, 0.16f,
+                glm::vec4(0.95f, 0.98f, 0.92f, 1.0f));
         mMagic.Tick(dt, bb);
 
         mRenderer->EndFrame();
@@ -421,6 +430,7 @@ class MainApp final : public fra::AbstractApplication
     const fra::AnimationClip* mIdleClip = nullptr;
     float                     mAnimTime = 0.0f;
     fra::ParticleEmitter      mMagic;
+    fra::FontAtlas            mFont;
     float                     mHpPulse = 0.0f;
     std::vector<Instance>     mInstances;
 

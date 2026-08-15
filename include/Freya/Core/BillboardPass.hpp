@@ -41,8 +41,9 @@ namespace FREYA_NAMESPACE
             const skr::Arc<FreyaOptions>&                freyaOptions,
             const skr::Arc<MaterialDescriptorResources>& materials,
             vk::RenderPass hdrRenderPass, vk::RenderPass ldrRenderPass,
-            vk::PipelineLayout pipelineLayout, vk::DescriptorSetLayout setLayout,
-            vk::DescriptorPool descriptorPool,
+            vk::PipelineLayout                    pipelineLayout,
+            vk::DescriptorSetLayout               setLayout,
+            vk::DescriptorPool                    descriptorPool,
             const std::vector<vk::DescriptorSet>& instanceSets,
             std::vector<skr::Arc<Buffer>>         instanceBuffers,
             Pipelines hdrPipelines, Pipelines ldrPipelines,
@@ -62,7 +63,7 @@ namespace FREYA_NAMESPACE
                             const skr::Arc<SwapChain>& swapChain);
 
         void Draw(const skr::Arc<CommandPool>& commandPool,
-                  const skr::Arc<SwapChain>&   swapChain, BillboardTarget target,
+                  const skr::Arc<SwapChain>& swapChain, BillboardTarget target,
                   BillboardLayer layer, const BillboardDraw& source,
                   const glm::mat4& view, const glm::mat4& proj) const;
 
@@ -70,17 +71,16 @@ namespace FREYA_NAMESPACE
         void destroyHdrFramebuffers();
         void destroyLdrFramebuffers();
 
-        [[nodiscard]] vk::Pipeline pickPipeline(BillboardTarget target,
-                                                BillboardBlend  blend,
-                                                bool depthTest) const;
+        [[nodiscard]] vk::Pipeline pickPipeline(
+            BillboardTarget target, BillboardBlend blend, bool depthTest) const;
 
         skr::Arc<Device>                      mDevice;
         skr::Arc<FreyaOptions>                mFreyaOptions;
         skr::Arc<MaterialDescriptorResources> mMaterials;
 
-        vk::RenderPass     mHdrRenderPass {};
-        vk::RenderPass     mLdrRenderPass {};
-        vk::PipelineLayout mPipelineLayout {};
+        vk::RenderPass                 mHdrRenderPass {};
+        vk::RenderPass                 mLdrRenderPass {};
+        vk::PipelineLayout             mPipelineLayout {};
         vk::DescriptorSetLayout        mSetLayout {};
         vk::DescriptorPool             mDescriptorPool {};
         std::vector<vk::DescriptorSet> mInstanceSets;

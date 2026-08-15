@@ -32,12 +32,14 @@ namespace FREYA_NAMESPACE
          * @param pixels   Row-major pixel bytes (not retained)
          * @param width    Width in texels
          * @param height   Height in texels
-         * @param channels Bytes per pixel (default 4 = RGBA8)
+         * @param channels  Bytes per pixel (default 4 = RGBA8)
+         * @param mipLevels Full mip chain when 0; 1 disables mip generation
          */
         std::uint32_t CreateTextureFromMemory(const void*   pixels,
                                               std::uint32_t width,
                                               std::uint32_t height,
-                                              std::uint32_t channels = 4);
+                                              std::uint32_t channels  = 4,
+                                              std::uint32_t mipLevels = 0);
 
         Texture& GetTexture(std::uint32_t textureId)
         {

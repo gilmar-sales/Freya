@@ -9,6 +9,8 @@ struct BillboardInstance
     uint flags;
     vec4 color;
     vec4 uvRect;
+    vec2 localOffset;
+    vec2 _pad;
 };
 
 layout(std430, set = 0, binding = 0) readonly buffer InstanceBuffer
@@ -28,6 +30,7 @@ layout(location = 1) out vec4 vColor;
 layout(location = 2) flat out uint vTextureIndex;
 layout(location = 3) out float vClipU;
 layout(location = 4) out float vClipMax;
+layout(location = 5) flat out uint vFlags;
 
 const uint kCylindrical = 1u;
 
@@ -49,20 +52,23 @@ void main()
     {
         vec3 worldUp = vec3(0.0, 1.0, 0.0);
         vec3 fwd = vec3(-pc.view[0][2], -pc.view[1][2], -pc.view[2][2]);
-        camRight = cross(worldUp, fwd);
+        // Match glm::lookAt: right = cross(forward, up).
+        camRight = cross(fwd, worldUp);
         float len = length(camRight);
         camRight = len > 1e-6 ? camRight / len : vec3(1.0, 0.0, 0.0);
         camUp    = worldUp;
     }
 
-    vec3 world = inst.worldPos + camRight * corner.x * inst.size.x +
-                 camUp * corner.y * inst.size.y;
+    vec3 world = inst.worldPos
+        + camRight * (inst.localOffset.x + corner.x * inst.size.x)
+        + camUp * (inst.localOffset.y + corner.y * inst.size.y);
 
-    gl_Position     = pc.proj * pc.view * vec4(world, 1.0);
-    vec2 uv01       = uvs[gl_VertexIndex];
-    vUv             = mix(inst.uvRect.xy, inst.uvRect.zw, uv01);
-    vColor          = inst.color;
+    gl_Position   = pc.proj * pc.view * vec4(world, 1.0);
+    vec2 uv01     = uvs[gl_VertexIndex];
+    vUv           = mix(inst.uvRect.xy, inst.uvRect.zw, uv01);
+    vColor        = inst.color;
     vTextureIndex = inst.textureIndex;
     vClipU        = uv01.x;
     vClipMax      = inst.clipMax;
+    vFlags        = inst.flags;
 }
