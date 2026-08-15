@@ -63,6 +63,30 @@ namespace FREYA_NAMESPACE
         void Execute(RenderFrameContext& ctx) override;
     };
 
+    class BillboardVfxFrameStage : public IFrameStage
+    {
+      public:
+        [[nodiscard]] const char* Name() const override
+        {
+            return "BillboardVfx";
+        }
+        void Rebuild(RenderFrameContext&   ctx,
+                     skr::ServiceProvider& sp) override;
+        void Execute(RenderFrameContext& ctx) override;
+    };
+
+    class BillboardUiFrameStage : public IFrameStage
+    {
+      public:
+        [[nodiscard]] const char* Name() const override
+        {
+            return "BillboardUi";
+        }
+        void Rebuild(RenderFrameContext&   ctx,
+                     skr::ServiceProvider& sp) override;
+        void Execute(RenderFrameContext& ctx) override;
+    };
+
     class BloomFrameStage : public IFrameStage
     {
       public:

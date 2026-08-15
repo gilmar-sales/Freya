@@ -1,5 +1,6 @@
 #include "Freya/Core/FrameStages.hpp"
 
+#include "Freya/Builders/BillboardPassBuilder.hpp"
 #include "Freya/Builders/BloomPassBuilder.hpp"
 #include "Freya/Builders/CompositePassBuilder.hpp"
 #include "Freya/Builders/DebugDrawPassBuilder.hpp"
@@ -11,6 +12,7 @@
 #include "Freya/Core/BloomPass.hpp"
 #include "Freya/Core/DebugLabels.hpp"
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/Image.hpp"
 #include "Freya/Core/RenderFrameContext.hpp"
 
 #include <glm/gtc/matrix_inverse.hpp>
@@ -265,6 +267,71 @@ namespace FREYA_NAMESPACE
             (ctx.taa && *ctx.taa) ? (*ctx.taa)->GetOutputImage()
                                   : (*ctx.deferred)->GetSceneColorImage();
         (*ctx.translucent)->Resolve(ctx.commandPool, opaque, ctx.frameIndex);
+    }
+
+    void BillboardVfxFrameStage::Rebuild(RenderFrameContext&   ctx,
+                                         skr::ServiceProvider& sp)
+    {
+        if (!ctx.billboardPass || !ctx.deferred || !*ctx.deferred)
+            return;
+        ctx.billboardPass->reset();
+        const auto depth = (*ctx.deferred)->GetDepthImage();
+        *ctx.billboardPass =
+            sp.GetService<BillboardPassBuilder>()->Build(ctx.swapChain, depth);
+
+        std::vector<skr::Arc<Image>> colors;
+        if (ctx.translucent && *ctx.translucent)
+        {
+            colors.reserve(ctx.options->frameCount);
+            for (std::uint32_t i = 0; i < ctx.options->frameCount; ++i)
+                colors.push_back(
+                    (*ctx.translucent)->GetSceneWithTranslucency(i));
+        }
+        else if (ctx.deferred && *ctx.deferred)
+        {
+            colors.assign(ctx.options->frameCount,
+                          (*ctx.deferred)->GetSceneColorImage());
+        }
+        if (*ctx.billboardPass)
+            (*ctx.billboardPass)
+                ->UpdateHdrTargets(colors, depth, ctx.renderExtent);
+    }
+
+    void BillboardVfxFrameStage::Execute(RenderFrameContext& ctx)
+    {
+        if (!ctx.billboardPass || !*ctx.billboardPass || !ctx.billboardDraw ||
+            !ctx.projection)
+            return;
+        const auto& proj = *ctx.projection;
+        (*ctx.billboardPass)
+            ->Draw(ctx.commandPool, ctx.swapChain, BillboardTarget::Hdr,
+                   BillboardLayer::Vfx, *ctx.billboardDraw, proj.view,
+                   proj.unjitteredProjection);
+    }
+
+    void BillboardUiFrameStage::Rebuild(RenderFrameContext&   ctx,
+                                        skr::ServiceProvider& sp)
+    {
+        if (!ctx.billboardPass || !*ctx.billboardPass || !ctx.deferred ||
+            !*ctx.deferred)
+            return;
+        (void) sp;
+        (*ctx.billboardPass)
+            ->UpdateLdrDepth((*ctx.deferred)->GetDepthImage(), ctx.swapChain);
+    }
+
+    void BillboardUiFrameStage::Execute(RenderFrameContext& ctx)
+    {
+        if (!ctx.billboardPass || !*ctx.billboardPass || !ctx.billboardDraw ||
+            !ctx.projection)
+            return;
+        if (ctx.outputTarget && *ctx.outputTarget)
+            return;
+        const auto& proj = *ctx.projection;
+        (*ctx.billboardPass)
+            ->Draw(ctx.commandPool, ctx.swapChain, BillboardTarget::Ldr,
+                   BillboardLayer::Ui, *ctx.billboardDraw, proj.view,
+                   proj.unjitteredProjection);
     }
 
     void BloomFrameStage::Rebuild(RenderFrameContext&   ctx,

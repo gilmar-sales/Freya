@@ -96,7 +96,8 @@ class MainApp final : public fra::AbstractApplication
             cell.shadowLift      = 0.1f;
             cell.edgeWidth       = 2.5f;
             mCellEffect->SetPushConstants(cell);
-            mRenderer->InsertFrameStage("Bloom", mCellEffect->MakeStage());
+            mRenderer->InsertFrameStage("BillboardVfx",
+                                        mCellEffect->MakeStage());
         }
 
         mGroundMesh     = createGroundMesh();
@@ -168,6 +169,17 @@ class MainApp final : public fra::AbstractApplication
             glm::vec3(2.2f, 2.4f, 2.0f), glm::vec3(0.85f, 0.95f, 0.7f), 6.0f,
             8.0f));
 
+        mMagic.origin         = glm::vec3(-1.2f, 0.55f, 0.0f);
+        mMagic.velocity       = glm::vec3(0.0f, 1.4f, 0.0f);
+        mMagic.velocityJitter = glm::vec3(0.45f, 0.3f, 0.45f);
+        mMagic.spawnRate      = 28.0f;
+        mMagic.lifetime       = 0.85f;
+        mMagic.size0          = 0.18f;
+        mMagic.size1          = 0.04f;
+        mMagic.color0         = glm::vec4(0.45f, 1.0f, 0.55f, 1.0f);
+        mMagic.color1         = glm::vec4(0.1f, 0.4f, 0.2f, 0.0f);
+        mMagic.blend          = fra::BillboardBlend::Additive;
+
         buildSceneInstances();
         updateTitle();
 
@@ -219,6 +231,19 @@ class MainApp final : public fra::AbstractApplication
             });
         }
         mRenderer->UploadSceneInstances(instances);
+
+        mHpPulse += dt;
+        auto&       bb     = mRenderer->GetBillboardDraw();
+        const float cellHp = 0.45f + 0.45f * std::sin(mHpPulse * 0.8f);
+        const float pbrHp  = 0.70f + 0.20f * std::sin(mHpPulse * 0.5f + 1.2f);
+        bb.HealthBar(glm::vec3(-1.2f, 1.25f, 0.0f), 0.85f, 0.08f, cellHp,
+                     glm::vec4(0.08f, 0.08f, 0.08f, 0.85f),
+                     glm::vec4(0.25f, 0.85f, 0.35f, 1.0f));
+        bb.HealthBar(glm::vec3(1.2f, 1.25f, 0.0f), 0.85f, 0.08f, pbrHp,
+                     glm::vec4(0.08f, 0.08f, 0.08f, 0.85f),
+                     glm::vec4(0.85f, 0.35f, 0.25f, 1.0f));
+        mMagic.Tick(dt, bb);
+
         mRenderer->EndFrame();
     }
 
@@ -395,6 +420,8 @@ class MainApp final : public fra::AbstractApplication
     fra::SkinnedModel         mSkinned;
     const fra::AnimationClip* mIdleClip = nullptr;
     float                     mAnimTime = 0.0f;
+    fra::ParticleEmitter      mMagic;
+    float                     mHpPulse = 0.0f;
     std::vector<Instance>     mInstances;
 
     glm::vec3 mCameraPos { 0.0f, 1.6f, 5.2f };

@@ -11,6 +11,8 @@
 
 #include "Freya/Freya.hpp"
 
+#include "Freya/Core/BillboardDraw.hpp"
+#include "Freya/Core/BillboardPass.hpp"
 #include "Freya/Core/BloomPass.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
@@ -30,6 +32,7 @@
 #include "Freya/Core/Image.hpp"
 #include "Freya/Core/Instance.hpp"
 #include "Freya/Core/LightService.hpp"
+#include "Freya/Core/ParticleEmitter.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
 #include "Freya/Core/PickPass.hpp"
 #include "Freya/Core/RenderFrameContext.hpp"
@@ -41,6 +44,7 @@
 #include "Freya/Core/TranslucentPass.hpp"
 #include "Freya/Core/Window.hpp"
 
+#include "Freya/Builders/BillboardPassBuilder.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/DeviceBuilder.hpp"
 #include "Freya/Builders/FullscreenEffectBuilder.hpp"

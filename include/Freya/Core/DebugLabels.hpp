@@ -42,6 +42,8 @@ namespace FREYA_NAMESPACE
                                                                  0.95f, 1.0f };
         inline constexpr std::array<float, 4> CompositeColor { 0.95f, 0.42f,
                                                                0.42f, 1.0f };
+        inline constexpr std::array<float, 4> BillboardColor { 0.95f, 0.65f,
+                                                               0.20f, 1.0f };
         inline constexpr std::array<float, 4> DebugDrawColor { 0.20f, 0.95f,
                                                                0.55f, 1.0f };
         inline constexpr std::array<float, 4> GpuAnimColor { 0.55f, 0.35f,
@@ -90,6 +92,10 @@ namespace FREYA_NAMESPACE
 
         inline constexpr DebugRegion Translucent { "Translucent WBOIT",
                                                    TranslucentColor };
+        inline constexpr DebugRegion BillboardVfx { "Billboard VFX",
+                                                    BillboardColor };
+        inline constexpr DebugRegion BillboardUi { "Billboard UI",
+                                                   BillboardColor };
 
         inline constexpr DebugRegion Composite { "Composite", CompositeColor };
         inline constexpr DebugRegion DebugDraw { "Debug Draw", DebugDrawColor };
@@ -117,6 +123,10 @@ namespace FREYA_NAMESPACE
                 return { "TAA", TaaColor };
             if (view == "Translucent")
                 return { "Translucent WBOIT", TranslucentColor };
+            if (view == "BillboardVfx")
+                return { "Billboard VFX", BillboardColor };
+            if (view == "BillboardUi")
+                return { "Billboard UI", BillboardColor };
             if (view == "Bloom")
                 return { "Bloom", BloomColor };
             if (view == "Composite")

@@ -178,6 +178,7 @@ namespace FREYA_NAMESPACE
         mTaaPass.reset();
         mSsaoPass.reset();
         mTranslucentPass.reset();
+        mBillboardPass.reset();
         mBloomPass.reset();
         mCompositePass.reset();
         mSwapChain.reset();
@@ -250,8 +251,10 @@ namespace FREYA_NAMESPACE
             std::make_shared<SsaoLightingFrameStage>(),
             std::make_shared<TaaFrameStage>(),
             std::make_shared<TranslucentFrameStage>(),
+            std::make_shared<BillboardVfxFrameStage>(),
             std::make_shared<BloomFrameStage>(),
             std::make_shared<CompositeFrameStage>(),
+            std::make_shared<BillboardUiFrameStage>(),
             std::make_shared<DebugDrawFrameStage>(),
         };
     }
@@ -273,6 +276,8 @@ namespace FREYA_NAMESPACE
         ctx.bloom                      = &mBloomPass;
         ctx.composite                  = &mCompositePass;
         ctx.debugDrawPass              = &mDebugDrawPass;
+        ctx.billboardPass              = &mBillboardPass;
+        ctx.billboardDraw              = &mBillboardDraw;
         ctx.gpuAnim                    = &mGpuAnimPass;
         ctx.shadow                     = &mShadowPass;
         ctx.pick                       = &mPickPass;
@@ -1134,6 +1139,7 @@ namespace FREYA_NAMESPACE
         mSwapChain->WaitNextFrame();
         mDrawCommands.clear();
         mDebugDraw.Clear();
+        mBillboardDraw.Clear();
 
         if (mResizeEvent.has_value())
         {

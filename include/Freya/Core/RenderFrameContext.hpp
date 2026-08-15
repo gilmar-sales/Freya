@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Freya/Asset/GpuScene.hpp"
+#include "Freya/Core/BillboardPass.hpp"
 #include "Freya/Core/BloomPass.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/CompositePass.hpp"
@@ -58,6 +59,8 @@ namespace FREYA_NAMESPACE
         skr::Arc<RenderTarget>*           outputTarget       = nullptr;
 
         skr::Arc<DebugDrawPass>* debugDrawPass = nullptr;
+        skr::Arc<BillboardPass>* billboardPass = nullptr;
+        BillboardDraw*           billboardDraw = nullptr;
         skr::Arc<GpuAnimPass>*   gpuAnim       = nullptr;
 
         bool*          pickRequested        = nullptr;

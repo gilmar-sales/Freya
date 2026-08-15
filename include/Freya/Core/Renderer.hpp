@@ -6,6 +6,8 @@
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/RenderTargetBuilder.hpp"
+#include "Freya/Core/BillboardDraw.hpp"
+#include "Freya/Core/BillboardPass.hpp"
 #include "Freya/Core/BloomPass.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/CompositePass.hpp"
@@ -296,6 +298,11 @@ namespace FREYA_NAMESPACE
         }
         [[nodiscard]] DebugDraw& GetDebugDraw() { return mDebugDraw; }
 
+        [[nodiscard]] BillboardDraw& GetBillboardDraw()
+        {
+            return mBillboardDraw;
+        }
+
         void SetGpuAnimEnabled(bool enabled)
         {
             if (mGpuAnimPass)
@@ -418,8 +425,10 @@ namespace FREYA_NAMESPACE
         skr::Arc<SsaoPass>               mSsaoPass;
         skr::Arc<CompositePass>          mCompositePass;
         skr::Arc<DebugDrawPass>          mDebugDrawPass;
+        skr::Arc<BillboardPass>          mBillboardPass;
         skr::Arc<GpuAnimPass>            mGpuAnimPass;
         DebugDraw                        mDebugDraw;
+        BillboardDraw                    mBillboardDraw;
         bool                             mDebugDrawEnabled = false;
         skr::Arc<CommandPool>            mCommandPool;
         skr::Arc<LightService>           mLightService;

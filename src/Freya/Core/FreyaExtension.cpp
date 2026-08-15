@@ -1,5 +1,6 @@
 #include "FreyaExtension.hpp"
 
+#include "Freya/Builders/BillboardPassBuilder.hpp"
 #include "Freya/Builders/BloomPassBuilder.hpp"
 #include "Freya/Builders/BoneMatrixResourcesBuilder.hpp"
 #include "Freya/Builders/CommandPoolBuilder.hpp"
@@ -62,6 +63,7 @@ namespace FREYA_NAMESPACE
         services.AddTransient<CompositePassBuilder>();
         services.AddTransient<FullscreenEffectBuilder>();
         services.AddTransient<DebugDrawPassBuilder>();
+        services.AddTransient<BillboardPassBuilder>();
         services.AddTransient<GpuAnimPassBuilder>();
         services.AddTransient<TranslucentPassBuilder>();
         services.AddTransient<ShadowPassBuilder>();
