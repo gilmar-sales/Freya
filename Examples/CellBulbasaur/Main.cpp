@@ -113,17 +113,17 @@ class MainApp final : public fra::AbstractApplication
 
         mEyeMaterial   = mMaterialPool->Create({
             .albedo          = eyeAlbedo,
-            .roughnessFactor = 0.35f,
+            .roughnessFactor = 1.0f,
             .metalnessFactor = 0.0f,
         });
         mBodyBMaterial = mMaterialPool->Create({
             .albedo          = bodyBAlbedo,
-            .roughnessFactor = 0.7f,
+            .roughnessFactor = 1.0f,
             .metalnessFactor = 0.0f,
         });
         mBodyAMaterial = mMaterialPool->Create({
             .albedo          = bodyAAlbedo,
-            .roughnessFactor = 0.7f,
+            .roughnessFactor = 1.0f,
             .metalnessFactor = 0.0f,
         });
 
@@ -146,13 +146,9 @@ class MainApp final : public fra::AbstractApplication
                 mIdleClip = &mSkinned.clips.front();
         }
 
-        {
-            auto key =
-                fra::MakeDirectionalLight(glm::vec3(-0.4f, -1.0f, -0.35f),
-                                          glm::vec3(1.0f, 0.98f, 0.92f), 1.6f);
-            key.castShadows = true;
-            mLightService->AddLight(key);
-        }
+        mLightService->AddLight(fra::MakeDirectionalLight(
+            glm::vec3(-0.4f, -1.0f, -0.35f), glm::vec3(1.0f, 0.98f, 0.92f),
+            1.6f));
         mLightService->AddLight(fra::MakePointLight(
             glm::vec3(2.2f, 2.4f, 2.0f), glm::vec3(0.85f, 0.95f, 0.7f), 6.0f,
             8.0f));
@@ -276,11 +272,11 @@ class MainApp final : public fra::AbstractApplication
         {
             Instance ground {};
             ground.model =
-                glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.02f, 0.0f));
+                glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.2f, 0.0f));
             ground.meshId      = mGroundMesh;
             ground.materialId  = mGroundMaterial;
             ground.entityId    = nextEntity++;
-            ground.castShadows = false;
+            ground.castShadows = true;
             mInstances.push_back(ground);
         }
 

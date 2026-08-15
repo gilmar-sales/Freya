@@ -31,7 +31,7 @@ namespace FREYA_NAMESPACE
         glm::vec3 tangent =
             glm::vec3(1.0f, 0.0f, 0.0f); ///< Area rect tangent (U axis)
         float halfHeight  = 0.0f;  ///< Area rect half-height along bitangent
-        bool  castShadows = false; ///< Participates in shadow map passes
+        bool  castShadows = true; ///< Participates in shadow map passes
     };
 
     /**
