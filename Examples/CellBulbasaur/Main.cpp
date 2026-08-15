@@ -111,21 +111,34 @@ class MainApp final : public fra::AbstractApplication
         const auto bodyAAlbedo = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/bodyA.png");
 
-        mEyeMaterial   = mMaterialPool->Create({
-            .albedo          = eyeAlbedo,
-            .roughnessFactor = 1.0f,
-            .metalnessFactor = 0.0f,
-        });
-        mBodyBMaterial = mMaterialPool->Create({
-            .albedo          = bodyBAlbedo,
-            .roughnessFactor = 1.0f,
-            .metalnessFactor = 0.0f,
-        });
-        mBodyAMaterial = mMaterialPool->Create({
-            .albedo          = bodyAAlbedo,
-            .roughnessFactor = 1.0f,
-            .metalnessFactor = 0.0f,
-        });
+        auto makeBodyMats = [&](std::uint32_t& eye, std::uint32_t& bodyB,
+                                std::uint32_t& bodyA) {
+            eye   = mMaterialPool->Create({
+                .albedo          = eyeAlbedo,
+                .roughnessFactor = 1.0f,
+                .metalnessFactor = 0.0f,
+            });
+            bodyB = mMaterialPool->Create({
+                .albedo          = bodyBAlbedo,
+                .roughnessFactor = 1.0f,
+                .metalnessFactor = 0.0f,
+            });
+            bodyA = mMaterialPool->Create({
+                .albedo          = bodyAAlbedo,
+                .roughnessFactor = 1.0f,
+                .metalnessFactor = 0.0f,
+            });
+        };
+
+        makeBodyMats(mEyeMaterial, mBodyBMaterial, mBodyAMaterial);
+        makeBodyMats(mPbrEyeMaterial, mPbrBodyBMaterial, mPbrBodyAMaterial);
+
+        if (mCellEffect)
+        {
+            mCellEffect->BindMaterial(mEyeMaterial);
+            mCellEffect->BindMaterial(mBodyBMaterial);
+            mCellEffect->BindMaterial(mBodyAMaterial);
+        }
 
         mSkinned = mMeshPool->CreateSkinnedModelFromFile(
             "./Resources/Models/bulbasaur.glb");
@@ -146,17 +159,17 @@ class MainApp final : public fra::AbstractApplication
                 mIdleClip = &mSkinned.clips.front();
         }
 
-        mLightService->AddLight(fra::MakeDirectionalLight(
-            glm::vec3(-0.4f, -1.0f, -0.35f), glm::vec3(1.0f, 0.98f, 0.92f),
-            1.6f));
-        mLightService->AddLight(fra::MakePointLight(
-            glm::vec3(2.2f, 2.4f, 2.0f), glm::vec3(0.85f, 0.95f, 0.7f), 6.0f,
-            8.0f));
+        // mLightService->AddLight(fra::MakeDirectionalLight(
+        //     glm::vec3(-0.4f, -1.0f, -0.35f), glm::vec3(1.0f, 0.98f, 0.92f),
+        //     1.6f));
+        // mLightService->AddLight(fra::MakePointLight(
+        //     glm::vec3(2.2f, 2.4f, 2.0f), glm::vec3(0.85f, 0.95f, 0.7f), 6.0f,
+        //     8.0f));
 
         buildSceneInstances();
         updateTitle();
 
-        std::cout << "CellBulbasaur — F4 toggles cell+edges\n"
+        std::cout << "CellBulbasaur — left: cell  right: PBR  [F4]\n"
                      "RMB look | WASD move | Space/Q up | Ctrl/E down\n";
     }
 
@@ -234,16 +247,16 @@ class MainApp final : public fra::AbstractApplication
         return nullptr;
     }
 
-    std::uint32_t materialForMesh(std::size_t index) const
+    std::uint32_t materialForMesh(std::size_t index, bool cellShaded) const
     {
         switch (index % 3)
         {
             case 0:
-                return mEyeMaterial;
+                return cellShaded ? mEyeMaterial : mPbrEyeMaterial;
             case 1:
-                return mBodyBMaterial;
+                return cellShaded ? mBodyBMaterial : mPbrBodyBMaterial;
             default:
-                return mBodyAMaterial;
+                return cellShaded ? mBodyAMaterial : mPbrBodyAMaterial;
         }
     }
 
@@ -280,21 +293,28 @@ class MainApp final : public fra::AbstractApplication
             mInstances.push_back(ground);
         }
 
-        auto model = glm::rotate(
-            glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-        model             = glm::scale(model, glm::vec3(kModelScale));
-        const auto joints = mSkinned.skeleton.JointCount();
-        for (std::size_t i = 0; i < mSkinned.meshIds.size(); ++i)
-        {
-            Instance inst {};
-            inst.model      = model;
-            inst.meshId     = mSkinned.meshIds[i];
-            inst.materialId = materialForMesh(i);
-            inst.entityId   = nextEntity++;
-            inst.boneOffset = joints > 0 ? 0u : fra::kNoSkin;
-            inst.boneCount  = joints;
-            mInstances.push_back(inst);
-        }
+        const auto joints       = mSkinned.skeleton.JointCount();
+        auto       addBulbasaur = [&](float x, bool cellShaded) {
+            auto model =
+                glm::translate(glm::mat4(1.0f), glm::vec3(x, 0.0f, 0.0f));
+            model = glm::rotate(model, glm::radians(90.0f),
+                                glm::vec3(1.0f, 0.0f, 0.0f));
+            model = glm::scale(model, glm::vec3(kModelScale));
+            for (std::size_t i = 0; i < mSkinned.meshIds.size(); ++i)
+            {
+                Instance inst {};
+                inst.model      = model;
+                inst.meshId     = mSkinned.meshIds[i];
+                inst.materialId = materialForMesh(i, cellShaded);
+                inst.entityId   = nextEntity++;
+                inst.boneOffset = joints > 0 ? 0u : fra::kNoSkin;
+                inst.boneCount  = joints;
+                mInstances.push_back(inst);
+            }
+        };
+
+        addBulbasaur(-1.2f, true);
+        addBulbasaur(1.2f, false);
     }
 
     [[nodiscard]] bool isHeld(fra::KeyCode key) const
@@ -350,7 +370,8 @@ class MainApp final : public fra::AbstractApplication
     {
         mFreyaOptions->title =
             std::string("CellBulbasaur | cell ") +
-            (mCellEffect && mCellEffect->Enabled() ? "on" : "off") + " [F4]";
+            (mCellEffect && mCellEffect->Enabled() ? "on" : "off") +
+            " left [F4]";
     }
 
     skr::Arc<skr::ServiceProvider>  mServices;
@@ -361,17 +382,20 @@ class MainApp final : public fra::AbstractApplication
     skr::Arc<fra::LightService>     mLightService;
     skr::Arc<fra::FreyaOptions>     mFreyaOptions;
 
-    std::uint32_t             mGroundMesh     = 0;
-    std::uint32_t             mGroundMaterial = 0;
-    std::uint32_t             mEyeMaterial    = 0;
-    std::uint32_t             mBodyAMaterial  = 0;
-    std::uint32_t             mBodyBMaterial  = 0;
+    std::uint32_t             mGroundMesh       = 0;
+    std::uint32_t             mGroundMaterial   = 0;
+    std::uint32_t             mEyeMaterial      = 0;
+    std::uint32_t             mBodyAMaterial    = 0;
+    std::uint32_t             mBodyBMaterial    = 0;
+    std::uint32_t             mPbrEyeMaterial   = 0;
+    std::uint32_t             mPbrBodyAMaterial = 0;
+    std::uint32_t             mPbrBodyBMaterial = 0;
     fra::SkinnedModel         mSkinned;
     const fra::AnimationClip* mIdleClip = nullptr;
     float                     mAnimTime = 0.0f;
     std::vector<Instance>     mInstances;
 
-    glm::vec3 mCameraPos { 0.0f, 1.6f, 4.2f };
+    glm::vec3 mCameraPos { 0.0f, 1.6f, 5.2f };
     float     mYaw      = -90.0f;
     float     mPitch    = -8.0f;
     bool      mLookHeld = false;

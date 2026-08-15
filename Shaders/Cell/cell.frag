@@ -7,6 +7,12 @@ layout(set = 0, binding = 0) uniform sampler2D inScene;
 layout(set = 0, binding = 1) uniform sampler2D inDepth;
 layout(set = 0, binding = 2) uniform sampler2D inNormal;
 
+layout(set = 1, binding = 0) uniform sampler2D inAlbedo;
+layout(std140, set = 1, binding = 1) uniform MaterialMask {
+    uvec4 bits[2];
+    uint count;
+} mask;
+
 layout(push_constant) uniform CellPush {
     float bands;
     float edgeDepthScale;
@@ -30,10 +36,18 @@ bool IsSky(float depth) {
     return depth >= 0.999999;
 }
 
+bool MaterialIncluded(uint matId) {
+    if (mask.count == 0u)
+        return true;
+    uint word = mask.bits[matId >> 7u][(matId >> 5u) & 3u];
+    return (word & (1u << (matId & 31u))) != 0u;
+}
+
 void main() {
     vec3 scene = texture(inScene, inUV).rgb;
     float depth = SampleDepth(inUV);
-    if (IsSky(depth)) {
+    uint matId = uint(texture(inAlbedo, inUV).a * 255.0 + 0.5);
+    if (IsSky(depth) || !MaterialIncluded(matId)) {
         outColor = vec4(scene, 1.0);
         return;
     }

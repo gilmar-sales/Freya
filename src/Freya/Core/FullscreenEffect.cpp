@@ -1,6 +1,7 @@
 #include "Freya/Core/FullscreenEffect.hpp"
 #include "Freya/Core/FullscreenEffectStage.hpp"
 
+#include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
 #include "Freya/Core/DebugLabels.hpp"
@@ -11,6 +12,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cstring>
 
 namespace FREYA_NAMESPACE
@@ -35,11 +37,62 @@ namespace FREYA_NAMESPACE
     {
         if (mPushConstantSize > 0)
             mPushData.resize(mPushConstantSize);
+
+        mMaskBuffer = BufferBuilder(mDevice)
+                          .SetUsage(BufferUsage::Uniform)
+                          .SetSize(sizeof(FullscreenMaterialMask))
+                          .Build();
+        uploadMaterialMask();
     }
 
     FullscreenEffect::~FullscreenEffect()
     {
         destroyGpu();
+    }
+
+    void FullscreenEffect::BindMaterial(const std::uint32_t materialId)
+    {
+        const auto id   = materialId & 0xFFu;
+        const auto word = id >> 5u;
+        const auto bit  = 1u << (id & 31u);
+        if ((mMaterialBits[word] & bit) != 0)
+            return;
+        mMaterialBits[word] |= bit;
+        mMaskDirty = true;
+    }
+
+    void FullscreenEffect::UnbindMaterial(const std::uint32_t materialId)
+    {
+        const auto id   = materialId & 0xFFu;
+        const auto word = id >> 5u;
+        const auto bit  = 1u << (id & 31u);
+        if ((mMaterialBits[word] & bit) == 0)
+            return;
+        mMaterialBits[word] &= ~bit;
+        mMaskDirty = true;
+    }
+
+    void FullscreenEffect::ClearMaterials()
+    {
+        mMaterialBits.fill(0);
+        mMaskDirty = true;
+    }
+
+    void FullscreenEffect::uploadMaterialMask()
+    {
+        if (!mMaskBuffer)
+            return;
+
+        FullscreenMaterialMask mask {};
+        mask.bits[0] = { mMaterialBits[0], mMaterialBits[1], mMaterialBits[2],
+                         mMaterialBits[3] };
+        mask.bits[1] = { mMaterialBits[4], mMaterialBits[5], mMaterialBits[6],
+                         mMaterialBits[7] };
+        for (const auto word : mMaterialBits)
+            mask.count += std::popcount(word);
+
+        mMaskBuffer->Copy(&mask, sizeof(mask));
+        mMaskDirty = false;
     }
 
     void FullscreenEffect::SetPushConstants(const void*   data,
@@ -87,11 +140,17 @@ namespace FREYA_NAMESPACE
             vkDevice.destroyDescriptorPool(mDescriptorPool);
             mDescriptorPool = nullptr;
             mDescriptorSets.clear();
+            mMaskDescriptorSets.clear();
         }
         if (mSetLayout)
         {
             vkDevice.destroyDescriptorSetLayout(mSetLayout);
             mSetLayout = nullptr;
+        }
+        if (mMaskSetLayout)
+        {
+            vkDevice.destroyDescriptorSetLayout(mMaskSetLayout);
+            mMaskSetLayout = nullptr;
         }
         if (mRenderPass)
         {
@@ -243,29 +302,56 @@ namespace FREYA_NAMESPACE
         mSetLayout = vkDevice.createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo().setBindings(bindings));
 
+        auto maskBindings = std::array {
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(0)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(1)
+                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment),
+        };
+        mMaskSetLayout = vkDevice.createDescriptorSetLayout(
+            vk::DescriptorSetLayoutCreateInfo().setBindings(maskBindings));
+
         const auto frameCount = std::max(1u, mOptions->frameCount);
-        auto       poolSize =
+        auto       poolSizes  = std::array {
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(
-                    static_cast<std::uint32_t>(mInputs.size()) * frameCount);
+                    (static_cast<std::uint32_t>(mInputs.size()) + 1) *
+                    frameCount),
+            vk::DescriptorPoolSize()
+                .setType(vk::DescriptorType::eUniformBuffer)
+                .setDescriptorCount(frameCount),
+        };
 
         mDescriptorPool = vkDevice.createDescriptorPool(
-            vk::DescriptorPoolCreateInfo()
-                .setPoolSizeCount(1)
-                .setPPoolSizes(&poolSize)
-                .setMaxSets(frameCount));
+            vk::DescriptorPoolCreateInfo().setPoolSizes(poolSizes).setMaxSets(
+                frameCount * 2));
 
-        auto setLayouts =
+        auto inputLayouts =
             std::vector<vk::DescriptorSetLayout>(frameCount, mSetLayout);
         mDescriptorSets = vkDevice.allocateDescriptorSets(
             vk::DescriptorSetAllocateInfo()
                 .setDescriptorPool(mDescriptorPool)
-                .setSetLayouts(setLayouts));
+                .setSetLayouts(inputLayouts));
+
+        auto maskLayouts =
+            std::vector<vk::DescriptorSetLayout>(frameCount, mMaskSetLayout);
+        mMaskDescriptorSets = vkDevice.allocateDescriptorSets(
+            vk::DescriptorSetAllocateInfo()
+                .setDescriptorPool(mDescriptorPool)
+                .setSetLayouts(maskLayouts));
+
+        auto pipelineSetLayouts = std::array { mSetLayout, mMaskSetLayout };
 
         vk::PushConstantRange        pushRange;
         vk::PipelineLayoutCreateInfo layoutInfo;
-        layoutInfo.setSetLayouts(mSetLayout);
+        layoutInfo.setSetLayouts(pipelineSetLayouts);
         if (mPushConstantSize > 0)
         {
             pushRange.setStageFlags(vk::ShaderStageFlagBits::eFragment)
@@ -397,10 +483,13 @@ namespace FREYA_NAMESPACE
             std::min(ctx.frameIndex,
                      static_cast<std::uint32_t>(mDescriptorSets.size() - 1));
 
+        if (mMaskDirty)
+            uploadMaterialMask();
+
         std::vector<vk::DescriptorImageInfo> imageInfos;
         std::vector<vk::WriteDescriptorSet>  writes;
-        imageInfos.reserve(mInputs.size());
-        writes.reserve(mInputs.size());
+        imageInfos.reserve(mInputs.size() + 1);
+        writes.reserve(mInputs.size() + 3);
 
         for (std::uint32_t i = 0; i < mInputs.size(); ++i)
         {
@@ -424,6 +513,37 @@ namespace FREYA_NAMESPACE
                                  .setDescriptorCount(1)
                                  .setImageInfo(imageInfos[i]));
         }
+
+        auto albedo = resolveInput(EffectInput::Albedo, ctx, hdr);
+        if (!albedo || mMaskDescriptorSets.empty() || !mMaskBuffer)
+            return;
+
+        imageInfos.push_back(
+            vk::DescriptorImageInfo()
+                .setSampler(mSampler)
+                .setImageView(albedo->GetImageView())
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal));
+        writes.push_back(
+            vk::WriteDescriptorSet()
+                .setDstSet(mMaskDescriptorSets[frameIndex])
+                .setDstBinding(0)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setImageInfo(imageInfos.back()));
+
+        auto maskBufferInfo =
+            vk::DescriptorBufferInfo()
+                .setBuffer(mMaskBuffer->Get())
+                .setOffset(0)
+                .setRange(sizeof(FullscreenMaterialMask));
+        writes.push_back(
+            vk::WriteDescriptorSet()
+                .setDstSet(mMaskDescriptorSets[frameIndex])
+                .setDstBinding(1)
+                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                .setDescriptorCount(1)
+                .setBufferInfo(maskBufferInfo));
+
         mDevice->Get().updateDescriptorSets(writes, nullptr);
 
         auto commandBuffer = ctx.commandPool->GetCommandBuffer();
@@ -447,12 +567,14 @@ namespace FREYA_NAMESPACE
             vk::SubpassContents::eInline);
 
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, mPipeline);
+        auto boundSets = std::array { mDescriptorSets[frameIndex],
+                                      mMaskDescriptorSets[frameIndex] };
         commandBuffer.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,
             mPipelineLayout,
             0,
-            1,
-            &mDescriptorSets[frameIndex],
+            static_cast<std::uint32_t>(boundSets.size()),
+            boundSets.data(),
             0,
             nullptr);
         commandBuffer.setViewport(0, 1, &viewport);

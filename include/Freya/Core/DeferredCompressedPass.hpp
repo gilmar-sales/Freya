@@ -113,7 +113,7 @@ namespace FREYA_NAMESPACE
 
         void DrawLighting(const skr::Arc<CommandPool>& commandPool,
                           std::uint32_t                frameIndex,
-                          std::uint32_t lightingDebug = 0) const;
+                          std::uint32_t                lightingDebug = 0) const;
 
         void BeginLighting(const skr::Arc<CommandPool>& commandPool,
                            const skr::Arc<Image>&       ssaoImage,

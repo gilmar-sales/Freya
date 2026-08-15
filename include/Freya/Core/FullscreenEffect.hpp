@@ -5,6 +5,7 @@
 #include "Freya/Core/Image.hpp"
 #include "Freya/FreyaOptions.hpp"
 
+#include <array>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -13,6 +14,8 @@
 
 namespace FREYA_NAMESPACE
 {
+    class Buffer;
+
     /**
      * @brief G-buffer / HDR sources bound to a FullscreenEffect (set 0).
      *
@@ -43,10 +46,32 @@ namespace FREYA_NAMESPACE
     };
 
     /**
+     * @brief Set 1 binding 1 (std140): which G-buffer material IDs (albedo.a)
+     * receive the effect. count == 0 applies to every pixel.
+     *
+     * IDs are 0–255 (same packing as MaterialFactorsUniform::materialId).
+     */
+    struct FullscreenMaterialMask
+    {
+        glm::uvec4    bits[2] {};
+        std::uint32_t count = 0;
+        std::uint32_t pad[3] {};
+    };
+
+    static_assert(sizeof(FullscreenMaterialMask) == 48,
+                  "FullscreenMaterialMask must match GLSL std140");
+
+    /**
      * @brief User fullscreen fragment shader sampled from the G-buffer.
      *
      * Renders into an HDR ping-pong target, then blits back onto the
      * current scene HDR so Bloom / Composite keep their existing inputs.
+     *
+     * Set 0 is SetInputs() (combined image samplers). Set 1 is always
+     * albedo (binding 0, material ID in .a) and FullscreenMaterialMask
+     * (binding 1). BindMaterial() limits the effect to those pixels;
+     * with no materials bound the shader should treat count == 0 as
+     * all pixels.
      */
     class FullscreenEffect : public skr::enable_arc_from_this<FullscreenEffect>
     {
@@ -74,6 +99,10 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] bool Enabled() const { return mEnabled; }
 
+        void BindMaterial(std::uint32_t materialId);
+        void UnbindMaterial(std::uint32_t materialId);
+        void ClearMaterials();
+
         void SetPushConstants(const void* data, std::uint32_t size);
 
         template <typename T>
@@ -91,6 +120,7 @@ namespace FREYA_NAMESPACE
 
       private:
         void            destroyGpu();
+        void            uploadMaterialMask();
         skr::Arc<Image> resolveHdr(const RenderFrameContext& ctx) const;
         skr::Arc<Image> resolveInput(EffectInput               input,
                                      const RenderFrameContext& ctx,
@@ -109,12 +139,18 @@ namespace FREYA_NAMESPACE
         std::vector<std::byte>   mPushData;
         bool                     mEnabled = true;
 
+        std::array<std::uint32_t, 8> mMaterialBits {};
+        bool                         mMaskDirty = true;
+        skr::Arc<Buffer>             mMaskBuffer;
+
         vk::RenderPass                 mRenderPass {};
         vk::PipelineLayout             mPipelineLayout {};
         vk::Pipeline                   mPipeline {};
         vk::DescriptorSetLayout        mSetLayout {};
+        vk::DescriptorSetLayout        mMaskSetLayout {};
         vk::DescriptorPool             mDescriptorPool {};
         std::vector<vk::DescriptorSet> mDescriptorSets;
+        std::vector<vk::DescriptorSet> mMaskDescriptorSets;
         vk::Sampler                    mSampler {};
         skr::Arc<Image>                mOutput;
         vk::Framebuffer                mFramebuffer {};

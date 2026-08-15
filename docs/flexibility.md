@@ -12,7 +12,7 @@ deferred stack without forking the renderer.
 | SPIR-V root | `SetShaderRoot("./Resources/Shaders")` |
 | Vulkan builders | `FreyaExtension::WithInstance` / `WithDevice` / `WithPhysicalDevice` / `WithSwapChain` / `WithRenderer` |
 | Frame graph | `Renderer::InsertFrameStage` / `ReplaceFrameStage` |
-| Custom shaders | `FullscreenEffectBuilder` (SPIR-V fullscreen, G-buffer inputs) |
+| Custom shaders | `FullscreenEffectBuilder` + `BindMaterial` (G-buffer IDs) |
 | Textures from memory | `TexturePool::CreateTextureFromMemory` |
 | Meshes from memory | `MeshPool::CreateMesh(vertices, indices)` |
 | Materials | `MaterialCreateInfo` (+ `aoFactor`, `alphaCutoff`, `AlphaMode`) |
@@ -132,16 +132,22 @@ auto cell = serviceProvider->GetService<fra::FullscreenEffectBuilder>()
 fra::CellPushConstants params {};
 params.reverseZ = options->ReverseZ ? 1.0f : 0.0f;
 cell->SetPushConstants(params);
+cell->BindMaterial(bodyMaterial); // albedo.a material ID; omit = all pixels
 mRenderer->InsertFrameStage("Bloom", cell->MakeStage());
 ```
 
 `SetInputs` order is descriptor binding order (`set = 0`). Vertex defaults
-to `DeferredCompressed/composing.vert.spv` (fullscreen triangle). The pass
-writes an HDR ping-pong image and blits back onto the current scene HDR
-(OIT composite, else TAA, else deferred scene color).
+to `DeferredCompressed/composing.vert.spv` (fullscreen triangle). Set 1 is
+always G-buffer albedo (binding 0, material ID in `.a`) and a
+`FullscreenMaterialMask` UBO (binding 1). `BindMaterial` / `UnbindMaterial`
+/ `ClearMaterials` fill that mask (`count == 0` means every pixel). IDs
+are 0–255, matching the G-buffer pack. The pass writes an HDR ping-pong
+image and blits back onto the current scene HDR (OIT composite, else TAA,
+else deferred scene color).
 
 IndustrialPipeLamp is the PBR deferred reference. Cell + edges lives in
-`Examples/CellBulbasaur/` (`F4` toggles the fullscreen effect).
+`Examples/CellBulbasaur/` (`F4` toggles the effect on the Bulbasaur
+materials, not the ground).
 
 ## Residual roadmap
 

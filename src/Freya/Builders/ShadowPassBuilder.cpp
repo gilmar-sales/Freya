@@ -188,11 +188,10 @@ namespace FREYA_NAMESPACE
             };
 
         // Cascade/spot: hardware depth. Point: linear distance in depth.frag.
-        auto vertStage =
-            vk::PipelineShaderStageCreateInfo()
-                .setStage(vk::ShaderStageFlagBits::eVertex)
-                .setModule(vertShader->Get())
-                .setPName("main");
+        auto vertStage = vk::PipelineShaderStageCreateInfo()
+                             .setStage(vk::ShaderStageFlagBits::eVertex)
+                             .setModule(vertShader->Get())
+                             .setPName("main");
         auto fragHwStage =
             vk::PipelineShaderStageCreateInfo()
                 .setStage(vk::ShaderStageFlagBits::eFragment)
