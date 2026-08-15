@@ -21,6 +21,8 @@
 #include "Freya/Core/DeferredCompressedPass.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/FrameStages.hpp"
+#include "Freya/Core/FullscreenEffect.hpp"
+#include "Freya/Core/FullscreenEffectStage.hpp"
 #include "Freya/Core/GpuAnimPass.hpp"
 #include "Freya/Core/HiZPyramid.hpp"
 #include "Freya/Core/IBLService.hpp"
@@ -41,6 +43,7 @@
 
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/DeviceBuilder.hpp"
+#include "Freya/Builders/FullscreenEffectBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/InstanceBuilder.hpp"
 #include "Freya/Builders/PhysicalDeviceBuilder.hpp"

@@ -94,6 +94,19 @@ cd build/Examples/SkinnedFox
 ./SkinnedFox
 ```
 
+## CellBulbasaur
+
+Location: `Examples/CellBulbasaur/`
+
+Fullscreen cell + edge shader (`FullscreenEffect`) on a skinned Bulbasaur
+GLB (idle clip). Textures are albedo maps per submesh. `F4` toggles the
+effect. TAA and bloom start off so outlines stay sharp.
+
+```bash
+cd build/Examples/CellBulbasaur
+./CellBulbasaur
+```
+
 ## Running Examples
 
 To build and run examples:

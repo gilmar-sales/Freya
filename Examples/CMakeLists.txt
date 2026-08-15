@@ -1,3 +1,4 @@
 add_subdirectory(IndustrialPipeLamp)
 add_subdirectory(SsaoDebug)
 add_subdirectory(SkinnedFox)
+add_subdirectory(CellBulbasaur)

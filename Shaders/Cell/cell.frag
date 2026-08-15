@@ -1,0 +1,65 @@
+#version 450
+
+layout(location = 0) in vec2 inUV;
+layout(location = 0) out vec4 outColor;
+
+layout(set = 0, binding = 0) uniform sampler2D inScene;
+layout(set = 0, binding = 1) uniform sampler2D inDepth;
+layout(set = 0, binding = 2) uniform sampler2D inNormal;
+
+layout(push_constant) uniform CellPush {
+    float bands;
+    float edgeDepthScale;
+    float edgeNormalScale;
+    float strength;
+    vec4 edgeColor;
+    float reverseZ;
+} push;
+
+float SampleDepth(vec2 uv) {
+    return texture(inDepth, uv).r;
+}
+
+vec3 SampleNormal(vec2 uv) {
+    return normalize(texture(inNormal, uv).rgb * 2.0 - 1.0);
+}
+
+bool IsSky(float depth) {
+    if (push.reverseZ > 0.5)
+        return depth <= 1e-6;
+    return depth >= 0.999999;
+}
+
+void main() {
+    vec3 scene = texture(inScene, inUV).rgb;
+    float depth = SampleDepth(inUV);
+    if (IsSky(depth)) {
+        outColor = vec4(scene, 1.0);
+        return;
+    }
+
+    float bands = max(push.bands, 1.0);
+    float luma = dot(scene, vec3(0.2126, 0.7152, 0.0722));
+    float quantized = floor(luma * bands + 0.5) / bands;
+    vec3 cel = (luma > 1e-5) ? scene * (quantized / luma) : scene;
+
+    ivec2 size = textureSize(inDepth, 0);
+    vec2 texel = 1.0 / vec2(size);
+
+    float gx = SampleDepth(inUV + vec2(texel.x, 0.0)) -
+               SampleDepth(inUV - vec2(texel.x, 0.0));
+    float gy = SampleDepth(inUV + vec2(0.0, texel.y)) -
+               SampleDepth(inUV - vec2(0.0, texel.y));
+    float edgeDepth = length(vec2(gx, gy)) * push.edgeDepthScale;
+
+    vec3 n0 = SampleNormal(inUV);
+    vec3 nx = SampleNormal(inUV + vec2(texel.x, 0.0));
+    vec3 ny = SampleNormal(inUV - vec2(0.0, texel.y));
+    float edgeNormal =
+        (1.0 - clamp(dot(n0, nx), 0.0, 1.0)) +
+        (1.0 - clamp(dot(n0, ny), 0.0, 1.0));
+    edgeNormal *= push.edgeNormalScale;
+
+    float edge = clamp(max(edgeDepth, edgeNormal) * push.strength, 0.0, 1.0);
+    outColor = vec4(mix(cel, push.edgeColor.rgb, edge), 1.0);
+}

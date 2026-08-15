@@ -361,6 +361,8 @@ namespace FREYA_NAMESPACE
         if (it == mFrameStages.end())
             return false;
 
+        auto ctx = makeFrameContext();
+        stage->Rebuild(ctx, *mServiceProvider);
         mFrameStages.insert(it, std::move(stage));
         return true;
     }

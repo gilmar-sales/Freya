@@ -12,6 +12,7 @@ deferred stack without forking the renderer.
 | SPIR-V root | `SetShaderRoot("./Resources/Shaders")` |
 | Vulkan builders | `FreyaExtension::WithInstance` / `WithDevice` / `WithPhysicalDevice` / `WithSwapChain` / `WithRenderer` |
 | Frame graph | `Renderer::InsertFrameStage` / `ReplaceFrameStage` |
+| Custom shaders | `FullscreenEffectBuilder` (SPIR-V fullscreen, G-buffer inputs) |
 | Textures from memory | `TexturePool::CreateTextureFromMemory` |
 | Meshes from memory | `MeshPool::CreateMesh(vertices, indices)` |
 | Materials | `MaterialCreateInfo` (+ `aoFactor`, `alphaCutoff`, `AlphaMode`) |
@@ -94,7 +95,7 @@ TAA motion vectors use G-buffer velocity (current unjittered VP vs
 
 `Renderer::EndScene` runs an ordered list of `IFrameStage` adapters:
 
-`Pick → Shadow → DeferredGeometry → SsaoLighting → Taa → Translucent → Bloom → Composite`
+`GpuAnim → Pick → Shadow → DeferredGeometry → SsaoLighting → Taa → Translucent → Bloom → Composite → DebugDraw`
 
 ```cpp
 #include <Freya/Vulkan.hpp>
@@ -106,12 +107,48 @@ mRenderer->InsertFrameStage("Composite", std::make_shared<MyCustomStage>());
 Stages receive a `RenderFrameContext` with pass Arcs and draw/blit callbacks.
 Pass GPU objects themselves are unchanged; stages only wrap orchestration.
 
+## Custom fullscreen shaders
+
+The deferred stack uses one G-buffer pipeline for all opaque draws. User
+shaders are fullscreen (or compute) effects that sample those targets via
+`FullscreenEffect` + `InsertFrameStage`. SPIR-V is still compiled at CMake
+time (`glslc`); there is no runtime GLSL.
+
+Put the fragment under `Shaders/<Name>/` (or your own `add_shader_target`)
+and insert **before Bloom** so ACES / bloom see the result:
+
+```cpp
+#include <Freya/Vulkan.hpp>
+
+auto cell = serviceProvider->GetService<fra::FullscreenEffectBuilder>()
+                ->SetName("Cell")
+                .SetFragment("Cell/cell.frag.spv")
+                .SetInputs({ fra::EffectInput::SceneColor,
+                             fra::EffectInput::Depth,
+                             fra::EffectInput::Normal })
+                .SetPushConstantSize(sizeof(fra::CellPushConstants))
+                .Build();
+
+fra::CellPushConstants params {};
+params.reverseZ = options->ReverseZ ? 1.0f : 0.0f;
+cell->SetPushConstants(params);
+mRenderer->InsertFrameStage("Bloom", cell->MakeStage());
+```
+
+`SetInputs` order is descriptor binding order (`set = 0`). Vertex defaults
+to `DeferredCompressed/composing.vert.spv` (fullscreen triangle). The pass
+writes an HDR ping-pong image and blits back onto the current scene HDR
+(OIT composite, else TAA, else deferred scene color).
+
+IndustrialPipeLamp is the PBR deferred reference. Cell + edges lives in
+`Examples/CellBulbasaur/` (`F4` toggles the fullscreen effect).
+
 ## Residual roadmap
 
 Not in this release (documented for planning):
 
 - Forward / alternate full pipelines
-- Dedicated AO CIS map / material shader variants
+- Dedicated AO CIS map / per-material shader variants
 - HDR / wide color-space swapchain policy
 - Event unsubscribe API
 - Public PCH without Vulkan (headers are split; PCH still pulls vulkan.hpp)

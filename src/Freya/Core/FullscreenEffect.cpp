@@ -1,0 +1,549 @@
+#include "Freya/Core/FullscreenEffect.hpp"
+#include "Freya/Core/FullscreenEffectStage.hpp"
+
+#include "Freya/Builders/ImageBuilder.hpp"
+#include "Freya/Builders/ShaderModuleBuilder.hpp"
+#include "Freya/Core/DebugLabels.hpp"
+#include "Freya/Core/DeferredCompressedPass.hpp"
+#include "Freya/Core/RenderFrameContext.hpp"
+#include "Freya/Core/TaaPass.hpp"
+#include "Freya/Core/TranslucentPass.hpp"
+
+#include <algorithm>
+#include <array>
+#include <cstring>
+
+namespace FREYA_NAMESPACE
+{
+    FullscreenEffect::FullscreenEffect(
+        skr::Arc<Device> device,
+        skr::Arc<FreyaOptions>
+            options,
+        skr::Arc<skr::ServiceProvider>
+                    serviceProvider,
+        std::string name,
+        std::string fragmentRelative,
+        std::string vertexRelative,
+        std::vector<EffectInput>
+                      inputs,
+        std::uint32_t pushConstantSize) :
+        mDevice(std::move(device)), mOptions(std::move(options)),
+        mServiceProvider(std::move(serviceProvider)), mName(std::move(name)),
+        mFragmentRelative(std::move(fragmentRelative)),
+        mVertexRelative(std::move(vertexRelative)), mInputs(std::move(inputs)),
+        mPushConstantSize(pushConstantSize)
+    {
+        if (mPushConstantSize > 0)
+            mPushData.resize(mPushConstantSize);
+    }
+
+    FullscreenEffect::~FullscreenEffect()
+    {
+        destroyGpu();
+    }
+
+    void FullscreenEffect::SetPushConstants(const void*   data,
+                                            std::uint32_t size)
+    {
+        if (mPushConstantSize == 0 || data == nullptr)
+            return;
+        const auto copy = std::min(size, mPushConstantSize);
+        if (mPushData.size() < mPushConstantSize)
+            mPushData.resize(mPushConstantSize);
+        std::memcpy(mPushData.data(), data, copy);
+        if (copy < mPushConstantSize)
+            std::memset(mPushData.data() + copy, 0, mPushConstantSize - copy);
+    }
+
+    FrameStagePtr FullscreenEffect::MakeStage()
+    {
+        return std::make_shared<FullscreenEffectStage>(shared_from_this());
+    }
+
+    void FullscreenEffect::destroyGpu()
+    {
+        if (!mDevice)
+            return;
+
+        auto& vkDevice = mDevice->Get();
+        if (mFramebuffer)
+        {
+            vkDevice.destroyFramebuffer(mFramebuffer);
+            mFramebuffer = nullptr;
+        }
+        mOutput.reset();
+        if (mPipeline)
+        {
+            vkDevice.destroyPipeline(mPipeline);
+            mPipeline = nullptr;
+        }
+        if (mPipelineLayout)
+        {
+            vkDevice.destroyPipelineLayout(mPipelineLayout);
+            mPipelineLayout = nullptr;
+        }
+        if (mDescriptorPool)
+        {
+            vkDevice.destroyDescriptorPool(mDescriptorPool);
+            mDescriptorPool = nullptr;
+            mDescriptorSets.clear();
+        }
+        if (mSetLayout)
+        {
+            vkDevice.destroyDescriptorSetLayout(mSetLayout);
+            mSetLayout = nullptr;
+        }
+        if (mRenderPass)
+        {
+            vkDevice.destroyRenderPass(mRenderPass);
+            mRenderPass = nullptr;
+        }
+        if (mSampler)
+        {
+            vkDevice.destroySampler(mSampler);
+            mSampler = nullptr;
+        }
+        mExtent = vk::Extent2D {};
+    }
+
+    skr::Arc<Image> FullscreenEffect::resolveHdr(
+        const RenderFrameContext& ctx) const
+    {
+        if (ctx.translucent && *ctx.translucent)
+        {
+            if (auto img = (*ctx.translucent)
+                               ->GetSceneWithTranslucency(ctx.frameIndex))
+                return img;
+        }
+        if (ctx.taa && *ctx.taa)
+            return (*ctx.taa)->GetOutputImage();
+        if (ctx.deferred && *ctx.deferred)
+            return (*ctx.deferred)->GetSceneColorImage();
+        return {};
+    }
+
+    skr::Arc<Image> FullscreenEffect::resolveInput(
+        const EffectInput         input,
+        const RenderFrameContext& ctx,
+        const skr::Arc<Image>&    hdr) const
+    {
+        if (!ctx.deferred || !*ctx.deferred)
+            return {};
+
+        switch (input)
+        {
+            case EffectInput::SceneColor:
+                return hdr;
+            case EffectInput::Depth:
+                return (*ctx.deferred)->GetDepthImage();
+            case EffectInput::Albedo:
+                return (*ctx.deferred)->GetAlbedoImage();
+            case EffectInput::Normal:
+                return (*ctx.deferred)->GetNormalImage();
+            case EffectInput::Pbr:
+                return (*ctx.deferred)->GetPbrImage();
+            case EffectInput::Velocity:
+                return (*ctx.deferred)->GetVelocityImage();
+        }
+        return {};
+    }
+
+    vk::ImageLayout FullscreenEffect::inputLayout(EffectInput input) const
+    {
+        if (input == EffectInput::Depth)
+            return vk::ImageLayout::eDepthStencilReadOnlyOptimal;
+        return vk::ImageLayout::eShaderReadOnlyOptimal;
+    }
+
+    void FullscreenEffect::Rebuild(RenderFrameContext&   ctx,
+                                   skr::ServiceProvider& sp)
+    {
+        destroyGpu();
+
+        if (!mDevice || mFragmentRelative.empty() || mInputs.empty())
+            return;
+
+        mExtent = ctx.renderExtent;
+        if (mExtent.width == 0 || mExtent.height == 0)
+            return;
+
+        const auto& root       = mOptions->shaderRoot;
+        auto        loadShader = [&](const std::string& relative) {
+            return sp.GetService<ShaderModuleBuilder>()
+                ->SetFilePath(root + "/" + relative)
+                .Build();
+        };
+
+        auto vertShader = loadShader(mVertexRelative);
+        auto fragShader = loadShader(mFragmentRelative);
+        if (!vertShader || !fragShader)
+            return;
+
+        auto& vkDevice = mDevice->Get();
+
+        auto attachment =
+            vk::AttachmentDescription()
+                .setFormat(vk::Format::eR16G16B16A16Sfloat)
+                .setSamples(vk::SampleCountFlagBits::e1)
+                .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStoreOp(vk::AttachmentStoreOp::eStore)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setInitialLayout(vk::ImageLayout::eUndefined)
+                .setFinalLayout(vk::ImageLayout::eTransferSrcOptimal);
+
+        auto colorRef = vk::AttachmentReference().setAttachment(0).setLayout(
+            vk::ImageLayout::eColorAttachmentOptimal);
+
+        auto subpass =
+            vk::SubpassDescription()
+                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+                .setColorAttachments(colorRef);
+
+        auto dependencies = std::array {
+            vk::SubpassDependency()
+                .setSrcSubpass(vk::SubpassExternal)
+                .setDstSubpass(0)
+                .setSrcStageMask(
+                    vk::PipelineStageFlagBits::eFragmentShader |
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setDstStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setSrcAccessMask(vk::AccessFlagBits::eShaderRead)
+                .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite),
+            vk::SubpassDependency()
+                .setSrcSubpass(0)
+                .setDstSubpass(vk::SubpassExternal)
+                .setSrcStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setDstStageMask(vk::PipelineStageFlagBits::eTransfer)
+                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eTransferRead),
+        };
+
+        mRenderPass = vkDevice.createRenderPass(
+            vk::RenderPassCreateInfo()
+                .setAttachments(attachment)
+                .setSubpasses(subpass)
+                .setDependencies(dependencies));
+
+        std::vector<vk::DescriptorSetLayoutBinding> bindings;
+        bindings.reserve(mInputs.size());
+        for (std::uint32_t i = 0; i < mInputs.size(); ++i)
+        {
+            bindings.push_back(
+                vk::DescriptorSetLayoutBinding()
+                    .setBinding(i)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setStageFlags(vk::ShaderStageFlagBits::eFragment));
+        }
+
+        mSetLayout = vkDevice.createDescriptorSetLayout(
+            vk::DescriptorSetLayoutCreateInfo().setBindings(bindings));
+
+        const auto frameCount = std::max(1u, mOptions->frameCount);
+        auto       poolSize =
+            vk::DescriptorPoolSize()
+                .setType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(
+                    static_cast<std::uint32_t>(mInputs.size()) * frameCount);
+
+        mDescriptorPool = vkDevice.createDescriptorPool(
+            vk::DescriptorPoolCreateInfo()
+                .setPoolSizeCount(1)
+                .setPPoolSizes(&poolSize)
+                .setMaxSets(frameCount));
+
+        auto setLayouts =
+            std::vector<vk::DescriptorSetLayout>(frameCount, mSetLayout);
+        mDescriptorSets = vkDevice.allocateDescriptorSets(
+            vk::DescriptorSetAllocateInfo()
+                .setDescriptorPool(mDescriptorPool)
+                .setSetLayouts(setLayouts));
+
+        vk::PushConstantRange        pushRange;
+        vk::PipelineLayoutCreateInfo layoutInfo;
+        layoutInfo.setSetLayouts(mSetLayout);
+        if (mPushConstantSize > 0)
+        {
+            pushRange.setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                .setOffset(0)
+                .setSize(mPushConstantSize);
+            layoutInfo.setPushConstantRanges(pushRange);
+        }
+        mPipelineLayout = vkDevice.createPipelineLayout(layoutInfo);
+
+        auto stages = std::array {
+            vk::PipelineShaderStageCreateInfo()
+                .setStage(vk::ShaderStageFlagBits::eVertex)
+                .setModule(vertShader->Get())
+                .setPName("main"),
+            vk::PipelineShaderStageCreateInfo()
+                .setStage(vk::ShaderStageFlagBits::eFragment)
+                .setModule(fragShader->Get())
+                .setPName("main"),
+        };
+
+        auto emptyVertexInput = vk::PipelineVertexInputStateCreateInfo();
+        auto inputAssembly =
+            vk::PipelineInputAssemblyStateCreateInfo()
+                .setTopology(vk::PrimitiveTopology::eTriangleList)
+                .setPrimitiveRestartEnable(false);
+        auto viewportState = vk::PipelineViewportStateCreateInfo()
+                                 .setViewportCount(1)
+                                 .setScissorCount(1);
+        auto rasterizer =
+            vk::PipelineRasterizationStateCreateInfo()
+                .setDepthClampEnable(false)
+                .setRasterizerDiscardEnable(false)
+                .setPolygonMode(vk::PolygonMode::eFill)
+                .setCullMode(vk::CullModeFlagBits::eNone)
+                .setFrontFace(vk::FrontFace::eCounterClockwise)
+                .setLineWidth(1.0f);
+        auto dynamicStates = std::vector { vk::DynamicState::eViewport,
+                                           vk::DynamicState::eScissor };
+        auto dynamicState =
+            vk::PipelineDynamicStateCreateInfo().setDynamicStates(
+                dynamicStates);
+        auto multisampling =
+            vk::PipelineMultisampleStateCreateInfo()
+                .setSampleShadingEnable(false)
+                .setRasterizationSamples(vk::SampleCountFlagBits::e1);
+        auto noBlendAttachment =
+            vk::PipelineColorBlendAttachmentState()
+                .setColorWriteMask(vk::ColorComponentFlagBits::eR |
+                                   vk::ColorComponentFlagBits::eG |
+                                   vk::ColorComponentFlagBits::eB |
+                                   vk::ColorComponentFlagBits::eA)
+                .setBlendEnable(false);
+        auto blendState =
+            vk::PipelineColorBlendStateCreateInfo()
+                .setLogicOpEnable(false)
+                .setAttachmentCount(1)
+                .setPAttachments(&noBlendAttachment);
+        auto noDepthStencil = vk::PipelineDepthStencilStateCreateInfo()
+                                  .setDepthTestEnable(false)
+                                  .setDepthWriteEnable(false);
+
+        mPipeline =
+            vkDevice
+                .createGraphicsPipeline(
+                    nullptr,
+                    vk::GraphicsPipelineCreateInfo()
+                        .setStages(stages)
+                        .setPVertexInputState(&emptyVertexInput)
+                        .setPInputAssemblyState(&inputAssembly)
+                        .setPViewportState(&viewportState)
+                        .setPRasterizationState(&rasterizer)
+                        .setPDepthStencilState(&noDepthStencil)
+                        .setPMultisampleState(&multisampling)
+                        .setPColorBlendState(&blendState)
+                        .setPDynamicState(&dynamicState)
+                        .setLayout(mPipelineLayout)
+                        .setRenderPass(mRenderPass)
+                        .setSubpass(0))
+                .value;
+
+        vkDevice.destroyShaderModule(vertShader->Get());
+        vkDevice.destroyShaderModule(fragShader->Get());
+
+        mSampler = vkDevice.createSampler(
+            vk::SamplerCreateInfo()
+                .setMagFilter(vk::Filter::eNearest)
+                .setMinFilter(vk::Filter::eNearest)
+                .setMipmapMode(vk::SamplerMipmapMode::eNearest)
+                .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
+                .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
+                .setAddressModeW(vk::SamplerAddressMode::eClampToEdge));
+
+        mOutput = sp.GetService<ImageBuilder>()
+                      ->SetUsage(ImageUsage::Color)
+                      .SetFormat(vk::Format::eR16G16B16A16Sfloat)
+                      .SetWidth(mExtent.width)
+                      .SetHeight(mExtent.height)
+                      .SetSamples(vk::SampleCountFlagBits::e1)
+                      .Build();
+
+        mFramebuffer = vkDevice.createFramebuffer(
+            vk::FramebufferCreateInfo()
+                .setRenderPass(mRenderPass)
+                .setAttachments(mOutput->GetImageView())
+                .setWidth(mExtent.width)
+                .setHeight(mExtent.height)
+                .setLayers(1));
+    }
+
+    void FullscreenEffect::Execute(RenderFrameContext& ctx)
+    {
+        if (!mEnabled || !mPipeline || !mOutput || !ctx.commandPool)
+            return;
+
+        if (ctx.renderExtent.width != mExtent.width ||
+            ctx.renderExtent.height != mExtent.height)
+        {
+            if (ctx.swapChain)
+                Rebuild(ctx, *mServiceProvider);
+            if (!mPipeline)
+                return;
+        }
+
+        const auto hdr = resolveHdr(ctx);
+        if (!hdr)
+            return;
+
+        const auto frameIndex =
+            std::min(ctx.frameIndex,
+                     static_cast<std::uint32_t>(mDescriptorSets.size() - 1));
+
+        std::vector<vk::DescriptorImageInfo> imageInfos;
+        std::vector<vk::WriteDescriptorSet>  writes;
+        imageInfos.reserve(mInputs.size());
+        writes.reserve(mInputs.size());
+
+        for (std::uint32_t i = 0; i < mInputs.size(); ++i)
+        {
+            auto image = resolveInput(mInputs[i], ctx, hdr);
+            if (!image)
+                return;
+
+            imageInfos.push_back(vk::DescriptorImageInfo()
+                                     .setSampler(mSampler)
+                                     .setImageView(image->GetImageView())
+                                     .setImageLayout(inputLayout(mInputs[i])));
+        }
+
+        for (std::uint32_t i = 0; i < mInputs.size(); ++i)
+        {
+            writes.push_back(vk::WriteDescriptorSet()
+                                 .setDstSet(mDescriptorSets[frameIndex])
+                                 .setDstBinding(i)
+                                 .setDescriptorType(
+                                     vk::DescriptorType::eCombinedImageSampler)
+                                 .setDescriptorCount(1)
+                                 .setImageInfo(imageInfos[i]));
+        }
+        mDevice->Get().updateDescriptorSets(writes, nullptr);
+
+        auto commandBuffer = ctx.commandPool->GetCommandBuffer();
+        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::ForStage(Name()));
+
+        auto viewport =
+            vk::Viewport()
+                .setX(0)
+                .setY(0)
+                .setWidth(static_cast<float>(mExtent.width))
+                .setHeight(static_cast<float>(mExtent.height))
+                .setMinDepth(0.0f)
+                .setMaxDepth(1.0f);
+        auto scissor = vk::Rect2D().setOffset({ 0, 0 }).setExtent(mExtent);
+
+        commandBuffer.beginRenderPass(
+            vk::RenderPassBeginInfo()
+                .setRenderPass(mRenderPass)
+                .setFramebuffer(mFramebuffer)
+                .setRenderArea(scissor),
+            vk::SubpassContents::eInline);
+
+        commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, mPipeline);
+        commandBuffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics,
+            mPipelineLayout,
+            0,
+            1,
+            &mDescriptorSets[frameIndex],
+            0,
+            nullptr);
+        commandBuffer.setViewport(0, 1, &viewport);
+        commandBuffer.setScissor(0, 1, &scissor);
+
+        if (mPushConstantSize > 0 && !mPushData.empty())
+        {
+            commandBuffer.pushConstants(
+                mPipelineLayout,
+                vk::ShaderStageFlagBits::eFragment,
+                0,
+                mPushConstantSize,
+                mPushData.data());
+        }
+
+        commandBuffer.draw(3, 1, 0, 0);
+        commandBuffer.endRenderPass();
+
+        const auto colorRange =
+            vk::ImageSubresourceRange()
+                .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                .setBaseMipLevel(0)
+                .setLevelCount(1)
+                .setBaseArrayLayer(0)
+                .setLayerCount(1);
+
+        auto dstToTransfer =
+            vk::ImageMemoryBarrier()
+                .setImage(hdr->GetImage())
+                .setSrcAccessMask(vk::AccessFlagBits::eShaderRead |
+                                  vk::AccessFlagBits::eColorAttachmentWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eTransferWrite)
+                .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setNewLayout(vk::ImageLayout::eTransferDstOptimal)
+                .setSubresourceRange(colorRange);
+
+        commandBuffer.pipelineBarrier(
+            vk::PipelineStageFlagBits::eFragmentShader |
+                vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            vk::PipelineStageFlagBits::eTransfer,
+            {},
+            nullptr,
+            nullptr,
+            dstToTransfer);
+
+        const auto w = static_cast<std::int32_t>(mExtent.width);
+        const auto h = static_cast<std::int32_t>(mExtent.height);
+        auto       blit =
+            vk::ImageBlit {}
+                .setSrcSubresource(
+                    vk::ImageSubresourceLayers {}
+                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                        .setMipLevel(0)
+                        .setBaseArrayLayer(0)
+                        .setLayerCount(1))
+                .setDstSubresource(
+                    vk::ImageSubresourceLayers {}
+                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                        .setMipLevel(0)
+                        .setBaseArrayLayer(0)
+                        .setLayerCount(1));
+        auto srcOffsets =
+            std::array { vk::Offset3D { 0, 0, 0 }, vk::Offset3D { w, h, 1 } };
+        blit.setSrcOffsets(srcOffsets);
+        blit.setDstOffsets(srcOffsets);
+
+        commandBuffer.blitImage(
+            mOutput->GetImage(),
+            vk::ImageLayout::eTransferSrcOptimal,
+            hdr->GetImage(),
+            vk::ImageLayout::eTransferDstOptimal,
+            blit,
+            vk::Filter::eNearest);
+
+        auto dstToSampled =
+            vk::ImageMemoryBarrier()
+                .setImage(hdr->GetImage())
+                .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
+                .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setSubresourceRange(colorRange);
+
+        commandBuffer.pipelineBarrier(
+            vk::PipelineStageFlagBits::eTransfer,
+            vk::PipelineStageFlagBits::eFragmentShader,
+            {},
+            nullptr,
+            nullptr,
+            dstToSampled);
+
+        mDevice->EndDebugLabel(commandBuffer);
+    }
+} // namespace FREYA_NAMESPACE
