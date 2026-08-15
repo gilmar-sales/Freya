@@ -96,7 +96,8 @@ namespace FREYA_NAMESPACE
         std::vector<vk::Framebuffer> mLdrFramebuffers;
         vk::ImageView                mLdrDepthView {};
 
-        vk::Extent2D  mExtent {};
+        vk::Extent2D  mHdrExtent {};
+        vk::Extent2D  mLdrExtent {};
         std::uint32_t mMaxQuads = 0;
     };
 

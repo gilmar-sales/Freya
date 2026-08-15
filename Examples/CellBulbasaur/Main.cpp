@@ -180,6 +180,48 @@ class MainApp final : public fra::AbstractApplication
         mMagic.color1         = glm::vec4(0.1f, 0.4f, 0.2f, 0.0f);
         mMagic.blend          = fra::BillboardBlend::Additive;
 
+        const glm::vec3 firePos { 0.0f, 0.08f, 1.55f };
+        mFire.origin         = firePos;
+        mFire.velocity       = glm::vec3(0.0f, 1.7f, 0.0f);
+        mFire.velocityJitter = glm::vec3(0.28f, 0.55f, 0.28f);
+        mFire.spawnRate      = 55.0f;
+        mFire.lifetime       = 0.5f;
+        mFire.size0          = 0.28f;
+        mFire.size1          = 0.06f;
+        mFire.color0         = glm::vec4(1.0f, 0.72f, 0.18f, 1.0f);
+        mFire.color1         = glm::vec4(0.55f, 0.06f, 0.0f, 0.0f);
+        mFire.blend          = fra::BillboardBlend::Additive;
+        mFire.maxParticles   = 128;
+
+        mEmbers.origin         = firePos;
+        mEmbers.velocity       = glm::vec3(0.0f, 2.4f, 0.0f);
+        mEmbers.velocityJitter = glm::vec3(0.55f, 0.8f, 0.55f);
+        mEmbers.spawnRate      = 14.0f;
+        mEmbers.lifetime       = 0.9f;
+        mEmbers.size0          = 0.05f;
+        mEmbers.size1          = 0.01f;
+        mEmbers.color0         = glm::vec4(1.0f, 0.85f, 0.35f, 1.0f);
+        mEmbers.color1         = glm::vec4(1.0f, 0.2f, 0.0f, 0.0f);
+        mEmbers.blend          = fra::BillboardBlend::Additive;
+        mEmbers.maxParticles   = 64;
+
+        mSmoke.origin         = firePos + glm::vec3(0.0f, 0.25f, 0.0f);
+        mSmoke.velocity       = glm::vec3(0.0f, 0.7f, 0.0f);
+        mSmoke.velocityJitter = glm::vec3(0.2f, 0.15f, 0.2f);
+        mSmoke.spawnRate      = 10.0f;
+        mSmoke.lifetime       = 1.6f;
+        mSmoke.size0          = 0.18f;
+        mSmoke.size1          = 0.55f;
+        mSmoke.color0         = glm::vec4(0.12f, 0.11f, 0.1f, 0.35f);
+        mSmoke.color1         = glm::vec4(0.08f, 0.08f, 0.08f, 0.0f);
+        mSmoke.blend          = fra::BillboardBlend::Alpha;
+        mSmoke.maxParticles   = 48;
+
+        mFireLight =
+            fra::MakePointLight(firePos + glm::vec3(0.0f, 0.35f, 0.0f),
+                                glm::vec3(1.0f, 0.45f, 0.12f), 6.0f, 7.0f);
+        mFireLightIndex = mLightService->AddLight(mFireLight);
+
         mFont = fra::FontAtlas::Create(
             *mTexturePool, "./Resources/Fonts/NotoSans-Regular.ttf");
         if (!mFont.Valid())
@@ -252,6 +294,20 @@ class MainApp final : public fra::AbstractApplication
         bb.Text(glm::vec3(1.2f, 1.42f, 0.0f), "PBR", mFont, 0.16f,
                 glm::vec4(0.95f, 0.98f, 0.92f, 1.0f));
         mMagic.Tick(dt, bb);
+        mFire.Tick(dt, bb);
+        mEmbers.Tick(dt, bb);
+        mSmoke.Tick(dt, bb);
+
+        if (mFireLightIndex >= 0)
+        {
+            const float flicker = 0.75f + 0.25f * std::sin(mHpPulse * 11.0f) +
+                                  0.12f * std::sin(mHpPulse * 23.0f);
+            auto        lit     = mFireLight;
+            lit.intensity       = 6.0f * flicker;
+            mLightService->UpdateLight(
+                static_cast<std::uint32_t>(mFireLightIndex),
+                lit);
+        }
 
         mRenderer->EndFrame();
     }
@@ -430,6 +486,11 @@ class MainApp final : public fra::AbstractApplication
     const fra::AnimationClip* mIdleClip = nullptr;
     float                     mAnimTime = 0.0f;
     fra::ParticleEmitter      mMagic;
+    fra::ParticleEmitter      mFire;
+    fra::ParticleEmitter      mEmbers;
+    fra::ParticleEmitter      mSmoke;
+    fra::Light                mFireLight;
+    std::int32_t              mFireLightIndex = -1;
     fra::FontAtlas            mFont;
     float                     mHpPulse = 0.0f;
     std::vector<Instance>     mInstances;

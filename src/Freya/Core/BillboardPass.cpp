@@ -53,8 +53,8 @@ namespace FREYA_NAMESPACE
         mDescriptorPool(descriptorPool), mInstanceSets(instanceSets),
         mInstanceBuffers(std::move(instanceBuffers)),
         mHdrPipelines(hdrPipelines), mLdrPipelines(ldrPipelines),
-        mLdrFramebuffers(std::move(ldrFramebuffers)), mExtent(extent),
-        mMaxQuads(maxQuads)
+        mLdrFramebuffers(std::move(ldrFramebuffers)), mHdrExtent(extent),
+        mLdrExtent(extent), mMaxQuads(maxQuads)
     {
     }
 
@@ -117,7 +117,7 @@ namespace FREYA_NAMESPACE
         const skr::Arc<Image>& depth, const vk::Extent2D extent)
     {
         destroyHdrFramebuffers();
-        mExtent = extent;
+        mHdrExtent = extent;
         if (!depth || colors.empty() || !mHdrRenderPass)
             return;
 
@@ -150,7 +150,7 @@ namespace FREYA_NAMESPACE
         mLdrDepthView      = depth->GetImageView();
         const auto& frames = swapChain->GetFrames();
         const auto  extent = swapChain->GetExtent();
-        mExtent            = extent;
+        mLdrExtent         = extent;
         mLdrFramebuffers.resize(frames.size());
         for (std::size_t i = 0; i < frames.size(); ++i)
         {
@@ -273,6 +273,11 @@ namespace FREYA_NAMESPACE
         const auto bytes = packed.size() * sizeof(BillboardGpuInstance);
         mInstanceBuffers[frameIndex]->Copy(packed.data(), bytes);
 
+        const auto extent =
+            target == BillboardTarget::Hdr ? mHdrExtent : mLdrExtent;
+        if (extent.width == 0 || extent.height == 0)
+            return;
+
         const auto cmd   = commandPool->GetCommandBuffer();
         const auto label = target == BillboardTarget::Hdr
                                ? DebugLabel::BillboardVfx
@@ -283,18 +288,18 @@ namespace FREYA_NAMESPACE
             vk::RenderPassBeginInfo()
                 .setRenderPass(renderPass)
                 .setFramebuffer(framebuffer)
-                .setRenderArea({ { 0, 0 }, mExtent })
+                .setRenderArea({ { 0, 0 }, extent })
                 .setClearValueCount(0),
             vk::SubpassContents::eInline);
 
         cmd.setViewport(0, vk::Viewport()
                                .setX(0)
                                .setY(0)
-                               .setWidth(static_cast<float>(mExtent.width))
-                               .setHeight(static_cast<float>(mExtent.height))
+                               .setWidth(static_cast<float>(extent.width))
+                               .setHeight(static_cast<float>(extent.height))
                                .setMinDepth(0.f)
                                .setMaxDepth(1.f));
-        cmd.setScissor(0, vk::Rect2D({ 0, 0 }, mExtent));
+        cmd.setScissor(0, vk::Rect2D({ 0, 0 }, extent));
 
         auto bindless = mMaterials->GetBindlessSet();
         cmd.bindDescriptorSets(

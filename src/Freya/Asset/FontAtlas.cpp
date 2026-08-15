@@ -73,7 +73,7 @@ namespace FREYA_NAMESPACE
         const float scale = stbtt_ScaleForPixelHeight(&info, pixelHeight);
         const int   pad   = static_cast<int>(std::max(1u, padding));
         const unsigned char onEdge = 128;
-        const float distScale =
+        const float         distScale =
             static_cast<float>(onEdge) / static_cast<float>(pad);
 
         std::vector<unsigned char> atlasPixels(kAtlasSize * kAtlasSize, 0);
@@ -93,8 +93,8 @@ namespace FREYA_NAMESPACE
             }
             if (packY + h + 1 > static_cast<int>(kAtlasSize))
                 return false;
-            outX  = packX;
-            outY  = packY;
+            outX = packX;
+            outY = packY;
             packX += w + 1;
             rowH = std::max(rowH, h);
             return true;
@@ -112,10 +112,10 @@ namespace FREYA_NAMESPACE
             FontGlyph g {};
             g.advance = (advance * scale) / pixelHeight;
 
-            int w = 0, h = 0, xoff = 0, yoff = 0;
-            unsigned char* sdf = stbtt_GetGlyphSDF(
-                &info, scale, glyph, pad, onEdge, distScale, &w, &h, &xoff,
-                &yoff);
+            int            w = 0, h = 0, xoff = 0, yoff = 0;
+            unsigned char* sdf =
+                stbtt_GetGlyphSDF(&info, scale, glyph, pad, onEdge, distScale,
+                                  &w, &h, &xoff, &yoff);
 
             if (sdf && w > 0 && h > 0)
             {
@@ -141,10 +141,10 @@ namespace FREYA_NAMESPACE
                                      static_cast<float>(py) * invA,
                                      static_cast<float>(px + w) * invA,
                                      static_cast<float>(py + h) * invA };
-                g.planeLeft   = static_cast<float>(xoff) / pixelHeight;
-                g.planeTop    = -static_cast<float>(yoff) / pixelHeight;
-                g.planeRight  = static_cast<float>(xoff + w) / pixelHeight;
-                g.planeBottom = -static_cast<float>(yoff + h) / pixelHeight;
+                g.planeLeft      = static_cast<float>(xoff) / pixelHeight;
+                g.planeTop       = -static_cast<float>(yoff) / pixelHeight;
+                g.planeRight     = static_cast<float>(xoff + w) / pixelHeight;
+                g.planeBottom    = -static_cast<float>(yoff + h) / pixelHeight;
             }
 
             atlas.mGlyphs[cp] = g;

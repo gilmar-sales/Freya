@@ -45,9 +45,9 @@ namespace FREYA_NAMESPACE
       private:
         static constexpr std::uint32_t kInvalid = ~0u;
 
-        std::uint32_t                            mTextureId = kInvalid;
-        float                                    mPixelHeight = 48.f;
-        std::unordered_map<char32_t, FontGlyph>  mGlyphs;
+        std::uint32_t                           mTextureId   = kInvalid;
+        float                                   mPixelHeight = 48.f;
+        std::unordered_map<char32_t, FontGlyph> mGlyphs;
     };
 
 } // namespace FREYA_NAMESPACE
