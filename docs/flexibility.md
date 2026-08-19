@@ -10,8 +10,7 @@ deferred stack without forking the renderer.
 | Window / lighting / shadows | `FreyaOptions` / `FreyaOptionsBuilder` |
 | Post features | `SetEnableShadows` / `SetEnableSsao` / `SetEnableTaa` / `SetEnableBloom` |
 | SPIR-V root | `SetShaderRoot("./Resources/Shaders")` |
-| Vulkan builders | `FreyaExtension::WithInstance` / `WithDevice` / `WithPhysicalDevice` / `WithSwapChain` / `WithRenderer` |
-| Frame graph | `Renderer::InsertFrameStage` / `ReplaceFrameStage` |
+| Frame graph | `Renderer::InsertFrameStage` / `ReplaceFrameStage` with Freya factories |
 | Custom shaders | `FullscreenEffectBuilder` + `BindMaterial` (G-buffer IDs) |
 | Textures from memory | `TexturePool::CreateTextureFromMemory` |
 | Meshes from memory | `MeshPool::CreateMesh(vertices, indices)` |
@@ -67,30 +66,24 @@ Disabling bloom clears the bloom tap so composite stays dark for that input.
 
 TAA motion vectors use G-buffer velocity (current unjittered VP vs
 `prevViewProjection`, plus per-instance previous model matrices). Prefer
-`Renderer::SetInstanceModels` so Freya maintains that history; raw
-`BindBuffer` instance data will not supply correct object motion alone.
+`Renderer::UploadSceneInstances` so Freya maintains that history; drawing
+without the scene-upload API will not supply correct object motion alone.
 
 ## DI configure hooks
 
 ```cpp
-.WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
+.WithExtension<fra::FreyaExtension>([](fra::FreyaExtension& freya) {
     freya.WithOptions([](fra::FreyaOptionsBuilder& o) {
-        o.SetTitle("My App");
-    })
-    .WithInstance([](fra::InstanceBuilder& b) {
-        b.AddValidationLayers();
-    })
-    .WithPhysicalDevice([](fra::PhysicalDeviceBuilder& b) {
-        b.PreferDeviceType(vk::PhysicalDeviceType::eIntegratedGpu);
-    })
-    .WithDevice([](fra::DeviceBuilder& b) {
-        b.AddExtension("VK_KHR_swapchain");
-    })
-    .WithSwapChain([](fra::SwapChainBuilder& b) {
-        b.PreferPresentMode(vk::PresentModeKHR::eMailbox);
+        o.SetTitle("My App")
+         .SetVSync(true)
+         .SetShadowQuality(fra::ShadowQuality::High);
     });
 })
 ```
+
+Present mode, GPU type, and device extensions are chosen inside the engine
+from `FreyaOptions` (vsync, sample count, quality presets). Vulkan builders
+are not part of the public extension API.
 
 ## Frame stages
 
@@ -99,14 +92,14 @@ TAA motion vectors use G-buffer velocity (current unjittered VP vs
 `GpuAnim → Pick → Shadow → DeferredGeometry → SsaoLighting → Taa → Translucent → Bloom → Composite → DebugDraw`
 
 ```cpp
-#include <Freya/Vulkan.hpp>
+#include <Freya/Freya.hpp>
 
-mRenderer->ReplaceFrameStage("Bloom", std::make_shared<MyBloomStage>());
-mRenderer->InsertFrameStage("Composite", std::make_shared<MyCustomStage>());
+mRenderer->InsertFrameStage("Bloom", cell->MakeStage());
 ```
 
-Stages receive a `RenderFrameContext` with pass Arcs and draw/blit callbacks.
-Pass GPU objects themselves are unchanged; stages only wrap orchestration.
+Apps insert stages created by Freya factories (`FullscreenEffect::MakeStage`).
+Custom `IFrameStage` implementations are not part of the public API;
+`RenderFrameContext` is an incomplete type in public headers.
 
 ## Custom fullscreen shaders
 
@@ -119,7 +112,7 @@ Put the fragment under `Shaders/<Name>/` (or your own `add_shader_target`)
 and insert **before Bloom** so ACES / bloom see the result:
 
 ```cpp
-#include <Freya/Vulkan.hpp>
+#include <Freya/Freya.hpp>
 
 auto cell = serviceProvider->GetService<fra::FullscreenEffectBuilder>()
                 ->SetName("Cell")
@@ -160,7 +153,6 @@ Not in this release (documented for planning):
 - Physical glass (transmission / IOR / refraction) beyond Weighted Blended OIT
 - HDR / wide color-space swapchain policy
 - Event unsubscribe API
-- Public PCH without Vulkan (headers are split; PCH still pulls vulkan.hpp)
 
 WBOIT translucency is implemented: `AlphaMode::Blend` instances use a
 dedicated MDI cull (`CullMode::Translucent`), accumulate into weighted OIT

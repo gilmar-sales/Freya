@@ -1,5 +1,7 @@
 #include "SsaoPassBuilder.hpp"
 
+#include "Freya/Internal/VulkanCompat.hpp"
+
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"

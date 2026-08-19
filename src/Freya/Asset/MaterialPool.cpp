@@ -1,58 +1,87 @@
 #include "MaterialPool.hpp"
 
 #include "Freya/Asset/GpuScene.hpp"
+#include "Freya/Asset/MaterialDescriptorResources.hpp"
+#include "Freya/Asset/TexturePool.hpp"
+#include "Freya/Containers/SparseSet.hpp"
 
 namespace FREYA_NAMESPACE
 {
+    struct MaterialPool::Impl
+    {
+        skr::Arc<MaterialDescriptorResources> materialsRes;
+        skr::Arc<TexturePool>                 texturePool;
+        skr::Arc<skr::Logger<MaterialPool>>   logger;
+        SparseSet<Material>                   materials { 4096 };
+
+        void writeBindlessMaterial(Material& material);
+    };
+
+    MaterialPool::MaterialPool(
+        const skr::Arc<skr::ServiceProvider>& serviceProvider) :
+        mImpl(std::make_unique<Impl>())
+    {
+        mImpl->materialsRes =
+            serviceProvider->GetService<MaterialDescriptorResources>();
+        mImpl->texturePool = serviceProvider->GetService<TexturePool>();
+        mImpl->logger =
+            serviceProvider->GetService<skr::Logger<MaterialPool>>();
+    }
+
+    MaterialPool::~MaterialPool() = default;
+
     std::uint32_t MaterialPool::CreateFromTextureFiles(
         std::vector<std::string> texturesPath)
     {
+        auto&              i = *mImpl;
         MaterialCreateInfo info {};
         if (texturesPath.size() > 0)
-            info.albedo = mTexturePool->CreateTextureFromFile(texturesPath[0]);
+            info.albedo = i.texturePool->CreateTextureFromFile(texturesPath[0]);
         if (texturesPath.size() > 1)
-            info.normal = mTexturePool->CreateTextureFromFile(texturesPath[1]);
+            info.normal = i.texturePool->CreateTextureFromFile(texturesPath[1]);
         if (texturesPath.size() > 2)
             info.roughness =
-                mTexturePool->CreateTextureFromFile(texturesPath[2]);
+                i.texturePool->CreateTextureFromFile(texturesPath[2]);
         if (texturesPath.size() > 3)
             info.emissive =
-                mTexturePool->CreateTextureFromFile(texturesPath[3]);
+                i.texturePool->CreateTextureFromFile(texturesPath[3]);
         if (texturesPath.size() > 4)
             info.metalness =
-                mTexturePool->CreateTextureFromFile(texturesPath[4]);
+                i.texturePool->CreateTextureFromFile(texturesPath[4]);
         return Create(info);
     }
 
     std::uint32_t MaterialPool::Create(const MaterialCreateInfo& createInfo)
     {
-        auto material = Material {
+        auto& i        = *mImpl;
+        auto  material = Material {
             .createInfo = createInfo,
-            .id         = static_cast<std::uint32_t>(mMaterials.size()),
+            .id         = static_cast<std::uint32_t>(i.materials.size()),
         };
 
-        writeBindlessMaterial(material);
-        mMaterials.insert(material);
+        i.writeBindlessMaterial(material);
+        i.materials.insert(material);
 
-        mLogger->LogTrace("MaterialPool::Create id={}", material.id);
+        i.logger->LogTrace("MaterialPool::Create id={}", material.id);
         return material.id;
     }
 
     void MaterialPool::Update(std::uint32_t             id,
                               const MaterialCreateInfo& createInfo)
     {
-        auto& material      = mMaterials[id];
+        auto& i             = *mImpl;
+        auto& material      = i.materials[id];
         material.createInfo = createInfo;
-        writeBindlessMaterial(material);
+        i.writeBindlessMaterial(material);
     }
 
     const MaterialCreateInfo& MaterialPool::GetCreateInfo(
         std::uint32_t id) const
     {
-        return mMaterials[id].createInfo;
+        return mImpl->materials[id].createInfo;
     }
 
-    void MaterialPool::writeBindlessMaterial(Material& material)
+    void MaterialPool::Impl::writeBindlessMaterial(Material& material)
     {
         const auto& info = material.createInfo;
 
@@ -95,6 +124,6 @@ namespace FREYA_NAMESPACE
         if (info.receiveShadows)
             gpu.flags |= kMaterialFlagReceiveShadow;
 
-        mMaterialsRes->WriteMaterial(material.id, gpu);
+        materialsRes->WriteMaterial(material.id, gpu);
     }
 } // namespace FREYA_NAMESPACE

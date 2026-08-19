@@ -5,8 +5,7 @@ Skinned character animation in Freya: Assimp load → local poses → `AnimGraph
 (`FREYA_NAMESPACE`).
 
 ```cpp
-#include <Freya/Freya.hpp>   // poses, graph, bake, GpuAnimation types, debug
-#include <Freya/Vulkan.hpp>  // GpuAnimPass, Renderer GPU anim helpers
+#include <Freya/Freya.hpp>   // poses, graph, bake, GpuAnimation, Renderer GPU anim
 ```
 
 Mesh load entry points remain under [Assets](assets.md) (`MeshPool`). This

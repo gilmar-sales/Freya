@@ -10,6 +10,8 @@
 #include "Freya/Core/TaaPass.hpp"
 #include "Freya/Core/TranslucentPass.hpp"
 
+#include "Freya/Internal/FullscreenEffectImpl.hpp"
+
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -17,37 +19,31 @@
 
 namespace FREYA_NAMESPACE
 {
-    FullscreenEffect::FullscreenEffect(
-        skr::Arc<Device> device,
-        skr::Arc<FreyaOptions>
-            options,
-        skr::Arc<skr::ServiceProvider>
-                    serviceProvider,
-        std::string name,
-        std::string fragmentRelative,
-        std::string vertexRelative,
-        std::vector<EffectInput>
-                      inputs,
-        std::uint32_t pushConstantSize) :
-        mDevice(std::move(device)), mOptions(std::move(options)),
-        mServiceProvider(std::move(serviceProvider)), mName(std::move(name)),
-        mFragmentRelative(std::move(fragmentRelative)),
-        mVertexRelative(std::move(vertexRelative)), mInputs(std::move(inputs)),
-        mPushConstantSize(pushConstantSize)
+    FullscreenEffect::FullscreenEffect(std::unique_ptr<Impl> impl) :
+        mImpl(std::move(impl))
     {
-        if (mPushConstantSize > 0)
-            mPushData.resize(mPushConstantSize);
+        if (mImpl && mImpl->maskBuffer)
+            mImpl->uploadMaterialMask();
+    }
 
-        mMaskBuffer = BufferBuilder(mDevice)
-                          .SetUsage(BufferUsage::Uniform)
-                          .SetSize(sizeof(FullscreenMaterialMask))
-                          .Build();
-        uploadMaterialMask();
+    const char* FullscreenEffect::Name() const
+    {
+        return mImpl ? mImpl->name.c_str() : "FullscreenEffect";
+    }
+
+    void FullscreenEffect::SetEnabled(const bool enabled)
+    {
+        mImpl->enabled = enabled;
+    }
+
+    bool FullscreenEffect::Enabled() const
+    {
+        return mImpl->enabled;
     }
 
     FullscreenEffect::~FullscreenEffect()
     {
-        destroyGpu();
+        mImpl->destroyGpu();
     }
 
     void FullscreenEffect::BindMaterial(const std::uint32_t materialId)
@@ -55,10 +51,10 @@ namespace FREYA_NAMESPACE
         const auto id   = materialId & 0xFFu;
         const auto word = id >> 5u;
         const auto bit  = 1u << (id & 31u);
-        if ((mMaterialBits[word] & bit) != 0)
+        if ((mImpl->materialBits[word] & bit) != 0)
             return;
-        mMaterialBits[word] |= bit;
-        mMaskDirty = true;
+        mImpl->materialBits[word] |= bit;
+        mImpl->maskDirty = true;
     }
 
     void FullscreenEffect::UnbindMaterial(const std::uint32_t materialId)
@@ -66,46 +62,48 @@ namespace FREYA_NAMESPACE
         const auto id   = materialId & 0xFFu;
         const auto word = id >> 5u;
         const auto bit  = 1u << (id & 31u);
-        if ((mMaterialBits[word] & bit) == 0)
+        if ((mImpl->materialBits[word] & bit) == 0)
             return;
-        mMaterialBits[word] &= ~bit;
-        mMaskDirty = true;
+        mImpl->materialBits[word] &= ~bit;
+        mImpl->maskDirty = true;
     }
 
     void FullscreenEffect::ClearMaterials()
     {
-        mMaterialBits.fill(0);
-        mMaskDirty = true;
+        mImpl->materialBits.fill(0);
+        mImpl->maskDirty = true;
     }
 
-    void FullscreenEffect::uploadMaterialMask()
+    void FullscreenEffect::Impl::uploadMaterialMask()
     {
-        if (!mMaskBuffer)
+        if (!maskBuffer)
             return;
 
         FullscreenMaterialMask mask {};
-        mask.bits[0] = { mMaterialBits[0], mMaterialBits[1], mMaterialBits[2],
-                         mMaterialBits[3] };
-        mask.bits[1] = { mMaterialBits[4], mMaterialBits[5], mMaterialBits[6],
-                         mMaterialBits[7] };
-        for (const auto word : mMaterialBits)
+        mask.bits[0] = { materialBits[0], materialBits[1], materialBits[2],
+                         materialBits[3] };
+        mask.bits[1] = { materialBits[4], materialBits[5], materialBits[6],
+                         materialBits[7] };
+        for (const auto word : materialBits)
             mask.count += std::popcount(word);
 
-        mMaskBuffer->Copy(&mask, sizeof(mask));
-        mMaskDirty = false;
+        maskBuffer->Copy(&mask, sizeof(mask));
+        maskDirty = false;
     }
 
     void FullscreenEffect::SetPushConstants(const void*   data,
                                             std::uint32_t size)
     {
-        if (mPushConstantSize == 0 || data == nullptr)
+        if (mImpl->pushConstantSize == 0 || data == nullptr)
             return;
-        const auto copy = std::min(size, mPushConstantSize);
-        if (mPushData.size() < mPushConstantSize)
-            mPushData.resize(mPushConstantSize);
-        std::memcpy(mPushData.data(), data, copy);
-        if (copy < mPushConstantSize)
-            std::memset(mPushData.data() + copy, 0, mPushConstantSize - copy);
+        const auto copy = std::min(size, mImpl->pushConstantSize);
+        if (mImpl->pushData.size() < mImpl->pushConstantSize)
+            mImpl->pushData.resize(mImpl->pushConstantSize);
+        std::memcpy(mImpl->pushData.data(), data, copy);
+        if (copy < mImpl->pushConstantSize)
+            std::memset(mImpl->pushData.data() + copy,
+                        0,
+                        mImpl->pushConstantSize - copy);
     }
 
     FrameStagePtr FullscreenEffect::MakeStage()
@@ -113,59 +111,59 @@ namespace FREYA_NAMESPACE
         return std::make_shared<FullscreenEffectStage>(shared_from_this());
     }
 
-    void FullscreenEffect::destroyGpu()
+    void FullscreenEffect::Impl::destroyGpu()
     {
-        if (!mDevice)
+        if (!device)
             return;
 
-        auto& vkDevice = mDevice->Get();
-        if (mFramebuffer)
+        auto& vkDevice = device->Get();
+        if (framebuffer)
         {
-            vkDevice.destroyFramebuffer(mFramebuffer);
-            mFramebuffer = nullptr;
+            vkDevice.destroyFramebuffer(framebuffer);
+            framebuffer = nullptr;
         }
-        mOutput.reset();
-        if (mPipeline)
+        output.reset();
+        if (pipeline)
         {
-            vkDevice.destroyPipeline(mPipeline);
-            mPipeline = nullptr;
+            vkDevice.destroyPipeline(pipeline);
+            pipeline = nullptr;
         }
-        if (mPipelineLayout)
+        if (pipelineLayout)
         {
-            vkDevice.destroyPipelineLayout(mPipelineLayout);
-            mPipelineLayout = nullptr;
+            vkDevice.destroyPipelineLayout(pipelineLayout);
+            pipelineLayout = nullptr;
         }
-        if (mDescriptorPool)
+        if (descriptorPool)
         {
-            vkDevice.destroyDescriptorPool(mDescriptorPool);
-            mDescriptorPool = nullptr;
-            mDescriptorSets.clear();
-            mMaskDescriptorSets.clear();
+            vkDevice.destroyDescriptorPool(descriptorPool);
+            descriptorPool = nullptr;
+            descriptorSets.clear();
+            maskDescriptorSets.clear();
         }
-        if (mSetLayout)
+        if (setLayout)
         {
-            vkDevice.destroyDescriptorSetLayout(mSetLayout);
-            mSetLayout = nullptr;
+            vkDevice.destroyDescriptorSetLayout(setLayout);
+            setLayout = nullptr;
         }
-        if (mMaskSetLayout)
+        if (maskSetLayout)
         {
-            vkDevice.destroyDescriptorSetLayout(mMaskSetLayout);
-            mMaskSetLayout = nullptr;
+            vkDevice.destroyDescriptorSetLayout(maskSetLayout);
+            maskSetLayout = nullptr;
         }
-        if (mRenderPass)
+        if (renderPass)
         {
-            vkDevice.destroyRenderPass(mRenderPass);
-            mRenderPass = nullptr;
+            vkDevice.destroyRenderPass(renderPass);
+            renderPass = nullptr;
         }
-        if (mSampler)
+        if (sampler)
         {
-            vkDevice.destroySampler(mSampler);
-            mSampler = nullptr;
+            vkDevice.destroySampler(sampler);
+            sampler = nullptr;
         }
-        mExtent = vk::Extent2D {};
+        extent = vk::Extent2D {};
     }
 
-    skr::Arc<Image> FullscreenEffect::resolveHdr(
+    skr::Arc<Image> FullscreenEffect::Impl::resolveHdr(
         const RenderFrameContext& ctx) const
     {
         if (ctx.translucent && *ctx.translucent)
@@ -181,7 +179,7 @@ namespace FREYA_NAMESPACE
         return {};
     }
 
-    skr::Arc<Image> FullscreenEffect::resolveInput(
+    skr::Arc<Image> FullscreenEffect::Impl::resolveInput(
         const EffectInput         input,
         const RenderFrameContext& ctx,
         const skr::Arc<Image>&    hdr) const
@@ -207,7 +205,7 @@ namespace FREYA_NAMESPACE
         return {};
     }
 
-    vk::ImageLayout FullscreenEffect::inputLayout(EffectInput input) const
+    vk::ImageLayout FullscreenEffect::Impl::inputLayout(EffectInput input) const
     {
         if (input == EffectInput::Depth)
             return vk::ImageLayout::eDepthStencilReadOnlyOptimal;
@@ -217,28 +215,29 @@ namespace FREYA_NAMESPACE
     void FullscreenEffect::Rebuild(RenderFrameContext&   ctx,
                                    skr::ServiceProvider& sp)
     {
-        destroyGpu();
+        mImpl->destroyGpu();
 
-        if (!mDevice || mFragmentRelative.empty() || mInputs.empty())
+        if (!mImpl->device || mImpl->fragmentRelative.empty() ||
+            mImpl->inputs.empty())
             return;
 
-        mExtent = ctx.renderExtent;
-        if (mExtent.width == 0 || mExtent.height == 0)
+        mImpl->extent = ctx.renderExtent;
+        if (mImpl->extent.width == 0 || mImpl->extent.height == 0)
             return;
 
-        const auto& root       = mOptions->shaderRoot;
+        const auto& root       = mImpl->options->shaderRoot;
         auto        loadShader = [&](const std::string& relative) {
             return sp.GetService<ShaderModuleBuilder>()
                 ->SetFilePath(root + "/" + relative)
                 .Build();
         };
 
-        auto vertShader = loadShader(mVertexRelative);
-        auto fragShader = loadShader(mFragmentRelative);
+        auto vertShader = loadShader(mImpl->vertexRelative);
+        auto fragShader = loadShader(mImpl->fragmentRelative);
         if (!vertShader || !fragShader)
             return;
 
-        auto& vkDevice = mDevice->Get();
+        auto& vkDevice = mImpl->device->Get();
 
         auto attachment =
             vk::AttachmentDescription()
@@ -280,15 +279,15 @@ namespace FREYA_NAMESPACE
                 .setDstAccessMask(vk::AccessFlagBits::eTransferRead),
         };
 
-        mRenderPass = vkDevice.createRenderPass(
+        mImpl->renderPass = vkDevice.createRenderPass(
             vk::RenderPassCreateInfo()
                 .setAttachments(attachment)
                 .setSubpasses(subpass)
                 .setDependencies(dependencies));
 
         std::vector<vk::DescriptorSetLayoutBinding> bindings;
-        bindings.reserve(mInputs.size());
-        for (std::uint32_t i = 0; i < mInputs.size(); ++i)
+        bindings.reserve(mImpl->inputs.size());
+        for (std::uint32_t i = 0; i < mImpl->inputs.size(); ++i)
         {
             bindings.push_back(
                 vk::DescriptorSetLayoutBinding()
@@ -299,7 +298,7 @@ namespace FREYA_NAMESPACE
                     .setStageFlags(vk::ShaderStageFlagBits::eFragment));
         }
 
-        mSetLayout = vkDevice.createDescriptorSetLayout(
+        mImpl->setLayout = vkDevice.createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo().setBindings(bindings));
 
         auto maskBindings = std::array {
@@ -314,52 +313,54 @@ namespace FREYA_NAMESPACE
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment),
         };
-        mMaskSetLayout = vkDevice.createDescriptorSetLayout(
+        mImpl->maskSetLayout = vkDevice.createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo().setBindings(maskBindings));
 
-        const auto frameCount = std::max(1u, mOptions->frameCount);
+        const auto frameCount = std::max(1u, mImpl->options->frameCount);
         auto       poolSizes  = std::array {
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(
-                    (static_cast<std::uint32_t>(mInputs.size()) + 1) *
+                    (static_cast<std::uint32_t>(mImpl->inputs.size()) + 1) *
                     frameCount),
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eUniformBuffer)
                 .setDescriptorCount(frameCount),
         };
 
-        mDescriptorPool = vkDevice.createDescriptorPool(
+        mImpl->descriptorPool = vkDevice.createDescriptorPool(
             vk::DescriptorPoolCreateInfo().setPoolSizes(poolSizes).setMaxSets(
                 frameCount * 2));
 
         auto inputLayouts =
-            std::vector<vk::DescriptorSetLayout>(frameCount, mSetLayout);
-        mDescriptorSets = vkDevice.allocateDescriptorSets(
+            std::vector<vk::DescriptorSetLayout>(frameCount, mImpl->setLayout);
+        mImpl->descriptorSets = vkDevice.allocateDescriptorSets(
             vk::DescriptorSetAllocateInfo()
-                .setDescriptorPool(mDescriptorPool)
+                .setDescriptorPool(mImpl->descriptorPool)
                 .setSetLayouts(inputLayouts));
 
         auto maskLayouts =
-            std::vector<vk::DescriptorSetLayout>(frameCount, mMaskSetLayout);
-        mMaskDescriptorSets = vkDevice.allocateDescriptorSets(
+            std::vector<vk::DescriptorSetLayout>(frameCount,
+                                                 mImpl->maskSetLayout);
+        mImpl->maskDescriptorSets = vkDevice.allocateDescriptorSets(
             vk::DescriptorSetAllocateInfo()
-                .setDescriptorPool(mDescriptorPool)
+                .setDescriptorPool(mImpl->descriptorPool)
                 .setSetLayouts(maskLayouts));
 
-        auto pipelineSetLayouts = std::array { mSetLayout, mMaskSetLayout };
+        auto pipelineSetLayouts =
+            std::array { mImpl->setLayout, mImpl->maskSetLayout };
 
         vk::PushConstantRange        pushRange;
         vk::PipelineLayoutCreateInfo layoutInfo;
         layoutInfo.setSetLayouts(pipelineSetLayouts);
-        if (mPushConstantSize > 0)
+        if (mImpl->pushConstantSize > 0)
         {
             pushRange.setStageFlags(vk::ShaderStageFlagBits::eFragment)
                 .setOffset(0)
-                .setSize(mPushConstantSize);
+                .setSize(mImpl->pushConstantSize);
             layoutInfo.setPushConstantRanges(pushRange);
         }
-        mPipelineLayout = vkDevice.createPipelineLayout(layoutInfo);
+        mImpl->pipelineLayout = vkDevice.createPipelineLayout(layoutInfo);
 
         auto stages = std::array {
             vk::PipelineShaderStageCreateInfo()
@@ -413,7 +414,7 @@ namespace FREYA_NAMESPACE
                                   .setDepthTestEnable(false)
                                   .setDepthWriteEnable(false);
 
-        mPipeline =
+        mImpl->pipeline =
             vkDevice
                 .createGraphicsPipeline(
                     nullptr,
@@ -427,15 +428,15 @@ namespace FREYA_NAMESPACE
                         .setPMultisampleState(&multisampling)
                         .setPColorBlendState(&blendState)
                         .setPDynamicState(&dynamicState)
-                        .setLayout(mPipelineLayout)
-                        .setRenderPass(mRenderPass)
+                        .setLayout(mImpl->pipelineLayout)
+                        .setRenderPass(mImpl->renderPass)
                         .setSubpass(0))
                 .value;
 
         vkDevice.destroyShaderModule(vertShader->Get());
         vkDevice.destroyShaderModule(fragShader->Get());
 
-        mSampler = vkDevice.createSampler(
+        mImpl->sampler = vkDevice.createSampler(
             vk::SamplerCreateInfo()
                 .setMagFilter(vk::Filter::eNearest)
                 .setMinFilter(vk::Filter::eNearest)
@@ -444,69 +445,72 @@ namespace FREYA_NAMESPACE
                 .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
                 .setAddressModeW(vk::SamplerAddressMode::eClampToEdge));
 
-        mOutput = sp.GetService<ImageBuilder>()
-                      ->SetUsage(ImageUsage::Color)
-                      .SetFormat(vk::Format::eR16G16B16A16Sfloat)
-                      .SetWidth(mExtent.width)
-                      .SetHeight(mExtent.height)
-                      .SetSamples(vk::SampleCountFlagBits::e1)
-                      .Build();
+        mImpl->output =
+            sp.GetService<ImageBuilder>()
+                ->SetUsage(ImageUsage::Color)
+                .SetFormat(vk::Format::eR16G16B16A16Sfloat)
+                .SetWidth(mImpl->extent.width)
+                .SetHeight(mImpl->extent.height)
+                .SetSamples(vk::SampleCountFlagBits::e1)
+                .Build();
 
-        mFramebuffer = vkDevice.createFramebuffer(
+        mImpl->framebuffer = vkDevice.createFramebuffer(
             vk::FramebufferCreateInfo()
-                .setRenderPass(mRenderPass)
-                .setAttachments(mOutput->GetImageView())
-                .setWidth(mExtent.width)
-                .setHeight(mExtent.height)
+                .setRenderPass(mImpl->renderPass)
+                .setAttachments(mImpl->output->GetImageView())
+                .setWidth(mImpl->extent.width)
+                .setHeight(mImpl->extent.height)
                 .setLayers(1));
     }
 
     void FullscreenEffect::Execute(RenderFrameContext& ctx)
     {
-        if (!mEnabled || !mPipeline || !mOutput || !ctx.commandPool)
+        if (!mImpl->enabled || !mImpl->pipeline || !mImpl->output ||
+            !ctx.commandPool)
             return;
 
-        if (ctx.renderExtent.width != mExtent.width ||
-            ctx.renderExtent.height != mExtent.height)
+        if (ctx.renderExtent.width != mImpl->extent.width ||
+            ctx.renderExtent.height != mImpl->extent.height)
         {
             if (ctx.swapChain)
-                Rebuild(ctx, *mServiceProvider);
-            if (!mPipeline)
+                Rebuild(ctx, *mImpl->serviceProvider);
+            if (!mImpl->pipeline)
                 return;
         }
 
-        const auto hdr = resolveHdr(ctx);
+        const auto hdr = mImpl->resolveHdr(ctx);
         if (!hdr)
             return;
 
-        const auto frameIndex =
-            std::min(ctx.frameIndex,
-                     static_cast<std::uint32_t>(mDescriptorSets.size() - 1));
+        const auto frameIndex = std::min(
+            ctx.frameIndex,
+            static_cast<std::uint32_t>(mImpl->descriptorSets.size() - 1));
 
-        if (mMaskDirty)
-            uploadMaterialMask();
+        if (mImpl->maskDirty)
+            mImpl->uploadMaterialMask();
 
         std::vector<vk::DescriptorImageInfo> imageInfos;
         std::vector<vk::WriteDescriptorSet>  writes;
-        imageInfos.reserve(mInputs.size() + 1);
-        writes.reserve(mInputs.size() + 3);
+        imageInfos.reserve(mImpl->inputs.size() + 1);
+        writes.reserve(mImpl->inputs.size() + 3);
 
-        for (std::uint32_t i = 0; i < mInputs.size(); ++i)
+        for (std::uint32_t i = 0; i < mImpl->inputs.size(); ++i)
         {
-            auto image = resolveInput(mInputs[i], ctx, hdr);
+            auto image = mImpl->resolveInput(mImpl->inputs[i], ctx, hdr);
             if (!image)
                 return;
 
-            imageInfos.push_back(vk::DescriptorImageInfo()
-                                     .setSampler(mSampler)
-                                     .setImageView(image->GetImageView())
-                                     .setImageLayout(inputLayout(mInputs[i])));
+            imageInfos.push_back(
+                vk::DescriptorImageInfo()
+                    .setSampler(mImpl->sampler)
+                    .setImageView(image->GetImageView())
+                    .setImageLayout(mImpl->inputLayout(mImpl->inputs[i])));
         }
 
-        for (std::uint32_t i = 0; i < mInputs.size(); ++i)
+        for (std::uint32_t i = 0; i < mImpl->inputs.size(); ++i)
         {
             writes.push_back(vk::WriteDescriptorSet()
-                                 .setDstSet(mDescriptorSets[frameIndex])
+                                 .setDstSet(mImpl->descriptorSets[frameIndex])
                                  .setDstBinding(i)
                                  .setDescriptorType(
                                      vk::DescriptorType::eCombinedImageSampler)
@@ -514,18 +518,18 @@ namespace FREYA_NAMESPACE
                                  .setImageInfo(imageInfos[i]));
         }
 
-        auto albedo = resolveInput(EffectInput::Albedo, ctx, hdr);
-        if (!albedo || mMaskDescriptorSets.empty() || !mMaskBuffer)
+        auto albedo = mImpl->resolveInput(EffectInput::Albedo, ctx, hdr);
+        if (!albedo || mImpl->maskDescriptorSets.empty() || !mImpl->maskBuffer)
             return;
 
         imageInfos.push_back(
             vk::DescriptorImageInfo()
-                .setSampler(mSampler)
+                .setSampler(mImpl->sampler)
                 .setImageView(albedo->GetImageView())
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal));
         writes.push_back(
             vk::WriteDescriptorSet()
-                .setDstSet(mMaskDescriptorSets[frameIndex])
+                .setDstSet(mImpl->maskDescriptorSets[frameIndex])
                 .setDstBinding(0)
                 .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(1)
@@ -533,45 +537,48 @@ namespace FREYA_NAMESPACE
 
         auto maskBufferInfo =
             vk::DescriptorBufferInfo()
-                .setBuffer(mMaskBuffer->Get())
+                .setBuffer(mImpl->maskBuffer->Get())
                 .setOffset(0)
                 .setRange(sizeof(FullscreenMaterialMask));
         writes.push_back(
             vk::WriteDescriptorSet()
-                .setDstSet(mMaskDescriptorSets[frameIndex])
+                .setDstSet(mImpl->maskDescriptorSets[frameIndex])
                 .setDstBinding(1)
                 .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                 .setDescriptorCount(1)
                 .setBufferInfo(maskBufferInfo));
 
-        mDevice->Get().updateDescriptorSets(writes, nullptr);
+        mImpl->device->Get().updateDescriptorSets(writes, nullptr);
 
         auto commandBuffer = ctx.commandPool->GetCommandBuffer();
-        mDevice->BeginDebugLabel(commandBuffer, DebugLabel::ForStage(Name()));
+        mImpl->device->BeginDebugLabel(commandBuffer,
+                                       DebugLabel::ForStage(Name()));
 
         auto viewport =
             vk::Viewport()
                 .setX(0)
                 .setY(0)
-                .setWidth(static_cast<float>(mExtent.width))
-                .setHeight(static_cast<float>(mExtent.height))
+                .setWidth(static_cast<float>(mImpl->extent.width))
+                .setHeight(static_cast<float>(mImpl->extent.height))
                 .setMinDepth(0.0f)
                 .setMaxDepth(1.0f);
-        auto scissor = vk::Rect2D().setOffset({ 0, 0 }).setExtent(mExtent);
+        auto scissor =
+            vk::Rect2D().setOffset({ 0, 0 }).setExtent(mImpl->extent);
 
         commandBuffer.beginRenderPass(
             vk::RenderPassBeginInfo()
-                .setRenderPass(mRenderPass)
-                .setFramebuffer(mFramebuffer)
+                .setRenderPass(mImpl->renderPass)
+                .setFramebuffer(mImpl->framebuffer)
                 .setRenderArea(scissor),
             vk::SubpassContents::eInline);
 
-        commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, mPipeline);
-        auto boundSets = std::array { mDescriptorSets[frameIndex],
-                                      mMaskDescriptorSets[frameIndex] };
+        commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+                                   mImpl->pipeline);
+        auto boundSets = std::array { mImpl->descriptorSets[frameIndex],
+                                      mImpl->maskDescriptorSets[frameIndex] };
         commandBuffer.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics,
-            mPipelineLayout,
+            mImpl->pipelineLayout,
             0,
             static_cast<std::uint32_t>(boundSets.size()),
             boundSets.data(),
@@ -580,14 +587,14 @@ namespace FREYA_NAMESPACE
         commandBuffer.setViewport(0, 1, &viewport);
         commandBuffer.setScissor(0, 1, &scissor);
 
-        if (mPushConstantSize > 0 && !mPushData.empty())
+        if (mImpl->pushConstantSize > 0 && !mImpl->pushData.empty())
         {
             commandBuffer.pushConstants(
-                mPipelineLayout,
+                mImpl->pipelineLayout,
                 vk::ShaderStageFlagBits::eFragment,
                 0,
-                mPushConstantSize,
-                mPushData.data());
+                mImpl->pushConstantSize,
+                mImpl->pushData.data());
         }
 
         commandBuffer.draw(3, 1, 0, 0);
@@ -620,8 +627,8 @@ namespace FREYA_NAMESPACE
             nullptr,
             dstToTransfer);
 
-        const auto w = static_cast<std::int32_t>(mExtent.width);
-        const auto h = static_cast<std::int32_t>(mExtent.height);
+        const auto w = static_cast<std::int32_t>(mImpl->extent.width);
+        const auto h = static_cast<std::int32_t>(mImpl->extent.height);
         auto       blit =
             vk::ImageBlit {}
                 .setSrcSubresource(
@@ -642,7 +649,7 @@ namespace FREYA_NAMESPACE
         blit.setDstOffsets(srcOffsets);
 
         commandBuffer.blitImage(
-            mOutput->GetImage(),
+            mImpl->output->GetImage(),
             vk::ImageLayout::eTransferSrcOptimal,
             hdr->GetImage(),
             vk::ImageLayout::eTransferDstOptimal,
@@ -666,6 +673,6 @@ namespace FREYA_NAMESPACE
             nullptr,
             dstToSampled);
 
-        mDevice->EndDebugLabel(commandBuffer);
+        mImpl->device->EndDebugLabel(commandBuffer);
     }
 } // namespace FREYA_NAMESPACE

@@ -1,11 +1,11 @@
 #pragma once
 
-#include <Skirnir/Skirnir.hpp>
-
 #include "Freya/Core/FreyaExtension.hpp"
 #include "Freya/Core/Renderer.hpp"
 #include "Freya/Core/Window.hpp"
 #include "Freya/Events/EventManager.hpp"
+
+#include <Skirnir/Skirnir.hpp>
 
 namespace FREYA_NAMESPACE
 {
@@ -23,13 +23,7 @@ namespace FREYA_NAMESPACE
          * @param serviceProvider Service provider reference
          */
         explicit AbstractApplication(
-            const skr::Arc<skr::ServiceProvider>& serviceProvider) :
-            IApplication(serviceProvider), mDeltaTime(0)
-        {
-            mEventManager = mRootServiceProvider->GetService<EventManager>();
-            mWindow       = mRootServiceProvider->GetService<Window>();
-            mRenderer     = mRootServiceProvider->GetService<Renderer>();
-        }
+            const skr::Arc<skr::ServiceProvider>& serviceProvider);
 
         virtual ~AbstractApplication() = default;
 

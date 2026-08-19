@@ -74,9 +74,12 @@ target_include_directories(Freya
         PUBLIC
                 $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
                 $<INSTALL_INTERFACE:include>
-                ${Vulkan_INCLUDE_DIRS}
         PRIVATE
                 ${CMAKE_CURRENT_SOURCE_DIR}/src
+                ${CMAKE_CURRENT_SOURCE_DIR}/src/Freya
+                ${CMAKE_CURRENT_SOURCE_DIR}/src/Freya/Core
+                ${CMAKE_CURRENT_SOURCE_DIR}/src/Freya/Builders
+                ${CMAKE_CURRENT_SOURCE_DIR}/src/Freya/Asset
                 # Same-directory style includes in .cpp ("Renderer.hpp")
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Core
@@ -84,12 +87,15 @@ target_include_directories(Freya
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Asset
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Events
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Containers
+                ${Vulkan_INCLUDE_DIRS}
 )
-target_link_libraries(Freya PUBLIC
-        SDL3::SDL3 glm assimp meshoptimizer ${Vulkan_LIBRARIES}
-        skirnir::skirnir)
+target_link_libraries(Freya
+        PUBLIC
+                glm skirnir::skirnir
+        PRIVATE
+                SDL3::SDL3 assimp meshoptimizer ${Vulkan_LIBRARIES})
 
-target_precompile_headers(Freya PUBLIC
+target_precompile_headers(Freya PRIVATE
         <memory>
         <limits>
         <cstdint>

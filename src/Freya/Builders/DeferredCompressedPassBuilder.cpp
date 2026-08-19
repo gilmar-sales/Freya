@@ -1,5 +1,8 @@
 #include "DeferredCompressedPassBuilder.hpp"
 
+#include "Freya/Internal/LightServiceGpu.hpp"
+#include "Freya/Internal/VertexInput.hpp"
+
 #include "Freya/Asset/Vertex.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
@@ -97,8 +100,8 @@ namespace FREYA_NAMESPACE
             makeStage(lightFrag->Get(), vk::ShaderStageFlagBits::eFragment)
         };
 
-        auto vertexBinding    = Vertex::GetBindingDescription();
-        auto vertexAttributes = Vertex::GetAttributesDescription();
+        auto vertexBinding    = GetVertexBindingDescription();
+        auto vertexAttributes = GetVertexAttributesDescription();
 
         auto vertexInputInfo =
             vk::PipelineVertexInputStateCreateInfo()
@@ -426,7 +429,7 @@ namespace FREYA_NAMESPACE
 
             auto lightBufferInfo =
                 vk::DescriptorBufferInfo()
-                    .setBuffer(mLightService->GetBuffer()->Get())
+                    .setBuffer(LightServiceGpu::Buffer(*mLightService)->Get())
                     .setOffset(frameIndex * sizeof(LightUniformBuffer))
                     .setRange(sizeof(LightUniformBuffer));
             auto lightWrite =
@@ -544,7 +547,7 @@ namespace FREYA_NAMESPACE
                 .setSetLayouts(lightingSetLayout)
                 .setPushConstantRanges(lightingPushRange));
 
-        auto depthAttributes = Vertex::GetDepthAttributesDescription();
+        auto depthAttributes = GetVertexDepthAttributesDescription();
         auto depthVertexInputInfo =
             vk::PipelineVertexInputStateCreateInfo()
                 .setVertexBindingDescriptions(vertexBinding)

@@ -10,45 +10,70 @@
     #define __OPTIMIZE__ 1
 #endif
 
+#include "Freya/Asset/MaterialDescriptorResources.hpp"
+#include "Freya/Asset/Texture.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
+#include "Freya/Containers/SparseSet.hpp"
+#include "Freya/Core/CommandPool.hpp"
+#include "Freya/Core/Device.hpp"
+
+#include <vulkan/vulkan.hpp>
 
 namespace FREYA_NAMESPACE
 {
     constexpr auto MegaBytes = 1024 * 1024;
 
-    TexturePool::TexturePool(
-        const skr::Arc<skr::ServiceProvider>&        serviceProvider,
-        const skr::Arc<Device>&                      device,
-        const skr::Arc<CommandPool>&                 commandPool,
-        const skr::Arc<MaterialDescriptorResources>& materials) :
-        mServiceProvider(serviceProvider), mDevice(device),
-        mCommandPool(commandPool), mMaterialsRes(materials)
+    struct TexturePool::Impl
     {
-        mLogger = mServiceProvider->GetService<skr::Logger<TexturePool>>();
+        skr::Arc<skr::Logger<TexturePool>>    logger;
+        skr::Arc<skr::ServiceProvider>        serviceProvider;
+        skr::Arc<Device>                      device;
+        skr::Arc<CommandPool>                 commandPool;
+        skr::Arc<MaterialDescriptorResources> materialsRes;
+        std::vector<skr::Arc<Buffer>>         stagingBuffers;
+        SparseSet<Texture>                    textures { 4096 };
+
+        skr::Arc<Buffer> queryStagingBuffer(std::uint32_t size);
+        skr::Arc<Buffer> createStagingBuffer(std::uint32_t size);
+    };
+
+    TexturePool::TexturePool(
+        const skr::Arc<skr::ServiceProvider>& serviceProvider) :
+        mImpl(std::make_unique<Impl>())
+    {
+        mImpl->serviceProvider = serviceProvider;
+        mImpl->device          = serviceProvider->GetService<Device>();
+        mImpl->commandPool     = serviceProvider->GetService<CommandPool>();
+        mImpl->materialsRes =
+            serviceProvider->GetService<MaterialDescriptorResources>();
+        mImpl->logger = serviceProvider->GetService<skr::Logger<TexturePool>>();
         stbi_set_flip_vertically_on_load(true);
     }
 
     TexturePool::~TexturePool()
     {
-        for (auto texture : mTextures)
+        if (!mImpl || !mImpl->device)
+            return;
+
+        for (auto texture : mImpl->textures)
         {
             texture.image.reset();
-
-            mDevice->Get().destroySampler(texture.sampler);
+            mImpl->device->Get().destroySampler(texture.sampler);
         }
     }
 
     std::uint32_t TexturePool::CreateTextureFromFile(std::string path)
     {
-        mLogger->LogTrace("TexturePool::CreateTextureFromFile:");
-        mLogger->LogTrace("\tPath: {}", path);
+        mImpl->logger->LogTrace("TexturePool::CreateTextureFromFile:");
+        mImpl->logger->LogTrace("\tPath: {}", path);
 
         int        width, height, channels;
         const auto imageData =
             stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
 
-        mLogger->Assert(imageData != nullptr, "\tFailed to load texture.");
+        mImpl->logger->Assert(imageData != nullptr,
+                              "\tFailed to load texture.");
 
         const auto id = CreateTextureFromMemory(
             imageData, static_cast<std::uint32_t>(width),
@@ -62,17 +87,19 @@ namespace FREYA_NAMESPACE
         const void* pixels, std::uint32_t width, std::uint32_t height,
         std::uint32_t channels, std::uint32_t mipLevelCount)
     {
-        mLogger->LogTrace("TexturePool::CreateTextureFromMemory:");
-        mLogger->LogTrace("\tSize: {}x{} channels={}", width, height, channels);
-        mLogger->Assert(pixels != nullptr, "\tNull pixel data.");
-        mLogger->Assert(width > 0 && height > 0, "\tInvalid dimensions.");
-        mLogger->Assert(channels > 0, "\tInvalid channel count.");
+        auto& i = *mImpl;
+        i.logger->LogTrace("TexturePool::CreateTextureFromMemory:");
+        i.logger->LogTrace("\tSize: {}x{} channels={}", width, height,
+                           channels);
+        i.logger->Assert(pixels != nullptr, "\tNull pixel data.");
+        i.logger->Assert(width > 0 && height > 0, "\tInvalid dimensions.");
+        i.logger->Assert(channels > 0, "\tInvalid channel count.");
 
         const auto stagingBuffer =
-            queryStagingBuffer(width * height * channels);
+            i.queryStagingBuffer(width * height * channels);
 
         auto builder =
-            mServiceProvider->GetService<ImageBuilder>()
+            i.serviceProvider->GetService<ImageBuilder>()
                 ->SetUsage(ImageUsage::Texture)
                 .SetWidth(width)
                 .SetHeight(height)
@@ -82,8 +109,7 @@ namespace FREYA_NAMESPACE
         if (mipLevelCount > 0)
             builder.SetMipLevels(mipLevelCount);
 
-        const auto image = builder.Build();
-
+        const auto image     = builder.Build();
         const auto mipLevels = image->GetMipLevels();
 
         const auto samplerCreateInfo =
@@ -102,28 +128,28 @@ namespace FREYA_NAMESPACE
                 .setAnisotropyEnable(true)
                 .setMaxAnisotropy(16);
 
-        const auto sampler = mDevice->Get().createSampler(samplerCreateInfo);
+        const auto sampler = i.device->Get().createSampler(samplerCreateInfo);
 
         const auto texture = Texture {
             .image   = image,
             .sampler = sampler,
             .width   = width,
             .height  = height,
-            .id      = static_cast<std::uint32_t>(mTextures.size()),
+            .id      = static_cast<std::uint32_t>(i.textures.size()),
         };
 
-        mTextures.insert(texture);
+        i.textures.insert(texture);
 
-        mMaterialsRes->WriteBindlessTexture(
+        i.materialsRes->WriteBindlessTexture(
             MaterialDescriptorResources::TextureHeapIndex(texture.id),
             texture.image->GetImageView(), texture.sampler);
 
         return texture.id;
     }
 
-    skr::Arc<Buffer> TexturePool::queryStagingBuffer(std::uint32_t size)
+    skr::Arc<Buffer> TexturePool::Impl::queryStagingBuffer(std::uint32_t size)
     {
-        for (auto stagingBuffer : mStagingBuffers)
+        for (auto stagingBuffer : stagingBuffers)
         {
             if (stagingBuffer->GetSize() >= size)
                 return stagingBuffer;
@@ -132,18 +158,17 @@ namespace FREYA_NAMESPACE
         return createStagingBuffer(size);
     }
 
-    skr::Arc<Buffer> TexturePool::createStagingBuffer(std::uint32_t size)
+    skr::Arc<Buffer> TexturePool::Impl::createStagingBuffer(std::uint32_t size)
     {
         const auto bufferSize = (size / MegaBytes + 4) * MegaBytes;
 
         auto stagingBuffer =
-            BufferBuilder(mDevice)
+            BufferBuilder(device)
                 .SetSize(bufferSize)
                 .SetUsage(BufferUsage::Staging)
                 .Build();
 
-        mStagingBuffers.push_back(stagingBuffer);
-
+        stagingBuffers.push_back(stagingBuffer);
         return stagingBuffer;
     }
 } // namespace FREYA_NAMESPACE

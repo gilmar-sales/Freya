@@ -1,42 +1,41 @@
 #pragma once
 
-#include "Freya/Core/Buffer.hpp"
-#include "Freya/Core/Device.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
+
+#include <Skirnir/Skirnir.hpp>
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <memory>
+#include <vector>
+
+#include <glm/glm.hpp>
 
 namespace FREYA_NAMESPACE
 {
+    class Device;
+    class Buffer;
+    struct LightServiceGpu;
+
     /**
      * @brief Light source data structure for the lighting system.
-     *
-     * Represents a single light with position, color, and type-specific
-     * parameters. Packed into LightUniformBuffer as SoA (std140): type lives
-     * in lightPositions[i].w; spot cutoffs are stored as cosines.
      */
     struct Light
     {
-        glm::vec3 position =
-            glm::vec3(0.0f);     ///< World position / area rect center
-        float     type   = 0.0f; ///< LightType (0..3 Point/Dir/Spot/Area)
-        glm::vec3 color  = glm::vec3(1.0f); ///< RGB light color
-        float     radius = 10.0f; ///< Attenuation radius (point/spot lights)
-        glm::vec3 direction =
-            glm::vec3(0.0f, -1.0f, 0.0f); ///< Dir / spot aim / area rect normal
-        float     innerCutoff = 0.9f; ///< Spot inner cosine (unused for area)
-        float     outerCutoff = 0.8f; ///< Spot outer cosine, or area half-width
-        float     intensity   = 1.0f; ///< Light intensity multiplier
-        glm::vec3 tangent =
-            glm::vec3(1.0f, 0.0f, 0.0f); ///< Area rect tangent (U axis)
-        float halfHeight  = 0.0f; ///< Area rect half-height along bitangent
-        bool  castShadows = true; ///< Participates in shadow map passes
+        glm::vec3 position    = glm::vec3(0.0f);
+        float     type        = 0.0f;
+        glm::vec3 color       = glm::vec3(1.0f);
+        float     radius      = 10.0f;
+        glm::vec3 direction   = glm::vec3(0.0f, -1.0f, 0.0f);
+        float     innerCutoff = 0.9f;
+        float     outerCutoff = 0.8f;
+        float     intensity   = 1.0f;
+        glm::vec3 tangent     = glm::vec3(1.0f, 0.0f, 0.0f);
+        float     halfHeight  = 0.0f;
+        bool      castShadows = true;
     };
 
-    /**
-     * @brief Creates a point light.
-     */
     inline Light MakePointLight(const glm::vec3& position,
                                 const glm::vec3& color,
                                 float            radius,
@@ -51,9 +50,6 @@ namespace FREYA_NAMESPACE
         return light;
     }
 
-    /**
-     * @brief Creates a directional light. Direction is normalized.
-     */
     inline Light MakeDirectionalLight(const glm::vec3& direction,
                                       const glm::vec3& color,
                                       float            intensity = 1.0f)
@@ -66,12 +62,6 @@ namespace FREYA_NAMESPACE
         return light;
     }
 
-    /**
-     * @brief Creates a spot light.
-     * @param innerAngleRad Inner cone half-angle in radians (full intensity).
-     * @param outerAngleRad Outer cone half-angle in radians (falloff end).
-     *        Stored as cosines in Light::innerCutoff / outerCutoff.
-     */
     inline Light MakeSpotLight(const glm::vec3& position,
                                const glm::vec3& direction,
                                const glm::vec3& color,
@@ -92,14 +82,6 @@ namespace FREYA_NAMESPACE
         return light;
     }
 
-    /**
-     * @brief Creates a rectangular area light (LTC).
-     * @param center     Rectangle center in world space
-     * @param normal     Outward normal (normalized)
-     * @param tangent    Approximate U axis; orthonormalized against normal
-     * @param halfWidth  Half-extent along tangent
-     * @param halfHeight Half-extent along bitangent (cross(N, T))
-     */
     inline Light MakeAreaLight(const glm::vec3& center,
                                const glm::vec3& normal,
                                const glm::vec3& tangent,
@@ -129,165 +111,49 @@ namespace FREYA_NAMESPACE
         return light;
     }
 
-    /**
-     * @brief Service for managing lights and updating the light uniform buffer.
-     *
-     * Manages a collection of lights and provides the GPU buffer with light
-     * data for both forward and deferred rendering pipelines.
-     */
     class LightService
     {
       public:
-        /**
-         * @brief Constructs a LightService.
-         * @param device     Vulkan device reference
-         * @param frameCount Number of frames (for ring-buffer descriptor sets)
-         * @param maxLights  Maximum number of lights (default: MAX_LIGHTS)
-         */
+        struct Impl;
+
         LightService(const skr::Arc<Device>& device,
                      std::uint32_t           frameCount,
                      std::uint32_t           maxLights = MAX_LIGHTS);
 
         ~LightService();
 
-        // Non-copyable
         LightService(const LightService&)            = delete;
         LightService& operator=(const LightService&) = delete;
-
-        // Movable
         LightService(LightService&&) noexcept;
         LightService& operator=(LightService&&) noexcept;
 
-        /**
-         * @brief Adds a light to the service.
-         * @param light Light to add
-         * @return Index of the added light, or -1 if max lights reached
-         */
         std::int32_t AddLight(const Light& light);
-
-        /**
-         * @brief Removes a light by index.
-         * @param index Light index to remove
-         */
-        void RemoveLight(std::uint32_t index);
-
-        /**
-         * @brief Updates a light's position.
-         * @param index Light index to update
-         * @param position New position
-         */
-        void UpdateLightPosition(std::uint32_t    index,
-                                 const glm::vec3& position);
-
-        /**
-         * @brief Replaces all parameters of a light.
-         * @param index Light index to update
-         * @param light New light data
-         */
-        void UpdateLight(std::uint32_t index, const Light& light);
-
-        /**
-         * @brief Returns a light by index, or nullptr if out of range.
-         */
+        void         RemoveLight(std::uint32_t index);
+        void         UpdateLightPosition(std::uint32_t    index,
+                                         const glm::vec3& position);
+        void         UpdateLight(std::uint32_t index, const Light& light);
         const Light* GetLight(std::uint32_t index) const;
+        void         ClearLights();
 
-        /**
-         * @brief Clears all lights.
-         */
-        void ClearLights();
-
-        /**
-         * @brief Updates the GPU buffer with current light data.
-         * @param frameIndex     Current frame index
-         * @param viewPosition   Camera/eye position for attenuation
-         * @param cameraForward  Camera look direction (world space, normalized)
-         */
         void Update(std::uint32_t    frameIndex,
                     const glm::vec3& viewPosition,
                     const glm::vec3& cameraForward);
 
-        /**
-         * @brief Returns the number of active lights.
-         */
-        std::uint32_t GetLightCount() const { return mLightCount; }
+        [[nodiscard]] std::uint32_t GetLightCount() const;
+        [[nodiscard]] std::uint32_t GetMaxLights() const;
+        [[nodiscard]] bool          HasLights() const;
 
-        /**
-         * @brief Returns the light buffer.
-         */
-        skr::Arc<Buffer> GetBuffer() const { return mBuffer; }
-
-        /**
-         * @brief Returns the light descriptor set layout.
-         */
-        vk::DescriptorSetLayout GetLayout() const { return mLayout; }
-
-        /**
-         * @brief Returns the descriptor pool.
-         */
-        vk::DescriptorPool GetPool() const { return mPool; }
-
-        /**
-         * @brief Returns a descriptor set for a frame.
-         * @param frameIndex Frame index
-         * @return Descriptor set handle
-         */
-        vk::DescriptorSet GetSet(std::uint32_t frameIndex) const
-        {
-            return mSets[frameIndex];
-        }
-
-        /**
-         * @brief Returns the maximum number of lights.
-         */
-        std::uint32_t GetMaxLights() const { return mMaxLights; }
-
-        /**
-         * @brief Sets IBL intensity written into the light UBO each Update.
-         */
-        void SetIblIntensity(float intensity) { mIblIntensity = intensity; }
-
-        float GetIblIntensity() const { return mIblIntensity; }
-
-        /**
-         * @brief Sets exposure written into the light UBO each Update.
-         */
-        void SetExposure(float exposure) { mExposure = exposure; }
-
-        float GetExposure() const { return mExposure; }
-
-        /**
-         * @brief When false, GPU light UBO writes castShadows as 0 so lighting
-         * skips shadow sampling (CPU Light::castShadows is unchanged).
-         */
-        void SetShadowsEnabled(bool enabled) { mShadowsEnabled = enabled; }
-
-        [[nodiscard]] bool GetShadowsEnabled() const { return mShadowsEnabled; }
-
-        /**
-         * @brief Returns whether the service has any lights.
-         */
-        bool HasLights() const { return mLightCount > 0; }
+        void               SetIblIntensity(float intensity);
+        float              GetIblIntensity() const;
+        void               SetExposure(float exposure);
+        float              GetExposure() const;
+        void               SetShadowsEnabled(bool enabled);
+        [[nodiscard]] bool GetShadowsEnabled() const;
 
       private:
-        /**
-         * @brief Creates the Vulkan descriptor resources.
-         */
-        void createDescriptorResources();
+        friend struct LightServiceGpu;
 
-        skr::Arc<Device> mDevice;
-        std::uint32_t    mFrameCount;
-        std::uint32_t    mMaxLights;
-        std::uint32_t    mLightCount;
-        float            mIblIntensity   = 0.7f;
-        float            mExposure       = 0.7f;
-        bool             mShadowsEnabled = true;
-
-        std::vector<Light> mLights;
-        skr::Arc<Buffer>   mBuffer;
-
-        vk::DescriptorSetLayout        mLayout;
-        vk::DescriptorPool             mPool;
-        std::vector<vk::DescriptorSet> mSets;
+        std::unique_ptr<Impl> mImpl;
     };
 
 } // namespace FREYA_NAMESPACE

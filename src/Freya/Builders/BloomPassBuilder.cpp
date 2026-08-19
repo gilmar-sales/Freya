@@ -1,5 +1,7 @@
 #include "BloomPassBuilder.hpp"
 
+#include "Freya/Internal/VulkanCompat.hpp"
+
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
 #include "Freya/Core/ShaderModule.hpp"

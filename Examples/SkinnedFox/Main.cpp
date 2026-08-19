@@ -1,5 +1,4 @@
 #include <Freya/Freya.hpp>
-#include <Freya/Vulkan.hpp>
 
 #include <algorithm>
 #include <chrono>

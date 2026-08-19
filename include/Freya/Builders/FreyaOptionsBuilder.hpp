@@ -2,8 +2,13 @@
 
 #include "Freya/FreyaOptions.hpp"
 
+#include <Skirnir/Skirnir.hpp>
+
 #include <algorithm>
 #include <cstdint>
+#include <string>
+
+#include <glm/glm.hpp>
 
 namespace FREYA_NAMESPACE
 {
@@ -103,8 +108,7 @@ namespace FREYA_NAMESPACE
          * @param clearColor Clear color value
          * @return Reference to this for chaining
          */
-        FreyaOptionsBuilder& SetClearColor(
-            const vk::ClearColorValue& clearColor)
+        FreyaOptionsBuilder& SetClearColor(const glm::vec4& clearColor)
         {
             mFreyaOptions->clearColor = clearColor;
             return *this;

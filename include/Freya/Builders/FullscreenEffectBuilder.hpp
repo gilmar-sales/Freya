@@ -1,32 +1,19 @@
 #pragma once
 
-#include "Freya/Core/Device.hpp"
 #include "Freya/Core/FullscreenEffect.hpp"
-#include "Freya/FreyaOptions.hpp"
+
+#include <Skirnir/Skirnir.hpp>
 
 #include <string>
 #include <vector>
 
 namespace FREYA_NAMESPACE
 {
-    /**
-     * @brief Fluent builder for FullscreenEffect (custom SPIR-V fullscreen
-     * pass).
-     *
-     * Fragment path is relative to FreyaOptions::shaderRoot. Vertex defaults
-     * to DeferredCompressed/composing.vert.spv.
-     */
     class FullscreenEffectBuilder
     {
       public:
         FullscreenEffectBuilder(
-            const skr::Arc<Device>&               device,
-            const skr::Arc<FreyaOptions>&         freyaOptions,
-            const skr::Arc<skr::ServiceProvider>& serviceProvider) :
-            mDevice(device), mFreyaOptions(freyaOptions),
-            mServiceProvider(serviceProvider)
-        {
-        }
+            const skr::Arc<skr::ServiceProvider>& serviceProvider);
 
         FullscreenEffectBuilder& SetName(std::string name)
         {
@@ -61,12 +48,9 @@ namespace FREYA_NAMESPACE
         skr::Arc<FullscreenEffect> Build();
 
       private:
-        skr::Arc<Device>               mDevice;
-        skr::Arc<FreyaOptions>         mFreyaOptions;
         skr::Arc<skr::ServiceProvider> mServiceProvider;
-
-        std::string mName = "FullscreenEffect";
-        std::string mFragmentRelative;
+        std::string                    mName = "FullscreenEffect";
+        std::string                    mFragmentRelative;
         std::string mVertexRelative = "DeferredCompressed/composing.vert.spv";
         std::vector<EffectInput> mInputs { EffectInput::SceneColor };
         std::uint32_t            mPushConstantSize = 0;

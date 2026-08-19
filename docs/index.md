@@ -8,8 +8,8 @@ A Vulkan-based rendering engine powered by [Skirnir](https://github.com/gilmar-s
 - **Deferred rendering** - G-buffer path with SSAO, TAA, bloom, and HDR composite
 - **Composable frame stages** - Insert or replace steps in `Renderer::EndScene`
 - **Feature flags** - Toggle SSAO / TAA / Bloom and set `shaderRoot` via options
-- **Custom render targets** - Redirect scene output to an offscreen
-  `RenderTarget` at runtime (see [Core](core.md)); not configured via FreyaOptions
+- **Custom render targets** - Offscreen composite is an internal engine
+  concern; apps configure quality and vsync via `FreyaOptions`
 - **Asset management** - Meshes, textures (file or memory), and PBR materials
 - **Skinned animation** - AnimGraph, bake, CPU or GPU skin palettes, LOD
   (see [Animation](animation.md))
@@ -20,8 +20,7 @@ A Vulkan-based rendering engine powered by [Skirnir](https://github.com/gilmar-s
 ## Headers
 
 ```cpp
-#include <Freya/Freya.hpp>    // app surface
-#include <Freya/Vulkan.hpp>   // Renderer, passes, advanced builders
+#include <Freya/Freya.hpp>    // app surface (no Vulkan / SDL types)
 ```
 
 See [API boundary](api-boundary.md) and [Flexibility](flexibility.md).
@@ -88,8 +87,8 @@ int main(int argc, const char** argv)
 
 ```
 Freya/
-├── include/Freya/      # Public headers (Freya.hpp, Vulkan.hpp, …)
-├── src/Freya/          # .cpp implementations + Vendor/
+├── include/Freya/      # Public headers (Freya.hpp, glm/Skirnir types)
+├── src/Freya/          # .cpp + internal Vulkan headers + Vendor/
 ├── Examples/           # Example applications
 ├── Shaders/            # GLSL/Vulkan shaders
 └── docs/               # Documentation

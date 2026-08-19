@@ -3,171 +3,51 @@
 #include "Freya/Events/EventManager.hpp"
 #include "Freya/FreyaOptions.hpp"
 
+#include <Skirnir/Skirnir.hpp>
+
+#include <cstdint>
+#include <memory>
+
 namespace FREYA_NAMESPACE
 {
     /**
-     * @brief SDL3-based window with event polling and gamepad management.
-     *
-     * Manages an SDL3 window, polls events, tracks gamepads, and provides
-     * window state queries. Uses EventManager to dispatch input events.
-     *
-     * @param window       SDL_Window pointer
-     * @param eventManager Event manager for dispatching input events
-     * @param freyaOptions Freya options reference for dimensions
-     * @param logger       Logger for window operations
+     * @brief Platform window, event polling, and timing.
      */
     class Window
     {
       public:
-        Window(SDL_Window*                          window,
-               const skr::Arc<EventManager>&        eventManager,
-               const skr::Arc<FreyaOptions>&        freyaOptions,
-               const skr::Arc<skr::Logger<Window>>& logger) :
-            mEventManager(eventManager), mFreyaOptions(freyaOptions),
-            mWindow(window), mRunning(true), mDeltaTime(0), mLogger(logger)
-        {
-            int width, height;
-            SDL_GetWindowSizeInPixels(mWindow, &width, &height);
+        struct Impl;
 
-            freyaOptions->width  = width;
-            freyaOptions->height = height;
-
-            mGamepads               = std::vector<SDL_Gamepad*>();
-            auto       gamepadCount = 0;
-            const auto gamepadIds   = SDL_GetGamepads(&gamepadCount);
-
-            for (int i = 0; i < gamepadCount; ++i)
-            {
-                if (SDL_IsGamepad(gamepadIds[i]))
-                {
-                    if (auto* controller = SDL_OpenGamepad(gamepadIds[i]))
-                    {
-                        mGamepads.push_back(controller);
-                    }
-                }
-            }
-        }
-
+        explicit Window(std::unique_ptr<Impl> impl);
         ~Window();
 
-        /**
-         * @brief Updates window state, polls events, and calculates delta time.
-         * @note Updates FPS counter in window title every second
-         */
+        Window(const Window&)            = delete;
+        Window& operator=(const Window&) = delete;
+
         void Update();
 
-        /**
-         * @brief Returns window width in pixels.
-         */
-        [[nodiscard]] std::uint32_t GetWidth() const
-        {
-            return mFreyaOptions->width;
-        }
+        [[nodiscard]] std::uint32_t GetWidth() const;
+        [[nodiscard]] std::uint32_t GetHeight() const;
+        [[nodiscard]] float         GetScale() const;
 
-        /**
-         * @brief Returns window height in pixels.
-         */
-        [[nodiscard]] std::uint32_t GetHeight() const
-        {
-            return mFreyaOptions->height;
-        }
+        void Resize(std::uint32_t width, std::uint32_t height);
 
-        /**
-         * @brief Returns the display content scale factor.
-         * @return Scale factor (e.g., 1.0, 1.5, 2.0)
-         */
-        float GetScale() const
-        {
-            SDL_DisplayID display_id = SDL_GetDisplayForWindow(mWindow);
-            float         scale      = SDL_GetDisplayContentScale(display_id);
+        [[nodiscard]] bool IsRunning() const;
+        void               Close();
 
-            return scale;
-        }
+        [[nodiscard]] float GetDeltaTime() const;
 
-        /**
-         * @brief Resizes the window dimensions in freyaOptions.
-         * @param width  New width in pixels
-         * @param height New height in pixels
-         */
-        void Resize(const std::uint32_t width, const std::uint32_t height)
-        {
-            mFreyaOptions->width  = width;
-            mFreyaOptions->height = height;
-        }
+        [[nodiscard]] bool IsFullscreen() const;
+        void               SetFullscreen(bool fullscreen);
 
-        /**
-         * @brief Returns whether the window is running (not closed).
-         */
-        [[nodiscard]] bool IsRunning() const { return mRunning; }
-
-        /**
-         * @brief Closes the window, setting running to false.
-         */
-        void Close() { mRunning = false; }
-
-        /**
-         * @brief Returns time since last frame in seconds.
-         */
-        [[nodiscard]] float GetDeltaTime() const { return mDeltaTime; }
-
-        /**
-         * @brief Returns fullscreen state.
-         */
-        bool IsFullscreen() const
-        {
-            return SDL_GetWindowFlags(mWindow) & SDL_WINDOW_FULLSCREEN;
-        }
-
-        /**
-         * @brief Sets fullscreen mode.
-         * @param fullscreen true for fullscreen, false for windowed
-         */
-        void SetFullscreen(bool fullscreen)
-        {
-            SDL_SetWindowFullscreen(mWindow, fullscreen);
-        }
-
-        /**
-         * @brief Returns whether mouse is grabbed.
-         */
-        [[nodiscard]] bool IsMouseGrab() const
-        {
-            return SDL_GetWindowFlags(mWindow) & SDL_WINDOW_MOUSE_GRABBED;
-        }
-
-        /**
-         * @brief Sets mouse grab state and relative mouse mode.
-         * @param grab true to grab, false to release
-         */
-        void SetMouseGrab(bool grab) const;
-
-        /**
-         * @brief Returns the underlying SDL_Window pointer.
-         */
-        SDL_Window* Get() const { return mWindow; }
-
-        /**
-         * @brief Adds a callback for polling SDL events.
-         * @param callback Function called for each SDL_Event
-         */
-        void AddEventPollCallback(std::function<void(SDL_Event)> callback)
-        {
-            mEventPollCallbacks.push_back(callback);
-        }
+        [[nodiscard]] bool IsMouseGrab() const;
+        void               SetMouseGrab(bool grab) const;
 
       private:
-        friend class ApplicationBuilder;
-        void pollEvents();
+        friend class WindowBuilder;
+        friend struct WindowNative;
 
-        skr::Arc<EventManager>        mEventManager;
-        skr::Arc<FreyaOptions>        mFreyaOptions;
-        skr::Arc<skr::Logger<Window>> mLogger;
-
-        std::vector<SDL_Gamepad*>                   mGamepads;
-        std::vector<std::function<void(SDL_Event)>> mEventPollCallbacks;
-        SDL_Window*                                 mWindow;
-        bool                                        mRunning;
-        float                                       mDeltaTime;
+        std::unique_ptr<Impl> mImpl;
     };
 
 } // namespace FREYA_NAMESPACE

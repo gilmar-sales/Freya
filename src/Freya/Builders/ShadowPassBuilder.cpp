@@ -1,5 +1,7 @@
 #include "Freya/Builders/ShadowPassBuilder.hpp"
 
+#include "Freya/Internal/VertexInput.hpp"
+
 #include "Freya/Asset/InstanceTransform.hpp"
 #include "Freya/Asset/Vertex.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
@@ -53,7 +55,7 @@ namespace FREYA_NAMESPACE
         // Depth.vert: position, texCoord (Mask alpha), instance model,
         // boneOffset (loc13), joints/weights. Stride still covers prevModel;
         // unused attrs are omitted to avoid validation warnings.
-        auto vertexBinding = Vertex::GetBindingDescription();
+        auto vertexBinding = GetVertexBindingDescription();
         auto vertexAttributes =
             std::vector<vk::VertexInputAttributeDescription> {
                 vk::VertexInputAttributeDescription()

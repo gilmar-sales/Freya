@@ -1,8 +1,13 @@
 #include "Freya/Asset/MeshPool.hpp"
 
+#include "Freya/Asset/MaterialPool.hpp"
+#include "Freya/Asset/TexturePool.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Containers/MeshSet.hpp"
 #include "Freya/Core/Buffer.hpp"
+#include "Freya/Core/CommandPool.hpp"
+#include "Freya/Core/Device.hpp"
+#include "Freya/Core/PhysicalDevice.hpp"
 
 #ifndef NDEBUG
     #undef __OPTIMIZE__

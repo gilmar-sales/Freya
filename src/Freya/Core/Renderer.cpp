@@ -1,4 +1,6 @@
-#include "Renderer.hpp"
+#include "Freya/Internal/RendererImpl.hpp"
+
+#include "Freya/Internal/VulkanCompat.hpp"
 
 #include "Freya/Asset/BoneMatrixResources.hpp"
 #include "Freya/Builders/BloomPassBuilder.hpp"
@@ -67,7 +69,7 @@ namespace FREYA_NAMESPACE
         }
     } // namespace
 
-    Renderer::Renderer(
+    Renderer::Impl::Impl(
         const skr::Arc<Instance>&               instance,
         const skr::Arc<Surface>&                surface,
         const skr::Arc<PhysicalDevice>&         physicalDevice,
@@ -167,7 +169,7 @@ namespace FREYA_NAMESPACE
         rebuildSceneResources();
     }
 
-    Renderer::~Renderer()
+    Renderer::Impl::~Impl()
     {
         mDevice->Get().waitIdle();
 
@@ -187,7 +189,7 @@ namespace FREYA_NAMESPACE
         mInstance.reset();
     }
 
-    void Renderer::RebuildSwapChain()
+    void Renderer::Impl::RebuildSwapChain()
     {
         mDevice->Get().waitIdle();
 
@@ -197,14 +199,14 @@ namespace FREYA_NAMESPACE
         rebuildSceneResources();
     }
 
-    vk::Extent2D Renderer::getRenderExtent() const
+    vk::Extent2D Renderer::Impl::getRenderExtent() const
     {
         if (mOutputTarget)
             return mOutputTarget->GetExtent();
         return mSwapChain->GetExtent();
     }
 
-    void Renderer::rebuildSceneResources()
+    void Renderer::Impl::rebuildSceneResources()
     {
         const auto extent = getRenderExtent();
 
@@ -239,7 +241,7 @@ namespace FREYA_NAMESPACE
             mIndirectDraw->ResizeHiZ(extent);
     }
 
-    void Renderer::registerDefaultFrameStages()
+    void Renderer::Impl::registerDefaultFrameStages()
     {
         mFrameStages = {
             std::make_shared<GpuAnimFrameStage>(),
@@ -257,7 +259,7 @@ namespace FREYA_NAMESPACE
         };
     }
 
-    RenderFrameContext Renderer::makeFrameContext()
+    RenderFrameContext Renderer::Impl::makeFrameContext()
     {
         RenderFrameContext ctx;
         ctx.commandPool                = mCommandPool;
@@ -331,7 +333,7 @@ namespace FREYA_NAMESPACE
         return ctx;
     }
 
-    skr::Arc<Image> Renderer::createSsaoFallbackImage() const
+    skr::Arc<Image> Renderer::Impl::createSsaoFallbackImage() const
     {
         constexpr std::uint8_t kWhite[] = { 255, 255, 255, 255 };
         auto                   staging =
@@ -352,7 +354,8 @@ namespace FREYA_NAMESPACE
             .Build();
     }
 
-    bool Renderer::InsertFrameStage(const char* beforeName, FrameStagePtr stage)
+    bool Renderer::Impl::InsertFrameStage(const char*   beforeName,
+                                          FrameStagePtr stage)
     {
         if (!stage || !beforeName)
             return false;
@@ -370,7 +373,8 @@ namespace FREYA_NAMESPACE
         return true;
     }
 
-    bool Renderer::ReplaceFrameStage(const char* name, FrameStagePtr stage)
+    bool Renderer::Impl::ReplaceFrameStage(const char*   name,
+                                           FrameStagePtr stage)
     {
         if (!stage || !name)
             return false;
@@ -386,7 +390,7 @@ namespace FREYA_NAMESPACE
         return true;
     }
 
-    void Renderer::resizePickPass(const vk::Extent2D extent)
+    void Renderer::Impl::resizePickPass(const vk::Extent2D extent)
     {
         if (!mPickPass || extent.width == 0 || extent.height == 0)
         {
@@ -420,7 +424,7 @@ namespace FREYA_NAMESPACE
         mPickPass->Resize(extent, colorImage, depthImage);
     }
 
-    void Renderer::SetShadowQuality(const ShadowQuality quality)
+    void Renderer::Impl::SetShadowQuality(const ShadowQuality quality)
     {
         if (mShadowQuality == quality)
             return;
@@ -455,7 +459,7 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void Renderer::SetSsaoQuality(const SsaoQuality quality)
+    void Renderer::Impl::SetSsaoQuality(const SsaoQuality quality)
     {
         if (mSsaoQuality == quality)
             return;
@@ -475,32 +479,32 @@ namespace FREYA_NAMESPACE
         rebuildSceneResources();
     }
 
-    void Renderer::SetSsaoDebugView(const SsaoDebugView view)
+    void Renderer::Impl::SetSsaoDebugView(const SsaoDebugView view)
     {
         mFreyaOptions->ssaoDebugView = view;
     }
 
-    void Renderer::SetSsaoRadius(const float radius)
+    void Renderer::Impl::SetSsaoRadius(const float radius)
     {
         mFreyaOptions->ssaoRadius = std::max(0.0f, radius);
     }
 
-    void Renderer::SetSsaoBias(const float bias)
+    void Renderer::Impl::SetSsaoBias(const float bias)
     {
         mFreyaOptions->ssaoBias = std::max(0.0f, bias);
     }
 
-    void Renderer::SetSsaoPower(const float power)
+    void Renderer::Impl::SetSsaoPower(const float power)
     {
         mFreyaOptions->ssaoPower = std::max(0.0f, power);
     }
 
-    void Renderer::SetSsaoIntensity(const float intensity)
+    void Renderer::Impl::SetSsaoIntensity(const float intensity)
     {
         mFreyaOptions->ssaoIntensity = std::max(0.0f, intensity);
     }
 
-    void Renderer::SetTaaQuality(const TaaQuality quality)
+    void Renderer::Impl::SetTaaQuality(const TaaQuality quality)
     {
         if (mTaaQuality == quality)
             return;
@@ -520,7 +524,7 @@ namespace FREYA_NAMESPACE
             mTaaPass->ResetHistory();
     }
 
-    void Renderer::SetBloomQuality(const BloomQuality quality)
+    void Renderer::Impl::SetBloomQuality(const BloomQuality quality)
     {
         if (mBloomQuality == quality)
             return;
@@ -540,24 +544,25 @@ namespace FREYA_NAMESPACE
         rebuildSceneResources();
     }
 
-    void Renderer::SetOutputTarget(const skr::Arc<RenderTarget>& target)
+    void Renderer::Impl::SetOutputTarget(const skr::Arc<RenderTarget>& target)
     {
         mDevice->Get().waitIdle();
         mOutputTarget = target;
         rebuildSceneResources();
     }
 
-    void Renderer::ClearOutputTarget()
+    void Renderer::Impl::ClearOutputTarget()
     {
         mDevice->Get().waitIdle();
         mOutputTarget.reset();
         rebuildSceneResources();
     }
 
-    void Renderer::beginUIPass()
+    void Renderer::Impl::beginUIPass()
     {
-        mCompositePass->Begin(mSwapChain, mCommandPool,
-                              mFreyaOptions->clearColor, DebugLabel::UI);
+        mCompositePass->Begin(
+            mSwapChain, mCommandPool, ToVkClearValue(mFreyaOptions->clearColor),
+            DebugLabel::UI);
 
         const auto extent        = mSwapChain->GetExtent();
         const auto commandBuffer = mCommandPool->GetCommandBuffer();
@@ -579,9 +584,9 @@ namespace FREYA_NAMESPACE
         mUIPassOpen = true;
     }
 
-    void Renderer::beginComposite(const std::uint32_t    frameIndex,
-                                  const skr::Arc<Image>& sceneImage,
-                                  const bool             tonemapHdr)
+    void Renderer::Impl::beginComposite(const std::uint32_t    frameIndex,
+                                        const skr::Arc<Image>& sceneImage,
+                                        const bool             tonemapHdr)
     {
         mCompositePass->UpdateDescriptorSet(
             frameIndex, sceneImage, mBloomResultImages[frameIndex],
@@ -593,12 +598,12 @@ namespace FREYA_NAMESPACE
                                   mOutputTarget->GetFramebuffer(),
                                   mOutputTarget->GetExtent(),
                                   mCommandPool,
-                                  mFreyaOptions->clearColor);
+                                  ToVkClearValue(mFreyaOptions->clearColor));
         }
         else
         {
             mCompositePass->Begin(mSwapChain, mCommandPool,
-                                  mFreyaOptions->clearColor);
+                                  ToVkClearValue(mFreyaOptions->clearColor));
         }
 
         mCompositePass->BindPipeline(mCommandPool, frameIndex);
@@ -610,38 +615,38 @@ namespace FREYA_NAMESPACE
             beginUIPass();
     }
 
-    vk::RenderPass Renderer::GetUIRenderPass()
+    vk::RenderPass Renderer::Impl::GetUIRenderPass()
     {
         return mCompositePass->GetRenderPass();
     }
 
-    vk::CommandBuffer Renderer::GetCommandBuffer()
+    vk::CommandBuffer Renderer::Impl::GetCommandBuffer()
     {
         return mCommandPool->GetCommandBuffer();
     }
 
-    void Renderer::SetVSync(const bool vSync)
+    void Renderer::Impl::SetVSync(const bool vSync)
     {
         mFreyaOptions->vSync = vSync;
         RebuildSwapChain();
     }
 
-    void Renderer::SetSamples(const std::uint32_t samples)
+    void Renderer::Impl::SetSamples(const std::uint32_t samples)
     {
         mFreyaOptions->sampleCount = samples;
         RebuildSwapChain();
     }
 
-    void Renderer::SetDrawDistance(const float drawDistance)
+    void Renderer::Impl::SetDrawDistance(const float drawDistance)
     {
         mFreyaOptions->drawDistance = drawDistance;
         ClearProjections();
     }
 
-    glm::mat4 Renderer::MakeProjection(const float fovRadians,
-                                       const float aspect,
-                                       const float near,
-                                       const float far) const
+    glm::mat4 Renderer::Impl::MakeProjection(const float fovRadians,
+                                             const float aspect,
+                                             const float near,
+                                             const float far) const
     {
         auto projection = mFreyaOptions->ReverseZ
                               ? glm::perspective(fovRadians, aspect, far, near)
@@ -651,7 +656,7 @@ namespace FREYA_NAMESPACE
         return projection;
     }
 
-    void Renderer::ClearProjections()
+    void Renderer::Impl::ClearProjections()
     {
         const auto extent = mSurface->QueryExtent();
 
@@ -692,8 +697,8 @@ namespace FREYA_NAMESPACE
             projectionUniformBuffer.projection;
     }
 
-    glm::mat4 Renderer::CalculateProjectionMatrix(const float near,
-                                                  const float far) const
+    glm::mat4 Renderer::Impl::CalculateProjectionMatrix(const float near,
+                                                        const float far) const
     {
         const auto extent = mSurface->QueryExtent();
         return MakeProjection(glm::radians(75.0f),
@@ -703,7 +708,7 @@ namespace FREYA_NAMESPACE
                               far);
     }
 
-    ProjectionUniformBuffer Renderer::prepareDeferredProjection(
+    ProjectionUniformBuffer Renderer::Impl::prepareDeferredProjection(
         const ProjectionUniformBuffer& unjittered) const
     {
         auto upload                 = unjittered;
@@ -716,7 +721,7 @@ namespace FREYA_NAMESPACE
         return upload;
     }
 
-    void Renderer::commitTaaHistory()
+    void Renderer::Impl::commitTaaHistory()
     {
         mPrevViewProjection =
             mCurrentProjection.projection * mCurrentProjection.view;
@@ -724,7 +729,7 @@ namespace FREYA_NAMESPACE
             ++mTaaFrameIndex;
     }
 
-    void Renderer::UpdateProjection(
+    void Renderer::Impl::UpdateProjection(
         ProjectionUniformBuffer& projectionUniformBuffer)
     {
         const auto frameIndex = mSwapChain->GetCurrentFrameIndex();
@@ -737,9 +742,8 @@ namespace FREYA_NAMESPACE
             projectionUniformBuffer.projection;
     }
 
-    void Renderer::UpdateCamera(const glm::vec3& position,
-                                const glm::vec3& target,
-                                const glm::vec3& up)
+    void Renderer::Impl::UpdateCamera(
+        const glm::vec3& position, const glm::vec3& target, const glm::vec3& up)
     {
         auto projectionUniformBuffer = mCurrentProjection;
         projectionUniformBuffer.view = glm::lookAt(position, target, up);
@@ -756,7 +760,7 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void Renderer::SetAmbient(const glm::vec3& color, float intensity)
+    void Renderer::Impl::SetAmbient(const glm::vec3& color, float intensity)
     {
         mCurrentProjection.ambientLight = glm::vec4(color, intensity);
         for (std::uint32_t frameIndex = 0;
@@ -768,8 +772,9 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void Renderer::blitBloomToFullRes(const skr::Arc<CommandPool>& commandPool,
-                                      const std::uint32_t frameIndex) const
+    void Renderer::Impl::blitBloomToFullRes(
+        const skr::Arc<CommandPool>& commandPool,
+        const std::uint32_t          frameIndex) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
         mDevice->BeginDebugLabel(commandBuffer, DebugLabel::BloomBlit);
@@ -885,19 +890,19 @@ namespace FREYA_NAMESPACE
         mDevice->EndDebugLabel(commandBuffer);
     }
 
-    vk::PipelineLayout Renderer::GetActivePipelineLayout() const
+    vk::PipelineLayout Renderer::Impl::GetActivePipelineLayout() const
     {
         if (mDrawPipelineLayoutOverride)
             return mDrawPipelineLayoutOverride;
         return mDeferredPass->GetVertexPipelineLayout();
     }
 
-    vk::RenderPass Renderer::GetActiveRenderPass() const
+    vk::RenderPass Renderer::Impl::GetActiveRenderPass() const
     {
         return mDeferredPass->GetRenderPass();
     }
 
-    void Renderer::UpdateModel(const glm::mat4& model) const
+    void Renderer::Impl::UpdateModel(const glm::mat4& model) const
     {
         auto layout = GetActivePipelineLayout();
         mCommandPool->GetCommandBuffer().pushConstants(
@@ -908,19 +913,19 @@ namespace FREYA_NAMESPACE
             &model);
     }
 
-    void Renderer::UploadSceneInstances(
+    void Renderer::Impl::UploadSceneInstances(
         const std::span<const SceneInstanceUpload> uploads)
     {
         mUsedUploadApi = true;
         if (mIndirectDraw)
         {
-            mIndirectDraw->UploadSceneInstances(uploads,
-                                                GetCurrentFrameIndex());
+            mIndirectDraw->UploadSceneInstances(
+                uploads, mSwapChain->GetCurrentFrameIndex());
         }
     }
 
-    void Renderer::SetInstanceModels(const glm::mat4*  models,
-                                     const std::size_t count)
+    void Renderer::Impl::SetInstanceModels(const glm::mat4*  models,
+                                           const std::size_t count)
     {
         mLegacyModels.clear();
         if (count == 0 || models == nullptr)
@@ -928,16 +933,17 @@ namespace FREYA_NAMESPACE
         mLegacyModels.assign(models, models + count);
     }
 
-    void Renderer::UploadBoneMatrices(const std::span<const glm::mat4> bones)
+    void Renderer::Impl::UploadBoneMatrices(
+        const std::span<const glm::mat4> bones)
     {
         if (auto boneResources =
                 mServiceProvider->GetService<BoneMatrixResources>())
         {
-            boneResources->Upload(GetCurrentFrameIndex(), bones);
+            boneResources->Upload(mSwapChain->GetCurrentFrameIndex(), bones);
         }
     }
 
-    void Renderer::RebuildGpuAnimPass()
+    void Renderer::Impl::RebuildGpuAnimPass()
     {
         if (!mDevice || !mServiceProvider)
             return;
@@ -950,10 +956,10 @@ namespace FREYA_NAMESPACE
             mGpuAnimPass->SetEnabled(wasEnabled);
     }
 
-    bool Renderer::ReadbackGpuAnimBones(const std::uint32_t frameIndex,
-                                        const std::uint32_t boneOffset,
-                                        const std::span<glm::mat4>
-                                            out)
+    bool Renderer::Impl::ReadbackGpuAnimBones(const std::uint32_t frameIndex,
+                                              const std::uint32_t boneOffset,
+                                              const std::span<glm::mat4>
+                                                  out)
     {
         if (!mGpuAnimPass)
             return false;
@@ -962,7 +968,7 @@ namespace FREYA_NAMESPACE
             static_cast<std::uint32_t>(out.size()), out);
     }
 
-    bool Renderer::DispatchGpuAnimImmediate(
+    bool Renderer::Impl::DispatchGpuAnimImmediate(
         const std::span<const GpuAnimInstance> instances,
         const std::uint32_t                    frameIndex)
     {
@@ -975,60 +981,61 @@ namespace FREYA_NAMESPACE
         return true;
     }
 
-    void Renderer::SetGpuAnimJointExtract(
+    void Renderer::Impl::SetGpuAnimJointExtract(
         const std::span<const GpuJointExtractRequest> requests)
     {
         if (mGpuAnimPass)
             mGpuAnimPass->SetJointExtractList(requests);
     }
 
-    bool Renderer::PollGpuAnimJointExtract(
+    bool Renderer::Impl::PollGpuAnimJointExtract(
         const std::span<GpuJointExtractSample> out, std::uint32_t* outCount)
     {
         if (!mGpuAnimPass)
             return false;
         return mGpuAnimPass->PollJointExtract(
-            GetCurrentFrameIndex(), out, outCount);
+            mSwapChain->GetCurrentFrameIndex(), out, outCount);
     }
 
-    bool Renderer::PollGpuAnimTiming(GpuAnimTimingSample& out)
+    bool Renderer::Impl::PollGpuAnimTiming(GpuAnimTimingSample& out)
     {
         out = {};
         if (!mGpuAnimPass)
             return false;
-        return mGpuAnimPass->PollTiming(GetCurrentFrameIndex(), out);
+        return mGpuAnimPass->PollTiming(mSwapChain->GetCurrentFrameIndex(),
+                                        out);
     }
 
-    BufferBuilder Renderer::GetBufferBuilder() const
+    BufferBuilder Renderer::Impl::GetBufferBuilder() const
     {
         return BufferBuilder(mDevice);
     }
 
-    RenderTargetBuilder Renderer::GetRenderTargetBuilder() const
+    RenderTargetBuilder Renderer::Impl::GetRenderTargetBuilder() const
     {
         return RenderTargetBuilder(mDevice, mSurface, mServiceProvider);
     }
 
-    void Renderer::BindBuffer(const skr::Arc<Buffer>& buffer) const
+    void Renderer::Impl::BindBuffer(const skr::Arc<Buffer>& buffer) const
     {
         buffer->Bind(mCommandPool);
     }
 
-    void Renderer::Draw(const std::uint32_t meshId,
-                        const std::uint32_t materialId,
-                        const std::uint32_t entityId,
-                        const bool          castShadows)
+    void Renderer::Impl::Draw(const std::uint32_t meshId,
+                              const std::uint32_t materialId,
+                              const std::uint32_t entityId,
+                              const bool          castShadows)
     {
         mDrawCommands.push_back(
             { meshId, materialId, 1, 0, entityId, castShadows });
     }
 
-    void Renderer::DrawInstanced(const std::uint32_t meshId,
-                                 const std::uint32_t materialId,
-                                 const size_t        instanceCount,
-                                 const size_t        firstInstance,
-                                 const bool          castShadows,
-                                 const std::uint32_t entityId)
+    void Renderer::Impl::DrawInstanced(const std::uint32_t meshId,
+                                       const std::uint32_t materialId,
+                                       const size_t        instanceCount,
+                                       const size_t        firstInstance,
+                                       const bool          castShadows,
+                                       const std::uint32_t entityId)
     {
         mDrawCommands.push_back(
             { meshId, materialId, static_cast<std::uint32_t>(instanceCount),
@@ -1036,14 +1043,14 @@ namespace FREYA_NAMESPACE
               castShadows });
     }
 
-    void Renderer::ClearDrawCommands()
+    void Renderer::Impl::ClearDrawCommands()
     {
         mDrawCommands.clear();
         mLegacyUploads.clear();
         mUsedUploadApi = false;
     }
 
-    void Renderer::flushLegacyDrawCommands()
+    void Renderer::Impl::flushLegacyDrawCommands()
     {
         if (mUsedUploadApi || !mIndirectDraw || mDrawCommands.empty())
             return;
@@ -1065,11 +1072,12 @@ namespace FREYA_NAMESPACE
             }
         }
 
-        mIndirectDraw->UploadSceneInstances(mLegacyUploads,
-                                            GetCurrentFrameIndex());
+        mIndirectDraw->UploadSceneInstances(
+            mLegacyUploads, mSwapChain->GetCurrentFrameIndex());
     }
 
-    void Renderer::DispatchCull(const glm::mat4& viewProj, const CullMode mode)
+    void Renderer::Impl::DispatchCull(const glm::mat4& viewProj,
+                                      const CullMode   mode)
     {
         flushLegacyDrawCommands();
         if (!mIndirectDraw)
@@ -1081,7 +1089,7 @@ namespace FREYA_NAMESPACE
         mIndirectDraw->DispatchCull(viewProj, mode, mFreyaOptions->ReverseZ);
     }
 
-    void Renderer::ExecuteDrawCommands(const bool bindMaterials)
+    void Renderer::Impl::ExecuteDrawCommands(const bool bindMaterials)
     {
         flushLegacyDrawCommands();
         if (!mIndirectDraw)
@@ -1090,7 +1098,7 @@ namespace FREYA_NAMESPACE
         mIndirectDraw->ExecuteDraws(bindMaterials, GetActivePipelineLayout());
     }
 
-    void Renderer::ExecutePickDrawCommands()
+    void Renderer::Impl::ExecutePickDrawCommands()
     {
         flushLegacyDrawCommands();
         if (!mIndirectDraw)
@@ -1099,14 +1107,15 @@ namespace FREYA_NAMESPACE
         mIndirectDraw->ExecuteDraws(false, {});
     }
 
-    void Renderer::RequestPick(const std::uint32_t x, const std::uint32_t y)
+    void Renderer::Impl::RequestPick(const std::uint32_t x,
+                                     const std::uint32_t y)
     {
         mPickRequested = true;
         mPickX         = x;
         mPickY         = y;
     }
 
-    bool Renderer::TryConsumePickResult(std::uint32_t& outEntityId)
+    bool Renderer::Impl::TryConsumePickResult(std::uint32_t& outEntityId)
     {
         if (!mPickAwaitingReadback || !mPickPass)
         {
@@ -1120,7 +1129,7 @@ namespace FREYA_NAMESPACE
         return true;
     }
 
-    void Renderer::BeginFrame()
+    void Renderer::Impl::BeginFrame()
     {
         mSwapChain->WaitNextFrame();
         mDrawCommands.clear();
@@ -1155,7 +1164,7 @@ namespace FREYA_NAMESPACE
         commandBuffer.begin(beginInfo);
     }
 
-    void Renderer::EndScene()
+    void Renderer::Impl::EndScene()
     {
         auto       ctx           = makeFrameContext();
         const auto commandBuffer = mCommandPool->GetCommandBuffer();
@@ -1171,7 +1180,7 @@ namespace FREYA_NAMESPACE
         mDevice->EndDebugLabel(commandBuffer);
     }
 
-    void Renderer::Present()
+    void Renderer::Impl::Present()
     {
         if (mUIPassOpen)
         {
@@ -1197,24 +1206,24 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void Renderer::EndFrame()
+    void Renderer::Impl::EndFrame()
     {
         EndScene();
         Present();
     }
 
-    void Renderer::NextSubpass()
+    void Renderer::Impl::NextSubpass()
     {
         mDeferredPass->NextSubpass(mCommandPool);
     }
 
-    void Renderer::BindSubpass(const std::uint32_t subpass)
+    void Renderer::Impl::BindSubpass(const std::uint32_t subpass)
     {
         mDeferredPass->BindPipeline(
             subpass, mCommandPool, mSwapChain->GetCurrentFrameIndex());
     }
 
-    void Renderer::AdvanceSubpass(const std::uint32_t subpass)
+    void Renderer::Impl::AdvanceSubpass(const std::uint32_t subpass)
     {
         mDeferredPass->AdvanceSubpass(
             subpass, mCommandPool, mSwapChain->GetCurrentFrameIndex());

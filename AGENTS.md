@@ -59,7 +59,7 @@ The CI `ctest` step runs against an empty suite.
 
 | Path | Purpose |
 |---|---|
-| `include/Freya/` | Public headers. Umbrella `Freya.hpp` (app surface) and `Vulkan.hpp` (Renderer, passes, builders). Sources implement types declared here. |
+| `include/Freya/` | Public headers. Umbrella `Freya.hpp` (app surface). Vulkan types live in `src/Freya/`. |
 | `src/Freya/` | Library `.cpp` plus `Vendor/` (`stb_image.h`). Headers live under `include/Freya/`. |
 | `Examples/IndustrialPipeLamp/` | Only example; binary lands at `build/Examples/IndustrialPipeLamp/IndustrialPipeLamp`. |
 | `Shaders/` | GLSL sources: `DeferredCompressed/`, `Shadow/`, `Pick/`. |
@@ -97,4 +97,4 @@ The CI `ctest` step runs against an empty suite.
 - FreyaOptions: title, dimensions, vSync, fullscreen, sampleCount, frameCount,
   clearColor, drawDistance, maxLights, ReverseZ, shaderRoot,
   enableSsao/enableTaa/enableBloom.
-- Advanced Vulkan types: `#include <Freya/Vulkan.hpp>`.
+- Application types: `#include <Freya/Freya.hpp>`.

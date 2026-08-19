@@ -1,5 +1,8 @@
 #include "Freya/Builders/TranslucentPassBuilder.hpp"
 
+#include "Freya/Internal/LightServiceGpu.hpp"
+#include "Freya/Internal/VertexInput.hpp"
+
 #include "Freya/Asset/Vertex.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
@@ -267,7 +270,7 @@ namespace FREYA_NAMESPACE
         }
 
         auto& bindlessLayout  = mMaterialResources->GetBindlessLayout();
-        auto  lightLayout     = mLightService->GetLayout();
+        auto  lightLayout     = LightServiceGpu::Layout(*mLightService);
         auto  accumSetLayouts = std::array {
             cameraSetLayout,
             bindlessLayout,
@@ -379,8 +382,8 @@ namespace FREYA_NAMESPACE
             makeStage(accumFrag->Get(), vk::ShaderStageFlagBits::eFragment),
         };
 
-        auto vertexBinding = Vertex::GetBindingDescription();
-        auto vertexAttrs   = Vertex::GetAttributesDescription();
+        auto vertexBinding = GetVertexBindingDescription();
+        auto vertexAttrs   = GetVertexAttributesDescription();
         auto vertexInput   = vk::PipelineVertexInputStateCreateInfo()
                                  .setVertexBindingDescriptions(vertexBinding)
                                  .setVertexAttributeDescriptions(vertexAttrs);

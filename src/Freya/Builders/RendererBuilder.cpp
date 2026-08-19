@@ -1,5 +1,7 @@
 #include "RendererBuilder.hpp"
 
+#include "Freya/Internal/RendererImpl.hpp"
+
 #include "Freya/Builders/BloomPassBuilder.hpp"
 #include "Freya/Builders/CommandPoolBuilder.hpp"
 #include "Freya/Builders/CompositePassBuilder.hpp"
@@ -83,7 +85,7 @@ namespace FREYA_NAMESPACE
         auto shadowPass   = mServiceProvider->GetService<ShadowPass>();
         auto pickPass     = mServiceProvider->GetService<PickPass>();
 
-        return skr::MakeArc<Renderer>(
+        return skr::MakeArc<Renderer>(std::make_unique<Renderer::Impl>(
             mInstance,
             mSurface,
             mPhysicalDevice,
@@ -102,7 +104,7 @@ namespace FREYA_NAMESPACE
             pickPass,
             mServiceProvider,
             mFreyaOptions,
-            mEventManager);
+            mEventManager));
     }
 
 } // namespace FREYA_NAMESPACE

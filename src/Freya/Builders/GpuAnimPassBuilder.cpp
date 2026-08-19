@@ -1,5 +1,9 @@
 #include "Freya/Builders/GpuAnimPassBuilder.hpp"
 
+#include "Freya/Internal/GpuAnimPassImpl.hpp"
+
+#include <memory>
+
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
 #include "Freya/Core/ShaderModule.hpp"
@@ -229,11 +233,11 @@ namespace FREYA_NAMESPACE
 
         mDevice->Get().destroyShaderModule(shader->Get());
 
-        return skr::MakeArc<GpuAnimPass>(
+        return skr::MakeArc<GpuAnimPass>(std::make_unique<GpuAnimPass::Impl>(
             mDevice, mBoneResources, pipelineLayout, pipeline, animSetLayout,
             animPool, animSet, parentsBuf, invBindBuf, clipHdrBuf, jointsBuf,
             instanceBuf, maskBuf, restBuf, localScratchBuf, globalScratchBuf,
-            readbackBuf, extractRingBuf, frameCount, quantize);
+            readbackBuf, extractRingBuf, frameCount, quantize));
     }
 
 } // namespace FREYA_NAMESPACE

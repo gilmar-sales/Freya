@@ -1,5 +1,7 @@
 #include "Freya/Builders/PickPassBuilder.hpp"
 
+#include "Freya/Internal/VertexInput.hpp"
+
 #include "Freya/Asset/InstanceTransform.hpp"
 #include "Freya/Asset/Vertex.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
@@ -106,7 +108,7 @@ namespace FREYA_NAMESPACE
                 .setPName("main"),
         };
 
-        auto vertexBinding = Vertex::GetBindingDescription();
+        auto vertexBinding = GetVertexBindingDescription();
         auto vertexAttributes =
             std::vector<vk::VertexInputAttributeDescription> {
                 vk::VertexInputAttributeDescription()

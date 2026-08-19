@@ -1,5 +1,7 @@
 #include "Freya/Builders/SurfaceBuilder.hpp"
 
+#include "Freya/Internal/WindowNative.hpp"
+
 namespace FREYA_NAMESPACE
 {
 
@@ -10,7 +12,7 @@ namespace FREYA_NAMESPACE
             "Could not build 'fra::Surface' with an invalid 'fra::Instance'");
 
         VkSurfaceKHR cSurface;
-        SDL_Vulkan_CreateSurface(mWindow->Get(),
+        SDL_Vulkan_CreateSurface(WindowNative::Get(*mWindow),
                                  mInstance->Get(),
                                  nullptr,
                                  &cSurface);

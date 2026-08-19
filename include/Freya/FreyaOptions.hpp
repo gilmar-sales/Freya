@@ -1,8 +1,11 @@
 #pragma once
 
+#include "Freya/Config.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <string>
 
 #include <glm/glm.hpp>
 
@@ -92,13 +95,22 @@ namespace FREYA_NAMESPACE
     };
 
     /**
+     * @brief Pixel extent used by FreyaOptions helpers (Vulkan-free).
+     */
+    struct Extent2D
+    {
+        std::uint32_t width  = 0;
+        std::uint32_t height = 0;
+    };
+
+    /**
      * @brief Scales a full render extent by an integer divisor (≥1).
      */
-    inline vk::Extent2D ScaledExtent(vk::Extent2D full, std::uint32_t divisor)
+    inline Extent2D ScaledExtent(Extent2D full, std::uint32_t divisor)
     {
         divisor = std::max(1u, divisor);
-        return vk::Extent2D { std::max(1u, full.width / divisor),
-                              std::max(1u, full.height / divisor) };
+        return Extent2D { std::max(1u, full.width / divisor),
+                          std::max(1u, full.height / divisor) };
     }
 
     /**
@@ -106,19 +118,19 @@ namespace FREYA_NAMESPACE
      */
     struct FreyaOptions
     {
-        std::string         title        = "Freya Window";
-        std::uint32_t       width        = 800;
-        std::uint32_t       height       = 600;
-        bool                vSync        = true;
-        bool                fullscreen   = true;
-        std::uint32_t       sampleCount  = 1;
-        std::uint32_t       frameCount   = 4;
-        vk::ClearColorValue clearColor   = { 0.0f, 0.0f, 0.0f, 0.0f };
-        float               drawDistance = 1000.0f;
-        std::uint32_t       maxLights    = 16;
-        float               iblIntensity = 0.7f;
-        float               exposure     = 0.7f;
-        std::string         environmentMapPath =
+        std::string   title        = "Freya Window";
+        std::uint32_t width        = 800;
+        std::uint32_t height       = 600;
+        bool          vSync        = true;
+        bool          fullscreen   = true;
+        std::uint32_t sampleCount  = 1;
+        std::uint32_t frameCount   = 4;
+        glm::vec4     clearColor   = { 0.0f, 0.0f, 0.0f, 0.0f };
+        float         drawDistance = 1000.0f;
+        std::uint32_t maxLights    = 16;
+        float         iblIntensity = 0.7f;
+        float         exposure     = 0.7f;
+        std::string   environmentMapPath =
             "./Resources/Environments/studio_small_09_4k.hdr";
         glm::vec3 ambientColor     = glm::vec3(1.0f);
         float     ambientIntensity = 0.03f;

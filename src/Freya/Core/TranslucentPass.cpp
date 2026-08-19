@@ -1,6 +1,7 @@
 #include "Freya/Core/TranslucentPass.hpp"
 
 #include "Freya/Core/DebugLabels.hpp"
+#include "Freya/Internal/LightServiceGpu.hpp"
 
 #include <array>
 #include <cstring>
@@ -138,7 +139,7 @@ namespace FREYA_NAMESPACE
 
         if (mLightService)
         {
-            auto lightSet = mLightService->GetSet(frameIndex);
+            auto lightSet = LightServiceGpu::Set(*mLightService, frameIndex);
             commandBuffer.bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics, mAccumulateLayout, 2, 1,
                 &lightSet, 0, nullptr);

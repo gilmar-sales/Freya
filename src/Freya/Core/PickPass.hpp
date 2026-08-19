@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Freya/Asset/BoneMatrixResources.hpp"
+#include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
@@ -13,13 +14,6 @@
 
 namespace FREYA_NAMESPACE
 {
-    /**
-     * @brief Clearest "no entity" value written to the ID buffer.
-     *
-     * Matches SelectionContext::Invalid / missing Freyr entities (0 is valid).
-     */
-    constexpr std::uint32_t kPickMissId = 0xFFFFFFFFu;
-
     /**
      * @brief Offscreen integer ID pass for GPU mouse picking.
      *

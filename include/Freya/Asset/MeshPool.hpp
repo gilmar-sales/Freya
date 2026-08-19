@@ -1,14 +1,12 @@
 #pragma once
 
 #include "Freya/Asset/GpuScene.hpp"
-#include "Freya/Asset/MaterialPool.hpp"
+#include "Freya/Asset/Material.hpp"
 #include "Freya/Asset/Mesh.hpp"
 #include "Freya/Asset/SkinnedModel.hpp"
-#include "Freya/Asset/TexturePool.hpp"
 #include "Freya/Asset/Vertex.hpp"
-#include "Freya/Core/CommandPool.hpp"
-#include "Freya/Core/Device.hpp"
-#include "Freya/Core/PhysicalDevice.hpp"
+
+#include <Skirnir/Skirnir.hpp>
 
 #include <memory>
 #include <span>
@@ -17,16 +15,15 @@
 
 namespace FREYA_NAMESPACE
 {
+    class Device;
+    class PhysicalDevice;
+    class CommandPool;
     class Buffer;
     class Renderer;
     class IndirectDrawSystem;
+    class MaterialPool;
+    class TexturePool;
 
-    /**
-     * @brief Manages mega vertex/index buffers and GPU mesh/LOD tables.
-     *
-     * All geometries live in a single uint32-indexed VBO/IBO pair. Mesh files
-     * are loaded through Assimp; LODs are generated with meshoptimizer.
-     */
     class MeshPool
     {
       public:
@@ -44,33 +41,13 @@ namespace FREYA_NAMESPACE
         MeshPool(MeshPool&&) noexcept;
         MeshPool& operator=(MeshPool&&) noexcept;
 
-        /**
-         * @brief Creates a mesh from CPU vertex/index data (builds LODs).
-         * @return Mesh ID for later drawing/binding
-         */
         std::uint32_t CreateMesh(const std::vector<Vertex>&        vertices,
                                  const std::vector<std::uint32_t>& indices);
 
-        /**
-         * @brief Creates meshes from a model file (GLTF, OBJ, FBX, etc.).
-         * @return Vector of mesh IDs created from the file
-         */
         std::vector<std::uint32_t> CreateMeshFromFile(const std::string& path);
 
-        /**
-         * @brief Load meshes and PBR materials from a model file (glTF/FBX).
-         *
-         * Textures are loaded via TexturePool (file or Assimp embedded).
-         * Metallic-roughness packed maps (glTF G/B) are detected automatically.
-         */
         std::vector<ModelSubmesh> CreateModelFromFile(const std::string& path);
 
-        /**
-         * @brief Load a skinned model (no PreTransformVertices).
-         *
-         * Builds a shared Skeleton, AnimationClips, and mesh IDs with
-         * joints/weights. Cull AABBs are inflated for posed conservatism.
-         */
         SkinnedModel CreateSkinnedModelFromFile(const std::string& path);
 
         [[nodiscard]] bool Contains(std::uint32_t meshId) const;
@@ -79,28 +56,17 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] std::uint32_t GetMeshCount() const;
 
-        /**
-         * @brief Fill a MeshInfo table (index = meshId). Grows to mesh count.
-         */
         void FillMeshInfos(std::vector<MeshInfo>& out) const;
 
-        /**
-         * @brief Flat LOD table referenced by MeshInfo::lodBase.
-         */
         void FillMeshLods(std::vector<MeshLodInfo>& out) const;
 
-        /**
-         * @brief Bind the global mega vertex + uint32 index buffers.
-         */
+      protected:
+        friend class FREYA_NAMESPACE::IndirectDrawSystem;
+
         void BindGeometry() const;
 
         [[nodiscard]] const skr::Arc<Buffer>& GetVertexBuffer() const;
-
         [[nodiscard]] const skr::Arc<Buffer>& GetIndexBuffer() const;
-
-      protected:
-        friend class FREYA_NAMESPACE::Renderer;
-        friend class FREYA_NAMESPACE::IndirectDrawSystem;
 
         void Draw(std::uint32_t meshId);
 

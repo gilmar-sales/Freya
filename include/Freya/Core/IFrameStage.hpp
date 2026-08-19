@@ -2,6 +2,8 @@
 
 #include <memory>
 
+#include <Skirnir/Skirnir.hpp>
+
 namespace FREYA_NAMESPACE
 {
     struct RenderFrameContext;
@@ -10,7 +12,8 @@ namespace FREYA_NAMESPACE
      * @brief One ordered step in the Renderer frame graph.
      *
      * Default stages wrap existing passes (Pick, Shadow, Deferred, …).
-     * Apps can InsertFrameStage / ReplaceFrameStage without forking Renderer.
+     * Apps insert stages created by Freya factories (e.g.
+     * FullscreenEffect::MakeStage).
      */
     class IFrameStage
     {

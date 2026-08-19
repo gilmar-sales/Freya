@@ -7,18 +7,23 @@
 #include "Freya/Builders/CompositePassBuilder.hpp"
 #include "Freya/Builders/DebugDrawPassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
+#include "Freya/Builders/DeviceBuilder.hpp"
 #include "Freya/Builders/FullscreenEffectBuilder.hpp"
 #include "Freya/Builders/GpuAnimPassBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/IndirectDrawSystemBuilder.hpp"
+#include "Freya/Builders/InstanceBuilder.hpp"
 #include "Freya/Builders/LightServiceBuilder.hpp"
 #include "Freya/Builders/MaterialDescriptorResourcesBuilder.hpp"
+#include "Freya/Builders/PhysicalDeviceBuilder.hpp"
 #include "Freya/Builders/PickPassBuilder.hpp"
 #include "Freya/Builders/RenderTargetBuilder.hpp"
+#include "Freya/Builders/RendererBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
 #include "Freya/Builders/ShadowPassBuilder.hpp"
 #include "Freya/Builders/SsaoPassBuilder.hpp"
 #include "Freya/Builders/SurfaceBuilder.hpp"
+#include "Freya/Builders/SwapChainBuilder.hpp"
 #include "Freya/Builders/TaaPassBuilder.hpp"
 #include "Freya/Builders/TranslucentPassBuilder.hpp"
 #include "Freya/Builders/WindowBuilder.hpp"
@@ -71,15 +76,12 @@ namespace FREYA_NAMESPACE
         services.AddTransient<IndirectDrawSystemBuilder>();
 
         services.AddSingleton<Instance>(
-            [this](skr::ServiceProvider& serviceProvider) {
+            [](skr::ServiceProvider& serviceProvider) {
                 auto freyaOptions = serviceProvider.GetService<FreyaOptions>();
                 auto instanceBuilder =
                     serviceProvider.GetService<InstanceBuilder>();
 
                 instanceBuilder->SetApplicationName(freyaOptions->title);
-
-                if (mConfigureInstance)
-                    (*mConfigureInstance)(*instanceBuilder);
 
                 return instanceBuilder->Build();
             });
@@ -93,23 +95,17 @@ namespace FREYA_NAMESPACE
             });
 
         services.AddSingleton<PhysicalDevice>(
-            [this](skr::ServiceProvider& serviceProvider) {
+            [](skr::ServiceProvider& serviceProvider) {
                 auto physicalDeviceBuilder =
                     serviceProvider.GetService<PhysicalDeviceBuilder>();
-
-                if (mConfigurePhysicalDevice)
-                    (*mConfigurePhysicalDevice)(*physicalDeviceBuilder);
 
                 return physicalDeviceBuilder->Build();
             });
 
         services.AddSingleton<Device>(
-            [this](skr::ServiceProvider& serviceProvider) {
+            [](skr::ServiceProvider& serviceProvider) {
                 auto deviceBuilder =
                     serviceProvider.GetService<DeviceBuilder>();
-
-                if (mConfigureDevice)
-                    (*mConfigureDevice)(*deviceBuilder);
 
                 return deviceBuilder->Build();
             });
@@ -124,12 +120,9 @@ namespace FREYA_NAMESPACE
             });
 
         services.AddTransient<SwapChain>(
-            [this](skr::ServiceProvider& serviceProvider) {
+            [](skr::ServiceProvider& serviceProvider) {
                 auto swapChainBuilder =
                     serviceProvider.GetService<SwapChainBuilder>();
-
-                if (mConfigureSwapChain)
-                    (*mConfigureSwapChain)(*swapChainBuilder);
 
                 return swapChainBuilder->Build();
             });
@@ -197,12 +190,9 @@ namespace FREYA_NAMESPACE
         // correct swapchain images.
 
         services.AddSingleton<Renderer>(
-            [this](skr::ServiceProvider& serviceProvider) {
+            [](skr::ServiceProvider& serviceProvider) {
                 auto rendererBuilder =
                     serviceProvider.GetService<RendererBuilder>();
-
-                if (mConfigureRenderer)
-                    (*mConfigureRenderer)(*rendererBuilder);
 
                 return rendererBuilder->Build();
             });

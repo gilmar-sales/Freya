@@ -22,6 +22,8 @@ namespace FREYA_NAMESPACE
     constexpr std::uint32_t kMaterialFlagDoubleSided   = 4u;
     constexpr std::uint32_t kMaterialFlagReceiveShadow = 8u;
 
+    constexpr std::uint32_t kPickMissId = 0xFFFFFFFFu;
+
     constexpr std::uint32_t kBindlessWhiteTexture = 0;
     constexpr std::uint32_t kBindlessBlackTexture = 1;
 

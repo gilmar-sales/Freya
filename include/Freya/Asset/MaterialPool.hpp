@@ -1,32 +1,27 @@
 #pragma once
 
 #include "Freya/Asset/Material.hpp"
-#include "Freya/Asset/MaterialDescriptorResources.hpp"
-#include "Freya/Asset/TexturePool.hpp"
-#include "Freya/Containers/SparseSet.hpp"
 
+#include <Skirnir/Skirnir.hpp>
+
+#include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
 namespace FREYA_NAMESPACE
 {
-    using MaterialSet = SparseSet<Material>;
+    class TexturePool;
 
-    /**
-     * @brief Manages materials combining multiple textures.
-     */
     class MaterialPool
     {
       public:
-        MaterialPool(const skr::Arc<MaterialDescriptorResources>& materials,
-                     const skr::Arc<TexturePool>&                 texturePool,
-                     const skr::Arc<skr::Logger<MaterialPool>>&   logger) :
-            mMaterialsRes(materials), mTexturePool(texturePool),
-            mLogger(logger), mMaterials(4096) {};
+        struct Impl;
 
-        ~MaterialPool() = default;
+        MaterialPool(const skr::Arc<skr::ServiceProvider>& serviceProvider);
 
-        /// albedo, normal, roughness, emissive, metalness (missing slots skip).
+        ~MaterialPool();
+
         std::uint32_t CreateFromTextureFiles(
             std::vector<std::string> texturesPath);
 
@@ -38,13 +33,7 @@ namespace FREYA_NAMESPACE
             std::uint32_t id) const;
 
       private:
-        void writeBindlessMaterial(Material& material);
-
-        skr::Arc<MaterialDescriptorResources> mMaterialsRes;
-        skr::Arc<TexturePool>                 mTexturePool;
-        skr::Arc<skr::Logger<MaterialPool>>   mLogger;
-
-        MaterialSet mMaterials;
+        std::unique_ptr<Impl> mImpl;
     };
 
 } // namespace FREYA_NAMESPACE

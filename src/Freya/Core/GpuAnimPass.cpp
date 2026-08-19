@@ -1,4 +1,4 @@
-#include "Freya/Core/GpuAnimPass.hpp"
+#include "Freya/Internal/GpuAnimPassImpl.hpp"
 
 #include <algorithm>
 #include <array>
@@ -7,7 +7,7 @@
 
 namespace FREYA_NAMESPACE
 {
-    GpuAnimPass::GpuAnimPass(
+    GpuAnimPass::Impl::Impl(
         const skr::Arc<Device>&              device,
         const skr::Arc<BoneMatrixResources>& boneResources,
         const vk::PipelineLayout             pipelineLayout,
@@ -51,7 +51,7 @@ namespace FREYA_NAMESPACE
         createTimestampPool();
     }
 
-    void GpuAnimPass::createTimestampPool()
+    void GpuAnimPass::Impl::createTimestampPool()
     {
         mTimestampPool     = nullptr;
         mTimestampPeriodNs = 0.f;
@@ -73,7 +73,8 @@ namespace FREYA_NAMESPACE
         if (*family >= qProps.size() || qProps[*family].timestampValidBits == 0)
             return;
 
-        const auto queryCount = mFrameCount * kTimestampQueriesPerSlot;
+        const auto queryCount =
+            mFrameCount * GpuAnimPass::kTimestampQueriesPerSlot;
         try
         {
             mTimestampPool = mDevice->Get().createQueryPool(
@@ -89,7 +90,7 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void GpuAnimPass::writeTimestamp(
+    void GpuAnimPass::Impl::writeTimestamp(
         const vk::CommandBuffer         commandBuffer,
         const std::uint32_t             queryIndex,
         const vk::PipelineStageFlagBits stage) const
@@ -99,7 +100,7 @@ namespace FREYA_NAMESPACE
         commandBuffer.writeTimestamp(stage, mTimestampPool, queryIndex);
     }
 
-    GpuAnimPass::~GpuAnimPass()
+    GpuAnimPass::Impl::~Impl()
     {
         if (!mDevice)
             return;
@@ -118,18 +119,19 @@ namespace FREYA_NAMESPACE
             mDevice->Get().destroyDescriptorSetLayout(mAnimSetLayout);
     }
 
-    void GpuAnimPass::SetJointExtractList(
+    void GpuAnimPass::Impl::SetJointExtractList(
         const std::span<const GpuJointExtractRequest> reqs)
     {
-        const auto n = std::min(
-            static_cast<std::uint32_t>(reqs.size()), kMaxExtractJoints);
+        const auto n = std::min(static_cast<std::uint32_t>(reqs.size()),
+                                GpuAnimPass::kMaxExtractJoints);
         mExtractRequests.assign(reqs.begin(), reqs.begin() + n);
     }
 
-    bool GpuAnimPass::PollJointExtract(const std::uint32_t frameIndex,
-                                       const std::span<GpuJointExtractSample>
-                                                      out,
-                                       std::uint32_t* outCount) const
+    bool GpuAnimPass::Impl::PollJointExtract(
+        const std::uint32_t frameIndex,
+        const std::span<GpuJointExtractSample>
+                       out,
+        std::uint32_t* outCount) const
     {
         if (outCount)
             *outCount = 0;
@@ -170,8 +172,8 @@ namespace FREYA_NAMESPACE
         return true;
     }
 
-    bool GpuAnimPass::PollTiming(const std::uint32_t  frameIndex,
-                                 GpuAnimTimingSample& out) const
+    bool GpuAnimPass::Impl::PollTiming(const std::uint32_t  frameIndex,
+                                       GpuAnimTimingSample& out) const
     {
         out = {};
         if (!mTimestampPool || mTimestampPeriodNs <= 0.f || mFrameCount == 0)
@@ -182,11 +184,13 @@ namespace FREYA_NAMESPACE
         if (!mTimingPending[prev])
             return false;
 
-        std::array<std::uint64_t, kTimestampQueriesPerSlot> stamps {};
-        const auto first  = prev * kTimestampQueriesPerSlot;
+        std::array<std::uint64_t, GpuAnimPass::kTimestampQueriesPerSlot>
+                   stamps {};
+        const auto first  = prev * GpuAnimPass::kTimestampQueriesPerSlot;
         const auto result = mDevice->Get().getQueryPoolResults(
-            mTimestampPool, first, kTimestampQueriesPerSlot, sizeof(stamps),
-            stamps.data(), sizeof(std::uint64_t), vk::QueryResultFlagBits::e64);
+            mTimestampPool, first, GpuAnimPass::kTimestampQueriesPerSlot,
+            sizeof(stamps), stamps.data(), sizeof(std::uint64_t),
+            vk::QueryResultFlagBits::e64);
         if (result != vk::Result::eSuccess)
             return false;
 
@@ -205,20 +209,20 @@ namespace FREYA_NAMESPACE
         return true;
     }
 
-    void GpuAnimPass::UploadSkeleton(const GpuSkeletonPack& skeleton)
+    void GpuAnimPass::Impl::UploadSkeleton(const GpuSkeletonPack& skeleton)
     {
-        mJointCount = std::min(skeleton.jointCount, kMaxJoints);
+        mJointCount = std::min(skeleton.jointCount, GpuAnimPass::kMaxJoints);
         if (mJointCount == 0)
             return;
 
-        std::vector<std::int32_t> parents(kMaxJoints, -1);
+        std::vector<std::int32_t> parents(GpuAnimPass::kMaxJoints, -1);
         for (std::uint32_t i = 0; i < mJointCount; ++i)
             parents[i] = skeleton.parents[i];
         mParentsBuffer->Copy(
             parents.data(),
             static_cast<std::uint32_t>(parents.size() * sizeof(std::int32_t)));
 
-        std::vector<glm::mat4> inv(kMaxJoints, glm::mat4(1.f));
+        std::vector<glm::mat4> inv(GpuAnimPass::kMaxJoints, glm::mat4(1.f));
         for (std::uint32_t i = 0; i < mJointCount; ++i)
             inv[i] = skeleton.inverseBind[i];
         mInvBindBuffer->Copy(
@@ -226,12 +230,12 @@ namespace FREYA_NAMESPACE
             static_cast<std::uint32_t>(inv.size() * sizeof(glm::mat4)));
     }
 
-    std::uint32_t GpuAnimPass::JointsPerClipSlot() const
+    std::uint32_t GpuAnimPass::Impl::JointsPerClipSlot() const
     {
-        return MaxBakedJoints() / kMaxClips;
+        return MaxBakedJoints() / GpuAnimPass::kMaxClips;
     }
 
-    std::uint32_t GpuAnimPass::ResidentClipCount() const
+    std::uint32_t GpuAnimPass::Impl::ResidentClipCount() const
     {
         std::uint32_t n = 0;
         for (const auto& s : mClipSlots)
@@ -240,7 +244,8 @@ namespace FREYA_NAMESPACE
         return n;
     }
 
-    void GpuAnimPass::CaptureDebugSnapshot(GpuAnimDebugSnapshot& out) const
+    void GpuAnimPass::Impl::CaptureDebugSnapshot(
+        GpuAnimDebugSnapshot& out) const
     {
         out                         = {};
         out.enabled                 = mEnabled;
@@ -248,14 +253,14 @@ namespace FREYA_NAMESPACE
         out.timestampQueriesEnabled = HasTimestampQueries();
         out.instanceCount           = mInstanceCount;
         out.skeletonJoints          = mJointCount;
-        out.maxClips                = kMaxClips;
+        out.maxClips                = GpuAnimPass::kMaxClips;
         out.maxBakedJoints          = MaxBakedJoints();
         out.jointsPerClipSlot       = JointsPerClipSlot();
         out.residentClips           = ResidentClipCount();
         out.extractRequests =
             static_cast<std::uint32_t>(mExtractRequests.size());
-        out.slots.resize(kMaxClips);
-        for (std::uint32_t i = 0; i < kMaxClips; ++i)
+        out.slots.resize(GpuAnimPass::kMaxClips);
+        for (std::uint32_t i = 0; i < GpuAnimPass::kMaxClips; ++i)
         {
             const auto& s = mClipSlots[i];
             out.slots[i]  = { i,           s.key,    s.resident, s.pinned,
@@ -263,37 +268,38 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void GpuAnimPass::ResetClipCache()
+    void GpuAnimPass::Impl::ResetClipCache()
     {
         mClipSlots.fill({});
         mClipTouchClock = 1;
         if (!mClipHeaderBuffer)
             return;
-        std::vector<GpuClipHeader> empty(kMaxClips);
+        std::vector<GpuClipHeader> empty(GpuAnimPass::kMaxClips);
         mClipHeaderBuffer->Copy(
             empty.data(),
             static_cast<std::uint32_t>(empty.size() * sizeof(GpuClipHeader)));
     }
 
-    void GpuAnimPass::TouchClipSlot(const std::uint32_t slot)
+    void GpuAnimPass::Impl::TouchClipSlot(const std::uint32_t slot)
     {
-        if (slot >= kMaxClips || !mClipSlots[slot].resident)
+        if (slot >= GpuAnimPass::kMaxClips || !mClipSlots[slot].resident)
             return;
         mClipSlots[slot].lastTouch = ++mClipTouchClock;
     }
 
-    void GpuAnimPass::PinClipSlot(const std::uint32_t slot, const bool pinned)
+    void GpuAnimPass::Impl::PinClipSlot(const std::uint32_t slot,
+                                        const bool          pinned)
     {
-        if (slot >= kMaxClips || !mClipSlots[slot].resident)
+        if (slot >= GpuAnimPass::kMaxClips || !mClipSlots[slot].resident)
             return;
         mClipSlots[slot].pinned = pinned;
     }
 
-    std::uint32_t GpuAnimPass::FindClipSlot(const std::uint64_t key) const
+    std::uint32_t GpuAnimPass::Impl::FindClipSlot(const std::uint64_t key) const
     {
         if (key == 0)
             return 0xffffffffu;
-        for (std::uint32_t i = 0; i < kMaxClips; ++i)
+        for (std::uint32_t i = 0; i < GpuAnimPass::kMaxClips; ++i)
         {
             if (mClipSlots[i].resident && mClipSlots[i].key == key)
                 return i;
@@ -301,9 +307,9 @@ namespace FREYA_NAMESPACE
         return 0xffffffffu;
     }
 
-    void GpuAnimPass::EvictClipSlot(const std::uint32_t slot)
+    void GpuAnimPass::Impl::EvictClipSlot(const std::uint32_t slot)
     {
-        if (slot >= kMaxClips)
+        if (slot >= GpuAnimPass::kMaxClips)
             return;
         mClipSlots[slot] = {};
         if (!mClipHeaderBuffer)
@@ -314,12 +320,13 @@ namespace FREYA_NAMESPACE
             static_cast<std::uint64_t>(slot) * sizeof(GpuClipHeader));
     }
 
-    bool GpuAnimPass::UploadClipSlot(const std::uint32_t slot,
-                                     const std::uint64_t key,
-                                     const BakedClip&    clip)
+    bool GpuAnimPass::Impl::UploadClipSlot(const std::uint32_t slot,
+                                           const std::uint64_t key,
+                                           const BakedClip&    clip)
     {
-        if (slot >= kMaxClips || key == 0 || clip.frameCount == 0 ||
-            clip.jointCount == 0 || !mClipHeaderBuffer || !mJointsBuffer)
+        if (slot >= GpuAnimPass::kMaxClips || key == 0 ||
+            clip.frameCount == 0 || clip.jointCount == 0 ||
+            !mClipHeaderBuffer || !mJointsBuffer)
             return false;
 
         const auto slab = JointsPerClipSlot();
@@ -366,8 +373,8 @@ namespace FREYA_NAMESPACE
         return true;
     }
 
-    std::uint32_t GpuAnimPass::EnsureClipResident(const std::uint64_t key,
-                                                  const BakedClip&    clip)
+    std::uint32_t GpuAnimPass::Impl::EnsureClipResident(const std::uint64_t key,
+                                                        const BakedClip& clip)
     {
         const auto existing = FindClipSlot(key);
         if (existing != 0xffffffffu)
@@ -377,7 +384,7 @@ namespace FREYA_NAMESPACE
         }
 
         std::uint32_t freeSlot = 0xffffffffu;
-        for (std::uint32_t i = 0; i < kMaxClips; ++i)
+        for (std::uint32_t i = 0; i < GpuAnimPass::kMaxClips; ++i)
         {
             if (!mClipSlots[i].resident)
             {
@@ -389,7 +396,7 @@ namespace FREYA_NAMESPACE
         if (freeSlot == 0xffffffffu)
         {
             std::uint64_t oldest = ~0ull;
-            for (std::uint32_t i = 0; i < kMaxClips; ++i)
+            for (std::uint32_t i = 0; i < GpuAnimPass::kMaxClips; ++i)
             {
                 const auto& s = mClipSlots[i];
                 if (!s.resident || s.pinned)
@@ -410,7 +417,7 @@ namespace FREYA_NAMESPACE
         return freeSlot;
     }
 
-    void GpuAnimPass::UploadBakes(const GpuBakePack& pack)
+    void GpuAnimPass::Impl::UploadBakes(const GpuBakePack& pack)
     {
         if (pack.quantized != mQuantizedJoints)
             return;
@@ -420,8 +427,9 @@ namespace FREYA_NAMESPACE
         // Rebuild contiguous pack into per-slot slabs (slots 0..n pinned).
         // Prefer EnsureClipResident with source BakedClips when streaming;
         // this path keeps a one-shot bulk load for simple demos.
-        const auto clipCount = std::min(
-            static_cast<std::uint32_t>(pack.headers.size()), kMaxClips);
+        const auto clipCount =
+            std::min(static_cast<std::uint32_t>(pack.headers.size()),
+                     GpuAnimPass::kMaxClips);
         if (clipCount == 0)
             return;
 
@@ -476,45 +484,45 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void GpuAnimPass::UploadBoneMask(const std::span<const float> weights)
+    void GpuAnimPass::Impl::UploadBoneMask(const std::span<const float> weights)
     {
         if (!mBoneMaskBuffer || weights.empty())
             return;
         const auto n = std::min(static_cast<std::uint32_t>(weights.size()),
-                                kMaxMaskFloats);
+                                GpuAnimPass::kMaxMaskFloats);
         mBoneMaskBuffer->Copy(weights.data(),
                               static_cast<std::uint32_t>(n * sizeof(float)));
     }
 
-    void GpuAnimPass::UploadRestJoints(
+    void GpuAnimPass::Impl::UploadRestJoints(
         const std::span<const GpuFloatJoint> joints)
     {
         if (mQuantizedJoints || !mRestJointsBuffer || joints.empty())
             return;
-        const auto n =
-            std::min(static_cast<std::uint32_t>(joints.size()), kMaxJoints);
+        const auto n = std::min(
+            static_cast<std::uint32_t>(joints.size()), GpuAnimPass::kMaxJoints);
         mRestJointsBuffer->Copy(
             joints.data(),
             static_cast<std::uint32_t>(n * sizeof(GpuFloatJoint)));
     }
 
-    void GpuAnimPass::UploadRestJoints(
+    void GpuAnimPass::Impl::UploadRestJoints(
         const std::span<const GpuQuantJoint> joints)
     {
         if (!mQuantizedJoints || !mRestJointsBuffer || joints.empty())
             return;
-        const auto n =
-            std::min(static_cast<std::uint32_t>(joints.size()), kMaxJoints);
+        const auto n = std::min(
+            static_cast<std::uint32_t>(joints.size()), GpuAnimPass::kMaxJoints);
         mRestJointsBuffer->Copy(
             joints.data(),
             static_cast<std::uint32_t>(n * sizeof(GpuQuantJoint)));
     }
 
-    void GpuAnimPass::UploadInstances(
+    void GpuAnimPass::Impl::UploadInstances(
         const std::span<const GpuAnimInstance> instances)
     {
         mInstanceCount = std::min(static_cast<std::uint32_t>(instances.size()),
-                                  kMaxInstances);
+                                  GpuAnimPass::kMaxInstances);
         if (mInstanceCount == 0)
             return;
         mInstanceBuffer->Copy(instances.data(),
@@ -522,8 +530,8 @@ namespace FREYA_NAMESPACE
                                   mInstanceCount * sizeof(GpuAnimInstance)));
     }
 
-    void GpuAnimPass::Dispatch(const skr::Arc<CommandPool>& commandPool,
-                               const std::uint32_t          frameIndex) const
+    void GpuAnimPass::Impl::Dispatch(const skr::Arc<CommandPool>& commandPool,
+                                     const std::uint32_t frameIndex) const
     {
         if (!mEnabled || mInstanceCount == 0 || !mBoneResources || !mPipeline)
             return;
@@ -535,7 +543,7 @@ namespace FREYA_NAMESPACE
         if (mTimestampPool)
         {
             commandBuffer.resetQueryPool(
-                mTimestampPool, qBase, kTimestampQueriesPerSlot);
+                mTimestampPool, qBase, GpuAnimPass::kTimestampQueriesPerSlot);
             mTimingPending[slot]       = 1;
             mTimingHasCarry[slot]      = mCopyPrevBones ? 1 : 0;
             mTimingInstanceCount[slot] = mInstanceCount;
@@ -571,7 +579,7 @@ namespace FREYA_NAMESPACE
         recordJointExtract(commandBuffer, frameIndex);
     }
 
-    void GpuAnimPass::DispatchImmediate(
+    void GpuAnimPass::Impl::DispatchImmediate(
         const skr::Arc<CommandPool>& commandPool,
         const std::uint32_t          frameIndex) const
     {
@@ -595,8 +603,8 @@ namespace FREYA_NAMESPACE
         commandPool->FreeCommandBuffer(cb);
     }
 
-    void GpuAnimPass::recordCompute(const vk::CommandBuffer commandBuffer,
-                                    const std::uint32_t     frameIndex) const
+    void GpuAnimPass::Impl::recordCompute(const vk::CommandBuffer commandBuffer,
+                                          const std::uint32_t frameIndex) const
     {
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, mPipeline);
         const auto boneSet = mBoneResources->GetSet(frameIndex);
@@ -629,8 +637,9 @@ namespace FREYA_NAMESPACE
             {});
     }
 
-    void GpuAnimPass::recordJointExtract(const vk::CommandBuffer commandBuffer,
-                                         const std::uint32_t frameIndex) const
+    void GpuAnimPass::Impl::recordJointExtract(
+        const vk::CommandBuffer commandBuffer,
+        const std::uint32_t     frameIndex) const
     {
         if (!mExtractRingBuffer || !mBoneResources || mExtractRequests.empty())
             return;
@@ -638,7 +647,7 @@ namespace FREYA_NAMESPACE
         const auto slot = extractSlot(frameIndex);
         const auto n =
             std::min(static_cast<std::uint32_t>(mExtractRequests.size()),
-                     kMaxExtractJoints);
+                     GpuAnimPass::kMaxExtractJoints);
         if (n == 0)
             return;
 
@@ -709,18 +718,19 @@ namespace FREYA_NAMESPACE
             {});
     }
 
-    bool GpuAnimPass::ReadbackBones(const skr::Arc<CommandPool>& commandPool,
-                                    const std::uint32_t          frameIndex,
-                                    const std::uint32_t          boneOffset,
-                                    const std::uint32_t          count,
-                                    const std::span<glm::mat4>
-                                        out) const
+    bool GpuAnimPass::Impl::ReadbackBones(
+        const skr::Arc<CommandPool>& commandPool,
+        const std::uint32_t          frameIndex,
+        const std::uint32_t          boneOffset,
+        const std::uint32_t          count,
+        const std::span<glm::mat4>
+            out) const
     {
         if (!mBoneResources || !mReadbackBuffer || count == 0 ||
             out.size() < count || mJointCount == 0)
             return false;
 
-        const auto n = std::min({ count, mJointCount, kMaxJoints,
+        const auto n = std::min({ count, mJointCount, GpuAnimPass::kMaxJoints,
                                   static_cast<std::uint32_t>(out.size()) });
         const auto byteCount =
             static_cast<vk::DeviceSize>(n) * sizeof(glm::mat4);

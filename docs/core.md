@@ -49,10 +49,9 @@ Default order:
 `Pick → Shadow → DeferredGeometry → SsaoLighting → Taa → Bloom → Composite`
 
 ```cpp
-#include <Freya/Vulkan.hpp>
+#include <Freya/Freya.hpp>
 
-mRenderer->InsertFrameStage("Composite", myStage);
-mRenderer->ReplaceFrameStage("Bloom", myBloom);
+mRenderer->InsertFrameStage("Bloom", cell->MakeStage());
 ```
 
 See [Flexibility](flexibility.md).
@@ -62,22 +61,14 @@ See [Flexibility](flexibility.md).
 | Method | Description |
 |--------|-------------|
 | `BeginFrame()` | Start a new frame |
-| `EndScene()` | Run frame stages; with an output target, begin the UI swapchain pass |
-| `Present()` | End UI pass (if open), submit the command buffer, and present |
-| `EndFrame()` | `EndScene()` + `Present()` (no mid-frame UI) |
+| `EndScene()` | Run frame stages |
+| `Present()` | Submit the command buffer and present |
+| `EndFrame()` | `EndScene()` + `Present()` |
 | `RebuildSwapChain()` | Recreate swap chain (e.g., on resize) |
-| `InsertFrameStage` / `ReplaceFrameStage` | Customize the frame graph |
+| `InsertFrameStage` / `ReplaceFrameStage` | Insert a Freya-built stage |
 | `SetVSync(bool)` | Enable/disable vertical sync |
 | `SetSamples(uint32_t)` | Set MSAA sample count |
 | `SetDrawDistance(float)` | Set render distance |
-| `GetBufferBuilder()` | Get a buffer builder instance |
-| `GetRenderTargetBuilder()` | Get a render target builder |
-| `SetOutputTarget(RenderTarget)` | Redirect scene composite to an offscreen target |
-| `ClearOutputTarget()` | Restore composite destination to the swapchain |
-| `GetOutputTarget()` | Current output target, or null if swapchain |
-| `GetUIRenderPass()` | Swapchain render pass for UI (ImGui pipeline init) |
-| `GetCommandBuffer()` | Current-frame command buffer |
-| `BindBuffer(Buffer)` | Bind a buffer for rendering |
 | `SetInstanceModels(const mat4*, size_t)` | Legacy instance matrices (with DrawInstanced) |
 | `UploadSceneInstances(span)` | Prefer: GPU-driven scene table (batched MDI + cull) |
 | `GetCurrentFrameIndex()` | Get current frame index |
@@ -85,45 +76,9 @@ See [Flexibility](flexibility.md).
 | `CalculateProjectionMatrix(float near, float far)` | Calculate projection matrix |
 | `ClearProjections()` | Clear all projection matrices |
 | `UpdateProjection(ProjectionUniformBuffer&)` | Update projection data |
-| `UpdateModel(const glm::mat4&)` | Update model matrix |
+| `GetGpuAnimPass()` | GPU skinning pass (optional) |
 
-### RenderTarget / output target
-
-By default the scene composites onto the window swapchain. To render into a
-sampled texture (for example an ImGui viewport), build a `RenderTarget` and bind
-it on the renderer. Scene, bloom, and composite then use the target extent
-(independent of the window size). Freya does not integrate ImGui; it only
-produces the texture and leaves a cleared swapchain UI pass open after
-`EndScene` so the application can record UI before `Present`.
-
-```cpp
-auto viewport = mRenderer->GetRenderTargetBuilder()
-    .SetWidth(panelW)
-    .SetHeight(panelH)
-    .Build();
-
-mRenderer->SetOutputTarget(viewport);
-
-// ImGui init once: use mRenderer->GetUIRenderPass() as the Vulkan render pass
-
-mRenderer->BeginFrame();
-// ... draw scene ...
-mRenderer->EndScene();
-
-// UI pass is open on the swapchain; sample the viewport texture
-ImGui_ImplVulkan_RenderDrawData(
-    ImGui::GetDrawData(), mRenderer->GetCommandBuffer());
-
-mRenderer->Present();
-
-// Sampling: viewport->GetColorImageView() + viewport->GetSampler()
-```
-
-Apps that do not draw UI can keep calling `EndFrame()` (equivalent to
-`EndScene()` + `Present()`). With an output target and no mid-frame UI
-draws, that still presents a cleared swapchain.
-
-Call `ClearOutputTarget()` to restore composite-to-swapchain behavior.
+Apps that do not customize the frame graph can keep calling `EndFrame()`.
 
 ## Window
 
@@ -134,38 +89,6 @@ mWindow->IsRunning();      // Check if window is running
 mWindow->Update();         // Process window events
 mWindow->GetDeltaTime();   // Get delta time in seconds
 ```
-
-## Device
-
-Vulkan logical device wrapper.
-
-## Instance
-
-Vulkan instance wrapper.
-
-## Surface
-
-Vulkan surface wrapper for window integration.
-
-## SwapChain
-
-Vulkan swap chain for framebuffer management.
-
-## PhysicalDevice
-
-Vulkan physical device (GPU) selection and properties.
-
-## CommandPool
-
-Command buffer pool for recording rendering commands.
-
-## Buffer
-
-GPU buffer abstraction (vertex, index, uniform, instance buffers).
-
-## Image
-
-GPU image/texture abstraction.
 
 ## UniformBuffer
 

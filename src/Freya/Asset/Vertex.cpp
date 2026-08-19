@@ -1,11 +1,12 @@
-#include "Freya/Asset/Vertex.hpp"
+#include "Freya/Internal/VertexInput.hpp"
+
 #include "Freya/Asset/InstanceTransform.hpp"
+#include "Freya/Asset/Vertex.hpp"
 
 namespace FREYA_NAMESPACE
 {
 
-    std::vector<vk::VertexInputBindingDescription> Vertex::
-        GetBindingDescription()
+    std::vector<vk::VertexInputBindingDescription> GetVertexBindingDescription()
     {
         static auto bindingDescription = std::vector {
             vk::VertexInputBindingDescription()
@@ -21,8 +22,8 @@ namespace FREYA_NAMESPACE
         return bindingDescription;
     }
 
-    std::vector<vk::VertexInputAttributeDescription> Vertex::
-        GetAttributesDescription()
+    std::vector<vk::VertexInputAttributeDescription>
+    GetVertexAttributesDescription()
     {
         static auto attributesDescription = std::vector {
             vk::VertexInputAttributeDescription()
@@ -116,8 +117,8 @@ namespace FREYA_NAMESPACE
         return attributesDescription;
     }
 
-    std::vector<vk::VertexInputAttributeDescription> Vertex::
-        GetDepthAttributesDescription()
+    std::vector<vk::VertexInputAttributeDescription>
+    GetVertexDepthAttributesDescription()
     {
         static auto depthAttributes = std::vector {
             vk::VertexInputAttributeDescription()

@@ -1,5 +1,7 @@
 #include "Freya/Core/FrameStages.hpp"
 
+#include "Freya/Internal/VulkanCompat.hpp"
+
 #include "Freya/Builders/BillboardPassBuilder.hpp"
 #include "Freya/Builders/BloomPassBuilder.hpp"
 #include "Freya/Builders/CompositePassBuilder.hpp"

@@ -1,5 +1,12 @@
 #include "WindowBuilder.hpp"
 
+#include "Freya/Internal/WindowNative.hpp"
+
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_vulkan.h>
+
+#include <memory>
+
 namespace FREYA_NAMESPACE
 {
 
@@ -66,10 +73,32 @@ namespace FREYA_NAMESPACE
             "\tFullscreen: {}",
             (bool) (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN));
 
-        return skr::MakeArc<Window>(window,
-                                    mEventManager,
-                                    mFreyaOptions,
-                                    mWindowLogger);
+        auto impl          = std::make_unique<Window::Impl>();
+        impl->eventManager = mEventManager;
+        impl->freyaOptions = mFreyaOptions;
+        impl->logger       = mWindowLogger;
+        impl->window       = window;
+        impl->running      = true;
+        impl->deltaTime    = 0;
+
+        int width  = 0;
+        int height = 0;
+        SDL_GetWindowSizeInPixels(window, &width, &height);
+        mFreyaOptions->width  = static_cast<std::uint32_t>(width);
+        mFreyaOptions->height = static_cast<std::uint32_t>(height);
+
+        auto       gamepadCount = 0;
+        const auto gamepadIds   = SDL_GetGamepads(&gamepadCount);
+        for (int i = 0; i < gamepadCount; ++i)
+        {
+            if (SDL_IsGamepad(gamepadIds[i]))
+            {
+                if (auto* controller = SDL_OpenGamepad(gamepadIds[i]))
+                    impl->gamepads.push_back(controller);
+            }
+        }
+
+        return skr::MakeArc<Window>(std::move(impl));
     }
 
 } // namespace FREYA_NAMESPACE
