@@ -31,6 +31,13 @@ namespace FREYA_NAMESPACE
      * @param roughness        Roughness map texture ID (optional)
      * @param emissive         Emissive texture ID (optional)
      * @param metalness        Metalness map texture ID (optional)
+     * @param occlusion        AO map texture ID (optional, sampled as .r)
+     * @param packedMetallicRoughness When true, `roughness` is a glTF
+     *                         packed map (G=rough, B=metal; R=AO if no
+     *                         occlusion texture)
+     * @param unlit            Skip deferred lighting (emissive only)
+     * @param doubleSided      Light back-faces (G-buffer flips N)
+     * @param receiveShadows   Receive CSM/spot/point shadows
      * @param albedoFactor     Multiplies sampled albedo (default white);
      *                         .a multiplies albedo alpha for Mask/Blend
      * @param roughnessFactor  Multiplies sampled roughness (default 1)
@@ -53,16 +60,21 @@ namespace FREYA_NAMESPACE
         std::optional<std::uint32_t> roughness;
         std::optional<std::uint32_t> emissive;
         std::optional<std::uint32_t> metalness;
+        std::optional<std::uint32_t> occlusion;
 
         glm::vec4 albedoFactor { 1.f, 1.f, 1.f, 1.f };
         float     roughnessFactor = 1.f;
         float     metalnessFactor = 1.f;
         glm::vec3 emissiveFactor { 1.f, 1.f, 1.f };
-        float     aoFactor           = 1.f;
-        float     alphaCutoff        = 0.f;
-        AlphaMode alphaMode          = AlphaMode::Opaque;
-        float     clearcoat          = 0.f;
-        float     clearcoatRoughness = 0.03f;
+        float     aoFactor                = 1.f;
+        float     alphaCutoff             = 0.f;
+        AlphaMode alphaMode               = AlphaMode::Opaque;
+        float     clearcoat               = 0.f;
+        float     clearcoatRoughness      = 0.03f;
+        bool      packedMetallicRoughness = false;
+        bool      unlit                   = false;
+        bool      doubleSided             = false;
+        bool      receiveShadows          = true;
     };
 
     /**

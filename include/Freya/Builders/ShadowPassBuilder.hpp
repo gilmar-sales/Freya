@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Freya/Asset/BoneMatrixResources.hpp"
+#include "Freya/Asset/MaterialDescriptorResources.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
 #include "Freya/Core/ShadowPass.hpp"
@@ -12,22 +13,25 @@ namespace FREYA_NAMESPACE
      * @brief Builder for ShadowPass objects.
      *
      * Creates the depth-only shadow render pass, depth pipeline (bone
-     * SSBO set 0 + push-constant light VP), cascade/spot/point depth
-     * image arrays with their per-layer/per-face views and framebuffers,
-     * the ring-buffered host-visible ShadowUniformBuffer, and the
-     * hardware comparison sampler used for shadow sampling.
+     * SSBO set 0, bindless materials set 1, push-constant light VP),
+     * cascade/spot/point depth image arrays with their per-layer/per-face
+     * views and framebuffers, the ring-buffered host-visible
+     * ShadowUniformBuffer, and the hardware comparison sampler used for
+     * shadow sampling.
      */
     class ShadowPassBuilder
     {
       public:
-        ShadowPassBuilder(const skr::Arc<Device>&               device,
-                          const skr::Arc<PhysicalDevice>&       physicalDevice,
-                          const skr::Arc<FreyaOptions>&         freyaOptions,
-                          const skr::Arc<skr::ServiceProvider>& serviceProvider,
-                          const skr::Arc<BoneMatrixResources>&  boneResources) :
+        ShadowPassBuilder(
+            const skr::Arc<Device>&                      device,
+            const skr::Arc<PhysicalDevice>&              physicalDevice,
+            const skr::Arc<FreyaOptions>&                freyaOptions,
+            const skr::Arc<skr::ServiceProvider>&        serviceProvider,
+            const skr::Arc<BoneMatrixResources>&         boneResources,
+            const skr::Arc<MaterialDescriptorResources>& materials) :
             mDevice(device), mPhysicalDevice(physicalDevice),
             mFreyaOptions(freyaOptions), mServiceProvider(serviceProvider),
-            mBoneResources(boneResources)
+            mBoneResources(boneResources), mMaterials(materials)
         {
         }
 
@@ -65,11 +69,12 @@ namespace FREYA_NAMESPACE
         void transitionToReadOnly(vk::Image     image,
                                   std::uint32_t layerCount) const;
 
-        skr::Arc<Device>               mDevice;
-        skr::Arc<PhysicalDevice>       mPhysicalDevice;
-        skr::Arc<FreyaOptions>         mFreyaOptions;
-        skr::Arc<skr::ServiceProvider> mServiceProvider;
-        skr::Arc<BoneMatrixResources>  mBoneResources;
+        skr::Arc<Device>                      mDevice;
+        skr::Arc<PhysicalDevice>              mPhysicalDevice;
+        skr::Arc<FreyaOptions>                mFreyaOptions;
+        skr::Arc<skr::ServiceProvider>        mServiceProvider;
+        skr::Arc<BoneMatrixResources>         mBoneResources;
+        skr::Arc<MaterialDescriptorResources> mMaterials;
     };
 
 } // namespace FREYA_NAMESPACE

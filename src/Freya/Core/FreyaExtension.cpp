@@ -135,7 +135,6 @@ namespace FREYA_NAMESPACE
             });
 
         services.AddSingleton<EventManager>();
-        services.AddSingleton<MeshPool>();
 
         services.AddSingleton<MaterialDescriptorResources>(
             [](skr::ServiceProvider& serviceProvider) {
@@ -152,6 +151,7 @@ namespace FREYA_NAMESPACE
 
         services.AddSingleton<TexturePool>();
         services.AddSingleton<MaterialPool>();
+        services.AddSingleton<MeshPool>();
 
         services.AddSingleton<LightService>(
             [](skr::ServiceProvider& serviceProvider) {

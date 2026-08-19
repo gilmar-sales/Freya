@@ -1,8 +1,10 @@
 #pragma once
 
 #include "Freya/Asset/GpuScene.hpp"
+#include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/Mesh.hpp"
 #include "Freya/Asset/SkinnedModel.hpp"
+#include "Freya/Asset/TexturePool.hpp"
 #include "Freya/Asset/Vertex.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
@@ -31,7 +33,9 @@ namespace FREYA_NAMESPACE
         MeshPool(const skr::Arc<Device>&                device,
                  const skr::Arc<PhysicalDevice>&        physicalDevice,
                  const skr::Arc<CommandPool>&           commandPool,
-                 const skr::Arc<skr::Logger<MeshPool>>& logger);
+                 const skr::Arc<skr::Logger<MeshPool>>& logger,
+                 const skr::Arc<MaterialPool>&          materialPool,
+                 const skr::Arc<TexturePool>&           texturePool);
 
         ~MeshPool();
 
@@ -52,6 +56,14 @@ namespace FREYA_NAMESPACE
          * @return Vector of mesh IDs created from the file
          */
         std::vector<std::uint32_t> CreateMeshFromFile(const std::string& path);
+
+        /**
+         * @brief Load meshes and PBR materials from a model file (glTF/FBX).
+         *
+         * Textures are loaded via TexturePool (file or Assimp embedded).
+         * Metallic-roughness packed maps (glTF G/B) are detected automatically.
+         */
+        std::vector<ModelSubmesh> CreateModelFromFile(const std::string& path);
 
         /**
          * @brief Load a skinned model (no PreTransformVertices).

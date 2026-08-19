@@ -15,7 +15,8 @@ deferred stack without forking the renderer.
 | Custom shaders | `FullscreenEffectBuilder` + `BindMaterial` (G-buffer IDs) |
 | Textures from memory | `TexturePool::CreateTextureFromMemory` |
 | Meshes from memory | `MeshPool::CreateMesh(vertices, indices)` |
-| Materials | `MaterialCreateInfo` (+ `aoFactor`, `alphaCutoff`, `AlphaMode`) |
+| Materials | `MaterialCreateInfo` (AO map, packed MR, unlit, double-sided) |
+| Model import | `MeshPool::CreateModelFromFile` (Assimp PBR + textures) |
 
 ## Feature flags
 
@@ -154,11 +155,12 @@ materials, not the ground).
 Not in this release (documented for planning):
 
 - Forward / alternate full pipelines
-- Dedicated AO CIS map / per-material shader variants
+- GGX-prefiltered IBL cubemap (CPU irradiance + raw HDR mips today)
+- Clustered lighting (`MAX_LIGHTS` is still 16)
+- Physical glass (transmission / IOR / refraction) beyond Weighted Blended OIT
 - HDR / wide color-space swapchain policy
 - Event unsubscribe API
 - Public PCH without Vulkan (headers are split; PCH still pulls vulkan.hpp)
-- Physical glass (transmission / IOR / refraction) beyond Weighted Blended OIT
 
 WBOIT translucency is implemented: `AlphaMode::Blend` instances use a
 dedicated MDI cull (`CullMode::Translucent`), accumulate into weighted OIT

@@ -88,7 +88,14 @@ namespace FREYA_NAMESPACE
                     if (ctx.dispatchCull)
                         ctx.dispatchCull(lightVP, CullMode::Shadow);
                 },
-                [&]() { ctx.executeDraws(false); });
+                [&]() {
+                    auto layout = (*ctx.shadow)->GetPipelineLayout();
+                    if (ctx.drawPipelineLayoutOverride)
+                        *ctx.drawPipelineLayoutOverride = layout;
+                    ctx.executeDraws(true);
+                    if (ctx.drawPipelineLayoutOverride)
+                        *ctx.drawPipelineLayoutOverride = vk::PipelineLayout {};
+                });
     }
 
     void DeferredGeometryFrameStage::Rebuild(RenderFrameContext&   ctx,

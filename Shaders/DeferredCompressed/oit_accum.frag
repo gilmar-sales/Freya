@@ -27,6 +27,7 @@ layout (set = 0, binding = 0) uniform ProjectionUniformBuffer {
 layout (set = 1, binding = 0) uniform sampler2D uTextures[];
 
 #include "Include/material_gpu.inc"
+#include "Include/pbr_sample.inc"
 
 layout (std430, set = 1, binding = 1) readonly buffer MaterialBuffer {
     MaterialGPU materials[];
@@ -71,14 +72,11 @@ void main() {
                 .rgb) *
         mat.emissiveFactor.rgb * kEmissiveIntensity;
 
-    float roughness = max(
-        texture(uTextures[nonuniformEXT(mat.roughnessIndex)], inTexCoord).r *
-            mat.roughMetal.x,
-        kMinRoughness);
-    float metalness = clamp(
-        texture(uTextures[nonuniformEXT(mat.metalnessIndex)], inTexCoord).r *
-            mat.roughMetal.y,
-        0.0, 1.0);
+    float roughness;
+    float metalness;
+    float ao;
+    SamplePbrMaps(mat, inTexCoord, roughness, metalness, ao);
+    metalness = clamp(metalness, 0.0, 1.0);
     float clearcoat = clamp(mat.clearcoat, 0.0, 1.0);
     float coatRoughness = max(mat.clearcoatRoughness, kMinRoughness);
 
@@ -95,29 +93,32 @@ void main() {
             ? 1.0
             : (1.0 - clearcoat * max(Fr.r, max(Fr.g, Fr.b)));
 
-    vec3 ambient = pub.ambientLight.rgb * pub.ambientLight.a * albedoLin * 0.25;
+    vec3 ambient =
+        pub.ambientLight.rgb * pub.ambientLight.a * albedoLin * 0.25 * ao;
     vec3 lit = ambient;
-    uint count = min(lights.lightCount, 16u);
-    for (uint i = 0u; i < count; ++i) {
-        lit += calculateLight(
-            int(i),
-            lights.lightPositions[i].xyz, lights.lightPositions[i].w,
-            lights.lightColorsAndRadius[i].rgb,
-            lights.lightColorsAndRadius[i].w,
-            lights.lightDirectionsAndCutoff[i].xyz,
-            lights.lightDirectionsAndCutoff[i].w,
-            lights.lightOuterCutoffAndIntensity[i].x,
-            lights.lightOuterCutoffAndIntensity[i].y, inWorldPos, N, V,
-            albedoLin, roughness, metalness, F0, false, coatSpecAtten);
-        lit += calculateClearcoatLight(
-            lights.lightPositions[i].xyz, lights.lightPositions[i].w,
-            lights.lightColorsAndRadius[i].rgb,
-            lights.lightColorsAndRadius[i].w,
-            lights.lightDirectionsAndCutoff[i].xyz,
-            lights.lightDirectionsAndCutoff[i].w,
-            lights.lightOuterCutoffAndIntensity[i].x,
-            lights.lightOuterCutoffAndIntensity[i].y, inWorldPos, N, V,
-            coatRoughness, clearcoat);
+    if ((mat.flags & kMaterialFlagUnlit) == 0u) {
+        uint count = min(lights.lightCount, 16u);
+        for (uint i = 0u; i < count; ++i) {
+            lit += calculateLight(
+                int(i),
+                lights.lightPositions[i].xyz, lights.lightPositions[i].w,
+                lights.lightColorsAndRadius[i].rgb,
+                lights.lightColorsAndRadius[i].w,
+                lights.lightDirectionsAndCutoff[i].xyz,
+                lights.lightDirectionsAndCutoff[i].w,
+                lights.lightOuterCutoffAndIntensity[i].x,
+                lights.lightOuterCutoffAndIntensity[i].y, inWorldPos, N, V,
+                albedoLin, roughness, metalness, F0, false, coatSpecAtten);
+            lit += calculateClearcoatLight(
+                lights.lightPositions[i].xyz, lights.lightPositions[i].w,
+                lights.lightColorsAndRadius[i].rgb,
+                lights.lightColorsAndRadius[i].w,
+                lights.lightDirectionsAndCutoff[i].xyz,
+                lights.lightDirectionsAndCutoff[i].w,
+                lights.lightOuterCutoffAndIntensity[i].x,
+                lights.lightOuterCutoffAndIntensity[i].y, inWorldPos, N, V,
+                coatRoughness, clearcoat);
+        }
     }
 
     vec3 C = lit * (1.0 - Fr) + lit * Fr * 2.5 + emissiveLin;

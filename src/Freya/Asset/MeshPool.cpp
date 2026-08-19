@@ -4,6 +4,15 @@
 #include "Freya/Containers/MeshSet.hpp"
 #include "Freya/Core/Buffer.hpp"
 
+#ifndef NDEBUG
+    #undef __OPTIMIZE__
+#endif
+#include "Freya/Vendor/stb_image.h"
+#ifndef NDEBUG
+    #define __OPTIMIZE__ 1
+#endif
+
+#include <assimp/GltfMaterial.h>
 #include <assimp/Importer.hpp>
 #include <assimp/config.h>
 #include <assimp/postprocess.h>
@@ -12,9 +21,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <initializer_list>
 #include <limits>
+#include <optional>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -32,6 +45,8 @@ namespace FREYA_NAMESPACE
         skr::Arc<PhysicalDevice>        physicalDevice;
         skr::Arc<CommandPool>           commandPool;
         skr::Arc<skr::Logger<MeshPool>> logger;
+        skr::Arc<MaterialPool>          materialPool;
+        skr::Arc<TexturePool>           texturePool;
 
         std::vector<skr::Arc<Buffer>> stagingBuffers;
 
@@ -50,11 +65,16 @@ namespace FREYA_NAMESPACE
              skr::Arc<CommandPool>
                  inCommandPool,
              skr::Arc<skr::Logger<MeshPool>>
-                 inLogger) :
+                 inLogger,
+             skr::Arc<MaterialPool>
+                 inMaterialPool,
+             skr::Arc<TexturePool>
+                 inTexturePool) :
             device(std::move(inDevice)),
             physicalDevice(std::move(inPhysicalDevice)),
             commandPool(std::move(inCommandPool)), logger(std::move(inLogger)),
-            meshes(4096)
+            materialPool(std::move(inMaterialPool)),
+            texturePool(std::move(inTexturePool)), meshes(4096)
         {
             stagingBuffers.reserve(64);
             vertexBuffer = BufferBuilder(device)
@@ -332,7 +352,9 @@ namespace FREYA_NAMESPACE
             return mesh.id;
         }
 
-        std::uint32_t processMesh(const aiMesh* mesh, const aiScene* scene)
+        std::uint32_t processMesh(const aiMesh*  mesh,
+                                  const aiScene* scene,
+                                  bool           applyDiffuseColor = true)
         {
             std::vector<Vertex>        vertices;
             std::vector<std::uint32_t> indices;
@@ -348,9 +370,13 @@ namespace FREYA_NAMESPACE
                     mesh->HasTextureCoords(0) ? mesh->mTextureCoords[0][i]
                                               : aiVector3D(0, 0, 0);
 
-                const auto material = scene->mMaterials[mesh->mMaterialIndex];
-                aiColor3D  aColor(1.0, 1.0, 1.0);
-                material->Get(AI_MATKEY_COLOR_DIFFUSE, aColor);
+                aiColor3D aColor(1.0, 1.0, 1.0);
+                if (applyDiffuseColor)
+                {
+                    const auto material =
+                        scene->mMaterials[mesh->mMaterialIndex];
+                    material->Get(AI_MATKEY_COLOR_DIFFUSE, aColor);
+                }
 
                 vertices.push_back(Vertex {
                     .position = glm::vec3(aVertex.x, aVertex.y, aVertex.z),
@@ -415,6 +441,304 @@ namespace FREYA_NAMESPACE
             logger->LogTrace("Loaded {} mesh(es) from {}", meshIds.size(),
                              path);
             return meshIds;
+        }
+
+        static std::string parentDirectory(const std::string& path)
+        {
+            const auto pos = path.find_last_of("/\\");
+            if (pos == std::string::npos)
+                return ".";
+            return path.substr(0, pos);
+        }
+
+        static std::string normalizeSlashes(std::string path)
+        {
+            for (auto& c : path)
+            {
+                if (c == '\\')
+                    c = '/';
+            }
+            return path;
+        }
+
+        static bool tryTexturePath(const aiMaterial* mat,
+                                   aiTextureType     type,
+                                   aiString&         out)
+        {
+            return mat->GetTextureCount(type) > 0 &&
+                   mat->GetTexture(type, 0, &out) == AI_SUCCESS &&
+                   out.length > 0;
+        }
+
+        std::optional<std::uint32_t> loadAssimpTexture(
+            const aiScene*                                  scene,
+            const std::string&                              directory,
+            const aiString&                                 texPath,
+            std::unordered_map<std::string, std::uint32_t>& cache)
+        {
+            std::string key = texPath.C_Str();
+            if (key.empty())
+                return std::nullopt;
+
+            if (const auto it = cache.find(key); it != cache.end())
+                return it->second;
+
+            std::uint32_t id       = 0;
+            const auto*   embedded = scene->GetEmbeddedTexture(texPath.C_Str());
+            if (embedded)
+            {
+                if (embedded->mHeight == 0)
+                {
+                    int   width  = 0;
+                    int   height = 0;
+                    int   n      = 0;
+                    auto* pixels = stbi_load_from_memory(
+                        reinterpret_cast<const stbi_uc*>(embedded->pcData),
+                        static_cast<int>(embedded->mWidth), &width, &height, &n,
+                        4);
+                    if (!pixels)
+                    {
+                        logger->LogError("Failed decoding embedded texture {}",
+                                         key);
+                        return std::nullopt;
+                    }
+                    id = texturePool->CreateTextureFromMemory(
+                        pixels, static_cast<std::uint32_t>(width),
+                        static_cast<std::uint32_t>(height), 4);
+                    stbi_image_free(pixels);
+                }
+                else
+                {
+                    const auto                w = embedded->mWidth;
+                    const auto                h = embedded->mHeight;
+                    std::vector<std::uint8_t> rgba(
+                        static_cast<size_t>(w) * h * 4);
+                    for (unsigned i = 0; i < w * h; ++i)
+                    {
+                        const auto& texel = embedded->pcData[i];
+                        rgba[i * 4 + 0]   = texel.r;
+                        rgba[i * 4 + 1]   = texel.g;
+                        rgba[i * 4 + 2]   = texel.b;
+                        rgba[i * 4 + 3]   = texel.a;
+                    }
+                    id = texturePool->CreateTextureFromMemory(
+                        rgba.data(), w, h, 4);
+                }
+            }
+            else
+            {
+                auto       file = normalizeSlashes(key);
+                const bool absolute =
+                    file.size() >= 2 && (file[0] == '/' || file[1] == ':');
+                if (!absolute)
+                    file = directory + "/" + file;
+                id = texturePool->CreateTextureFromFile(file);
+            }
+
+            cache.emplace(key, id);
+            return id;
+        }
+
+        std::optional<std::uint32_t> loadFirstTexture(
+            const aiMaterial*  mat,
+            const aiScene*     scene,
+            const std::string& directory,
+            std::initializer_list<aiTextureType>
+                                                            types,
+            std::unordered_map<std::string, std::uint32_t>& cache,
+            aiString* matchedPath = nullptr)
+        {
+            aiString path;
+            for (auto type : types)
+            {
+                if (!tryTexturePath(mat, type, path))
+                    continue;
+                auto id = loadAssimpTexture(scene, directory, path, cache);
+                if (id)
+                {
+                    if (matchedPath)
+                        *matchedPath = path;
+                    return id;
+                }
+            }
+            return std::nullopt;
+        }
+
+        std::uint32_t importAssimpMaterial(
+            const aiMaterial*                               mat,
+            const aiScene*                                  scene,
+            const std::string&                              directory,
+            std::unordered_map<std::string, std::uint32_t>& cache)
+        {
+            MaterialCreateInfo info {};
+
+            info.albedo = loadFirstTexture(
+                mat, scene, directory,
+                { aiTextureType_BASE_COLOR, aiTextureType_DIFFUSE }, cache);
+            info.normal = loadFirstTexture(
+                mat, scene, directory,
+                { aiTextureType_NORMALS, aiTextureType_NORMAL_CAMERA,
+                  aiTextureType_HEIGHT },
+                cache);
+            info.emissive = loadFirstTexture(
+                mat, scene, directory,
+                { aiTextureType_EMISSIVE, aiTextureType_EMISSION_COLOR },
+                cache);
+            info.occlusion = loadFirstTexture(
+                mat, scene, directory,
+                { aiTextureType_AMBIENT_OCCLUSION, aiTextureType_LIGHTMAP,
+                  aiTextureType_AMBIENT },
+                cache);
+
+            aiString metalPath;
+            aiString roughPath;
+            aiString packedPath;
+            auto     metalTex = loadFirstTexture(
+                mat, scene, directory, { aiTextureType_METALNESS }, cache,
+                &metalPath);
+            auto roughTex = loadFirstTexture(
+                mat, scene, directory,
+                { aiTextureType_DIFFUSE_ROUGHNESS, aiTextureType_SHININESS },
+                cache, &roughPath);
+            auto packedTex = loadFirstTexture(
+                mat, scene, directory,
+                { aiTextureType_GLTF_METALLIC_ROUGHNESS,
+                  aiTextureType_UNKNOWN },
+                cache, &packedPath);
+
+            const auto samePacked = metalTex && roughTex &&
+                                    normalizeSlashes(metalPath.C_Str()) ==
+                                        normalizeSlashes(roughPath.C_Str());
+            if (packedTex)
+            {
+                info.packedMetallicRoughness = true;
+                info.roughness               = packedTex;
+            }
+            else if (samePacked || (metalTex && !roughTex))
+            {
+                info.packedMetallicRoughness = true;
+                info.roughness               = metalTex ? metalTex : roughTex;
+            }
+            else
+            {
+                info.roughness = roughTex;
+                info.metalness = metalTex;
+            }
+
+            aiColor4D base(1.f, 1.f, 1.f, 1.f);
+            if (mat->Get(AI_MATKEY_BASE_COLOR, base) != AI_SUCCESS)
+            {
+                aiColor3D diffuse(1.f, 1.f, 1.f);
+                if (mat->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse) == AI_SUCCESS)
+                    base = aiColor4D(diffuse.r, diffuse.g, diffuse.b, 1.f);
+            }
+            info.albedoFactor = glm::vec4(base.r, base.g, base.b, base.a);
+
+            float metallic  = 1.f;
+            float roughness = 1.f;
+            if (mat->Get(AI_MATKEY_METALLIC_FACTOR, metallic) == AI_SUCCESS)
+                info.metalnessFactor = metallic;
+            if (mat->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness) == AI_SUCCESS)
+                info.roughnessFactor = roughness;
+
+            aiColor3D emissive(1.f, 1.f, 1.f);
+            if (mat->Get(AI_MATKEY_COLOR_EMISSIVE, emissive) == AI_SUCCESS)
+                info.emissiveFactor = { emissive.r, emissive.g, emissive.b };
+
+            float opacity = 1.f;
+            mat->Get(AI_MATKEY_OPACITY, opacity);
+            info.albedoFactor.a *= opacity;
+
+            aiString alphaMode;
+            if (mat->Get(AI_MATKEY_GLTF_ALPHAMODE, alphaMode) == AI_SUCCESS)
+            {
+                const std::string mode = alphaMode.C_Str();
+                if (mode == "MASK")
+                    info.alphaMode = AlphaMode::Mask;
+                else if (mode == "BLEND")
+                    info.alphaMode = AlphaMode::Blend;
+            }
+            else if (info.albedoFactor.a < 0.99f)
+            {
+                info.alphaMode = AlphaMode::Blend;
+            }
+
+            float cutoff = 0.5f;
+            if (mat->Get(AI_MATKEY_GLTF_ALPHACUTOFF, cutoff) == AI_SUCCESS)
+                info.alphaCutoff = cutoff;
+            else if (info.alphaMode == AlphaMode::Mask)
+                info.alphaCutoff = 0.5f;
+
+            int twoSided = 0;
+            if (mat->Get(AI_MATKEY_TWOSIDED, twoSided) == AI_SUCCESS)
+                info.doubleSided = twoSided != 0;
+
+            int shading = 0;
+            if (mat->Get(AI_MATKEY_SHADING_MODEL, shading) == AI_SUCCESS)
+                info.unlit = shading == aiShadingMode_Unlit;
+
+            float clearcoat = 0.f;
+            if (mat->Get(AI_MATKEY_CLEARCOAT_FACTOR, clearcoat) == AI_SUCCESS)
+                info.clearcoat = clearcoat;
+            float coatRough = 0.03f;
+            if (mat->Get(AI_MATKEY_CLEARCOAT_ROUGHNESS_FACTOR, coatRough) ==
+                AI_SUCCESS)
+                info.clearcoatRoughness = coatRough;
+
+            return materialPool->Create(info);
+        }
+
+        std::vector<ModelSubmesh> createModelFromFile(const std::string& path)
+        {
+            logger->LogTrace("Creating model from file: {}", path);
+            auto             submeshes = std::vector<ModelSubmesh>();
+            Assimp::Importer importer;
+            importer.SetPropertyBool(AI_CONFIG_PP_PTV_KEEP_HIERARCHY, true);
+            const aiScene* scene = importer.ReadFile(
+                path,
+                aiProcess_CalcTangentSpace | aiProcess_Triangulate |
+                    aiProcess_SortByPType | aiProcess_GenNormals |
+                    aiProcess_GenUVCoords | aiProcess_JoinIdenticalVertices |
+                    aiProcess_GlobalScale | aiProcess_PreTransformVertices |
+                    aiProcess_ValidateDataStructure);
+
+            if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE ||
+                !scene->mRootNode)
+            {
+                logger->LogError("Failed loading model: {}",
+                                 importer.GetErrorString());
+                return submeshes;
+            }
+
+            const auto directory = normalizeSlashes(parentDirectory(path));
+            std::unordered_map<std::string, std::uint32_t> textureCache;
+            std::vector<std::uint32_t> materialIds(scene->mNumMaterials, 0);
+            for (unsigned i = 0; i < scene->mNumMaterials; ++i)
+            {
+                materialIds[i] = importAssimpMaterial(
+                    scene->mMaterials[i], scene, directory, textureCache);
+            }
+
+            const auto walk = [&](auto&& self, const aiNode* node) -> void {
+                for (unsigned i = 0; i < node->mNumMeshes; ++i)
+                {
+                    const aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+                    const auto    meshId =
+                        processMesh(mesh, scene, /*applyDiffuseColor*/ false);
+                    const auto matIndex = mesh->mMaterialIndex;
+                    const auto materialId =
+                        matIndex < materialIds.size() ? materialIds[matIndex]
+                                                      : 0u;
+                    submeshes.push_back(ModelSubmesh { meshId, materialId });
+                }
+                for (unsigned i = 0; i < node->mNumChildren; ++i)
+                    self(self, node->mChildren[i]);
+            };
+            walk(walk, scene->mRootNode);
+
+            logger->LogTrace("Loaded {} submesh(es) from {}", submeshes.size(),
+                             path);
+            return submeshes;
         }
 
         static glm::mat4 toGlm(const aiMatrix4x4& m)
@@ -719,9 +1043,11 @@ namespace FREYA_NAMESPACE
     MeshPool::MeshPool(const skr::Arc<Device>&                device,
                        const skr::Arc<PhysicalDevice>&        physicalDevice,
                        const skr::Arc<CommandPool>&           commandPool,
-                       const skr::Arc<skr::Logger<MeshPool>>& logger) :
-        mImpl(
-            std::make_unique<Impl>(device, physicalDevice, commandPool, logger))
+                       const skr::Arc<skr::Logger<MeshPool>>& logger,
+                       const skr::Arc<MaterialPool>&          materialPool,
+                       const skr::Arc<TexturePool>&           texturePool) :
+        mImpl(std::make_unique<Impl>(device, physicalDevice, commandPool,
+                                     logger, materialPool, texturePool))
     {
     }
 
@@ -741,6 +1067,12 @@ namespace FREYA_NAMESPACE
         const std::string& path)
     {
         return mImpl->createMeshFromFile(path);
+    }
+
+    std::vector<ModelSubmesh> MeshPool::CreateModelFromFile(
+        const std::string& path)
+    {
+        return mImpl->createModelFromFile(path);
     }
 
     SkinnedModel MeshPool::CreateSkinnedModelFromFile(const std::string& path)

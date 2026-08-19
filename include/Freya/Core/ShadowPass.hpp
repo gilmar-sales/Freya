@@ -180,6 +180,17 @@ namespace FREYA_NAMESPACE
          */
         bool HasPointShadows() const { return mMaxPointShadows > 0; }
 
+        /**
+         * @brief Graphics layout (set 0 bones, set 1 bindless materials).
+         *
+         * Used as `drawPipelineLayoutOverride` so MDI can bind the texture
+         * heap for Mask alpha testing in the shadow fragment shaders.
+         */
+        [[nodiscard]] vk::PipelineLayout GetPipelineLayout() const
+        {
+            return mPipelineLayout;
+        }
+
       private:
         void computeCascades(const Light&     sun,
                              const glm::mat4& cameraView,

@@ -7,8 +7,17 @@ Freya manages meshes, textures, and PBR materials through pool services.
 ```cpp
 auto meshPool = serviceProvider->GetService<fra::MeshPool>();
 
-// From file (Assimp: FBX, OBJ, …). Returns one ID per mesh in the file.
+// From file (Assimp: glTF, FBX, OBJ, …). Geometry only — materials stay
+// on you (e.g. lamp bulb = mesh index 1 + Blend).
 auto meshIds = meshPool->CreateMeshFromFile("./Resources/Models/MyModel.fbx");
+
+// Geometry + imported PBR materials (file / embedded textures, packed MR).
+auto model = meshPool->CreateModelFromFile("./Resources/Models/Helmet.glb");
+for (const auto& part : model)
+{
+    instances.push_back({ .meshId = part.meshId,
+                          .materialId = part.materialId, .entityId = id++ });
+}
 
 // Skinned (no PreTransformVertices): joints/weights + shared skeleton/clips.
 fra::SkinnedModel fox =
@@ -54,28 +63,41 @@ auto materialPool = serviceProvider->GetService<fra::MaterialPool>();
 std::uint32_t material = materialPool->Create(fra::MaterialCreateInfo {
     .albedo     = albedoId,
     .normal     = normalId,
-    .roughness  = roughnessId,
+    .roughness  = roughnessId, // or packed ORM / metallicRoughness
     .emissive   = emissiveId,
-    .metalness  = metalnessId,
+    .metalness  = metalnessId, // ignored when packedMetallicRoughness
+    .occlusion  = aoId,        // .r; packed ORM uses roughness.r if unset
     .albedoFactor    = { 1.f, 1.f, 1.f, 1.f },
     .roughnessFactor = 1.f,
     .metalnessFactor = 1.f,
     .emissiveFactor  = { 1.f, 1.f, 1.f },
-    .aoFactor        = 1.f,   // constant AO into G-buffer
+    .aoFactor        = 1.f,   // multiplies sampled AO into G-buffer
     .alphaCutoff     = 0.f,   // Mask: discard when alpha < cutoff
     .alphaMode       = fra::AlphaMode::Opaque, // Opaque | Mask | Blend
     .clearcoat          = 0.f,    // deferred GGX clearcoat weight
     .clearcoatRoughness = 0.03f,  // glTF-style default
+    .packedMetallicRoughness = false, // G=rough, B=metal (glTF)
+    .unlit                   = false, // skip lighting (emissive only)
+    .doubleSided             = false, // G-buffer flips back-face N
+    .receiveShadows          = true,
+});
+
+// albedo, normal, roughness, emissive, metalness — missing slots skip.
+std::uint32_t fromFiles = materialPool->CreateFromTextureFiles({
+    "./Resources/Textures/albedo.png",
+    "./Resources/Textures/normal.png",
+    "./Resources/Textures/roughness.png",
 });
 
 materialPool->Update(material, updatedCreateInfo);
 ```
 
 `AlphaMode::Opaque` / `Mask` stay in the deferred MDI camera cull. `Mask`
-uses `alphaCutoff` cutout in the G-buffer. `AlphaMode::Blend` is filtered
-into the Weighted Blended OIT pass (`CullMode::Translucent`); use
-`albedoFactor.a` (and albedo alpha) for coverage, and typically
-`castShadows = false` on glass instances.
+uses `alphaCutoff` cutout in the G-buffer **and** in the shadow pass
+(bindless albedo alpha), so foliage holes do not cast solid shadows.
+`AlphaMode::Blend` is filtered into the Weighted Blended OIT pass
+(`CullMode::Translucent`); use `albedoFactor.a` (and albedo alpha) for
+coverage, and typically `castShadows = false` on glass instances.
 
 `clearcoat` (>0) enables a second dielectric GGX lobe in deferred lighting
 (F0=0.04). The weight is stored in G-buffer PBR.a. When coated, PBR.b holds
@@ -94,7 +116,12 @@ shadows). `FullscreenEffect` still reads an 8-bit material ID from
 albedo.a (IDs 256+ alias for cell masks).
 
 Empty texture optionals use engine fallbacks (white or black). Alpha cutout
-samples albedo alpha × `albedoFactor.a` in the G-buffer pass only (Mask).
+samples albedo alpha × `albedoFactor.a` in the G-buffer and shadow passes
+(Mask). Packed metallic-roughness maps (glTF): roughness from `.g`, metal
+from `.b`; AO from `occlusion` `.r` or the packed map `.r` when no
+separate occlusion texture is set. `unlit` skips deferred/OIT analytic
+lights (emissive still writes scene color). `doubleSided` is lit on
+back-faces via no-cull G-buffer + flipped N.
 
 ## Vertex
 

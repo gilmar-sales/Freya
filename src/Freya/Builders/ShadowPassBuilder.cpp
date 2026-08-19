@@ -50,9 +50,9 @@ namespace FREYA_NAMESPACE
                     mFreyaOptions->shaderRoot + "/Shadow/depth.frag.spv")
                 .Build();
 
-        // Depth.vert: position, instance model, boneOffset (loc13),
-        // joints/weights. Stride still covers prevModel; unused attrs
-        // are omitted to avoid validation warnings.
+        // Depth.vert: position, texCoord (Mask alpha), instance model,
+        // boneOffset (loc13), joints/weights. Stride still covers prevModel;
+        // unused attrs are omitted to avoid validation warnings.
         auto vertexBinding = Vertex::GetBindingDescription();
         auto vertexAttributes =
             std::vector<vk::VertexInputAttributeDescription> {
@@ -61,6 +61,11 @@ namespace FREYA_NAMESPACE
                     .setLocation(0)
                     .setFormat(vk::Format::eR32G32B32Sfloat)
                     .setOffset(offsetof(Vertex, position)),
+                vk::VertexInputAttributeDescription()
+                    .setBinding(0)
+                    .setLocation(4)
+                    .setFormat(vk::Format::eR32G32Sfloat)
+                    .setOffset(offsetof(Vertex, texCoord)),
                 vk::VertexInputAttributeDescription()
                     .setBinding(0)
                     .setLocation(14)
@@ -156,10 +161,12 @@ namespace FREYA_NAMESPACE
                 .setOffset(0)
                 .setSize(sizeof(ShadowPushConstant));
 
-        const auto boneLayout = mBoneResources->GetLayout();
+        const auto boneLayout     = mBoneResources->GetLayout();
+        const auto bindlessLayout = mMaterials->GetBindlessLayout();
+        auto       setLayouts     = std::array { boneLayout, bindlessLayout };
         auto       pipelineLayoutInfo =
             vk::PipelineLayoutCreateInfo()
-                .setSetLayouts(boneLayout)
+                .setSetLayouts(setLayouts)
                 .setPushConstantRanges(pushConstantRange);
 
         auto pipelineLayout =

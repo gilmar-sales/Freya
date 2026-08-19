@@ -1,7 +1,12 @@
 #ifndef MATERIAL_GPU_INC
 #define MATERIAL_GPU_INC
 
-// Must match C++ MaterialGPU (std430).
+const uint kMaterialFlagPackedMR = 1u;
+const uint kMaterialFlagUnlit = 2u;
+const uint kMaterialFlagDoubleSided = 4u;
+const uint kMaterialFlagReceiveShadow = 8u;
+
+// Must match C++ MaterialGPU (std430, 96 bytes).
 struct MaterialGPU {
     uint albedoIndex;
     uint normalIndex;
@@ -16,6 +21,10 @@ struct MaterialGPU {
     vec2 roughMetal;
     float materialId;
     float alphaCutoff;
+    uint occlusionIndex;
+    uint flags;
+    uint _pad0;
+    uint _pad1;
 };
 
 #endif

@@ -17,6 +17,11 @@ namespace FREYA_NAMESPACE
     constexpr std::uint32_t kSceneInstanceFlagTranslucent = 2u;
     constexpr std::uint32_t kSceneInstanceFlagSkinned     = 4u;
 
+    constexpr std::uint32_t kMaterialFlagPackedMR      = 1u;
+    constexpr std::uint32_t kMaterialFlagUnlit         = 2u;
+    constexpr std::uint32_t kMaterialFlagDoubleSided   = 4u;
+    constexpr std::uint32_t kMaterialFlagReceiveShadow = 8u;
+
     constexpr std::uint32_t kBindlessWhiteTexture = 0;
     constexpr std::uint32_t kBindlessBlackTexture = 1;
 
@@ -116,7 +121,14 @@ namespace FREYA_NAMESPACE
         glm::vec2     roughMetal         = glm::vec2(1.0f);
         float         materialId  = 0.0f; ///< CPU id; G-buffer A is 8-bit
         float         alphaCutoff = 0.0f;
+        std::uint32_t occlusionIndex =
+            kBindlessWhiteTexture; ///< AO (.r) or packed ORM .r
+        std::uint32_t flags = kMaterialFlagReceiveShadow; ///< kMaterialFlag*
+        std::uint32_t _pad0 = 0;
+        std::uint32_t _pad1 = 0;
     };
+
+    static_assert(sizeof(MaterialGPU) == 96, "MaterialGPU must match GLSL");
 
     /**
      * @brief Cull push constants (Approach B: per-instance compact + LOD).

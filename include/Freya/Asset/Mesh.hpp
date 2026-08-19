@@ -37,4 +37,13 @@ namespace FREYA_NAMESPACE
         std::uint32_t id = 0;
     };
 
+    /**
+     * @brief One mesh plus the material imported with it from a model file.
+     */
+    struct ModelSubmesh
+    {
+        std::uint32_t meshId     = 0;
+        std::uint32_t materialId = 0;
+    };
+
 } // namespace FREYA_NAMESPACE

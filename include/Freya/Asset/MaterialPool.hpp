@@ -2,6 +2,7 @@
 
 #include "Freya/Asset/Material.hpp"
 #include "Freya/Asset/MaterialDescriptorResources.hpp"
+#include "Freya/Asset/TexturePool.hpp"
 #include "Freya/Containers/SparseSet.hpp"
 
 #include <string>
@@ -18,13 +19,16 @@ namespace FREYA_NAMESPACE
     {
       public:
         MaterialPool(const skr::Arc<MaterialDescriptorResources>& materials,
+                     const skr::Arc<TexturePool>&                 texturePool,
                      const skr::Arc<skr::Logger<MaterialPool>>&   logger) :
-            mMaterialsRes(materials), mLogger(logger), mMaterials(4096) {};
+            mMaterialsRes(materials), mTexturePool(texturePool),
+            mLogger(logger), mMaterials(4096) {};
 
         ~MaterialPool() = default;
 
+        /// albedo, normal, roughness, emissive, metalness (missing slots skip).
         std::uint32_t CreateFromTextureFiles(
-            [[maybe_unused]] std::vector<std::string> texturesPath);
+            std::vector<std::string> texturesPath);
 
         std::uint32_t Create(const MaterialCreateInfo& createInfo);
 
@@ -37,6 +41,7 @@ namespace FREYA_NAMESPACE
         void writeBindlessMaterial(Material& material);
 
         skr::Arc<MaterialDescriptorResources> mMaterialsRes;
+        skr::Arc<TexturePool>                 mTexturePool;
         skr::Arc<skr::Logger<MaterialPool>>   mLogger;
 
         MaterialSet mMaterials;

@@ -18,7 +18,7 @@ layout (location = 4) out vec2 outVelocity;   // UV-space motion
 layout (set = 1, binding = 0) uniform sampler2D uTextures[];
 
 #include "Include/material_gpu.inc"
-#include "Include/pbr_common.inc"
+#include "Include/pbr_sample.inc"
 
 layout (std430, set = 1, binding = 1) readonly buffer MaterialBuffer {
     MaterialGPU materials[];
@@ -52,28 +52,28 @@ void main() {
         vec3 tangentNormal = sampled * 2.0 - 1.0;
         worldNormal = normalize(inTBN * tangentNormal);
     }
+    if (!gl_FrontFacing)
+        worldNormal = -worldNormal;
 
     vec3 albedoLin =
         srgbToLinear(albedoSample.rgb) * inColor *
         mat.albedoFactor.rgb;
 
-    // FullscreenEffect cell mask still reads 8-bit IDs from albedo.a.
     outAlbedo = vec4(linearToSrgb(albedoLin),
                      mod(mat.materialId, 256.0) / 255.0);
 
-    uint flags = kFlagReceiveShadow;
+    uint flags = 0u;
+    if ((mat.flags & kMaterialFlagUnlit) != 0u)
+        flags = kFlagUnlit;
+    else if ((mat.flags & kMaterialFlagReceiveShadow) != 0u)
+        flags = kFlagReceiveShadow;
     outNormal = vec4(worldNormal * 0.5 + 0.5, float(flags) / 3.0);
 
-    float metalness =
-        texture(uTextures[nonuniformEXT(mat.metalnessIndex)], inTexCoord).r *
-        mat.roughMetal.y;
-    float roughness =
-        max(texture(uTextures[nonuniformEXT(mat.roughnessIndex)], inTexCoord).r *
-                mat.roughMetal.x,
-            kMinRoughness);
-    float ao = clamp(mat.emissiveFactor.w, 0.0, 1.0);
+    float roughness;
+    float metalness;
+    float ao;
+    SamplePbrMaps(mat, inTexCoord, roughness, metalness, ao);
     float clearcoat = clamp(mat.clearcoat, 0.0, 1.0);
-    // Coated pixels store coat roughness in B so lighting needs no SSBO.
     float pbrB = (clearcoat > 1e-3)
                      ? max(mat.clearcoatRoughness, kMinRoughness)
                      : ao;
