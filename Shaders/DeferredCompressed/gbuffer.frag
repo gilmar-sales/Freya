@@ -1,4 +1,5 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_nonuniform_qualifier : require
 
 layout (location = 0) in vec3 inPosition;
@@ -10,53 +11,28 @@ layout (location = 7) flat in uint inMaterialId;
 
 layout (location = 0) out vec4 outAlbedo;     // RGB albedo (gamma), A matID
 layout (location = 1) out vec4 outNormal;     // RGB packed normal, A 2-bit flags
-layout (location = 2) out vec4 outPbr;        // R rough, G metal, B AO, A clearcoat
+layout (location = 2) out vec4 outPbr;        // R rough, G metal, B AO|coatR, A coat
 layout (location = 3) out vec4 outSceneColor; // HDR emissive
 layout (location = 4) out vec2 outVelocity;   // UV-space motion
 
 layout (set = 1, binding = 0) uniform sampler2D uTextures[];
 
-struct MaterialGPU {
-    uint albedoIndex;
-    uint normalIndex;
-    uint roughnessIndex;
-    uint emissiveIndex;
-    uint metalnessIndex;
-    uint alphaMode; // 0 Opaque, 1 Mask, 2 Blend
-    float clearcoat;
-    float clearcoatRoughness;
-    vec4 albedoFactor;
-    vec4 emissiveFactor; // xyz emissive, w = aoFactor
-    vec2 roughMetal;
-    float materialId;
-    float alphaCutoff;
-};
+#include "Include/material_gpu.inc"
+#include "Include/pbr_common.inc"
 
 layout (std430, set = 1, binding = 1) readonly buffer MaterialBuffer {
     MaterialGPU materials[];
 };
 
-// Matches historical lighting emissive boost (was applied in lighting.frag).
 const float kEmissiveIntensity = 2.0;
 
-// 2-bit flag field (packed into A2 of A2B10G10R10 as UNORM /3).
 const uint kFlagReceiveShadow = 1u;
 const uint kFlagIgnoreDecals  = 2u;
 const uint kFlagUnlit         = 3u;
 
-vec3 linearToSrgb(vec3 c) {
-    return pow(max(c, vec3(0.0)), vec3(1.0 / 2.2));
-}
-
-vec3 srgbToLinear(vec3 c) {
-    return pow(c, vec3(2.2));
-}
-
 void main() {
     MaterialGPU mat = materials[inMaterialId];
 
-    // Blend surfaces must not reach the G-buffer (culled via
-    // kFlagTranslucent). Defensive discard if they ever do.
     if (mat.alphaMode == 2u)
         discard;
 
@@ -81,9 +57,9 @@ void main() {
         srgbToLinear(albedoSample.rgb) * inColor *
         mat.albedoFactor.rgb;
 
-    // Store gamma-space albedo for UNORM target; lighting applies pow(2.2).
+    // FullscreenEffect cell mask still reads 8-bit IDs from albedo.a.
     outAlbedo = vec4(linearToSrgb(albedoLin),
-                     clamp(mat.materialId, 0.0, 255.0) / 255.0);
+                     mod(mat.materialId, 256.0) / 255.0);
 
     uint flags = kFlagReceiveShadow;
     outNormal = vec4(worldNormal * 0.5 + 0.5, float(flags) / 3.0);
@@ -94,10 +70,14 @@ void main() {
     float roughness =
         max(texture(uTextures[nonuniformEXT(mat.roughnessIndex)], inTexCoord).r *
                 mat.roughMetal.x,
-            0.045);
+            kMinRoughness);
     float ao = clamp(mat.emissiveFactor.w, 0.0, 1.0);
     float clearcoat = clamp(mat.clearcoat, 0.0, 1.0);
-    outPbr = vec4(roughness, metalness, ao, clearcoat);
+    // Coated pixels store coat roughness in B so lighting needs no SSBO.
+    float pbrB = (clearcoat > 1e-3)
+                     ? max(mat.clearcoatRoughness, kMinRoughness)
+                     : ao;
+    outPbr = vec4(roughness, metalness, pbrB, clearcoat);
 
     vec3 emissiveLin =
         srgbToLinear(

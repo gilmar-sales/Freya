@@ -131,16 +131,6 @@ namespace FREYA_NAMESPACE
             return mDescriptorSets[frameIndex];
         }
 
-        vk::DescriptorSetLayout& GetSamplerLayout()
-        {
-            return mMaterialResources->GetSamplerLayout();
-        }
-
-        vk::DescriptorPool& GetSamplerDescriptorPool()
-        {
-            return mMaterialResources->GetSamplerDescriptorPool();
-        }
-
         skr::Arc<Buffer> GetUniformBuffer() { return mUniformBuffer; }
 
         std::size_t GetFramebufferCount() const { return mFramebuffers.size(); }

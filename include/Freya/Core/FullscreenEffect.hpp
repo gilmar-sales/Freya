@@ -51,7 +51,8 @@ namespace FREYA_NAMESPACE
      * @brief Set 1 binding 1 (std140): which G-buffer material IDs (albedo.a)
      * receive the effect. count == 0 applies to every pixel.
      *
-     * IDs are 0–255 (same packing as MaterialFactorsUniform::materialId).
+     * IDs are 0–255 (G-buffer albedo.a is 8-bit). Fullscreen cell masks
+     * alias above 255; deferred lighting no longer uses this pack.
      */
     struct FullscreenMaterialMask
     {

@@ -27,14 +27,6 @@ namespace FREYA_NAMESPACE
     {
         mLogger = mServiceProvider->GetService<skr::Logger<TexturePool>>();
         stbi_set_flip_vertically_on_load(true);
-
-        const auto samplerDescriptorSetAllocInfo =
-            vk::DescriptorSetAllocateInfo()
-                .setSetLayouts(mMaterialsRes->GetSamplerLayout())
-                .setDescriptorPool(mMaterialsRes->GetSamplerDescriptorPool());
-
-        mTextureDescriptorSet = mDevice->Get().allocateDescriptorSets(
-            samplerDescriptorSetAllocInfo)[0];
     }
 
     TexturePool::~TexturePool()

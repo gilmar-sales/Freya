@@ -421,7 +421,7 @@ namespace FREYA_NAMESPACE
                 mFormat = vk::Format::eA2B10G10R10UnormPack32;
                 break;
             case ImageUsage::GBufferPbr:
-                // R roughness, G metallic, B AO, A free
+                // R roughness, G metallic, B AO or coat roughness, A clearcoat
                 mFormat = vk::Format::eR8G8B8A8Unorm;
                 break;
             case ImageUsage::GBufferSceneColor:

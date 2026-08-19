@@ -1,7 +1,6 @@
 #include "MaterialDescriptorResourcesBuilder.hpp"
 
 #include "Freya/Asset/GpuScene.hpp"
-#include "Freya/Asset/Material.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 
@@ -11,61 +10,18 @@
 
 namespace FREYA_NAMESPACE
 {
-    namespace
-    {
-        vk::DescriptorSetLayoutBinding cisBinding(const std::uint32_t binding)
-        {
-            return vk::DescriptorSetLayoutBinding()
-                .setBinding(binding)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
-                .setPImmutableSamplers(nullptr);
-        }
-
-        vk::DescriptorSetLayoutBinding uboBinding(const std::uint32_t binding)
-        {
-            return vk::DescriptorSetLayoutBinding()
-                .setBinding(binding)
-                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-                .setDescriptorCount(1)
-                .setStageFlags(vk::ShaderStageFlagBits::eFragment)
-                .setPImmutableSamplers(nullptr);
-        }
-    } // namespace
-
     skr::Arc<MaterialDescriptorResources> MaterialDescriptorResourcesBuilder::
         Build()
     {
         if (mLogger)
             mLogger->LogTrace("Building 'fra::MaterialDescriptorResources':");
 
-        constexpr auto maxMaterialSets = MAX_MATERIAL_SETS;
-
-        const auto samplerBindings =
-            std::array { cisBinding(0), cisBinding(1), cisBinding(2),
-                         cisBinding(3), cisBinding(4), uboBinding(5) };
-        const auto samplerLayout = mDevice->Get().createDescriptorSetLayout(
-            vk::DescriptorSetLayoutCreateInfo().setBindings(samplerBindings));
-
-        const auto samplerPoolSizes = std::array {
-            vk::DescriptorPoolSize()
-                .setType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(5 * maxMaterialSets),
-            vk::DescriptorPoolSize()
-                .setType(vk::DescriptorType::eUniformBuffer)
-                .setDescriptorCount(maxMaterialSets),
-        };
-        const auto samplerDescriptorPool = mDevice->Get().createDescriptorPool(
-            vk::DescriptorPoolCreateInfo()
-                .setPoolSizes(samplerPoolSizes)
-                .setMaxSets(maxMaterialSets));
-
-        constexpr std::uint32_t  whitePixel = 0xFFFFFFFF;
-        constexpr std::uint32_t  blackPixel = 0xFF000000;
-        constexpr vk::DeviceSize pixelSize  = sizeof(whitePixel);
-        constexpr std::uint32_t  texWidth   = 1;
-        constexpr std::uint32_t  texHeight  = 1;
+        constexpr auto           maxMaterialSets = MAX_MATERIAL_SETS;
+        constexpr std::uint32_t  whitePixel      = 0xFFFFFFFF;
+        constexpr std::uint32_t  blackPixel      = 0xFF000000;
+        constexpr vk::DeviceSize pixelSize       = sizeof(whitePixel);
+        constexpr std::uint32_t  texWidth        = 1;
+        constexpr std::uint32_t  texHeight       = 1;
 
         const auto createFallbackTexture = [&](std::uint32_t pixel) {
             const auto staging =
@@ -232,12 +188,6 @@ namespace FREYA_NAMESPACE
                     emissiveFallbackImageView, emissiveFallbackSampler] =
             createFallbackTexture(blackPixel);
 
-        const auto fallbackSets = mDevice->Get().allocateDescriptorSets(
-            vk::DescriptorSetAllocateInfo()
-                .setDescriptorPool(samplerDescriptorPool)
-                .setSetLayouts(samplerLayout));
-        const auto fallbackSamplerSet = fallbackSets[0];
-
         const auto whiteImageInfo =
             vk::DescriptorImageInfo()
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
@@ -248,65 +198,6 @@ namespace FREYA_NAMESPACE
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
                 .setImageView(emissiveFallbackImageView)
                 .setSampler(emissiveFallbackSampler);
-
-        auto       identityFactors = MaterialFactorsUniform {};
-        const auto fallbackFactorsBuffer =
-            BufferBuilder(mDevice)
-                .SetUsage(BufferUsage::Uniform)
-                .SetSize(sizeof(MaterialFactorsUniform))
-                .SetData(&identityFactors)
-                .Build();
-        const auto factorsBufferInfo =
-            vk::DescriptorBufferInfo()
-                .setBuffer(fallbackFactorsBuffer->Get())
-                .setOffset(0)
-                .setRange(sizeof(MaterialFactorsUniform));
-
-        const auto fallbackWrites = std::array {
-            vk::WriteDescriptorSet()
-                .setDstSet(fallbackSamplerSet)
-                .setDstBinding(0)
-                .setDstArrayElement(0)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setImageInfo(whiteImageInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(fallbackSamplerSet)
-                .setDstBinding(1)
-                .setDstArrayElement(0)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setImageInfo(whiteImageInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(fallbackSamplerSet)
-                .setDstBinding(2)
-                .setDstArrayElement(0)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setImageInfo(whiteImageInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(fallbackSamplerSet)
-                .setDstBinding(3)
-                .setDstArrayElement(0)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setImageInfo(blackImageInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(fallbackSamplerSet)
-                .setDstBinding(4)
-                .setDstArrayElement(0)
-                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(1)
-                .setImageInfo(blackImageInfo),
-            vk::WriteDescriptorSet()
-                .setDstSet(fallbackSamplerSet)
-                .setDstBinding(5)
-                .setDstArrayElement(0)
-                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-                .setDescriptorCount(1)
-                .setBufferInfo(factorsBufferInfo),
-        };
-        mDevice->Get().updateDescriptorSets(fallbackWrites, nullptr);
 
         // Bindless set-1: textures[] + MaterialGPU SSBO
         const auto bindlessFlags = std::array {
@@ -401,11 +292,9 @@ namespace FREYA_NAMESPACE
         mDevice->Get().updateDescriptorSets(bindlessWrites, nullptr);
 
         return skr::MakeArc<MaterialDescriptorResources>(
-            mDevice, samplerLayout, samplerDescriptorPool, fallbackSamplerSet,
-            fallbackFactorsBuffer, bindlessLayout, bindlessPool, bindlessSet,
-            materialsBuffer, fallbackImage, fallbackImageMemory,
-            fallbackImageView, fallbackSampler, emissiveFallbackImage,
-            emissiveFallbackMemory, emissiveFallbackImageView,
-            emissiveFallbackSampler);
+            mDevice, bindlessLayout, bindlessPool, bindlessSet, materialsBuffer,
+            fallbackImage, fallbackImageMemory, fallbackImageView,
+            fallbackSampler, emissiveFallbackImage, emissiveFallbackMemory,
+            emissiveFallbackImageView, emissiveFallbackSampler);
     }
 } // namespace FREYA_NAMESPACE

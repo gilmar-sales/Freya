@@ -1,7 +1,6 @@
 #include "Renderer.hpp"
 
 #include "Freya/Asset/BoneMatrixResources.hpp"
-#include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Builders/BloomPassBuilder.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/CompositePassBuilder.hpp"
@@ -98,7 +97,6 @@ namespace FREYA_NAMESPACE
         mFreyaOptions(freyaOptions), mEventManager(eventManager),
         mCurrentProjection({}),
         mMeshPool(serviceProvider->GetService<MeshPool>()),
-        mMaterialPool(serviceProvider->GetService<MaterialPool>()),
         mIndirectDraw(serviceProvider->GetService<IndirectDrawSystem>())
     {
         if (!freyaOptions->enableShadows)
@@ -1014,18 +1012,6 @@ namespace FREYA_NAMESPACE
     void Renderer::BindBuffer(const skr::Arc<Buffer>& buffer) const
     {
         buffer->Bind(mCommandPool);
-    }
-
-    void Renderer::BindMaterial(const std::uint32_t materialId)
-    {
-        auto material = mMaterialPool->GetMaterial(materialId);
-
-        mCommandPool->GetCommandBuffer().bindDescriptorSets(
-            vk::PipelineBindPoint::eGraphics,
-            GetActivePipelineLayout(),
-            1,
-            material.descriptorSets,
-            nullptr);
     }
 
     void Renderer::Draw(const std::uint32_t meshId,

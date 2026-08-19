@@ -178,17 +178,6 @@ namespace FREYA_NAMESPACE
                 &mLightingSets[frameIndex],
                 0,
                 nullptr);
-            if (mMaterialResources)
-            {
-                commandBuffer.bindDescriptorSets(
-                    vk::PipelineBindPoint::eGraphics,
-                    mFullscreenPipelineLayout,
-                    1,
-                    1,
-                    &mMaterialResources->GetBindlessSet(),
-                    0,
-                    nullptr);
-            }
         }
         else
         {

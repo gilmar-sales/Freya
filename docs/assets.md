@@ -78,15 +78,20 @@ into the Weighted Blended OIT pass (`CullMode::Translucent`); use
 `castShadows = false` on glass instances.
 
 `clearcoat` (>0) enables a second dielectric GGX lobe in deferred lighting
-(F0=0.04). The weight is stored in G-buffer PBR.a; `clearcoatRoughness` is
-looked up from the bindless `MaterialGPU` table via albedo.a material ID.
+(F0=0.04). The weight is stored in G-buffer PBR.a. When coated, PBR.b holds
+`clearcoatRoughness` so the lighting pass does not need a material SSBO;
+otherwise PBR.b is material AO.
 
-Descriptor set 1 bindings:
+G-buffer / OIT bindless set 1:
 
 | Binding | Content |
 |---------|---------|
-| 0–4 | Combined image samplers: albedo, normal, roughness, emissive, metalness |
-| 5 | `MaterialFactorsUniform` (48 bytes): factors, `aoFactor` in `emissive.w`, `alphaCutoff` |
+| 0 | `sampler2D uTextures[]` (bindless heap) |
+| 1 | `MaterialGPU` SSBO |
+
+The lighting fullscreen pass uses only set 0 (G-buffer, lights, IBL,
+shadows). `FullscreenEffect` still reads an 8-bit material ID from
+albedo.a (IDs 256+ alias for cell masks).
 
 Empty texture optionals use engine fallbacks (white or black). Alpha cutout
 samples albedo alpha × `albedoFactor.a` in the G-buffer pass only (Mask).

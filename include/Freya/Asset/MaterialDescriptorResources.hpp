@@ -5,23 +5,16 @@
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 
-#include <vector>
-
 namespace FREYA_NAMESPACE
 {
     /**
-     * Shared material layouts: legacy per-material set-1, plus bindless heap
-     * (textures[] + MaterialGPU SSBO) used by the GPU-driven GBuffer path.
+     * Bindless material heap: textures[] + MaterialGPU SSBO (set 1).
      */
     class MaterialDescriptorResources
     {
       public:
         MaterialDescriptorResources(
             const skr::Arc<Device>& device,
-            vk::DescriptorSetLayout samplerLayout,
-            vk::DescriptorPool      samplerDescriptorPool,
-            vk::DescriptorSet       fallbackSamplerSet,
-            const skr::Arc<Buffer>& fallbackFactorsBuffer,
             vk::DescriptorSetLayout bindlessLayout,
             vk::DescriptorPool      bindlessPool,
             vk::DescriptorSet       bindlessSet,
@@ -37,37 +30,11 @@ namespace FREYA_NAMESPACE
 
         ~MaterialDescriptorResources();
 
-        vk::DescriptorSetLayout& GetSamplerLayout() { return mSamplerLayout; }
-
-        vk::DescriptorPool& GetSamplerDescriptorPool()
-        {
-            return mSamplerDescriptorPool;
-        }
-
-        vk::DescriptorSet& GetFallbackSamplerSet()
-        {
-            return mFallbackSamplerSet;
-        }
-
         vk::DescriptorSetLayout& GetBindlessLayout() { return mBindlessLayout; }
 
         vk::DescriptorSet& GetBindlessSet() { return mBindlessSet; }
 
         skr::Arc<Buffer>& GetMaterialsBuffer() { return mMaterialsBuffer; }
-
-        vk::ImageView& GetFallbackImageView() { return mFallbackImageView; }
-
-        vk::Sampler& GetFallbackSampler() { return mFallbackSampler; }
-
-        vk::ImageView& GetEmissiveFallbackImageView()
-        {
-            return mEmissiveFallbackImageView;
-        }
-
-        vk::Sampler& GetEmissiveFallbackSampler()
-        {
-            return mEmissiveFallbackSampler;
-        }
 
         /**
          * @brief Map a TexturePool id onto the bindless heap (id + 2).
@@ -90,11 +57,6 @@ namespace FREYA_NAMESPACE
 
       private:
         skr::Arc<Device> mDevice;
-
-        vk::DescriptorSetLayout mSamplerLayout;
-        vk::DescriptorPool      mSamplerDescriptorPool;
-        vk::DescriptorSet       mFallbackSamplerSet;
-        skr::Arc<Buffer>        mFallbackFactorsBuffer;
 
         vk::DescriptorSetLayout mBindlessLayout;
         vk::DescriptorPool      mBindlessPool;

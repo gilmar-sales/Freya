@@ -2,7 +2,6 @@
 
 #include "Freya/Asset/BoneMatrixResources.hpp"
 #include "Freya/Asset/GpuScene.hpp"
-#include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/RenderTargetBuilder.hpp"
@@ -367,7 +366,6 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] BufferBuilder       GetBufferBuilder() const;
         [[nodiscard]] RenderTargetBuilder GetRenderTargetBuilder() const;
         void BindBuffer(const skr::Arc<Buffer>& buffer) const;
-        void BindMaterial(std::uint32_t materialId);
 
         std::uint32_t GetCurrentFrameIndex() const
         {
@@ -445,7 +443,6 @@ namespace FREYA_NAMESPACE
         bool                             mUIPassOpen = false;
 
         skr::Arc<MeshPool>           mMeshPool;
-        skr::Arc<MaterialPool>       mMaterialPool;
         skr::Arc<IndirectDrawSystem> mIndirectDraw;
 
         vk::PipelineLayout mDrawPipelineLayoutOverride = {};

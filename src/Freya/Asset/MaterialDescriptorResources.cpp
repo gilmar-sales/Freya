@@ -1,17 +1,9 @@
 #include "MaterialDescriptorResources.hpp"
 
-#include "Freya/Core/UniformBuffer.hpp"
-
-#include <cstring>
-
 namespace FREYA_NAMESPACE
 {
     MaterialDescriptorResources::MaterialDescriptorResources(
         const skr::Arc<Device>&       device,
-        const vk::DescriptorSetLayout samplerLayout,
-        const vk::DescriptorPool      samplerDescriptorPool,
-        const vk::DescriptorSet       fallbackSamplerSet,
-        const skr::Arc<Buffer>&       fallbackFactorsBuffer,
         const vk::DescriptorSetLayout bindlessLayout,
         const vk::DescriptorPool      bindlessPool,
         const vk::DescriptorSet       bindlessSet,
@@ -24,13 +16,9 @@ namespace FREYA_NAMESPACE
         const vk::DeviceMemory        emissiveFallbackMemory,
         const vk::ImageView           emissiveFallbackImageView,
         const vk::Sampler             emissiveFallbackSampler) :
-        mDevice(device), mSamplerLayout(samplerLayout),
-        mSamplerDescriptorPool(samplerDescriptorPool),
-        mFallbackSamplerSet(fallbackSamplerSet),
-        mFallbackFactorsBuffer(fallbackFactorsBuffer),
-        mBindlessLayout(bindlessLayout), mBindlessPool(bindlessPool),
-        mBindlessSet(bindlessSet), mMaterialsBuffer(materialsBuffer),
-        mFallbackImage(fallbackImage),
+        mDevice(device), mBindlessLayout(bindlessLayout),
+        mBindlessPool(bindlessPool), mBindlessSet(bindlessSet),
+        mMaterialsBuffer(materialsBuffer), mFallbackImage(fallbackImage),
         mFallbackImageMemory(fallbackImageMemory),
         mFallbackImageView(fallbackImageView),
         mFallbackSampler(fallbackSampler),
@@ -55,14 +43,10 @@ namespace FREYA_NAMESPACE
         vkDevice.destroyImage(mEmissiveFallbackImage);
         vkDevice.freeMemory(mEmissiveFallbackMemory);
 
-        mFallbackFactorsBuffer.reset();
         mMaterialsBuffer.reset();
 
         vkDevice.destroyDescriptorPool(mBindlessPool);
         vkDevice.destroyDescriptorSetLayout(mBindlessLayout);
-
-        vkDevice.destroyDescriptorPool(mSamplerDescriptorPool);
-        vkDevice.destroyDescriptorSetLayout(mSamplerLayout);
     }
 
     void MaterialDescriptorResources::WriteBindlessTexture(
