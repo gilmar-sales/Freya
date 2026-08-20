@@ -50,6 +50,16 @@ namespace FREYA_NAMESPACE
 
         void WriteMaterial(std::uint32_t materialId, const MaterialGPU& gpu);
 
+        [[nodiscard]] vk::ImageView GetFallbackImageView() const
+        {
+            return mFallbackImageView;
+        }
+
+        [[nodiscard]] vk::Sampler GetFallbackSampler() const
+        {
+            return mFallbackSampler;
+        }
+
         [[nodiscard]] std::uint32_t GetMaterialCapacity() const
         {
             return mMaterialCapacity;

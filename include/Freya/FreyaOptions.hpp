@@ -127,7 +127,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t frameCount   = 4;
         glm::vec4     clearColor   = { 0.0f, 0.0f, 0.0f, 0.0f };
         float         drawDistance = 1000.0f;
-        std::uint32_t maxLights    = 16;
+        std::uint32_t maxLights    = 64;
         float         iblIntensity = 0.7f;
         float         exposure     = 0.7f;
         std::string   environmentMapPath =

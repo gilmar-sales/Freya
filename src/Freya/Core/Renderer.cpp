@@ -1006,6 +1006,117 @@ namespace FREYA_NAMESPACE
                                         out);
     }
 
+    void Renderer::Impl::SetGpuAnimCopyPrevBones(const bool enabled)
+    {
+        if (mGpuAnimPass)
+            mGpuAnimPass->SetCopyPrevBones(enabled);
+    }
+
+    void Renderer::Impl::UploadGpuAnimInstances(
+        const std::span<const GpuAnimInstance> instances)
+    {
+        if (mGpuAnimPass)
+            mGpuAnimPass->UploadInstances(instances);
+    }
+
+    void Renderer::Impl::CaptureGpuAnimDebugSnapshot(
+        GpuAnimDebugSnapshot& out) const
+    {
+        if (mGpuAnimPass)
+            mGpuAnimPass->CaptureDebugSnapshot(out);
+    }
+
+    std::uint32_t Renderer::Impl::FindGpuAnimClipSlot(
+        const std::uint64_t key) const
+    {
+        if (!mGpuAnimPass)
+            return 0xffffffffu;
+        return mGpuAnimPass->FindClipSlot(key);
+    }
+
+    std::uint32_t Renderer::Impl::EnsureGpuAnimClipResident(
+        const std::uint64_t key, const BakedClip& clip)
+    {
+        if (!mGpuAnimPass)
+            return 0xffffffffu;
+        return mGpuAnimPass->EnsureClipResident(key, clip);
+    }
+
+    std::uint32_t Renderer::Impl::GetGpuAnimResidentClipCount() const
+    {
+        if (!mGpuAnimPass)
+            return 0;
+        return mGpuAnimPass->ResidentClipCount();
+    }
+
+    std::uint32_t Renderer::Impl::GetGpuAnimJointsPerClipSlot() const
+    {
+        if (!mGpuAnimPass)
+            return 0;
+        return mGpuAnimPass->JointsPerClipSlot();
+    }
+
+    void Renderer::Impl::UploadGpuAnimSkeleton(const GpuSkeletonPack& skeleton)
+    {
+        if (mGpuAnimPass)
+            mGpuAnimPass->UploadSkeleton(skeleton);
+    }
+
+    void Renderer::Impl::ResetGpuAnimClipCache()
+    {
+        if (mGpuAnimPass)
+            mGpuAnimPass->ResetClipCache();
+    }
+
+    bool Renderer::Impl::UploadGpuAnimClipSlot(const std::uint32_t slot,
+                                               const std::uint64_t key,
+                                               const BakedClip&    clip)
+    {
+        if (!mGpuAnimPass)
+            return false;
+        return mGpuAnimPass->UploadClipSlot(slot, key, clip);
+    }
+
+    void Renderer::Impl::PinGpuAnimClipSlot(const std::uint32_t slot,
+                                            const bool          pinned)
+    {
+        if (mGpuAnimPass)
+            mGpuAnimPass->PinClipSlot(slot, pinned);
+    }
+
+    void Renderer::Impl::UploadGpuAnimBoneMask(
+        const std::span<const float> weights)
+    {
+        if (mGpuAnimPass)
+            mGpuAnimPass->UploadBoneMask(weights);
+    }
+
+    void Renderer::Impl::UploadGpuAnimRestJoints(
+        const std::span<const GpuFloatJoint> joints)
+    {
+        if (mGpuAnimPass)
+            mGpuAnimPass->UploadRestJoints(joints);
+    }
+
+    void Renderer::Impl::UploadGpuAnimRestJoints(
+        const std::span<const GpuQuantJoint> joints)
+    {
+        if (mGpuAnimPass)
+            mGpuAnimPass->UploadRestJoints(joints);
+    }
+
+    void Renderer::Impl::SetGpuAnimRigIndices(
+        const std::uint32_t lookJoint, const std::uint32_t ikRoot,
+        const std::uint32_t ikMid, const std::uint32_t ikTip,
+        const std::uint32_t rootJoint, const glm::vec3 lookLocalForward,
+        const float lookMaxYawRad, const float lookMaxPitchRad)
+    {
+        if (mGpuAnimPass)
+            mGpuAnimPass->SetRigIndices(
+                lookJoint, ikRoot, ikMid, ikTip, rootJoint, lookLocalForward,
+                lookMaxYawRad, lookMaxPitchRad);
+    }
+
     BufferBuilder Renderer::Impl::GetBufferBuilder() const
     {
         return BufferBuilder(mDevice);

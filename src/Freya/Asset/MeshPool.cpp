@@ -146,8 +146,7 @@ namespace FREYA_NAMESPACE
                 const auto submit = vk::SubmitInfo()
                                         .setCommandBufferCount(1)
                                         .setPCommandBuffers(&cmd);
-                device->GetTransferQueue().submit(submit);
-                device->GetTransferQueue().waitIdle();
+                device->SubmitAndWait(device->GetTransferQueue(), submit);
                 commandPool->FreeCommandBuffer(cmd);
             }
 
@@ -287,8 +286,7 @@ namespace FREYA_NAMESPACE
             const auto submitInfo =
                 vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(
                     &commandBuffer);
-            device->GetTransferQueue().submit(submitInfo);
-            device->GetTransferQueue().waitIdle();
+            device->SubmitAndWait(device->GetTransferQueue(), submitInfo);
             commandPool->FreeCommandBuffer(commandBuffer);
 
             glm::vec3 aabbMin(std::numeric_limits<float>::max());
@@ -1147,6 +1145,15 @@ namespace FREYA_NAMESPACE
                                  size_t firstInstance)
     {
         mImpl->drawInstanced(meshId, instanceCount, firstInstance);
+    }
+
+    void MeshPool::Destroy(const std::uint32_t meshId)
+    {
+        if (!mImpl->meshes.contains(meshId))
+            return;
+        mImpl->meshes.remove(Mesh { .id = meshId });
+        mImpl->logger->LogTrace("MeshPool::Destroy id={} (geometry retained)",
+                                meshId);
     }
 
 } // namespace FREYA_NAMESPACE

@@ -1,6 +1,8 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 
+#include "Include/freya_limits.inc"
+
 layout(location = 0) in vec2 inUV;
 
 layout(set = 0, binding = 0) uniform sampler2D inDepth;
@@ -20,11 +22,11 @@ layout(set = 0, binding = 4) uniform CameraBuffer {
 } camera;
 
 layout(set = 0, binding = 5) uniform LightBuffer {
-    vec4 lightPositions[16];
-    vec4 lightColorsAndRadius[16];
-    vec4 lightDirectionsAndCutoff[16];
-    vec4 lightOuterCutoffAndIntensity[16];
-    vec4 lightAreaTangents[16];
+    vec4 lightPositions[FREYA_MAX_LIGHTS];
+    vec4 lightColorsAndRadius[FREYA_MAX_LIGHTS];
+    vec4 lightDirectionsAndCutoff[FREYA_MAX_LIGHTS];
+    vec4 lightOuterCutoffAndIntensity[FREYA_MAX_LIGHTS];
+    vec4 lightAreaTangents[FREYA_MAX_LIGHTS];
     vec4 viewPosition;
     vec4 cameraForward;
     uint lightCount;

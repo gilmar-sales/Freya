@@ -59,8 +59,7 @@ void main() {
         srgbToLinear(albedoSample.rgb) * inColor *
         mat.albedoFactor.rgb;
 
-    outAlbedo = vec4(linearToSrgb(albedoLin),
-                     mod(mat.materialId, 256.0) / 255.0);
+    outAlbedo = vec4(linearToSrgb(albedoLin), 1.0);
 
     uint flags = 0u;
     if ((mat.flags & kMaterialFlagUnlit) != 0u)
@@ -84,6 +83,7 @@ void main() {
             texture(uTextures[nonuniformEXT(mat.emissiveIndex)], inTexCoord)
                 .rgb) *
         mat.emissiveFactor.rgb;
-    outSceneColor = vec4(emissiveLin * kEmissiveIntensity, 1.0);
+    outSceneColor = vec4(emissiveLin * kEmissiveIntensity,
+                         float(inMaterialId));
     outVelocity = inVelocity;
 }

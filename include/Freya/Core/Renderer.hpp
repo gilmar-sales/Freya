@@ -5,34 +5,18 @@
 #include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Core/BillboardDraw.hpp"
 #include "Freya/Core/DebugDraw.hpp"
-#include "Freya/Core/GpuAnimPass.hpp"
 #include "Freya/Core/IFrameStage.hpp"
-#include "Freya/Core/UniformBuffer.hpp"
 #include "Freya/FreyaOptions.hpp"
 
 #include <Skirnir/Skirnir.hpp>
 
 #include <memory>
 #include <span>
-#include <vector>
 
 #include <glm/glm.hpp>
 
 namespace FREYA_NAMESPACE
 {
-    /**
-     * @brief Stored draw command for reuse across rendering passes.
-     */
-    struct DrawCommand
-    {
-        std::uint32_t meshId;
-        std::uint32_t materialId;
-        std::uint32_t instanceCount;
-        std::uint32_t firstInstance;
-        std::uint32_t entityId    = kPickMissId;
-        bool          castShadows = true;
-    };
-
     class Renderer
     {
       public:
@@ -105,29 +89,17 @@ namespace FREYA_NAMESPACE
 
         void UploadBoneMatrices(std::span<const glm::mat4> bones);
 
-        void ClearDrawCommands();
-        void ExecuteDrawCommands(bool bindMaterials = true);
-        void ExecutePickDrawCommands();
-        void DispatchCull(const glm::mat4& viewProj, CullMode mode);
-
         void RequestPick(std::uint32_t x, std::uint32_t y);
         bool TryConsumePickResult(std::uint32_t& outEntityId);
 
         bool InsertFrameStage(const char* beforeName, FrameStagePtr stage);
         bool ReplaceFrameStage(const char* name, FrameStagePtr stage);
 
-        [[nodiscard]] const std::vector<FrameStagePtr>& GetFrameStages() const;
-
         glm::mat4 MakeProjection(float fovRadians, float aspect, float near,
                                  float far) const;
 
         void      ClearProjections();
         glm::mat4 CalculateProjectionMatrix(float near, float far) const;
-
-        [[nodiscard]] const ProjectionUniformBuffer& GetCurrentProjection()
-            const;
-
-        void UpdateProjection(ProjectionUniformBuffer& projectionUniformBuffer);
 
         void UpdateCamera(const glm::vec3& position,
                           const glm::vec3& target,
@@ -141,11 +113,34 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] BillboardDraw& GetBillboardDraw();
 
-        void                       SetGpuAnimEnabled(bool enabled);
-        [[nodiscard]] bool         IsGpuAnimEnabled() const;
-        [[nodiscard]] GpuAnimPass* GetGpuAnimPass();
+        void               SetGpuAnimEnabled(bool enabled);
+        [[nodiscard]] bool IsGpuAnimEnabled() const;
 
         void RebuildGpuAnimPass();
+
+        void SetGpuAnimCopyPrevBones(bool enabled);
+        void UploadGpuAnimInstances(std::span<const GpuAnimInstance> instances);
+        void CaptureGpuAnimDebugSnapshot(GpuAnimDebugSnapshot& out) const;
+        [[nodiscard]] std::uint32_t FindGpuAnimClipSlot(
+            std::uint64_t key) const;
+        [[nodiscard]] std::uint32_t EnsureGpuAnimClipResident(
+            std::uint64_t key, const BakedClip& clip);
+        [[nodiscard]] std::uint32_t GetGpuAnimResidentClipCount() const;
+        [[nodiscard]] std::uint32_t GetGpuAnimJointsPerClipSlot() const;
+
+        void UploadGpuAnimSkeleton(const GpuSkeletonPack& skeleton);
+        void ResetGpuAnimClipCache();
+        bool UploadGpuAnimClipSlot(std::uint32_t slot, std::uint64_t key,
+                                   const BakedClip& clip);
+        void PinGpuAnimClipSlot(std::uint32_t slot, bool pinned);
+        void UploadGpuAnimBoneMask(std::span<const float> weights);
+        void UploadGpuAnimRestJoints(std::span<const GpuFloatJoint> joints);
+        void UploadGpuAnimRestJoints(std::span<const GpuQuantJoint> joints);
+        void SetGpuAnimRigIndices(
+            std::uint32_t lookJoint, std::uint32_t ikRoot, std::uint32_t ikMid,
+            std::uint32_t ikTip, std::uint32_t rootJoint,
+            glm::vec3 lookLocalForward = { 0.f, 0.f, 1.f },
+            float lookMaxYawRad = 1.2f, float lookMaxPitchRad = 0.8f);
 
         bool ReadbackGpuAnimBones(std::uint32_t frameIndex,
                                   std::uint32_t boneOffset,

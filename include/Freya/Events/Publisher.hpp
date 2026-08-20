@@ -1,58 +1,65 @@
 #pragma once
 
 #include <functional>
+#include <mutex>
+#include <vector>
 
 #include "Freya/Events/Event.hpp"
 
 namespace FREYA_NAMESPACE
 {
-    /**
-     * @brief Base interface for event publishers.
-     */
+    using EventSubscription = std::uint64_t;
+
     class IPublisher
     {
       public:
         virtual ~IPublisher() = default;
     };
 
-    /**
-     * @brief Template event publisher with listener management.
-     *
-     * @tparam TEvent Event type to publish (must satisfy IsEvent concept)
-     */
     template <typename TEvent>
         requires IsEvent<TEvent>
     class Publisher final : public IPublisher
     {
       public:
-        /**
-         * @brief Listener callback type.
-         */
         using EventListener = std::function<void(TEvent&)>;
 
-        /**
-         * @brief Adds a listener to the publisher.
-         * @param listener Callback function to invoke on publish
-         */
-        void Subscribe(auto&& listener)
+        EventSubscription Subscribe(auto&& listener)
         {
-            mListeners.emplace_back(std::forward<EventListener>(listener));
+            std::lock_guard lock { mMutex };
+            const auto      id = mNextId++;
+            mListeners.push_back({ id, std::forward<EventListener>(listener) });
+            return id;
         }
 
-        /**
-         * @brief Calls all listeners with the event.
-         * @param event Event to broadcast
-         * @note Iterates through all listeners and calls each one
-         */
-        void Publish(TEvent event)
+        void Unsubscribe(EventSubscription id)
         {
-            for (auto i = 0; i < mListeners.size(); i++)
+            std::lock_guard lock { mMutex };
+            for (auto it = mListeners.begin(); it != mListeners.end(); ++it)
             {
-                mListeners[i](event);
+                if (it->id == id)
+                {
+                    mListeners.erase(it);
+                    return;
+                }
             }
         }
 
+        void Publish(TEvent event)
+        {
+            std::lock_guard lock { mMutex };
+            for (const auto& entry : mListeners)
+                entry.listener(event);
+        }
+
       private:
-        std::vector<EventListener> mListeners; ///< Stored listener callbacks
+        struct ListenerEntry
+        {
+            EventSubscription id;
+            EventListener     listener;
+        };
+
+        std::mutex                 mMutex;
+        std::vector<ListenerEntry> mListeners;
+        EventSubscription          mNextId = 1;
     };
 } // namespace FREYA_NAMESPACE

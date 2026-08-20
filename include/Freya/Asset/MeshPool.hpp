@@ -60,6 +60,8 @@ namespace FREYA_NAMESPACE
 
         void FillMeshLods(std::vector<MeshLodInfo>& out) const;
 
+        void Destroy(std::uint32_t meshId);
+
       protected:
         friend class FREYA_NAMESPACE::IndirectDrawSystem;
 

@@ -28,7 +28,7 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief Sets the maximum number of lights.
-         * @param maxLights Maximum light count (default: MAX_LIGHTS)
+         * @param maxLights Maximum light count (default: kMaxLights)
          * @return Reference to this for chaining
          */
         LightServiceBuilder& SetMaxLights(std::uint32_t maxLights)
@@ -51,7 +51,7 @@ namespace FREYA_NAMESPACE
       private:
         skr::Arc<Device>       mDevice;
         skr::Arc<FreyaOptions> mFreyaOptions;
-        std::uint32_t          mMaxLights = MAX_LIGHTS;
+        std::uint32_t          mMaxLights = kMaxLights;
     };
 
 } // namespace FREYA_NAMESPACE

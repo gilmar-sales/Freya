@@ -148,6 +148,8 @@ namespace FREYA_NAMESPACE
          */
         void EndDebugLabel(const vk::CommandBuffer& cmd) const;
 
+        void SubmitAndWait(vk::Queue queue, vk::SubmitInfo submitInfo) const;
+
       private:
         skr::Arc<PhysicalDevice> mPhysicalDevice;
 

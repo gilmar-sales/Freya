@@ -1,5 +1,7 @@
 #include "Freya/Internal/RendererImpl.hpp"
 
+#include "Freya/Core/GpuAnimPass.hpp"
+
 namespace FREYA_NAMESPACE
 {
     Renderer::Renderer(std::unique_ptr<Impl> impl) : mImpl(std::move(impl))
@@ -194,26 +196,6 @@ namespace FREYA_NAMESPACE
         mImpl->UploadBoneMatrices(bones);
     }
 
-    void Renderer::ClearDrawCommands()
-    {
-        mImpl->ClearDrawCommands();
-    }
-
-    void Renderer::ExecuteDrawCommands(const bool bindMaterials)
-    {
-        mImpl->ExecuteDrawCommands(bindMaterials);
-    }
-
-    void Renderer::ExecutePickDrawCommands()
-    {
-        mImpl->ExecutePickDrawCommands();
-    }
-
-    void Renderer::DispatchCull(const glm::mat4& viewProj, const CullMode mode)
-    {
-        mImpl->DispatchCull(viewProj, mode);
-    }
-
     void Renderer::RequestPick(const std::uint32_t x, const std::uint32_t y)
     {
         mImpl->RequestPick(x, y);
@@ -234,11 +216,6 @@ namespace FREYA_NAMESPACE
         return mImpl->ReplaceFrameStage(name, std::move(stage));
     }
 
-    const std::vector<FrameStagePtr>& Renderer::GetFrameStages() const
-    {
-        return mImpl->mFrameStages;
-    }
-
     glm::mat4 Renderer::MakeProjection(const float fovRadians,
                                        const float aspect, const float near,
                                        const float far) const
@@ -255,17 +232,6 @@ namespace FREYA_NAMESPACE
                                                   const float far) const
     {
         return mImpl->CalculateProjectionMatrix(near, far);
-    }
-
-    const ProjectionUniformBuffer& Renderer::GetCurrentProjection() const
-    {
-        return mImpl->mCurrentProjection;
-    }
-
-    void Renderer::UpdateProjection(
-        ProjectionUniformBuffer& projectionUniformBuffer)
-    {
-        mImpl->UpdateProjection(projectionUniformBuffer);
     }
 
     void Renderer::UpdateCamera(const glm::vec3& position,
@@ -310,14 +276,97 @@ namespace FREYA_NAMESPACE
         return mImpl->mGpuAnimPass && mImpl->mGpuAnimPass->IsEnabled();
     }
 
-    GpuAnimPass* Renderer::GetGpuAnimPass()
-    {
-        return mImpl->mGpuAnimPass.get();
-    }
-
     void Renderer::RebuildGpuAnimPass()
     {
         mImpl->RebuildGpuAnimPass();
+    }
+
+    void Renderer::SetGpuAnimCopyPrevBones(const bool enabled)
+    {
+        mImpl->SetGpuAnimCopyPrevBones(enabled);
+    }
+
+    void Renderer::UploadGpuAnimInstances(
+        const std::span<const GpuAnimInstance> instances)
+    {
+        mImpl->UploadGpuAnimInstances(instances);
+    }
+
+    void Renderer::CaptureGpuAnimDebugSnapshot(GpuAnimDebugSnapshot& out) const
+    {
+        mImpl->CaptureGpuAnimDebugSnapshot(out);
+    }
+
+    std::uint32_t Renderer::FindGpuAnimClipSlot(const std::uint64_t key) const
+    {
+        return mImpl->FindGpuAnimClipSlot(key);
+    }
+
+    std::uint32_t Renderer::EnsureGpuAnimClipResident(const std::uint64_t key,
+                                                      const BakedClip&    clip)
+    {
+        return mImpl->EnsureGpuAnimClipResident(key, clip);
+    }
+
+    std::uint32_t Renderer::GetGpuAnimResidentClipCount() const
+    {
+        return mImpl->GetGpuAnimResidentClipCount();
+    }
+
+    std::uint32_t Renderer::GetGpuAnimJointsPerClipSlot() const
+    {
+        return mImpl->GetGpuAnimJointsPerClipSlot();
+    }
+
+    void Renderer::UploadGpuAnimSkeleton(const GpuSkeletonPack& skeleton)
+    {
+        mImpl->UploadGpuAnimSkeleton(skeleton);
+    }
+
+    void Renderer::ResetGpuAnimClipCache()
+    {
+        mImpl->ResetGpuAnimClipCache();
+    }
+
+    bool Renderer::UploadGpuAnimClipSlot(const std::uint32_t slot,
+                                         const std::uint64_t key,
+                                         const BakedClip&    clip)
+    {
+        return mImpl->UploadGpuAnimClipSlot(slot, key, clip);
+    }
+
+    void Renderer::PinGpuAnimClipSlot(const std::uint32_t slot,
+                                      const bool          pinned)
+    {
+        mImpl->PinGpuAnimClipSlot(slot, pinned);
+    }
+
+    void Renderer::UploadGpuAnimBoneMask(const std::span<const float> weights)
+    {
+        mImpl->UploadGpuAnimBoneMask(weights);
+    }
+
+    void Renderer::UploadGpuAnimRestJoints(
+        const std::span<const GpuFloatJoint> joints)
+    {
+        mImpl->UploadGpuAnimRestJoints(joints);
+    }
+
+    void Renderer::UploadGpuAnimRestJoints(
+        const std::span<const GpuQuantJoint> joints)
+    {
+        mImpl->UploadGpuAnimRestJoints(joints);
+    }
+
+    void Renderer::SetGpuAnimRigIndices(
+        const std::uint32_t lookJoint, const std::uint32_t ikRoot,
+        const std::uint32_t ikMid, const std::uint32_t ikTip,
+        const std::uint32_t rootJoint, const glm::vec3 lookLocalForward,
+        const float lookMaxYawRad, const float lookMaxPitchRad)
+    {
+        mImpl->SetGpuAnimRigIndices(
+            lookJoint, ikRoot, ikMid, ikTip, rootJoint, lookLocalForward,
+            lookMaxYawRad, lookMaxPitchRad);
     }
 
     bool Renderer::ReadbackGpuAnimBones(const std::uint32_t frameIndex,

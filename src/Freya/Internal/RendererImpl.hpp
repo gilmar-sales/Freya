@@ -37,6 +37,16 @@ namespace FREYA_NAMESPACE
 {
     class Buffer;
 
+    struct DrawCommand
+    {
+        std::uint32_t meshId;
+        std::uint32_t materialId;
+        std::uint32_t instanceCount;
+        std::uint32_t firstInstance;
+        std::uint32_t entityId    = kPickMissId;
+        bool          castShadows = true;
+    };
+
     class Renderer::Impl
     {
       public:
@@ -154,6 +164,30 @@ namespace FREYA_NAMESPACE
                                      std::uint32_t* outCount = nullptr);
 
         bool PollGpuAnimTiming(GpuAnimTimingSample& out);
+
+        void SetGpuAnimCopyPrevBones(bool enabled);
+        void UploadGpuAnimInstances(std::span<const GpuAnimInstance> instances);
+        void CaptureGpuAnimDebugSnapshot(GpuAnimDebugSnapshot& out) const;
+        [[nodiscard]] std::uint32_t FindGpuAnimClipSlot(
+            std::uint64_t key) const;
+        [[nodiscard]] std::uint32_t EnsureGpuAnimClipResident(
+            std::uint64_t key, const BakedClip& clip);
+        [[nodiscard]] std::uint32_t GetGpuAnimResidentClipCount() const;
+        [[nodiscard]] std::uint32_t GetGpuAnimJointsPerClipSlot() const;
+
+        void UploadGpuAnimSkeleton(const GpuSkeletonPack& skeleton);
+        void ResetGpuAnimClipCache();
+        bool UploadGpuAnimClipSlot(std::uint32_t slot, std::uint64_t key,
+                                   const BakedClip& clip);
+        void PinGpuAnimClipSlot(std::uint32_t slot, bool pinned);
+        void UploadGpuAnimBoneMask(std::span<const float> weights);
+        void UploadGpuAnimRestJoints(std::span<const GpuFloatJoint> joints);
+        void UploadGpuAnimRestJoints(std::span<const GpuQuantJoint> joints);
+        void SetGpuAnimRigIndices(std::uint32_t lookJoint, std::uint32_t ikRoot,
+                                  std::uint32_t ikMid, std::uint32_t ikTip,
+                                  std::uint32_t rootJoint,
+                                  glm::vec3     lookLocalForward,
+                                  float lookMaxYawRad, float lookMaxPitchRad);
 
         void UpdateModel(const glm::mat4& model) const;
 

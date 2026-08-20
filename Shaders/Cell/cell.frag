@@ -9,7 +9,7 @@ layout(set = 0, binding = 2) uniform sampler2D inNormal;
 
 layout(set = 1, binding = 0) uniform sampler2D inAlbedo;
 layout(std140, set = 1, binding = 1) uniform MaterialMask {
-    uvec4 bits[2];
+    uvec4 bits[8];
     uint count;
 } mask;
 
@@ -48,7 +48,7 @@ bool MaterialIncluded(uint matId) {
 void main() {
     vec3 scene = texture(inScene, inUV).rgb;
     float depth = SampleDepth(inUV);
-    uint matId = uint(texture(inAlbedo, inUV).a * 255.0 + 0.5);
+    uint matId = uint(texture(inScene, inUV).a + 0.5);
     if (IsSky(depth) || !MaterialIncluded(matId)) {
         outColor = vec4(scene, 1.0);
         return;

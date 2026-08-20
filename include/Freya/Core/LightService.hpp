@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Freya/Core/UniformBuffer.hpp"
+#include "Freya/Core/Limits.hpp"
 
 #include <Skirnir/Skirnir.hpp>
 
@@ -118,7 +118,7 @@ namespace FREYA_NAMESPACE
 
         LightService(const skr::Arc<Device>& device,
                      std::uint32_t           frameCount,
-                     std::uint32_t           maxLights = MAX_LIGHTS);
+                     std::uint32_t           maxLights = kMaxLights);
 
         ~LightService();
 

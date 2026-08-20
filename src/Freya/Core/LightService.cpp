@@ -1,3 +1,5 @@
+#include "Freya/Core/Limits.hpp"
+#include "Freya/Core/UniformBuffer.hpp"
 #include "Freya/Internal/LightServiceGpu.hpp"
 
 #include "Freya/Builders/BufferBuilder.hpp"
@@ -13,7 +15,7 @@ namespace FREYA_NAMESPACE
     {
         mImpl->mDevice     = device;
         mImpl->mFrameCount = frameCount;
-        mImpl->mMaxLights  = std::min(maxLights, MAX_LIGHTS);
+        mImpl->mMaxLights  = std::min(maxLights, kMaxLights);
         mImpl->mLightCount = 0;
         mImpl->mLayout     = nullptr;
         mImpl->mPool       = nullptr;

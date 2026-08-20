@@ -26,7 +26,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t                  pushConstantSize = 0;
         std::vector<std::byte>         pushData;
         bool                           enabled = true;
-        std::array<std::uint32_t, 8>   materialBits {};
+        std::array<std::uint32_t, 32>  materialBits {};
         bool                           maskDirty = true;
         skr::Arc<Buffer>               maskBuffer;
         vk::RenderPass                 renderPass {};

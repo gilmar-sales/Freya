@@ -1,5 +1,6 @@
 #include "Freya/Core/FullscreenEffect.hpp"
 #include "Freya/Core/FullscreenEffectStage.hpp"
+#include "Freya/Core/Limits.hpp"
 
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
@@ -48,9 +49,10 @@ namespace FREYA_NAMESPACE
 
     void FullscreenEffect::BindMaterial(const std::uint32_t materialId)
     {
-        const auto id   = materialId & 0xFFu;
-        const auto word = id >> 5u;
-        const auto bit  = 1u << (id & 31u);
+        if (materialId >= kMaxMaterialSets)
+            return;
+        const auto word = materialId >> 5u;
+        const auto bit  = 1u << (materialId & 31u);
         if ((mImpl->materialBits[word] & bit) != 0)
             return;
         mImpl->materialBits[word] |= bit;
@@ -59,9 +61,10 @@ namespace FREYA_NAMESPACE
 
     void FullscreenEffect::UnbindMaterial(const std::uint32_t materialId)
     {
-        const auto id   = materialId & 0xFFu;
-        const auto word = id >> 5u;
-        const auto bit  = 1u << (id & 31u);
+        if (materialId >= kMaxMaterialSets)
+            return;
+        const auto word = materialId >> 5u;
+        const auto bit  = 1u << (materialId & 31u);
         if ((mImpl->materialBits[word] & bit) == 0)
             return;
         mImpl->materialBits[word] &= ~bit;
@@ -80,10 +83,15 @@ namespace FREYA_NAMESPACE
             return;
 
         FullscreenMaterialMask mask {};
-        mask.bits[0] = { materialBits[0], materialBits[1], materialBits[2],
-                         materialBits[3] };
-        mask.bits[1] = { materialBits[4], materialBits[5], materialBits[6],
-                         materialBits[7] };
+        for (std::size_t i = 0; i < std::size(mask.bits); ++i)
+        {
+            mask.bits[i] = {
+                materialBits[i * 4 + 0],
+                materialBits[i * 4 + 1],
+                materialBits[i * 4 + 2],
+                materialBits[i * 4 + 3],
+            };
+        }
         for (const auto word : materialBits)
             mask.count += std::popcount(word);
 

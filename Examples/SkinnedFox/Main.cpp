@@ -213,12 +213,9 @@ class MainApp final : public fra::AbstractApplication
         mRestPose  = fra::RestLocalPose(mSkinned.skeleton);
         buildStreamCatalog();
 
-        if (auto* gpu = mRenderer->GetGpuAnimPass())
-        {
-            uploadGpuAnimAssets(*gpu);
-            selfTestStreamRing(*gpu);
-            gpu->SetCopyPrevBones(false);
-        }
+        uploadGpuAnimAssets();
+        selfTestStreamRing();
+        mRenderer->SetGpuAnimCopyPrevBones(false);
 
         mHeadJoint       = findJointAny(mSkinned.skeleton, { "Head", "head" });
         const auto thigh = findJointAny(
@@ -238,8 +235,7 @@ class MainApp final : public fra::AbstractApplication
             mIkReady       = true;
         }
 
-        if (auto* gpu = mRenderer->GetGpuAnimPass())
-            bindGpuAnimRig(*gpu);
+        bindGpuAnimRig();
 
         std::cout << "Rig joints: head=" << mHeadJoint
                   << " leg=" << mLegChain.root << "/" << mLegChain.mid << "/"
@@ -622,21 +618,18 @@ class MainApp final : public fra::AbstractApplication
         const double msBoneUpload =
             SecondsF(Clock::now() - tBone0).count() * 1000.0;
 
-        if (auto* gpu = mRenderer->GetGpuAnimPass())
+        if (!gpuInstances.empty())
         {
-            if (!gpuInstances.empty())
-            {
-                gpu->SetCopyPrevBones(gpuCrowd);
-                gpu->UploadInstances(gpuInstances);
-                gpu->SetEnabled(true);
-                if (gpuCrowd && gpuInstances.size() == mFoxes.size())
-                    mGpuCrowdSeeded = true;
-            }
-            else
-            {
-                gpu->SetEnabled(false);
-                gpu->UploadInstances({});
-            }
+            mRenderer->SetGpuAnimCopyPrevBones(gpuCrowd);
+            mRenderer->UploadGpuAnimInstances(gpuInstances);
+            mRenderer->SetGpuAnimEnabled(true);
+            if (gpuCrowd && gpuInstances.size() == mFoxes.size())
+                mGpuCrowdSeeded = true;
+        }
+        else
+        {
+            mRenderer->SetGpuAnimEnabled(false);
+            mRenderer->UploadGpuAnimInstances({});
         }
 
         const float yawRad   = glm::radians(mYaw);
@@ -927,16 +920,13 @@ class MainApp final : public fra::AbstractApplication
                     std::cout << " [" << p.minValue << "," << p.maxValue << "]";
                 std::cout << '\n';
             }
-            if (auto* gpu = mRenderer->GetGpuAnimPass())
-            {
-                fra::GpuAnimDebugSnapshot gs;
-                gpu->CaptureDebugSnapshot(gs);
-                std::cout << "  gpuAnim en=" << onOff(gs.enabled)
-                          << " quant=" << onOff(gs.quantizedJoints)
-                          << " inst=" << gs.instanceCount
-                          << " clips=" << gs.residentClips << "/" << gs.maxClips
-                          << " slab=" << gs.jointsPerClipSlot << '\n';
-            }
+            fra::GpuAnimDebugSnapshot gs;
+            mRenderer->CaptureGpuAnimDebugSnapshot(gs);
+            std::cout << "  gpuAnim en=" << onOff(gs.enabled)
+                      << " quant=" << onOff(gs.quantizedJoints)
+                      << " inst=" << gs.instanceCount
+                      << " clips=" << gs.residentClips << "/" << gs.maxClips
+                      << " slab=" << gs.jointsPerClipSlot << '\n';
             const auto skel = fra::CaptureSkeletonDebug(mSkinned.skeleton);
             std::cout << "  skeleton joints=" << skel.JointCount()
                       << " eventRing=" << mEventRing.Size() << "/"
@@ -1140,38 +1130,41 @@ class MainApp final : public fra::AbstractApplication
         bool lookSkipClamp = false;
     };
 
-    void uploadGpuAnimAssets(fra::GpuAnimPass& gpu)
+    void uploadGpuAnimAssets()
     {
-        gpu.UploadSkeleton(fra::PackSkeleton(mSkinned.skeleton));
-        gpu.ResetClipCache();
+        mRenderer->UploadGpuAnimSkeleton(fra::PackSkeleton(mSkinned.skeleton));
+        mRenderer->ResetGpuAnimClipCache();
 
         const auto uploadPinned = [&](const std::uint32_t   slot,
                                       const char*           name,
                                       const fra::BakedClip& bake) {
             const auto key = fra::GpuClipKey(name);
-            if (!gpu.UploadClipSlot(slot, key, bake))
+            if (!mRenderer->UploadGpuAnimClipSlot(slot, key, bake))
             {
                 std::cout << "GPU clip slot " << slot << " (" << name
                           << ") upload failed\n";
                 return;
             }
-            gpu.PinClipSlot(slot, true);
+            mRenderer->PinGpuAnimClipSlot(slot, true);
         };
         uploadPinned(0, "Idle", mBakeIdle);
         uploadPinned(1, "Walk", mBakeWalk);
         uploadPinned(2, "Run", mBakeRun);
 
         const auto jc = mSkinned.skeleton.JointCount();
-        gpu.UploadBoneMask(fra::PackBoneMask(mUpperMask, jc));
+        mRenderer->UploadGpuAnimBoneMask(fra::PackBoneMask(mUpperMask, jc));
         if (mFreyaOptions->quantizeGpuAnimJoints)
-            gpu.UploadRestJoints(fra::PackRestJointsQuant(mRestPose, jc));
+            mRenderer->UploadGpuAnimRestJoints(
+                fra::PackRestJointsQuant(mRestPose, jc));
         else
-            gpu.UploadRestJoints(fra::PackRestJointsFloat(mRestPose, jc));
+            mRenderer->UploadGpuAnimRestJoints(
+                fra::PackRestJointsFloat(mRestPose, jc));
         std::cout << "GPU anim bake+mask+rest uploaded ("
                   << (mFreyaOptions->quantizeGpuAnimJoints ? "quantized 16B"
                                                            : "float 48B")
-                  << ") pinned=3 resident=" << gpu.ResidentClipCount()
-                  << " slabJoints=" << gpu.JointsPerClipSlot() << '\n';
+                  << ") pinned=3 resident="
+                  << mRenderer->GetGpuAnimResidentClipCount() << " slabJoints="
+                  << mRenderer->GetGpuAnimJointsPerClipSlot() << '\n';
     }
 
     void buildStreamCatalog()
@@ -1202,7 +1195,7 @@ class MainApp final : public fra::AbstractApplication
         }
         // Pad with unique keys (same pose data) so cycling T past free slots
         // exercises LRU eviction of unpinned residents.
-        const auto padTarget = fra::GpuAnimPass::kMaxClips + 4u;
+        const auto padTarget = fra::kGpuAnimMaxClips + 4u;
         while (mStreamCatalog.size() < padTarget)
         {
             StreamClipEntry e;
@@ -1222,19 +1215,18 @@ class MainApp final : public fra::AbstractApplication
 
     void streamNextCatalogClip()
     {
-        auto* gpu = mRenderer->GetGpuAnimPass();
-        if (!gpu || mStreamCatalog.empty())
+        if (mStreamCatalog.empty())
         {
-            std::cout << "Stream: no catalog / no GpuAnimPass\n";
+            std::cout << "Stream: no catalog\n";
             return;
         }
         const auto& e =
             mStreamCatalog[mStreamCatalogIndex % mStreamCatalog.size()];
         ++mStreamCatalogIndex;
 
-        const auto before    = gpu->FindClipSlot(e.key);
-        const auto resBefore = gpu->ResidentClipCount();
-        const auto slot      = gpu->EnsureClipResident(e.key, e.bake);
+        const auto before    = mRenderer->FindGpuAnimClipSlot(e.key);
+        const auto resBefore = mRenderer->GetGpuAnimResidentClipCount();
+        const auto slot = mRenderer->EnsureGpuAnimClipResident(e.key, e.bake);
         if (slot == 0xffffffffu)
         {
             std::cout << "Stream FAIL " << e.label
@@ -1243,22 +1235,23 @@ class MainApp final : public fra::AbstractApplication
         }
         mStreamedUpperSlot = slot;
         const bool hit     = before == slot;
-        const bool evicted = !hit && resBefore >= fra::GpuAnimPass::kMaxClips;
+        const bool evicted = !hit && resBefore >= fra::kGpuAnimMaxClips;
         std::cout << "Stream " << e.label << " -> slot=" << slot
                   << (hit ? " (hit)" : " (miss/upload)")
                   << (evicted ? " [LRU evict]" : "")
-                  << " resident=" << gpu->ResidentClipCount() << "/"
-                  << fra::GpuAnimPass::kMaxClips << '\n';
+                  << " resident=" << mRenderer->GetGpuAnimResidentClipCount()
+                  << "/" << fra::kGpuAnimMaxClips << '\n';
     }
 
-    void selfTestStreamRing(fra::GpuAnimPass& gpu)
+    void selfTestStreamRing()
     {
         std::uint32_t uploads = 0, hits = 0, fails = 0, evicts = 0;
         for (const auto& e : mStreamCatalog)
         {
-            const auto before    = gpu.FindClipSlot(e.key);
-            const auto resBefore = gpu.ResidentClipCount();
-            const auto slot      = gpu.EnsureClipResident(e.key, e.bake);
+            const auto before    = mRenderer->FindGpuAnimClipSlot(e.key);
+            const auto resBefore = mRenderer->GetGpuAnimResidentClipCount();
+            const auto slot =
+                mRenderer->EnsureGpuAnimClipResident(e.key, e.bake);
             if (slot == 0xffffffffu)
             {
                 ++fails;
@@ -1269,22 +1262,21 @@ class MainApp final : public fra::AbstractApplication
             else
             {
                 ++uploads;
-                if (resBefore >= fra::GpuAnimPass::kMaxClips)
+                if (resBefore >= fra::kGpuAnimMaxClips)
                     ++evicts;
             }
             mStreamedUpperSlot = slot;
         }
         std::cout << "Stream self-test uploads=" << uploads << " hits=" << hits
                   << " evicts=" << evicts << " fails=" << fails
-                  << " resident=" << gpu.ResidentClipCount() << "/"
-                  << fra::GpuAnimPass::kMaxClips << '\n';
+                  << " resident=" << mRenderer->GetGpuAnimResidentClipCount()
+                  << "/" << fra::kGpuAnimMaxClips << '\n';
     }
 
-    void bindGpuAnimRig(fra::GpuAnimPass& gpu)
+    void bindGpuAnimRig()
     {
-        // Fox.glb spine bones extend along +X (neck→head translation).
         const auto root = fra::FindRootJoint(mSkinned.skeleton);
-        gpu.SetRigIndices(
+        mRenderer->SetGpuAnimRigIndices(
             mHeadJoint >= 0 ? static_cast<std::uint32_t>(mHeadJoint)
                             : 0xffffffffu,
             mLegChain.root, mLegChain.mid, mLegChain.tip,
@@ -1303,26 +1295,22 @@ class MainApp final : public fra::AbstractApplication
         const bool wasCrowd = mGpuAnimMode == GpuAnimMode::Crowd;
         const bool wasFox0  = mGpuAnimMode == GpuAnimMode::Fox0;
         mRenderer->RebuildGpuAnimPass();
-        if (auto* gpu = mRenderer->GetGpuAnimPass())
+        uploadGpuAnimAssets();
+        bindGpuAnimRig();
+        mRenderer->SetGpuAnimCopyPrevBones(false);
+        if (wasCrowd || wasFox0)
+            mRenderer->SetGpuAnimEnabled(true);
+        if (wasCrowd)
         {
-            uploadGpuAnimAssets(*gpu);
-            bindGpuAnimRig(*gpu);
-            gpu->SetCopyPrevBones(false);
-            if (wasCrowd || wasFox0)
-                gpu->SetEnabled(true);
-            if (wasCrowd)
-            {
-                fra::GpuJointExtractRequest req;
-                req.boneOffset = 0;
-                req.jointIndex =
-                    mHeadJoint >= 0 ? static_cast<std::uint32_t>(mHeadJoint)
-                                    : 0u;
-                mRenderer->SetGpuAnimJointExtract({ &req, 1 });
-                mGpuExtractReady = false;
-            }
-            if (wasFox0)
-                mGpuAnimGoldenOnce = true;
+            fra::GpuJointExtractRequest req;
+            req.boneOffset = 0;
+            req.jointIndex =
+                mHeadJoint >= 0 ? static_cast<std::uint32_t>(mHeadJoint) : 0u;
+            mRenderer->SetGpuAnimJointExtract({ &req, 1 });
+            mGpuExtractReady = false;
         }
+        if (wasFox0)
+            mGpuAnimGoldenOnce = true;
         std::cout << "QuantizeGpuAnimJoints "
                   << (mFreyaOptions->quantizeGpuAnimJoints ? "ON" : "OFF")
                   << " (pass rebuilt)\n";
@@ -1450,11 +1438,8 @@ class MainApp final : public fra::AbstractApplication
                 mGpuAnimMode     = GpuAnimMode::Off;
                 mGpuExtractReady = false;
                 mRenderer->SetGpuAnimJointExtract({});
-                if (auto* gpu = mRenderer->GetGpuAnimPass())
-                {
-                    gpu->SetEnabled(false);
-                    gpu->UploadInstances({});
-                }
+                mRenderer->SetGpuAnimEnabled(false);
+                mRenderer->UploadGpuAnimInstances({});
                 std::cout << "GpuAnim OFF (CPU)\n";
                 break;
         }

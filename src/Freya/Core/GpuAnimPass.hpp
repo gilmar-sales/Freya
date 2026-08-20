@@ -62,11 +62,10 @@ namespace FREYA_NAMESPACE
         void SetJointExtractList(std::span<const GpuJointExtractRequest> reqs);
 
         bool PollJointExtract(std::uint32_t frameIndex,
-                              std::span<GpuJointExtractSample>
-                                             out,
+                              std::span<GpuJointExtractSample> out,
                               std::uint32_t* outCount = nullptr) const;
 
-        bool PollTiming(std::uint32_t        frameIndex,
+        bool PollTiming(std::uint32_t frameIndex,
                         GpuAnimTimingSample& out) const;
 
         [[nodiscard]] bool HasTimestampQueries() const;
@@ -104,8 +103,7 @@ namespace FREYA_NAMESPACE
                            std::uint32_t                frameIndex,
                            std::uint32_t                boneOffset,
                            std::uint32_t                count,
-                           std::span<glm::mat4>
-                               out) const;
+                           std::span<glm::mat4>         out) const;
 
       private:
         friend class GpuAnimPassBuilder;

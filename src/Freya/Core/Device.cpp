@@ -75,4 +75,12 @@ namespace FREYA_NAMESPACE
         (void) cmd;
 #endif
     }
+
+    void Device::SubmitAndWait(vk::Queue queue, vk::SubmitInfo submitInfo) const
+    {
+        vk::Fence fence = mDevice.createFence({});
+        queue.submit(submitInfo, fence);
+        (void) mDevice.waitForFences(1, &fence, VK_TRUE, UINT64_MAX);
+        mDevice.destroyFence(fence);
+    }
 } // namespace FREYA_NAMESPACE

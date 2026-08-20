@@ -42,12 +42,12 @@ namespace FREYA_NAMESPACE
 
     struct FullscreenMaterialMask
     {
-        glm::uvec4    bits[2] {};
+        glm::uvec4    bits[8] {};
         std::uint32_t count = 0;
         std::uint32_t pad[3] {};
     };
 
-    static_assert(sizeof(FullscreenMaterialMask) == 48,
+    static_assert(sizeof(FullscreenMaterialMask) == 144,
                   "FullscreenMaterialMask must match GLSL std140");
 
     class FullscreenEffect : public skr::enable_arc_from_this<FullscreenEffect>

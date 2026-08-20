@@ -32,6 +32,10 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] const MaterialCreateInfo& GetCreateInfo(
             std::uint32_t id) const;
 
+        [[nodiscard]] bool Contains(std::uint32_t id) const;
+
+        void Destroy(std::uint32_t id);
+
       private:
         std::unique_ptr<Impl> mImpl;
     };

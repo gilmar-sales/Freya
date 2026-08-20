@@ -81,6 +81,26 @@ namespace FREYA_NAMESPACE
         return mImpl->materials[id].createInfo;
     }
 
+    bool MaterialPool::Contains(const std::uint32_t id) const
+    {
+        return mImpl->materials.contains(id);
+    }
+
+    void MaterialPool::Destroy(const std::uint32_t id)
+    {
+        auto& i = *mImpl;
+        if (!i.materials.contains(id))
+            return;
+
+        Material cleared {
+            .createInfo = {},
+            .id         = id,
+        };
+        i.writeBindlessMaterial(cleared);
+        i.materials.remove(Material { .createInfo = {}, .id = id });
+        i.logger->LogTrace("MaterialPool::Destroy id={}", id);
+    }
+
     void MaterialPool::Impl::writeBindlessMaterial(Material& material)
     {
         const auto& info = material.createInfo;

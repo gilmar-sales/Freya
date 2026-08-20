@@ -9,6 +9,7 @@
  */
 
 #include "Freya/Config.hpp"
+#include "Freya/Core/Limits.hpp"
 
 #include "Freya/Core/AbstractApplication.hpp"
 #include "Freya/Core/FreyaExtension.hpp"

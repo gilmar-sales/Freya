@@ -23,6 +23,10 @@ namespace FREYA_NAMESPACE
                                               std::uint32_t channels  = 4,
                                               std::uint32_t mipLevels = 0);
 
+        [[nodiscard]] bool Contains(std::uint32_t id) const;
+
+        void Destroy(std::uint32_t id);
+
       private:
         struct Impl;
         std::unique_ptr<Impl> mImpl;

@@ -28,17 +28,18 @@ layout (set = 1, binding = 0) uniform sampler2D uTextures[];
 
 #include "Include/material_gpu.inc"
 #include "Include/pbr_sample.inc"
+#include "Include/freya_limits.inc"
 
 layout (std430, set = 1, binding = 1) readonly buffer MaterialBuffer {
     MaterialGPU materials[];
 };
 
 layout (set = 2, binding = 0) uniform LightBuffer {
-    vec4 lightPositions[16];
-    vec4 lightColorsAndRadius[16];
-    vec4 lightDirectionsAndCutoff[16];
-    vec4 lightOuterCutoffAndIntensity[16];
-    vec4 lightAreaTangents[16];
+    vec4 lightPositions[FREYA_MAX_LIGHTS];
+    vec4 lightColorsAndRadius[FREYA_MAX_LIGHTS];
+    vec4 lightDirectionsAndCutoff[FREYA_MAX_LIGHTS];
+    vec4 lightOuterCutoffAndIntensity[FREYA_MAX_LIGHTS];
+    vec4 lightAreaTangents[FREYA_MAX_LIGHTS];
     vec4 viewPosition;
     vec4 cameraForward;
     uint lightCount;

@@ -171,4 +171,34 @@ namespace FREYA_NAMESPACE
         stagingBuffers.push_back(stagingBuffer);
         return stagingBuffer;
     }
+
+    bool TexturePool::Contains(const std::uint32_t id) const
+    {
+        return mImpl->textures.contains(id);
+    }
+
+    void TexturePool::Destroy(const std::uint32_t id)
+    {
+        auto& i = *mImpl;
+        if (!i.textures.contains(id))
+            return;
+
+        auto& texture = i.textures[id];
+        texture.image.reset();
+        i.device->Get().destroySampler(texture.sampler);
+
+        i.materialsRes->WriteBindlessTexture(
+            MaterialDescriptorResources::TextureHeapIndex(id),
+            i.materialsRes->GetFallbackImageView(),
+            i.materialsRes->GetFallbackSampler());
+
+        i.textures.remove(Texture {
+            .image   = {},
+            .sampler = {},
+            .width   = 0,
+            .height  = 0,
+            .id      = id,
+        });
+        i.logger->LogTrace("TexturePool::Destroy id={}", id);
+    }
 } // namespace FREYA_NAMESPACE
