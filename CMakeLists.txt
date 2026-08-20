@@ -57,9 +57,11 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(meshoptimizer)
 
 if(${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
-        option(FREYA_BUILD_EXAMPLES "Build freyr examples" ON)
+        option(FREYA_BUILD_EXAMPLES "Build Freya examples" ON)
+        option(FREYA_BUILD_TESTS "Build Freya unit tests" ON)
 else()
-        option(FREYA_BUILD_EXAMPLES "Build freyr examples" OFF)
+        option(FREYA_BUILD_EXAMPLES "Build Freya examples" OFF)
+        option(FREYA_BUILD_TESTS "Build Freya unit tests" OFF)
 endif()
 
 
@@ -130,3 +132,9 @@ add_dependencies(Freya Shaders)
 if(FREYA_BUILD_EXAMPLES)
         add_subdirectory(Examples)
 endif(FREYA_BUILD_EXAMPLES)
+
+if(FREYA_BUILD_TESTS)
+        include(CTest)
+        enable_testing()
+        add_subdirectory(tests)
+endif()

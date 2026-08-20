@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Freya/Config.hpp"
+
 #include <cstdint>
 #include <string>
 #include <vector>

@@ -1,5 +1,10 @@
 #pragma once
 
+#include "Freya/Config.hpp"
+
+#include <cstdint>
+#include <type_traits>
+
 namespace FREYA_NAMESPACE
 {
     /**

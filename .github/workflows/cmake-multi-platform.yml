@@ -14,6 +14,7 @@ on:
       - "src/**"
       - "include/**"
       - "Examples/**"
+      - "tests/**"
       - "Shaders/**"
       - "cmake/**"
       - "CMakeLists.txt"
@@ -24,6 +25,7 @@ on:
       - "src/**"
       - "include/**"
       - "Examples/**"
+      - "tests/**"
       - "Shaders/**"
       - "cmake/**"
       - "CMakeLists.txt"
@@ -179,4 +181,4 @@ jobs:
         working-directory: ${{ steps.strings.outputs.build-output-dir }}
         run: |
           export PATH="/c/mingw64-gcc16/bin:$PATH"
-          ctest --build-config ${{ matrix.build_type }}
+          ctest --build-config ${{ matrix.build_type }} --output-on-failure

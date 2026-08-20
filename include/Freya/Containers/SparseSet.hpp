@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Freya/Config.hpp"
+
 #include <algorithm>
 #include <concepts>
 #include <mutex>

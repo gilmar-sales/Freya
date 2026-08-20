@@ -52,8 +52,15 @@
 
 ## Tests
 
-There are **no tests** in this repository. No test directory, no CTest suites configured.
-The CI `ctest` step runs against an empty suite.
+- Catch2 unit tests live in `tests/` (header-only public API + UBO layouts).
+  They do **not** create a Vulkan device.
+- Enable with `-DFREYA_BUILD_TESTS=ON` (default when Freya is the top-level
+  project). Disable with `-DFREYA_BUILD_TESTS=OFF`.
+```sh
+cmake -B build -S . -G Ninja
+cmake --build build --parallel --target FreyaTests
+ctest --test-dir build --output-on-failure
+```
 
 ## Project Layout
 
