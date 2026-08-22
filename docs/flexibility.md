@@ -237,7 +237,7 @@ constants — update each frame via `SetPushConstants`.
 Not in this release (documented for planning):
 
 - Forward / alternate full pipelines
-- GGX-prefiltered IBL cubemap (CPU irradiance + raw HDR mips today)
+- IBL cubemap (equirect GGX prefilter is in; cube faces still open)
 - Clustered lighting (`MAX_LIGHTS` is still 16)
 - Physical glass (transmission / IOR / refraction) beyond Weighted Blended OIT
 - HDR / wide color-space swapchain policy

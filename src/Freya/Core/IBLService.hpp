@@ -11,6 +11,7 @@ namespace FREYA_NAMESPACE
      *
      * Owns equirectangular HDR environment / irradiance maps, a BRDF
      * integration LUT, and LTC matrices for rectangular area lights.
+     * Specular env mips are GGX importance-sampled (split-sum prefilter).
      * Built at construction from FreyaOptions (procedural sky or Radiance
      * .hdr path).
      */
@@ -66,12 +67,19 @@ namespace FREYA_NAMESPACE
         void convolveIrradiance(const std::vector<float>& src, int srcW,
                                 int srcH, std::vector<float>& dst, int dstW,
                                 int dstH) const;
+        void prefilterSpecular(const std::vector<float>& src, int srcW,
+                               int srcH, std::vector<float>& packed,
+                               int& outWidth, int& outHeight,
+                               int& mipCount) const;
         void generateBrdfLut(std::vector<float>& out, int size) const;
         void generateLtcLuts(std::vector<float>& ltc1, std::vector<float>& ltc2,
                              int size) const;
         skr::Arc<Image> uploadFloatRgb(const std::vector<float>& rgba,
                                        int width, int height,
                                        bool generateMips) const;
+        skr::Arc<Image> uploadFloatRgbMipChain(const std::vector<float>& packed,
+                                               int width, int height,
+                                               int mipCount) const;
 
         skr::Arc<Device>               mDevice;
         skr::Arc<skr::ServiceProvider> mServiceProvider;

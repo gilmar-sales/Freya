@@ -132,15 +132,31 @@ namespace FREYA_NAMESPACE
                     ->SetCount(2)
                     .Build();
 
+            const bool uploadCustomMips =
+                mUploadCustomMipChain && mMipLevels > 1;
+
+            std::uint64_t uploadBytes = static_cast<std::uint64_t>(mWidth) *
+                                        mHeight * mChannels;
+            if (uploadCustomMips)
+            {
+                uploadBytes = 0;
+                for (std::uint32_t mip = 0; mip < mMipLevels; ++mip)
+                {
+                    const auto mipW = std::max(1u, mWidth >> mip);
+                    const auto mipH = std::max(1u, mHeight >> mip);
+                    uploadBytes += static_cast<std::uint64_t>(mipW) * mipH *
+                                   mChannels;
+                }
+            }
+
             if (mStagingBuffer == nullptr)
-                mStagingBuffer =
-                    BufferBuilder(mDevice)
-                        .SetData(mData)
-                        .SetSize(mWidth * mHeight * mChannels)
-                        .SetUsage(BufferUsage::Staging)
-                        .Build();
+                mStagingBuffer = BufferBuilder(mDevice)
+                                     .SetData(mData)
+                                     .SetSize(uploadBytes)
+                                     .SetUsage(BufferUsage::Staging)
+                                     .Build();
             else
-                mStagingBuffer->Copy(mData, mWidth * mHeight * mChannels);
+                mStagingBuffer->Copy(mData, uploadBytes);
 
             const auto commandBuffer = commandPool->CreateCommandBuffer();
 
@@ -170,93 +186,39 @@ namespace FREYA_NAMESPACE
                 vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(), 0,
                 nullptr, 0, nullptr, 1, &initBarrier);
 
-            // 2. Copy base level (mip 0) from staging buffer
-            const auto imageBufferCopy = {
-                vk::BufferImageCopy()
-                    .setBufferOffset(0)
-                    .setBufferRowLength(0)
-                    .setBufferImageHeight(0)
-                    .setImageSubresource(
-                        vk::ImageSubresourceLayers()
-                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                            .setMipLevel(0)
-                            .setBaseArrayLayer(0)
-                            .setLayerCount(1))
-                    .setImageOffset({ 0, 0, 0 })
-                    .setImageExtent({ mWidth, mHeight, 1 })
-            };
-
-            commandBuffer.copyBufferToImage(
-                mStagingBuffer->Get(),
-                image,
-                vk::ImageLayout::eTransferDstOptimal,
-                imageBufferCopy);
-
-            // 3. Generate remaining mip levels via vkCmdBlitImage
-            for (std::uint32_t i = 1; i < mMipLevels; ++i)
+            if (uploadCustomMips)
             {
-                // Transition mip i-1: TransferDstOptimal → TransferSrcOptimal
-                auto srcBarrier =
-                    vk::ImageMemoryBarrier()
-                        .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
-                        .setNewLayout(vk::ImageLayout::eTransferSrcOptimal)
-                        .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-                        .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-                        .setImage(image)
-                        .setSubresourceRange(
-                            vk::ImageSubresourceRange()
-                                .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                .setBaseMipLevel(i - 1)
-                                .setLevelCount(1)
-                                .setBaseArrayLayer(0)
-                                .setLayerCount(1))
-                        .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
-                        .setDstAccessMask(vk::AccessFlagBits::eTransferRead);
+                // 2. Copy each packed mip from staging (no blit).
+                std::uint64_t bufferOffset = 0;
+                for (std::uint32_t mip = 0; mip < mMipLevels; ++mip)
+                {
+                    const auto mipW = std::max(1u, mWidth >> mip);
+                    const auto mipH = std::max(1u, mHeight >> mip);
+                    const auto region =
+                        vk::BufferImageCopy()
+                            .setBufferOffset(bufferOffset)
+                            .setBufferRowLength(0)
+                            .setBufferImageHeight(0)
+                            .setImageSubresource(
+                                vk::ImageSubresourceLayers()
+                                    .setAspectMask(
+                                        vk::ImageAspectFlagBits::eColor)
+                                    .setMipLevel(mip)
+                                    .setBaseArrayLayer(0)
+                                    .setLayerCount(1))
+                            .setImageOffset({ 0, 0, 0 })
+                            .setImageExtent({ mipW, mipH, 1 });
 
-                commandBuffer.pipelineBarrier(
-                    vk::PipelineStageFlagBits::eTransfer,
-                    vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(),
-                    0, nullptr, 0, nullptr, 1, &srcBarrier);
+                    commandBuffer.copyBufferToImage(
+                        mStagingBuffer->Get(),
+                        image,
+                        vk::ImageLayout::eTransferDstOptimal,
+                        region);
 
-                // Blit from mip i-1 to mip i
-                const auto srcW =
-                    std::max(1, static_cast<std::int32_t>(mWidth >> (i - 1)));
-                const auto srcH =
-                    std::max(1, static_cast<std::int32_t>(mHeight >> (i - 1)));
-                const auto dstW =
-                    std::max(1, static_cast<std::int32_t>(mWidth >> i));
-                const auto dstH =
-                    std::max(1, static_cast<std::int32_t>(mHeight >> i));
+                    bufferOffset += static_cast<std::uint64_t>(mipW) * mipH *
+                                    mChannels;
+                }
 
-                const auto blitRegion =
-                    vk::ImageBlit()
-                        .setSrcOffsets({ vk::Offset3D { 0, 0, 0 },
-                                         vk::Offset3D { srcW, srcH, 1 } })
-                        .setSrcSubresource(
-                            vk::ImageSubresourceLayers()
-                                .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                .setMipLevel(i - 1)
-                                .setBaseArrayLayer(0)
-                                .setLayerCount(1))
-                        .setDstOffsets({ vk::Offset3D { 0, 0, 0 },
-                                         vk::Offset3D { dstW, dstH, 1 } })
-                        .setDstSubresource(
-                            vk::ImageSubresourceLayers()
-                                .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                .setMipLevel(i)
-                                .setBaseArrayLayer(0)
-                                .setLayerCount(1));
-
-                commandBuffer.blitImage(
-                    image, vk::ImageLayout::eTransferSrcOptimal, image,
-                    vk::ImageLayout::eTransferDstOptimal, blitRegion,
-                    vk::Filter::eLinear);
-            }
-
-            // 4. Transition all mips → ShaderReadOnlyOptimal
-            if (mMipLevels == 1)
-            {
-                // Single level: TransferDstOptimal → ShaderReadOnlyOptimal
                 auto finalBarrier =
                     vk::ImageMemoryBarrier()
                         .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
@@ -268,7 +230,7 @@ namespace FREYA_NAMESPACE
                             vk::ImageSubresourceRange()
                                 .setAspectMask(vk::ImageAspectFlagBits::eColor)
                                 .setBaseMipLevel(0)
-                                .setLevelCount(1)
+                                .setLevelCount(mMipLevels)
                                 .setBaseArrayLayer(0)
                                 .setLayerCount(1))
                         .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
@@ -282,51 +244,175 @@ namespace FREYA_NAMESPACE
             }
             else
             {
-                // Mips 0..mMipLevels-2 are in TransferSrcOptimal
-                auto srcFinalBarrier =
-                    vk::ImageMemoryBarrier()
-                        .setOldLayout(vk::ImageLayout::eTransferSrcOptimal)
-                        .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                        .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-                        .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-                        .setImage(image)
-                        .setSubresourceRange(
-                            vk::ImageSubresourceRange()
+                // 2. Copy base level (mip 0) from staging buffer
+                const auto imageBufferCopy = {
+                    vk::BufferImageCopy()
+                        .setBufferOffset(0)
+                        .setBufferRowLength(0)
+                        .setBufferImageHeight(0)
+                        .setImageSubresource(
+                            vk::ImageSubresourceLayers()
                                 .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                .setBaseMipLevel(0)
-                                .setLevelCount(mMipLevels - 1)
+                                .setMipLevel(0)
                                 .setBaseArrayLayer(0)
                                 .setLayerCount(1))
-                        .setSrcAccessMask(vk::AccessFlagBits::eTransferRead)
-                        .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
-
-                // Mip mMipLevels-1 is in TransferDstOptimal
-                auto dstFinalBarrier =
-                    vk::ImageMemoryBarrier()
-                        .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
-                        .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                        .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-                        .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-                        .setImage(image)
-                        .setSubresourceRange(
-                            vk::ImageSubresourceRange()
-                                .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                .setBaseMipLevel(mMipLevels - 1)
-                                .setLevelCount(1)
-                                .setBaseArrayLayer(0)
-                                .setLayerCount(1))
-                        .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
-                        .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
-
-                const vk::ImageMemoryBarrier finalBarriers[] = {
-                    srcFinalBarrier, dstFinalBarrier
+                        .setImageOffset({ 0, 0, 0 })
+                        .setImageExtent({ mWidth, mHeight, 1 })
                 };
 
-                commandBuffer.pipelineBarrier(
-                    vk::PipelineStageFlagBits::eTransfer,
-                    vk::PipelineStageFlagBits::eFragmentShader,
-                    vk::DependencyFlags(), 0, nullptr, 0, nullptr, 2,
-                    finalBarriers);
+                commandBuffer.copyBufferToImage(
+                    mStagingBuffer->Get(),
+                    image,
+                    vk::ImageLayout::eTransferDstOptimal,
+                    imageBufferCopy);
+
+                // 3. Generate remaining mip levels via vkCmdBlitImage
+                for (std::uint32_t i = 1; i < mMipLevels; ++i)
+                {
+                    // Transition mip i-1: TransferDst → TransferSrc
+                    auto srcBarrier =
+                        vk::ImageMemoryBarrier()
+                            .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
+                            .setNewLayout(vk::ImageLayout::eTransferSrcOptimal)
+                            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                            .setImage(image)
+                            .setSubresourceRange(
+                                vk::ImageSubresourceRange()
+                                    .setAspectMask(
+                                        vk::ImageAspectFlagBits::eColor)
+                                    .setBaseMipLevel(i - 1)
+                                    .setLevelCount(1)
+                                    .setBaseArrayLayer(0)
+                                    .setLayerCount(1))
+                            .setSrcAccessMask(
+                                vk::AccessFlagBits::eTransferWrite)
+                            .setDstAccessMask(
+                                vk::AccessFlagBits::eTransferRead);
+
+                    commandBuffer.pipelineBarrier(
+                        vk::PipelineStageFlagBits::eTransfer,
+                        vk::PipelineStageFlagBits::eTransfer,
+                        vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1,
+                        &srcBarrier);
+
+                    const auto srcW = std::max(
+                        1, static_cast<std::int32_t>(mWidth >> (i - 1)));
+                    const auto srcH = std::max(
+                        1, static_cast<std::int32_t>(mHeight >> (i - 1)));
+                    const auto dstW =
+                        std::max(1, static_cast<std::int32_t>(mWidth >> i));
+                    const auto dstH =
+                        std::max(1, static_cast<std::int32_t>(mHeight >> i));
+
+                    const auto blitRegion =
+                        vk::ImageBlit()
+                            .setSrcOffsets({ vk::Offset3D { 0, 0, 0 },
+                                             vk::Offset3D { srcW, srcH, 1 } })
+                            .setSrcSubresource(
+                                vk::ImageSubresourceLayers()
+                                    .setAspectMask(
+                                        vk::ImageAspectFlagBits::eColor)
+                                    .setMipLevel(i - 1)
+                                    .setBaseArrayLayer(0)
+                                    .setLayerCount(1))
+                            .setDstOffsets({ vk::Offset3D { 0, 0, 0 },
+                                             vk::Offset3D { dstW, dstH, 1 } })
+                            .setDstSubresource(
+                                vk::ImageSubresourceLayers()
+                                    .setAspectMask(
+                                        vk::ImageAspectFlagBits::eColor)
+                                    .setMipLevel(i)
+                                    .setBaseArrayLayer(0)
+                                    .setLayerCount(1));
+
+                    commandBuffer.blitImage(
+                        image, vk::ImageLayout::eTransferSrcOptimal, image,
+                        vk::ImageLayout::eTransferDstOptimal, blitRegion,
+                        vk::Filter::eLinear);
+                }
+
+                // 4. Transition all mips → ShaderReadOnlyOptimal
+                if (mMipLevels == 1)
+                {
+                    auto finalBarrier =
+                        vk::ImageMemoryBarrier()
+                            .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
+                            .setNewLayout(
+                                vk::ImageLayout::eShaderReadOnlyOptimal)
+                            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                            .setImage(image)
+                            .setSubresourceRange(
+                                vk::ImageSubresourceRange()
+                                    .setAspectMask(
+                                        vk::ImageAspectFlagBits::eColor)
+                                    .setBaseMipLevel(0)
+                                    .setLevelCount(1)
+                                    .setBaseArrayLayer(0)
+                                    .setLayerCount(1))
+                            .setSrcAccessMask(
+                                vk::AccessFlagBits::eTransferWrite)
+                            .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
+
+                    commandBuffer.pipelineBarrier(
+                        vk::PipelineStageFlagBits::eTransfer,
+                        vk::PipelineStageFlagBits::eFragmentShader,
+                        vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1,
+                        &finalBarrier);
+                }
+                else
+                {
+                    auto srcFinalBarrier =
+                        vk::ImageMemoryBarrier()
+                            .setOldLayout(vk::ImageLayout::eTransferSrcOptimal)
+                            .setNewLayout(
+                                vk::ImageLayout::eShaderReadOnlyOptimal)
+                            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                            .setImage(image)
+                            .setSubresourceRange(
+                                vk::ImageSubresourceRange()
+                                    .setAspectMask(
+                                        vk::ImageAspectFlagBits::eColor)
+                                    .setBaseMipLevel(0)
+                                    .setLevelCount(mMipLevels - 1)
+                                    .setBaseArrayLayer(0)
+                                    .setLayerCount(1))
+                            .setSrcAccessMask(
+                                vk::AccessFlagBits::eTransferRead)
+                            .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
+
+                    auto dstFinalBarrier =
+                        vk::ImageMemoryBarrier()
+                            .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
+                            .setNewLayout(
+                                vk::ImageLayout::eShaderReadOnlyOptimal)
+                            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                            .setImage(image)
+                            .setSubresourceRange(
+                                vk::ImageSubresourceRange()
+                                    .setAspectMask(
+                                        vk::ImageAspectFlagBits::eColor)
+                                    .setBaseMipLevel(mMipLevels - 1)
+                                    .setLevelCount(1)
+                                    .setBaseArrayLayer(0)
+                                    .setLayerCount(1))
+                            .setSrcAccessMask(
+                                vk::AccessFlagBits::eTransferWrite)
+                            .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
+
+                    const vk::ImageMemoryBarrier finalBarriers[] = {
+                        srcFinalBarrier, dstFinalBarrier
+                    };
+
+                    commandBuffer.pipelineBarrier(
+                        vk::PipelineStageFlagBits::eTransfer,
+                        vk::PipelineStageFlagBits::eFragmentShader,
+                        vk::DependencyFlags(), 0, nullptr, 0, nullptr, 2,
+                        finalBarriers);
+                }
             }
 
             commandBuffer.end();

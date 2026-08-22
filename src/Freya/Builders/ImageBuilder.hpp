@@ -59,7 +59,7 @@ namespace FREYA_NAMESPACE
             mFormat(vk::Format::eUndefined),
             mSamples(vk::SampleCountFlagBits::e1), mWidth(1024), mHeight(1024),
             mChannels(0), mMipLevels(1), mMipLevelsOverride(false),
-            mData(nullptr)
+            mUploadCustomMipChain(false), mData(nullptr)
         {
         }
 
@@ -152,6 +152,19 @@ namespace FREYA_NAMESPACE
         }
 
         /**
+         * @brief Upload a packed custom mip chain from SetData (no blit).
+         *
+         * Data layout is tightly packed float/byte texels:
+         * mip0 (W×H), mip1 (W/2×H/2), … for SetMipLevels count.
+         * Staging size is the sum of all mip byte sizes.
+         */
+        ImageBuilder& SetUploadCustomMipChain(const bool enable = true)
+        {
+            mUploadCustomMipChain = enable;
+            return *this;
+        }
+
+        /**
          * @brief Sets pre-allocated staging buffer.
          * @param stagingBuffer Staging buffer reference
          * @return Reference to this for chaining
@@ -206,7 +219,8 @@ namespace FREYA_NAMESPACE
         std::uint32_t           mChannels;  ///< Bytes per pixel (upload size)
         std::uint32_t           mMipLevels; ///< Number of mip levels
         bool  mMipLevelsOverride; ///< True when SetMipLevels was called
-        void* mData;              ///< Raw image data
+        bool  mUploadCustomMipChain; ///< Packed mips from SetData; skip blit
+        void* mData;                 ///< Raw image data
     };
 
 } // namespace FREYA_NAMESPACE

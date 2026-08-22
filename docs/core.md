@@ -182,17 +182,19 @@ the light service is present (also uploads `iblIntensity` for IBL).
 ## IBLService
 
 Provides split-sum image-based lighting: an equirectangular environment map
-(specular + mip LOD prefilter stand-in), a convolved irradiance map, a
-BRDF integration LUT, and parametric LTC LUTs used by rectangular area lights.
-Built at startup from `FreyaOptions::environmentMapPath` (Radiance `.hdr` via
-`stbi_loadf`; maps wider than 1024px are downsampled). Default path is
+with GGX importance-sampled specular mips (roughness → LOD), a convolved
+irradiance map, a BRDF integration LUT, and parametric LTC LUTs used by
+rectangular area lights. Built at startup from
+`FreyaOptions::environmentMapPath` (Radiance `.hdr` via `stbi_loadf`; maps
+wider than 1024px are downsampled for irradiance; specular prefilter bakes
+at ≤512px wide). Default path is
 `./Resources/Environments/studio_small_09_4k.hdr` (copied from the repo-root
 `Resources/` into example binary dirs). Set the path to empty to force the
 procedural sky; if the file is missing, the procedural sky is used as well.
 
 | Resource | Role |
 |----------|------|
-| Environment | Specular IBL via `textureLod` (mip ≈ roughness) |
+| Environment | Specular IBL via `textureLod` (GGX prefiltered mips) |
 | Irradiance | Diffuse IBL (CPU hemisphere convolution) |
 | BRDF LUT | Specular split-sum scale/bias |
 | LTC matrix/ampl | Linearly Transformed Cosines for area lights |

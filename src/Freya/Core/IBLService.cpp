@@ -465,6 +465,99 @@ namespace FREYA_NAMESPACE
         }
     }
 
+    void IBLService::prefilterSpecular(const std::vector<float>& src, int srcW,
+                                       int srcH, std::vector<float>& packed,
+                                       int& outWidth, int& outHeight,
+                                       int& mipCount) const
+    {
+        // Cap bake resolution so CPU GGX stays interactive at startup.
+        std::vector<float> env = src;
+        int                width  = srcW;
+        int                height = srcH;
+        downsampleEquirect(env, width, height, 512);
+
+        outWidth  = width;
+        outHeight = height;
+
+        mipCount = static_cast<int>(
+                       std::floor(std::log2(std::max(width, height)))) +
+                   1;
+        mipCount = std::max(mipCount, 1);
+
+        std::size_t totalFloats = 0;
+        for (int mip = 0; mip < mipCount; ++mip)
+        {
+            const int mipW = std::max(1, width >> mip);
+            const int mipH = std::max(1, height >> mip);
+            totalFloats += static_cast<std::size_t>(mipW) * mipH * 4;
+        }
+        packed.assign(totalFloats, 0.0f);
+
+        constexpr std::uint32_t kSampleCount = 64;
+
+        std::size_t writeOffset = 0;
+        for (int mip = 0; mip < mipCount; ++mip)
+        {
+            const int mipW = std::max(1, width >> mip);
+            const int mipH = std::max(1, height >> mip);
+
+            if (mip == 0)
+            {
+                // Sharp specular: copy source texels (already ≤512w).
+                const std::size_t count =
+                    static_cast<std::size_t>(mipW) * mipH * 4;
+                std::copy_n(env.data(), count, packed.begin() + writeOffset);
+                writeOffset += count;
+                continue;
+            }
+
+            const float roughness =
+                static_cast<float>(mip) / static_cast<float>(mipCount - 1);
+
+            for (int y = 0; y < mipH; ++y)
+            {
+                for (int x = 0; x < mipW; ++x)
+                {
+                    const float u = (x + 0.5f) / static_cast<float>(mipW);
+                    const float v = (y + 0.5f) / static_cast<float>(mipH);
+                    // Split-sum: R = N = V for the prefilter lobe.
+                    const glm::vec3 N = DirectionFromEquirect(u, v);
+                    const glm::vec3 V = N;
+
+                    glm::vec3 color(0.0f);
+                    float     weightSum = 0.0f;
+
+                    for (std::uint32_t i = 0; i < kSampleCount; ++i)
+                    {
+                        const glm::vec2 Xi = Hammersley(i, kSampleCount);
+                        const glm::vec3 H =
+                            ImportanceSampleGGX(Xi, N, roughness);
+                        const glm::vec3 L =
+                            glm::normalize(2.0f * glm::dot(V, H) * H - V);
+                        const float NdotL = std::max(glm::dot(N, L), 0.0f);
+                        if (NdotL <= 0.0f)
+                        {
+                            continue;
+                        }
+
+                        color += SampleEquirect(env, width, height, L) * NdotL;
+                        weightSum += NdotL;
+                    }
+
+                    if (weightSum > 1e-4f)
+                    {
+                        color /= weightSum;
+                    }
+
+                    packed[writeOffset++] = color.r;
+                    packed[writeOffset++] = color.g;
+                    packed[writeOffset++] = color.b;
+                    packed[writeOffset++] = 1.0f;
+                }
+            }
+        }
+    }
+
     skr::Arc<Image> IBLService::uploadFloatRgb(const std::vector<float>& rgba,
                                                int width, int height,
                                                bool generateMips) const
@@ -487,11 +580,34 @@ namespace FREYA_NAMESPACE
         return builder.Build();
     }
 
+    skr::Arc<Image> IBLService::uploadFloatRgbMipChain(
+        const std::vector<float>& packed, int width, int height,
+        int mipCount) const
+    {
+        auto* data = const_cast<float*>(packed.data());
+        return mServiceProvider->GetService<ImageBuilder>()
+            ->SetUsage(ImageUsage::Texture)
+            .SetFormat(vk::Format::eR32G32B32A32Sfloat)
+            .SetWidth(static_cast<std::uint32_t>(width))
+            .SetHeight(static_cast<std::uint32_t>(height))
+            .SetChannels(16)
+            .SetMipLevels(static_cast<std::uint32_t>(std::max(mipCount, 1)))
+            .SetUploadCustomMipChain(true)
+            .SetData(data)
+            .Build();
+    }
+
     void IBLService::buildFromEquirect(const std::vector<float>& src, int width,
                                        int height)
     {
-        // Specular IBL uses this map's mip chain as a prefilter stand-in.
-        mEnvironment = uploadFloatRgb(src, width, height, true);
+        std::vector<float> prefiltered;
+        int                envW     = width;
+        int                envH     = height;
+        int                mipCount = 1;
+        prefilterSpecular(src, width, height, prefiltered, envW, envH,
+                          mipCount);
+        mEnvironment =
+            uploadFloatRgbMipChain(prefiltered, envW, envH, mipCount);
 
         constexpr int      kIrrW = 64;
         constexpr int      kIrrH = 32;
