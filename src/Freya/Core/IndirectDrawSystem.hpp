@@ -297,6 +297,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t mUsedTechniqueMask   = 1u; // technique 0 always considered
 
         // Cull descriptor updates are unsafe once the set is bound this frame.
+        // bumpCullDescVersion must not clear mCullDescRefreshedThisFrame.
         std::uint32_t              mCullDescVersion = 1;
         std::vector<std::uint32_t> mFrameCullDescVersion;
         bool                       mCullDescRefreshedThisFrame = false;

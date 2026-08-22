@@ -31,9 +31,6 @@ namespace FREYA_NAMESPACE
 
         auto renderPass = createRenderPass(depthFormat);
 
-        // ------------------------------------------------------------------
-        // Depth-only pipeline (set 0 = bone SSBO + push constant light VP)
-        // ------------------------------------------------------------------
         auto vertShader =
             mServiceProvider->GetService<ShaderModuleBuilder>()
                 ->SetFilePath(
@@ -52,9 +49,6 @@ namespace FREYA_NAMESPACE
                     mFreyaOptions->shaderRoot + "/Shadow/depth.frag.spv")
                 .Build();
 
-        // Depth.vert: position, texCoord (Mask alpha), instance model,
-        // boneOffset (loc13), joints/weights. Stride still covers prevModel;
-        // unused attrs are omitted to avoid validation warnings.
         auto vertexBinding = GetVertexBindingDescription();
         auto vertexAttributes =
             std::vector<vk::VertexInputAttributeDescription> {
@@ -220,9 +214,6 @@ namespace FREYA_NAMESPACE
         mDevice->Get().destroyShaderModule(fragHwShader->Get());
         mDevice->Get().destroyShaderModule(fragPointShader->Get());
 
-        // ------------------------------------------------------------------
-        // Depth image arrays (cascades, spot, point cube array)
-        // ------------------------------------------------------------------
         auto cascade = createArrayImage(
             depthFormat,
             resolution,
@@ -231,8 +222,6 @@ namespace FREYA_NAMESPACE
             vk::ImageViewType::e2DArray);
         transitionToReadOnly(cascade.image, cascadeCount);
 
-        // Zero slots still need a sampled view for lighting descriptors.
-        // Use a 1×1 stub so Low/zero configs avoid full-resolution VRAM.
         const auto spotLayers      = maxSpot == 0 ? 1u : maxSpot;
         const auto spotResolution  = maxSpot == 0 ? 1u : resolution;
         const auto pointLayers     = maxPoint == 0 ? 6u : maxPoint * 6;
@@ -261,9 +250,6 @@ namespace FREYA_NAMESPACE
         auto pointFramebuffers =
             createFramebuffers(renderPass, point.layerViews, pointResolution);
 
-        // ------------------------------------------------------------------
-        // Shadow uniform buffer (ring-buffered per in-flight frame)
-        // ------------------------------------------------------------------
         auto uniformBuffer =
             BufferBuilder(mDevice)
                 .SetUsage(BufferUsage::Uniform)
@@ -271,9 +257,6 @@ namespace FREYA_NAMESPACE
                          mFreyaOptions->frameCount)
                 .Build();
 
-        // ------------------------------------------------------------------
-        // Samplers: hardware comparison sampler + unused regular sampler
-        // ------------------------------------------------------------------
         auto compareSamplerInfo =
             vk::SamplerCreateInfo()
                 .setMagFilter(vk::Filter::eLinear)

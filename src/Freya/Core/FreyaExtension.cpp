@@ -188,11 +188,6 @@ namespace FREYA_NAMESPACE
                 return windowBuilder->Build();
             });
 
-        // DeferredCompressedPass is NOT registered as a service — the
-        // RendererBuilder creates it internally with the same SwapChain
-        // that the Renderer uses, ensuring framebuffers reference the
-        // correct swapchain images.
-
         services.AddSingleton<Renderer>(
             [](skr::ServiceProvider& serviceProvider) {
                 auto rendererBuilder =

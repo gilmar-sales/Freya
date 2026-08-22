@@ -107,7 +107,6 @@ namespace FREYA_NAMESPACE
         mHiZ->Resize(extent.width, extent.height);
         mHiZ->Invalidate();
         bumpCullDescVersion();
-        // Swapchain resize waits idle; safe to refresh every set now.
         for (std::uint32_t f = 0; f < mFrameCount; ++f)
         {
             updateCullDescriptors(f);
@@ -125,8 +124,6 @@ namespace FREYA_NAMESPACE
         if (!mHiZ->IsValid())
             mHiZ->Resize(std::max(1u, mScreenSize.width),
                          std::max(1u, mScreenSize.height));
-        // Do not rewrite cull descriptor sets here: DispatchCull already
-        // bound this frame's set earlier in the same command buffer.
         mHiZ->Build(mCommandPool, depthImage, reverseZ, mFrameIndex);
         if (!wasReady && mHiZ->IsReady())
             bumpCullDescVersion();
@@ -137,11 +134,6 @@ namespace FREYA_NAMESPACE
         ++mCullDescVersion;
         if (mCullDescVersion == 0)
             mCullDescVersion = 1;
-        // Do not clear mCullDescRefreshedThisFrame. A mid-frame rewrite of the
-        // cull descriptor set (e.g. Hi-Z becoming ready after Geometry cull,
-        // then Translucent DispatchCull) invalidates the recording CB. The
-        // next UploadSceneInstances / first cull of the following frame picks
-        // up the new version.
     }
 
     void IndirectDrawSystem::refreshCullDescriptorsIfNeeded()
@@ -444,10 +436,6 @@ namespace FREYA_NAMESPACE
         auto& list = drawListFor(currentFrame(), techniqueFilter);
         if (!list.drawCount)
             return;
-        // Must be a GPU cmd — a host memcpy during CB recording is overwritten
-        // by earlier cull dispatches at submit time, so a later cull (e.g.
-        // Translucent after Camera) would atomicAdd on the stale count and
-        // redraw previous opaque slots.
         mCommandPool->GetCommandBuffer().fillBuffer(
             list.drawCount->Get(), 0, sizeof(std::uint32_t), 0);
     }
@@ -475,7 +463,6 @@ namespace FREYA_NAMESPACE
 
         ensureCapacity(static_cast<std::uint32_t>(uploads.size()));
         refreshCullDescriptorsIfNeeded();
-        // Allow DispatchCull to refresh once more if SyncMeshInfo bumped.
         mCullDescRefreshedThisFrame = false;
 
         mPrevTransforms.swap(mInstanceTransforms);

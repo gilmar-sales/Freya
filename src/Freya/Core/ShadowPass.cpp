@@ -9,6 +9,161 @@
 #include <limits>
 #include <utility>
 
+namespace
+{
+    constexpr float kMaxDirectionalShadowDistance = 160.0f;
+    constexpr float kCascadeSplitLambda           = 0.55f;
+    constexpr float kCascadeZPad                  = 25.0f;
+    constexpr float kCascadePullEps               = 1.0f;
+    constexpr float kCascadeXyPadFrac             = 0.25f;
+
+    struct CameraFrustumParams
+    {
+        float tanHalfFovY;
+        float aspect;
+    };
+
+    CameraFrustumParams frustumParamsFromProjection(const glm::mat4& cameraProj)
+    {
+        return {
+            1.0f / std::abs(cameraProj[1][1]),
+            (cameraProj[1][1] / cameraProj[0][0]) * -1.0f,
+        };
+    }
+
+    std::array<float, fra::MAX_SHADOW_CASCADES> computePracticalSplits(
+        const std::uint32_t cascadeCount,
+        const float         nearPlane,
+        const float         cascadeFar)
+    {
+        std::array<float, fra::MAX_SHADOW_CASCADES> splits {};
+        for (std::uint32_t i = 1; i <= cascadeCount; ++i)
+        {
+            const auto p = static_cast<float>(i) /
+                           static_cast<float>(cascadeCount);
+            const auto logSplit =
+                nearPlane * std::pow(cascadeFar / nearPlane, p);
+            const auto uniformSplit =
+                nearPlane + (cascadeFar - nearPlane) * p;
+            splits[i - 1] = kCascadeSplitLambda * logSplit +
+                            (1.0f - kCascadeSplitLambda) * uniformSplit;
+        }
+        return splits;
+    }
+
+    std::array<glm::vec3, 8> worldFrustumSliceCorners(
+        const glm::mat4& invView,
+        const float      tanHalfFovY,
+        const float      aspect,
+        const float      splitNear,
+        const float      splitFar)
+    {
+        const auto hNear = tanHalfFovY * splitNear;
+        const auto wNear = hNear * aspect;
+        const auto hFar  = tanHalfFovY * splitFar;
+        const auto wFar  = hFar * aspect;
+
+        const std::array<glm::vec4, 8> viewCorners = {
+            glm::vec4(-wNear, hNear, -splitNear, 1.0f),
+            glm::vec4(wNear, hNear, -splitNear, 1.0f),
+            glm::vec4(-wNear, -hNear, -splitNear, 1.0f),
+            glm::vec4(wNear, -hNear, -splitNear, 1.0f),
+            glm::vec4(-wFar, hFar, -splitFar, 1.0f),
+            glm::vec4(wFar, hFar, -splitFar, 1.0f),
+            glm::vec4(-wFar, -hFar, -splitFar, 1.0f),
+            glm::vec4(wFar, -hFar, -splitFar, 1.0f),
+        };
+
+        std::array<glm::vec3, 8> worldCorners {};
+        for (std::size_t c = 0; c < worldCorners.size(); ++c)
+            worldCorners[c] = glm::vec3(invView * viewCorners[c]);
+        return worldCorners;
+    }
+
+    float boundingSphereRadius(const std::array<glm::vec3, 8>& worldCorners,
+                               glm::vec3&                      outCenter)
+    {
+        outCenter = glm::vec3(0.0f);
+        for (const auto& corner : worldCorners)
+            outCenter += corner;
+        outCenter /= 8.0f;
+
+        float radius = 0.0f;
+        for (const auto& corner : worldCorners)
+            radius = std::max(radius, glm::length(corner - outCenter));
+        return std::ceil(radius * 16.0f) / 16.0f;
+    }
+
+    glm::mat4 stabilizedLightView(const glm::vec3& center,
+                                  const glm::vec3& lightDir,
+                                  const glm::vec3& up,
+                                  const float      radius,
+                                  const float      resolution)
+    {
+        const float pullBack = radius + kCascadeZPad + kCascadePullEps;
+        const float texelSize = (2.0f * radius) / resolution;
+
+        auto lightView =
+            glm::lookAt(center - lightDir * pullBack, center, up);
+        auto centerLS = glm::vec3(lightView * glm::vec4(center, 1.0f));
+        if (texelSize > 1e-6f)
+        {
+            centerLS.x = std::floor(centerLS.x / texelSize) * texelSize;
+            centerLS.y = std::floor(centerLS.y / texelSize) * texelSize;
+        }
+        const auto snappedCenter =
+            glm::vec3(glm::inverse(lightView) * glm::vec4(centerLS, 1.0f));
+        return glm::lookAt(snappedCenter - lightDir * pullBack, snappedCenter,
+                           up);
+    }
+
+    struct LightOrthoBounds
+    {
+        glm::vec3 minB;
+        glm::vec3 maxB;
+        float     extentX;
+        float     extentY;
+    };
+
+    LightOrthoBounds lightSpaceBoundsForSlice(
+        const glm::mat4&                lightView,
+        const std::array<glm::vec3, 8>& worldCorners)
+    {
+        auto minB = glm::vec3(std::numeric_limits<float>::max());
+        auto maxB = glm::vec3(std::numeric_limits<float>::lowest());
+        for (const auto& worldCorner : worldCorners)
+        {
+            const auto lightSpace =
+                glm::vec3(lightView * glm::vec4(worldCorner, 1.0f));
+            minB = glm::min(minB, lightSpace);
+            maxB = glm::max(maxB, lightSpace);
+        }
+
+        const auto extentX = std::max(maxB.x - minB.x, 1e-3f);
+        const auto extentY = std::max(maxB.y - minB.y, 1e-3f);
+        minB.x -= extentX * kCascadeXyPadFrac;
+        maxB.x += extentX * kCascadeXyPadFrac;
+        minB.y -= extentY * kCascadeXyPadFrac;
+        maxB.y += extentY * kCascadeXyPadFrac;
+        minB.z -= kCascadeZPad;
+        maxB.z += kCascadeZPad;
+
+        return { minB, maxB, extentX, extentY };
+    }
+
+    glm::mat4 lightOrthoFromBounds(const LightOrthoBounds& bounds,
+                                   const bool              reverseZ)
+    {
+        const auto near = std::max(1e-3f, -bounds.maxB.z);
+        const auto far  = std::max(near + 1e-3f, -bounds.minB.z);
+        return reverseZ
+                   ? glm::ortho(bounds.minB.x, bounds.maxB.x, bounds.minB.y,
+                                bounds.maxB.y, far, near)
+                   : glm::ortho(bounds.minB.x, bounds.maxB.x, bounds.minB.y,
+                                bounds.maxB.y, near, far);
+    }
+} // namespace
+
 namespace FREYA_NAMESPACE
 {
     ShadowPass::ShadowPass(
@@ -245,9 +400,6 @@ namespace FREYA_NAMESPACE
             static_cast<float>(
                 std::clamp(mFreyaOptions->shadowSampleCount, 1u, 16u)));
 
-        // ------------------------------------------------------------------
-        // Directional CSM: first shadow-casting directional light wins.
-        // ------------------------------------------------------------------
         const Light* sun = nullptr;
         for (std::uint32_t i = 0; i < lights.GetLightCount(); ++i)
         {
@@ -269,9 +421,6 @@ namespace FREYA_NAMESPACE
                             drawDistance);
         }
 
-        // ------------------------------------------------------------------
-        // Spot shadows: up to mMaxSpotShadows shadow-casting spot lights.
-        // ------------------------------------------------------------------
         mActiveSpotCount           = 0;
         mShadowData.spotLightIndex = glm::vec4(-1.0f);
 
@@ -290,9 +439,6 @@ namespace FREYA_NAMESPACE
             mShadowData.spotLightIndex[slot] = static_cast<float>(i);
         }
 
-        // ------------------------------------------------------------------
-        // Point shadows: up to mMaxPointShadows shadow-casting point lights.
-        // ------------------------------------------------------------------
         mActivePointCount           = 0;
         mShadowData.pointLightIndex = glm::vec4(-1.0f);
 
@@ -322,151 +468,45 @@ namespace FREYA_NAMESPACE
                                      const float      nearPlane,
                                      const float      drawDistance)
     {
-        // Practical split over the shadow range (not full drawDistance —
-        // 1000-unit far planes starve near cascades and inflate ortho Z
-        // precision issues that read as floor acne).
-        constexpr float kMaxDirectionalShadowDistance = 160.0f;
-        const float     cascadeFar =
+        const float cascadeFar =
             std::min(drawDistance, kMaxDirectionalShadowDistance);
-
-        // Practical split: lower λ keeps more texels near the camera.
-        constexpr float lambda = 0.55f;
-
-        std::array<float, MAX_SHADOW_CASCADES> splits {};
-        for (std::uint32_t i = 1; i <= mCascadeCount; ++i)
-        {
-            const auto p =
-                static_cast<float>(i) / static_cast<float>(mCascadeCount);
-
-            const auto logSplit =
-                nearPlane * std::pow(cascadeFar / nearPlane, p);
-            const auto uniformSplit = nearPlane + (cascadeFar - nearPlane) * p;
-
-            splits[i - 1] = lambda * logSplit + (1.0f - lambda) * uniformSplit;
-        }
-
-        // Recover vertical FOV / aspect from the (Y-flipped) camera
-        // projection matrix so cascade frustum slices match the real
-        // camera frustum, regardless of caller conventions.
-        const auto tanHalfFovY = 1.0f / std::abs(cameraProj[1][1]);
-        const auto aspect      = (cameraProj[1][1] / cameraProj[0][0]) * -1.0f;
+        const auto splits =
+            computePracticalSplits(mCascadeCount, nearPlane, cascadeFar);
+        const auto frustum = frustumParamsFromProjection(cameraProj);
 
         const auto invView  = glm::inverse(cameraView);
         const auto lightDir = glm::normalize(sun.direction);
-
-        const auto up = std::abs(lightDir.y) < 0.99f
-                            ? glm::vec3(0.0f, 1.0f, 0.0f)
-                            : glm::vec3(1.0f, 0.0f, 0.0f);
-
-        const auto resolution = static_cast<float>(std::max(mResolution, 1u));
+        const auto up       = std::abs(lightDir.y) < 0.99f
+                                  ? glm::vec3(0.0f, 1.0f, 0.0f)
+                                  : glm::vec3(1.0f, 0.0f, 0.0f);
+        const auto resolution =
+            static_cast<float>(std::max(mResolution, 1u));
 
         for (std::uint32_t i = 0; i < mCascadeCount; ++i)
         {
             const auto splitNear = (i == 0) ? nearPlane : splits[i - 1];
             const auto splitFar  = splits[i];
 
-            const auto hNear = tanHalfFovY * splitNear;
-            const auto wNear = hNear * aspect;
-            const auto hFar  = tanHalfFovY * splitFar;
-            const auto wFar  = hFar * aspect;
+            const auto worldCorners = worldFrustumSliceCorners(
+                invView, frustum.tanHalfFovY, frustum.aspect, splitNear,
+                splitFar);
 
-            const std::array<glm::vec4, 8> viewCorners = {
-                glm::vec4(-wNear, hNear, -splitNear, 1.0f),
-                glm::vec4(wNear, hNear, -splitNear, 1.0f),
-                glm::vec4(-wNear, -hNear, -splitNear, 1.0f),
-                glm::vec4(wNear, -hNear, -splitNear, 1.0f),
-                glm::vec4(-wFar, hFar, -splitFar, 1.0f),
-                glm::vec4(wFar, hFar, -splitFar, 1.0f),
-                glm::vec4(-wFar, -hFar, -splitFar, 1.0f),
-                glm::vec4(wFar, -hFar, -splitFar, 1.0f),
-            };
+            glm::vec3 center {};
+            const auto radius =
+                boundingSphereRadius(worldCorners, center);
 
-            glm::vec3                center(0.0f);
-            std::array<glm::vec3, 8> worldCorners {};
-            for (std::size_t c = 0; c < worldCorners.size(); ++c)
-            {
-                const auto world = invView * viewCorners[c];
-                worldCorners[c]  = glm::vec3(world);
-                center += worldCorners[c];
-            }
-            center /= 8.0f;
-
-            // Bounding sphere keeps cascades stable when the camera rotates
-            // (AABB would resize and swim).
-            float radius = 0.0f;
-            for (const auto& worldCorner : worldCorners)
-            {
-                radius = std::max(radius, glm::length(worldCorner - center));
-            }
-            radius = std::ceil(radius * 16.0f) / 16.0f;
-
-            // Pull the light eye from cascade geometry, never from camera
-            // far — using drawDistance here made outer cascades get
-            // near <= 0 when radius + pad exceeded that distance.
-            constexpr float zPad     = 25.0f;
-            constexpr float pullEps  = 1.0f;
-            const float     pullBack = radius + zPad + pullEps;
-
-            // Snap the light-space center to the shadow-map texel grid so
-            // cascades do not shimmer when the camera translates.
-            const auto texelSize = (2.0f * radius) / resolution;
-            auto       lightView =
-                glm::lookAt(center - lightDir * pullBack, center, up);
-            auto centerLS = glm::vec3(lightView * glm::vec4(center, 1.0f));
-            if (texelSize > 1e-6f)
-            {
-                centerLS.x = std::floor(centerLS.x / texelSize) * texelSize;
-                centerLS.y = std::floor(centerLS.y / texelSize) * texelSize;
-            }
-            const auto snappedCenter =
-                glm::vec3(glm::inverse(lightView) * glm::vec4(centerLS, 1.0f));
-            lightView = glm::lookAt(
-                snappedCenter - lightDir * pullBack, snappedCenter, up);
-
-            // Tight light-space AABB of the frustum slice (sphere was used
-            // only for center stability). Padding keeps casters just outside
-            // the camera frustum from being clipped off the map.
-            auto minB = glm::vec3(std::numeric_limits<float>::max());
-            auto maxB = glm::vec3(std::numeric_limits<float>::lowest());
-            for (const auto& worldCorner : worldCorners)
-            {
-                const auto lightSpace =
-                    glm::vec3(lightView * glm::vec4(worldCorner, 1.0f));
-                minB = glm::min(minB, lightSpace);
-                maxB = glm::max(maxB, lightSpace);
-            }
-
-            constexpr float xyPadFrac = 0.25f;
-            const auto      extentX   = std::max(maxB.x - minB.x, 1e-3f);
-            const auto      extentY   = std::max(maxB.y - minB.y, 1e-3f);
-            minB.x -= extentX * xyPadFrac;
-            maxB.x += extentX * xyPadFrac;
-            minB.y -= extentY * xyPadFrac;
-            maxB.y += extentY * xyPadFrac;
-
-            // Extend Z so casters slightly outside the camera frustum
-            // slice still land in the ortho box.
-            minB.z -= zPad;
-            maxB.z += zPad;
-
-            // Always keep a valid positive near/far (Ortho with near<=0
-            // breaks Reverse-Z Greater depth and looks like self-shadow
-            // acne on lit surfaces).
-            const auto near = std::max(1e-3f, -maxB.z);
-            const auto far  = std::max(near + 1e-3f, -minB.z);
-
-            auto lightProj =
-                mFreyaOptions->ReverseZ
-                    ? glm::ortho(minB.x, maxB.x, minB.y, maxB.y, far, near)
-                    : glm::ortho(minB.x, maxB.x, minB.y, maxB.y, near, far);
+            const auto lightView = stabilizedLightView(
+                center, lightDir, up, radius, resolution);
+            const auto bounds =
+                lightSpaceBoundsForSlice(lightView, worldCorners);
+            const auto lightProj =
+                lightOrthoFromBounds(bounds, mFreyaOptions->ReverseZ);
 
             mShadowData.cascadeViewProj[i] = lightProj * lightView;
             mShadowData.cascadeSplits[i]   = splitFar;
-            // Padded AABB extent / resolution — used for UV soft radius and
-            // receiver normal offset proportional to cascade density.
             const auto worldTexel =
-                std::max(extentX * (1.0f + 2.0f * xyPadFrac),
-                         extentY * (1.0f + 2.0f * xyPadFrac)) /
+                std::max(bounds.extentX * (1.0f + 2.0f * kCascadeXyPadFrac),
+                         bounds.extentY * (1.0f + 2.0f * kCascadeXyPadFrac)) /
                 resolution;
             mShadowData.cascadeTexelSize[static_cast<int>(i)] = worldTexel;
         }

@@ -89,7 +89,6 @@ namespace FREYA_NAMESPACE
                 .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
                 .setAddressModeW(vk::SamplerAddressMode::eClampToEdge));
 
-        // --- Accumulate render pass: accum + reveal + depth (load) -----------
         auto accumAttachments = std::array {
             vk::AttachmentDescription()
                 .setFormat(vk::Format::eR16G16B16A16Sfloat)
@@ -170,7 +169,6 @@ namespace FREYA_NAMESPACE
                 .setSubpasses(accumSubpass)
                 .setDependencies(accumDeps));
 
-        // --- Resolve render pass ---------------------------------------------
         auto resolveAttachment =
             vk::AttachmentDescription()
                 .setFormat(vk::Format::eR16G16B16A16Sfloat)
@@ -219,7 +217,6 @@ namespace FREYA_NAMESPACE
                 .setSubpasses(resolveSubpass)
                 .setDependencies(resolveDeps));
 
-        // --- Camera set 0 + bindless set 1 -----------------------------------
         auto uboBinding =
             vk::DescriptorSetLayoutBinding()
                 .setBinding(0)
@@ -274,7 +271,6 @@ namespace FREYA_NAMESPACE
         auto& bindlessLayout  = mMaterialResources->GetBindlessLayout();
         auto  lightLayout     = LightServiceGpu::Layout(*mLightService);
 
-        // Set 4: opaque HDR (refraction) + IBL (parity with deferred).
         auto glassBindings = std::array {
             vk::DescriptorSetLayoutBinding()
                 .setBinding(0)
@@ -333,7 +329,6 @@ namespace FREYA_NAMESPACE
                 .setImageView(mIblService->GetBrdfLut()->GetImageView())
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 
-        // Placeholder opaque until BeginAccumulate rebinds the real HDR.
         auto placeholderOpaque =
             vk::DescriptorImageInfo()
                 .setSampler(sampler)
@@ -387,7 +382,6 @@ namespace FREYA_NAMESPACE
         auto accumulateLayout = mDevice->Get().createPipelineLayout(
             vk::PipelineLayoutCreateInfo().setSetLayouts(accumSetLayouts));
 
-        // --- Resolve descriptors ---------------------------------------------
         auto resolveBindings = std::array {
             vk::DescriptorSetLayoutBinding()
                 .setBinding(0)
@@ -428,7 +422,6 @@ namespace FREYA_NAMESPACE
         auto resolveLayout = mDevice->Get().createPipelineLayout(
             vk::PipelineLayoutCreateInfo().setSetLayouts(resolveSetLayout));
 
-        // Pre-bind per-frame accum/reveal (opaque updated in Resolve).
         for (std::uint32_t i = 0; i < mFreyaOptions->frameCount; ++i)
         {
             auto accumInfo =
@@ -475,7 +468,6 @@ namespace FREYA_NAMESPACE
                 nullptr);
         }
 
-        // --- Accumulate pipeline ---------------------------------------------
         auto makeStage = [](vk::ShaderModule        module,
                             vk::ShaderStageFlagBits stage) {
             return vk::PipelineShaderStageCreateInfo()
@@ -523,7 +515,6 @@ namespace FREYA_NAMESPACE
                                    vk::ColorComponentFlagBits::eG |
                                    vk::ColorComponentFlagBits::eB |
                                    vk::ColorComponentFlagBits::eA);
-        // Reveal R8: dst *= (1 - src.r) via OneMinusSrcColor.
         auto accumBlend1 =
             vk::PipelineColorBlendAttachmentState()
                 .setBlendEnable(true)
@@ -573,7 +564,6 @@ namespace FREYA_NAMESPACE
                         .setSubpass(0))
                 .value;
 
-        // --- Resolve pipeline ------------------------------------------------
         auto resolveStages = std::array {
             makeStage(resVert->Get(), vk::ShaderStageFlagBits::eVertex),
             makeStage(resFrag->Get(), vk::ShaderStageFlagBits::eFragment),

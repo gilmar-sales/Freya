@@ -110,7 +110,6 @@ namespace FREYA_NAMESPACE
 
         auto descriptorPool = mDevice->Get().createDescriptorPool(poolInfo);
 
-        // Allocate 3 descriptor sets per frame
         auto layouts = std::vector<vk::DescriptorSetLayout> {};
         for (auto i = 0; i < 3 * mFreyaOptions->frameCount; i++)
             layouts.push_back(descriptorSetLayout);
@@ -121,7 +120,6 @@ namespace FREYA_NAMESPACE
 
         auto allSets = mDevice->Get().allocateDescriptorSets(allocInfo);
 
-        // Sampler for emissive read
         auto defaultSampler = mDevice->Get().createSampler(
             vk::SamplerCreateInfo()
                 .setMagFilter(vk::Filter::eLinear)
@@ -131,12 +129,10 @@ namespace FREYA_NAMESPACE
                 .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
                 .setAddressModeW(vk::SamplerAddressMode::eClampToEdge));
 
-        // Write descriptor sets per frame
         for (std::uint32_t frame = 0; frame < frameCount; frame++)
         {
             auto baseIdx = frame * 3;
 
-            // Threshold set: binding 0 = emissive / HDR scene sampler
             auto emissiveInfo =
                 vk::DescriptorImageInfo()
                     .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
@@ -153,7 +149,6 @@ namespace FREYA_NAMESPACE
                     .setImageInfo(emissiveInfo),
                 nullptr);
 
-            // Downsample set: binding 0 = this frame's threshold texture
             auto thresholdSamplerInfo =
                 vk::DescriptorImageInfo()
                     .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
@@ -170,7 +165,6 @@ namespace FREYA_NAMESPACE
                     .setImageInfo(thresholdSamplerInfo),
                 nullptr);
 
-            // Upsample set: binding 0 = this frame's down texture
             auto downSamplerInfo =
                 vk::DescriptorImageInfo()
                     .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
@@ -284,7 +278,6 @@ namespace FREYA_NAMESPACE
             makePipeline(downStages, BloomDownsampleSubpass);
         auto upsamplePipeline = makePipeline(upStages, BloomUpsampleSubpass);
 
-        // Cleanup shaders
         mDevice->Get().destroyShaderModule(vertShader->Get());
         mDevice->Get().destroyShaderModule(threshFrag->Get());
         mDevice->Get().destroyShaderModule(downFrag->Get());
@@ -326,7 +319,6 @@ namespace FREYA_NAMESPACE
     vk::RenderPass BloomPassBuilder::createRenderPass() const
     {
         auto attachments = std::vector<vk::AttachmentDescription> {
-            // 0: Bloom threshold (color, cleared before use)
             vk::AttachmentDescription()
                 .setFormat(vk::Format::eR16G16B16A16Sfloat)
                 .setSamples(vk::SampleCountFlagBits::e1)
@@ -336,7 +328,6 @@ namespace FREYA_NAMESPACE
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
                 .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
-            // 1: Bloom downsample
             vk::AttachmentDescription()
                 .setFormat(vk::Format::eR16G16B16A16Sfloat)
                 .setSamples(vk::SampleCountFlagBits::e1)
@@ -346,7 +337,6 @@ namespace FREYA_NAMESPACE
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
                 .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
-            // 2: Bloom upsample (stored for blit)
             vk::AttachmentDescription()
                 .setFormat(vk::Format::eR16G16B16A16Sfloat)
                 .setSamples(vk::SampleCountFlagBits::e1)
@@ -358,14 +348,11 @@ namespace FREYA_NAMESPACE
                 .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
         };
 
-        // Subpass 0: threshold (writes attachment 0, no inputs)
         auto threshColorRef =
             vk::AttachmentReference()
                 .setAttachment(BloomThresholdAttachment)
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
-        // Subpass 1: downsample (reads attachment 0 as input, writes attachment
-        // 1)
         auto thresholdInputRef =
             vk::AttachmentReference()
                 .setAttachment(BloomThresholdAttachment)
@@ -376,8 +363,6 @@ namespace FREYA_NAMESPACE
                 .setAttachment(BloomDownAttachment)
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
-        // Subpass 2: upsample (reads attachment 1 as input, writes attachment
-        // 2)
         auto downInputRef =
             vk::AttachmentReference()
                 .setAttachment(BloomDownAttachment)
@@ -389,16 +374,13 @@ namespace FREYA_NAMESPACE
                 .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
         auto subpasses = std::vector<vk::SubpassDescription> {
-            // Subpass 0: threshold — writes to attachment 0
             vk::SubpassDescription()
                 .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
                 .setColorAttachments(threshColorRef),
-            // Subpass 1: downsample — reads attachment 0, writes attachment 1
             vk::SubpassDescription()
                 .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
                 .setInputAttachments(thresholdInputRef)
                 .setColorAttachments(downColorRef),
-            // Subpass 2: upsample — reads attachment 1, writes attachment 2
             vk::SubpassDescription()
                 .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
                 .setInputAttachments(downInputRef)
@@ -406,7 +388,6 @@ namespace FREYA_NAMESPACE
         };
 
         auto dependencies = std::vector<vk::SubpassDependency> {
-            // External → threshold
             vk::SubpassDependency()
                 .setSrcSubpass(vk::SubpassExternal)
                 .setDstSubpass(BloomThresholdSubpass)
@@ -416,7 +397,6 @@ namespace FREYA_NAMESPACE
                     vk::PipelineStageFlagBits::eColorAttachmentOutput)
                 .setSrcAccessMask(vk::AccessFlagBits::eNone)
                 .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite),
-            // Threshold → downsample (transition threshold to shader read)
             vk::SubpassDependency()
                 .setSrcSubpass(BloomThresholdSubpass)
                 .setDstSubpass(BloomDownsampleSubpass)
@@ -426,7 +406,6 @@ namespace FREYA_NAMESPACE
                 .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
                 .setDstAccessMask(vk::AccessFlagBits::eInputAttachmentRead)
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
-            // Downsample → upsample (transition down to shader read)
             vk::SubpassDependency()
                 .setSrcSubpass(BloomDownsampleSubpass)
                 .setDstSubpass(BloomUpsampleSubpass)
@@ -436,7 +415,6 @@ namespace FREYA_NAMESPACE
                 .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
                 .setDstAccessMask(vk::AccessFlagBits::eInputAttachmentRead)
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
-            // Upsample → external
             vk::SubpassDependency()
                 .setSrcSubpass(BloomUpsampleSubpass)
                 .setDstSubpass(vk::SubpassExternal)

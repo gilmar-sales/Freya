@@ -24,9 +24,6 @@ namespace FREYA_NAMESPACE
 
         auto renderPass = createRenderPass(depthFormat);
 
-        // ------------------------------------------------------------------
-        // Descriptor set layout: binding 0 = ProjectionUniformBuffer
-        // ------------------------------------------------------------------
         const auto uboBinding =
             vk::DescriptorSetLayoutBinding()
                 .setBinding(0)
@@ -84,9 +81,6 @@ namespace FREYA_NAMESPACE
                 .SetSize(sizeof(std::uint32_t))
                 .Build();
 
-        // ------------------------------------------------------------------
-        // Pick pipeline
-        // ------------------------------------------------------------------
         auto vertShader =
             mServiceProvider->GetService<ShaderModuleBuilder>()
                 ->SetFilePath(mFreyaOptions->shaderRoot + "/Pick/pick.vert.spv")
@@ -253,9 +247,6 @@ namespace FREYA_NAMESPACE
         mDevice->Get().destroyShaderModule(vertShader->Get());
         mDevice->Get().destroyShaderModule(fragShader->Get());
 
-        // ------------------------------------------------------------------
-        // Images + framebuffer
-        // ------------------------------------------------------------------
         auto colorImage =
             mServiceProvider->GetService<ImageBuilder>()
                 ->SetUsage(ImageUsage::Color)

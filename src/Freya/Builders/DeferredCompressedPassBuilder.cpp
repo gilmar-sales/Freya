@@ -199,7 +199,6 @@ namespace FREYA_NAMESPACE
                                   .setDepthTestEnable(false)
                                   .setDepthWriteEnable(false);
 
-        // --- Geometry UBO descriptors ---
         auto uboPoolSize = vk::DescriptorPoolSize()
                                .setType(vk::DescriptorType::eUniformBuffer)
                                .setDescriptorCount(mFreyaOptions->frameCount);
@@ -297,8 +296,6 @@ namespace FREYA_NAMESPACE
                 .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
                 .setAddressModeW(vk::SamplerAddressMode::eClampToEdge));
 
-        // Lighting set: 0-3 G-buffer samplers, 4 camera UBO, 5 lights,
-        // 6-10 IBL, 11 shadow UBO, 12-14 shadow maps, 15 SSAO
         auto lightingBindings = std::array {
             cisBinding(0),  cisBinding(1),  cisBinding(2),  cisBinding(3),
             uboBinding(4),  uboBinding(5),  cisBinding(6),  cisBinding(7),

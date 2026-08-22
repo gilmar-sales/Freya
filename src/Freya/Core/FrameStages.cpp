@@ -129,7 +129,6 @@ namespace FREYA_NAMESPACE
         if (ctx.usedTechniqueMask)
             usedMask = *ctx.usedTechniqueMask;
 
-        // Depth list (all opaque) + per-technique G-buffer lists.
         if (ctx.DispatchCull && ctx.projection)
         {
             ctx.DispatchCull(viewProj, CullMode::Camera, kTechniqueFilterAll);
@@ -183,7 +182,6 @@ namespace FREYA_NAMESPACE
 
         (*ctx.deferred)->End(ctx.commandPool);
 
-        // Previous-frame Hi-Z for next camera cull (depth is ReadOnly).
         if (ctx.buildHiZ)
             ctx.buildHiZ();
     }
@@ -408,7 +406,6 @@ namespace FREYA_NAMESPACE
         if (!ctx.options->enableBloom)
             return;
 
-        // Builder needs a valid initial HDR view; wire each frame afterwards.
         skr::Arc<Image> bloomSource;
         if (ctx.translucent && *ctx.translucent)
             bloomSource = (*ctx.translucent)->GetSceneWithTranslucency(0);
@@ -437,7 +434,6 @@ namespace FREYA_NAMESPACE
         auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.bloom || !*ctx.bloom)
         {
-            // Keep composite bloom tap black when bloom is disabled.
             if (ctx.bloomResultImages &&
                 ctx.frameIndex < ctx.bloomResultImages->size() &&
                 (*ctx.bloomResultImages)[ctx.frameIndex])

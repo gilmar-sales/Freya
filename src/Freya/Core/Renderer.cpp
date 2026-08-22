@@ -137,7 +137,6 @@ namespace FREYA_NAMESPACE
                 }
             });
 
-        // Create bloom result images (full-res blit target, one per frame)
         const auto extent = getRenderExtent();
         mBloomResultImages.resize(mFreyaOptions->frameCount);
         for (std::uint32_t i = 0; i < mFreyaOptions->frameCount; ++i)
@@ -152,7 +151,6 @@ namespace FREYA_NAMESPACE
                     .Build();
         }
 
-        // Create a linear sampler for bloom result
         mBloomResultSampler = mDevice->Get().createSampler(
             vk::SamplerCreateInfo()
                 .setMagFilter(vk::Filter::eLinear)
@@ -161,9 +159,6 @@ namespace FREYA_NAMESPACE
                 .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
                 .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
                 .setAddressModeW(vk::SamplerAddressMode::eClampToEdge));
-
-        // Initialize composite after first stage rebuild (needs translucent).
-        // Descriptor sets are filled in CompositeFrameStage::Rebuild.
 
         if (!mFreyaOptions->enableSsao)
             mSsaoFallbackImage = createSsaoFallbackImage();
@@ -407,7 +402,6 @@ namespace FREYA_NAMESPACE
         ctx.drawDebugOverlay   = [this]() {
             if (!mDebugDrawEnabled || !mDebugDrawPass || mDebugDraw.Empty())
                 return;
-            // ImGui/output-target path owns the swapchain; skip overlay.
             if (mOutputTarget)
                 return;
             const glm::mat4 viewProj = mCurrentProjection.unjitteredProjection *
@@ -522,7 +516,6 @@ namespace FREYA_NAMESPACE
         if (mLightService)
             mLightService->SetShadowsEnabled(mFreyaOptions->enableShadows);
 
-        // Off only flips the runtime gate; keep existing atlas resources.
         if (quality == ShadowQuality::Off)
             return;
 
@@ -839,8 +832,6 @@ namespace FREYA_NAMESPACE
         mDeferredPass->UpdateProjection(
             prepareDeferredProjection(projectionUniformBuffer), frameIndex);
         mCurrentProjection = projectionUniformBuffer;
-        // SSAO (and CPU consumers) read unjitteredProjection from this struct.
-        // prepareDeferredProjection only stamps it on the GPU upload copy.
         mCurrentProjection.unjitteredProjection =
             projectionUniformBuffer.projection;
     }
@@ -1340,7 +1331,6 @@ namespace FREYA_NAMESPACE
             return false;
         }
 
-        // Editor MVP: ensure the submit that recorded CopyPixel finished.
         mDevice->Get().waitIdle();
         outEntityId           = mPickPass->ReadPixel();
         mPickAwaitingReadback = false;
