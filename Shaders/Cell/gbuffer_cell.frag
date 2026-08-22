@@ -2,7 +2,7 @@
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_nonuniform_qualifier : require
 
-// Custom opaque G-buffer technique: matte PBR (cel bands in PostProcess).
+// Custom opaque G-buffer technique: matte PBR (cel bands in lighting_cell).
 // Same contract as DeferredCompressed/gbuffer.frag.
 
 layout (location = 0) in vec3 inPosition;
@@ -69,10 +69,10 @@ void main() {
     float metalness;
     float ao;
     SamplePbrMaps(mat, inTexCoord, roughness, metalness, ao);
-    // Matte response under deferred lighting; cel bands come from PostProcess.
+    // Matte response; .a = 1 marks cel for lighting_cell (not clearcoat).
     roughness = max(roughness, 0.85);
     metalness = 0.0;
-    outPbr = vec4(roughness, metalness, ao, 0.0);
+    outPbr = vec4(roughness, metalness, ao, 1.0);
 
     vec3 emissiveLin =
         srgbToLinear(

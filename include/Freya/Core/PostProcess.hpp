@@ -69,8 +69,8 @@ namespace FREYA_NAMESPACE
 
         FrameStagePtr MakeStage();
 
-        void Rebuild(RenderFrameContext& ctx, skr::ServiceProvider& sp);
-        void Execute(RenderFrameContext& ctx);
+        void Rebuild(StageContext& ctx, skr::ServiceProvider& sp);
+        void Execute(StageContext& ctx);
 
       private:
         friend class PostProcessBuilder;

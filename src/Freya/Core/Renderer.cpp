@@ -19,7 +19,9 @@
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/DebugLabels.hpp"
+#include "Freya/Core/Device.hpp"
 #include "Freya/Core/FrameStages.hpp"
+#include "Freya/Core/Image.hpp"
 #include "Freya/Core/IndirectDrawSystem.hpp"
 #include "Freya/Core/PickPass.hpp"
 #include "Freya/Core/ShadowPass.hpp"
@@ -27,6 +29,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <glm/gtc/matrix_inverse.hpp>
 
@@ -259,18 +262,56 @@ namespace FREYA_NAMESPACE
         };
     }
 
+    namespace
+    {
+        template <typename Handle>
+        void* VkHandlePtr(Handle handle)
+        {
+            return reinterpret_cast<void*>(handle);
+        }
+
+        GpuImageRef MakeGpuImageRef(const skr::Arc<Image>& image,
+                                    std::uint32_t          width,
+                                    std::uint32_t          height,
+                                    vk::Sampler            sampler = {})
+        {
+            if (!image)
+                return {};
+            return GpuImageRef(
+                VkHandlePtr(static_cast<VkImage>(image->GetImage())),
+                VkHandlePtr(static_cast<VkImageView>(image->GetImageView())),
+                sampler ? VkHandlePtr(static_cast<VkSampler>(sampler))
+                        : nullptr,
+                width,
+                height);
+        }
+    } // namespace
+
     RenderFrameContext Renderer::Impl::makeFrameContext()
     {
         RenderFrameContext ctx;
-        ctx.commandPool                = mCommandPool;
-        ctx.swapChain                  = mSwapChain;
-        ctx.options                    = mFreyaOptions;
-        ctx.renderExtent               = getRenderExtent();
-        ctx.frameIndex                 = mSwapChain->GetCurrentFrameIndex();
-        ctx.cameraNear                 = mCameraNear;
+        ctx.commandPool = mCommandPool;
+        ctx.swapChain   = mSwapChain;
+        ctx.options     = mFreyaOptions;
+        const auto vkExtent = getRenderExtent();
+        ctx.renderExtent    = Extent2D { vkExtent.width, vkExtent.height };
+        ctx.frameIndex      = mSwapChain->GetCurrentFrameIndex();
+        ctx.cameraNear      = mCameraNear;
+
+        if (mCommandPool)
+        {
+            ctx.nativeCommandBuffer = VkHandlePtr(
+                static_cast<VkCommandBuffer>(mCommandPool->GetCommandBuffer()));
+            if (const auto& device = mCommandPool->GetDevice())
+            {
+                ctx.nativeDevice =
+                    VkHandlePtr(static_cast<VkDevice>(device->Get()));
+            }
+        }
+
         ctx.projection                 = &mCurrentProjection;
         ctx.deferred                   = &mDeferredPass;
-        ctx.ssao                       = &mSsaoPass;
+        ctx.ssaoPass                   = &mSsaoPass;
         ctx.taa                        = &mTaaPass;
         ctx.translucent                = &mTranslucentPass;
         ctx.bloom                      = &mBloomPass;
@@ -295,11 +336,50 @@ namespace FREYA_NAMESPACE
             mIndirectDraw ? mIndirectDraw->UsedTechniqueMask() : 0x1u;
         ctx.usedTechniqueMask = &mCachedUsedTechniqueMask;
 
-        ctx.executeDraws = [this](bool bindMaterials,
+        const auto w = ctx.renderExtent.width;
+        const auto h = ctx.renderExtent.height;
+        if (mDeferredPass)
+        {
+            skr::Arc<Image> hdr = mDeferredPass->GetSceneColorImage();
+            if (mTranslucentPass)
+            {
+                if (auto img = mTranslucentPass->GetSceneWithTranslucency(
+                        ctx.frameIndex))
+                    hdr = img;
+            }
+            else if (mTaaPass)
+            {
+                if (auto img = mTaaPass->GetOutputImage())
+                    hdr = img;
+            }
+            ctx.sceneColor = MakeGpuImageRef(hdr, w, h);
+            ctx.depth =
+                MakeGpuImageRef(mDeferredPass->GetDepthImage(), w, h);
+            ctx.albedo =
+                MakeGpuImageRef(mDeferredPass->GetAlbedoImage(), w, h);
+            ctx.normal =
+                MakeGpuImageRef(mDeferredPass->GetNormalImage(), w, h);
+            ctx.pbr = MakeGpuImageRef(mDeferredPass->GetPbrImage(), w, h);
+            ctx.velocity =
+                MakeGpuImageRef(mDeferredPass->GetVelocityImage(), w, h);
+        }
+        if (mSsaoPass)
+        {
+            const auto ssaoExtent =
+                ScaledExtent(vkExtent, mFreyaOptions->ssaoResolutionDivisor);
+            ctx.ssao = MakeGpuImageRef(mSsaoPass->GetOutputImage(),
+                                       ssaoExtent.width, ssaoExtent.height);
+        }
+        else if (mSsaoFallbackImage)
+        {
+            ctx.ssao = MakeGpuImageRef(mSsaoFallbackImage, 1, 1);
+        }
+
+        ctx.ExecuteDraws = [this](bool bindMaterials,
                                   std::uint32_t techniqueFilter) {
             ExecuteDrawCommands(bindMaterials, techniqueFilter);
         };
-        ctx.dispatchCull = [this](const glm::mat4& viewProj, CullMode mode,
+        ctx.DispatchCull = [this](const glm::mat4& viewProj, CullMode mode,
                                   std::uint32_t techniqueFilter) {
             DispatchCull(viewProj, mode, techniqueFilter);
         };
@@ -392,6 +472,8 @@ namespace FREYA_NAMESPACE
             return false;
 
         *it = std::move(stage);
+        auto ctx = makeFrameContext();
+        (*it)->Rebuild(ctx, *mServiceProvider);
         return true;
     }
 
@@ -628,6 +710,22 @@ namespace FREYA_NAMESPACE
     vk::CommandBuffer Renderer::Impl::GetCommandBuffer()
     {
         return mCommandPool->GetCommandBuffer();
+    }
+
+    void* Renderer::Impl::NativeCommandBuffer()
+    {
+        if (!mCommandPool)
+            return nullptr;
+        return reinterpret_cast<void*>(
+            static_cast<VkCommandBuffer>(mCommandPool->GetCommandBuffer()));
+    }
+
+    void* Renderer::Impl::NativeDevice()
+    {
+        if (!mDevice)
+            return nullptr;
+        return reinterpret_cast<void*>(
+            static_cast<VkDevice>(mDevice->Get()));
     }
 
     void Renderer::Impl::SetVSync(const bool vSync)

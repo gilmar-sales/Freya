@@ -220,16 +220,17 @@ namespace FREYA_NAMESPACE
         return vk::ImageLayout::eShaderReadOnlyOptimal;
     }
 
-    void PostProcess::Rebuild(RenderFrameContext&   ctx,
-                                   skr::ServiceProvider& sp)
+    void PostProcess::Rebuild(StageContext&          stageCtx,
+                              skr::ServiceProvider& sp)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         mImpl->destroyGpu();
 
         if (!mImpl->device || mImpl->fragmentRelative.empty() ||
             mImpl->inputs.empty())
             return;
 
-        mImpl->extent = ctx.renderExtent;
+        mImpl->extent = ctx.VkExtent();
         if (mImpl->extent.width == 0 || mImpl->extent.height == 0)
             return;
 
@@ -471,8 +472,9 @@ namespace FREYA_NAMESPACE
                 .setLayers(1));
     }
 
-    void PostProcess::Execute(RenderFrameContext& ctx)
+    void PostProcess::Execute(StageContext& stageCtx)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!mImpl->enabled || !mImpl->pipeline || !mImpl->output ||
             !ctx.commandPool)
             return;

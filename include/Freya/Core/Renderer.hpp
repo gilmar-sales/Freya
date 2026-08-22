@@ -95,6 +95,16 @@ namespace FREYA_NAMESPACE
         bool InsertFrameStage(const char* beforeName, FrameStagePtr stage);
         bool ReplaceFrameStage(const char* name, FrameStagePtr stage);
 
+        /**
+         * @brief Current frame command buffer as a Vulkan handle (VkCommandBuffer).
+         */
+        [[nodiscard]] void* NativeCommandBuffer();
+
+        /**
+         * @brief Logical device as a Vulkan handle (VkDevice).
+         */
+        [[nodiscard]] void* NativeDevice();
+
         glm::mat4 MakeProjection(float fovRadians, float aspect, float near,
                                  float far) const;
 

@@ -12,11 +12,13 @@
 #include "Freya/Core/PickPass.hpp"
 #include "Freya/Core/ShadowPass.hpp"
 #include "Freya/Core/SsaoPass.hpp"
+#include "Freya/Core/StageContext.hpp"
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Core/TaaPass.hpp"
 #include "Freya/Core/TranslucentPass.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 #include "Freya/FreyaOptions.hpp"
+#include "Freya/Internal/VulkanCompat.hpp"
 
 #include <functional>
 
@@ -28,24 +30,25 @@ namespace FREYA_NAMESPACE
     class RenderTarget;
 
     /**
-     * @brief Shared state and callbacks passed to IFrameStage::Execute.
+     * @brief Internal stage context: public StageContext plus pass pointers.
      *
      * Pointers alias Renderer-owned Arcs; stages must not outlive the
      * Renderer::EndScene / Rebuild call that created the context.
      */
-    struct RenderFrameContext
+    struct RenderFrameContext : StageContext
     {
+        [[nodiscard]] vk::Extent2D VkExtent() const
+        {
+            return ToVkExtent(renderExtent);
+        }
+
         skr::Arc<CommandPool>  commandPool;
         skr::Arc<SwapChain>    swapChain;
-        skr::Arc<FreyaOptions> options;
-        vk::Extent2D           renderExtent {};
-        std::uint32_t          frameIndex = 0;
-        float                  cameraNear = 1.0f;
 
         ProjectionUniformBuffer* projection = nullptr;
 
         skr::Arc<DeferredCompressedPass>* deferred           = nullptr;
-        skr::Arc<SsaoPass>*               ssao               = nullptr;
+        skr::Arc<SsaoPass>*               ssaoPass           = nullptr;
         skr::Arc<TaaPass>*                taa                = nullptr;
         skr::Arc<TranslucentPass>*        translucent        = nullptr;
         skr::Arc<BloomPass>*              bloom              = nullptr;
@@ -71,10 +74,8 @@ namespace FREYA_NAMESPACE
         vk::PipelineLayout* drawPipelineLayoutOverride = nullptr;
         std::uint32_t*      usedTechniqueMask          = nullptr;
 
-        std::function<void(const glm::mat4&, CullMode, std::uint32_t)>
-            dispatchCull;
-        std::function<void(bool bindMaterials, std::uint32_t techniqueFilter)>
-            executeDraws;
+        // Internal-only callbacks (public DispatchCull / ExecuteDraws are on
+        // StageContext and alias these during makeFrameContext).
         std::function<void()>                           executePickDraws;
         std::function<void()>                           buildHiZ;
         std::function<void()>                           blitBloomToFullRes;
@@ -85,5 +86,16 @@ namespace FREYA_NAMESPACE
         std::function<skr::Arc<Image>()>  createSsaoFallback;
         std::function<void()>             drawDebugOverlay;
     };
+
+    inline RenderFrameContext& AsRenderFrameContext(StageContext& ctx)
+    {
+        return static_cast<RenderFrameContext&>(ctx);
+    }
+
+    inline const RenderFrameContext& AsRenderFrameContext(
+        const StageContext& ctx)
+    {
+        return static_cast<const RenderFrameContext&>(ctx);
+    }
 
 } // namespace FREYA_NAMESPACE

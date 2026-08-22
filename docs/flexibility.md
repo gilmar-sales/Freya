@@ -98,9 +98,33 @@ are not part of the public extension API.
 mRenderer->InsertFrameStage("Bloom", cell->MakeStage());
 ```
 
-Apps insert stages created by Freya factories (`PostProcess::MakeStage`).
-Custom `IFrameStage` implementations are not part of the public API;
-`RenderFrameContext` is an incomplete type in public headers.
+Apps may insert Freya factories (`PostProcess::MakeStage`) **or** implement
+`IFrameStage` themselves. `Execute` / `Rebuild` receive a public
+`StageContext` (Vulkan-free): options, extent, frame index, G-buffer / HDR
+`GpuImageRef` taps, `DispatchCull` / `ExecuteDraws`, and opaque
+`NativeCommandBuffer` / `NativeDevice` (`void*` → cast to Vulkan in the
+app). `ReplaceFrameStage` rebuilds the new stage immediately (same as
+insert).
+
+`RenderFrameContext` (pass pointers, typed `vk::` fields) remains internal
+to Freya.
+
+## Custom lighting fragment
+
+Deferred lighting uses stock `DeferredCompressed/lighting.frag.spv`. Override
+the fullscreen lighting fragment globally:
+
+```cpp
+auto* lighting =
+    serviceProvider->GetService<fra::LightingTechniqueRegistry>().get();
+lighting->SetFragment("Cell/lighting_cell.frag.spv");
+mRenderer->RebuildSwapChain();
+```
+
+The custom SPIR-V must keep the stock descriptor layout (bindings 0–15),
+push constant `debugMode`, `lighting.vert`, and additive HDR output.
+`Clear()` restores the default. Shadow / pick / OIT / G-buffer stay on stock
+shaders unless also customized via `MaterialTechniqueRegistry`.
 
 ## Custom post-process shaders
 
@@ -178,9 +202,10 @@ auto mat = materialPool->Create({
 });
 ```
 
-Up to `kMaxMaterialTechniques` (8) slots. Shadow / pick / OIT / lighting stay
-on stock shaders; custom fragments must still write albedo+matID, normal+flags,
-PBR, emissive HDR, and velocity.
+Up to `kMaxMaterialTechniques` (8) slots. Shadow / pick / OIT stay on stock
+shaders; lighting uses `LightingTechniqueRegistry` (default stock). Custom
+G-buffer fragments must still write albedo+matID, normal+flags, PBR,
+emissive HDR, and velocity.
 
 Stock technique frags under `Shaders/Material/`:
 
@@ -188,7 +213,8 @@ Stock technique frags under `Shaders/Material/`:
 |--------|------|
 | `Material/unlit_emissive.frag.spv` | Skip lighting; albedo+emissive → HDR |
 | `Material/triplanar.frag.spv` | World-space triplanar albedo/normal |
-| `Cell/gbuffer_cell.frag.spv` | Matte PBR (pairs with `Cell/cell.frag` post) |
+| `Cell/gbuffer_cell.frag.spv` | Matte PBR (pairs with cell lighting / post) |
+| `Cell/lighting_cell.frag.spv` | Cel-banded deferred lighting override |
 
 Stock post frags under `Shaders/Post/` (and `Cell/`):
 

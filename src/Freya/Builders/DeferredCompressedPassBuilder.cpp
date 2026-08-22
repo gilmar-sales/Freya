@@ -1,5 +1,6 @@
 #include "DeferredCompressedPassBuilder.hpp"
 
+#include "Freya/Asset/LightingTechniqueRegistry.hpp"
 #include "Freya/Internal/LightServiceGpu.hpp"
 #include "Freya/Internal/VertexInput.hpp"
 
@@ -77,7 +78,12 @@ namespace FREYA_NAMESPACE
         auto gbufVert  = loadShader("DeferredCompressed/gbuffer.vert.spv");
         auto gbufFrag  = loadShader("DeferredCompressed/gbuffer.frag.spv");
         auto lightVert = loadShader("DeferredCompressed/lighting.vert.spv");
-        auto lightFrag = loadShader("DeferredCompressed/lighting.frag.spv");
+        auto lightingRegistry =
+            mServiceProvider->GetService<LightingTechniqueRegistry>();
+        const auto lightFragPath =
+            lightingRegistry ? lightingRegistry->FragmentOrDefault()
+                             : std::string("DeferredCompressed/lighting.frag.spv");
+        auto lightFrag = loadShader(lightFragPath);
 
         auto makeStage = [](vk::ShaderModule        module,
                             vk::ShaderStageFlagBits stage) {

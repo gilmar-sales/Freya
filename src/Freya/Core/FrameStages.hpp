@@ -8,14 +8,14 @@ namespace FREYA_NAMESPACE
     {
       public:
         [[nodiscard]] const char* Name() const override { return "Pick"; }
-        void                      Execute(RenderFrameContext& ctx) override;
+        void                      Execute(StageContext& ctx) override;
     };
 
     class ShadowFrameStage : public IFrameStage
     {
       public:
         [[nodiscard]] const char* Name() const override { return "Shadow"; }
-        void                      Execute(RenderFrameContext& ctx) override;
+        void                      Execute(StageContext& ctx) override;
     };
 
     class DeferredGeometryFrameStage : public IFrameStage
@@ -25,9 +25,8 @@ namespace FREYA_NAMESPACE
         {
             return "DeferredGeometry";
         }
-        void Rebuild(RenderFrameContext&   ctx,
-                     skr::ServiceProvider& sp) override;
-        void Execute(RenderFrameContext& ctx) override;
+        void Rebuild(StageContext& ctx, skr::ServiceProvider& sp) override;
+        void Execute(StageContext& ctx) override;
     };
 
     class SsaoLightingFrameStage : public IFrameStage
@@ -37,18 +36,16 @@ namespace FREYA_NAMESPACE
         {
             return "SsaoLighting";
         }
-        void Rebuild(RenderFrameContext&   ctx,
-                     skr::ServiceProvider& sp) override;
-        void Execute(RenderFrameContext& ctx) override;
+        void Rebuild(StageContext& ctx, skr::ServiceProvider& sp) override;
+        void Execute(StageContext& ctx) override;
     };
 
     class TaaFrameStage : public IFrameStage
     {
       public:
         [[nodiscard]] const char* Name() const override { return "Taa"; }
-        void                      Rebuild(RenderFrameContext&   ctx,
-                                          skr::ServiceProvider& sp) override;
-        void                      Execute(RenderFrameContext& ctx) override;
+        void Rebuild(StageContext& ctx, skr::ServiceProvider& sp) override;
+        void Execute(StageContext& ctx) override;
     };
 
     class TranslucentFrameStage : public IFrameStage
@@ -58,9 +55,8 @@ namespace FREYA_NAMESPACE
         {
             return "Translucent";
         }
-        void Rebuild(RenderFrameContext&   ctx,
-                     skr::ServiceProvider& sp) override;
-        void Execute(RenderFrameContext& ctx) override;
+        void Rebuild(StageContext& ctx, skr::ServiceProvider& sp) override;
+        void Execute(StageContext& ctx) override;
     };
 
     class BillboardVfxFrameStage : public IFrameStage
@@ -70,9 +66,8 @@ namespace FREYA_NAMESPACE
         {
             return "BillboardVfx";
         }
-        void Rebuild(RenderFrameContext&   ctx,
-                     skr::ServiceProvider& sp) override;
-        void Execute(RenderFrameContext& ctx) override;
+        void Rebuild(StageContext& ctx, skr::ServiceProvider& sp) override;
+        void Execute(StageContext& ctx) override;
     };
 
     class BillboardUiFrameStage : public IFrameStage
@@ -82,36 +77,32 @@ namespace FREYA_NAMESPACE
         {
             return "BillboardUi";
         }
-        void Rebuild(RenderFrameContext&   ctx,
-                     skr::ServiceProvider& sp) override;
-        void Execute(RenderFrameContext& ctx) override;
+        void Rebuild(StageContext& ctx, skr::ServiceProvider& sp) override;
+        void Execute(StageContext& ctx) override;
     };
 
     class BloomFrameStage : public IFrameStage
     {
       public:
         [[nodiscard]] const char* Name() const override { return "Bloom"; }
-        void                      Rebuild(RenderFrameContext&   ctx,
-                                          skr::ServiceProvider& sp) override;
-        void                      Execute(RenderFrameContext& ctx) override;
+        void Rebuild(StageContext& ctx, skr::ServiceProvider& sp) override;
+        void Execute(StageContext& ctx) override;
     };
 
     class CompositeFrameStage : public IFrameStage
     {
       public:
         [[nodiscard]] const char* Name() const override { return "Composite"; }
-        void                      Rebuild(RenderFrameContext&   ctx,
-                                          skr::ServiceProvider& sp) override;
-        void                      Execute(RenderFrameContext& ctx) override;
+        void Rebuild(StageContext& ctx, skr::ServiceProvider& sp) override;
+        void Execute(StageContext& ctx) override;
     };
 
     class DebugDrawFrameStage : public IFrameStage
     {
       public:
         [[nodiscard]] const char* Name() const override { return "DebugDraw"; }
-        void                      Rebuild(RenderFrameContext&   ctx,
-                                          skr::ServiceProvider& sp) override;
-        void                      Execute(RenderFrameContext& ctx) override;
+        void Rebuild(StageContext& ctx, skr::ServiceProvider& sp) override;
+        void Execute(StageContext& ctx) override;
     };
 
     /**
@@ -124,7 +115,7 @@ namespace FREYA_NAMESPACE
     {
       public:
         [[nodiscard]] const char* Name() const override { return "GpuAnim"; }
-        void                      Execute(RenderFrameContext& ctx) override;
+        void                      Execute(StageContext& ctx) override;
     };
 
 } // namespace FREYA_NAMESPACE

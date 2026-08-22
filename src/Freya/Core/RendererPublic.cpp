@@ -216,6 +216,16 @@ namespace FREYA_NAMESPACE
         return mImpl->ReplaceFrameStage(name, std::move(stage));
     }
 
+    void* Renderer::NativeCommandBuffer()
+    {
+        return mImpl->NativeCommandBuffer();
+    }
+
+    void* Renderer::NativeDevice()
+    {
+        return mImpl->NativeDevice();
+    }
+
     glm::mat4 Renderer::MakeProjection(const float fovRadians,
                                        const float aspect, const float near,
                                        const float far) const

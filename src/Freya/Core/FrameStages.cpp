@@ -43,20 +43,21 @@ namespace FREYA_NAMESPACE
         }
     } // namespace
 
-    void PickFrameStage::Execute(RenderFrameContext& ctx)
+    void PickFrameStage::Execute(StageContext& stageCtx)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.pick || !*ctx.pick || !ctx.pickRequested ||
             !*ctx.pickRequested)
             return;
 
         if (ctx.resizePickPass)
-            ctx.resizePickPass(ctx.renderExtent);
+            ctx.resizePickPass(ctx.VkExtent());
 
-        if (ctx.dispatchCull && ctx.projection)
+        if (ctx.DispatchCull && ctx.projection)
         {
             const auto viewProj =
                 ctx.projection->unjitteredProjection * ctx.projection->view;
-            ctx.dispatchCull(viewProj, CullMode::Camera, kTechniqueFilterAll);
+            ctx.DispatchCull(viewProj, CullMode::Camera, kTechniqueFilterAll);
         }
 
         (*ctx.pick)->Render(ctx.commandPool, *ctx.projection,
@@ -66,8 +67,9 @@ namespace FREYA_NAMESPACE
         *ctx.pickAwaitingReadback = true;
     }
 
-    void ShadowFrameStage::Execute(RenderFrameContext& ctx)
+    void ShadowFrameStage::Execute(StageContext& stageCtx)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.options->enableShadows)
             return;
 
@@ -87,32 +89,34 @@ namespace FREYA_NAMESPACE
             ->Render(
                 ctx.commandPool,
                 [&](const glm::mat4& lightVP) {
-                    if (ctx.dispatchCull)
-                        ctx.dispatchCull(lightVP, CullMode::Shadow,
+                    if (ctx.DispatchCull)
+                        ctx.DispatchCull(lightVP, CullMode::Shadow,
                                          kTechniqueFilterAll);
                 },
                 [&]() {
                     auto layout = (*ctx.shadow)->GetPipelineLayout();
                     if (ctx.drawPipelineLayoutOverride)
                         *ctx.drawPipelineLayoutOverride = layout;
-                    ctx.executeDraws(true, kTechniqueFilterAll);
+                    ctx.ExecuteDraws(true, kTechniqueFilterAll);
                     if (ctx.drawPipelineLayoutOverride)
                         *ctx.drawPipelineLayoutOverride = vk::PipelineLayout {};
                 });
     }
 
-    void DeferredGeometryFrameStage::Rebuild(RenderFrameContext&   ctx,
-                                             skr::ServiceProvider& sp)
+    void DeferredGeometryFrameStage::Rebuild(StageContext& stageCtx,
+                                 skr::ServiceProvider& sp)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.deferred)
             return;
         ctx.deferred->reset();
         *ctx.deferred = sp.GetService<DeferredCompressedPassBuilder>()->Build(
-            ctx.swapChain, ctx.renderExtent);
+            ctx.swapChain, ctx.VkExtent());
     }
 
-    void DeferredGeometryFrameStage::Execute(RenderFrameContext& ctx)
+    void DeferredGeometryFrameStage::Execute(StageContext& stageCtx)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.deferred || !*ctx.deferred)
             return;
 
@@ -126,25 +130,25 @@ namespace FREYA_NAMESPACE
             usedMask = *ctx.usedTechniqueMask;
 
         // Depth list (all opaque) + per-technique G-buffer lists.
-        if (ctx.dispatchCull && ctx.projection)
+        if (ctx.DispatchCull && ctx.projection)
         {
-            ctx.dispatchCull(viewProj, CullMode::Camera, kTechniqueFilterAll);
+            ctx.DispatchCull(viewProj, CullMode::Camera, kTechniqueFilterAll);
             for (std::uint32_t t = 0; t < kMaxMaterialTechniques; ++t)
             {
                 if ((usedMask & (1u << t)) == 0)
                     continue;
-                ctx.dispatchCull(viewProj, CullMode::Camera, t);
+                ctx.DispatchCull(viewProj, CullMode::Camera, t);
             }
         }
 
         (*ctx.deferred)->Begin(ctx.swapChain, ctx.commandPool);
-        SetFullViewport(ctx.commandPool, ctx.renderExtent);
+        SetFullViewport(ctx.commandPool, ctx.VkExtent());
 
         auto currentSubpass = (*ctx.deferred)->GetCurrentSubpass();
         if (currentSubpass == DefDepthPrePass)
         {
-            if (ctx.executeDraws)
-                ctx.executeDraws(false, kTechniqueFilterAll);
+            if (ctx.ExecuteDraws)
+                ctx.ExecuteDraws(false, kTechniqueFilterAll);
             (*ctx.deferred)->NextSubpass(ctx.commandPool);
 
             bool drew = false;
@@ -154,8 +158,8 @@ namespace FREYA_NAMESPACE
                     continue;
                 (*ctx.deferred)
                     ->BindGBufferTechnique(t, ctx.commandPool, ctx.frameIndex);
-                if (ctx.executeDraws)
-                    ctx.executeDraws(true, t);
+                if (ctx.ExecuteDraws)
+                    ctx.ExecuteDraws(true, t);
                 drew = true;
             }
             if (!drew)
@@ -172,8 +176,8 @@ namespace FREYA_NAMESPACE
                     continue;
                 (*ctx.deferred)
                     ->BindGBufferTechnique(t, ctx.commandPool, ctx.frameIndex);
-                if (ctx.executeDraws)
-                    ctx.executeDraws(true, t);
+                if (ctx.ExecuteDraws)
+                    ctx.ExecuteDraws(true, t);
             }
         }
 
@@ -184,16 +188,17 @@ namespace FREYA_NAMESPACE
             ctx.buildHiZ();
     }
 
-    void SsaoLightingFrameStage::Rebuild(RenderFrameContext&   ctx,
-                                         skr::ServiceProvider& sp)
+    void SsaoLightingFrameStage::Rebuild(StageContext& stageCtx,
+                                 skr::ServiceProvider& sp)
     {
-        if (!ctx.ssao)
+        auto& ctx = AsRenderFrameContext(stageCtx);
+        if (!ctx.ssaoPass)
             return;
-        ctx.ssao->reset();
+        ctx.ssaoPass->reset();
         if (ctx.options->enableSsao)
         {
-            *ctx.ssao = sp.GetService<SsaoPassBuilder>()->Build(
-                ctx.swapChain, ctx.renderExtent);
+            *ctx.ssaoPass = sp.GetService<SsaoPassBuilder>()->Build(
+                ctx.swapChain, ctx.VkExtent());
         }
         else if (ctx.createSsaoFallback && ctx.ssaoFallbackImage)
         {
@@ -201,8 +206,9 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void SsaoLightingFrameStage::Execute(RenderFrameContext& ctx)
+    void SsaoLightingFrameStage::Execute(StageContext& stageCtx)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.deferred || !*ctx.deferred)
             return;
 
@@ -215,9 +221,9 @@ namespace FREYA_NAMESPACE
             lightingDebug = 2;
 
         skr::Arc<Image> ssaoImage;
-        if (ctx.ssao && *ctx.ssao)
+        if (ctx.ssaoPass && *ctx.ssaoPass)
         {
-            (*ctx.ssao)->Dispatch(
+            (*ctx.ssaoPass)->Dispatch(
                 ctx.commandPool,
                 (*ctx.deferred)->GetDepthImage(),
                 (*ctx.deferred)->GetNormalImage(),
@@ -229,8 +235,8 @@ namespace FREYA_NAMESPACE
                 ctx.options->ssaoPower,
                 ctx.options->ssaoIntensity);
             ssaoImage = ctx.options->ssaoDebugView == SsaoDebugView::Raw
-                            ? (*ctx.ssao)->GetRawImage()
-                            : (*ctx.ssao)->GetOutputImage();
+                            ? (*ctx.ssaoPass)->GetRawImage()
+                            : (*ctx.ssaoPass)->GetOutputImage();
         }
         else if (ctx.ssaoFallbackImage && *ctx.ssaoFallbackImage)
         {
@@ -242,27 +248,29 @@ namespace FREYA_NAMESPACE
 
         (*ctx.deferred)
             ->BeginLighting(ctx.commandPool, ssaoImage, ctx.frameIndex);
-        SetFullViewport(ctx.commandPool, ctx.renderExtent);
+        SetFullViewport(ctx.commandPool, ctx.VkExtent());
         (*ctx.deferred)
             ->DrawLighting(ctx.commandPool, ctx.frameIndex, lightingDebug);
         (*ctx.deferred)->EndLighting(ctx.commandPool);
     }
 
-    void TaaFrameStage::Rebuild(RenderFrameContext&   ctx,
-                                skr::ServiceProvider& sp)
+    void TaaFrameStage::Rebuild(StageContext& stageCtx,
+                                 skr::ServiceProvider& sp)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.taa)
             return;
         ctx.taa->reset();
         if (!ctx.options->enableTaa)
             return;
         *ctx.taa = sp.GetService<TaaPassBuilder>()->Build(ctx.swapChain,
-                                                          ctx.renderExtent);
+                                                          ctx.VkExtent());
         (*ctx.taa)->ResetHistory();
     }
 
-    void TaaFrameStage::Execute(RenderFrameContext& ctx)
+    void TaaFrameStage::Execute(StageContext& stageCtx)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.taa || !*ctx.taa || !ctx.deferred || !*ctx.deferred)
             return;
 
@@ -272,29 +280,31 @@ namespace FREYA_NAMESPACE
                              (*ctx.deferred)->GetDepthImage());
     }
 
-    void TranslucentFrameStage::Rebuild(RenderFrameContext&   ctx,
-                                        skr::ServiceProvider& sp)
+    void TranslucentFrameStage::Rebuild(StageContext& stageCtx,
+                                 skr::ServiceProvider& sp)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.translucent || !ctx.deferred || !*ctx.deferred)
             return;
         ctx.translucent->reset();
         *ctx.translucent = sp.GetService<TranslucentPassBuilder>()->Build(
-            ctx.swapChain, (*ctx.deferred)->GetDepthImage(), ctx.renderExtent);
+            ctx.swapChain, (*ctx.deferred)->GetDepthImage(), ctx.VkExtent());
     }
 
-    void TranslucentFrameStage::Execute(RenderFrameContext& ctx)
+    void TranslucentFrameStage::Execute(StageContext& stageCtx)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.translucent || !*ctx.translucent || !ctx.deferred ||
             !*ctx.deferred || !ctx.projection)
             return;
 
         (*ctx.translucent)->UpdateProjection(*ctx.projection, ctx.frameIndex);
 
-        if (ctx.dispatchCull)
+        if (ctx.DispatchCull)
         {
             const auto viewProj =
                 ctx.projection->unjitteredProjection * ctx.projection->view;
-            ctx.dispatchCull(viewProj, CullMode::Translucent,
+            ctx.DispatchCull(viewProj, CullMode::Translucent,
                              kTechniqueFilterAll);
         }
 
@@ -303,9 +313,9 @@ namespace FREYA_NAMESPACE
             *ctx.drawPipelineLayoutOverride = layout;
 
         (*ctx.translucent)->BeginAccumulate(ctx.commandPool, ctx.frameIndex);
-        SetFullViewport(ctx.commandPool, ctx.renderExtent);
-        if (ctx.executeDraws)
-            ctx.executeDraws(true, kTechniqueFilterAll);
+        SetFullViewport(ctx.commandPool, ctx.VkExtent());
+        if (ctx.ExecuteDraws)
+            ctx.ExecuteDraws(true, kTechniqueFilterAll);
         (*ctx.translucent)->EndAccumulate(ctx.commandPool);
 
         if (ctx.drawPipelineLayoutOverride)
@@ -317,9 +327,10 @@ namespace FREYA_NAMESPACE
         (*ctx.translucent)->Resolve(ctx.commandPool, opaque, ctx.frameIndex);
     }
 
-    void BillboardVfxFrameStage::Rebuild(RenderFrameContext&   ctx,
-                                         skr::ServiceProvider& sp)
+    void BillboardVfxFrameStage::Rebuild(StageContext& stageCtx,
+                                 skr::ServiceProvider& sp)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.billboardPass || !ctx.deferred || !*ctx.deferred)
             return;
         ctx.billboardPass->reset();
@@ -342,11 +353,12 @@ namespace FREYA_NAMESPACE
         }
         if (*ctx.billboardPass)
             (*ctx.billboardPass)
-                ->UpdateHdrTargets(colors, depth, ctx.renderExtent);
+                ->UpdateHdrTargets(colors, depth, ctx.VkExtent());
     }
 
-    void BillboardVfxFrameStage::Execute(RenderFrameContext& ctx)
+    void BillboardVfxFrameStage::Execute(StageContext& stageCtx)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.billboardPass || !*ctx.billboardPass || !ctx.billboardDraw ||
             !ctx.projection)
             return;
@@ -357,9 +369,10 @@ namespace FREYA_NAMESPACE
                    proj.unjitteredProjection);
     }
 
-    void BillboardUiFrameStage::Rebuild(RenderFrameContext&   ctx,
-                                        skr::ServiceProvider& sp)
+    void BillboardUiFrameStage::Rebuild(StageContext& stageCtx,
+                                 skr::ServiceProvider& sp)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.billboardPass || !*ctx.billboardPass || !ctx.deferred ||
             !*ctx.deferred)
             return;
@@ -368,8 +381,9 @@ namespace FREYA_NAMESPACE
             ->UpdateLdrDepth((*ctx.deferred)->GetDepthImage(), ctx.swapChain);
     }
 
-    void BillboardUiFrameStage::Execute(RenderFrameContext& ctx)
+    void BillboardUiFrameStage::Execute(StageContext& stageCtx)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.billboardPass || !*ctx.billboardPass || !ctx.billboardDraw ||
             !ctx.projection)
             return;
@@ -382,9 +396,10 @@ namespace FREYA_NAMESPACE
                    proj.unjitteredProjection);
     }
 
-    void BloomFrameStage::Rebuild(RenderFrameContext&   ctx,
-                                  skr::ServiceProvider& sp)
+    void BloomFrameStage::Rebuild(StageContext& stageCtx,
+                                 skr::ServiceProvider& sp)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.bloom)
             return;
         ctx.bloom->reset();
@@ -401,7 +416,7 @@ namespace FREYA_NAMESPACE
             return;
 
         *ctx.bloom = sp.GetService<BloomPassBuilder>()->Build(
-            ctx.swapChain, bloomSource, ctx.renderExtent);
+            ctx.swapChain, bloomSource, ctx.VkExtent());
 
         if (ctx.translucent && *ctx.translucent)
         {
@@ -415,8 +430,9 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void BloomFrameStage::Execute(RenderFrameContext& ctx)
+    void BloomFrameStage::Execute(StageContext& stageCtx)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.bloom || !*ctx.bloom)
         {
             // Keep composite bloom tap black when bloom is disabled.
@@ -480,7 +496,7 @@ namespace FREYA_NAMESPACE
 
         const auto commandBuffer = ctx.commandPool->GetCommandBuffer();
         const auto bloomExtent =
-            ScaledExtent(ctx.renderExtent, ctx.options->bloomResolutionDivisor);
+            ScaledExtent(ctx.VkExtent(), ctx.options->bloomResolutionDivisor);
         const auto halfW = bloomExtent.width;
         const auto halfH = bloomExtent.height;
 
@@ -515,9 +531,10 @@ namespace FREYA_NAMESPACE
             ctx.blitBloomToFullRes();
     }
 
-    void CompositeFrameStage::Rebuild(RenderFrameContext&   ctx,
-                                      skr::ServiceProvider& sp)
+    void CompositeFrameStage::Rebuild(StageContext& stageCtx,
+                                 skr::ServiceProvider& sp)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.composite)
             return;
         ctx.composite->reset();
@@ -547,12 +564,13 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void CompositeFrameStage::Execute(RenderFrameContext& ctx)
+    void CompositeFrameStage::Execute(StageContext& stageCtx)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.beginComposite)
             return;
 
-        SetFullViewport(ctx.commandPool, ctx.renderExtent);
+        SetFullViewport(ctx.commandPool, ctx.VkExtent());
 
         skr::Arc<Image> scene;
         if (ctx.translucent && *ctx.translucent)
@@ -572,9 +590,10 @@ namespace FREYA_NAMESPACE
             ctx.commitTaaHistory();
     }
 
-    void DebugDrawFrameStage::Rebuild(RenderFrameContext&   ctx,
-                                      skr::ServiceProvider& sp)
+    void DebugDrawFrameStage::Rebuild(StageContext& stageCtx,
+                                 skr::ServiceProvider& sp)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.debugDrawPass)
             return;
         ctx.debugDrawPass->reset();
@@ -582,14 +601,16 @@ namespace FREYA_NAMESPACE
             sp.GetService<DebugDrawPassBuilder>()->Build(ctx.swapChain);
     }
 
-    void DebugDrawFrameStage::Execute(RenderFrameContext& ctx)
+    void DebugDrawFrameStage::Execute(StageContext& stageCtx)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (ctx.drawDebugOverlay)
             ctx.drawDebugOverlay();
     }
 
-    void GpuAnimFrameStage::Execute(RenderFrameContext& ctx)
+    void GpuAnimFrameStage::Execute(StageContext& stageCtx)
     {
+        auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.gpuAnim || !*ctx.gpuAnim)
             return;
         (*ctx.gpuAnim)->Dispatch(ctx.commandPool, ctx.frameIndex);

@@ -4,7 +4,7 @@
 
 | Header | Audience |
 |--------|----------|
-| `<Freya/Freya.hpp>` | Apps: options, extension, pools, materials, events, `AbstractApplication`, `Renderer`, `PostProcess`, GPU animation |
+| `<Freya/Freya.hpp>` | Apps: options, extension, pools, materials, events, `AbstractApplication`, `Renderer`, `PostProcess`, GPU animation, frame stages |
 | `<Freya/Vulkan.hpp>` | Deprecated stub that includes `<Freya/Freya.hpp>` |
 | Individual `Freya/...` | Prefer the umbrella; leaf headers still do not include Vulkan or SDL |
 
@@ -25,16 +25,20 @@ Treat as **app-stable**:
 - `MeshPool` / `TexturePool` / `MaterialPool` / `MaterialCreateInfo`
 - `AbstractApplication` lifecycle
 - `Renderer` frame loop, quality knobs, pick, debug draw, GPU anim methods
+- `Renderer::NativeCommandBuffer` / `NativeDevice` (opaque `void*` =
+  `VkCommandBuffer` / `VkDevice`)
 - `PostProcess` + `PostProcessBuilder` + `MakeStage()`
 - `MaterialTechniqueRegistry` + `MaterialCreateInfo::techniqueId`
-- `IFrameStage` as an opaque type for `InsertFrameStage` (apps use factories,
-  they do not implement stages)
+- `LightingTechniqueRegistry` (global deferred lighting fragment override)
+- `IFrameStage` + `StageContext` + `GpuImageRef` — apps may implement stages
+  and use `InsertFrameStage` / `ReplaceFrameStage`
 
 Treat as **internal** (not installed, not part of the app API):
 
 - Concrete pass classes (`DeferredCompressedPass`, `BloomPass`, …)
 - `Device`, `SwapChain`, `RenderFrameContext`, Vulkan builders
-- Command-buffer / ImGui hooks (`GetCommandBuffer`, `GetUIRenderPass`)
+- Command-buffer / ImGui hooks typed as `vk::` (`GetCommandBuffer`,
+  `GetUIRenderPass`)
 
 ## CMake
 
@@ -59,4 +63,6 @@ is a static library: the linker still sees Vulkan and SDL, but example
 
 A translation unit that only includes `<Freya/Freya.hpp>` cannot name
 `vk::Device` or `SDL_Window`. Changing an internal pass header does not
-rebuild application sources.
+rebuild application sources. Apps that need raw Vulkan for custom stages
+include `vulkan.h` themselves and cast `StageContext::Native*` /
+`GpuImageRef::Native*` handles.

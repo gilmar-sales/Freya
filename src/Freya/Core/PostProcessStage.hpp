@@ -21,13 +21,13 @@ namespace FREYA_NAMESPACE
             return mEffect ? mEffect->Name() : "PostProcess";
         }
 
-        void Rebuild(RenderFrameContext& ctx, skr::ServiceProvider& sp) override
+        void Rebuild(StageContext& ctx, skr::ServiceProvider& sp) override
         {
             if (mEffect)
                 mEffect->Rebuild(ctx, sp);
         }
 
-        void Execute(RenderFrameContext& ctx) override
+        void Execute(StageContext& ctx) override
         {
             if (mEffect)
                 mEffect->Execute(ctx);

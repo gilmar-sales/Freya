@@ -103,6 +103,8 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] vk::RenderPass    GetUIRenderPass();
         [[nodiscard]] vk::CommandBuffer GetCommandBuffer();
+        [[nodiscard]] void*             NativeCommandBuffer();
+        [[nodiscard]] void*             NativeDevice();
 
         void UploadSceneInstances(std::span<const SceneInstanceUpload> uploads);
 

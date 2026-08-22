@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Freya/Config.hpp"
+#include "Freya/Core/StageContext.hpp"
 
 #include <memory>
 
@@ -8,14 +9,14 @@
 
 namespace FREYA_NAMESPACE
 {
-    struct RenderFrameContext;
-
     /**
      * @brief One ordered step in the Renderer frame graph.
      *
      * Default stages wrap existing passes (Pick, Shadow, Deferred, …).
-     * Apps insert stages created by Freya factories (e.g.
-     * PostProcess::MakeStage).
+     * Apps may implement custom stages and insert/replace them via
+     * Renderer::InsertFrameStage / ReplaceFrameStage. Use StageContext
+     * taps and Native* handles (cast to Vulkan in the app) for GPU work.
+     * Freya factories such as PostProcess::MakeStage remain available.
      */
     class IFrameStage
     {
@@ -27,7 +28,7 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Recreate extent-dependent GPU resources (optional).
          */
-        virtual void Rebuild(RenderFrameContext& /*ctx*/,
+        virtual void Rebuild(StageContext& /*ctx*/,
                              skr::ServiceProvider& /*sp*/)
         {
         }
@@ -35,7 +36,7 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Record GPU work for this frame.
          */
-        virtual void Execute(RenderFrameContext& ctx) = 0;
+        virtual void Execute(StageContext& ctx) = 0;
     };
 
     using FrameStagePtr = std::shared_ptr<IFrameStage>;

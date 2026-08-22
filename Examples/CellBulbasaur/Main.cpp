@@ -252,6 +252,11 @@ class MainApp final : public fra::AbstractApplication
             "Triplanar", "Material/triplanar.frag.spv");
         mUnlitTechnique = techniques->Register(
             "UnlitEmissive", "Material/unlit_emissive.frag.spv");
+
+        auto lighting =
+            mServices->GetService<fra::LightingTechniqueRegistry>();
+        lighting->SetFragment("Cell/lighting_cell.frag.spv");
+
         mRenderer->RebuildSwapChain();
 
         const auto revZ = mFreyaOptions->ReverseZ ? 1.0f : 0.0f;
@@ -272,7 +277,7 @@ class MainApp final : public fra::AbstractApplication
         if (mCellEffect)
         {
             CellPushConstants cell {};
-            cell.bands           = 5.0f;
+            cell.bands           = 4.0f;
             cell.edgeDepthScale  = 140.0f;
             cell.edgeNormalScale = 1.6f;
             cell.strength        = 1.0f;
@@ -281,6 +286,9 @@ class MainApp final : public fra::AbstractApplication
             cell.shadowLift      = 0.1f;
             cell.edgeWidth       = 2.0f;
             mCellEffect->SetPushConstants(cell);
+            // LightingTechniqueRegistry supplies cel bands; F4 post is
+            // optional re-band + edges on already-lit HDR.
+            mCellEffect->SetEnabled(false);
             insertPost(mCellEffect);
         }
 
@@ -303,7 +311,7 @@ class MainApp final : public fra::AbstractApplication
             o.edgeColor       = { 0.02f, 0.02f, 0.04f, 1.0f };
             o.edgeWidth       = 1.5f;
             mOutlineEffect->SetPushConstants(o);
-            mOutlineEffect->SetEnabled(false);
+            mOutlineEffect->SetEnabled(true);
             insertPost(mOutlineEffect);
         }
 

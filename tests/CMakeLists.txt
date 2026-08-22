@@ -7,7 +7,7 @@ FetchContent_Declare(
     "v3.8.1" GIT_SHALLOW TRUE)
 FetchContent_MakeAvailable(Catch2)
 
-add_executable(FreyaTests test_event_manager.cpp test_freya_options.cpp test_gpu_animation.cpp test_gpu_scene.cpp test_lights.cpp test_limits.cpp test_material_mask.cpp test_sparse_set.cpp test_uniform_buffer.cpp)
+add_executable(FreyaTests test_event_manager.cpp test_freya_options.cpp test_gpu_animation.cpp test_gpu_scene.cpp test_lights.cpp test_limits.cpp test_lighting_technique_registry.cpp test_material_mask.cpp test_sparse_set.cpp test_uniform_buffer.cpp)
 
 target_compile_features(FreyaTests PRIVATE cxx_std_26)
 
