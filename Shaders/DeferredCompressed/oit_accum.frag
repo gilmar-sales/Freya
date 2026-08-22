@@ -98,7 +98,7 @@ void main() {
         pub.ambientLight.rgb * pub.ambientLight.a * albedoLin * 0.25 * ao;
     vec3 lit = ambient;
     if ((mat.flags & kMaterialFlagUnlit) == 0u) {
-        uint count = min(lights.lightCount, 16u);
+        uint count = min(lights.lightCount, uint(FREYA_MAX_LIGHTS));
         for (uint i = 0u; i < count; ++i) {
             lit += calculateLight(
                 int(i),

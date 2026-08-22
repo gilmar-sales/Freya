@@ -99,8 +99,9 @@ Uniform buffer for shader data.
 Manages analytical lights (point, directional, spot, area) and uploads them
 to a shared UBO used by DeferredCompressed lighting.
 
-`FreyaOptions::maxLights` (default 16, see `MAX_LIGHTS`) caps how many lights
-`AddLight` accepts. Shader arrays are fixed at 16 entries.
+`FreyaOptions::maxLights` (default 64, see `kMaxLights` / `MAX_LIGHTS`)
+caps how many lights `AddLight` accepts. Shader arrays are fixed at
+`FREYA_MAX_LIGHTS` (64) entries.
 
 ### Light types
 

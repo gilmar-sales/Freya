@@ -127,7 +127,7 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief Sets maximum number of lights.
-         * @param maxLights Maximum light count (default 16)
+         * @param maxLights Maximum light count (default 64)
          * @return Reference to this for chaining
          */
         FreyaOptionsBuilder& SetMaxLights(std::uint32_t maxLights)

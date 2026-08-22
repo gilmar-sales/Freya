@@ -122,7 +122,7 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `sampleCount` | `std::uint32_t` | `1` | Retained for compatibility (scene path is single-sample) |
 | `frameCount` | `std::uint32_t` | `4` | Number of frames in flight |
 | `drawDistance` | `float` | `1000.0f` | Render distance |
-| `maxLights` | `std::uint32_t` | `16` | Max analytical lights (`MAX_LIGHTS`) |
+| `maxLights` | `std::uint32_t` | `64` | Max analytical lights (`kMaxLights`) |
 | `iblIntensity` | `float` | `0.7f` | Image-based lighting scale |
 | `exposure` | `float` | `0.7f` | HDR exposure before ACES tonemap |
 | `ambientIntensity` | `float` | `0.03f` | Flat ambient fill |
