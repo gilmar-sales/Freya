@@ -48,7 +48,7 @@ bool MaterialIncluded(uint matId) {
 void main() {
     vec3 scene = texture(inScene, inUV).rgb;
     float depth = SampleDepth(inUV);
-    uint matId = uint(texture(inScene, inUV).a + 0.5);
+    uint matId = uint(texture(inAlbedo, inUV).a * 255.0 + 0.5);
     if (IsSky(depth) || !MaterialIncluded(matId)) {
         outColor = vec4(scene, 1.0);
         return;

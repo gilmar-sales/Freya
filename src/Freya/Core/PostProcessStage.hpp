@@ -1,24 +1,24 @@
 #pragma once
 
-#include "Freya/Core/FullscreenEffect.hpp"
+#include "Freya/Core/PostProcess.hpp"
 #include "Freya/Core/IFrameStage.hpp"
 
 namespace FREYA_NAMESPACE
 {
     /**
-     * @brief IFrameStage adapter for a FullscreenEffect.
+     * @brief IFrameStage adapter for a PostProcess.
      */
-    class FullscreenEffectStage : public IFrameStage
+    class PostProcessStage : public IFrameStage
     {
       public:
-        explicit FullscreenEffectStage(skr::Arc<FullscreenEffect> effect) :
+        explicit PostProcessStage(skr::Arc<PostProcess> effect) :
             mEffect(std::move(effect))
         {
         }
 
         [[nodiscard]] const char* Name() const override
         {
-            return mEffect ? mEffect->Name() : "FullscreenEffect";
+            return mEffect ? mEffect->Name() : "PostProcess";
         }
 
         void Rebuild(RenderFrameContext& ctx, skr::ServiceProvider& sp) override
@@ -34,7 +34,7 @@ namespace FREYA_NAMESPACE
         }
 
       private:
-        skr::Arc<FullscreenEffect> mEffect;
+        skr::Arc<PostProcess> mEffect;
     };
 
 } // namespace FREYA_NAMESPACE

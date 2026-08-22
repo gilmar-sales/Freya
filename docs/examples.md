@@ -98,10 +98,10 @@ cd build/Examples/SkinnedFox
 
 Location: `Examples/CellBulbasaur/`
 
-Fullscreen cell + edge shader (`FullscreenEffect`) on a skinned Bulbasaur
-GLB (idle clip). Bound to the model materials (`BindMaterial`); the ground
-stays PBR. Textures are albedo maps per submesh. `F4` toggles the effect.
-TAA and bloom start off so outlines stay sharp.
+Cell + edge post-process (`PostProcess` + `Cell/cell.frag`) on a skinned
+Bulbasaur GLB (idle clip). Bound to the model materials (`BindMaterial`);
+the ground stays PBR. Textures are albedo maps per submesh. `F4` toggles
+the effect. TAA and bloom start off so outlines stay sharp.
 
 ```bash
 cd build/Examples/CellBulbasaur

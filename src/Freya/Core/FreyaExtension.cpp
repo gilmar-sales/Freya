@@ -8,7 +8,6 @@
 #include "Freya/Builders/DebugDrawPassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/DeviceBuilder.hpp"
-#include "Freya/Builders/FullscreenEffectBuilder.hpp"
 #include "Freya/Builders/GpuAnimPassBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/IndirectDrawSystemBuilder.hpp"
@@ -17,6 +16,7 @@
 #include "Freya/Builders/MaterialDescriptorResourcesBuilder.hpp"
 #include "Freya/Builders/PhysicalDeviceBuilder.hpp"
 #include "Freya/Builders/PickPassBuilder.hpp"
+#include "Freya/Builders/PostProcessBuilder.hpp"
 #include "Freya/Builders/RenderTargetBuilder.hpp"
 #include "Freya/Builders/RendererBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
@@ -66,7 +66,7 @@ namespace FREYA_NAMESPACE
         services.AddTransient<TaaPassBuilder>();
         services.AddTransient<SsaoPassBuilder>();
         services.AddTransient<CompositePassBuilder>();
-        services.AddTransient<FullscreenEffectBuilder>();
+        services.AddTransient<PostProcessBuilder>();
         services.AddTransient<DebugDrawPassBuilder>();
         services.AddTransient<BillboardPassBuilder>();
         services.AddTransient<GpuAnimPassBuilder>();

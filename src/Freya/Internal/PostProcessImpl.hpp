@@ -2,7 +2,7 @@
 
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/Device.hpp"
-#include "Freya/Core/FullscreenEffect.hpp"
+#include "Freya/Core/PostProcess.hpp"
 #include "Freya/Core/Image.hpp"
 #include "Freya/Core/RenderFrameContext.hpp"
 
@@ -14,7 +14,7 @@
 
 namespace FREYA_NAMESPACE
 {
-    struct FullscreenEffect::Impl
+    struct PostProcess::Impl
     {
         skr::Arc<Device>               device;
         skr::Arc<FreyaOptions>         options;
@@ -22,7 +22,7 @@ namespace FREYA_NAMESPACE
         std::string                    name;
         std::string                    fragmentRelative;
         std::string                    vertexRelative;
-        std::vector<EffectInput>       inputs;
+        std::vector<PostProcessInput>       inputs;
         std::uint32_t                  pushConstantSize = 0;
         std::vector<std::byte>         pushData;
         bool                           enabled = true;
@@ -45,9 +45,9 @@ namespace FREYA_NAMESPACE
         void            uploadMaterialMask();
         void            destroyGpu();
         skr::Arc<Image> resolveHdr(const RenderFrameContext& ctx) const;
-        skr::Arc<Image> resolveInput(EffectInput               input,
+        skr::Arc<Image> resolveInput(PostProcessInput               input,
                                      const RenderFrameContext& ctx,
                                      const skr::Arc<Image>&    hdr) const;
-        vk::ImageLayout inputLayout(EffectInput input) const;
+        vk::ImageLayout inputLayout(PostProcessInput input) const;
     };
 } // namespace FREYA_NAMESPACE

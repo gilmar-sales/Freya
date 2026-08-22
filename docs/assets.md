@@ -112,8 +112,9 @@ G-buffer / OIT bindless set 1:
 | 1 | `MaterialGPU` SSBO |
 
 The lighting fullscreen pass uses only set 0 (G-buffer, lights, IBL,
-shadows). `FullscreenEffect` still reads an 8-bit material ID from
-albedo.a (IDs 256+ alias for cell masks).
+shadows). G-buffer `albedo.a` stores an 8-bit material ID
+(`id / 255`); `PostProcess::BindMaterial` masks against that channel
+(IDs ≥ 256 alias).
 
 Empty texture optionals use engine fallbacks (white or black). Alpha cutout
 samples albedo alpha × `albedoFactor.a` in the G-buffer and shadow passes

@@ -8,6 +8,24 @@
 #include <unordered_set>
 #include <vector>
 
+#include <glm/glm.hpp>
+
+namespace
+{
+    // Matches Shaders/Cell/cell.frag push_constant layout.
+    struct CellPushConstants
+    {
+        float     bands           = 4.0f;
+        float     edgeDepthScale  = 80.0f;
+        float     edgeNormalScale = 2.0f;
+        float     strength        = 1.0f;
+        glm::vec4 edgeColor { 0.02f, 0.02f, 0.04f, 1.0f };
+        float     reverseZ   = 0.0f;
+        float     shadowLift = 0.22f;
+        float     edgeWidth  = 1.0f;
+    };
+} // namespace
+
 class MainApp final : public fra::AbstractApplication
 {
   public:
@@ -76,17 +94,17 @@ class MainApp final : public fra::AbstractApplication
         mRenderer->ClearProjections();
 
         mCellEffect =
-            mServices->GetService<fra::FullscreenEffectBuilder>()
+            mServices->GetService<fra::PostProcessBuilder>()
                 ->SetName("Cell")
                 .SetFragment("Cell/cell.frag.spv")
-                .SetInputs(
-                    { fra::EffectInput::SceneColor, fra::EffectInput::Depth,
-                      fra::EffectInput::Normal })
-                .SetPushConstantSize(sizeof(fra::CellPushConstants))
+                .SetInputs({ fra::PostProcessInput::SceneColor,
+                             fra::PostProcessInput::Depth,
+                             fra::PostProcessInput::Normal })
+                .SetPushConstantSize(sizeof(CellPushConstants))
                 .Build();
         if (mCellEffect)
         {
-            fra::CellPushConstants cell {};
+            CellPushConstants cell {};
             cell.bands           = 5.0f;
             cell.edgeDepthScale  = 120.0f;
             cell.edgeNormalScale = 2.4f;
@@ -468,13 +486,13 @@ class MainApp final : public fra::AbstractApplication
             " left [F4]";
     }
 
-    skr::Arc<skr::ServiceProvider>  mServices;
-    skr::Arc<fra::FullscreenEffect> mCellEffect;
-    skr::Arc<fra::MeshPool>         mMeshPool;
-    skr::Arc<fra::TexturePool>      mTexturePool;
-    skr::Arc<fra::MaterialPool>     mMaterialPool;
-    skr::Arc<fra::LightService>     mLightService;
-    skr::Arc<fra::FreyaOptions>     mFreyaOptions;
+    skr::Arc<skr::ServiceProvider> mServices;
+    skr::Arc<fra::PostProcess>     mCellEffect;
+    skr::Arc<fra::MeshPool>        mMeshPool;
+    skr::Arc<fra::TexturePool>     mTexturePool;
+    skr::Arc<fra::MaterialPool>    mMaterialPool;
+    skr::Arc<fra::LightService>    mLightService;
+    skr::Arc<fra::FreyaOptions>    mFreyaOptions;
 
     std::uint32_t             mGroundMesh       = 0;
     std::uint32_t             mGroundMaterial   = 0;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Freya/Core/FullscreenEffect.hpp"
+#include "Freya/Core/PostProcess.hpp"
 
 #include <Skirnir/Skirnir.hpp>
 
@@ -9,50 +9,50 @@
 
 namespace FREYA_NAMESPACE
 {
-    class FullscreenEffectBuilder
+    class PostProcessBuilder
     {
       public:
-        FullscreenEffectBuilder(
+        PostProcessBuilder(
             const skr::Arc<skr::ServiceProvider>& serviceProvider);
 
-        FullscreenEffectBuilder& SetName(std::string name)
+        PostProcessBuilder& SetName(std::string name)
         {
             mName = std::move(name);
             return *this;
         }
 
-        FullscreenEffectBuilder& SetFragment(std::string relativeSpv)
+        PostProcessBuilder& SetFragment(std::string relativeSpv)
         {
             mFragmentRelative = std::move(relativeSpv);
             return *this;
         }
 
-        FullscreenEffectBuilder& SetVertex(std::string relativeSpv)
+        PostProcessBuilder& SetVertex(std::string relativeSpv)
         {
             mVertexRelative = std::move(relativeSpv);
             return *this;
         }
 
-        FullscreenEffectBuilder& SetInputs(std::vector<EffectInput> inputs)
+        PostProcessBuilder& SetInputs(std::vector<PostProcessInput> inputs)
         {
             mInputs = std::move(inputs);
             return *this;
         }
 
-        FullscreenEffectBuilder& SetPushConstantSize(std::uint32_t size)
+        PostProcessBuilder& SetPushConstantSize(std::uint32_t size)
         {
             mPushConstantSize = size;
             return *this;
         }
 
-        skr::Arc<FullscreenEffect> Build();
+        skr::Arc<PostProcess> Build();
 
       private:
         skr::Arc<skr::ServiceProvider> mServiceProvider;
-        std::string                    mName = "FullscreenEffect";
+        std::string                    mName = "PostProcess";
         std::string                    mFragmentRelative;
         std::string mVertexRelative = "DeferredCompressed/composing.vert.spv";
-        std::vector<EffectInput> mInputs { EffectInput::SceneColor };
+        std::vector<PostProcessInput> mInputs { PostProcessInput::SceneColor };
         std::uint32_t            mPushConstantSize = 0;
     };
 

@@ -121,8 +121,8 @@ namespace FREYA_NAMESPACE
         glm::vec4     albedoFactor       = glm::vec4(1.0f);
         glm::vec4     emissiveFactor     = glm::vec4(1.0f); ///< w = ao
         glm::vec2     roughMetal         = glm::vec2(1.0f);
-        float         materialId  = 0.0f; ///< CPU id; scene-color A is full id
-        float         alphaCutoff = 0.0f;
+        float materialId  = 0.0f; ///< CPU id; G-buffer albedo.a is 8-bit id
+        float alphaCutoff = 0.0f;
         std::uint32_t occlusionIndex =
             kBindlessWhiteTexture; ///< AO (.r) or packed ORM .r
         std::uint32_t flags = kMaterialFlagReceiveShadow; ///< kMaterialFlag*

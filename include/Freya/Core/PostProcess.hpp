@@ -16,9 +16,9 @@
 namespace FREYA_NAMESPACE
 {
     class Device;
-    class FullscreenEffectBuilder;
+    class PostProcessBuilder;
 
-    enum class EffectInput
+    enum class PostProcessInput
     {
         SceneColor,
         Depth,
@@ -28,38 +28,26 @@ namespace FREYA_NAMESPACE
         Velocity,
     };
 
-    struct CellPushConstants
-    {
-        float     bands           = 4.0f;
-        float     edgeDepthScale  = 80.0f;
-        float     edgeNormalScale = 2.0f;
-        float     strength        = 1.0f;
-        glm::vec4 edgeColor { 0.02f, 0.02f, 0.04f, 1.0f };
-        float     reverseZ   = 0.0f;
-        float     shadowLift = 0.22f;
-        float     edgeWidth  = 1.0f;
-    };
-
-    struct FullscreenMaterialMask
+    struct PostProcessMaterialMask
     {
         glm::uvec4    bits[8] {};
         std::uint32_t count = 0;
         std::uint32_t pad[3] {};
     };
 
-    static_assert(sizeof(FullscreenMaterialMask) == 144,
-                  "FullscreenMaterialMask must match GLSL std140");
+    static_assert(sizeof(PostProcessMaterialMask) == 144,
+                  "PostProcessMaterialMask must match GLSL std140");
 
-    class FullscreenEffect : public skr::enable_arc_from_this<FullscreenEffect>
+    class PostProcess : public skr::enable_arc_from_this<PostProcess>
     {
       public:
         class Impl;
 
-        explicit FullscreenEffect(std::unique_ptr<Impl> impl);
-        ~FullscreenEffect();
+        explicit PostProcess(std::unique_ptr<Impl> impl);
+        ~PostProcess();
 
-        FullscreenEffect(const FullscreenEffect&)            = delete;
-        FullscreenEffect& operator=(const FullscreenEffect&) = delete;
+        PostProcess(const PostProcess&)            = delete;
+        PostProcess& operator=(const PostProcess&) = delete;
 
         [[nodiscard]] const char* Name() const;
         void                      SetEnabled(bool enabled);
@@ -85,8 +73,8 @@ namespace FREYA_NAMESPACE
         void Execute(RenderFrameContext& ctx);
 
       private:
-        friend class FullscreenEffectBuilder;
-        friend class FullscreenEffectStage;
+        friend class PostProcessBuilder;
+        friend class PostProcessStage;
 
         std::unique_ptr<Impl> mImpl;
     };

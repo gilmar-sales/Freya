@@ -15,7 +15,7 @@ namespace FREYA_NAMESPACE
      *
      * Default stages wrap existing passes (Pick, Shadow, Deferred, …).
      * Apps insert stages created by Freya factories (e.g.
-     * FullscreenEffect::MakeStage).
+     * PostProcess::MakeStage).
      */
     class IFrameStage
     {

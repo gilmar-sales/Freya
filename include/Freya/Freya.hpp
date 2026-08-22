@@ -39,12 +39,12 @@
 
 #include "Freya/Core/BillboardDraw.hpp"
 #include "Freya/Core/DebugDraw.hpp"
-#include "Freya/Core/FullscreenEffect.hpp"
 #include "Freya/Core/IFrameStage.hpp"
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/ParticleEmitter.hpp"
+#include "Freya/Core/PostProcess.hpp"
 
-#include "Freya/Builders/FullscreenEffectBuilder.hpp"
+#include "Freya/Builders/PostProcessBuilder.hpp"
 
 #include "Freya/Events/EventManager.hpp"
 #include "Freya/Events/Events.hpp"

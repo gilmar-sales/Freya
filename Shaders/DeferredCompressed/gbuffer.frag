@@ -59,7 +59,9 @@ void main() {
         srgbToLinear(albedoSample.rgb) * inColor *
         mat.albedoFactor.rgb;
 
-    outAlbedo = vec4(linearToSrgb(albedoLin), 1.0);
+    // A = material ID (0–255); PostProcess BindMaterial reads this channel.
+    outAlbedo = vec4(linearToSrgb(albedoLin),
+                     float(inMaterialId & 255u) / 255.0);
 
     uint flags = 0u;
     if ((mat.flags & kMaterialFlagUnlit) != 0u)
@@ -83,7 +85,6 @@ void main() {
             texture(uTextures[nonuniformEXT(mat.emissiveIndex)], inTexCoord)
                 .rgb) *
         mat.emissiveFactor.rgb;
-    outSceneColor = vec4(emissiveLin * kEmissiveIntensity,
-                         float(inMaterialId));
+    outSceneColor = vec4(emissiveLin * kEmissiveIntensity, 0.0);
     outVelocity = inVelocity;
 }

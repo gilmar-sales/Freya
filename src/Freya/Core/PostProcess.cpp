@@ -1,5 +1,5 @@
-#include "Freya/Core/FullscreenEffect.hpp"
-#include "Freya/Core/FullscreenEffectStage.hpp"
+#include "Freya/Core/PostProcess.hpp"
+#include "Freya/Core/PostProcessStage.hpp"
 #include "Freya/Core/Limits.hpp"
 
 #include "Freya/Builders/BufferBuilder.hpp"
@@ -11,7 +11,7 @@
 #include "Freya/Core/TaaPass.hpp"
 #include "Freya/Core/TranslucentPass.hpp"
 
-#include "Freya/Internal/FullscreenEffectImpl.hpp"
+#include "Freya/Internal/PostProcessImpl.hpp"
 
 #include <algorithm>
 #include <array>
@@ -20,34 +20,34 @@
 
 namespace FREYA_NAMESPACE
 {
-    FullscreenEffect::FullscreenEffect(std::unique_ptr<Impl> impl) :
+    PostProcess::PostProcess(std::unique_ptr<Impl> impl) :
         mImpl(std::move(impl))
     {
         if (mImpl && mImpl->maskBuffer)
             mImpl->uploadMaterialMask();
     }
 
-    const char* FullscreenEffect::Name() const
+    const char* PostProcess::Name() const
     {
-        return mImpl ? mImpl->name.c_str() : "FullscreenEffect";
+        return mImpl ? mImpl->name.c_str() : "PostProcess";
     }
 
-    void FullscreenEffect::SetEnabled(const bool enabled)
+    void PostProcess::SetEnabled(const bool enabled)
     {
         mImpl->enabled = enabled;
     }
 
-    bool FullscreenEffect::Enabled() const
+    bool PostProcess::Enabled() const
     {
         return mImpl->enabled;
     }
 
-    FullscreenEffect::~FullscreenEffect()
+    PostProcess::~PostProcess()
     {
         mImpl->destroyGpu();
     }
 
-    void FullscreenEffect::BindMaterial(const std::uint32_t materialId)
+    void PostProcess::BindMaterial(const std::uint32_t materialId)
     {
         if (materialId >= kMaxMaterialSets)
             return;
@@ -59,7 +59,7 @@ namespace FREYA_NAMESPACE
         mImpl->maskDirty = true;
     }
 
-    void FullscreenEffect::UnbindMaterial(const std::uint32_t materialId)
+    void PostProcess::UnbindMaterial(const std::uint32_t materialId)
     {
         if (materialId >= kMaxMaterialSets)
             return;
@@ -71,18 +71,18 @@ namespace FREYA_NAMESPACE
         mImpl->maskDirty = true;
     }
 
-    void FullscreenEffect::ClearMaterials()
+    void PostProcess::ClearMaterials()
     {
         mImpl->materialBits.fill(0);
         mImpl->maskDirty = true;
     }
 
-    void FullscreenEffect::Impl::uploadMaterialMask()
+    void PostProcess::Impl::uploadMaterialMask()
     {
         if (!maskBuffer)
             return;
 
-        FullscreenMaterialMask mask {};
+        PostProcessMaterialMask mask {};
         for (std::size_t i = 0; i < std::size(mask.bits); ++i)
         {
             mask.bits[i] = {
@@ -99,7 +99,7 @@ namespace FREYA_NAMESPACE
         maskDirty = false;
     }
 
-    void FullscreenEffect::SetPushConstants(const void*   data,
+    void PostProcess::SetPushConstants(const void*   data,
                                             std::uint32_t size)
     {
         if (mImpl->pushConstantSize == 0 || data == nullptr)
@@ -114,12 +114,12 @@ namespace FREYA_NAMESPACE
                         mImpl->pushConstantSize - copy);
     }
 
-    FrameStagePtr FullscreenEffect::MakeStage()
+    FrameStagePtr PostProcess::MakeStage()
     {
-        return std::make_shared<FullscreenEffectStage>(shared_from_this());
+        return std::make_shared<PostProcessStage>(shared_from_this());
     }
 
-    void FullscreenEffect::Impl::destroyGpu()
+    void PostProcess::Impl::destroyGpu()
     {
         if (!device)
             return;
@@ -171,7 +171,7 @@ namespace FREYA_NAMESPACE
         extent = vk::Extent2D {};
     }
 
-    skr::Arc<Image> FullscreenEffect::Impl::resolveHdr(
+    skr::Arc<Image> PostProcess::Impl::resolveHdr(
         const RenderFrameContext& ctx) const
     {
         if (ctx.translucent && *ctx.translucent)
@@ -187,8 +187,8 @@ namespace FREYA_NAMESPACE
         return {};
     }
 
-    skr::Arc<Image> FullscreenEffect::Impl::resolveInput(
-        const EffectInput         input,
+    skr::Arc<Image> PostProcess::Impl::resolveInput(
+        const PostProcessInput         input,
         const RenderFrameContext& ctx,
         const skr::Arc<Image>&    hdr) const
     {
@@ -197,30 +197,30 @@ namespace FREYA_NAMESPACE
 
         switch (input)
         {
-            case EffectInput::SceneColor:
+            case PostProcessInput::SceneColor:
                 return hdr;
-            case EffectInput::Depth:
+            case PostProcessInput::Depth:
                 return (*ctx.deferred)->GetDepthImage();
-            case EffectInput::Albedo:
+            case PostProcessInput::Albedo:
                 return (*ctx.deferred)->GetAlbedoImage();
-            case EffectInput::Normal:
+            case PostProcessInput::Normal:
                 return (*ctx.deferred)->GetNormalImage();
-            case EffectInput::Pbr:
+            case PostProcessInput::Pbr:
                 return (*ctx.deferred)->GetPbrImage();
-            case EffectInput::Velocity:
+            case PostProcessInput::Velocity:
                 return (*ctx.deferred)->GetVelocityImage();
         }
         return {};
     }
 
-    vk::ImageLayout FullscreenEffect::Impl::inputLayout(EffectInput input) const
+    vk::ImageLayout PostProcess::Impl::inputLayout(PostProcessInput input) const
     {
-        if (input == EffectInput::Depth)
+        if (input == PostProcessInput::Depth)
             return vk::ImageLayout::eDepthStencilReadOnlyOptimal;
         return vk::ImageLayout::eShaderReadOnlyOptimal;
     }
 
-    void FullscreenEffect::Rebuild(RenderFrameContext&   ctx,
+    void PostProcess::Rebuild(RenderFrameContext&   ctx,
                                    skr::ServiceProvider& sp)
     {
         mImpl->destroyGpu();
@@ -471,7 +471,7 @@ namespace FREYA_NAMESPACE
                 .setLayers(1));
     }
 
-    void FullscreenEffect::Execute(RenderFrameContext& ctx)
+    void PostProcess::Execute(RenderFrameContext& ctx)
     {
         if (!mImpl->enabled || !mImpl->pipeline || !mImpl->output ||
             !ctx.commandPool)
@@ -526,7 +526,7 @@ namespace FREYA_NAMESPACE
                                  .setImageInfo(imageInfos[i]));
         }
 
-        auto albedo = mImpl->resolveInput(EffectInput::Albedo, ctx, hdr);
+        auto albedo = mImpl->resolveInput(PostProcessInput::Albedo, ctx, hdr);
         if (!albedo || mImpl->maskDescriptorSets.empty() || !mImpl->maskBuffer)
             return;
 
@@ -547,7 +547,7 @@ namespace FREYA_NAMESPACE
             vk::DescriptorBufferInfo()
                 .setBuffer(mImpl->maskBuffer->Get())
                 .setOffset(0)
-                .setRange(sizeof(FullscreenMaterialMask));
+                .setRange(sizeof(PostProcessMaterialMask));
         writes.push_back(
             vk::WriteDescriptorSet()
                 .setDstSet(mImpl->maskDescriptorSets[frameIndex])

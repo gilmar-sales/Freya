@@ -4,7 +4,7 @@
 
 | Header | Audience |
 |--------|----------|
-| `<Freya/Freya.hpp>` | Apps: options, extension, pools, materials, events, `AbstractApplication`, `Renderer`, `FullscreenEffect`, GPU animation |
+| `<Freya/Freya.hpp>` | Apps: options, extension, pools, materials, events, `AbstractApplication`, `Renderer`, `PostProcess`, GPU animation |
 | `<Freya/Vulkan.hpp>` | Deprecated stub that includes `<Freya/Freya.hpp>` |
 | Individual `Freya/...` | Prefer the umbrella; leaf headers still do not include Vulkan or SDL |
 
@@ -25,7 +25,7 @@ Treat as **app-stable**:
 - `MeshPool` / `TexturePool` / `MaterialPool` / `MaterialCreateInfo`
 - `AbstractApplication` lifecycle
 - `Renderer` frame loop, quality knobs, pick, debug draw, GPU anim methods
-- `FullscreenEffect` + `FullscreenEffectBuilder` + `MakeStage()`
+- `PostProcess` + `PostProcessBuilder` + `MakeStage()`
 - `IFrameStage` as an opaque type for `InsertFrameStage` (apps use factories,
   they do not implement stages)
 

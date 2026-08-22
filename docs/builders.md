@@ -50,19 +50,21 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 resolution, cascade count, spot/point slots, and soft-shadow tap count.
 Individual setters can still override fields after the preset.
 
-## FullscreenEffectBuilder
+## PostProcessBuilder
 
 Builds a post-deferred fullscreen pass. Obtain it from the service provider
 and insert the stage before Bloom:
 
 ```cpp
-auto cell = serviceProvider->GetService<fra::FullscreenEffectBuilder>()
+struct CellPushConstants { /* match your .frag push_constant */ };
+
+auto cell = serviceProvider->GetService<fra::PostProcessBuilder>()
                 ->SetName("Cell")
                 .SetFragment("Cell/cell.frag.spv")
-                .SetInputs({ fra::EffectInput::SceneColor,
-                             fra::EffectInput::Depth,
-                             fra::EffectInput::Normal })
-                .SetPushConstantSize(sizeof(fra::CellPushConstants))
+                .SetInputs({ fra::PostProcessInput::SceneColor,
+                             fra::PostProcessInput::Depth,
+                             fra::PostProcessInput::Normal })
+                .SetPushConstantSize(sizeof(CellPushConstants))
                 .Build();
 
 mRenderer->InsertFrameStage("Bloom", cell->MakeStage());

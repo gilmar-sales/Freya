@@ -79,7 +79,7 @@ namespace FREYA_NAMESPACE
                 break;
             case ImageUsage::GBufferSceneColor:
                 // Geometry emissive + lighting accumulation; sampled by
-                // bloom/TAA; Transfer* lets FullscreenEffect blit results
+                // bloom/TAA; Transfer* lets PostProcess blit results
                 // back onto the HDR target.
                 imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment |
                                    vk::ImageUsageFlagBits::eSampled |
