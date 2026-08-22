@@ -24,6 +24,79 @@ namespace
         float     shadowLift = 0.22f;
         float     edgeWidth  = 1.0f;
     };
+
+    struct OutlinePush
+    {
+        float     edgeDepthScale  = 80.0f;
+        float     edgeNormalScale = 2.0f;
+        float     strength        = 1.0f;
+        float     reverseZ        = 0.0f;
+        glm::vec4 edgeColor { 0.02f, 0.02f, 0.04f, 1.0f };
+        float     edgeWidth = 1.0f;
+        float     _pad0 = 0.f, _pad1 = 0.f, _pad2 = 0.f;
+    };
+
+    struct GradePush
+    {
+        float     contrast   = 1.05f;
+        float     saturation = 1.15f;
+        float     exposure   = 0.0f;
+        float     vignette   = 0.35f;
+        glm::vec4 lift { 0.0f };
+        glm::vec4 gain { 1.0f, 1.0f, 1.0f, 1.0f };
+    };
+
+    struct UnderwaterPush
+    {
+        float     time         = 0.0f;
+        float     strength     = 1.0f;
+        float     tintStrength = 0.55f;
+        float     fogDensity   = 1.8f;
+        glm::vec4 tintColor { 0.15f, 0.45f, 0.55f, 1.0f };
+        float     reverseZ = 0.0f;
+        float     maxDepth = 0.85f;
+        float     _pad0 = 0.f, _pad1 = 0.f;
+    };
+
+    struct HeatPush
+    {
+        float time     = 0.0f;
+        float strength = 1.0f;
+        float speed    = 1.2f;
+        float reverseZ = 0.0f;
+    };
+
+    struct GlowPush
+    {
+        float     intensity = 2.2f;
+        float     radius    = 8.0f;
+        float     fill      = 0.25f;
+        float     reverseZ  = 0.0f;
+        glm::vec4 color { 1.0f, 0.85f, 0.25f, 1.0f }; // item gold
+    };
+
+    // Mu Online upgrade glow (+0 … +13). Matches Shaders/Post/mu_item_glow.frag.
+    struct MuGlowPush
+    {
+        float time       = 0.0f;
+        float level      = 13.0f;
+        float intensity  = 1.0f;
+        float reverseZ   = 0.0f;
+        float radius     = 7.0f;
+        float waveSpeed  = 1.0f;
+        float _pad0      = 0.0f;
+        float _pad1      = 0.0f;
+    };
+
+    void ToggleEffect(const skr::Arc<fra::PostProcess>& effect,
+                      const char*                       label)
+    {
+        if (!effect)
+            return;
+        effect->SetEnabled(!effect->Enabled());
+        std::cout << label << ": " << (effect->Enabled() ? "on" : "off")
+                  << '\n';
+    }
 } // namespace
 
 class MainApp final : public fra::AbstractApplication
@@ -58,14 +131,92 @@ class MainApp final : public fra::AbstractApplication
                 }
                 if (event.key == fra::KeyCode::F4)
                 {
-                    if (mCellEffect)
-                    {
-                        mCellEffect->SetEnabled(!mCellEffect->Enabled());
-                        std::cout
-                            << "Cell shader: "
-                            << (mCellEffect->Enabled() ? "on" : "off") << '\n';
-                        updateTitle();
-                    }
+                    ToggleEffect(mCellEffect, "Cell");
+                    updateTitle();
+                    return;
+                }
+                if (event.key == fra::KeyCode::F5)
+                {
+                    ToggleEffect(mOutlineEffect, "Outline");
+                    updateTitle();
+                    return;
+                }
+                if (event.key == fra::KeyCode::F6)
+                {
+                    ToggleEffect(mGradeEffect, "ColorGrade");
+                    updateTitle();
+                    return;
+                }
+                if (event.key == fra::KeyCode::F7)
+                {
+                    ToggleEffect(mUnderwaterEffect, "Underwater");
+                    updateTitle();
+                    return;
+                }
+                if (event.key == fra::KeyCode::F8)
+                {
+                    ToggleEffect(mHeatEffect, "HeatHaze");
+                    updateTitle();
+                    return;
+                }
+                if (event.key == fra::KeyCode::F9)
+                {
+                    ToggleEffect(mGlowEffect, "ItemGlow");
+                    updateTitle();
+                    return;
+                }
+                if (event.key == fra::KeyCode::F12)
+                {
+                    ToggleEffect(mMuGlowEffect, "MuGlow");
+                    updateTitle();
+                    return;
+                }
+                if (event.key == fra::KeyCode::LeftBracket ||
+                    event.key == fra::KeyCode::Minus)
+                {
+                    mMuGlowLevel = std::max(0, mMuGlowLevel - 1);
+                    applyMuGlowLevel();
+                    return;
+                }
+                if (event.key == fra::KeyCode::RightBracket ||
+                    event.key == fra::KeyCode::Equals)
+                {
+                    mMuGlowLevel = std::min(13, mMuGlowLevel + 1);
+                    applyMuGlowLevel();
+                    return;
+                }
+                if (event.key == fra::KeyCode::F10)
+                {
+                    mGroundTriplanar = !mGroundTriplanar;
+                    fra::MaterialCreateInfo info =
+                        mMaterialPool->GetCreateInfo(mGroundMaterial);
+                    info.techniqueId =
+                        mGroundTriplanar
+                            ? mTriplanarTechnique
+                            : fra::MaterialTechniqueRegistry::kDefaultTechnique;
+                    mMaterialPool->Update(mGroundMaterial, info);
+                    std::cout << "Ground triplanar: "
+                              << (mGroundTriplanar ? "on" : "off") << '\n';
+                    updateTitle();
+                    return;
+                }
+                if (event.key == fra::KeyCode::F11)
+                {
+                    mEyesUnlit = !mEyesUnlit;
+                    auto setEyeTech = [&](std::uint32_t id,
+                                          std::uint32_t cellOrDefault) {
+                        auto info = mMaterialPool->GetCreateInfo(id);
+                        info.techniqueId =
+                            mEyesUnlit ? mUnlitTechnique : cellOrDefault;
+                        mMaterialPool->Update(id, info);
+                    };
+                    setEyeTech(mEyeMaterial, mCellTechnique);
+                    setEyeTech(
+                        mPbrEyeMaterial,
+                        fra::MaterialTechniqueRegistry::kDefaultTechnique);
+                    std::cout << "Eyes unlit/emissive: "
+                              << (mEyesUnlit ? "on" : "off") << '\n';
+                    updateTitle();
                     return;
                 }
             });
@@ -97,9 +248,17 @@ class MainApp final : public fra::AbstractApplication
             mServices->GetService<fra::MaterialTechniqueRegistry>();
         mCellTechnique = techniques->Register(
             "CellGBuffer", "Cell/gbuffer_cell.frag.spv");
-        // Pipelines are built with the deferred pass; rebuild so the new
-        // technique is available this session.
+        mTriplanarTechnique = techniques->Register(
+            "Triplanar", "Material/triplanar.frag.spv");
+        mUnlitTechnique = techniques->Register(
+            "UnlitEmissive", "Material/unlit_emissive.frag.spv");
         mRenderer->RebuildSwapChain();
+
+        const auto revZ = mFreyaOptions->ReverseZ ? 1.0f : 0.0f;
+        auto       insertPost = [&](skr::Arc<fra::PostProcess> effect) {
+            if (effect)
+                mRenderer->InsertFrameStage("BillboardVfx", effect->MakeStage());
+        };
 
         mCellEffect =
             mServices->GetService<fra::PostProcessBuilder>()
@@ -118,20 +277,120 @@ class MainApp final : public fra::AbstractApplication
             cell.edgeNormalScale = 2.4f;
             cell.strength        = 1.0f;
             cell.edgeColor       = { 0.05f, 0.08f, 0.04f, 1.0f };
-            cell.reverseZ        = mFreyaOptions->ReverseZ ? 1.0f : 0.0f;
+            cell.reverseZ        = revZ;
             cell.shadowLift      = 0.1f;
             cell.edgeWidth       = 2.5f;
             mCellEffect->SetPushConstants(cell);
-            mRenderer->InsertFrameStage("BillboardVfx",
-                                        mCellEffect->MakeStage());
+            insertPost(mCellEffect);
         }
 
-        mGroundMesh     = createGroundMesh();
-        mGroundMaterial = mMaterialPool->Create({
-            .albedoFactor    = { 0.55f, 0.62f, 0.38f, 1.0f },
-            .roughnessFactor = 0.95f,
-            .metalnessFactor = 0.0f,
-        });
+        mOutlineEffect =
+            mServices->GetService<fra::PostProcessBuilder>()
+                ->SetName("Outline")
+                .SetFragment("Post/outline.frag.spv")
+                .SetInputs({ fra::PostProcessInput::SceneColor,
+                             fra::PostProcessInput::Depth,
+                             fra::PostProcessInput::Normal })
+                .SetPushConstantSize(sizeof(OutlinePush))
+                .Build();
+        if (mOutlineEffect)
+        {
+            OutlinePush o {};
+            o.edgeDepthScale  = 90.0f;
+            o.edgeNormalScale = 2.0f;
+            o.strength        = 1.0f;
+            o.reverseZ        = revZ;
+            o.edgeColor       = { 0.02f, 0.02f, 0.04f, 1.0f };
+            o.edgeWidth       = 1.5f;
+            mOutlineEffect->SetPushConstants(o);
+            mOutlineEffect->SetEnabled(false);
+            insertPost(mOutlineEffect);
+        }
+
+        mHeatEffect =
+            mServices->GetService<fra::PostProcessBuilder>()
+                ->SetName("HeatHaze")
+                .SetFragment("Post/heat_haze.frag.spv")
+                .SetInputs({ fra::PostProcessInput::SceneColor,
+                             fra::PostProcessInput::Depth })
+                .SetPushConstantSize(sizeof(HeatPush))
+                .Build();
+        if (mHeatEffect)
+        {
+            HeatPush h {};
+            h.reverseZ = revZ;
+            mHeatPush  = h;
+            mHeatEffect->SetPushConstants(mHeatPush);
+            mHeatEffect->SetEnabled(false);
+            insertPost(mHeatEffect);
+        }
+
+        mUnderwaterEffect =
+            mServices->GetService<fra::PostProcessBuilder>()
+                ->SetName("Underwater")
+                .SetFragment("Post/underwater.frag.spv")
+                .SetInputs({ fra::PostProcessInput::SceneColor,
+                             fra::PostProcessInput::Depth })
+                .SetPushConstantSize(sizeof(UnderwaterPush))
+                .Build();
+        if (mUnderwaterEffect)
+        {
+            UnderwaterPush u {};
+            u.reverseZ      = revZ;
+            mUnderwaterPush = u;
+            mUnderwaterEffect->SetPushConstants(mUnderwaterPush);
+            mUnderwaterEffect->SetEnabled(false);
+            insertPost(mUnderwaterEffect);
+        }
+
+        mGlowEffect =
+            mServices->GetService<fra::PostProcessBuilder>()
+                ->SetName("ItemGlow")
+                .SetFragment("Post/glow.frag.spv")
+                .SetInputs({ fra::PostProcessInput::SceneColor,
+                             fra::PostProcessInput::Depth })
+                .SetPushConstantSize(sizeof(GlowPush))
+                .Build();
+        if (mGlowEffect)
+        {
+            GlowPush g {};
+            g.reverseZ = revZ;
+            mGlowEffect->SetPushConstants(g);
+            mGlowEffect->SetEnabled(false);
+            insertPost(mGlowEffect);
+        }
+
+        mMuGlowEffect =
+            mServices->GetService<fra::PostProcessBuilder>()
+                ->SetName("MuItemGlow")
+                .SetFragment("Post/mu_item_glow.frag.spv")
+                .SetInputs({ fra::PostProcessInput::SceneColor,
+                             fra::PostProcessInput::Depth })
+                .SetPushConstantSize(sizeof(MuGlowPush))
+                .Build();
+        if (mMuGlowEffect)
+        {
+            mMuGlowPush.reverseZ = revZ;
+            mMuGlowPush.level    = static_cast<float>(mMuGlowLevel);
+            mMuGlowEffect->SetPushConstants(mMuGlowPush);
+            mMuGlowEffect->SetEnabled(false);
+            insertPost(mMuGlowEffect);
+        }
+
+        mGradeEffect =
+            mServices->GetService<fra::PostProcessBuilder>()
+                ->SetName("ColorGrade")
+                .SetFragment("Post/color_grade.frag.spv")
+                .SetInputs({ fra::PostProcessInput::SceneColor })
+                .SetPushConstantSize(sizeof(GradePush))
+                .Build();
+        if (mGradeEffect)
+        {
+            GradePush g {};
+            mGradeEffect->SetPushConstants(g);
+            mGradeEffect->SetEnabled(false);
+            insertPost(mGradeEffect);
+        }
 
         const auto eyeAlbedo =
             mTexturePool->CreateTextureFromFile("./Resources/Textures/eye.png");
@@ -139,6 +398,14 @@ class MainApp final : public fra::AbstractApplication
             "./Resources/Textures/bodyB.png");
         const auto bodyAAlbedo = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/bodyA.png");
+
+        mGroundMesh     = createGroundMesh();
+        mGroundMaterial = mMaterialPool->Create({
+            .albedo          = bodyAAlbedo,
+            .albedoFactor    = { 0.75f, 0.82f, 0.55f, 1.0f },
+            .roughnessFactor = 0.95f,
+            .metalnessFactor = 0.0f,
+        });
 
         auto makeBodyMats = [&](std::uint32_t& eye, std::uint32_t& bodyB,
                                 std::uint32_t& bodyA,
@@ -173,6 +440,31 @@ class MainApp final : public fra::AbstractApplication
             mCellEffect->BindMaterial(mEyeMaterial);
             mCellEffect->BindMaterial(mBodyBMaterial);
             mCellEffect->BindMaterial(mBodyAMaterial);
+        }
+        if (mHeatEffect)
+        {
+            mHeatEffect->BindMaterial(mEyeMaterial);
+            mHeatEffect->BindMaterial(mBodyBMaterial);
+            mHeatEffect->BindMaterial(mBodyAMaterial);
+        }
+        if (mOutlineEffect)
+        {
+            mOutlineEffect->BindMaterial(mEyeMaterial);
+            mOutlineEffect->BindMaterial(mBodyBMaterial);
+            mOutlineEffect->BindMaterial(mBodyAMaterial);
+        }
+        if (mGlowEffect)
+        {
+            // Item highlight: glow the left (cell) Bulbasaur materials.
+            mGlowEffect->BindMaterial(mEyeMaterial);
+            mGlowEffect->BindMaterial(mBodyBMaterial);
+            mGlowEffect->BindMaterial(mBodyAMaterial);
+        }
+        if (mMuGlowEffect)
+        {
+            mMuGlowEffect->BindMaterial(mEyeMaterial);
+            mMuGlowEffect->BindMaterial(mBodyBMaterial);
+            mMuGlowEffect->BindMaterial(mBodyAMaterial);
         }
 
         mSkinned = mMeshPool->CreateSkinnedModelFromFile(
@@ -262,14 +554,35 @@ class MainApp final : public fra::AbstractApplication
         buildSceneInstances();
         updateTitle();
 
-        std::cout << "CellBulbasaur — left: cell  right: PBR  [F4]\n"
-                     "RMB look | WASD move | Space/Q up | Ctrl/E down\n";
+        std::cout
+            << "CellBulbasaur — left: cell  right: PBR\n"
+               "F4 cell | F5 outline | F6 grade | F7 underwater | F8 heat\n"
+               "F9 item glow | F12 Mu glow (+N) | [ ] change +level\n"
+               "F10 ground triplanar | F11 eyes unlit\n"
+               "RMB look | WASD move | Space/Q up | Ctrl/E down\n";
     }
 
     void Update() override
     {
         const float dt = mWindow->GetDeltaTime();
+        mEffectTime += dt;
         updateCamera(dt);
+
+        if (mHeatEffect && mHeatEffect->Enabled())
+        {
+            mHeatPush.time = mEffectTime;
+            mHeatEffect->SetPushConstants(mHeatPush);
+        }
+        if (mUnderwaterEffect && mUnderwaterEffect->Enabled())
+        {
+            mUnderwaterPush.time = mEffectTime;
+            mUnderwaterEffect->SetPushConstants(mUnderwaterPush);
+        }
+        if (mMuGlowEffect && mMuGlowEffect->Enabled())
+        {
+            mMuGlowPush.time = mEffectTime;
+            mMuGlowEffect->SetPushConstants(mMuGlowPush);
+        }
 
         mRenderer->BeginFrame();
 
@@ -492,17 +805,69 @@ class MainApp final : public fra::AbstractApplication
             mCameraPos += glm::normalize(move) * kMoveSpeed * dt;
     }
 
+    void applyMuGlowLevel()
+    {
+        mMuGlowPush.level = static_cast<float>(mMuGlowLevel);
+        if (mMuGlowEffect)
+        {
+            mMuGlowPush.time = mEffectTime;
+            mMuGlowEffect->SetPushConstants(mMuGlowPush);
+            if (!mMuGlowEffect->Enabled())
+                mMuGlowEffect->SetEnabled(true);
+        }
+        static constexpr const char* kTier[] = {
+            "+0..2 none",
+            "+0..2 none",
+            "+0..2 none",
+            "+3/+4 red tint",
+            "+3/+4 red tint",
+            "+5/+6 blue tint",
+            "+5/+6 blue tint",
+            "+7/+8 soft glow",
+            "+7/+8 soft glow",
+            "+9/+10/+11 strong",
+            "+9/+10/+11 strong",
+            "+11 white spark",
+            "+12 bright flash",
+            "+13 wave flash",
+        };
+        std::cout << "Mu glow level +" << mMuGlowLevel << " ("
+                  << kTier[mMuGlowLevel] << ")\n";
+        updateTitle();
+    }
+
     void updateTitle()
     {
+        auto flag = [](const skr::Arc<fra::PostProcess>& e) {
+            return e && e->Enabled() ? '1' : '0';
+        };
         mFreyaOptions->title =
-            std::string("CellBulbasaur | cell ") +
-            (mCellEffect && mCellEffect->Enabled() ? "on" : "off") +
-            " left [F4]";
+            std::string("CellBulbasaur | C") + flag(mCellEffect) + " O" +
+            flag(mOutlineEffect) + " G" + flag(mGradeEffect) + " U" +
+            flag(mUnderwaterEffect) + " H" + flag(mHeatEffect) + " L" +
+            flag(mGlowEffect) + " M" + flag(mMuGlowEffect) + "+" +
+            std::to_string(mMuGlowLevel) + (mGroundTriplanar ? " tri" : "") +
+            (mEyesUnlit ? " unlit" : "");
     }
 
     skr::Arc<skr::ServiceProvider> mServices;
     skr::Arc<fra::PostProcess>     mCellEffect;
-    std::uint32_t                  mCellTechnique = 0;
+    skr::Arc<fra::PostProcess>     mOutlineEffect;
+    skr::Arc<fra::PostProcess>     mGradeEffect;
+    skr::Arc<fra::PostProcess>     mUnderwaterEffect;
+    skr::Arc<fra::PostProcess>     mHeatEffect;
+    skr::Arc<fra::PostProcess>     mGlowEffect;
+    skr::Arc<fra::PostProcess>     mMuGlowEffect;
+    HeatPush                       mHeatPush {};
+    UnderwaterPush                 mUnderwaterPush {};
+    MuGlowPush                     mMuGlowPush {};
+    int                            mMuGlowLevel = 13;
+    std::uint32_t                  mCellTechnique      = 0;
+    std::uint32_t                  mTriplanarTechnique = 0;
+    std::uint32_t                  mUnlitTechnique     = 0;
+    bool                           mGroundTriplanar    = false;
+    bool                           mEyesUnlit          = false;
+    float                          mEffectTime         = 0.0f;
     skr::Arc<fra::MeshPool>        mMeshPool;
     skr::Arc<fra::TexturePool>     mTexturePool;
     skr::Arc<fra::MaterialPool>    mMaterialPool;

@@ -182,6 +182,30 @@ Up to `kMaxMaterialTechniques` (8) slots. Shadow / pick / OIT / lighting stay
 on stock shaders; custom fragments must still write albedo+matID, normal+flags,
 PBR, emissive HDR, and velocity.
 
+Stock technique frags under `Shaders/Material/`:
+
+| SPIR-V | Role |
+|--------|------|
+| `Material/unlit_emissive.frag.spv` | Skip lighting; albedo+emissive → HDR |
+| `Material/triplanar.frag.spv` | World-space triplanar albedo/normal |
+| `Cell/gbuffer_cell.frag.spv` | Matte PBR (pairs with `Cell/cell.frag` post) |
+
+Stock post frags under `Shaders/Post/` (and `Cell/`):
+
+| SPIR-V | Inputs | Notes |
+|--------|--------|-------|
+| `Post/outline.frag.spv` | Scene, Depth, Normal | Depth/normal edges; `BindMaterial` optional |
+| `Post/color_grade.frag.spv` | Scene | Contrast / sat / exposure / vignette / lift-gain |
+| `Post/underwater.frag.spv` | Scene, Depth | Wave warp + tint + depth fog |
+| `Post/heat_haze.frag.spv` | Scene, Depth | Shimmer; mask with `BindMaterial` |
+| `Post/glow.frag.spv` | Scene, Depth | Item highlight aura; **requires** `BindMaterial` |
+| `Post/mu_item_glow.frag.spv` | Scene, Depth | Mu Online +0…+13 tiers + wave flash; `BindMaterial` |
+
+| `Cell/cell.frag.spv` | Scene, Depth, Normal | Cel bands + edges |
+
+Animated effects (`underwater`, `heat_haze`) expect a `time` field in push
+constants — update each frame via `SetPushConstants`.
+
 ## Residual roadmap
 
 Not in this release (documented for planning):
