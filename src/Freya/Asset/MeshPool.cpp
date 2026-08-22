@@ -688,6 +688,18 @@ namespace FREYA_NAMESPACE
                 AI_SUCCESS)
                 info.clearcoatRoughness = coatRough;
 
+            float transmission = 0.f;
+            if (mat->Get(AI_MATKEY_TRANSMISSION_FACTOR, transmission) ==
+                AI_SUCCESS)
+            {
+                info.transmission = transmission;
+                if (transmission > 1e-3f && info.alphaMode == AlphaMode::Opaque)
+                    info.alphaMode = AlphaMode::Blend;
+            }
+            float ior = 1.5f;
+            if (mat->Get(AI_MATKEY_REFRACTI, ior) == AI_SUCCESS)
+                info.ior = ior;
+
             return materialPool->Create(info);
         }
 

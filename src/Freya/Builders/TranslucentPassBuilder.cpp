@@ -7,6 +7,7 @@
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
+#include "Freya/Core/IBLService.hpp"
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/ShaderModule.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
@@ -23,11 +24,12 @@ namespace FREYA_NAMESPACE
         const skr::Arc<MaterialDescriptorResources>& materialResources,
         const skr::Arc<BoneMatrixResources>&         boneResources,
         const skr::Arc<LightService>&                lightService,
+        const skr::Arc<IBLService>&                  iblService,
         const skr::Arc<skr::ServiceProvider>&        serviceProvider) :
         mDevice(device), mPhysicalDevice(physicalDevice), mSurface(surface),
         mFreyaOptions(freyaOptions), mMaterialResources(materialResources),
         mBoneResources(boneResources), mLightService(lightService),
-        mServiceProvider(serviceProvider)
+        mIblService(iblService), mServiceProvider(serviceProvider)
     {
     }
 
@@ -271,11 +273,116 @@ namespace FREYA_NAMESPACE
 
         auto& bindlessLayout  = mMaterialResources->GetBindlessLayout();
         auto  lightLayout     = LightServiceGpu::Layout(*mLightService);
-        auto  accumSetLayouts = std::array {
+
+        // Set 4: opaque HDR (refraction) + IBL (parity with deferred).
+        auto glassBindings = std::array {
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(0)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(1)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(2)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(3)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment),
+        };
+        auto glassSetLayout = mDevice->Get().createDescriptorSetLayout(
+            vk::DescriptorSetLayoutCreateInfo().setBindings(glassBindings));
+
+        auto glassPoolSizes = std::array {
+            vk::DescriptorPoolSize()
+                .setType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(4 * mFreyaOptions->frameCount),
+        };
+        auto glassPool = mDevice->Get().createDescriptorPool(
+            vk::DescriptorPoolCreateInfo()
+                .setMaxSets(mFreyaOptions->frameCount)
+                .setPoolSizes(glassPoolSizes));
+
+        auto glassLayouts = std::vector<vk::DescriptorSetLayout>(
+            mFreyaOptions->frameCount, glassSetLayout);
+        auto glassSets = mDevice->Get().allocateDescriptorSets(
+            vk::DescriptorSetAllocateInfo()
+                .setDescriptorPool(glassPool)
+                .setSetLayouts(glassLayouts));
+
+        auto irradianceInfo =
+            vk::DescriptorImageInfo()
+                .setSampler(mIblService->GetIrradianceSampler())
+                .setImageView(mIblService->GetIrradianceMap()->GetImageView())
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+        auto prefilterInfo =
+            vk::DescriptorImageInfo()
+                .setSampler(mIblService->GetEnvironmentSampler())
+                .setImageView(mIblService->GetEnvironmentMap()->GetImageView())
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+        auto brdfInfo =
+            vk::DescriptorImageInfo()
+                .setSampler(mIblService->GetBrdfSampler())
+                .setImageView(mIblService->GetBrdfLut()->GetImageView())
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+
+        // Placeholder opaque until BeginAccumulate rebinds the real HDR.
+        auto placeholderOpaque =
+            vk::DescriptorImageInfo()
+                .setSampler(sampler)
+                .setImageView(sceneWithTranslucency[0]->GetImageView())
+                .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+
+        for (std::uint32_t i = 0; i < mFreyaOptions->frameCount; ++i)
+        {
+            auto writes = std::array {
+                vk::WriteDescriptorSet()
+                    .setDstSet(glassSets[i])
+                    .setDstBinding(0)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(placeholderOpaque),
+                vk::WriteDescriptorSet()
+                    .setDstSet(glassSets[i])
+                    .setDstBinding(1)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(irradianceInfo),
+                vk::WriteDescriptorSet()
+                    .setDstSet(glassSets[i])
+                    .setDstBinding(2)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(prefilterInfo),
+                vk::WriteDescriptorSet()
+                    .setDstSet(glassSets[i])
+                    .setDstBinding(3)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(brdfInfo),
+            };
+            mDevice->Get().updateDescriptorSets(
+                static_cast<std::uint32_t>(writes.size()), writes.data(), 0,
+                nullptr);
+        }
+
+        auto accumSetLayouts = std::array {
             cameraSetLayout,
             bindlessLayout,
             lightLayout,
             mBoneResources->GetLayout(),
+            glassSetLayout,
         };
         auto accumulateLayout = mDevice->Get().createPipelineLayout(
             vk::PipelineLayoutCreateInfo().setSetLayouts(accumSetLayouts));
@@ -534,11 +641,11 @@ namespace FREYA_NAMESPACE
 
         return skr::MakeArc<TranslucentPass>(
             mDevice, mFreyaOptions, mMaterialResources, mBoneResources,
-            mLightService, accumulateRenderPass, resolveRenderPass,
+            mLightService, mIblService, accumulateRenderPass, resolveRenderPass,
             accumulateLayout, resolveLayout, accumulatePipeline,
             resolvePipeline, uniformBuffer, cameraSetLayout, cameraPool,
-            cameraSets, resolveSetLayout, resolvePool, resolveSets,
-            std::move(oitAccum), std::move(oitReveal),
+            cameraSets, glassSetLayout, glassPool, glassSets, resolveSetLayout,
+            resolvePool, resolveSets, std::move(oitAccum), std::move(oitReveal),
             std::move(sceneWithTranslucency), std::move(accumulateFramebuffers),
             std::move(resolveFramebuffers), sampler, depthFormat, extent);
     }

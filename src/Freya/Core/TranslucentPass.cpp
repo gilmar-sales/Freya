@@ -15,6 +15,7 @@ namespace FREYA_NAMESPACE
         const skr::Arc<MaterialDescriptorResources>& materialResources,
         const skr::Arc<BoneMatrixResources>&         boneResources,
         const skr::Arc<LightService>&                lightService,
+        const skr::Arc<IBLService>&                  iblService,
         const vk::RenderPass                         accumulateRenderPass,
         const vk::RenderPass                         resolveRenderPass,
         const vk::PipelineLayout                     accumulateLayout,
@@ -25,6 +26,9 @@ namespace FREYA_NAMESPACE
         const vk::DescriptorSetLayout                cameraSetLayout,
         const vk::DescriptorPool                     cameraDescriptorPool,
         const std::vector<vk::DescriptorSet>&        cameraSets,
+        const vk::DescriptorSetLayout                glassSetLayout,
+        const vk::DescriptorPool                     glassDescriptorPool,
+        const std::vector<vk::DescriptorSet>&        glassSets,
         const vk::DescriptorSetLayout                resolveSetLayout,
         const vk::DescriptorPool                     resolveDescriptorPool,
         const std::vector<vk::DescriptorSet>&        resolveSets,
@@ -43,7 +47,7 @@ namespace FREYA_NAMESPACE
         const vk::Extent2D extent) :
         mDevice(device), mFreyaOptions(freyaOptions),
         mMaterialResources(materialResources), mBoneResources(boneResources),
-        mLightService(lightService),
+        mLightService(lightService), mIblService(iblService),
         mAccumulateRenderPass(accumulateRenderPass),
         mResolveRenderPass(resolveRenderPass),
         mAccumulateLayout(accumulateLayout), mResolveLayout(resolveLayout),
@@ -51,6 +55,8 @@ namespace FREYA_NAMESPACE
         mResolvePipeline(resolvePipeline), mUniformBuffer(uniformBuffer),
         mCameraSetLayout(cameraSetLayout),
         mCameraDescriptorPool(cameraDescriptorPool), mCameraSets(cameraSets),
+        mGlassSetLayout(glassSetLayout),
+        mGlassDescriptorPool(glassDescriptorPool), mGlassSets(glassSets),
         mResolveSetLayout(resolveSetLayout),
         mResolveDescriptorPool(resolveDescriptorPool),
         mResolveSets(resolveSets), mOitAccum(std::move(oitAccum)),
@@ -59,7 +65,8 @@ namespace FREYA_NAMESPACE
         mAccumulateFramebuffers(std::move(accumulateFramebuffers)),
         mResolveFramebuffers(std::move(resolveFramebuffers)), mSampler(sampler),
         mDepthFormat(depthFormat), mExtent(extent),
-        mBoundOpaqueViews(resolveSets.size())
+        mBoundOpaqueViews(resolveSets.size()),
+        mBoundGlassOpaqueViews(glassSets.size())
     {
     }
 
@@ -79,6 +86,8 @@ namespace FREYA_NAMESPACE
         vkDevice.destroyRenderPass(mResolveRenderPass);
         vkDevice.destroyDescriptorPool(mCameraDescriptorPool);
         vkDevice.destroyDescriptorSetLayout(mCameraSetLayout);
+        vkDevice.destroyDescriptorPool(mGlassDescriptorPool);
+        vkDevice.destroyDescriptorSetLayout(mGlassSetLayout);
         vkDevice.destroyDescriptorPool(mResolveDescriptorPool);
         vkDevice.destroyDescriptorSetLayout(mResolveSetLayout);
         vkDevice.destroySampler(mSampler);
@@ -90,6 +99,7 @@ namespace FREYA_NAMESPACE
         mMaterialResources.reset();
         mBoneResources.reset();
         mLightService.reset();
+        mIblService.reset();
     }
 
     void TranslucentPass::UpdateProjection(
@@ -105,6 +115,7 @@ namespace FREYA_NAMESPACE
 
     void TranslucentPass::BeginAccumulate(
         const skr::Arc<CommandPool>& commandPool,
+        const skr::Arc<Image>&       opaqueImage,
         const std::uint32_t          frameIndex) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
@@ -112,6 +123,30 @@ namespace FREYA_NAMESPACE
 
         if (frameIndex >= mAccumulateFramebuffers.size())
             return;
+
+        if (opaqueImage && frameIndex < mGlassSets.size())
+        {
+            const auto opaqueView = opaqueImage->GetImageView();
+            if (mBoundGlassOpaqueViews[frameIndex] != opaqueView)
+            {
+                mBoundGlassOpaqueViews[frameIndex] = opaqueView;
+                auto opaqueInfo =
+                    vk::DescriptorImageInfo()
+                        .setSampler(mSampler)
+                        .setImageView(opaqueView)
+                        .setImageLayout(
+                            vk::ImageLayout::eShaderReadOnlyOptimal);
+                auto writer =
+                    vk::WriteDescriptorSet()
+                        .setDstSet(mGlassSets[frameIndex])
+                        .setDstBinding(0)
+                        .setDescriptorType(
+                            vk::DescriptorType::eCombinedImageSampler)
+                        .setDescriptorCount(1)
+                        .setImageInfo(opaqueInfo);
+                mDevice->Get().updateDescriptorSets(1, &writer, 0, nullptr);
+            }
+        }
 
         auto clears = std::array {
             vk::ClearValue().setColor(
@@ -151,6 +186,13 @@ namespace FREYA_NAMESPACE
             commandBuffer.bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics, mAccumulateLayout, 3, 1,
                 &boneSet, 0, nullptr);
+        }
+
+        if (frameIndex < mGlassSets.size())
+        {
+            commandBuffer.bindDescriptorSets(
+                vk::PipelineBindPoint::eGraphics, mAccumulateLayout, 4, 1,
+                &mGlassSets[frameIndex], 0, nullptr);
         }
     }
 

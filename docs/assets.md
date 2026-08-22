@@ -76,6 +76,8 @@ std::uint32_t material = materialPool->Create(fra::MaterialCreateInfo {
     .alphaMode       = fra::AlphaMode::Opaque, // Opaque | Mask | Blend
     .clearcoat          = 0.f,    // deferred GGX clearcoat weight
     .clearcoatRoughness = 0.03f,  // glTF-style default
+    .transmission       = 0.f,    // >0: OIT + screen-space refraction
+    .ior                = 1.5f,   // refraction bend (glass ≈ 1.5)
     .packedMetallicRoughness = false, // G=rough, B=metal (glTF)
     .unlit                   = false, // skip lighting (emissive only)
     .doubleSided             = false, // G-buffer flips back-face N
@@ -98,6 +100,9 @@ uses `alphaCutoff` cutout in the G-buffer **and** in the shadow pass
 `AlphaMode::Blend` is filtered into the Weighted Blended OIT pass
 (`CullMode::Translucent`); use `albedoFactor.a` (and albedo alpha) for
 coverage, and typically `castShadows = false` on glass instances.
+`transmission` (>0) enables physical glass: OIT samples opaque HDR with a
+screen-space IOR bend and adds split-sum IBL; glTF
+`KHR_materials_transmission` / `KHR_materials_ior` map on import.
 
 `clearcoat` (>0) enables a second dielectric GGX lobe in deferred lighting
 (F0=0.04). The weight is stored in G-buffer PBR.a. When coated, PBR.b holds

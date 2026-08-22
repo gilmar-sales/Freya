@@ -134,8 +134,8 @@ namespace FREYA_NAMESPACE
         std::uint32_t occlusionIndex =
             kBindlessWhiteTexture; ///< AO (.r) or packed ORM .r
         std::uint32_t flags = kMaterialFlagReceiveShadow; ///< kMaterialFlag*
-        std::uint32_t _pad0 = 0;
-        std::uint32_t _pad1 = 0;
+        float         transmission = 0.f; ///< 0–1; OIT refraction when >0
+        float         ior          = 1.5f; ///< index of refraction
     };
 
     static_assert(sizeof(MaterialGPU) == 96, "MaterialGPU must match GLSL");

@@ -54,6 +54,10 @@ namespace FREYA_NAMESPACE
      * @param alphaMode        Opaque, Mask (cutout), or Blend (WBOIT)
      * @param clearcoat        Clearcoat weight 0–1 (deferred GGX layer)
      * @param clearcoatRoughness Clearcoat GGX roughness (glTF default ~0.03)
+     * @param transmission     0–1 light transmitted through the surface
+     *                         (WBOIT + screen-space refraction when >0)
+     * @param ior              Index of refraction for refraction bend
+     *                         (glTF default 1.5; ignored if transmission=0)
      * @param techniqueId      Opaque G-buffer technique
      *                         (`MaterialTechniqueRegistry`; 0 = stock PBR)
      */
@@ -75,6 +79,8 @@ namespace FREYA_NAMESPACE
         AlphaMode alphaMode               = AlphaMode::Opaque;
         float     clearcoat               = 0.f;
         float     clearcoatRoughness      = 0.03f;
+        float     transmission            = 0.f;
+        float     ior                     = 1.5f;
         bool      packedMetallicRoughness = false;
         bool      unlit                   = false;
         bool      doubleSided             = false;

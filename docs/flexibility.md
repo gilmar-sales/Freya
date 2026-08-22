@@ -238,13 +238,14 @@ Not in this release (documented for planning):
 
 - IBL cubemap (equirect GGX prefilter is in; cube faces still open)
 - Clustered lighting (naive fullscreen loop; `kMaxLights` = 64)
-- Physical glass (transmission / IOR / refraction) beyond Weighted Blended OIT
 - HDR / wide color-space swapchain policy
 - Event unsubscribe API
 
-WBOIT translucency is implemented: `AlphaMode::Blend` instances use a
-dedicated MDI cull (`CullMode::Translucent`), accumulate into weighted OIT
-targets, resolve over TAA/opaque before Bloom, then Composite tonemaps the
-combined HDR scene.
+WBOIT translucency supports physical glass: `transmission` / `ior` on
+`MaterialCreateInfo` drive screen-space refraction of opaque HDR plus IBL
+in `oit_accum`. Non-transmission `AlphaMode::Blend` keeps the weighted
+coverage path. Instances use a dedicated MDI cull (`CullMode::Translucent`),
+resolve over TAA/opaque before Bloom, then Composite tonemaps the combined
+HDR scene.
 
 See also [API boundary](api-boundary.md).

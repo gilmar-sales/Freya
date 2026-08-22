@@ -3,6 +3,7 @@
 #include "Freya/Asset/BoneMatrixResources.hpp"
 #include "Freya/Asset/MaterialDescriptorResources.hpp"
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/IBLService.hpp"
 #include "Freya/Core/Image.hpp"
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
@@ -24,6 +25,7 @@ namespace FREYA_NAMESPACE
             const skr::Arc<MaterialDescriptorResources>& materialResources,
             const skr::Arc<BoneMatrixResources>&         boneResources,
             const skr::Arc<LightService>&                lightService,
+            const skr::Arc<IBLService>&                  iblService,
             const skr::Arc<skr::ServiceProvider>&        serviceProvider);
 
         /**
@@ -41,6 +43,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<MaterialDescriptorResources> mMaterialResources;
         skr::Arc<BoneMatrixResources>         mBoneResources;
         skr::Arc<LightService>                mLightService;
+        skr::Arc<IBLService>                  mIblService;
         skr::Arc<skr::ServiceProvider>        mServiceProvider;
     };
 

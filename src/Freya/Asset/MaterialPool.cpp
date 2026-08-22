@@ -133,6 +133,8 @@ namespace FREYA_NAMESPACE
         gpu.alphaMode          = static_cast<std::uint32_t>(info.alphaMode);
         gpu.clearcoat          = info.clearcoat;
         gpu.clearcoatRoughness = info.clearcoatRoughness;
+        gpu.transmission       = info.transmission;
+        gpu.ior                = info.ior > 1e-3f ? info.ior : 1.5f;
 
         gpu.flags = 0;
         if (info.packedMetallicRoughness)

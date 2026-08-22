@@ -312,7 +312,12 @@ namespace FREYA_NAMESPACE
         if (ctx.drawPipelineLayoutOverride)
             *ctx.drawPipelineLayoutOverride = layout;
 
-        (*ctx.translucent)->BeginAccumulate(ctx.commandPool, ctx.frameIndex);
+        const auto opaque =
+            (ctx.taa && *ctx.taa) ? (*ctx.taa)->GetOutputImage()
+                                  : (*ctx.deferred)->GetSceneColorImage();
+
+        (*ctx.translucent)
+            ->BeginAccumulate(ctx.commandPool, opaque, ctx.frameIndex);
         SetFullViewport(ctx.commandPool, ctx.VkExtent());
         if (ctx.ExecuteDraws)
             ctx.ExecuteDraws(true, kTechniqueFilterAll);
@@ -321,9 +326,6 @@ namespace FREYA_NAMESPACE
         if (ctx.drawPipelineLayoutOverride)
             *ctx.drawPipelineLayoutOverride = vk::PipelineLayout {};
 
-        const auto opaque =
-            (ctx.taa && *ctx.taa) ? (*ctx.taa)->GetOutputImage()
-                                  : (*ctx.deferred)->GetSceneColorImage();
         (*ctx.translucent)->Resolve(ctx.commandPool, opaque, ctx.frameIndex);
     }
 

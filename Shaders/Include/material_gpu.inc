@@ -23,8 +23,8 @@ struct MaterialGPU {
     float alphaCutoff;
     uint occlusionIndex;
     uint flags;
-    uint _pad0;
-    uint _pad1;
+    float transmission;
+    float ior;
 };
 
 #endif

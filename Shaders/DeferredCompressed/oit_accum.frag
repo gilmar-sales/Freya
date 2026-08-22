@@ -47,10 +47,17 @@ layout (set = 2, binding = 0) uniform LightBuffer {
     float exposure;
 } lights;
 
+// Opaque HDR (post-TAA) + IBL for transmission / refraction.
+layout (set = 4, binding = 0) uniform sampler2D opaqueScene;
+layout (set = 4, binding = 1) uniform sampler2D irradianceMap;
+layout (set = 4, binding = 2) uniform sampler2D prefilterMap;
+layout (set = 4, binding = 3) uniform sampler2D brdfLUT;
+
 const float kEmissiveIntensity = 1.25;
 
 #define PBR_DIFFUSE_SCALE 0.15
 #include "Include/pbr_shade.inc"
+#include "Include/pbr_ibl.inc"
 
 float wboitWeight(float z, float a) {
     return clamp(a * max(1e-2, 3e3 * pow(1.0 - z / 200.0, 3.0)), 1e-2, 3e3);
@@ -62,7 +69,7 @@ void main() {
     vec4 albedoSample =
         texture(uTextures[nonuniformEXT(mat.albedoIndex)], inTexCoord);
     float baseAlpha = clamp(albedoSample.a * mat.albedoFactor.a, 0.0, 1.0);
-    if (baseAlpha < 1e-4)
+    if (baseAlpha < 1e-4 && mat.transmission < 1e-3)
         discard;
 
     vec3 albedoLin =
@@ -80,6 +87,8 @@ void main() {
     metalness = clamp(metalness, 0.0, 1.0);
     float clearcoat = clamp(mat.clearcoat, 0.0, 1.0);
     float coatRoughness = max(mat.clearcoatRoughness, kMinRoughness);
+    float transmission = clamp(mat.transmission, 0.0, 1.0);
+    float ior = max(mat.ior, 1.0);
 
     vec3 N = normalize(inWorldNormal);
     vec3 V = normalize(lights.viewPosition.xyz - inWorldPos);
@@ -89,10 +98,11 @@ void main() {
     vec3 F0 = mix(kDielectricF0, albedoLin, metalness);
     float NdotV = max(dot(N, V), 0.0);
     vec3 Fr = fresnelSchlick(NdotV, F0);
+    float fresnelCoverage = max(Fr.r, max(Fr.g, Fr.b));
     float coatSpecAtten =
         (clearcoat < 1e-3)
             ? 1.0
-            : (1.0 - clearcoat * max(Fr.r, max(Fr.g, Fr.b)));
+            : (1.0 - clearcoat * fresnelCoverage);
 
     vec3 ambient =
         pub.ambientLight.rgb * pub.ambientLight.a * albedoLin * 0.25 * ao;
@@ -120,12 +130,35 @@ void main() {
                 lights.lightOuterCutoffAndIntensity[i].y, inWorldPos, N, V,
                 coatRoughness, clearcoat);
         }
+
+        lit += calculateIBL(N, V, albedoLin, roughness, metalness, F0,
+                            coatSpecAtten) *
+               ao;
+        lit += calculateClearcoatIBL(N, V, coatRoughness, clearcoat);
     }
 
-    vec3 C = lit * (1.0 - Fr) + lit * Fr * 2.5 + emissiveLin;
+    vec3 C;
+    float alpha;
+    if (transmission > 1e-3) {
+        // Screen-space refraction bent by IOR / view-facing normal.
+        vec2 sceneSize = vec2(textureSize(opaqueScene, 0));
+        vec2 screenUV = gl_FragCoord.xy / max(sceneSize, vec2(1.0));
+        float bend = (ior - 1.0) * 0.04 * transmission;
+        vec3 viewN = normalize(mat3(pub.view) * N);
+        vec2 refrUV = clamp(screenUV + viewN.xy * bend, vec2(0.001),
+                            vec2(0.999));
+        vec3 refracted = textureLod(opaqueScene, refrUV, 0.0).rgb * albedoLin;
 
-    float fresnelCoverage = max(Fr.r, max(Fr.g, Fr.b));
-    float alpha = clamp(max(baseAlpha, fresnelCoverage * 0.85), 0.0, 1.0);
+        float T = transmission * (1.0 - fresnelCoverage);
+        C = mix(lit, refracted, T) + emissiveLin;
+        // High coverage so WBOIT resolve does not re-composite opaque under
+        // glass that already sampled the background.
+        alpha = clamp(max(baseAlpha, mix(0.75, fresnelCoverage, 0.5)), 0.55,
+                      1.0);
+    } else {
+        C = lit * (1.0 - Fr) + lit * Fr * 2.5 + emissiveLin;
+        alpha = clamp(max(baseAlpha, fresnelCoverage * 0.85), 0.0, 1.0);
+    }
 
     float w = wboitWeight(max(inViewZ, 1e-3), alpha);
     outAccum = vec4(C * alpha * w, alpha * w);

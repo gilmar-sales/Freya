@@ -173,14 +173,16 @@ class MainApp final : public fra::AbstractApplication
               .clearcoat          = 0.85f,
               .clearcoatRoughness = 0.08f });
 
-        // Warm amber glass — low coverage; GGX/Fresnel in oit_accum add shine.
+        // Warm amber glass — transmission + IOR drive screen-space refraction.
         mBulbMaterial = mMaterialPool->Create({
             .emissive        = mSofaEmissive,
-            .albedoFactor    = { 0.42f, 0.26f, 0.10f, 0.10f },
+            .albedoFactor    = { 0.95f, 0.78f, 0.45f, 0.12f },
             .roughnessFactor = 0.04f,
             .metalnessFactor = 0.0f,
             .emissiveFactor  = { 0.40f, 0.24f, 0.08f },
             .alphaMode       = fra::AlphaMode::Blend,
+            .transmission    = 0.92f,
+            .ior             = 1.5f,
         });
 
         mSofaModel = mMeshPool->CreateMeshFromFile(

@@ -5,6 +5,7 @@
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/IBLService.hpp"
 #include "Freya/Core/Image.hpp"
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
@@ -20,7 +21,8 @@ namespace FREYA_NAMESPACE
      * Owns per-frame oitAccum (RGBA16F), oitReveal (R8), and
      * sceneWithTranslucency (HDR) so frames in flight do not race. Accumulate
      * uses deferred depth (test on / write off), LightService analytical
-     * lighting (set 2), and bone SSBO (set 3).
+     * lighting (set 2), bone SSBO (set 3), and glass env (set 4: opaque HDR
+     * + IBL) for transmission / refraction.
      */
     class TranslucentPass
     {
@@ -31,6 +33,7 @@ namespace FREYA_NAMESPACE
             const skr::Arc<MaterialDescriptorResources>& materialResources,
             const skr::Arc<BoneMatrixResources>&         boneResources,
             const skr::Arc<LightService>&                lightService,
+            const skr::Arc<IBLService>&                  iblService,
             vk::RenderPass                               accumulateRenderPass,
             vk::RenderPass                               resolveRenderPass,
             vk::PipelineLayout                           accumulateLayout,
@@ -41,6 +44,9 @@ namespace FREYA_NAMESPACE
             vk::DescriptorSetLayout                      cameraSetLayout,
             vk::DescriptorPool                           cameraDescriptorPool,
             const std::vector<vk::DescriptorSet>&        cameraSets,
+            vk::DescriptorSetLayout                      glassSetLayout,
+            vk::DescriptorPool                           glassDescriptorPool,
+            const std::vector<vk::DescriptorSet>&        glassSets,
             vk::DescriptorSetLayout                      resolveSetLayout,
             vk::DescriptorPool                           resolveDescriptorPool,
             const std::vector<vk::DescriptorSet>&        resolveSets,
@@ -53,7 +59,7 @@ namespace FREYA_NAMESPACE
             std::vector<vk::Framebuffer>
                 accumulateFramebuffers,
             std::vector<vk::Framebuffer>
-                         resolveFramebuffers,
+                resolveFramebuffers,
             vk::Sampler  sampler,
             vk::Format   depthFormat,
             vk::Extent2D extent);
@@ -77,6 +83,7 @@ namespace FREYA_NAMESPACE
                               std::uint32_t                  frameIndex) const;
 
         void BeginAccumulate(const skr::Arc<CommandPool>& commandPool,
+                             const skr::Arc<Image>&       opaqueImage,
                              std::uint32_t                frameIndex) const;
 
         void EndAccumulate(const skr::Arc<CommandPool>& commandPool) const;
@@ -91,6 +98,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<MaterialDescriptorResources> mMaterialResources;
         skr::Arc<BoneMatrixResources>         mBoneResources;
         skr::Arc<LightService>                mLightService;
+        skr::Arc<IBLService>                  mIblService;
 
         vk::RenderPass     mAccumulateRenderPass;
         vk::RenderPass     mResolveRenderPass;
@@ -103,6 +111,10 @@ namespace FREYA_NAMESPACE
         vk::DescriptorSetLayout        mCameraSetLayout;
         vk::DescriptorPool             mCameraDescriptorPool;
         std::vector<vk::DescriptorSet> mCameraSets;
+
+        vk::DescriptorSetLayout        mGlassSetLayout;
+        vk::DescriptorPool             mGlassDescriptorPool;
+        std::vector<vk::DescriptorSet> mGlassSets;
 
         vk::DescriptorSetLayout        mResolveSetLayout;
         vk::DescriptorPool             mResolveDescriptorPool;
@@ -119,6 +131,7 @@ namespace FREYA_NAMESPACE
         vk::Extent2D                 mExtent {};
 
         mutable std::vector<vk::ImageView> mBoundOpaqueViews;
+        mutable std::vector<vk::ImageView> mBoundGlassOpaqueViews;
     };
 
 } // namespace FREYA_NAMESPACE
