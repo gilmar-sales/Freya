@@ -1,7 +1,5 @@
 #version 450
 
-// Final composite: HDR scene (opaque + WBOIT resolve) + bloom, optional tonemap.
-
 layout(binding = 0) uniform sampler2D inScene;
 layout(binding = 1) uniform sampler2D inBloom;
 

@@ -1,11 +1,7 @@
 #version 450
 
-// Screen-space AO (Crytek / LearnOpenGL hemisphere sample).
-// View-space radius/bias in meters. Noise-tiled, then bilateral blurred.
-// Reference: Joey de Vries — LearnOpenGL SSAO
-//   https://learnopengl.com/Advanced-Lighting/SSAO
-// Plus plane-distance reject (Alchemy-style) to kill flat hard-surface acne
-// common on dense CAD / vehicle meshes.
+// Hemisphere SSAO with plane-distance reject (acne on dense hulls).
+// https://learnopengl.com/Advanced-Lighting/SSAO
 layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(binding = 0) uniform sampler2D depthBuffer;
@@ -21,7 +17,6 @@ layout(binding = 4) uniform SsaoCamera {
     vec4 res;    // xy=invResolution(ssao) z=reverseZ w=unused
 } cam;
 
-// 16 hemisphere samples, lengths lerp(0.1,1,t²) like LearnOpenGL (seed 42).
 const int kKernelSize = 16;
 const vec3 kKernel[16] = vec3[](
     vec3(0.027138, -0.092451, 0.026766),
@@ -66,7 +61,6 @@ void main() {
     vec3 worldN = normalize(textureLod(normalBuffer, uv, 0.0).xyz * 2.0 - 1.0);
     vec3 viewN = normalize(mat3(cam.view) * worldN);
 
-    // Tile 4×4 noise (REPEAT sampler). Same layout as LearnOpenGL noiseScale.
     vec3 randomVec =
         textureLod(noiseTex, vec2(pixel) / 4.0, 0.0).xyz * 2.0 - 1.0;
     randomVec.z = 0.0;
@@ -75,7 +69,6 @@ void main() {
     else
         randomVec = normalize(randomVec);
 
-    // Gram-Schmidt TBN (tangent ⊥ normal).
     vec3 tangent = randomVec - viewN * dot(randomVec, viewN);
     if (dot(tangent, tangent) < 1e-6)
         tangent = cross(viewN, abs(viewN.y) < 0.999 ? vec3(0.0, 1.0, 0.0)
@@ -90,7 +83,6 @@ void main() {
     float occlusion = 0.0;
 
     for (int i = 0; i < kKernelSize; ++i) {
-        // LearnOpenGL: samplePos = fragPos + (TBN * sample) * radius
         vec3 samplePos = viewPos + TBN * kKernel[i] * radius;
 
         vec4 clip = cam.projection * vec4(samplePos, 1.0);
@@ -106,26 +98,21 @@ void main() {
         float sampleDepth = textureLod(depthBuffer, sampleUV, 0.0).r;
         vec3 occluderPos = ViewPosFromDepth(sampleUV, sampleDepth);
 
-        // Vector from shaded point to scene geometry under the sample.
         vec3 v = occluderPos - viewPos;
         float vv = dot(v, v);
         if (vv > radius2 || vv < 1e-8)
             continue;
 
-        // Plane bias: ignore nearly-coplanar hits (dense hull / hard edges acne).
-        // Real creases / contacts leave the tangent plane (vn >> bias).
+        // Plane bias: ignore nearly-coplanar hits (dense hull acne).
         float vn = dot(v, viewN);
         if (vn <= bias)
             continue;
 
-        // View looks down -Z; closer ⇒ larger z. Occluder closer than kernel
-        // sample ⇒ blocks the sample (LearnOpenGL test).
+        // Closer occluder than kernel sample blocks (view looks down -Z).
         if (occluderPos.z < samplePos.z + bias)
             continue;
 
-        // Soft 3D falloff (more stable than |Δz| alone on slanted hulls).
         float rangeCheck = 1.0 - smoothstep(radius2 * 0.25, radius2, vv);
-        // Weight by how far the hit leaves the plane (reduces grazing false AO).
         float planeW = smoothstep(bias, bias * 4.0, vn);
         occlusion += rangeCheck * planeW;
     }

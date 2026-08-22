@@ -1,8 +1,6 @@
 #version 450
 
-// Separable bilateral blur (edge-aware). Runs at SSAO resolution.
-// Radius matches the 4x4 noise tile so high-frequency AO grain is removed
-// without bleeding across geometric edges.
+// Edge-aware separable bilateral; radius matches 4x4 SSAO noise tile.
 layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(binding = 0) uniform sampler2D ssaoIn;
@@ -46,7 +44,6 @@ void main() {
 
     float centerViewZ = ViewPosFromDepth(uv, centerDepth).z;
 
-    // 9-tap separable Gaussian, covering the 4x4 SSAO noise period.
     const float kWeights[5] =
         float[](0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216);
 

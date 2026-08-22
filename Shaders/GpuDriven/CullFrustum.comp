@@ -2,9 +2,6 @@
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
-// Approach B: per-instance frustum (+ optional Hi-Z) cull, LOD select,
-// atomic-compact into dense DrawIndexedIndirectCommand list + transforms.
-
 struct MeshInfo {
     uint lodCount;
     uint lodBase;

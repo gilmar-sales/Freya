@@ -1,8 +1,6 @@
 #version 450
 
-// Bloom downsample — Call of Duty dual-filter 13-tap (Jimenez).
-// Softens bright extract before the upsample tent; reduces blockiness
-// when bloom runs at half/quarter resolution and is blitted to full-res.
+// Jimenez 13-tap dual-filter downsample.
 
 layout(binding = 0) uniform sampler2D inThreshold;
 

@@ -1,7 +1,5 @@
 #version 450
 
-// WBOIT resolve over opaque HDR, then hand off to Bloom/Composite.
-
 layout (binding = 0) uniform sampler2D inOpaque;
 layout (binding = 1) uniform sampler2D inAccum;
 layout (binding = 2) uniform sampler2D inReveal;

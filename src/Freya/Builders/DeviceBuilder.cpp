@@ -105,7 +105,6 @@ namespace FREYA_NAMESPACE
                                    .setFeatures(enabledFeatures)
                                    .setPNext(&enabled12);
 
-        // TODO: use optional extensions for memory priority
         auto optionalExtensions =
             mPhysicalDevice->FilterSupportedExtensions(OptionalExtensions);
 

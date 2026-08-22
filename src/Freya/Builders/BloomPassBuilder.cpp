@@ -26,9 +26,6 @@ namespace FREYA_NAMESPACE
     {
         auto renderPass = createRenderPass();
 
-        // ------------------------------------------------------------------
-        // Shaders
-        // ------------------------------------------------------------------
         const auto& root       = mFreyaOptions->shaderRoot;
         auto        loadShader = [&](const std::string& relative) {
             return mServiceProvider->GetService<ShaderModuleBuilder>()
@@ -63,17 +60,11 @@ namespace FREYA_NAMESPACE
                           makeStage(upFrag->Get(),
                                     vk::ShaderStageFlagBits::eFragment) };
 
-        // ------------------------------------------------------------------
-        // Half-resolution extent
-        // ------------------------------------------------------------------
         if (fullExtent.width == 0 || fullExtent.height == 0)
             fullExtent = mSurface->QueryExtent();
         const auto halfExtent =
             ScaledExtent(fullExtent, mFreyaOptions->bloomResolutionDivisor);
 
-        // ------------------------------------------------------------------
-        // Bloom images at half resolution (one set per in-flight frame)
-        // ------------------------------------------------------------------
         auto createBloomImage = [&]() {
             return mServiceProvider->GetService<ImageBuilder>()
                 ->SetUsage(ImageUsage::Color)
@@ -95,12 +86,6 @@ namespace FREYA_NAMESPACE
             bloomUpImages[i]        = createBloomImage();
         }
 
-        // ------------------------------------------------------------------
-        // Descriptor set layout:
-        //   binding 0 = combined image sampler (all subpasses read via sampler)
-        //   Input attachment refs in subpass descriptions handle layout
-        //   transitions; the shader reads via texture() with offsets.
-        // ------------------------------------------------------------------
         auto samplerBinding =
             vk::DescriptorSetLayoutBinding()
                 .setBinding(0)
@@ -114,9 +99,6 @@ namespace FREYA_NAMESPACE
         auto descriptorSetLayout =
             mDevice->Get().createDescriptorSetLayout(layoutInfo);
 
-        // ------------------------------------------------------------------
-        // Descriptor pool: 3 subpasses × frameCount sets, 1 sampler each
-        // ------------------------------------------------------------------
         auto poolSize = vk::DescriptorPoolSize()
                             .setType(vk::DescriptorType::eCombinedImageSampler)
                             .setDescriptorCount(3 * mFreyaOptions->frameCount);
@@ -206,9 +188,6 @@ namespace FREYA_NAMESPACE
                 nullptr);
         }
 
-        // ------------------------------------------------------------------
-        // Pipeline layout (+ push constants for bloom threshold)
-        // ------------------------------------------------------------------
         auto pushRange = vk::PushConstantRange()
                              .setStageFlags(vk::ShaderStageFlagBits::eFragment)
                              .setOffset(0)
@@ -221,9 +200,6 @@ namespace FREYA_NAMESPACE
         auto pipelineLayout =
             mDevice->Get().createPipelineLayout(pipelineLayoutInfo);
 
-        // ------------------------------------------------------------------
-        // Common pipeline state
-        // ------------------------------------------------------------------
         auto inputAssembly =
             vk::PipelineInputAssemblyStateCreateInfo()
                 .setTopology(vk::PrimitiveTopology::eTriangleList)
@@ -273,9 +249,6 @@ namespace FREYA_NAMESPACE
                                     .setVertexBindingDescriptions({})
                                     .setVertexAttributeDescriptions({});
 
-        // ------------------------------------------------------------------
-        // Create pipelines
-        // ------------------------------------------------------------------
         auto makePipeline = [&](const auto& stages, uint32_t subpass) {
             auto blendState =
                 vk::PipelineColorBlendStateCreateInfo()
@@ -317,9 +290,6 @@ namespace FREYA_NAMESPACE
         mDevice->Get().destroyShaderModule(downFrag->Get());
         mDevice->Get().destroyShaderModule(upFrag->Get());
 
-        // ------------------------------------------------------------------
-        // Framebuffers (indexed by in-flight frame, not swapchain image)
-        // ------------------------------------------------------------------
         auto framebuffers = std::vector<vk::Framebuffer>(frameCount);
 
         for (std::uint32_t i = 0; i < frameCount; i++)

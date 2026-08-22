@@ -1,7 +1,6 @@
 #version 450
 
-// Bloom threshold: soft-knee bright extract from HDR Scene Color.
-// Soft knee avoids hard rectangular blobs that look blocky under blur.
+// Soft-knee bright extract from HDR scene color.
 
 layout(binding = 0) uniform sampler2D inSceneColor;
 
@@ -18,7 +17,6 @@ void main() {
 
     float luminance = dot(scene, vec3(0.2126, 0.7152, 0.0722));
     float threshold = max(pc.bloomThreshold, 1e-4);
-    // Soft knee width ≈ 50% of threshold (common HDR bloom default).
     float knee = threshold * 0.5;
     float soft = luminance - threshold + knee;
     soft = clamp(soft, 0.0, 2.0 * knee);

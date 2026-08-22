@@ -22,9 +22,6 @@ namespace FREYA_NAMESPACE
     {
         auto renderPass = createRenderPass();
 
-        // ------------------------------------------------------------------
-        // Shaders
-        // ------------------------------------------------------------------
         const auto& root       = mFreyaOptions->shaderRoot;
         auto        loadShader = [&](const std::string& relative) {
             return mServiceProvider->GetService<ShaderModuleBuilder>()
@@ -57,9 +54,6 @@ namespace FREYA_NAMESPACE
                 .SetSamples(vk::SampleCountFlagBits::e1)
                 .Build();
 
-        // ------------------------------------------------------------------
-        // Descriptor set layout: scene (WBOIT-resolved HDR) + bloom
-        // ------------------------------------------------------------------
         auto bindings = std::array {
             vk::DescriptorSetLayoutBinding()
                 .setBinding(0)
@@ -81,9 +75,6 @@ namespace FREYA_NAMESPACE
         auto descriptorSetLayout =
             mDevice->Get().createDescriptorSetLayout(layoutInfo);
 
-        // ------------------------------------------------------------------
-        // Descriptor pool
-        // ------------------------------------------------------------------
         auto poolSize = vk::DescriptorPoolSize()
                             .setType(vk::DescriptorType::eCombinedImageSampler)
                             .setDescriptorCount(2 * mFreyaOptions->frameCount);
@@ -95,7 +86,6 @@ namespace FREYA_NAMESPACE
 
         auto descriptorPool = mDevice->Get().createDescriptorPool(poolInfo);
 
-        // Allocate descriptor sets (one per frame)
         auto setLayouts =
             std::vector<vk::DescriptorSetLayout>(mFreyaOptions->frameCount,
                                                  descriptorSetLayout);
@@ -106,9 +96,6 @@ namespace FREYA_NAMESPACE
 
         auto descriptorSets = mDevice->Get().allocateDescriptorSets(allocInfo);
 
-        // ------------------------------------------------------------------
-        // Pipeline layout (+ push constant for deferred HDR tonemap)
-        // ------------------------------------------------------------------
         auto pushRange = vk::PushConstantRange()
                              .setStageFlags(vk::ShaderStageFlagBits::eFragment)
                              .setOffset(0)
@@ -122,9 +109,6 @@ namespace FREYA_NAMESPACE
         auto pipelineLayout =
             mDevice->Get().createPipelineLayout(pipelineLayoutInfo);
 
-        // ------------------------------------------------------------------
-        // Pipeline state
-        // ------------------------------------------------------------------
         auto inputAssembly =
             vk::PipelineInputAssemblyStateCreateInfo()
                 .setTopology(vk::PrimitiveTopology::eTriangleList)
@@ -183,9 +167,6 @@ namespace FREYA_NAMESPACE
                                     .setVertexBindingDescriptions({})
                                     .setVertexAttributeDescriptions({});
 
-        // ------------------------------------------------------------------
-        // Create composite pipeline
-        // ------------------------------------------------------------------
         auto compositePipeline =
             mDevice->Get()
                 .createGraphicsPipeline(
@@ -206,13 +187,9 @@ namespace FREYA_NAMESPACE
                         .setBasePipelineHandle(nullptr))
                 .value;
 
-        // Cleanup shaders
         mDevice->Get().destroyShaderModule(vertShader->Get());
         mDevice->Get().destroyShaderModule(fragShader->Get());
 
-        // ------------------------------------------------------------------
-        // Framebuffers (one per swapchain image)
-        // ------------------------------------------------------------------
         auto frames       = swapChain->GetFrames();
         auto framebuffers = std::vector<vk::Framebuffer>(frames.size());
 

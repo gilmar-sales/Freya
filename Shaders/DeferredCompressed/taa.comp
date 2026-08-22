@@ -51,7 +51,7 @@ bool IsCloser(float candidate, float reference) {
                              : (candidate < reference);
 }
 
-// Closest-depth velocity in 3×3 — anchors silhouettes under motion.
+// Closest-depth velocity in 3×3 for silhouette stability.
 vec2 DilateVelocity(ivec2 pixel, out float closestDepth) {
     closestDepth = texelFetch(currentDepth, pixel, 0).r;
     vec2 bestVel = texelFetch(velocityBuffer, pixel, 0).xy;
@@ -71,8 +71,7 @@ vec2 DilateVelocity(ivec2 pixel, out float closestDepth) {
     return bestVel;
 }
 
-// Widen variance AABB on depth edges / motion so sub-pixel border AA is
-// not clipped away (avoids exposing raw jitter = shimmer).
+// Wider AABB on depth edges / motion so jitter AA is not clipped away.
 float GammaBoost(ivec2 pixel, vec2 velocity) {
     float dMin = 1e10;
     float dMax = -1e10;
@@ -273,7 +272,6 @@ void main() {
         return;
     }
 
-    // Dilated velocity (closest surface) for stable silhouette reprojection.
     float closestDepth;
     vec2  velocity  = DilateVelocity(pixel, closestDepth);
     vec2  historyUV = uv - velocity;
@@ -295,8 +293,7 @@ void main() {
     float speedPx =
         length(velocity / max(pc.invResolution, vec2(1e-6)));
 
-    // Pre-clip luma disagreement — dilated velocity often samples the moving
-    // surface into newly uncovered background (faint High/Ultra trails).
+    // Dilated velocity can reproject moving silhouettes onto uncovered bg.
     float lumaGhost =
         abs(Luma(current) - Luma(history)) /
         max(max(Luma(current), Luma(history)), 1e-3);
@@ -309,11 +306,9 @@ void main() {
         weight     = mix(pc.currentWeight, 1.0, dump);
         histTrust  = 1.0 - dump;
     } else {
-        // Depth from jittered rasters differs frame-to-frame on silhouettes
-        // even when still. Only trust depth reject under real motion.
+        // Depth reject only under motion — still frames jitter on silhouettes.
         float histDepth = textureLod(historyDepth, clampedUV, 0.0).r;
         float depthDiff = abs(currDepth - histDepth);
-        // Relative term: absolute device-Z alone is noisy with Reverse-Z.
         float depthRef  = max(max(currDepth, histDepth), 1e-3);
         float depthRel  = depthDiff / depthRef;
         float absUntrust =
@@ -325,9 +320,7 @@ void main() {
         histTrust          = depthTrust;
         weight = mix(1.0, pc.currentWeight, depthTrust);
 
-        // Soft floor keeps jitter AA; open toward full dump when history is
-        // clearly a different surface (Medium hard-clamp hides this; variance
-        // / ClipAABB on High+ leave a low-alpha trail otherwise).
+        // Soft dump when history is a different surface (High+ variance trails).
         float rejectCap = 0.55;
         if (q >= Q_HIGH) {
             float ghostLikely =
@@ -343,7 +336,6 @@ void main() {
 
     if (weight < 0.999) {
         float boost = GammaBoost(pixel, velocity);
-        // Motion-wide AABB lets dilated-velocity ghosts survive variance clip.
         if (q >= Q_HIGH)
             boost = mix(boost, 1.0 + 1.25 * (boost - 1.0), 0.65);
 
@@ -354,7 +346,6 @@ void main() {
             vec3 ext = 0.5 * (nMax - nMin) * boost;
             history  = clamp(history, mid - ext, mid + ext);
         } else if (q == Q_MEDIUM) {
-            // 3×3 min/max RGB (more stable than variance on thin edges).
             vec3 nMin, nMax;
             NeighborhoodBoxMinMaxRGB(pixel, nMin, nMax);
             vec3 mid = 0.5 * (nMin + nMax);
@@ -363,8 +354,7 @@ void main() {
         } else if (q == Q_HIGH) {
             vec3 mu, sigma;
             NeighborhoodVarianceBox(pixel, true, false, mu, sigma);
-            // Floor sigma so flat neighborhoods still leave room for
-            // sub-pixel history (jitter AA samples).
+            // Floor sigma so flat neighborhoods keep jitter-AA headroom.
             sigma = max(sigma, vec3(0.002, 0.001, 0.001));
             vec3 gamma = vec3(pc.varianceGammaY, pc.varianceGammaC,
                               pc.varianceGammaC) *
@@ -379,7 +369,7 @@ void main() {
             vec3 gamma = vec3(pc.varianceGammaY, pc.varianceGammaC,
                               pc.varianceGammaC) *
                          boost;
-            // ClipAABB keeps chroma trails; hard-clamp Y then clip chroma.
+            // Hard-clamp Y then ClipAABB chroma (ClipAABB alone keeps trails).
             vec3 hYCoCg = RGBToYCoCg(history);
             vec3 lo     = mu - gamma * sigma;
             vec3 hi     = mu + gamma * sigma;
@@ -389,7 +379,6 @@ void main() {
         }
     }
 
-    // Residual ghost after variance soft-box (High+ only).
     if (q >= Q_HIGH && weight < 0.999) {
         float postGhost =
             abs(Luma(current) - Luma(history)) /
@@ -402,7 +391,6 @@ void main() {
 
     vec3 result = mix(history, current, weight);
 
-    // Sharpen High+ only, and only where history stuck (avoid re-jitter).
     if (q >= Q_HIGH)
         result = ApplySharpen(result, pixel, pc.sharpen * histTrust, true);
 

@@ -10,7 +10,6 @@ namespace FREYA_NAMESPACE
      * @brief Builder for creating ShaderModule objects from SPIR-V files.
      *
      * Reads SPIR-V binary from file and creates shader module.
-     * TODO: Integrate shaderc for GLSL compilation.
      *
      * @param device         Device reference
      * @param logger         Logger reference
