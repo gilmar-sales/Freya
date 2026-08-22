@@ -1,9 +1,8 @@
 #version 450
 
-// Bloom downsample pass with Kawase blur
-// Samples 4 neighboring pixels at half-step offsets and averages them.
-// The input is read via a texture sampler (layout transitions are handled
-// by the subpass's input attachment reference).
+// Bloom downsample — Call of Duty dual-filter 13-tap (Jimenez).
+// Softens bright extract before the upsample tent; reduces blockiness
+// when bloom runs at half/quarter resolution and is blitted to full-res.
 
 layout(binding = 0) uniform sampler2D inThreshold;
 
@@ -12,13 +11,36 @@ layout(location = 0) out vec4 outColor;
 
 void main() {
     vec2 uv = inTexCoord;
-    vec2 texelSize = 1.0 / textureSize(inThreshold, 0);
+    vec2 texelSize = 1.0 / vec2(textureSize(inThreshold, 0));
 
-    // Kawase pattern: sample 4 corners at half-pixel offsets
-    vec4 s0 = texture(inThreshold, uv + vec2(-1.0, -1.0) * texelSize);
-    vec4 s1 = texture(inThreshold, uv + vec2( 1.0, -1.0) * texelSize);
-    vec4 s2 = texture(inThreshold, uv + vec2(-1.0,  1.0) * texelSize);
-    vec4 s3 = texture(inThreshold, uv + vec2( 1.0,  1.0) * texelSize);
+    vec3 a =
+        texture(inThreshold, uv + texelSize * vec2(-1.0, -1.0)).rgb;
+    vec3 b = texture(inThreshold, uv + texelSize * vec2(0.0, -1.0)).rgb;
+    vec3 c =
+        texture(inThreshold, uv + texelSize * vec2(1.0, -1.0)).rgb;
+    vec3 d =
+        texture(inThreshold, uv + texelSize * vec2(-0.5, -0.5)).rgb;
+    vec3 e =
+        texture(inThreshold, uv + texelSize * vec2(0.5, -0.5)).rgb;
+    vec3 f = texture(inThreshold, uv + texelSize * vec2(-1.0, 0.0)).rgb;
+    vec3 g = texture(inThreshold, uv).rgb;
+    vec3 h = texture(inThreshold, uv + texelSize * vec2(1.0, 0.0)).rgb;
+    vec3 i =
+        texture(inThreshold, uv + texelSize * vec2(-0.5, 0.5)).rgb;
+    vec3 j =
+        texture(inThreshold, uv + texelSize * vec2(0.5, 0.5)).rgb;
+    vec3 k =
+        texture(inThreshold, uv + texelSize * vec2(-1.0, 1.0)).rgb;
+    vec3 l = texture(inThreshold, uv + texelSize * vec2(0.0, 1.0)).rgb;
+    vec3 m =
+        texture(inThreshold, uv + texelSize * vec2(1.0, 1.0)).rgb;
 
-    outColor = (s0 + s1 + s2 + s3) * 0.25;
+    vec3 color = (d + e + i + j) * 0.5;
+    color += (a + b + f + g) * 0.125;
+    color += (b + c + g + h) * 0.125;
+    color += (f + g + k + l) * 0.125;
+    color += (g + h + l + m) * 0.125;
+    color *= 0.25;
+
+    outColor = vec4(color, 1.0);
 }
