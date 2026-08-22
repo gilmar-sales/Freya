@@ -55,15 +55,18 @@ void main() {
                SampleDepth(inUV - vec2(0.0, step.y));
     float edgeDepth = length(vec2(gx, gy)) * push.edgeDepthScale;
 
+    vec2 nStep = step * 1.75;
     vec3 n0 = SampleNormal(inUV);
-    vec3 nx = SampleNormal(inUV + vec2(step.x, 0.0));
-    vec3 ny = SampleNormal(inUV - vec2(0.0, step.y));
-    float edgeNormal =
+    vec3 nx = SampleNormal(inUV + vec2(nStep.x, 0.0));
+    vec3 ny = SampleNormal(inUV + vec2(0.0, nStep.y));
+    float nDiff =
         (1.0 - clamp(dot(n0, nx), 0.0, 1.0)) +
         (1.0 - clamp(dot(n0, ny), 0.0, 1.0));
-    edgeNormal *= push.edgeNormalScale;
+    const float kNormalDeadzone = 0.08;
+    float edgeNormal =
+        max(nDiff - kNormalDeadzone, 0.0) * push.edgeNormalScale;
 
-    float edge =
-        clamp(max(edgeDepth, edgeNormal) * push.strength, 0.0, 1.0);
+    float edge = clamp(max(edgeDepth, edgeNormal * 0.85) * push.strength,
+                       0.0, 1.0);
     outColor = vec4(mix(scene, push.edgeColor.rgb, edge), 1.0);
 }

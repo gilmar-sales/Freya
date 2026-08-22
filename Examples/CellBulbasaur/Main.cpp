@@ -273,13 +273,13 @@ class MainApp final : public fra::AbstractApplication
         {
             CellPushConstants cell {};
             cell.bands           = 5.0f;
-            cell.edgeDepthScale  = 120.0f;
-            cell.edgeNormalScale = 2.4f;
+            cell.edgeDepthScale  = 140.0f;
+            cell.edgeNormalScale = 1.6f;
             cell.strength        = 1.0f;
             cell.edgeColor       = { 0.05f, 0.08f, 0.04f, 1.0f };
             cell.reverseZ        = revZ;
             cell.shadowLift      = 0.1f;
-            cell.edgeWidth       = 2.5f;
+            cell.edgeWidth       = 2.0f;
             mCellEffect->SetPushConstants(cell);
             insertPost(mCellEffect);
         }

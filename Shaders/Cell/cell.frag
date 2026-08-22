@@ -45,6 +45,16 @@ bool MaterialIncluded(uint matId) {
     return (word & (1u << (matId & 31u))) != 0u;
 }
 
+float SampleLight(vec2 uv) {
+    vec3 scene = texture(inScene, uv).rgb;
+    vec3 albedoLin =
+        pow(max(texture(inAlbedo, uv).rgb, vec3(0.0)), vec3(2.2));
+    float albedoLuma =
+        max(dot(albedoLin, vec3(0.2126, 0.7152, 0.0722)), 1e-4);
+    float luma = max(dot(scene, vec3(0.2126, 0.7152, 0.0722)), 0.0);
+    return luma / albedoLuma;
+}
+
 void main() {
     vec3 scene = texture(inScene, inUV).rgb;
     float depth = SampleDepth(inUV);
@@ -54,22 +64,30 @@ void main() {
         return;
     }
 
-    float bands = max(push.bands, 1.0);
-    vec3 albedoLin = pow(max(texture(inAlbedo, inUV).rgb, vec3(0.0)), vec3(2.2));
-    float albedoLuma =
-        max(dot(albedoLin, vec3(0.2126, 0.7152, 0.0722)), 1e-4);
-    float luma = max(dot(scene, vec3(0.2126, 0.7152, 0.0722)), 0.0);
+    ivec2 size = textureSize(inDepth, 0);
+    vec2 texel = 1.0 / vec2(size);
 
-    // Intensity from lit/albedo (stable under HDR); rescale scene so colored
-    // lights (e.g. orange fire) keep their chroma after banding.
-    float lightRaw = luma / albedoLuma;
-    float light = clamp(lightRaw, 0.0, 2.0);
+    // Soften light before banding so close-up shadow texels do not snap
+    // into a hard checkerboard of cel bands.
+    float lightRaw = SampleLight(inUV);
+    float lightSum = 0.0;
+    float weightSum = 0.0;
+    for (int y = -1; y <= 1; ++y) {
+        for (int x = -1; x <= 1; ++x) {
+            vec2 uv = inUV + texel * vec2(float(x), float(y)) * 1.5;
+            float w = (x == 0 && y == 0) ? 2.0 : 1.0;
+            lightSum += SampleLight(uv) * w;
+            weightSum += w;
+        }
+    }
+    float lightSmooth = lightSum / max(weightSum, 1e-4);
+
+    float bands = max(push.bands, 1.0);
+    float light = clamp(lightSmooth, 0.0, 2.0);
     float lift = clamp(push.shadowLift, 0.0, 1.0);
     float quantized = max(floor(light * bands + 0.5) / bands, lift);
     vec3 cel = scene * (quantized / max(lightRaw, 1e-4));
 
-    ivec2 size = textureSize(inDepth, 0);
-    vec2 texel = 1.0 / vec2(size);
     float widthPx =
         max(push.edgeWidth, 1.0) * max(float(size.y) / 1080.0, 1.0);
     vec2 step = texel * widthPx;
@@ -80,14 +98,21 @@ void main() {
                SampleDepth(inUV - vec2(0.0, step.y));
     float edgeDepth = length(vec2(gx, gy)) * push.edgeDepthScale;
 
+    // Wider normal kernel + deadzone: kills axis-aligned hatch from
+    // magnified normal-map / micro-curvature when the camera is close.
+    vec2 nStep = step * 1.75;
     vec3 n0 = SampleNormal(inUV);
-    vec3 nx = SampleNormal(inUV + vec2(step.x, 0.0));
-    vec3 ny = SampleNormal(inUV - vec2(0.0, step.y));
-    float edgeNormal =
+    vec3 nx = SampleNormal(inUV + vec2(nStep.x, 0.0));
+    vec3 ny = SampleNormal(inUV + vec2(0.0, nStep.y));
+    float nDiff =
         (1.0 - clamp(dot(n0, nx), 0.0, 1.0)) +
         (1.0 - clamp(dot(n0, ny), 0.0, 1.0));
-    edgeNormal *= push.edgeNormalScale;
+    const float kNormalDeadzone = 0.08;
+    float edgeNormal =
+        max(nDiff - kNormalDeadzone, 0.0) * push.edgeNormalScale;
 
-    float edge = clamp(max(edgeDepth, edgeNormal) * push.strength, 0.0, 1.0);
+    // Prefer depth silhouettes; only keep strong normal creases.
+    float edge =
+        clamp(max(edgeDepth, edgeNormal * 0.85) * push.strength, 0.0, 1.0);
     outColor = vec4(mix(cel, push.edgeColor.rgb, edge), 1.0);
 }

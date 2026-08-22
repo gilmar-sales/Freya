@@ -45,15 +45,9 @@ void main() {
         alpha < mat.alphaCutoff)
         discard;
 
-    vec3 sampled =
-        texture(uTextures[nonuniformEXT(mat.normalIndex)], inTexCoord).rgb;
-    vec3 worldNormal;
-    if (all(greaterThan(sampled, vec3(0.99)))) {
-        worldNormal = normalize(inTBN[2]);
-    } else {
-        vec3 tangentNormal = sampled * 2.0 - 1.0;
-        worldNormal = normalize(inTBN * tangentNormal);
-    }
+    // Geometric normals only — tangent maps create dense X/Y outline
+    // hatch when the camera is close (cel edges sample G-buffer N).
+    vec3 worldNormal = normalize(inTBN[2]);
     if (!gl_FrontFacing)
         worldNormal = -worldNormal;
 
