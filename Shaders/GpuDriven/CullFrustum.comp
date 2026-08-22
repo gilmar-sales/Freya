@@ -31,6 +31,10 @@ struct SceneInstance {
     uint materialId;
     uint entityId;
     uint flags;
+    uint techniqueId;
+    uint _pad0;
+    uint _pad1;
+    uint _pad2;
 };
 
 struct DrawIndexedIndirectCommand {
@@ -60,6 +64,8 @@ layout(push_constant) uniform CullPC {
     uint hizEnabled;
     float lodPixelRef;
     float lodStep;
+    uint techniqueFilter;
+    uint _padTech;
 } cull;
 
 layout(std430, binding = 0) readonly buffer MeshInfoBuffer {
@@ -222,6 +228,10 @@ void main()
         return;
 
     SceneInstance inst = instances[id];
+
+    if (cull.techniqueFilter != 0xFFFFFFFFu &&
+        inst.techniqueId != cull.techniqueFilter)
+        return;
 
     if (cull.cullMode == kCullModeShadow &&
         (inst.flags & kFlagCastShadows) == 0u)

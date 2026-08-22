@@ -54,6 +54,8 @@ namespace FREYA_NAMESPACE
      * @param alphaMode        Opaque, Mask (cutout), or Blend (WBOIT)
      * @param clearcoat        Clearcoat weight 0–1 (deferred GGX layer)
      * @param clearcoatRoughness Clearcoat GGX roughness (glTF default ~0.03)
+     * @param techniqueId      Opaque G-buffer technique
+     *                         (`MaterialTechniqueRegistry`; 0 = stock PBR)
      */
     struct MaterialCreateInfo
     {
@@ -77,6 +79,7 @@ namespace FREYA_NAMESPACE
         bool      unlit                   = false;
         bool      doubleSided             = false;
         bool      receiveShadows          = true;
+        std::uint32_t techniqueId         = 0;
     };
 
     /**

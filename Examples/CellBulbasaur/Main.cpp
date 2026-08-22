@@ -93,6 +93,14 @@ class MainApp final : public fra::AbstractApplication
 
         mRenderer->ClearProjections();
 
+        auto techniques =
+            mServices->GetService<fra::MaterialTechniqueRegistry>();
+        mCellTechnique = techniques->Register(
+            "CellGBuffer", "Cell/gbuffer_cell.frag.spv");
+        // Pipelines are built with the deferred pass; rebuild so the new
+        // technique is available this session.
+        mRenderer->RebuildSwapChain();
+
         mCellEffect =
             mServices->GetService<fra::PostProcessBuilder>()
                 ->SetName("Cell")
@@ -133,26 +141,32 @@ class MainApp final : public fra::AbstractApplication
             "./Resources/Textures/bodyA.png");
 
         auto makeBodyMats = [&](std::uint32_t& eye, std::uint32_t& bodyB,
-                                std::uint32_t& bodyA) {
+                                std::uint32_t& bodyA,
+                                std::uint32_t  techniqueId) {
             eye   = mMaterialPool->Create({
                 .albedo          = eyeAlbedo,
                 .roughnessFactor = 1.0f,
                 .metalnessFactor = 0.0f,
+                .techniqueId     = techniqueId,
             });
             bodyB = mMaterialPool->Create({
                 .albedo          = bodyBAlbedo,
                 .roughnessFactor = 1.0f,
                 .metalnessFactor = 0.0f,
+                .techniqueId     = techniqueId,
             });
             bodyA = mMaterialPool->Create({
                 .albedo          = bodyAAlbedo,
                 .roughnessFactor = 1.0f,
                 .metalnessFactor = 0.0f,
+                .techniqueId     = techniqueId,
             });
         };
 
-        makeBodyMats(mEyeMaterial, mBodyBMaterial, mBodyAMaterial);
-        makeBodyMats(mPbrEyeMaterial, mPbrBodyBMaterial, mPbrBodyAMaterial);
+        makeBodyMats(mEyeMaterial, mBodyBMaterial, mBodyAMaterial,
+                     mCellTechnique);
+        makeBodyMats(mPbrEyeMaterial, mPbrBodyBMaterial, mPbrBodyAMaterial,
+                     fra::MaterialTechniqueRegistry::kDefaultTechnique);
 
         if (mCellEffect)
         {
@@ -488,6 +502,7 @@ class MainApp final : public fra::AbstractApplication
 
     skr::Arc<skr::ServiceProvider> mServices;
     skr::Arc<fra::PostProcess>     mCellEffect;
+    std::uint32_t                  mCellTechnique = 0;
     skr::Arc<fra::MeshPool>        mMeshPool;
     skr::Arc<fra::TexturePool>     mTexturePool;
     skr::Arc<fra::MaterialPool>    mMaterialPool;

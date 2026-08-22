@@ -12,6 +12,7 @@ deferred stack without forking the renderer.
 | SPIR-V root | `SetShaderRoot("./Resources/Shaders")` |
 | Frame graph | `Renderer::InsertFrameStage` / `ReplaceFrameStage` with Freya factories |
 | Custom post shaders | `PostProcessBuilder` + `BindMaterial` (G-buffer albedo.a IDs) |
+| Custom G-buffer shaders | `MaterialTechniqueRegistry` + `MaterialCreateInfo::techniqueId` |
 | Textures from memory | `TexturePool::CreateTextureFromMemory` |
 | Meshes from memory | `MeshPool::CreateMesh(vertices, indices)` |
 | Materials | `MaterialCreateInfo` (AO map, packed MR, unlit, double-sided) |
@@ -158,14 +159,33 @@ IndustrialPipeLamp is the PBR deferred reference. Cell + edges lives in
 `Examples/CellBulbasaur/` (`F4` toggles the effect on the Bulbasaur
 materials, not the ground).
 
+## Custom material G-buffer shaders
+
+Opaque draws use stock `DeferredCompressed/gbuffer.frag` (technique 0).
+Register alternate fragments that keep the same vertex inputs and G-buffer
+attachments, then assign `MaterialCreateInfo::techniqueId`:
+
+```cpp
+auto* techniques =
+    serviceProvider->GetService<fra::MaterialTechniqueRegistry>().get();
+const auto cellTech =
+    techniques->Register("CellGBuffer", "Cell/gbuffer_cell.frag.spv");
+// Rebuild deferred pipelines after Register (e.g. RebuildSwapChain).
+
+auto mat = materialPool->Create({
+    .albedo      = albedoTex,
+    .techniqueId = cellTech,
+});
+```
+
+Up to `kMaxMaterialTechniques` (8) slots. Shadow / pick / OIT / lighting stay
+on stock shaders; custom fragments must still write albedo+matID, normal+flags,
+PBR, emissive HDR, and velocity.
+
 ## Residual roadmap
 
 Not in this release (documented for planning):
 
-- **Material shaders (Phase 2)** — register alternate G-buffer fragment
-  SPIR-V that keep the same attachments / vertex contract; materials
-  select a technique ID via `MaterialCreateInfo` so opaque draws can
-  diverge from stock PBR without a fullscreen stylization pass
 - Forward / alternate full pipelines
 - GGX-prefiltered IBL cubemap (CPU irradiance + raw HDR mips today)
 - Clustered lighting (`MAX_LIGHTS` is still 16)

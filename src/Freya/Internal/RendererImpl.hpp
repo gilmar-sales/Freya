@@ -122,9 +122,12 @@ namespace FREYA_NAMESPACE
         void UploadBoneMatrices(std::span<const glm::mat4> bones);
 
         void ClearDrawCommands();
-        void ExecuteDrawCommands(bool bindMaterials = true);
+        void ExecuteDrawCommands(
+            bool          bindMaterials   = true,
+            std::uint32_t techniqueFilter = kTechniqueFilterAll);
         void ExecutePickDrawCommands();
-        void DispatchCull(const glm::mat4& viewProj, CullMode mode);
+        void DispatchCull(const glm::mat4& viewProj, CullMode mode,
+                          std::uint32_t techniqueFilter = kTechniqueFilterAll);
 
         void RequestPick(std::uint32_t x, std::uint32_t y);
         bool TryConsumePickResult(std::uint32_t& outEntityId);
@@ -259,6 +262,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<IndirectDrawSystem> mIndirectDraw;
 
         vk::PipelineLayout mDrawPipelineLayoutOverride = {};
+        std::uint32_t      mCachedUsedTechniqueMask    = 0x1u;
 
         std::optional<WindowResizeEvent> mResizeEvent;
 

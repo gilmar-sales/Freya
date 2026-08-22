@@ -615,12 +615,48 @@ namespace FREYA_NAMESPACE
             mDevice->Get().createGraphicsPipeline(nullptr, depthInfoPipe).value;
         auto gbufferPipeline =
             mDevice->Get().createGraphicsPipeline(nullptr, gbufferInfo).value;
+
+        auto destroyShader = [&](const skr::Arc<ShaderModule>& mod) {
+            if (mod)
+                mDevice->Get().destroyShaderModule(mod->Get());
+        };
+
+        std::vector<vk::Pipeline> gbufferTechniques;
+        gbufferTechniques.push_back(gbufferPipeline);
+
+        auto techniqueRegistry =
+            mServiceProvider->GetService<MaterialTechniqueRegistry>();
+        if (techniqueRegistry)
+        {
+            for (const auto& entry : techniqueRegistry->Entries())
+            {
+                auto techFrag = loadShader(entry.fragmentRelative);
+                if (!techFrag)
+                    continue;
+                auto techStages = std::array {
+                    vk::PipelineShaderStageCreateInfo()
+                        .setStage(vk::ShaderStageFlagBits::eVertex)
+                        .setModule(gbufVert->Get())
+                        .setPName("main"),
+                    vk::PipelineShaderStageCreateInfo()
+                        .setStage(vk::ShaderStageFlagBits::eFragment)
+                        .setModule(techFrag->Get())
+                        .setPName("main"),
+                };
+                auto techInfo = gbufferInfo;
+                techInfo.setStages(techStages);
+                auto techPipe =
+                    mDevice->Get()
+                        .createGraphicsPipeline(nullptr, techInfo)
+                        .value;
+                gbufferTechniques.push_back(techPipe);
+                destroyShader(techFrag);
+            }
+        }
+
         auto lightingPipeline =
             mDevice->Get().createGraphicsPipeline(nullptr, lightingInfo).value;
 
-        auto destroyShader = [&](const skr::Arc<ShaderModule>& mod) {
-            mDevice->Get().destroyShaderModule(mod->Get());
-        };
         destroyShader(depthVert);
         destroyShader(depthFrag);
         destroyShader(gbufVert);
@@ -657,12 +693,13 @@ namespace FREYA_NAMESPACE
 
         return skr::MakeArc<DeferredCompressedPass>(
             mDevice, mFreyaOptions, mSurface, renderPass, vertexPipelineLayout,
-            fullscreenPipelineLayout, depthPipeline, gbufferPipeline,
-            lightingPipeline, uniformBuffer, frameLayouts, descriptorSets,
-            descriptorPool, gbufferImages, sceneColorImage, velocityImage,
-            depthImage, framebuffers, lightingRenderPass, lightingFramebuffer,
-            lightingSetLayout, lightingDescriptorPool, lightingSets,
-            mMaterialResources, mBoneResources, gbufferSampler, extent);
+            fullscreenPipelineLayout, depthPipeline,
+            std::move(gbufferTechniques), lightingPipeline, uniformBuffer,
+            frameLayouts, descriptorSets, descriptorPool, gbufferImages,
+            sceneColorImage, velocityImage, depthImage, framebuffers,
+            lightingRenderPass, lightingFramebuffer, lightingSetLayout,
+            lightingDescriptorPool, lightingSets, mMaterialResources,
+            mBoneResources, gbufferSampler, extent);
     }
 
     vk::RenderPass DeferredCompressedPassBuilder::createGeometryRenderPass()

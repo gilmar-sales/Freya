@@ -31,6 +31,7 @@
 #include "Freya/Asset/BoneMatrixResources.hpp"
 #include "Freya/Asset/MaterialDescriptorResources.hpp"
 #include "Freya/Asset/MaterialPool.hpp"
+#include "Freya/Asset/MaterialTechniqueRegistry.hpp"
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Asset/TexturePool.hpp"
 #include "Freya/Core/IBLService.hpp"
@@ -144,6 +145,7 @@ namespace FREYA_NAMESPACE
 
         services.AddSingleton<TexturePool>();
         services.AddSingleton<MaterialPool>();
+        services.AddSingleton<MaterialTechniqueRegistry>();
         services.AddSingleton<MeshPool>();
 
         services.AddSingleton<LightService>(

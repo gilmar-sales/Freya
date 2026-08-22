@@ -56,7 +56,7 @@ namespace FREYA_NAMESPACE
         {
             const auto viewProj =
                 ctx.projection->unjitteredProjection * ctx.projection->view;
-            ctx.dispatchCull(viewProj, CullMode::Camera);
+            ctx.dispatchCull(viewProj, CullMode::Camera, kTechniqueFilterAll);
         }
 
         (*ctx.pick)->Render(ctx.commandPool, *ctx.projection,
@@ -88,13 +88,14 @@ namespace FREYA_NAMESPACE
                 ctx.commandPool,
                 [&](const glm::mat4& lightVP) {
                     if (ctx.dispatchCull)
-                        ctx.dispatchCull(lightVP, CullMode::Shadow);
+                        ctx.dispatchCull(lightVP, CullMode::Shadow,
+                                         kTechniqueFilterAll);
                 },
                 [&]() {
                     auto layout = (*ctx.shadow)->GetPipelineLayout();
                     if (ctx.drawPipelineLayoutOverride)
                         *ctx.drawPipelineLayoutOverride = layout;
-                    ctx.executeDraws(true);
+                    ctx.executeDraws(true, kTechniqueFilterAll);
                     if (ctx.drawPipelineLayoutOverride)
                         *ctx.drawPipelineLayoutOverride = vk::PipelineLayout {};
                 });
@@ -115,11 +116,25 @@ namespace FREYA_NAMESPACE
         if (!ctx.deferred || !*ctx.deferred)
             return;
 
+        const glm::mat4 viewProj =
+            ctx.projection
+                ? ctx.projection->unjitteredProjection * ctx.projection->view
+                : glm::mat4(1.0f);
+
+        std::uint32_t usedMask = 0x1u;
+        if (ctx.usedTechniqueMask)
+            usedMask = *ctx.usedTechniqueMask;
+
+        // Depth list (all opaque) + per-technique G-buffer lists.
         if (ctx.dispatchCull && ctx.projection)
         {
-            const auto viewProj =
-                ctx.projection->unjitteredProjection * ctx.projection->view;
-            ctx.dispatchCull(viewProj, CullMode::Camera);
+            ctx.dispatchCull(viewProj, CullMode::Camera, kTechniqueFilterAll);
+            for (std::uint32_t t = 0; t < kMaxMaterialTechniques; ++t)
+            {
+                if ((usedMask & (1u << t)) == 0)
+                    continue;
+                ctx.dispatchCull(viewProj, CullMode::Camera, t);
+            }
         }
 
         (*ctx.deferred)->Begin(ctx.swapChain, ctx.commandPool);
@@ -128,15 +143,38 @@ namespace FREYA_NAMESPACE
         auto currentSubpass = (*ctx.deferred)->GetCurrentSubpass();
         if (currentSubpass == DefDepthPrePass)
         {
-            ctx.executeDraws(false);
-            (*ctx.deferred)
-                ->AdvanceSubpass(DefGBufferPass, ctx.commandPool,
-                                 ctx.frameIndex);
-            ctx.executeDraws(true);
+            if (ctx.executeDraws)
+                ctx.executeDraws(false, kTechniqueFilterAll);
+            (*ctx.deferred)->NextSubpass(ctx.commandPool);
+
+            bool drew = false;
+            for (std::uint32_t t = 0; t < kMaxMaterialTechniques; ++t)
+            {
+                if ((usedMask & (1u << t)) == 0)
+                    continue;
+                (*ctx.deferred)
+                    ->BindGBufferTechnique(t, ctx.commandPool, ctx.frameIndex);
+                if (ctx.executeDraws)
+                    ctx.executeDraws(true, t);
+                drew = true;
+            }
+            if (!drew)
+            {
+                (*ctx.deferred)
+                    ->BindGBufferTechnique(0, ctx.commandPool, ctx.frameIndex);
+            }
         }
         else if (currentSubpass == DefGBufferPass)
         {
-            ctx.executeDraws(true);
+            for (std::uint32_t t = 0; t < kMaxMaterialTechniques; ++t)
+            {
+                if ((usedMask & (1u << t)) == 0)
+                    continue;
+                (*ctx.deferred)
+                    ->BindGBufferTechnique(t, ctx.commandPool, ctx.frameIndex);
+                if (ctx.executeDraws)
+                    ctx.executeDraws(true, t);
+            }
         }
 
         (*ctx.deferred)->End(ctx.commandPool);
@@ -256,7 +294,8 @@ namespace FREYA_NAMESPACE
         {
             const auto viewProj =
                 ctx.projection->unjitteredProjection * ctx.projection->view;
-            ctx.dispatchCull(viewProj, CullMode::Translucent);
+            ctx.dispatchCull(viewProj, CullMode::Translucent,
+                             kTechniqueFilterAll);
         }
 
         auto layout = (*ctx.translucent)->GetAccumulatePipelineLayout();
@@ -266,7 +305,7 @@ namespace FREYA_NAMESPACE
         (*ctx.translucent)->BeginAccumulate(ctx.commandPool, ctx.frameIndex);
         SetFullViewport(ctx.commandPool, ctx.renderExtent);
         if (ctx.executeDraws)
-            ctx.executeDraws(true);
+            ctx.executeDraws(true, kTechniqueFilterAll);
         (*ctx.translucent)->EndAccumulate(ctx.commandPool);
 
         if (ctx.drawPipelineLayoutOverride)

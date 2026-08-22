@@ -12,6 +12,8 @@
 #include "Freya/Core/UniformBuffer.hpp"
 #include "Freya/FreyaOptions.hpp"
 
+#include <vector>
+
 namespace FREYA_NAMESPACE
 {
     /**
@@ -52,7 +54,7 @@ namespace FREYA_NAMESPACE
             const vk::PipelineLayout      vertexPipelineLayout,
             const vk::PipelineLayout      fullscreenPipelineLayout,
             const vk::Pipeline            depthPrepassPipeline,
-            const vk::Pipeline            gbufferPipeline,
+            std::vector<vk::Pipeline>     gbufferTechniques,
             const vk::Pipeline            lightingPipeline,
             const skr::Arc<Buffer>&       uniformBuffer,
             const std::vector<vk::DescriptorSetLayout>&  descriptorSetLayouts,
@@ -107,6 +109,10 @@ namespace FREYA_NAMESPACE
                           const skr::Arc<CommandPool>& commandPool,
                           std::uint32_t                frameIndex) const;
 
+        void BindGBufferTechnique(std::uint32_t                techniqueId,
+                                  const skr::Arc<CommandPool>& commandPool,
+                                  std::uint32_t                frameIndex) const;
+
         void AdvanceSubpass(std::uint32_t                subpass,
                             const skr::Arc<CommandPool>& commandPool,
                             std::uint32_t                frameIndex) const;
@@ -154,6 +160,7 @@ namespace FREYA_NAMESPACE
         vk::PipelineLayout mFullscreenPipelineLayout;
 
         std::array<vk::Pipeline, 3> mPipelines;
+        std::vector<vk::Pipeline>   mGBufferTechniques;
 
         skr::Arc<Buffer> mUniformBuffer;
 

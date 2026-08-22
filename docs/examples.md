@@ -98,10 +98,12 @@ cd build/Examples/SkinnedFox
 
 Location: `Examples/CellBulbasaur/`
 
-Cell + edge post-process (`PostProcess` + `Cell/cell.frag`) on a skinned
-Bulbasaur GLB (idle clip). Bound to the model materials (`BindMaterial`);
-the ground stays PBR. Textures are albedo maps per submesh. `F4` toggles
-the effect. TAA and bloom start off so outlines stay sharp.
+Cell + edge post-process (`PostProcess` + `Cell/cell.frag`) and a custom
+G-buffer technique (`Cell/gbuffer_cell.frag` via `MaterialTechniqueRegistry`)
+on a skinned Bulbasaur GLB (idle clip). Bound to the model materials
+(`BindMaterial` + `techniqueId`); the ground stays stock PBR. Textures are
+albedo maps per submesh. `F4` toggles the post effect. TAA and bloom start
+off so outlines stay sharp.
 
 ```bash
 cd build/Examples/CellBulbasaur

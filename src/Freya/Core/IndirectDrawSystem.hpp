@@ -11,6 +11,7 @@
 #include "Freya/Core/HiZPyramid.hpp"
 #include "Freya/Core/Image.hpp"
 
+#include <array>
 #include <limits>
 #include <span>
 #include <vector>
@@ -65,10 +66,12 @@ namespace FREYA_NAMESPACE
          * Must be called outside of a render pass.
          */
         void DispatchCull(const glm::mat4& viewProj, CullMode mode,
-                          bool reverseZ = false);
+                          bool          reverseZ         = false,
+                          std::uint32_t techniqueFilter = kTechniqueFilterAll);
 
         void ExecuteDraws(bool               bindMaterials,
-                          vk::PipelineLayout pipelineLayout);
+                          vk::PipelineLayout pipelineLayout,
+                          std::uint32_t techniqueFilter = kTechniqueFilterAll);
 
         [[nodiscard]] std::uint32_t GetInstanceCount() const
         {
@@ -81,6 +84,12 @@ namespace FREYA_NAMESPACE
         }
 
         [[nodiscard]] bool HasScene() const { return mInstanceCount > 0; }
+
+        /// Bit i set ⇒ at least one opaque instance uses technique i.
+        [[nodiscard]] std::uint32_t UsedTechniqueMask() const
+        {
+            return mUsedTechniqueMask;
+        }
 
       private:
         class EntityModelMap
@@ -218,14 +227,20 @@ namespace FREYA_NAMESPACE
             std::size_t       mCount      = 0;
         };
 
-        struct FrameResources
+        struct DrawListResources
         {
-            skr::Arc<Buffer> sceneInstances;
-            skr::Arc<Buffer> sourceTransforms;
             skr::Arc<Buffer> compactTransforms;
             skr::Arc<Buffer> indirect;
             skr::Arc<Buffer> drawCount;
-            std::uint32_t    capacity = 0;
+        };
+
+        struct FrameResources
+        {
+            skr::Arc<Buffer>                                       sceneInstances;
+            skr::Arc<Buffer>                                       sourceTransforms;
+            DrawListResources                                      main;
+            std::array<DrawListResources, kMaxMaterialTechniques> techniques {};
+            std::uint32_t                                          capacity = 0;
         };
 
         void ensureCapacity(std::uint32_t instanceCount);
@@ -235,9 +250,16 @@ namespace FREYA_NAMESPACE
         void bumpCullDescVersion();
         void refreshCullDescriptorsIfNeeded();
         void uploadFrameBuffers();
-        void zeroDrawCount();
+        void zeroDrawCount(std::uint32_t techniqueFilter);
 
         [[nodiscard]] FrameResources& currentFrame();
+        [[nodiscard]] DrawListResources& drawListFor(
+            FrameResources& frame, std::uint32_t techniqueFilter);
+        [[nodiscard]] vk::DescriptorSet cullSetFor(
+            std::uint32_t techniqueFilter) const;
+
+        static constexpr std::uint32_t kCullSetsPerFrame =
+            1u + kMaxMaterialTechniques;
 
         skr::Arc<Device>                      mDevice;
         skr::Arc<CommandPool>                 mCommandPool;
@@ -268,10 +290,11 @@ namespace FREYA_NAMESPACE
         std::vector<InstanceTransform> mPrevTransforms;
         EntityModelMap                 mPrevModelByEntity;
 
-        std::uint32_t mInstanceCount    = 0;
-        std::uint32_t mMeshInfoCapacity = 0;
-        std::uint32_t mMeshLodCapacity  = 0;
-        bool          mMeshInfoDirty    = true;
+        std::uint32_t mInstanceCount       = 0;
+        std::uint32_t mMeshInfoCapacity    = 0;
+        std::uint32_t mMeshLodCapacity     = 0;
+        bool          mMeshInfoDirty       = true;
+        std::uint32_t mUsedTechniqueMask   = 1u; // technique 0 always considered
 
         // Cull descriptor updates are unsafe once the set is bound this frame.
         std::uint32_t              mCullDescVersion = 1;

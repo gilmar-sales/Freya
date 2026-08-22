@@ -291,12 +291,17 @@ namespace FREYA_NAMESPACE
         ctx.pickY                      = &mPickY;
         ctx.pickAwaitingReadback       = &mPickAwaitingReadback;
         ctx.drawPipelineLayoutOverride = &mDrawPipelineLayoutOverride;
+        mCachedUsedTechniqueMask =
+            mIndirectDraw ? mIndirectDraw->UsedTechniqueMask() : 0x1u;
+        ctx.usedTechniqueMask = &mCachedUsedTechniqueMask;
 
-        ctx.executeDraws = [this](bool bindMaterials) {
-            ExecuteDrawCommands(bindMaterials);
+        ctx.executeDraws = [this](bool bindMaterials,
+                                  std::uint32_t techniqueFilter) {
+            ExecuteDrawCommands(bindMaterials, techniqueFilter);
         };
-        ctx.dispatchCull = [this](const glm::mat4& viewProj, CullMode mode) {
-            DispatchCull(viewProj, mode);
+        ctx.dispatchCull = [this](const glm::mat4& viewProj, CullMode mode,
+                                  std::uint32_t techniqueFilter) {
+            DispatchCull(viewProj, mode, techniqueFilter);
         };
         ctx.executePickDraws = [this]() { ExecutePickDrawCommands(); };
         ctx.buildHiZ         = [this]() {
@@ -1188,7 +1193,8 @@ namespace FREYA_NAMESPACE
     }
 
     void Renderer::Impl::DispatchCull(const glm::mat4& viewProj,
-                                      const CullMode   mode)
+                                      const CullMode   mode,
+                                      const std::uint32_t techniqueFilter)
     {
         flushLegacyDrawCommands();
         if (!mIndirectDraw)
@@ -1197,16 +1203,19 @@ namespace FREYA_NAMESPACE
         const auto cameraPos =
             glm::vec3(glm::inverse(mCurrentProjection.view)[3]);
         mIndirectDraw->SetCullView(cameraPos, getRenderExtent());
-        mIndirectDraw->DispatchCull(viewProj, mode, mFreyaOptions->ReverseZ);
+        mIndirectDraw->DispatchCull(viewProj, mode, mFreyaOptions->ReverseZ,
+                                    techniqueFilter);
     }
 
-    void Renderer::Impl::ExecuteDrawCommands(const bool bindMaterials)
+    void Renderer::Impl::ExecuteDrawCommands(
+        const bool bindMaterials, const std::uint32_t techniqueFilter)
     {
         flushLegacyDrawCommands();
         if (!mIndirectDraw)
             return;
 
-        mIndirectDraw->ExecuteDraws(bindMaterials, GetActivePipelineLayout());
+        mIndirectDraw->ExecuteDraws(bindMaterials, GetActivePipelineLayout(),
+                                    techniqueFilter);
     }
 
     void Renderer::Impl::ExecutePickDrawCommands()

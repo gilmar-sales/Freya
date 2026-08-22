@@ -26,6 +26,7 @@ Treat as **app-stable**:
 - `AbstractApplication` lifecycle
 - `Renderer` frame loop, quality knobs, pick, debug draw, GPU anim methods
 - `PostProcess` + `PostProcessBuilder` + `MakeStage()`
+- `MaterialTechniqueRegistry` + `MaterialCreateInfo::techniqueId`
 - `IFrameStage` as an opaque type for `InsertFrameStage` (apps use factories,
   they do not implement stages)
 

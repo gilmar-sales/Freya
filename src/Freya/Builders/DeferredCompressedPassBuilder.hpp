@@ -2,6 +2,7 @@
 
 #include "Freya/Asset/BoneMatrixResources.hpp"
 #include "Freya/Asset/MaterialDescriptorResources.hpp"
+#include "Freya/Asset/MaterialTechniqueRegistry.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
 #include "Freya/Core/DeferredCompressedPass.hpp"

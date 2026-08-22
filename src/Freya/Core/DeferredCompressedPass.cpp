@@ -12,7 +12,7 @@ namespace FREYA_NAMESPACE
         const vk::PipelineLayout                     vertexPipelineLayout,
         const vk::PipelineLayout                     fullscreenPipelineLayout,
         const vk::Pipeline                           depthPrepassPipeline,
-        const vk::Pipeline                           gbufferPipeline,
+        std::vector<vk::Pipeline>                    gbufferTechniques,
         const vk::Pipeline                           lightingPipeline,
         const skr::Arc<Buffer>&                      uniformBuffer,
         const std::vector<vk::DescriptorSetLayout>&  descriptorSetLayouts,
@@ -46,10 +46,13 @@ namespace FREYA_NAMESPACE
         mLightingDescriptorPool(lightingDescriptorPool),
         mLightingSets(lightingSets), mMaterialResources(materialResources),
         mBoneResources(boneResources), mGbufferSampler(gbufferSampler),
-        mBoundSsaoViews(lightingSets.size())
+        mBoundSsaoViews(lightingSets.size()),
+        mGBufferTechniques(std::move(gbufferTechniques))
     {
         mPipelines[DefDepthPrePass] = depthPrepassPipeline;
-        mPipelines[DefGBufferPass]  = gbufferPipeline;
+        mPipelines[DefGBufferPass] =
+            mGBufferTechniques.empty() ? vk::Pipeline {}
+                                       : mGBufferTechniques.front();
         mPipelines[DefLightingPass] = lightingPipeline;
     }
 
@@ -69,6 +72,13 @@ namespace FREYA_NAMESPACE
 
         for (const auto& layout : mDescriptorSetLayouts)
             vkDevice.destroyDescriptorSetLayout(layout);
+
+        for (std::size_t i = 1; i < mGBufferTechniques.size(); ++i)
+        {
+            if (mGBufferTechniques[i])
+                vkDevice.destroyPipeline(mGBufferTechniques[i]);
+        }
+        mGBufferTechniques.clear();
 
         for (auto& pipeline : mPipelines)
             vkDevice.destroyPipeline(pipeline);
@@ -201,6 +211,57 @@ namespace FREYA_NAMESPACE
                     0,
                     nullptr);
             }
+        }
+    }
+
+    void DeferredCompressedPass::BindGBufferTechnique(
+        const std::uint32_t          techniqueId,
+        const skr::Arc<CommandPool>& commandPool,
+        const std::uint32_t          frameIndex) const
+    {
+        auto commandBuffer = commandPool->GetCommandBuffer();
+
+        vk::Pipeline pipeline = mPipelines[DefGBufferPass];
+        if (techniqueId < mGBufferTechniques.size() &&
+            mGBufferTechniques[techniqueId])
+            pipeline = mGBufferTechniques[techniqueId];
+
+        if (mLabelActive && mCurrentSubpass != DefGBufferPass)
+        {
+            mDevice->EndDebugLabel(commandBuffer);
+            mDevice->BeginDebugLabel(commandBuffer,
+                                     GetSubpassRegion(DefGBufferPass));
+            mLabelActive = true;
+        }
+        else if (!mLabelActive)
+        {
+            mDevice->BeginDebugLabel(commandBuffer,
+                                     GetSubpassRegion(DefGBufferPass));
+            mLabelActive = true;
+        }
+
+        commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
+        mCurrentSubpass = DefGBufferPass;
+
+        commandBuffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics,
+            mVertexPipelineLayout,
+            0,
+            1,
+            &mDescriptorSets[frameIndex],
+            0,
+            nullptr);
+        if (mBoneResources)
+        {
+            auto boneSet = mBoneResources->GetSet(frameIndex);
+            commandBuffer.bindDescriptorSets(
+                vk::PipelineBindPoint::eGraphics,
+                mVertexPipelineLayout,
+                2,
+                1,
+                &boneSet,
+                0,
+                nullptr);
         }
     }
 

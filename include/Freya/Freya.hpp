@@ -29,6 +29,7 @@
 #include "Freya/Asset/InstanceTransform.hpp"
 #include "Freya/Asset/Material.hpp"
 #include "Freya/Asset/MaterialPool.hpp"
+#include "Freya/Asset/MaterialTechniqueRegistry.hpp"
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Asset/Pose.hpp"
 #include "Freya/Asset/Rig.hpp"

@@ -69,9 +69,12 @@ namespace FREYA_NAMESPACE
         bool*          pickAwaitingReadback = nullptr;
 
         vk::PipelineLayout* drawPipelineLayoutOverride = nullptr;
+        std::uint32_t*      usedTechniqueMask          = nullptr;
 
-        std::function<void(const glm::mat4&, CullMode)> dispatchCull;
-        std::function<void(bool bindMaterials)>         executeDraws;
+        std::function<void(const glm::mat4&, CullMode, std::uint32_t)>
+            dispatchCull;
+        std::function<void(bool bindMaterials, std::uint32_t techniqueFilter)>
+            executeDraws;
         std::function<void()>                           executePickDraws;
         std::function<void()>                           buildHiZ;
         std::function<void()>                           blitBloomToFullRes;

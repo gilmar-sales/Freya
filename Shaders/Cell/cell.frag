@@ -55,14 +55,17 @@ void main() {
     }
 
     float bands = max(push.bands, 1.0);
-    float luma = dot(scene, vec3(0.2126, 0.7152, 0.0722));
     vec3 albedoLin = pow(max(texture(inAlbedo, inUV).rgb, vec3(0.0)), vec3(2.2));
     float albedoLuma =
         max(dot(albedoLin, vec3(0.2126, 0.7152, 0.0722)), 1e-4);
-    vec3 chroma = (luma > 1e-4) ? scene / luma : albedoLin / albedoLuma;
+    float luma = max(dot(scene, vec3(0.2126, 0.7152, 0.0722)), 0.0);
+
+    // Quantize lighting (lit / albedo), not absolute HDR luma — avoids white
+    // blotches from specular / exposure spikes via scene/luma chroma.
+    float light = clamp(luma / albedoLuma, 0.0, 1.5);
     float lift = clamp(push.shadowLift, 0.0, 1.0);
-    float quantized = max(floor(luma * bands + 0.5) / bands, lift);
-    vec3 cel = chroma * quantized;
+    float quantized = max(floor(light * bands + 0.5) / bands, lift);
+    vec3 cel = albedoLin * quantized;
 
     ivec2 size = textureSize(inDepth, 0);
     vec2 texel = 1.0 / vec2(size);

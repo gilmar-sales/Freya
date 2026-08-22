@@ -17,6 +17,10 @@ namespace FREYA_NAMESPACE
     constexpr std::uint32_t kSceneInstanceFlagTranslucent = 2u;
     constexpr std::uint32_t kSceneInstanceFlagSkinned     = 4u;
 
+    /// Cull / draw all techniques (depth, shadow, translucent).
+    constexpr std::uint32_t kTechniqueFilterAll = 0xFFFFFFFFu;
+    constexpr std::uint32_t kMaxMaterialTechniques = 8;
+
     constexpr std::uint32_t kMaterialFlagPackedMR      = 1u;
     constexpr std::uint32_t kMaterialFlagUnlit         = 2u;
     constexpr std::uint32_t kMaterialFlagDoubleSided   = 4u;
@@ -77,14 +81,18 @@ namespace FREYA_NAMESPACE
      */
     struct SceneInstance
     {
-        glm::mat4     model      = glm::mat4(1.0f);
-        std::uint32_t meshId     = 0;
-        std::uint32_t materialId = 0;
-        std::uint32_t entityId   = 0;
-        std::uint32_t flags      = kSceneInstanceFlagCastShadows;
+        glm::mat4     model       = glm::mat4(1.0f);
+        std::uint32_t meshId      = 0;
+        std::uint32_t materialId  = 0;
+        std::uint32_t entityId    = 0;
+        std::uint32_t flags       = kSceneInstanceFlagCastShadows;
+        std::uint32_t techniqueId = 0;
+        std::uint32_t _pad0       = 0;
+        std::uint32_t _pad1       = 0;
+        std::uint32_t _pad2       = 0;
     };
 
-    static_assert(sizeof(SceneInstance) == 80,
+    static_assert(sizeof(SceneInstance) == 96,
                   "SceneInstance must match GLSL std430");
 
     /**
@@ -146,8 +154,11 @@ namespace FREYA_NAMESPACE
         std::uint32_t hizEnabled    = 0;
         float         lodPixelRef   = 256.0f; ///< ~pixels of diameter for LOD0
         float         lodStep       = 2.0f;   ///< diameter shrink per LOD
+        /// `kTechniqueFilterAll` or a concrete technique id.
+        std::uint32_t techniqueFilter = kTechniqueFilterAll;
+        std::uint32_t _padTech        = 0;
     };
 
-    static_assert(sizeof(CullPushConstants) == 112, "CullPushConstants size");
+    static_assert(sizeof(CullPushConstants) == 120, "CullPushConstants size");
 
 } // namespace FREYA_NAMESPACE

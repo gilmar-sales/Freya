@@ -9,7 +9,8 @@ TEST_CASE("GPU scene records keep GLSL std430 sizes", "[gpu-scene]")
 {
     STATIC_REQUIRE(sizeof(fra::MeshLodInfo) == 16);
     STATIC_REQUIRE(sizeof(fra::MeshInfo) == 64);
-    STATIC_REQUIRE(sizeof(fra::SceneInstance) == 80);
+    STATIC_REQUIRE(sizeof(fra::SceneInstance) == 96);
+    STATIC_REQUIRE(sizeof(fra::CullPushConstants) == 120);
     STATIC_REQUIRE(sizeof(fra::MaterialGPU) == 96);
     STATIC_REQUIRE(fra::kPickMissId == 0xFFFFFFFFu);
     STATIC_REQUIRE(fra::kNoSkin == std::numeric_limits<std::uint32_t>::max());
