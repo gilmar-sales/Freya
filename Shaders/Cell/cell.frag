@@ -60,12 +60,13 @@ void main() {
         max(dot(albedoLin, vec3(0.2126, 0.7152, 0.0722)), 1e-4);
     float luma = max(dot(scene, vec3(0.2126, 0.7152, 0.0722)), 0.0);
 
-    // Quantize lighting (lit / albedo), not absolute HDR luma — avoids white
-    // blotches from specular / exposure spikes via scene/luma chroma.
-    float light = clamp(luma / albedoLuma, 0.0, 1.5);
+    // Intensity from lit/albedo (stable under HDR); rescale scene so colored
+    // lights (e.g. orange fire) keep their chroma after banding.
+    float lightRaw = luma / albedoLuma;
+    float light = clamp(lightRaw, 0.0, 2.0);
     float lift = clamp(push.shadowLift, 0.0, 1.0);
     float quantized = max(floor(light * bands + 0.5) / bands, lift);
-    vec3 cel = albedoLin * quantized;
+    vec3 cel = scene * (quantized / max(lightRaw, 1e-4));
 
     ivec2 size = textureSize(inDepth, 0);
     vec2 texel = 1.0 / vec2(size);
