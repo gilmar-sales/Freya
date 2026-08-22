@@ -18,7 +18,7 @@ namespace FREYA_NAMESPACE
     constexpr std::uint32_t kSceneInstanceFlagSkinned     = 4u;
 
     /// Cull / draw all techniques (depth, shadow, translucent).
-    constexpr std::uint32_t kTechniqueFilterAll = 0xFFFFFFFFu;
+    constexpr std::uint32_t kTechniqueFilterAll    = 0xFFFFFFFFu;
     constexpr std::uint32_t kMaxMaterialTechniques = 8;
 
     constexpr std::uint32_t kMaterialFlagPackedMR      = 1u;
@@ -134,7 +134,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t occlusionIndex =
             kBindlessWhiteTexture; ///< AO (.r) or packed ORM .r
         std::uint32_t flags = kMaterialFlagReceiveShadow; ///< kMaterialFlag*
-        float         transmission = 0.f; ///< 0–1; OIT refraction when >0
+        float         transmission = 0.f;  ///< 0–1; OIT refraction when >0
         float         ior          = 1.5f; ///< index of refraction
     };
 

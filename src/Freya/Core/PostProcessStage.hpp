@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Freya/Core/PostProcess.hpp"
 #include "Freya/Core/IFrameStage.hpp"
+#include "Freya/Core/PostProcess.hpp"
 
 namespace FREYA_NAMESPACE
 {

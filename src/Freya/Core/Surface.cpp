@@ -1,5 +1,7 @@
 #include "Freya/Core/Surface.hpp"
 
+#include "Freya/Internal/WindowNative.hpp"
+
 namespace FREYA_NAMESPACE
 {
     /**
@@ -92,5 +94,10 @@ namespace FREYA_NAMESPACE
         }
 
         return desired;
+    }
+
+    void* Surface::NativeWindow() const
+    {
+        return reinterpret_cast<void*>(WindowNative::Get(*mWindow));
     }
 } // namespace FREYA_NAMESPACE

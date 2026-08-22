@@ -54,9 +54,10 @@ namespace FREYA_NAMESPACE
             const vk::PipelineLayout      vertexPipelineLayout,
             const vk::PipelineLayout      fullscreenPipelineLayout,
             const vk::Pipeline            depthPrepassPipeline,
-            std::vector<vk::Pipeline>     gbufferTechniques,
-            const vk::Pipeline            lightingPipeline,
-            const skr::Arc<Buffer>&       uniformBuffer,
+            std::vector<vk::Pipeline>
+                                                         gbufferTechniques,
+            const vk::Pipeline                           lightingPipeline,
+            const skr::Arc<Buffer>&                      uniformBuffer,
             const std::vector<vk::DescriptorSetLayout>&  descriptorSetLayouts,
             const std::vector<vk::DescriptorSet>&        descriptorSets,
             const vk::DescriptorPool                     descriptorPool,
@@ -111,7 +112,7 @@ namespace FREYA_NAMESPACE
 
         void BindGBufferTechnique(std::uint32_t                techniqueId,
                                   const skr::Arc<CommandPool>& commandPool,
-                                  std::uint32_t                frameIndex) const;
+                                  std::uint32_t frameIndex) const;
 
         void AdvanceSubpass(std::uint32_t                subpass,
                             const skr::Arc<CommandPool>& commandPool,

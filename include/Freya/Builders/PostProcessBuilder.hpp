@@ -53,7 +53,7 @@ namespace FREYA_NAMESPACE
         std::string                    mFragmentRelative;
         std::string mVertexRelative = "DeferredCompressed/composing.vert.spv";
         std::vector<PostProcessInput> mInputs { PostProcessInput::SceneColor };
-        std::uint32_t            mPushConstantSize = 0;
+        std::uint32_t                 mPushConstantSize = 0;
     };
 
 } // namespace FREYA_NAMESPACE

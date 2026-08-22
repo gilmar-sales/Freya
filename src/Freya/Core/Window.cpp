@@ -104,6 +104,11 @@ namespace FREYA_NAMESPACE
         return mImpl->deltaTime;
     }
 
+    void* Window::NativeWindow() const
+    {
+        return reinterpret_cast<void*>(mImpl->window);
+    }
+
     bool Window::IsFullscreen() const
     {
         return SDL_GetWindowFlags(mImpl->window) & SDL_WINDOW_FULLSCREEN;

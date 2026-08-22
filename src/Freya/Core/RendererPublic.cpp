@@ -226,6 +226,37 @@ namespace FREYA_NAMESPACE
         return mImpl->NativeDevice();
     }
 
+    bool Renderer::BeginUI()
+    {
+        return mImpl->BeginUI();
+    }
+
+    void Renderer::EndUI()
+    {
+        mImpl->EndUI();
+    }
+
+    ImGuiNativeHandles Renderer::GetImGuiNativeHandles()
+    {
+        return mImpl->GetImGuiNativeHandles();
+    }
+
+    ImGuiViewportImage Renderer::GetViewportImage()
+    {
+        return mImpl->GetViewportImage();
+    }
+
+    bool Renderer::SetViewportTarget(const std::uint32_t width,
+                                     const std::uint32_t height)
+    {
+        return mImpl->SetViewportTarget(width, height);
+    }
+
+    void Renderer::ClearOutputTarget()
+    {
+        mImpl->ClearOutputTarget();
+    }
+
     glm::mat4 Renderer::MakeProjection(const float fovRadians,
                                        const float aspect, const float near,
                                        const float far) const

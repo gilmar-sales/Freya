@@ -66,7 +66,7 @@ namespace FREYA_NAMESPACE
          * Must be called outside of a render pass.
          */
         void DispatchCull(const glm::mat4& viewProj, CullMode mode,
-                          bool          reverseZ         = false,
+                          bool          reverseZ        = false,
                           std::uint32_t techniqueFilter = kTechniqueFilterAll);
 
         void ExecuteDraws(bool               bindMaterials,
@@ -236,11 +236,11 @@ namespace FREYA_NAMESPACE
 
         struct FrameResources
         {
-            skr::Arc<Buffer>                                       sceneInstances;
-            skr::Arc<Buffer>                                       sourceTransforms;
-            DrawListResources                                      main;
+            skr::Arc<Buffer>  sceneInstances;
+            skr::Arc<Buffer>  sourceTransforms;
+            DrawListResources main;
             std::array<DrawListResources, kMaxMaterialTechniques> techniques {};
-            std::uint32_t                                          capacity = 0;
+            std::uint32_t                                         capacity = 0;
         };
 
         void ensureCapacity(std::uint32_t instanceCount);
@@ -252,7 +252,7 @@ namespace FREYA_NAMESPACE
         void uploadFrameBuffers();
         void zeroDrawCount(std::uint32_t techniqueFilter);
 
-        [[nodiscard]] FrameResources& currentFrame();
+        [[nodiscard]] FrameResources&    currentFrame();
         [[nodiscard]] DrawListResources& drawListFor(
             FrameResources& frame, std::uint32_t techniqueFilter);
         [[nodiscard]] vk::DescriptorSet cullSetFor(
@@ -290,11 +290,11 @@ namespace FREYA_NAMESPACE
         std::vector<InstanceTransform> mPrevTransforms;
         EntityModelMap                 mPrevModelByEntity;
 
-        std::uint32_t mInstanceCount       = 0;
-        std::uint32_t mMeshInfoCapacity    = 0;
-        std::uint32_t mMeshLodCapacity     = 0;
-        bool          mMeshInfoDirty       = true;
-        std::uint32_t mUsedTechniqueMask   = 1u; // technique 0 always considered
+        std::uint32_t mInstanceCount     = 0;
+        std::uint32_t mMeshInfoCapacity  = 0;
+        std::uint32_t mMeshLodCapacity   = 0;
+        bool          mMeshInfoDirty     = true;
+        std::uint32_t mUsedTechniqueMask = 1u; // technique 0 always considered
 
         // Cull descriptor updates are unsafe once the set is bound this frame.
         // bumpCullDescVersion must not clear mCullDescRefreshedThisFrame.

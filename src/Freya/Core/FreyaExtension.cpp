@@ -29,10 +29,10 @@
 #include "Freya/Builders/WindowBuilder.hpp"
 
 #include "Freya/Asset/BoneMatrixResources.hpp"
+#include "Freya/Asset/LightingTechniqueRegistry.hpp"
 #include "Freya/Asset/MaterialDescriptorResources.hpp"
 #include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MaterialTechniqueRegistry.hpp"
-#include "Freya/Asset/LightingTechniqueRegistry.hpp"
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Asset/TexturePool.hpp"
 #include "Freya/Core/IBLService.hpp"

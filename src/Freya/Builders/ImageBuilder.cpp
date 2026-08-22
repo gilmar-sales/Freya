@@ -135,8 +135,8 @@ namespace FREYA_NAMESPACE
             const bool uploadCustomMips =
                 mUploadCustomMipChain && mMipLevels > 1;
 
-            std::uint64_t uploadBytes = static_cast<std::uint64_t>(mWidth) *
-                                        mHeight * mChannels;
+            std::uint64_t uploadBytes =
+                static_cast<std::uint64_t>(mWidth) * mHeight * mChannels;
             if (uploadCustomMips)
             {
                 uploadBytes = 0;
@@ -144,17 +144,18 @@ namespace FREYA_NAMESPACE
                 {
                     const auto mipW = std::max(1u, mWidth >> mip);
                     const auto mipH = std::max(1u, mHeight >> mip);
-                    uploadBytes += static_cast<std::uint64_t>(mipW) * mipH *
-                                   mChannels;
+                    uploadBytes +=
+                        static_cast<std::uint64_t>(mipW) * mipH * mChannels;
                 }
             }
 
             if (mStagingBuffer == nullptr)
-                mStagingBuffer = BufferBuilder(mDevice)
-                                     .SetData(mData)
-                                     .SetSize(uploadBytes)
-                                     .SetUsage(BufferUsage::Staging)
-                                     .Build();
+                mStagingBuffer =
+                    BufferBuilder(mDevice)
+                        .SetData(mData)
+                        .SetSize(uploadBytes)
+                        .SetUsage(BufferUsage::Staging)
+                        .Build();
             else
                 mStagingBuffer->Copy(mData, uploadBytes);
 
@@ -215,8 +216,8 @@ namespace FREYA_NAMESPACE
                         vk::ImageLayout::eTransferDstOptimal,
                         region);
 
-                    bufferOffset += static_cast<std::uint64_t>(mipW) * mipH *
-                                    mChannels;
+                    bufferOffset +=
+                        static_cast<std::uint64_t>(mipW) * mipH * mChannels;
                 }
 
                 auto finalBarrier =
@@ -379,8 +380,7 @@ namespace FREYA_NAMESPACE
                                     .setLevelCount(mMipLevels - 1)
                                     .setBaseArrayLayer(0)
                                     .setLayerCount(1))
-                            .setSrcAccessMask(
-                                vk::AccessFlagBits::eTransferRead)
+                            .setSrcAccessMask(vk::AccessFlagBits::eTransferRead)
                             .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
 
                     auto dstFinalBarrier =

@@ -8,8 +8,14 @@ A Vulkan-based rendering engine powered by [Skirnir](https://github.com/gilmar-s
 - **Deferred rendering** - G-buffer path with SSAO, TAA, bloom, and HDR composite
 - **Composable frame stages** - Insert or replace steps in `Renderer::EndScene`
 - **Feature flags** - Toggle SSAO / TAA / Bloom and set `shaderRoot` via options
-- **Custom render targets** - Offscreen composite is an internal engine
-  concern; apps configure quality and vsync via `FreyaOptions`
+- **Custom render targets** - Offscreen composite via
+  `Renderer::SetViewportTarget` / `ClearOutputTarget`, with opaque Vulkan/SDL
+  handles (`Renderer::GetImGuiNativeHandles`, `GetViewportImage`) for hosting the
+  scene in an application-level ImGui viewport; quality and vsync via
+  `FreyaOptions`
+- **ImGui seam** - `Renderer::BeginUI` / `EndUI` open the swapchain UI pass so
+  apps draw Dear ImGui over an offscreen viewport without leaking `vk::`/SDL
+  types into public headers
 - **Asset management** - Meshes, textures (file or memory), and PBR materials
 - **Skinned animation** - AnimGraph, bake, CPU or GPU skin palettes, LOD
   (see [Animation](animation.md))

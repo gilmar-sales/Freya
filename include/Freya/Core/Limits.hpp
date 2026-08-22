@@ -6,11 +6,11 @@
 
 namespace FREYA_NAMESPACE
 {
-    constexpr std::uint32_t kMaxLights          = 64;
-    constexpr std::uint32_t kMaxShadowCascades  = 4;
-    constexpr std::uint32_t kMaxSpotShadows     = 4;
-    constexpr std::uint32_t kMaxPointShadows    = 2;
-    constexpr std::uint32_t kMaxMaterialSets    = 1024;
+    constexpr std::uint32_t kMaxLights         = 64;
+    constexpr std::uint32_t kMaxShadowCascades = 4;
+    constexpr std::uint32_t kMaxSpotShadows    = 4;
+    constexpr std::uint32_t kMaxPointShadows   = 2;
+    constexpr std::uint32_t kMaxMaterialSets   = 1024;
 
     constexpr std::uint32_t kGpuAnimMaxJoints    = 128;
     constexpr std::uint32_t kGpuAnimMaxInstances = 2048;

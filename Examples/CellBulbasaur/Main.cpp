@@ -75,17 +75,18 @@ namespace
         glm::vec4 color { 1.0f, 0.85f, 0.25f, 1.0f }; // item gold
     };
 
-    // Mu Online upgrade glow (+0 … +13). Matches Shaders/Post/mu_item_glow.frag.
+    // Mu Online upgrade glow (+0 … +13). Matches
+    // Shaders/Post/mu_item_glow.frag.
     struct MuGlowPush
     {
-        float time       = 0.0f;
-        float level      = 13.0f;
-        float intensity  = 1.0f;
-        float reverseZ   = 0.0f;
-        float radius     = 7.0f;
-        float waveSpeed  = 1.0f;
-        float _pad0      = 0.0f;
-        float _pad1      = 0.0f;
+        float time      = 0.0f;
+        float level     = 13.0f;
+        float intensity = 1.0f;
+        float reverseZ  = 0.0f;
+        float radius    = 7.0f;
+        float waveSpeed = 1.0f;
+        float _pad0     = 0.0f;
+        float _pad1     = 0.0f;
     };
 
     void ToggleEffect(const skr::Arc<fra::PostProcess>& effect,
@@ -203,13 +204,13 @@ class MainApp final : public fra::AbstractApplication
                 if (event.key == fra::KeyCode::F11)
                 {
                     mEyesUnlit = !mEyesUnlit;
-                    auto setEyeTech = [&](std::uint32_t id,
-                                          std::uint32_t cellOrDefault) {
-                        auto info = mMaterialPool->GetCreateInfo(id);
-                        info.techniqueId =
-                            mEyesUnlit ? mUnlitTechnique : cellOrDefault;
-                        mMaterialPool->Update(id, info);
-                    };
+                    auto setEyeTech =
+                        [&](std::uint32_t id, std::uint32_t cellOrDefault) {
+                            auto info = mMaterialPool->GetCreateInfo(id);
+                            info.techniqueId =
+                                mEyesUnlit ? mUnlitTechnique : cellOrDefault;
+                            mMaterialPool->Update(id, info);
+                        };
                     setEyeTech(mEyeMaterial, mCellTechnique);
                     setEyeTech(
                         mPbrEyeMaterial,
@@ -246,23 +247,23 @@ class MainApp final : public fra::AbstractApplication
 
         auto techniques =
             mServices->GetService<fra::MaterialTechniqueRegistry>();
-        mCellTechnique = techniques->Register(
-            "CellGBuffer", "Cell/gbuffer_cell.frag.spv");
-        mTriplanarTechnique = techniques->Register(
-            "Triplanar", "Material/triplanar.frag.spv");
+        mCellTechnique =
+            techniques->Register("CellGBuffer", "Cell/gbuffer_cell.frag.spv");
+        mTriplanarTechnique =
+            techniques->Register("Triplanar", "Material/triplanar.frag.spv");
         mUnlitTechnique = techniques->Register(
             "UnlitEmissive", "Material/unlit_emissive.frag.spv");
 
-        auto lighting =
-            mServices->GetService<fra::LightingTechniqueRegistry>();
+        auto lighting = mServices->GetService<fra::LightingTechniqueRegistry>();
         lighting->SetFragment("Cell/lighting_cell.frag.spv");
 
         mRenderer->RebuildSwapChain();
 
-        const auto revZ = mFreyaOptions->ReverseZ ? 1.0f : 0.0f;
+        const auto revZ       = mFreyaOptions->ReverseZ ? 1.0f : 0.0f;
         auto       insertPost = [&](skr::Arc<fra::PostProcess> effect) {
             if (effect)
-                mRenderer->InsertFrameStage("BillboardVfx", effect->MakeStage());
+                mRenderer->InsertFrameStage(
+                    "BillboardVfx", effect->MakeStage());
         };
 
         mCellEffect =
@@ -415,28 +416,28 @@ class MainApp final : public fra::AbstractApplication
             .metalnessFactor = 0.0f,
         });
 
-        auto makeBodyMats = [&](std::uint32_t& eye, std::uint32_t& bodyB,
-                                std::uint32_t& bodyA,
-                                std::uint32_t  techniqueId) {
-            eye   = mMaterialPool->Create({
-                .albedo          = eyeAlbedo,
-                .roughnessFactor = 1.0f,
-                .metalnessFactor = 0.0f,
-                .techniqueId     = techniqueId,
-            });
-            bodyB = mMaterialPool->Create({
-                .albedo          = bodyBAlbedo,
-                .roughnessFactor = 1.0f,
-                .metalnessFactor = 0.0f,
-                .techniqueId     = techniqueId,
-            });
-            bodyA = mMaterialPool->Create({
-                .albedo          = bodyAAlbedo,
-                .roughnessFactor = 1.0f,
-                .metalnessFactor = 0.0f,
-                .techniqueId     = techniqueId,
-            });
-        };
+        auto makeBodyMats =
+            [&](std::uint32_t& eye, std::uint32_t& bodyB, std::uint32_t& bodyA,
+                std::uint32_t techniqueId) {
+                eye   = mMaterialPool->Create({
+                    .albedo          = eyeAlbedo,
+                    .roughnessFactor = 1.0f,
+                    .metalnessFactor = 0.0f,
+                    .techniqueId     = techniqueId,
+                });
+                bodyB = mMaterialPool->Create({
+                    .albedo          = bodyBAlbedo,
+                    .roughnessFactor = 1.0f,
+                    .metalnessFactor = 0.0f,
+                    .techniqueId     = techniqueId,
+                });
+                bodyA = mMaterialPool->Create({
+                    .albedo          = bodyAAlbedo,
+                    .roughnessFactor = 1.0f,
+                    .metalnessFactor = 0.0f,
+                    .techniqueId     = techniqueId,
+                });
+            };
 
         makeBodyMats(mEyeMaterial, mBodyBMaterial, mBodyAMaterial,
                      mCellTechnique);
@@ -824,20 +825,11 @@ class MainApp final : public fra::AbstractApplication
                 mMuGlowEffect->SetEnabled(true);
         }
         static constexpr const char* kTier[] = {
-            "+0..2 none",
-            "+0..2 none",
-            "+0..2 none",
-            "+3/+4 red tint",
-            "+3/+4 red tint",
-            "+5/+6 blue tint",
-            "+5/+6 blue tint",
-            "+7/+8 soft glow",
-            "+7/+8 soft glow",
-            "+9/+10/+11 strong",
-            "+9/+10/+11 strong",
-            "+11 white spark",
-            "+12 bright flash",
-            "+13 wave flash",
+            "+0..2 none",        "+0..2 none",        "+0..2 none",
+            "+3/+4 red tint",    "+3/+4 red tint",    "+5/+6 blue tint",
+            "+5/+6 blue tint",   "+7/+8 soft glow",   "+7/+8 soft glow",
+            "+9/+10/+11 strong", "+9/+10/+11 strong", "+11 white spark",
+            "+12 bright flash",  "+13 wave flash",
         };
         std::cout << "Mu glow level +" << mMuGlowLevel << " ("
                   << kTier[mMuGlowLevel] << ")\n";
@@ -869,7 +861,7 @@ class MainApp final : public fra::AbstractApplication
     HeatPush                       mHeatPush {};
     UnderwaterPush                 mUnderwaterPush {};
     MuGlowPush                     mMuGlowPush {};
-    int                            mMuGlowLevel = 13;
+    int                            mMuGlowLevel        = 13;
     std::uint32_t                  mCellTechnique      = 0;
     std::uint32_t                  mTriplanarTechnique = 0;
     std::uint32_t                  mUnlitTechnique     = 0;

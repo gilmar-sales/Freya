@@ -32,10 +32,7 @@ namespace FREYA_NAMESPACE
 
         void Clear() { mFragment.clear(); }
 
-        [[nodiscard]] bool HasOverride() const
-        {
-            return !mFragment.empty();
-        }
+        [[nodiscard]] bool HasOverride() const { return !mFragment.empty(); }
 
         /**
          * @brief Active relative path, or empty when using the stock default.

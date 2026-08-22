@@ -268,8 +268,8 @@ namespace FREYA_NAMESPACE
             mDevice->Get().updateDescriptorSets(1, &writer, 0, nullptr);
         }
 
-        auto& bindlessLayout  = mMaterialResources->GetBindlessLayout();
-        auto  lightLayout     = LightServiceGpu::Layout(*mLightService);
+        auto& bindlessLayout = mMaterialResources->GetBindlessLayout();
+        auto  lightLayout    = LightServiceGpu::Layout(*mLightService);
 
         auto glassBindings = std::array {
             vk::DescriptorSetLayoutBinding()
@@ -373,10 +373,8 @@ namespace FREYA_NAMESPACE
         }
 
         auto accumSetLayouts = std::array {
-            cameraSetLayout,
-            bindlessLayout,
-            lightLayout,
-            mBoneResources->GetLayout(),
+            cameraSetLayout, bindlessLayout,
+            lightLayout,     mBoneResources->GetLayout(),
             glassSetLayout,
         };
         auto accumulateLayout = mDevice->Get().createPipelineLayout(

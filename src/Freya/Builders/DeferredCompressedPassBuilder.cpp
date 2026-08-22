@@ -81,8 +81,9 @@ namespace FREYA_NAMESPACE
         auto lightingRegistry =
             mServiceProvider->GetService<LightingTechniqueRegistry>();
         const auto lightFragPath =
-            lightingRegistry ? lightingRegistry->FragmentOrDefault()
-                             : std::string("DeferredCompressed/lighting.frag.spv");
+            lightingRegistry
+                ? lightingRegistry->FragmentOrDefault()
+                : std::string("DeferredCompressed/lighting.frag.spv");
         auto lightFrag = loadShader(lightFragPath);
 
         auto makeStage = [](vk::ShaderModule        module,
@@ -648,10 +649,9 @@ namespace FREYA_NAMESPACE
                 };
                 auto techInfo = gbufferInfo;
                 techInfo.setStages(techStages);
-                auto techPipe =
-                    mDevice->Get()
-                        .createGraphicsPipeline(nullptr, techInfo)
-                        .value;
+                auto techPipe = mDevice->Get()
+                                    .createGraphicsPipeline(nullptr, techInfo)
+                                    .value;
                 gbufferTechniques.push_back(techPipe);
                 destroyShader(techFrag);
             }

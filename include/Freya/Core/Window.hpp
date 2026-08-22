@@ -37,6 +37,13 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] float GetDeltaTime() const;
 
+        /**
+         * @brief Opaque platform window handle (SDL_Window*) without leaking
+         * SDL types into the public headers. Useful for platform back-ends
+         * (ImGui).
+         */
+        [[nodiscard]] void* NativeWindow() const;
+
         [[nodiscard]] bool IsFullscreen() const;
         void               SetFullscreen(bool fullscreen);
 

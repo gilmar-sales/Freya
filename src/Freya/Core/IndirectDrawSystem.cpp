@@ -78,8 +78,8 @@ namespace FREYA_NAMESPACE
     {
         if (techniqueFilter == kTechniqueFilterAll)
             return frame.main;
-        return frame.techniques[std::min(techniqueFilter,
-                                         kMaxMaterialTechniques - 1u)];
+        return frame
+            .techniques[std::min(techniqueFilter, kMaxMaterialTechniques - 1u)];
     }
 
     vk::DescriptorSet IndirectDrawSystem::cullSetFor(
@@ -164,7 +164,7 @@ namespace FREYA_NAMESPACE
         if (frameIndex >= mFrames.size())
             return;
 
-        auto& frame = mFrames[frameIndex];
+        auto& frame      = mFrames[frameIndex];
         auto  listsReady = [&](const DrawListResources& list) {
             return list.compactTransforms && list.indirect && list.drawCount;
         };
@@ -200,11 +200,10 @@ namespace FREYA_NAMESPACE
                     .SetUsage(BufferUsage::Indirect)
                     .SetSize(sizeof(vk::DrawIndexedIndirectCommand) * capacity)
                     .Build();
-            list.drawCount =
-                BufferBuilder(mDevice)
-                    .SetUsage(BufferUsage::Indirect)
-                    .SetSize(sizeof(std::uint32_t))
-                    .Build();
+            list.drawCount = BufferBuilder(mDevice)
+                                 .SetUsage(BufferUsage::Indirect)
+                                 .SetSize(sizeof(std::uint32_t))
+                                 .Build();
             return list;
         };
 
@@ -234,8 +233,7 @@ namespace FREYA_NAMESPACE
     {
         if (!mMeshInfoBuffer || !mMeshLodBuffer ||
             frameIndex >= mFrames.size() ||
-            mCullDescriptorSets.size() <
-                (frameIndex + 1u) * kCullSetsPerFrame)
+            mCullDescriptorSets.size() < (frameIndex + 1u) * kCullSetsPerFrame)
         {
             return;
         }
@@ -430,8 +428,7 @@ namespace FREYA_NAMESPACE
         zeroDrawCount(kTechniqueFilterAll);
     }
 
-    void IndirectDrawSystem::zeroDrawCount(
-        const std::uint32_t techniqueFilter)
+    void IndirectDrawSystem::zeroDrawCount(const std::uint32_t techniqueFilter)
     {
         auto& list = drawListFor(currentFrame(), techniqueFilter);
         if (!list.drawCount)
@@ -502,9 +499,7 @@ namespace FREYA_NAMESPACE
         for (std::uint32_t dst = 0; dst < mInstanceCount; ++dst)
         {
             const auto& src = uploads[sortKeys[dst].uploadIndex];
-            auto          flags       = src.castShadows
-                                   ? kSceneInstanceFlagCastShadows
-                                   : 0u;
+            auto flags = src.castShadows ? kSceneInstanceFlagCastShadows : 0u;
             std::uint32_t techniqueId = 0;
             if (mMaterialPool)
             {
@@ -559,13 +554,13 @@ namespace FREYA_NAMESPACE
         zeroDrawCount(techniqueFilter);
 
         CullPushConstants pc {};
-        pc.viewProj        = viewProj;
-        pc.cameraPos       = glm::vec4(mCameraPos, 0.0f);
-        pc.screenSize      = glm::vec2(static_cast<float>(mScreenSize.width),
-                                       static_cast<float>(mScreenSize.height));
-        pc.instanceCount   = mInstanceCount;
-        pc.cullMode        = static_cast<std::uint32_t>(mode);
-        pc.reverseZ        = reverseZ ? 1u : 0u;
+        pc.viewProj      = viewProj;
+        pc.cameraPos     = glm::vec4(mCameraPos, 0.0f);
+        pc.screenSize    = glm::vec2(static_cast<float>(mScreenSize.width),
+                                     static_cast<float>(mScreenSize.height));
+        pc.instanceCount = mInstanceCount;
+        pc.cullMode      = static_cast<std::uint32_t>(mode);
+        pc.reverseZ      = reverseZ ? 1u : 0u;
         pc.hizEnabled =
             (mode == CullMode::Camera && mHiZ && mHiZ->IsReady()) ? 1u : 0u;
         pc.lodPixelRef     = 256.0f;

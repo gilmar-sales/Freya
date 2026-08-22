@@ -70,22 +70,22 @@ namespace FREYA_NAMESPACE
         std::optional<std::uint32_t> metalness;
         std::optional<std::uint32_t> occlusion;
 
-        glm::vec4 albedoFactor { 1.f, 1.f, 1.f, 1.f };
-        float     roughnessFactor = 1.f;
-        float     metalnessFactor = 1.f;
-        glm::vec3 emissiveFactor { 1.f, 1.f, 1.f };
-        float     aoFactor                = 1.f;
-        float     alphaCutoff             = 0.f;
-        AlphaMode alphaMode               = AlphaMode::Opaque;
-        float     clearcoat               = 0.f;
-        float     clearcoatRoughness      = 0.03f;
-        float     transmission            = 0.f;
-        float     ior                     = 1.5f;
-        bool      packedMetallicRoughness = false;
-        bool      unlit                   = false;
-        bool      doubleSided             = false;
-        bool      receiveShadows          = true;
-        std::uint32_t techniqueId         = 0;
+        glm::vec4     albedoFactor { 1.f, 1.f, 1.f, 1.f };
+        float         roughnessFactor = 1.f;
+        float         metalnessFactor = 1.f;
+        glm::vec3     emissiveFactor { 1.f, 1.f, 1.f };
+        float         aoFactor                = 1.f;
+        float         alphaCutoff             = 0.f;
+        AlphaMode     alphaMode               = AlphaMode::Opaque;
+        float         clearcoat               = 0.f;
+        float         clearcoatRoughness      = 0.03f;
+        float         transmission            = 0.f;
+        float         ior                     = 1.5f;
+        bool          packedMetallicRoughness = false;
+        bool          unlit                   = false;
+        bool          doubleSided             = false;
+        bool          receiveShadows          = true;
+        std::uint32_t techniqueId             = 0;
     };
 
     /**

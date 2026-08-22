@@ -471,7 +471,7 @@ namespace FREYA_NAMESPACE
                                        int& mipCount) const
     {
         // Cap bake resolution so CPU GGX stays interactive at startup.
-        std::vector<float> env = src;
+        std::vector<float> env    = src;
         int                width  = srcW;
         int                height = srcH;
         downsampleEquirect(env, width, height, 512);
@@ -479,9 +479,9 @@ namespace FREYA_NAMESPACE
         outWidth  = width;
         outHeight = height;
 
-        mipCount = static_cast<int>(
-                       std::floor(std::log2(std::max(width, height)))) +
-                   1;
+        mipCount =
+            static_cast<int>(std::floor(std::log2(std::max(width, height)))) +
+            1;
         mipCount = std::max(mipCount, 1);
 
         std::size_t totalFloats = 0;

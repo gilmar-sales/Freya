@@ -63,6 +63,12 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] std::uint32_t QueryFrameCountSupport(
             std::uint32_t desired) const;
 
+        /**
+         * @brief Opaque platform window handle (SDL_Window* as void*) for
+         * platform back-ends.
+         */
+        [[nodiscard]] void* NativeWindow() const;
+
       private:
         skr::Arc<Instance>         mInstance;
         skr::Arc<PhysicalDevice>   mPhysicalDevice;

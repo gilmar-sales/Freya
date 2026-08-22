@@ -39,12 +39,11 @@ namespace
         std::array<float, fra::MAX_SHADOW_CASCADES> splits {};
         for (std::uint32_t i = 1; i <= cascadeCount; ++i)
         {
-            const auto p = static_cast<float>(i) /
-                           static_cast<float>(cascadeCount);
+            const auto p =
+                static_cast<float>(i) / static_cast<float>(cascadeCount);
             const auto logSplit =
                 nearPlane * std::pow(cascadeFar / nearPlane, p);
-            const auto uniformSplit =
-                nearPlane + (cascadeFar - nearPlane) * p;
+            const auto uniformSplit = nearPlane + (cascadeFar - nearPlane) * p;
             splits[i - 1] = kCascadeSplitLambda * logSplit +
                             (1.0f - kCascadeSplitLambda) * uniformSplit;
         }
@@ -100,12 +99,11 @@ namespace
                                   const float      radius,
                                   const float      resolution)
     {
-        const float pullBack = radius + kCascadeZPad + kCascadePullEps;
+        const float pullBack  = radius + kCascadeZPad + kCascadePullEps;
         const float texelSize = (2.0f * radius) / resolution;
 
-        auto lightView =
-            glm::lookAt(center - lightDir * pullBack, center, up);
-        auto centerLS = glm::vec3(lightView * glm::vec4(center, 1.0f));
+        auto lightView = glm::lookAt(center - lightDir * pullBack, center, up);
+        auto centerLS  = glm::vec3(lightView * glm::vec4(center, 1.0f));
         if (texelSize > 1e-6f)
         {
             centerLS.x = std::floor(centerLS.x / texelSize) * texelSize;
@@ -156,11 +154,10 @@ namespace
     {
         const auto near = std::max(1e-3f, -bounds.maxB.z);
         const auto far  = std::max(near + 1e-3f, -bounds.minB.z);
-        return reverseZ
-                   ? glm::ortho(bounds.minB.x, bounds.maxB.x, bounds.minB.y,
-                                bounds.maxB.y, far, near)
-                   : glm::ortho(bounds.minB.x, bounds.maxB.x, bounds.minB.y,
-                                bounds.maxB.y, near, far);
+        return reverseZ ? glm::ortho(bounds.minB.x, bounds.maxB.x,
+                                     bounds.minB.y, bounds.maxB.y, far, near)
+                        : glm::ortho(bounds.minB.x, bounds.maxB.x,
+                                     bounds.minB.y, bounds.maxB.y, near, far);
     }
 } // namespace
 
@@ -474,29 +471,27 @@ namespace FREYA_NAMESPACE
             computePracticalSplits(mCascadeCount, nearPlane, cascadeFar);
         const auto frustum = frustumParamsFromProjection(cameraProj);
 
-        const auto invView  = glm::inverse(cameraView);
-        const auto lightDir = glm::normalize(sun.direction);
-        const auto up       = std::abs(lightDir.y) < 0.99f
-                                  ? glm::vec3(0.0f, 1.0f, 0.0f)
-                                  : glm::vec3(1.0f, 0.0f, 0.0f);
-        const auto resolution =
-            static_cast<float>(std::max(mResolution, 1u));
+        const auto invView    = glm::inverse(cameraView);
+        const auto lightDir   = glm::normalize(sun.direction);
+        const auto up         = std::abs(lightDir.y) < 0.99f
+                                    ? glm::vec3(0.0f, 1.0f, 0.0f)
+                                    : glm::vec3(1.0f, 0.0f, 0.0f);
+        const auto resolution = static_cast<float>(std::max(mResolution, 1u));
 
         for (std::uint32_t i = 0; i < mCascadeCount; ++i)
         {
             const auto splitNear = (i == 0) ? nearPlane : splits[i - 1];
             const auto splitFar  = splits[i];
 
-            const auto worldCorners = worldFrustumSliceCorners(
-                invView, frustum.tanHalfFovY, frustum.aspect, splitNear,
-                splitFar);
+            const auto worldCorners =
+                worldFrustumSliceCorners(invView, frustum.tanHalfFovY,
+                                         frustum.aspect, splitNear, splitFar);
 
-            glm::vec3 center {};
-            const auto radius =
-                boundingSphereRadius(worldCorners, center);
+            glm::vec3  center {};
+            const auto radius = boundingSphereRadius(worldCorners, center);
 
-            const auto lightView = stabilizedLightView(
-                center, lightDir, up, radius, resolution);
+            const auto lightView =
+                stabilizedLightView(center, lightDir, up, radius, resolution);
             const auto bounds =
                 lightSpaceBoundsForSlice(lightView, worldCorners);
             const auto lightProj =

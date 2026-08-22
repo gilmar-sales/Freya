@@ -5,14 +5,15 @@
 namespace FREYA_NAMESPACE
 {
     DeferredCompressedPass::DeferredCompressedPass(
-        const skr::Arc<Device>&                      device,
-        const skr::Arc<FreyaOptions>&                freyaOptions,
-        const skr::Arc<Surface>&                     surface,
-        const vk::RenderPass                         renderPass,
-        const vk::PipelineLayout                     vertexPipelineLayout,
-        const vk::PipelineLayout                     fullscreenPipelineLayout,
-        const vk::Pipeline                           depthPrepassPipeline,
-        std::vector<vk::Pipeline>                    gbufferTechniques,
+        const skr::Arc<Device>&       device,
+        const skr::Arc<FreyaOptions>& freyaOptions,
+        const skr::Arc<Surface>&      surface,
+        const vk::RenderPass          renderPass,
+        const vk::PipelineLayout      vertexPipelineLayout,
+        const vk::PipelineLayout      fullscreenPipelineLayout,
+        const vk::Pipeline            depthPrepassPipeline,
+        std::vector<vk::Pipeline>
+                                                     gbufferTechniques,
         const vk::Pipeline                           lightingPipeline,
         const skr::Arc<Buffer>&                      uniformBuffer,
         const std::vector<vk::DescriptorSetLayout>&  descriptorSetLayouts,

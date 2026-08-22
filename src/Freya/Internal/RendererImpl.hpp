@@ -106,6 +106,13 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] void*             NativeCommandBuffer();
         [[nodiscard]] void*             NativeDevice();
 
+        [[nodiscard]] bool               BeginUI();
+        void                             EndUI();
+        [[nodiscard]] ImGuiNativeHandles GetImGuiNativeHandles();
+        [[nodiscard]] ImGuiViewportImage GetViewportImage();
+        [[nodiscard]] bool SetViewportTarget(std::uint32_t width,
+                                             std::uint32_t height);
+
         void UploadSceneInstances(std::span<const SceneInstanceUpload> uploads);
 
         void Draw(std::uint32_t meshId,
@@ -258,6 +265,7 @@ namespace FREYA_NAMESPACE
         TaaQuality                       mTaaQuality    = TaaQuality::High;
         BloomQuality                     mBloomQuality  = BloomQuality::Medium;
         skr::Arc<RenderTarget>           mOutputTarget;
+        skr::Arc<RenderTarget>           mViewportTarget;
         bool                             mUIPassOpen = false;
 
         skr::Arc<MeshPool>           mMeshPool;

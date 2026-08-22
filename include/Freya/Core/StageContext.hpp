@@ -25,11 +25,11 @@ namespace FREYA_NAMESPACE
       public:
         GpuImageRef() = default;
 
-        GpuImageRef(void*          nativeImage,
-                    void*          nativeImageView,
-                    void*          nativeSampler,
-                    std::uint32_t  width,
-                    std::uint32_t  height) :
+        GpuImageRef(void*         nativeImage,
+                    void*         nativeImageView,
+                    void*         nativeSampler,
+                    std::uint32_t width,
+                    std::uint32_t height) :
             mImage(nativeImage), mImageView(nativeImageView),
             mSampler(nativeSampler), mWidth(width), mHeight(height)
         {

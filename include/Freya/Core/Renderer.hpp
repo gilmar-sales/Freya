@@ -6,6 +6,7 @@
 #include "Freya/Core/BillboardDraw.hpp"
 #include "Freya/Core/DebugDraw.hpp"
 #include "Freya/Core/IFrameStage.hpp"
+#include "Freya/Core/RendererUi.hpp"
 #include "Freya/FreyaOptions.hpp"
 
 #include <Skirnir/Skirnir.hpp>
@@ -96,7 +97,8 @@ namespace FREYA_NAMESPACE
         bool ReplaceFrameStage(const char* name, FrameStagePtr stage);
 
         /**
-         * @brief Current frame command buffer as a Vulkan handle (VkCommandBuffer).
+         * @brief Current frame command buffer as a Vulkan handle
+         * (VkCommandBuffer).
          */
         [[nodiscard]] void* NativeCommandBuffer();
 
@@ -104,6 +106,56 @@ namespace FREYA_NAMESPACE
          * @brief Logical device as a Vulkan handle (VkDevice).
          */
         [[nodiscard]] void* NativeDevice();
+
+        /**
+         * @brief Opens the swapchain UI render pass so the app can draw its
+         * Dear ImGui frame into it.
+         *
+         * Only succeeds while an offscreen viewport target is set; otherwise it
+         * returns false and the scene presents directly to the swapchain. Pair
+         * with EndUI() and call Present() afterwards. BeginFrame()/EndFrame()
+         * already honours the UI pass; this seam exists for apps that split the
+         * frame (BeginFrame -> ... -> EndScene -> BeginUI -> draw -> EndUI ->
+         * Present).
+         */
+        [[nodiscard]] bool BeginUI();
+
+        /**
+         * @brief Closes the swapchain UI render pass opened by BeginUI().
+         *
+         * Present() closes an open UI pass automatically, so calling EndUI() is
+         * optional unless the app wants to end the pass before Present().
+         */
+        void EndUI();
+
+        /**
+         * @brief Opaque Vulkan/SDL handles for initializing the Dear ImGui
+         * back-ends in the app (ImGui_ImplVulkan / ImGui_ImplSDL3).
+         */
+        [[nodiscard]] ImGuiNativeHandles GetImGuiNativeHandles();
+
+        /**
+         * @brief Offscreen composite viewport (VkImageView + VkSampler) for
+         * ImGui::Image(). Valid only while a viewport target is set.
+         */
+        [[nodiscard]] ImGuiViewportImage GetViewportImage();
+
+        /**
+         * @brief Renders subsequent frames into an offscreen viewport target of
+         * the given pixel size instead of the swapchain. The composite step
+         * draws offscreen and the swapchain UI pass is opened for ImGui.
+         *
+         * The target is owned by the renderer and resized when the swapchain
+         * changes. Returns false if target creation failed.
+         */
+        [[nodiscard]] bool SetViewportTarget(std::uint32_t width,
+                                             std::uint32_t height);
+
+        /**
+         * @brief Clears the offscreen viewport target, restoring direct
+         * presentation to the swapchain.
+         */
+        void ClearOutputTarget();
 
         glm::mat4 MakeProjection(float fovRadians, float aspect, float near,
                                  float far) const;

@@ -1,6 +1,6 @@
 #include "Freya/Core/PostProcess.hpp"
-#include "Freya/Core/PostProcessStage.hpp"
 #include "Freya/Core/Limits.hpp"
+#include "Freya/Core/PostProcessStage.hpp"
 
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
@@ -99,8 +99,7 @@ namespace FREYA_NAMESPACE
         maskDirty = false;
     }
 
-    void PostProcess::SetPushConstants(const void*   data,
-                                            std::uint32_t size)
+    void PostProcess::SetPushConstants(const void* data, std::uint32_t size)
     {
         if (mImpl->pushConstantSize == 0 || data == nullptr)
             return;
@@ -188,7 +187,7 @@ namespace FREYA_NAMESPACE
     }
 
     skr::Arc<Image> PostProcess::Impl::resolveInput(
-        const PostProcessInput         input,
+        const PostProcessInput    input,
         const RenderFrameContext& ctx,
         const skr::Arc<Image>&    hdr) const
     {
@@ -220,8 +219,7 @@ namespace FREYA_NAMESPACE
         return vk::ImageLayout::eShaderReadOnlyOptimal;
     }
 
-    void PostProcess::Rebuild(StageContext&          stageCtx,
-                              skr::ServiceProvider& sp)
+    void PostProcess::Rebuild(StageContext& stageCtx, skr::ServiceProvider& sp)
     {
         auto& ctx = AsRenderFrameContext(stageCtx);
         mImpl->destroyGpu();

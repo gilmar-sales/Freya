@@ -126,14 +126,13 @@ namespace FREYA_NAMESPACE
         const auto cullPoolSizes = std::array {
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eStorageBuffer)
-                .setDescriptorCount(7 * frameCount *
-                                    (1u + kMaxMaterialTechniques)),
+                .setDescriptorCount(
+                    7 * frameCount * (1u + kMaxMaterialTechniques)),
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(frameCount *
-                                    (1u + kMaxMaterialTechniques)),
+                .setDescriptorCount(frameCount * (1u + kMaxMaterialTechniques)),
         };
-        const auto cullSetsPerFrame = 1u + kMaxMaterialTechniques;
+        const auto cullSetsPerFrame   = 1u + kMaxMaterialTechniques;
         const auto cullDescriptorPool = mDevice->Get().createDescriptorPool(
             vk::DescriptorPoolCreateInfo()
                 .setPoolSizes(cullPoolSizes)

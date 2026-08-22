@@ -42,8 +42,8 @@ namespace FREYA_NAMESPACE
             return ToVkExtent(renderExtent);
         }
 
-        skr::Arc<CommandPool>  commandPool;
-        skr::Arc<SwapChain>    swapChain;
+        skr::Arc<CommandPool> commandPool;
+        skr::Arc<SwapChain>   swapChain;
 
         ProjectionUniformBuffer* projection = nullptr;
 
@@ -76,9 +76,9 @@ namespace FREYA_NAMESPACE
 
         // Internal-only callbacks (public DispatchCull / ExecuteDraws are on
         // StageContext and alias these during makeFrameContext).
-        std::function<void()>                           executePickDraws;
-        std::function<void()>                           buildHiZ;
-        std::function<void()>                           blitBloomToFullRes;
+        std::function<void()> executePickDraws;
+        std::function<void()> buildHiZ;
+        std::function<void()> blitBloomToFullRes;
         std::function<void(std::uint32_t, const skr::Arc<Image>&, bool)>
                                           beginComposite;
         std::function<void()>             commitTaaHistory;

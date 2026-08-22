@@ -218,7 +218,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t           mHeight;    ///< Image height
         std::uint32_t           mChannels;  ///< Bytes per pixel (upload size)
         std::uint32_t           mMipLevels; ///< Number of mip levels
-        bool  mMipLevelsOverride; ///< True when SetMipLevels was called
+        bool  mMipLevelsOverride;    ///< True when SetMipLevels was called
         bool  mUploadCustomMipChain; ///< Packed mips from SetData; skip blit
         void* mData;                 ///< Raw image data
     };

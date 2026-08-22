@@ -59,7 +59,7 @@ namespace FREYA_NAMESPACE
             std::vector<vk::Framebuffer>
                 accumulateFramebuffers,
             std::vector<vk::Framebuffer>
-                resolveFramebuffers,
+                         resolveFramebuffers,
             vk::Sampler  sampler,
             vk::Format   depthFormat,
             vk::Extent2D extent);

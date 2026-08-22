@@ -27,6 +27,10 @@ Treat as **app-stable**:
 - `Renderer` frame loop, quality knobs, pick, debug draw, GPU anim methods
 - `Renderer::NativeCommandBuffer` / `NativeDevice` (opaque `void*` =
   `VkCommandBuffer` / `VkDevice`)
+- `Renderer::BeginUI` / `EndUI`, `GetImGuiNativeHandles`, `GetViewportImage`,
+  `SetViewportTarget` / `ClearOutputTarget` (offscreen viewport + swapchain UI
+  pass; all Vulkan/SDL handles exposed as opaque `void*`)
+- `Window::NativeWindow` (opaque `void*` = `SDL_Window*`)
 - `PostProcess` + `PostProcessBuilder` + `MakeStage()`
 - `MaterialTechniqueRegistry` + `MaterialCreateInfo::techniqueId`
 - `LightingTechniqueRegistry` (global deferred lighting fragment override)

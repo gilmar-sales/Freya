@@ -285,9 +285,9 @@ namespace FREYA_NAMESPACE
     RenderFrameContext Renderer::Impl::makeFrameContext()
     {
         RenderFrameContext ctx;
-        ctx.commandPool = mCommandPool;
-        ctx.swapChain   = mSwapChain;
-        ctx.options     = mFreyaOptions;
+        ctx.commandPool     = mCommandPool;
+        ctx.swapChain       = mSwapChain;
+        ctx.options         = mFreyaOptions;
         const auto vkExtent = getRenderExtent();
         ctx.renderExtent    = Extent2D { vkExtent.width, vkExtent.height };
         ctx.frameIndex      = mSwapChain->GetCurrentFrameIndex();
@@ -348,13 +348,10 @@ namespace FREYA_NAMESPACE
                     hdr = img;
             }
             ctx.sceneColor = MakeGpuImageRef(hdr, w, h);
-            ctx.depth =
-                MakeGpuImageRef(mDeferredPass->GetDepthImage(), w, h);
-            ctx.albedo =
-                MakeGpuImageRef(mDeferredPass->GetAlbedoImage(), w, h);
-            ctx.normal =
-                MakeGpuImageRef(mDeferredPass->GetNormalImage(), w, h);
-            ctx.pbr = MakeGpuImageRef(mDeferredPass->GetPbrImage(), w, h);
+            ctx.depth  = MakeGpuImageRef(mDeferredPass->GetDepthImage(), w, h);
+            ctx.albedo = MakeGpuImageRef(mDeferredPass->GetAlbedoImage(), w, h);
+            ctx.normal = MakeGpuImageRef(mDeferredPass->GetNormalImage(), w, h);
+            ctx.pbr    = MakeGpuImageRef(mDeferredPass->GetPbrImage(), w, h);
             ctx.velocity =
                 MakeGpuImageRef(mDeferredPass->GetVelocityImage(), w, h);
         }
@@ -370,10 +367,10 @@ namespace FREYA_NAMESPACE
             ctx.ssao = MakeGpuImageRef(mSsaoFallbackImage, 1, 1);
         }
 
-        ctx.ExecuteDraws = [this](bool bindMaterials,
-                                  std::uint32_t techniqueFilter) {
-            ExecuteDrawCommands(bindMaterials, techniqueFilter);
-        };
+        ctx.ExecuteDraws =
+            [this](bool bindMaterials, std::uint32_t techniqueFilter) {
+                ExecuteDrawCommands(bindMaterials, techniqueFilter);
+            };
         ctx.DispatchCull = [this](const glm::mat4& viewProj, CullMode mode,
                                   std::uint32_t techniqueFilter) {
             DispatchCull(viewProj, mode, techniqueFilter);
@@ -465,7 +462,7 @@ namespace FREYA_NAMESPACE
         if (it == mFrameStages.end())
             return false;
 
-        *it = std::move(stage);
+        *it      = std::move(stage);
         auto ctx = makeFrameContext();
         (*it)->Rebuild(ctx, *mServiceProvider);
         return true;
@@ -717,8 +714,84 @@ namespace FREYA_NAMESPACE
     {
         if (!mDevice)
             return nullptr;
-        return reinterpret_cast<void*>(
-            static_cast<VkDevice>(mDevice->Get()));
+        return reinterpret_cast<void*>(static_cast<VkDevice>(mDevice->Get()));
+    }
+
+    bool Renderer::Impl::BeginUI()
+    {
+        if (mUIPassOpen)
+            return true;
+        if (!mOutputTarget || !mCompositePass)
+            return false;
+        beginUIPass();
+        return true;
+    }
+
+    void Renderer::Impl::EndUI()
+    {
+        if (!mUIPassOpen)
+            return;
+        mCompositePass->End(mCommandPool);
+        mUIPassOpen = false;
+    }
+
+    ImGuiNativeHandles Renderer::Impl::GetImGuiNativeHandles()
+    {
+        ImGuiNativeHandles handles;
+        if (!mInstance || !mPhysicalDevice || !mDevice || !mSwapChain ||
+            !mCompositePass)
+            return handles;
+
+        handles.instance =
+            reinterpret_cast<void*>(static_cast<VkInstance>(mInstance->Get()));
+        handles.physicalDevice = reinterpret_cast<void*>(
+            static_cast<VkPhysicalDevice>(mPhysicalDevice->Get()));
+        handles.device =
+            reinterpret_cast<void*>(static_cast<VkDevice>(mDevice->Get()));
+        handles.graphicsQueue = reinterpret_cast<void*>(
+            static_cast<VkQueue>(mDevice->GetGraphicsQueue()));
+        handles.presentQueue = reinterpret_cast<void*>(
+            static_cast<VkQueue>(mDevice->GetPresentQueue()));
+        handles.renderPass = reinterpret_cast<void*>(
+            static_cast<VkRenderPass>(GetUIRenderPass()));
+        if (mSurface)
+            handles.window = mSurface->NativeWindow();
+
+        const auto extent  = mSwapChain->GetExtent();
+        handles.viewWidth  = extent.width;
+        handles.viewHeight = extent.height;
+        handles.minImageCount =
+            static_cast<std::uint32_t>(mSwapChain->GetFrameCount());
+        return handles;
+    }
+
+    ImGuiViewportImage Renderer::Impl::GetViewportImage()
+    {
+        ImGuiViewportImage image;
+        if (!mOutputTarget)
+            return image;
+        image.imageView = reinterpret_cast<void*>(
+            static_cast<VkImageView>(mOutputTarget->GetColorImageView()));
+        image.sampler = reinterpret_cast<void*>(
+            static_cast<VkSampler>(mOutputTarget->GetSampler()));
+        image.valid = true;
+        return image;
+    }
+
+    bool Renderer::Impl::SetViewportTarget(const std::uint32_t width,
+                                           const std::uint32_t height)
+    {
+        if (!mServiceProvider)
+            return false;
+        auto target = mServiceProvider->GetService<RenderTargetBuilder>()
+                          ->SetWidth(width)
+                          .SetHeight(height)
+                          .Build();
+        if (!target)
+            return false;
+        mViewportTarget = target;
+        SetOutputTarget(target);
+        return true;
     }
 
     void Renderer::Impl::SetVSync(const bool vSync)
@@ -1281,8 +1354,8 @@ namespace FREYA_NAMESPACE
             mLegacyUploads, mSwapChain->GetCurrentFrameIndex());
     }
 
-    void Renderer::Impl::DispatchCull(const glm::mat4& viewProj,
-                                      const CullMode   mode,
+    void Renderer::Impl::DispatchCull(const glm::mat4&    viewProj,
+                                      const CullMode      mode,
                                       const std::uint32_t techniqueFilter)
     {
         flushLegacyDrawCommands();
@@ -1292,8 +1365,8 @@ namespace FREYA_NAMESPACE
         const auto cameraPos =
             glm::vec3(glm::inverse(mCurrentProjection.view)[3]);
         mIndirectDraw->SetCullView(cameraPos, getRenderExtent());
-        mIndirectDraw->DispatchCull(viewProj, mode, mFreyaOptions->ReverseZ,
-                                    techniqueFilter);
+        mIndirectDraw->DispatchCull(
+            viewProj, mode, mFreyaOptions->ReverseZ, techniqueFilter);
     }
 
     void Renderer::Impl::ExecuteDrawCommands(
@@ -1303,8 +1376,8 @@ namespace FREYA_NAMESPACE
         if (!mIndirectDraw)
             return;
 
-        mIndirectDraw->ExecuteDraws(bindMaterials, GetActivePipelineLayout(),
-                                    techniqueFilter);
+        mIndirectDraw->ExecuteDraws(
+            bindMaterials, GetActivePipelineLayout(), techniqueFilter);
     }
 
     void Renderer::Impl::ExecutePickDrawCommands()

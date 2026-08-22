@@ -103,8 +103,8 @@ namespace FREYA_NAMESPACE
                 });
     }
 
-    void DeferredGeometryFrameStage::Rebuild(StageContext& stageCtx,
-                                 skr::ServiceProvider& sp)
+    void DeferredGeometryFrameStage::Rebuild(StageContext&         stageCtx,
+                                             skr::ServiceProvider& sp)
     {
         auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.deferred)
@@ -186,8 +186,8 @@ namespace FREYA_NAMESPACE
             ctx.buildHiZ();
     }
 
-    void SsaoLightingFrameStage::Rebuild(StageContext& stageCtx,
-                                 skr::ServiceProvider& sp)
+    void SsaoLightingFrameStage::Rebuild(StageContext&         stageCtx,
+                                         skr::ServiceProvider& sp)
     {
         auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.ssaoPass)
@@ -221,17 +221,17 @@ namespace FREYA_NAMESPACE
         skr::Arc<Image> ssaoImage;
         if (ctx.ssaoPass && *ctx.ssaoPass)
         {
-            (*ctx.ssaoPass)->Dispatch(
-                ctx.commandPool,
-                (*ctx.deferred)->GetDepthImage(),
-                (*ctx.deferred)->GetNormalImage(),
-                ctx.projection->view,
-                ctx.projection->unjitteredProjection,
-                ctx.options->ReverseZ,
-                ctx.options->ssaoRadius,
-                ctx.options->ssaoBias,
-                ctx.options->ssaoPower,
-                ctx.options->ssaoIntensity);
+            (*ctx.ssaoPass)
+                ->Dispatch(ctx.commandPool,
+                           (*ctx.deferred)->GetDepthImage(),
+                           (*ctx.deferred)->GetNormalImage(),
+                           ctx.projection->view,
+                           ctx.projection->unjitteredProjection,
+                           ctx.options->ReverseZ,
+                           ctx.options->ssaoRadius,
+                           ctx.options->ssaoBias,
+                           ctx.options->ssaoPower,
+                           ctx.options->ssaoIntensity);
             ssaoImage = ctx.options->ssaoDebugView == SsaoDebugView::Raw
                             ? (*ctx.ssaoPass)->GetRawImage()
                             : (*ctx.ssaoPass)->GetOutputImage();
@@ -252,8 +252,8 @@ namespace FREYA_NAMESPACE
         (*ctx.deferred)->EndLighting(ctx.commandPool);
     }
 
-    void TaaFrameStage::Rebuild(StageContext& stageCtx,
-                                 skr::ServiceProvider& sp)
+    void TaaFrameStage::Rebuild(StageContext&         stageCtx,
+                                skr::ServiceProvider& sp)
     {
         auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.taa)
@@ -278,8 +278,8 @@ namespace FREYA_NAMESPACE
                              (*ctx.deferred)->GetDepthImage());
     }
 
-    void TranslucentFrameStage::Rebuild(StageContext& stageCtx,
-                                 skr::ServiceProvider& sp)
+    void TranslucentFrameStage::Rebuild(StageContext&         stageCtx,
+                                        skr::ServiceProvider& sp)
     {
         auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.translucent || !ctx.deferred || !*ctx.deferred)
@@ -327,8 +327,8 @@ namespace FREYA_NAMESPACE
         (*ctx.translucent)->Resolve(ctx.commandPool, opaque, ctx.frameIndex);
     }
 
-    void BillboardVfxFrameStage::Rebuild(StageContext& stageCtx,
-                                 skr::ServiceProvider& sp)
+    void BillboardVfxFrameStage::Rebuild(StageContext&         stageCtx,
+                                         skr::ServiceProvider& sp)
     {
         auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.billboardPass || !ctx.deferred || !*ctx.deferred)
@@ -369,8 +369,8 @@ namespace FREYA_NAMESPACE
                    proj.unjitteredProjection);
     }
 
-    void BillboardUiFrameStage::Rebuild(StageContext& stageCtx,
-                                 skr::ServiceProvider& sp)
+    void BillboardUiFrameStage::Rebuild(StageContext&         stageCtx,
+                                        skr::ServiceProvider& sp)
     {
         auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.billboardPass || !*ctx.billboardPass || !ctx.deferred ||
@@ -396,8 +396,8 @@ namespace FREYA_NAMESPACE
                    proj.unjitteredProjection);
     }
 
-    void BloomFrameStage::Rebuild(StageContext& stageCtx,
-                                 skr::ServiceProvider& sp)
+    void BloomFrameStage::Rebuild(StageContext&         stageCtx,
+                                  skr::ServiceProvider& sp)
     {
         auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.bloom)
@@ -529,8 +529,8 @@ namespace FREYA_NAMESPACE
             ctx.blitBloomToFullRes();
     }
 
-    void CompositeFrameStage::Rebuild(StageContext& stageCtx,
-                                 skr::ServiceProvider& sp)
+    void CompositeFrameStage::Rebuild(StageContext&         stageCtx,
+                                      skr::ServiceProvider& sp)
     {
         auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.composite)
@@ -588,8 +588,8 @@ namespace FREYA_NAMESPACE
             ctx.commitTaaHistory();
     }
 
-    void DebugDrawFrameStage::Rebuild(StageContext& stageCtx,
-                                 skr::ServiceProvider& sp)
+    void DebugDrawFrameStage::Rebuild(StageContext&         stageCtx,
+                                      skr::ServiceProvider& sp)
     {
         auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.debugDrawPass)
