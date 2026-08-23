@@ -783,6 +783,14 @@ namespace FREYA_NAMESPACE
     {
         if (!mServiceProvider)
             return false;
+
+        if (mOutputTarget &&
+            mOutputTarget->GetExtent().width == width &&
+            mOutputTarget->GetExtent().height == height)
+        {
+            return true;
+        }
+
         auto target = mServiceProvider->GetService<RenderTargetBuilder>()
                           ->SetWidth(width)
                           .SetHeight(height)
