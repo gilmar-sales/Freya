@@ -65,6 +65,7 @@ namespace FREYA_NAMESPACE
         if (!mDevice)
             return;
         const auto& d = mDevice->Get();
+        mDevice->Get().waitIdle();
         destroyHdrFramebuffers();
         destroyLdrFramebuffers();
         auto destroyPipe = [&](vk::Pipeline p) {
@@ -118,6 +119,7 @@ namespace FREYA_NAMESPACE
         const std::span<const skr::Arc<Image>> colors,
         const skr::Arc<Image>& depth, const vk::Extent2D extent)
     {
+        mDevice->Get().waitIdle();
         destroyHdrFramebuffers();
         mHdrExtent = extent;
         if (!depth || colors.empty() || !mHdrRenderPass)
@@ -145,6 +147,7 @@ namespace FREYA_NAMESPACE
     void BillboardPass::UpdateLdrDepth(const skr::Arc<Image>&     depth,
                                        const skr::Arc<SwapChain>& swapChain)
     {
+        mDevice->Get().waitIdle();
         destroyLdrFramebuffers();
         if (!depth || !swapChain || !mLdrRenderPass)
             return;

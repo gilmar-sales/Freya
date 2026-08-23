@@ -123,6 +123,8 @@ namespace FREYA_NAMESPACE
         if (!device)
             return;
 
+        device->Get().waitIdle();
+
         auto& vkDevice = device->Get();
         if (framebuffer)
         {

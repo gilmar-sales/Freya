@@ -74,6 +74,7 @@ namespace FREYA_NAMESPACE
 
     TaaPass::~TaaPass()
     {
+        mDevice->Get().waitIdle();
         auto& vkDevice = mDevice->Get();
         vkDevice.destroyPipeline(mPipeline);
         vkDevice.destroyPipelineLayout(mPipelineLayout);

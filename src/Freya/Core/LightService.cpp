@@ -35,6 +35,8 @@ namespace FREYA_NAMESPACE
         if (!mImpl || !mImpl->mDevice)
             return;
 
+        mImpl->mDevice->Get().waitIdle();
+
         auto& vkDevice = mImpl->mDevice->Get();
 
         if (mImpl->mPool)

@@ -225,6 +225,7 @@ namespace FREYA_NAMESPACE
         if (!mDevice)
             return;
 
+        mDevice->Get().waitIdle();
         auto& vkDevice = mDevice->Get();
 
         for (auto& fb : mCascadeFramebuffers)

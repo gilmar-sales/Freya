@@ -46,6 +46,7 @@ namespace FREYA_NAMESPACE
 
     HiZPyramid::~HiZPyramid()
     {
+        mDevice->Get().waitIdle();
         destroyMipViews();
         auto& dev = mDevice->Get();
         if (mCopyPipeline)
@@ -84,6 +85,8 @@ namespace FREYA_NAMESPACE
         if (mImage && mWidth == width && mHeight == height)
             return;
 
+        // Old mip views/image may be in use by an in-flight frame.
+        mDevice->Get().waitIdle();
         destroyMipViews();
         mReady  = false;
         mWidth  = width;

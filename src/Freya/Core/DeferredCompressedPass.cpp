@@ -59,6 +59,7 @@ namespace FREYA_NAMESPACE
 
     DeferredCompressedPass::~DeferredCompressedPass()
     {
+        mDevice->Get().waitIdle();
         auto& vkDevice = mDevice->Get();
 
         for (auto& fb : mFramebuffers)

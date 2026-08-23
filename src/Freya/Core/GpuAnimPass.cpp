@@ -104,6 +104,8 @@ namespace FREYA_NAMESPACE
     {
         if (!mDevice)
             return;
+
+        mDevice->Get().waitIdle();
         if (mTimestampPool)
         {
             mDevice->Get().destroyQueryPool(mTimestampPool);

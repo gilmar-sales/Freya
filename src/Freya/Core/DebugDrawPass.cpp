@@ -25,6 +25,7 @@ namespace FREYA_NAMESPACE
     {
         if (!mDevice)
             return;
+        mDevice->Get().waitIdle();
         const auto& d = mDevice->Get();
         for (auto fb : mFramebuffers)
         {

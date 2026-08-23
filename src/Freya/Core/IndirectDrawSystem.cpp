@@ -59,6 +59,7 @@ namespace FREYA_NAMESPACE
 
     IndirectDrawSystem::~IndirectDrawSystem()
     {
+        mDevice->Get().waitIdle();
         auto& vkDevice = mDevice->Get();
         vkDevice.destroyPipeline(mCullPipeline);
         vkDevice.destroyPipelineLayout(mCullPipelineLayout);

@@ -9,6 +9,7 @@ namespace FREYA_NAMESPACE
      */
     CommandPool::~CommandPool()
     {
+        mDevice->Get().waitIdle();
         mDevice->Get().destroyCommandPool(mCommandPool);
     }
 

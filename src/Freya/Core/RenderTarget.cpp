@@ -17,6 +17,7 @@ namespace FREYA_NAMESPACE
 
     RenderTarget::~RenderTarget()
     {
+        mDevice->Get().waitIdle();
         auto& vkDevice = mDevice->Get();
 
         if (mFramebuffer)

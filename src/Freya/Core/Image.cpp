@@ -7,6 +7,7 @@ namespace FREYA_NAMESPACE
      */
     Image::~Image()
     {
+        mDevice->Get().waitIdle();
         mDevice->Get().destroyImageView(mImageView);
         mDevice->Get().destroyImage(mImage);
         mDevice->Get().freeMemory(mMemory);

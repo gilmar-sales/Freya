@@ -39,6 +39,7 @@ namespace FREYA_NAMESPACE
 
     SsaoPass::~SsaoPass()
     {
+        mDevice->Get().waitIdle();
         auto& vkDevice = mDevice->Get();
 
         vkDevice.destroyPipeline(mSsaoPipeline);

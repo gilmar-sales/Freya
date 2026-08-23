@@ -443,6 +443,8 @@ namespace FREYA_NAMESPACE
         if (it == mFrameStages.end())
             return false;
 
+        mDevice->Get().waitIdle();
+
         auto ctx = makeFrameContext();
         stage->Rebuild(ctx, *mServiceProvider);
         mFrameStages.insert(it, std::move(stage));
@@ -461,6 +463,10 @@ namespace FREYA_NAMESPACE
             });
         if (it == mFrameStages.end())
             return false;
+
+        // Replacing a stage destroys the old one's GPU resources; wait for the
+        // GPU before the old stage is torn down and the new one is rebuilt.
+        mDevice->Get().waitIdle();
 
         *it      = std::move(stage);
         auto ctx = makeFrameContext();

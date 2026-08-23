@@ -56,6 +56,7 @@ namespace FREYA_NAMESPACE
         if (!mImpl || !mImpl->device)
             return;
 
+        mImpl->device->Get().waitIdle();
         for (auto texture : mImpl->textures)
         {
             texture.image.reset();
@@ -184,13 +185,18 @@ namespace FREYA_NAMESPACE
             return;
 
         auto& texture = i.textures[id];
-        texture.image.reset();
-        i.device->Get().destroySampler(texture.sampler);
 
+        // Rewrite the bindless heap entry to the fallback texture first so any
+        // in-flight command buffer no longer references the view/sampler we are
+        // about to destroy, then wait for the GPU before freeing them.
         i.materialsRes->WriteBindlessTexture(
             MaterialDescriptorResources::TextureHeapIndex(id),
             i.materialsRes->GetFallbackImageView(),
             i.materialsRes->GetFallbackSampler());
+        i.device->Get().waitIdle();
+
+        texture.image.reset();
+        i.device->Get().destroySampler(texture.sampler);
 
         i.textures.remove(Texture {
             .image   = {},

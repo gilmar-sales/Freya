@@ -95,6 +95,8 @@ namespace FREYA_NAMESPACE
     {
         if (!mDevice)
             return;
+            
+        mDevice->Get().waitIdle();
         if (mPool)
             mDevice->Get().destroyDescriptorPool(mPool);
         if (mLayout)

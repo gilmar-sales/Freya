@@ -6,6 +6,7 @@ namespace FREYA_NAMESPACE
 
     SwapChain::~SwapChain()
     {
+        mDevice->Get().waitIdle();
         for (const auto& frame : mFrames)
         {
             mDevice->Get().destroyImageView(frame.imageView);
