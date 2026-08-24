@@ -156,6 +156,13 @@ namespace FREYA_NAMESPACE
                           const glm::vec3& target,
                           const glm::vec3& up);
 
+        void UpdateCamera(const glm::vec3& position,
+                          const glm::vec3& target,
+                          const glm::vec3& up,
+                          float fovRadians,
+                          float nearPlane,
+                          float farPlane);
+
         void SetAmbient(const glm::vec3& color, float intensity);
 
         void RebuildGpuAnimPass();

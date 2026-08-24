@@ -281,6 +281,14 @@ namespace FREYA_NAMESPACE
         mImpl->UpdateCamera(position, target, up);
     }
 
+    void Renderer::UpdateCamera(const glm::vec3& position,
+                                const glm::vec3& target, const glm::vec3& up,
+                                const float fovRadians, const float nearPlane,
+                                const float farPlane)
+    {
+        mImpl->UpdateCamera(position, target, up, fovRadians, nearPlane, farPlane);
+    }
+
     void Renderer::SetAmbient(const glm::vec3& color, const float intensity)
     {
         mImpl->SetAmbient(color, intensity);

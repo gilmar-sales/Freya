@@ -941,6 +941,35 @@ namespace FREYA_NAMESPACE
         }
     }
 
+    void Renderer::Impl::UpdateCamera(
+        const glm::vec3& position, const glm::vec3& target, const glm::vec3& up,
+        const float fovRadians, const float nearPlane, const float farPlane)
+    {
+        const auto  extent = getRenderExtent();
+        const float aspect =
+            extent.height > 0
+                ? static_cast<float>(extent.width) / static_cast<float>(extent.height)
+                : 16.0f / 9.0f;
+
+        auto projectionUniformBuffer = mCurrentProjection;
+        projectionUniformBuffer.view = glm::lookAt(position, target, up);
+        projectionUniformBuffer.projection =
+            MakeProjection(fovRadians, aspect, nearPlane, farPlane);
+        UpdateProjection(projectionUniformBuffer);
+
+        mCameraNear = nearPlane;
+
+        if (mLightService)
+        {
+            const auto toTarget = target - position;
+            const auto forward  = glm::length(toTarget) > 1e-6f
+                                      ? glm::normalize(toTarget)
+                                      : glm::vec3(0.0f, 0.0f, 1.0f);
+            mLightService->Update(mSwapChain->GetCurrentFrameIndex(), position,
+                                  forward);
+        }
+    }
+
     void Renderer::Impl::SetAmbient(const glm::vec3& color, float intensity)
     {
         mCurrentProjection.ambientLight = glm::vec4(color, intensity);
