@@ -41,7 +41,7 @@ namespace FREYA_NAMESPACE
             return lights.mImpl->mSets[frameIndex];
         }
 
-        static skr::Arc<fr::Buffer> Buffer(const LightService& lights)
+        static skr::Arc<fra::Buffer> Buffer(const LightService& lights)
         {
             return lights.mImpl->mBuffer;
         }
