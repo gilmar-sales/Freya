@@ -150,7 +150,7 @@ jobs:
         id: strings
         shell: bash
         run: |
-          echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+          echo "build-output-dir=${GITHUB_WORKSPACE}/build" >> "$GITHUB_OUTPUT"
 
       - name: Prepare Vulkan SDK
         uses: humbletim/setup-vulkan-sdk@v1.2.1
@@ -161,20 +161,20 @@ jobs:
 
       - name: Configure CMake
         shell: bash
-        run: >
-          cmake -B ${{ steps.strings.outputs.build-output-dir }}
-          -G Ninja
-          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
-          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-          -DSDL_X11_XTEST=OFF
-          -S ${{ github.workspace }}
+        run: |
+          cmake -B "${{ steps.strings.outputs.build-output-dir }}" \
+            -G Ninja \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
+            -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DSDL_X11_XTEST=OFF \
+            -S "${GITHUB_WORKSPACE}"
 
       - name: Build
         shell: bash
         run: |
           export PATH="/c/mingw64-gcc16/bin:$PATH"
-          cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} --parallel
+          cmake --build "${{ steps.strings.outputs.build-output-dir }}" --config ${{ matrix.build_type }} --parallel
 
       - name: Test
         shell: bash
