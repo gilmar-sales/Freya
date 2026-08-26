@@ -7,11 +7,8 @@ Freya manages meshes, textures, and PBR materials through pool services.
 ```cpp
 auto meshPool = serviceProvider->GetService<fra::MeshPool>();
 
-// From file (Assimp: glTF, FBX, OBJ, …). Geometry only — materials stay
-// on you (e.g. lamp bulb = mesh index 1 + Blend).
-auto meshIds = meshPool->CreateMeshFromFile("./Resources/Models/MyModel.fbx");
-
-// Geometry + imported PBR materials (file / embedded textures, packed MR).
+// Static models: geometry + imported PBR materials (file / embedded textures,
+// packed MR, glTF factors). Override per submesh when needed (e.g. lamp bulb).
 auto model = meshPool->CreateModelFromFile("./Resources/Models/Helmet.glb");
 for (const auto& part : model)
 {
@@ -19,9 +16,15 @@ for (const auto& part : model)
                           .materialId = part.materialId, .entityId = id++ });
 }
 
-// Skinned (no PreTransformVertices): joints/weights + shared skeleton/clips.
+// Skinned: submeshes + materials, joints/weights, shared skeleton/clips.
 fra::SkinnedModel fox =
     meshPool->CreateSkinnedModelFromFile("./Resources/Models/Fox.glb");
+for (const auto& part : fox.submeshes)
+{
+    instances.push_back({ .meshId = part.meshId,
+                          .materialId = part.materialId, .entityId = id++,
+                          .boneOffset = 0, .boneCount = fox.skeleton.JointCount() });
+}
 
 // Full stack (AnimGraph, bake, CPU/GPU skin, LOD, look/IK): see Animation.
 renderer->UploadBoneMatrices(fra::EvaluateSkeletonPose(
@@ -84,11 +87,14 @@ std::uint32_t material = materialPool->Create(fra::MaterialCreateInfo {
     .receiveShadows          = true,
 });
 
-// albedo, normal, roughness, emissive, metalness — missing slots skip.
+// albedo, normal, roughness, emissive, metalness, occlusion — missing slots skip.
 std::uint32_t fromFiles = materialPool->CreateFromTextureFiles({
     "./Resources/Textures/albedo.png",
     "./Resources/Textures/normal.png",
     "./Resources/Textures/roughness.png",
+    "./Resources/Textures/emissive.png",
+    "./Resources/Textures/metalness.png",
+    "./Resources/Textures/ao.png",
 });
 
 materialPool->Update(material, updatedCreateInfo);

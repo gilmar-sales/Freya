@@ -22,7 +22,6 @@
 #include <assimp/config.h>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
-#include <meshoptimizer.h>
 
 #include <algorithm>
 #include <cmath>
@@ -42,7 +41,18 @@ namespace FREYA_NAMESPACE
     constexpr auto MegaBytes           = 1024 * 1024;
     constexpr auto MinVertexBufferSize = 4 * MegaBytes;
     constexpr auto MinIndexBufferSize  = 4 * MegaBytes;
-    constexpr auto kMinIndicesForLod   = 756u;
+
+    constexpr unsigned kAssimpCommonFlags =
+        aiProcess_CalcTangentSpace | aiProcess_Triangulate |
+        aiProcess_SortByPType | aiProcess_GenNormals | aiProcess_GenUVCoords |
+        aiProcess_JoinIdenticalVertices | aiProcess_GlobalScale |
+        aiProcess_ValidateDataStructure;
+
+    constexpr unsigned kAssimpStaticFlags =
+        kAssimpCommonFlags | aiProcess_PreTransformVertices;
+
+    constexpr unsigned kAssimpSkinnedFlags =
+        kAssimpCommonFlags | aiProcess_LimitBoneWeights;
 
     struct MeshPool::Impl
     {
@@ -153,69 +163,17 @@ namespace FREYA_NAMESPACE
             buffer = std::move(newBuffer);
         }
 
-        std::vector<std::vector<std::uint32_t>> buildLodIndices(
-            const std::vector<Vertex>&        vertices,
-            const std::vector<std::uint32_t>& lod0)
-        {
-            std::vector<std::vector<std::uint32_t>> lods;
-            lods.push_back(lod0);
-
-            if (lod0.size() < kMinIndicesForLod || vertices.empty())
-                return lods;
-
-            std::vector<float> positions(vertices.size() * 3);
-            for (std::size_t i = 0; i < vertices.size(); ++i)
-            {
-                positions[i * 3 + 0] = vertices[i].position.x;
-                positions[i * 3 + 1] = vertices[i].position.y;
-                positions[i * 3 + 2] = vertices[i].position.z;
-            }
-
-            auto current = lod0;
-            for (std::uint32_t level = 1; level < kMaxLodsPerMesh; ++level)
-            {
-                const auto target =
-                    std::max<std::size_t>((current.size() / 2) / 3 * 3, 3);
-                if (target >= current.size())
-                    break;
-
-                std::vector<std::uint32_t> simplified(current.size());
-                float                      resultError = 0.0f;
-                const auto                 written     = meshopt_simplify(
-                    simplified.data(), current.data(), current.size(),
-                    positions.data(), vertices.size(), sizeof(float) * 3,
-                    target, 1e-2f * static_cast<float>(level), 0, &resultError);
-                simplified.resize(written);
-
-                if (written < 3 || written >= current.size() * 9 / 10)
-                    break;
-
-                meshopt_optimizeVertexCache(
-                    simplified.data(), simplified.data(), simplified.size(),
-                    vertices.size());
-                lods.push_back(std::move(simplified));
-                current = lods.back();
-            }
-
-            return lods;
-        }
-
         std::uint32_t createMesh(const std::vector<Vertex>&        vertices,
                                  const std::vector<std::uint32_t>& indicesIn,
                                  const bool inflateAabb = false)
         {
-            auto indices = indicesIn;
-            if (!indices.empty() && !vertices.empty())
-            {
-                meshopt_optimizeVertexCache(indices.data(), indices.data(),
-                                            indices.size(), vertices.size());
-            }
-
-            const auto lodIndexSets = buildLodIndices(vertices, indices);
+            const std::vector<std::vector<std::uint32_t>> lodIndexSets = {
+                indicesIn
+            };
 
             logger->LogTrace(
-                "Creating mesh with {} vertices, {} lod0 indices, {} LODs.",
-                vertices.size(), indices.size(), lodIndexSets.size());
+                "Creating mesh with {} vertices, {} indices.",
+                vertices.size(), indicesIn.size());
 
             const auto vertexMemorySize =
                 static_cast<std::uint32_t>(vertices.size() * sizeof(Vertex));
@@ -357,7 +315,7 @@ namespace FREYA_NAMESPACE
 
         std::uint32_t processMesh(const aiMesh*  mesh,
                                   const aiScene* scene,
-                                  bool           applyDiffuseColor = true)
+                                  bool           bakeMaterialDiffuse = false)
         {
             std::vector<Vertex>        vertices;
             std::vector<std::uint32_t> indices;
@@ -374,11 +332,16 @@ namespace FREYA_NAMESPACE
                                               : aiVector3D(0, 0, 0);
 
                 aiColor3D aColor(1.0, 1.0, 1.0);
-                if (applyDiffuseColor)
+                if (mesh->HasVertexColors(0))
                 {
-                    const auto material =
-                        scene->mMaterials[mesh->mMaterialIndex];
-                    material->Get(AI_MATKEY_COLOR_DIFFUSE, aColor);
+                    const auto& vc = mesh->mColors[0][i];
+                    aColor           = aiColor3D(vc.r, vc.g, vc.b);
+                }
+                else if (bakeMaterialDiffuse && scene->mMaterials &&
+                         mesh->mMaterialIndex < scene->mNumMaterials)
+                {
+                    scene->mMaterials[mesh->mMaterialIndex]->Get(
+                        AI_MATKEY_COLOR_DIFFUSE, aColor);
                 }
 
                 vertices.push_back(Vertex {
@@ -398,52 +361,6 @@ namespace FREYA_NAMESPACE
             }
 
             return createMesh(vertices, indices);
-        }
-
-        void processNode(std::vector<std::uint32_t>& meshIds,
-                         const aiNode*               node,
-                         const aiScene*              scene)
-        {
-            for (unsigned int i = 0; i < node->mNumMeshes; ++i)
-            {
-                const aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-                meshIds.push_back(processMesh(mesh, scene));
-            }
-            for (unsigned int i = 0; i < node->mNumChildren; ++i)
-                processNode(meshIds, node->mChildren[i], scene);
-        }
-
-        std::vector<std::uint32_t> createMeshFromFile(const std::string& path)
-        {
-            logger->LogTrace("Creating mesh from file: {}", path);
-            auto             meshIds = std::vector<std::uint32_t>();
-            Assimp::Importer importer;
-            // Without KEEP_HIERARCHY, PreTransformVertices collapses every
-            // submesh into one — Blend materials (e.g. lamp bulb) cannot be
-            // assigned and disappear into the opaque body draw.
-            importer.SetPropertyBool(AI_CONFIG_PP_PTV_KEEP_HIERARCHY, true);
-            // Do not OptimizeMeshes: shared placeholder materials in glTF
-            // would re-merge named parts (body/bulb/switch) after PTV.
-            const aiScene* scene = importer.ReadFile(
-                path,
-                aiProcess_CalcTangentSpace | aiProcess_Triangulate |
-                    aiProcess_SortByPType | aiProcess_GenNormals |
-                    aiProcess_GenUVCoords | aiProcess_JoinIdenticalVertices |
-                    aiProcess_GlobalScale | aiProcess_PreTransformVertices |
-                    aiProcess_ValidateDataStructure);
-
-            if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE ||
-                !scene->mRootNode)
-            {
-                logger->LogError("Failed loading mesh: {}",
-                                 importer.GetErrorString());
-                return meshIds;
-            }
-
-            processNode(meshIds, scene->mRootNode, scene);
-            logger->LogTrace("Loaded {} mesh(es) from {}", meshIds.size(),
-                             path);
-            return meshIds;
         }
 
         static std::string parentDirectory(const std::string& path)
@@ -535,7 +452,10 @@ namespace FREYA_NAMESPACE
                     file.size() >= 2 && (file[0] == '/' || file[1] == ':');
                 if (!absolute)
                     file = directory + "/" + file;
-                id = texturePool->CreateTextureFromFile(file);
+                const auto loaded = texturePool->CreateTextureFromFile(file);
+                if (!loaded)
+                    return std::nullopt;
+                id = *loaded;
             }
 
             cache.emplace(key, id);
@@ -563,6 +483,8 @@ namespace FREYA_NAMESPACE
                         *matchedPath = path;
                     return id;
                 }
+                logger->LogWarning("Failed loading material texture '{}'",
+                                   path.C_Str());
             }
             return std::nullopt;
         }
@@ -574,6 +496,7 @@ namespace FREYA_NAMESPACE
             std::unordered_map<std::string, std::uint32_t>& cache)
         {
             MaterialCreateInfo info {};
+            info.metalnessFactor = 0.f;
 
             info.albedo = loadFirstTexture(
                 mat, scene, directory,
@@ -595,19 +518,31 @@ namespace FREYA_NAMESPACE
 
             aiString metalPath;
             aiString roughPath;
-            aiString packedPath;
             auto     metalTex = loadFirstTexture(
                 mat, scene, directory, { aiTextureType_METALNESS }, cache,
                 &metalPath);
-            auto roughTex = loadFirstTexture(
-                mat, scene, directory,
-                { aiTextureType_DIFFUSE_ROUGHNESS, aiTextureType_SHININESS },
-                cache, &roughPath);
+            aiString roughPathOnly;
+            auto     roughTex = loadFirstTexture(
+                mat, scene, directory, { aiTextureType_DIFFUSE_ROUGHNESS },
+                cache, &roughPathOnly);
+            if (!roughTex)
+            {
+                roughTex = loadFirstTexture(
+                    mat, scene, directory, { aiTextureType_SHININESS }, cache,
+                    &roughPath);
+                if (roughTex)
+                {
+                    logger->LogWarning(
+                        "Material uses legacy shininess map as roughness");
+                }
+            }
+            else
+            {
+                roughPath = roughPathOnly;
+            }
             auto packedTex = loadFirstTexture(
                 mat, scene, directory,
-                { aiTextureType_GLTF_METALLIC_ROUGHNESS,
-                  aiTextureType_UNKNOWN },
-                cache, &packedPath);
+                { aiTextureType_GLTF_METALLIC_ROUGHNESS }, cache);
 
             const auto samePacked = metalTex && roughTex &&
                                     normalizeSlashes(metalPath.C_Str()) ==
@@ -628,6 +563,16 @@ namespace FREYA_NAMESPACE
                 info.metalness = metalTex;
             }
 
+            if (info.occlusion && info.roughness &&
+                *info.occlusion == *info.roughness)
+                info.packedMetallicRoughness = true;
+
+            if (!info.albedo)
+            {
+                info.albedo = loadFirstTexture(
+                    mat, scene, directory, { aiTextureType_OPACITY }, cache);
+            }
+
             aiColor4D base(1.f, 1.f, 1.f, 1.f);
             if (mat->Get(AI_MATKEY_BASE_COLOR, base) != AI_SUCCESS)
             {
@@ -637,16 +582,28 @@ namespace FREYA_NAMESPACE
             }
             info.albedoFactor = glm::vec4(base.r, base.g, base.b, base.a);
 
-            float metallic  = 1.f;
-            float roughness = 1.f;
+            float metallic = 0.f;
             if (mat->Get(AI_MATKEY_METALLIC_FACTOR, metallic) == AI_SUCCESS)
                 info.metalnessFactor = metallic;
+
+            float roughness = 1.f;
             if (mat->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness) == AI_SUCCESS)
                 info.roughnessFactor = roughness;
 
             aiColor3D emissive(1.f, 1.f, 1.f);
             if (mat->Get(AI_MATKEY_COLOR_EMISSIVE, emissive) == AI_SUCCESS)
                 info.emissiveFactor = { emissive.r, emissive.g, emissive.b };
+
+            float emissiveIntensity = 1.f;
+            if (mat->Get(AI_MATKEY_EMISSIVE_INTENSITY, emissiveIntensity) ==
+                AI_SUCCESS)
+                info.emissiveFactor *= emissiveIntensity;
+
+            float aoStrength = 1.f;
+            if (mat->Get(AI_MATKEY_GLTF_TEXTURE_STRENGTH(
+                             aiTextureType_AMBIENT_OCCLUSION, 0),
+                         aoStrength) == AI_SUCCESS)
+                info.aoFactor = aoStrength;
 
             float opacity = 1.f;
             mat->Get(AI_MATKEY_OPACITY, opacity);
@@ -703,19 +660,51 @@ namespace FREYA_NAMESPACE
             return materialPool->Create(info);
         }
 
+        std::vector<std::uint32_t> importAllMaterials(
+            const aiScene*     scene,
+            const std::string& directory)
+        {
+            std::unordered_map<std::string, std::uint32_t> textureCache;
+            std::vector<std::uint32_t> materialIds(scene->mNumMaterials, 0);
+            for (unsigned i = 0; i < scene->mNumMaterials; ++i)
+            {
+                materialIds[i] = importAssimpMaterial(
+                    scene->mMaterials[i], scene, directory, textureCache);
+            }
+            return materialIds;
+        }
+
+        template<typename Fn>
+        void walkSceneSubmeshes(const aiScene*                    scene,
+                                const std::vector<std::uint32_t>& materialIds,
+                                Fn&&                              fn)
+        {
+            const auto walk = [&](auto&& self, const aiNode* node) -> void {
+                for (unsigned i = 0; i < node->mNumMeshes; ++i)
+                {
+                    const aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+                    const auto    matIndex = mesh->mMaterialIndex;
+                    const auto    materialId =
+                        matIndex < materialIds.size() ? materialIds[matIndex]
+                                                      : 0u;
+                    fn(mesh, materialId);
+                }
+                for (unsigned i = 0; i < node->mNumChildren; ++i)
+                    self(self, node->mChildren[i]);
+            };
+            walk(walk, scene->mRootNode);
+        }
+
         std::vector<ModelSubmesh> createModelFromFile(const std::string& path)
         {
             logger->LogTrace("Creating model from file: {}", path);
             auto             submeshes = std::vector<ModelSubmesh>();
             Assimp::Importer importer;
+            // Without KEEP_HIERARCHY, PreTransformVertices collapses every
+            // submesh into one — Blend materials (e.g. lamp bulb) cannot be
+            // assigned and disappear into the opaque body draw.
             importer.SetPropertyBool(AI_CONFIG_PP_PTV_KEEP_HIERARCHY, true);
-            const aiScene* scene = importer.ReadFile(
-                path,
-                aiProcess_CalcTangentSpace | aiProcess_Triangulate |
-                    aiProcess_SortByPType | aiProcess_GenNormals |
-                    aiProcess_GenUVCoords | aiProcess_JoinIdenticalVertices |
-                    aiProcess_GlobalScale | aiProcess_PreTransformVertices |
-                    aiProcess_ValidateDataStructure);
+            const aiScene* scene = importer.ReadFile(path, kAssimpStaticFlags);
 
             if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE ||
                 !scene->mRootNode)
@@ -725,31 +714,15 @@ namespace FREYA_NAMESPACE
                 return submeshes;
             }
 
-            const auto directory = normalizeSlashes(parentDirectory(path));
-            std::unordered_map<std::string, std::uint32_t> textureCache;
-            std::vector<std::uint32_t> materialIds(scene->mNumMaterials, 0);
-            for (unsigned i = 0; i < scene->mNumMaterials; ++i)
-            {
-                materialIds[i] = importAssimpMaterial(
-                    scene->mMaterials[i], scene, directory, textureCache);
-            }
-
-            const auto walk = [&](auto&& self, const aiNode* node) -> void {
-                for (unsigned i = 0; i < node->mNumMeshes; ++i)
-                {
-                    const aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-                    const auto    meshId =
-                        processMesh(mesh, scene, /*applyDiffuseColor*/ false);
-                    const auto matIndex = mesh->mMaterialIndex;
-                    const auto materialId =
-                        matIndex < materialIds.size() ? materialIds[matIndex]
-                                                      : 0u;
+            const auto directory   = normalizeSlashes(parentDirectory(path));
+            const auto materialIds = importAllMaterials(scene, directory);
+            walkSceneSubmeshes(
+                scene, materialIds,
+                [&](const aiMesh* mesh, const std::uint32_t materialId) {
+                    const auto meshId =
+                        processMesh(mesh, scene, /*bakeMaterialDiffuse*/ false);
                     submeshes.push_back(ModelSubmesh { meshId, materialId });
-                }
-                for (unsigned i = 0; i < node->mNumChildren; ++i)
-                    self(self, node->mChildren[i]);
-            };
-            walk(walk, scene->mRootNode);
+                });
 
             logger->LogTrace("Loaded {} submesh(es) from {}", submeshes.size(),
                              path);
@@ -831,11 +804,10 @@ namespace FREYA_NAMESPACE
                                               : aiVector3D(0, 0, 0);
 
                 aiColor3D aColor(1.0, 1.0, 1.0);
-                if (scene->mMaterials &&
-                    mesh->mMaterialIndex < scene->mNumMaterials)
+                if (mesh->HasVertexColors(0))
                 {
-                    scene->mMaterials[mesh->mMaterialIndex]->Get(
-                        AI_MATKEY_COLOR_DIFFUSE, aColor);
+                    const auto& vc = mesh->mColors[0][i];
+                    aColor           = aiColor3D(vc.r, vc.g, vc.b);
                 }
 
                 vertices[i] = Vertex {
@@ -891,18 +863,24 @@ namespace FREYA_NAMESPACE
         }
 
         void processSkinnedNode(
-            std::vector<std::uint32_t>& meshIds, const aiNode* node,
-            const aiScene*                                        scene,
-            const std::unordered_map<std::string, std::uint32_t>& nameToIndex)
+            std::vector<ModelSubmesh>& submeshes, const aiNode* node,
+            const aiScene* scene,
+            const std::unordered_map<std::string, std::uint32_t>& nameToIndex,
+            const std::vector<std::uint32_t>& materialIds)
         {
             for (unsigned int i = 0; i < node->mNumMeshes; ++i)
             {
                 const aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-                meshIds.push_back(processSkinnedMesh(mesh, scene, nameToIndex));
+                const auto    meshId =
+                    processSkinnedMesh(mesh, scene, nameToIndex);
+                const auto matIndex = mesh->mMaterialIndex;
+                const auto materialId =
+                    matIndex < materialIds.size() ? materialIds[matIndex] : 0u;
+                submeshes.push_back(ModelSubmesh { meshId, materialId });
             }
             for (unsigned int i = 0; i < node->mNumChildren; ++i)
-                processSkinnedNode(meshIds, node->mChildren[i], scene,
-                                   nameToIndex);
+                processSkinnedNode(submeshes, node->mChildren[i], scene,
+                                   nameToIndex, materialIds);
         }
 
         static AnimationClip convertAnimation(
@@ -966,13 +944,7 @@ namespace FREYA_NAMESPACE
             logger->LogTrace("Creating skinned model from file: {}", path);
             Assimp::Importer importer;
             importer.SetPropertyInteger(AI_CONFIG_PP_LBW_MAX_WEIGHTS, 4);
-            const aiScene* scene = importer.ReadFile(
-                path,
-                aiProcess_CalcTangentSpace | aiProcess_Triangulate |
-                    aiProcess_SortByPType | aiProcess_GenNormals |
-                    aiProcess_GenUVCoords | aiProcess_JoinIdenticalVertices |
-                    aiProcess_GlobalScale | aiProcess_LimitBoneWeights |
-                    aiProcess_ValidateDataStructure);
+            const aiScene* scene = importer.ReadFile(path, kAssimpSkinnedFlags);
 
             if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE ||
                 !scene->mRootNode)
@@ -986,9 +958,10 @@ namespace FREYA_NAMESPACE
             collectBoneNames(scene, nameToIndex, out.skeleton);
             if (out.skeleton.JointCount() == 0)
             {
-                logger->LogError("Skinned load found no bones in '{}'; use "
-                                 "CreateMeshFromFile for static models.",
-                                 path);
+                logger->LogError(
+                    "Skinned load found no bones in '{}'; use "
+                    "CreateModelFromFile for static models.",
+                    path);
                 return out;
             }
 
@@ -1010,16 +983,18 @@ namespace FREYA_NAMESPACE
                 }
             }
 
-            processSkinnedNode(out.meshIds, scene->mRootNode, scene,
-                               nameToIndex);
+            const auto directory   = normalizeSlashes(parentDirectory(path));
+            const auto materialIds = importAllMaterials(scene, directory);
+            processSkinnedNode(out.submeshes, scene->mRootNode, scene,
+                               nameToIndex, materialIds);
 
             for (unsigned a = 0; a < scene->mNumAnimations; ++a)
                 out.clips.push_back(
                     convertAnimation(scene->mAnimations[a], nameToIndex));
 
             logger->LogTrace(
-                "Loaded skinned model '{}' ({} meshes, {} joints, {} clips)",
-                path, out.meshIds.size(), out.skeleton.JointCount(),
+                "Loaded skinned model '{}' ({} submeshes, {} joints, {} clips)",
+                path, out.submeshes.size(), out.skeleton.JointCount(),
                 out.clips.size());
             return out;
         }
@@ -1076,12 +1051,6 @@ namespace FREYA_NAMESPACE
         const std::vector<std::uint32_t>& indices)
     {
         return mImpl->createMesh(vertices, indices);
-    }
-
-    std::vector<std::uint32_t> MeshPool::CreateMeshFromFile(
-        const std::string& path)
-    {
-        return mImpl->createMeshFromFile(path);
     }
 
     std::vector<ModelSubmesh> MeshPool::CreateModelFromFile(

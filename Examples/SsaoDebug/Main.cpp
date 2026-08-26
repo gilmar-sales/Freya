@@ -148,38 +148,21 @@ class MainApp final : public fra::AbstractApplication
             .metalnessFactor = 0.0f,
         });
 
-        // MeshPool does not import glTF PBR textures; simple factors for Lit.
-        mHelmetMaterial = mMaterialPool->Create({
-            .albedoFactor    = { 0.55f, 0.52f, 0.48f, 1.0f },
-            .roughnessFactor = 0.45f,
-            .metalnessFactor = 0.85f,
-        });
-        mDragonMaterial = mMaterialPool->Create({
-            .albedoFactor    = { 0.35f, 0.42f, 0.38f, 1.0f },
-            .roughnessFactor = 0.35f,
-            .metalnessFactor = 0.2f,
-        });
-        mShipMaterial   = mMaterialPool->Create({
-            .albedoFactor    = { 0.62f, 0.64f, 0.68f, 1.0f },
-            .roughnessFactor = 0.4f,
-            .metalnessFactor = 0.65f,
-        });
-
-        mHelmetMeshes = mMeshPool->CreateMeshFromFile(
+        mHelmetModel = mMeshPool->CreateModelFromFile(
             "./Resources/Models/DamagedHelmet.gltf");
-        mDragonMeshes = mMeshPool->CreateMeshFromFile(
+        mDragonModel = mMeshPool->CreateModelFromFile(
             "./Resources/Models/DragonAttenuation.gltf");
-        mShipMeshes =
-            mMeshPool->CreateMeshFromFile("./Resources/Models/ally_ship.glb");
+        mShipModel =
+            mMeshPool->CreateModelFromFile("./Resources/Models/ally_ship.glb");
 
-        if (mHelmetMeshes.empty())
+        if (mHelmetModel.empty())
             std::cerr << "Failed to load DamagedHelmet.gltf\n";
-        if (mDragonMeshes.empty())
+        if (mDragonModel.empty())
             std::cerr << "Failed to load DragonAttenuation.gltf\n";
-        if (mShipMeshes.empty())
+        if (mShipModel.empty())
             std::cerr << "Failed to load ally_ship.glb\n";
         else
-            std::cout << "ally_ship meshes: " << mShipMeshes.size() << '\n';
+            std::cout << "ally_ship submeshes: " << mShipModel.size() << '\n';
 
         // Dim key — AO stays visible on IBL.
         {
@@ -278,12 +261,12 @@ class MainApp final : public fra::AbstractApplication
         const auto helmetModel = glm::scale(
             glm::translate(glm::mat4(1.0f), glm::vec3(-1.6f, 0.0f, 0.0f)),
             glm::vec3(1.15f));
-        for (const auto meshId : mHelmetMeshes)
+        for (const auto& part : mHelmetModel)
         {
             Instance inst {};
             inst.model      = helmetModel;
-            inst.meshId     = meshId;
-            inst.materialId = mHelmetMaterial;
+            inst.meshId     = part.meshId;
+            inst.materialId = part.materialId;
             inst.entityId   = nextEntity++;
             mInstances.push_back(inst);
         }
@@ -292,12 +275,12 @@ class MainApp final : public fra::AbstractApplication
         const auto dragonModel = glm::scale(
             glm::translate(glm::mat4(1.0f), glm::vec3(1.8f, 0.0f, 0.0f)),
             glm::vec3(1.0f));
-        for (const auto meshId : mDragonMeshes)
+        for (const auto& part : mDragonModel)
         {
             Instance inst {};
             inst.model      = dragonModel;
-            inst.meshId     = meshId;
-            inst.materialId = mDragonMaterial;
+            inst.meshId     = part.meshId;
+            inst.materialId = part.materialId;
             inst.entityId   = nextEntity++;
             mInstances.push_back(inst);
         }
@@ -307,12 +290,12 @@ class MainApp final : public fra::AbstractApplication
         const auto shipModel = glm::scale(
             glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.0f, -2.8f)),
             glm::vec3(100.0f));
-        for (const auto meshId : mShipMeshes)
+        for (const auto& part : mShipModel)
         {
             Instance inst {};
             inst.model      = shipModel;
-            inst.meshId     = meshId;
-            inst.materialId = mShipMaterial;
+            inst.meshId     = part.meshId;
+            inst.materialId = part.materialId;
             inst.entityId   = nextEntity++;
             mInstances.push_back(inst);
         }
@@ -502,12 +485,9 @@ class MainApp final : public fra::AbstractApplication
 
     std::uint32_t              mGroundMesh     = 0;
     std::uint32_t              mGroundMaterial = 0;
-    std::uint32_t              mHelmetMaterial = 0;
-    std::uint32_t              mDragonMaterial = 0;
-    std::uint32_t              mShipMaterial   = 0;
-    std::vector<std::uint32_t> mHelmetMeshes;
-    std::vector<std::uint32_t> mDragonMeshes;
-    std::vector<std::uint32_t> mShipMeshes;
+    std::vector<fra::ModelSubmesh> mHelmetModel;
+    std::vector<fra::ModelSubmesh> mDragonModel;
+    std::vector<fra::ModelSubmesh> mShipModel;
     std::vector<Instance>      mInstances;
 
     glm::vec3 mCameraPos { 0.2f, 1.4f, 4.8f };

@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <iostream>
+#include <optional>
 #include <unordered_set>
 #include <vector>
 
@@ -185,15 +186,15 @@ class MainApp final : public fra::AbstractApplication
             .ior             = 1.5f,
         });
 
-        mSofaModel = mMeshPool->CreateMeshFromFile(
+        mLampModel = mMeshPool->CreateModelFromFile(
             "./Resources/Models/industrial_pipe_lamp.glb");
         // GLB node order with KEEP_HIERARCHY: body (0), bulb (1), switch (2).
-        mBulbMeshId =
-            mSofaModel.size() > 1 ? mSofaModel[1] : std::uint32_t { ~0u };
+        mBulbMeshId = mLampModel.size() > 1 ? mLampModel[1].meshId
+                                            : std::uint32_t { ~0u };
         if (mBulbMeshId == ~0u)
         {
-            std::cerr << "Lamp GLB has " << mSofaModel.size()
-                      << " mesh(es); expected body/bulb/switch — "
+            std::cerr << "Lamp GLB has " << mLampModel.size()
+                      << " submesh(es); expected body/bulb/switch — "
                          "bulb Blend material will not apply\n";
         }
 
@@ -202,10 +203,8 @@ class MainApp final : public fra::AbstractApplication
 
         mSpaceShipAlbedo = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/SpaceShip_Base_color.jpg");
-
         mSpaceShipNormal = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/SpaceShip_Normal.jpg");
-
         mSpaceShipRoughness = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/SpaceShip_Roughness.jpg");
 
@@ -214,8 +213,8 @@ class MainApp final : public fra::AbstractApplication
               .normal    = mSpaceShipNormal,
               .roughness = mSpaceShipRoughness });
 
-        mSpaceShipModel =
-            mMeshPool->CreateMeshFromFile("./Resources/Models/SpaceShip.fbx");
+        mSpaceShipModel = mMeshPool->CreateModelFromFile(
+            "./Resources/Models/SpaceShip.fbx");
 
         // Fill lights stay dim so local casters dominate when diagnosed.
         // castShadows is toggled one-at-a-time (spots all share mode 4).
@@ -416,15 +415,15 @@ class MainApp final : public fra::AbstractApplication
                                 glm::vec3(0.0f, 1.0f, 0.0f));
 
         std::vector<fra::SceneInstanceUpload> instances;
-        instances.reserve(mSofaModel.size() * 2 + 1);
-        for (const auto& mesh : mSofaModel)
+        instances.reserve(mLampModel.size() * 2 + 1);
+        for (const auto& part : mLampModel)
         {
-            const bool isBulb = mesh == mBulbMeshId;
+            const bool isBulb = part.meshId == mBulbMeshId;
             for (std::uint32_t i = 0; i < 2; ++i)
             {
                 instances.push_back(fra::SceneInstanceUpload {
                     .model       = mModelMatrix[i],
-                    .meshId      = mesh,
+                    .meshId      = part.meshId,
                     .materialId  = isBulb ? mBulbMaterial : mSofaMaterial,
                     .entityId    = i + 1,
                     .castShadows = !isBulb,
@@ -799,28 +798,28 @@ class MainApp final : public fra::AbstractApplication
         float             phaseOffset  = 0.0f;
     };
 
-    std::vector<unsigned> mSofaModel;
-    std::uint32_t         mSofaAlbedo {};
-    std::uint32_t         mSofaNormal {};
-    std::uint32_t         mSofaRoughness {};
-    std::uint32_t         mSofaEmissive {};
-    std::uint32_t         mSofaMetalness {};
-    std::uint32_t         mSofaMaterial {};
-    std::uint32_t         mBulbMaterial {};
-    std::uint32_t         mBulbMeshId { ~0u };
+    std::vector<fra::ModelSubmesh> mLampModel;
+    std::optional<std::uint32_t>   mSofaAlbedo {};
+    std::optional<std::uint32_t>   mSofaNormal {};
+    std::optional<std::uint32_t>   mSofaRoughness {};
+    std::optional<std::uint32_t>   mSofaEmissive {};
+    std::optional<std::uint32_t>   mSofaMetalness {};
+    std::uint32_t                  mSofaMaterial {};
+    std::uint32_t                  mBulbMaterial {};
+    std::uint32_t                  mBulbMeshId { ~0u };
 
     std::uint32_t mGroundMesh {};
     std::uint32_t mGroundMaterial {};
 
-    std::vector<unsigned> mSpaceShipModel;
-    std::uint32_t         mSpaceShipAlbedo {};
-    std::uint32_t         mSpaceShipNormal {};
-    std::uint32_t         mSpaceShipRoughness {};
-    std::uint32_t         mSpaceShipMaterial {};
+    std::vector<fra::ModelSubmesh> mSpaceShipModel;
+    std::optional<std::uint32_t>   mSpaceShipAlbedo {};
+    std::optional<std::uint32_t>   mSpaceShipNormal {};
+    std::optional<std::uint32_t>   mSpaceShipRoughness {};
+    std::uint32_t                  mSpaceShipMaterial {};
 
     skr::Arc<fra::MaterialPool> mMaterialPool;
     skr::Arc<fra::TexturePool>  mTexturePool;
-    skr::Arc<fra::MeshPool>     mMeshPool;
+    skr::Arc<fra::MeshPool>       mMeshPool;
     skr::Arc<fra::LightService> mLightService;
     skr::Arc<fra::FreyaOptions> mFreyaOptions;
     glm::mat4                   mModelMatrix[kInstanceCount] {};

@@ -53,7 +53,7 @@ target_include_directories(Freya
 
 target_link_libraries(Freya
     PUBLIC  glm skirnir::skirnir
-    PRIVATE SDL3::SDL3 assimp meshoptimizer ${Vulkan_LIBRARIES})
+    PRIVATE SDL3::SDL3 assimp ${Vulkan_LIBRARIES})
 
 target_precompile_headers(Freya PRIVATE
     <vulkan/vulkan.hpp> <SDL3/SDL.h> …)

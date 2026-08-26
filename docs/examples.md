@@ -48,8 +48,8 @@ class MainApp final : public fra::AbstractApplication
         mSofaMaterial = mMaterialPool->Create({
             mSofaAlbedo, mSofaNormal, mSofaRoughness });
 
-        // Load mesh
-        mSofaModel = mMeshPool->CreateMeshFromFile(
+        // Load model (PBR materials imported from file)
+        mSofaModel = mMeshPool->CreateModelFromFile(
             "./Resources/Models/OfficeSofa.fbx");
     }
 
@@ -57,11 +57,9 @@ class MainApp final : public fra::AbstractApplication
     {
         mRenderer->BeginFrame();
 
-        mMaterialPool->Bind(mSofaMaterial);
-
-        for (const auto& mesh : mSofaModel)
+        for (const auto& part : mSofaModel)
         {
-            mMeshPool->Draw(mesh);
+            mRenderer->Draw(part.meshId, part.materialId);
         }
 
         mRenderer->EndFrame();

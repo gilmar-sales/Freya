@@ -44,8 +44,6 @@ namespace FREYA_NAMESPACE
         std::uint32_t CreateMesh(const std::vector<Vertex>&        vertices,
                                  const std::vector<std::uint32_t>& indices);
 
-        std::vector<std::uint32_t> CreateMeshFromFile(const std::string& path);
-
         std::vector<ModelSubmesh> CreateModelFromFile(const std::string& path);
 
         SkinnedModel CreateSkinnedModelFromFile(const std::string& path);

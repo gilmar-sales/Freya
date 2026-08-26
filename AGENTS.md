@@ -4,7 +4,7 @@
 
 - CMake 3.29+, requires Vulkan SDK and **GCC 16+** (C++26 reflection via
   `-freflection`; Clang/MSVC are not supported yet). All deps fetched via
-  `FetchContent`: SDL3, glm, assimp, meshoptimizer, skirnir.
+  `FetchContent`: SDL3, glm, assimp, skirnir.
 - Pinned dependency versions:
 
   | Dependency     | Version / Tag    |
@@ -12,7 +12,6 @@
   | SDL3           | `release-3.4.10` |
   | glm            | `1.0.3`          |
   | assimp         | `v6.0.5`         |
-  | meshoptimizer  | `v1.2`           |
   | skirnir        | `v0.23.0`        |
   | stb_image.h    | `v2.30` (vendored in `src/Freya/Vendor/`) |
 - Static lib only (`BUILD_SHARED_LIBS OFF`).

@@ -49,14 +49,14 @@ GPU (first wins). CPU `SampleCurrent` can still stack more layers.
 ```cpp
 fra::SkinnedModel fox =
     meshPool->CreateSkinnedModelFromFile("./Resources/Models/Fox.glb");
-// fox.meshIds, fox.skeleton, fox.clips
+// fox.submeshes, fox.skeleton, fox.clips
 ```
 
 Assimp path skips `PreTransformVertices` and limits bone weights to 4.
 
 | Type | Role |
 |------|------|
-| `SkinnedModel` | `meshIds` + shared `skeleton` + `clips` |
+| `SkinnedModel` | `submeshes` + shared `skeleton` + `clips` |
 | `Skeleton` | `names`, `parents` (−1 = root), `inverseBind`, `restLocal` |
 | `AnimationClip` | `name`, `duration`, `ticksPerSecond`, `channels`, `events` |
 | `EvaluateSkeletonPose(skel, clip, t)` | One-liner: sample clip → skin matrices |
@@ -181,8 +181,8 @@ renderer->UploadBoneMatrices(skin);
 
 uploads.push_back({
     .model = model,
-    .meshId = fox.meshIds[0],
-    .materialId = mat,
+    .meshId = fox.submeshes[0].meshId,
+    .materialId = fox.submeshes[0].materialId,
     .entityId = 1,
     .boneOffset = 0,
     .boneCount = fox.skeleton.JointCount(),

@@ -64,7 +64,8 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    std::uint32_t TexturePool::CreateTextureFromFile(std::string path)
+    std::optional<std::uint32_t> TexturePool::CreateTextureFromFile(
+        std::string path)
     {
         mImpl->logger->LogTrace("TexturePool::CreateTextureFromFile:");
         mImpl->logger->LogTrace("\tPath: {}", path);
@@ -73,8 +74,11 @@ namespace FREYA_NAMESPACE
         const auto imageData =
             stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
 
-        mImpl->logger->Assert(imageData != nullptr,
-                              "\tFailed to load texture.");
+        if (!imageData)
+        {
+            mImpl->logger->LogWarning("Failed to load texture: {}", path);
+            return std::nullopt;
+        }
 
         const auto id = CreateTextureFromMemory(
             imageData, static_cast<std::uint32_t>(width),

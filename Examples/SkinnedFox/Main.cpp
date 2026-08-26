@@ -154,7 +154,7 @@ class MainApp final : public fra::AbstractApplication
 
         mSkinned =
             mMeshPool->CreateSkinnedModelFromFile("./Resources/Models/Fox.glb");
-        if (mSkinned.meshIds.empty() || mSkinned.skeleton.JointCount() == 0)
+        if (mSkinned.submeshes.empty() || mSkinned.skeleton.JointCount() == 0)
         {
             std::cerr << "Failed to load Fox.glb as a skinned model\n";
             return;
@@ -328,12 +328,6 @@ class MainApp final : public fra::AbstractApplication
                   << "  1/2/3/Up/Down=Speed  Q/E=Strafe  F1=help  F2..F12\n";
         printFeatureHelp();
         printFeatureStatus();
-
-        mFoxMaterial = mMaterialPool->Create({
-            .albedoFactor    = { 0.82f, 0.45f, 0.18f, 1.f },
-            .roughnessFactor = 0.65f,
-            .metalnessFactor = 0.0f,
-        });
 
         mGroundMesh     = createGroundMesh();
         mGroundMaterial = mMaterialPool->Create({
@@ -644,16 +638,16 @@ class MainApp final : public fra::AbstractApplication
 
         const auto                            tInst0 = Clock::now();
         std::vector<fra::SceneInstanceUpload> instances;
-        instances.reserve(mFoxes.size() * mSkinned.meshIds.size() + 1);
+        instances.reserve(mFoxes.size() * mSkinned.submeshes.size() + 1);
         std::uint32_t entity = 1;
         for (const auto& fox : mFoxes)
         {
-            for (const auto meshId : mSkinned.meshIds)
+            for (const auto& part : mSkinned.submeshes)
             {
                 instances.push_back(fra::SceneInstanceUpload {
                     .model       = fox.model,
-                    .meshId      = meshId,
-                    .materialId  = mFoxMaterial,
+                    .meshId      = part.meshId,
+                    .materialId  = part.materialId,
                     .entityId    = entity++,
                     .castShadows = mEnableShadows,
                     .boneOffset  = fox.boneOffset,
@@ -1586,7 +1580,6 @@ class MainApp final : public fra::AbstractApplication
     float              mFootstepLogTimer = 0.f;
     std::uint64_t      mFootstepTotal    = 0;
     fra::AnimEventRing mEventRing { 64 };
-    std::uint32_t      mFoxMaterial    = 0;
     std::uint32_t      mGroundMesh     = 0;
     std::uint32_t      mGroundMaterial = 0;
 

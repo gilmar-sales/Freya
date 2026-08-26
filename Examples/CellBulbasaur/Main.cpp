@@ -464,7 +464,6 @@ class MainApp final : public fra::AbstractApplication
         }
         if (mGlowEffect)
         {
-            // Item highlight: glow the left (cell) Bulbasaur materials.
             mGlowEffect->BindMaterial(mEyeMaterial);
             mGlowEffect->BindMaterial(mBodyBMaterial);
             mGlowEffect->BindMaterial(mBodyAMaterial);
@@ -478,13 +477,13 @@ class MainApp final : public fra::AbstractApplication
 
         mSkinned = mMeshPool->CreateSkinnedModelFromFile(
             "./Resources/Models/bulbasaur.glb");
-        if (mSkinned.meshIds.empty() || mSkinned.skeleton.JointCount() == 0)
+        if (mSkinned.submeshes.empty() || mSkinned.skeleton.JointCount() == 0)
         {
             std::cerr << "Failed to load bulbasaur.glb as a skinned model\n";
         }
         else
         {
-            std::cout << "bulbasaur meshes: " << mSkinned.meshIds.size()
+            std::cout << "bulbasaur submeshes: " << mSkinned.submeshes.size()
                       << " joints: " << mSkinned.skeleton.JointCount()
                       << " clips: " << mSkinned.clips.size() << '\n';
             for (const auto& clip : mSkinned.clips)
@@ -748,11 +747,11 @@ class MainApp final : public fra::AbstractApplication
             model = glm::rotate(model, glm::radians(90.0f),
                                 glm::vec3(1.0f, 0.0f, 0.0f));
             model = glm::scale(model, glm::vec3(kModelScale));
-            for (std::size_t i = 0; i < mSkinned.meshIds.size(); ++i)
+            for (std::size_t i = 0; i < mSkinned.submeshes.size(); ++i)
             {
                 Instance inst {};
                 inst.model      = model;
-                inst.meshId     = mSkinned.meshIds[i];
+                inst.meshId     = mSkinned.submeshes[i].meshId;
                 inst.materialId = materialForMesh(i, cellShaded);
                 inst.entityId   = nextEntity++;
                 inst.boneOffset = joints > 0 ? 0u : fra::kNoSkin;

@@ -48,6 +48,9 @@ namespace FREYA_NAMESPACE
         if (texturesPath.size() > 4)
             info.metalness =
                 i.texturePool->CreateTextureFromFile(texturesPath[4]);
+        if (texturesPath.size() > 5)
+            info.occlusion =
+                i.texturePool->CreateTextureFromFile(texturesPath[5]);
         return Create(info);
     }
 

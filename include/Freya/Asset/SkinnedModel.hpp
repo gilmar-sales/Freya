@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Freya/Asset/AnimationClip.hpp"
+#include "Freya/Asset/Mesh.hpp"
 #include "Freya/Asset/Skeleton.hpp"
 
 #include <cstdint>
@@ -13,7 +14,7 @@ namespace FREYA_NAMESPACE
      */
     struct SkinnedModel
     {
-        std::vector<std::uint32_t> meshIds;
+        std::vector<ModelSubmesh>  submeshes;
         Skeleton                   skeleton;
         std::vector<AnimationClip> clips;
     };

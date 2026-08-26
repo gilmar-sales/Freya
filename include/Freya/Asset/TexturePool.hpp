@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace FREYA_NAMESPACE
@@ -15,7 +16,8 @@ namespace FREYA_NAMESPACE
 
         ~TexturePool();
 
-        std::uint32_t CreateTextureFromFile(std::string path);
+        /** @return texture id, or nullopt when the file is missing/unreadable. */
+        std::optional<std::uint32_t> CreateTextureFromFile(std::string path);
 
         std::uint32_t CreateTextureFromMemory(const void*   pixels,
                                               std::uint32_t width,
