@@ -5,6 +5,7 @@
 #include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Core/BillboardDraw.hpp"
 #include "Freya/Core/DebugDraw.hpp"
+#include "Freya/Core/FrameGpuTiming.hpp"
 #include "Freya/Core/IFrameStage.hpp"
 #include "Freya/Core/RendererUi.hpp"
 #include "Freya/FreyaOptions.hpp"
@@ -227,6 +228,12 @@ namespace FREYA_NAMESPACE
                                      std::uint32_t* outCount = nullptr);
 
         bool PollGpuAnimTiming(GpuAnimTimingSample& out);
+
+        /**
+         * @brief GPU ms for each frame stage from the previous finished frame.
+         * @return false when timestamp queries are unavailable or not ready.
+         */
+        bool PollFrameGpuTiming(FrameGpuTimingSample& out);
 
         [[nodiscard]] std::uint32_t GetCurrentFrameIndex() const;
         [[nodiscard]] std::uint32_t GetFrameCount() const;

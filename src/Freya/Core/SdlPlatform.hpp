@@ -36,12 +36,17 @@ namespace FREYA_NAMESPACE
 
         void PumpEvents() override;
 
+        void SetNativeEventObserver(NativeEventObserver observer,
+                                    void*               user) override;
+
         [[nodiscard]] float GetDisplayContentScale(
             void* nativeWindow) const override;
 
       private:
         skr::Arc<skr::Logger<SdlPlatform>>       mLogger;
         std::unordered_map<std::uint32_t, void*> mWindowsById;
+        NativeEventObserver                      mEventObserver = nullptr;
+        void*                                    mEventUser     = nullptr;
     };
 
 } // namespace FREYA_NAMESPACE

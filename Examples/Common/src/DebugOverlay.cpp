@@ -1,0 +1,408 @@
+#include <FreyaExamples/DebugOverlay.hpp>
+
+#include <vulkan/vulkan.h>
+
+#include <imgui.h>
+#include <imgui_impl_sdl3.h>
+#include <imgui_impl_vulkan.h>
+
+#include <SDL3/SDL.h>
+
+#include <cstdio>
+#include <cstring>
+
+namespace FreyaExamples
+{
+    namespace
+    {
+        void checkVk(const VkResult err)
+        {
+            if (err != VK_SUCCESS)
+                std::fprintf(stderr, "Vulkan error %d in DebugOverlay\n",
+                             static_cast<int>(err));
+        }
+
+        const char* QualityLabel(const int index)
+        {
+            static constexpr const char* k[] = { "Low", "Medium", "High",
+                                                 "Ultra", "Off" };
+            return (index >= 0 && index <= 4) ? k[index] : "?";
+        }
+    } // namespace
+
+    DebugOverlay::~DebugOverlay()
+    {
+        Shutdown();
+    }
+
+    void DebugOverlay::onNativeEvent(const void* nativeEvent, void* user)
+    {
+        auto* self = static_cast<DebugOverlay*>(user);
+        if (!self || !self->mInitialized || !nativeEvent)
+            return;
+        ImGui_ImplSDL3_ProcessEvent(static_cast<const SDL_Event*>(nativeEvent));
+    }
+
+    bool DebugOverlay::createDescriptorPool(void* vkDevice)
+    {
+        auto* device = static_cast<VkDevice>(vkDevice);
+        if (!device)
+            return false;
+
+        VkDescriptorPoolSize poolSizes[] = {
+            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 256 },
+        };
+        VkDescriptorPoolCreateInfo poolInfo {};
+        poolInfo.sType   = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        poolInfo.flags   = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+        poolInfo.maxSets = 256;
+        poolInfo.poolSizeCount = static_cast<uint32_t>(std::size(poolSizes));
+        poolInfo.pPoolSizes    = poolSizes;
+
+        VkDescriptorPool pool = VK_NULL_HANDLE;
+        if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &pool) !=
+            VK_SUCCESS)
+            return false;
+        mDescriptorPool = pool;
+        return true;
+    }
+
+    void DebugOverlay::destroyDescriptorPool(void* vkDevice)
+    {
+        auto* device = static_cast<VkDevice>(vkDevice);
+        if (device && mDescriptorPool)
+        {
+            vkDestroyDescriptorPool(
+                device, static_cast<VkDescriptorPool>(mDescriptorPool),
+                nullptr);
+            mDescriptorPool = nullptr;
+        }
+    }
+
+    bool DebugOverlay::Init(fra::Renderer&  renderer,
+                            fra::Window&    window,
+                            fra::IPlatform& platform)
+    {
+        if (mInitialized)
+            return true;
+
+        const auto width  = window.GetWidth();
+        const auto height = window.GetHeight();
+        if (!renderer.SetViewportTarget(width, height))
+        {
+            std::fprintf(stderr, "DebugOverlay: SetViewportTarget failed\n");
+            return false;
+        }
+
+        auto handles = renderer.GetImGuiNativeHandles();
+        if (!handles.device || !handles.window || !handles.renderPass)
+        {
+            std::fprintf(stderr,
+                         "DebugOverlay: incomplete ImGui native handles\n");
+            return false;
+        }
+
+        mDevice   = handles.device;
+        mPlatform = &platform;
+
+        if (!createDescriptorPool(handles.device))
+        {
+            std::fprintf(stderr,
+                         "DebugOverlay: descriptor pool creation failed\n");
+            return false;
+        }
+
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO();
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+
+        ImGui::StyleColorsDark();
+
+        if (!ImGui_ImplSDL3_InitForVulkan(
+                static_cast<SDL_Window*>(handles.window)))
+        {
+            std::fprintf(stderr, "DebugOverlay: SDL3 ImGui init failed\n");
+            Shutdown();
+            return false;
+        }
+
+        ImGui_ImplVulkan_InitInfo initInfo {};
+        initInfo.Instance = static_cast<VkInstance>(handles.instance);
+        initInfo.PhysicalDevice =
+            static_cast<VkPhysicalDevice>(handles.physicalDevice);
+        initInfo.Device      = static_cast<VkDevice>(handles.device);
+        initInfo.QueueFamily = handles.graphicsQueueFamily;
+        initInfo.Queue       = static_cast<VkQueue>(handles.graphicsQueue);
+        initInfo.DescriptorPool =
+            static_cast<VkDescriptorPool>(mDescriptorPool);
+        initInfo.MinImageCount = std::max(2u, handles.minImageCount);
+        initInfo.ImageCount    = std::max(2u, handles.minImageCount);
+        initInfo.MSAASamples   = VK_SAMPLE_COUNT_1_BIT;
+        initInfo.RenderPass    = static_cast<VkRenderPass>(handles.renderPass);
+        initInfo.CheckVkResultFn = checkVk;
+
+        // Required when the TU was built with VK_NO_PROTOTYPES /
+        // IMGUI_IMPL_VULKAN_NO_PROTOTYPES; harmless when prototypes are linked.
+        if (!ImGui_ImplVulkan_LoadFunctions(
+                [](const char* functionName, void* userData) {
+                    return vkGetInstanceProcAddr(
+                        static_cast<VkInstance>(userData), functionName);
+                },
+                handles.instance))
+        {
+            std::fprintf(stderr,
+                         "DebugOverlay: ImGui Vulkan LoadFunctions failed\n");
+            Shutdown();
+            return false;
+        }
+
+        if (!ImGui_ImplVulkan_Init(&initInfo))
+        {
+            std::fprintf(stderr, "DebugOverlay: Vulkan ImGui init failed\n");
+            Shutdown();
+            return false;
+        }
+
+        platform.SetNativeEventObserver(&DebugOverlay::onNativeEvent, this);
+        mInitialized = true;
+        return true;
+    }
+
+    void DebugOverlay::releaseViewportTexture()
+    {
+        if (mViewportSet)
+        {
+            ImGui_ImplVulkan_RemoveTexture(
+                static_cast<VkDescriptorSet>(mViewportSet));
+            mViewportSet  = nullptr;
+            mViewportView = nullptr;
+        }
+    }
+
+    void DebugOverlay::ensureViewportTexture(void* sampler, void* imageView)
+    {
+        if (!sampler || !imageView)
+        {
+            releaseViewportTexture();
+            return;
+        }
+        if (mViewportSet && mViewportView == imageView)
+            return;
+
+        releaseViewportTexture();
+        const VkDescriptorSet set = ImGui_ImplVulkan_AddTexture(
+            static_cast<VkSampler>(sampler),
+            static_cast<VkImageView>(imageView),
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        if (!set)
+        {
+            std::fprintf(stderr,
+                         "DebugOverlay: AddTexture for viewport failed\n");
+            return;
+        }
+        mViewportSet  = set;
+        mViewportView = imageView;
+    }
+
+    void DebugOverlay::Shutdown()
+    {
+        if (mPlatform)
+        {
+            mPlatform->SetNativeEventObserver(nullptr, nullptr);
+            mPlatform = nullptr;
+        }
+
+        if (mInitialized)
+        {
+            if (mDevice)
+            {
+                vkDeviceWaitIdle(static_cast<VkDevice>(mDevice));
+                releaseViewportTexture();
+                ImGui_ImplVulkan_Shutdown();
+            }
+            ImGui_ImplSDL3_Shutdown();
+            ImGui::DestroyContext();
+            mInitialized = false;
+        }
+
+        if (mDevice)
+        {
+            destroyDescriptorPool(mDevice);
+            mDevice = nullptr;
+        }
+    }
+
+    void DebugOverlay::BeginFrame()
+    {
+        if (!mInitialized || !mEnabled)
+            return;
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
+        ImGui::NewFrame();
+    }
+
+    void DebugOverlay::MarkUpdateStart()
+    {
+        mUpdateStart = std::chrono::steady_clock::now();
+    }
+
+    float DebugOverlay::ElapsedUpdateMs() const
+    {
+        using Ms = std::chrono::duration<float, std::milli>;
+        return Ms(std::chrono::steady_clock::now() - mUpdateStart).count();
+    }
+
+    bool DebugOverlay::WantsCaptureMouse() const
+    {
+        if (!mInitialized || !mEnabled)
+            return false;
+        return ImGui::GetIO().WantCaptureMouse;
+    }
+
+    bool DebugOverlay::WantsCaptureKeyboard() const
+    {
+        if (!mInitialized || !mEnabled)
+            return false;
+        return ImGui::GetIO().WantCaptureKeyboard;
+    }
+
+    void DebugOverlay::Draw(fra::Renderer&     renderer,
+                            fra::FreyaOptions& options,
+                            const float        cpuFrameMs,
+                            const float        cpuUpdateMs)
+    {
+        if (!mInitialized || !mEnabled)
+            return;
+
+        auto viewport = renderer.GetViewportImage();
+        if (viewport.valid && viewport.imageView && viewport.sampler)
+        {
+            ensureViewportTexture(viewport.sampler, viewport.imageView);
+            if (mViewportSet)
+            {
+                // Fullscreen scene behind panels (swapchain UI pass is
+                // otherwise empty when SetViewportTarget is active).
+                const ImVec2 display = ImGui::GetIO().DisplaySize;
+                ImGui::GetBackgroundDrawList()->AddImage(
+                    reinterpret_cast<ImTextureID>(mViewportSet),
+                    ImVec2(0.f, 0.f), display);
+            }
+        }
+
+        ImGui::SetNextWindowPos(ImVec2(12.f, 12.f), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(360.f, 480.f), ImGuiCond_FirstUseEver);
+        if (!ImGui::Begin("Freya Debug"))
+        {
+            ImGui::End();
+            return;
+        }
+
+        if (ImGui::CollapsingHeader("Timing", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            ImGui::Text("CPU frame:  %.2f ms (%.1f FPS)", cpuFrameMs,
+                        cpuFrameMs > 1e-3f ? 1000.f / cpuFrameMs : 0.f);
+            ImGui::Text("CPU update: %.2f ms", cpuUpdateMs);
+
+            fra::FrameGpuTimingSample gpu {};
+            if (renderer.PollFrameGpuTiming(gpu) && gpu.enabled)
+            {
+                ImGui::Text("GPU total:  %.2f ms", gpu.totalGpuMs);
+                ImGui::Separator();
+                for (std::uint32_t i = 0; i < gpu.stageCount; ++i)
+                {
+                    ImGui::Text("%-16s %6.2f ms", gpu.stages[i].name,
+                                gpu.stages[i].gpuMs);
+                }
+            }
+            else
+            {
+                ImGui::TextDisabled("GPU timestamps: warming up / unavailable");
+            }
+            ImGui::TextWrapped(
+                "GPU times are Vulkan timestamp deltas per frame "
+                "stage (desktop). Not Mali HWCPipe PTILES / late-ZS.");
+        }
+
+        if (ImGui::CollapsingHeader("Quality", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            int shadow = static_cast<int>(renderer.GetShadowQuality());
+            if (ImGui::Combo("Shadow", &shadow,
+                             "Low\0Medium\0High\0Ultra\0Off\0"))
+                renderer.SetShadowQuality(
+                    static_cast<fra::ShadowQuality>(shadow));
+
+            int ssao = static_cast<int>(renderer.GetSsaoQuality());
+            if (ImGui::Combo("SSAO", &ssao, "Low\0Medium\0High\0Ultra\0Off\0"))
+                renderer.SetSsaoQuality(static_cast<fra::SsaoQuality>(ssao));
+
+            int taa = static_cast<int>(renderer.GetTaaQuality());
+            if (ImGui::Combo("TAA", &taa, "Low\0Medium\0High\0Ultra\0Off\0"))
+                renderer.SetTaaQuality(static_cast<fra::TaaQuality>(taa));
+
+            int bloom = static_cast<int>(renderer.GetBloomQuality());
+            if (ImGui::Combo("Bloom", &bloom,
+                             "Low\0Medium\0High\0Ultra\0Off\0"))
+                renderer.SetBloomQuality(static_cast<fra::BloomQuality>(bloom));
+
+            bool vsync = renderer.GetVSync();
+            if (ImGui::Checkbox("VSync", &vsync))
+                renderer.SetVSync(vsync);
+
+            (void) QualityLabel;
+        }
+
+        if (ImGui::CollapsingHeader("Debug views",
+                                    ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            int view = static_cast<int>(renderer.GetSsaoDebugView());
+            if (ImGui::Combo("SSAO view", &view, "Lit\0AO Blurred\0AO Raw\0"))
+                renderer.SetSsaoDebugView(
+                    static_cast<fra::SsaoDebugView>(view));
+
+            bool shadowDbg = renderer.GetShadowDebug();
+            if (ImGui::Checkbox("Shadow debug", &shadowDbg))
+                renderer.SetShadowDebug(shadowDbg);
+
+            bool dbgDraw = renderer.IsDebugDrawEnabled();
+            if (ImGui::Checkbox("Debug draw", &dbgDraw))
+                renderer.SetDebugDrawEnabled(dbgDraw);
+
+            ImGui::SliderFloat("SSAO radius", &options.ssaoRadius, 0.05f, 2.0f);
+            renderer.SetSsaoRadius(options.ssaoRadius);
+            ImGui::SliderFloat("SSAO bias", &options.ssaoBias, 0.0f, 0.1f);
+            renderer.SetSsaoBias(options.ssaoBias);
+            ImGui::SliderFloat("SSAO power", &options.ssaoPower, 0.5f, 4.0f);
+            renderer.SetSsaoPower(options.ssaoPower);
+            ImGui::SliderFloat("SSAO intensity", &options.ssaoIntensity, 0.0f,
+                               2.0f);
+            renderer.SetSsaoIntensity(options.ssaoIntensity);
+        }
+
+        ImGui::End();
+    }
+
+    void DebugOverlay::EndFrame(fra::Renderer& renderer)
+    {
+        if (!mInitialized)
+        {
+            renderer.EndFrame();
+            return;
+        }
+
+        if (mEnabled)
+            ImGui::Render();
+
+        renderer.EndScene();
+
+        if (mEnabled && renderer.BeginUI())
+        {
+            ImGui_ImplVulkan_RenderDrawData(
+                ImGui::GetDrawData(),
+                static_cast<VkCommandBuffer>(renderer.NativeCommandBuffer()));
+            renderer.EndUI();
+        }
+
+        renderer.Present();
+    }
+} // namespace FreyaExamples

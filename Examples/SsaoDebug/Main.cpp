@@ -1,5 +1,6 @@
 #include <Freya/Freya.hpp>
 
+#include <FreyaExamples/DebugOverlay.hpp>
 #include <FreyaExamples/FlyCam.hpp>
 #include <FreyaExamples/GroundMesh.hpp>
 #include <FreyaExamples/QualityCycle.hpp>
@@ -40,12 +41,17 @@ class MainApp final : public fra::AbstractApplication
 
     void StartUp() override
     {
-        mCam.window    = mWindow;
-        mCam.moveSpeed = 10.0f;
-        mCam.cameraPos = { 0.2f, 1.4f, 4.8f };
-        mCam.yaw       = -95.0f;
-        mCam.pitch     = -12.0f;
+        mCam.window        = mWindow;
+        mCam.moveSpeed     = 10.0f;
+        mCam.cameraPos     = { 0.2f, 1.4f, 4.8f };
+        mCam.yaw           = -95.0f;
+        mCam.pitch         = -12.0f;
+        mCam.blockMouse    = [this] { return mOverlay.WantsCaptureMouse(); };
+        mCam.blockKeyboard = [this] { return mOverlay.WantsCaptureKeyboard(); };
         mCam.BindInput(*mEventManager);
+
+        if (mPlatform)
+            mOverlay.Init(*mRenderer, *mWindow, *mPlatform);
 
         mEventManager->Subscribe<fra::KeyReleasedEvent>(
             [this](const fra::KeyReleasedEvent& event) {
@@ -138,13 +144,17 @@ class MainApp final : public fra::AbstractApplication
             << "V  cycle view: Lit / AO Blurred / AO Raw\n"
             << "F6 cycle SSAO quality (Low→Med→High→Ultra→Off)\n"
             << "1–4 nudge radius/bias/power/intensity (−); Shift+1–4 (+)\n"
-            << "R  reset params to current quality preset\n";
+            << "R  reset params to current quality preset\n"
+            << "ImGui: Freya Debug panel (timing / quality / SSAO views)\n";
 
         updateTitle();
     }
 
     void Update() override
     {
+        mOverlay.MarkUpdateStart();
+        mOverlay.BeginFrame();
+
         const float dt = mWindow->GetDeltaTime();
         mCam.Update(dt);
 
@@ -164,7 +174,11 @@ class MainApp final : public fra::AbstractApplication
             });
         }
         mRenderer->UploadSceneInstances(instances);
-        mRenderer->EndFrame();
+
+        const float cpuFrameMs  = dt * 1000.f;
+        const float cpuUpdateMs = mOverlay.ElapsedUpdateMs();
+        mOverlay.Draw(*mRenderer, *mFreyaOptions, cpuFrameMs, cpuUpdateMs);
+        mOverlay.EndFrame(*mRenderer);
     }
 
   private:
@@ -358,7 +372,8 @@ class MainApp final : public fra::AbstractApplication
     std::vector<fra::ModelSubmesh> mShipModel;
     std::vector<Instance>          mInstances;
 
-    FreyaExamples::FlyCam mCam;
+    FreyaExamples::FlyCam       mCam;
+    FreyaExamples::DebugOverlay mOverlay;
 };
 
 int main(int, const char**)

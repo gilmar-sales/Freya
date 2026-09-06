@@ -164,12 +164,95 @@ namespace FREYA_NAMESPACE
             mSsaoFallbackImage = createSsaoFallbackImage();
 
         registerDefaultFrameStages();
+        createFrameTimestampPool();
         rebuildSceneResources();
+    }
+
+    void Renderer::Impl::createFrameTimestampPool()
+    {
+        destroyFrameTimestampPool();
+        if (!mDevice || !mFreyaOptions)
+            return;
+
+        auto physical = mDevice->GetPhysicalDevice();
+        if (!physical)
+            return;
+
+        const auto props = physical->Get().getProperties();
+        if (props.limits.timestampPeriod <= 0.f)
+            return;
+
+        const auto family = mDevice->GetQueueFamilyIndices().graphicsFamily;
+        if (!family)
+            return;
+        const auto qProps = physical->Get().getQueueFamilyProperties();
+        if (*family >= qProps.size() || qProps[*family].timestampValidBits == 0)
+            return;
+
+        const std::uint32_t frameCount = std::max<std::uint32_t>(
+            1u, mSwapChain ? static_cast<std::uint32_t>(
+                                 mSwapChain->GetFrameCount())
+                           : mFreyaOptions->frameCount);
+        const auto queriesPerFrame = kMaxFrameGpuStages * kTimestampsPerStage;
+        try
+        {
+            mFrameTimestampPool = mDevice->Get().createQueryPool(
+                vk::QueryPoolCreateInfo()
+                    .setQueryType(vk::QueryType::eTimestamp)
+                    .setQueryCount(frameCount * queriesPerFrame));
+            mFrameTimestampPeriodNs = props.limits.timestampPeriod;
+            mFrameTimingSlotPending.assign(frameCount, 0);
+            mFrameTimingSlotStageCount.assign(frameCount, 0);
+        }
+        catch (const vk::SystemError&)
+        {
+            mFrameTimestampPool     = nullptr;
+            mFrameTimestampPeriodNs = 0.f;
+            mFrameTimingSlotPending.clear();
+            mFrameTimingSlotStageCount.clear();
+        }
+    }
+
+    void Renderer::Impl::destroyFrameTimestampPool()
+    {
+        if (mFrameTimestampPool && mDevice)
+        {
+            mDevice->Get().destroyQueryPool(mFrameTimestampPool);
+            mFrameTimestampPool = nullptr;
+        }
+        mFrameTimestampPeriodNs = 0.f;
+        mFrameTimingSlotPending.clear();
+        mFrameTimingSlotStageCount.clear();
+        mLastFrameGpuTiming = {};
+    }
+
+    void Renderer::Impl::writeFrameTimestamp(
+        const vk::CommandBuffer         commandBuffer,
+        const std::uint32_t             queryIndex,
+        const vk::PipelineStageFlagBits stage) const
+    {
+        if (!mFrameTimestampPool)
+            return;
+        commandBuffer.writeTimestamp(stage, mFrameTimestampPool, queryIndex);
+    }
+
+    std::uint32_t Renderer::Impl::frameTimestampBase(
+        const std::uint32_t frameIndex) const
+    {
+        return frameIndex * kMaxFrameGpuStages * kTimestampsPerStage;
+    }
+
+    bool Renderer::Impl::PollFrameGpuTiming(FrameGpuTimingSample& out)
+    {
+        out = mLastFrameGpuTiming;
+        return out.enabled;
     }
 
     Renderer::Impl::~Impl()
     {
         mDevice->Get().waitIdle();
+
+        destroyFrameTimestampPool();
 
         mDevice->Get().destroySampler(mBloomResultSampler);
         mBloomResultImages.clear();
@@ -194,6 +277,7 @@ namespace FREYA_NAMESPACE
         mSwapChain.reset();
         mSwapChain = mServiceProvider->GetService<SwapChainBuilder>()->Build();
 
+        createFrameTimestampPool();
         rebuildSceneResources();
     }
 
@@ -760,6 +844,8 @@ namespace FREYA_NAMESPACE
             static_cast<VkQueue>(mDevice->GetPresentQueue()));
         handles.renderPass = reinterpret_cast<void*>(
             static_cast<VkRenderPass>(GetUIRenderPass()));
+        if (const auto family = mDevice->GetQueueFamilyIndices().graphicsFamily)
+            handles.graphicsQueueFamily = *family;
         if (mSurface)
             handles.window = mSurface->NativeWindow();
 
@@ -1491,16 +1577,109 @@ namespace FREYA_NAMESPACE
     {
         auto       ctx           = makeFrameContext();
         const auto commandBuffer = mCommandPool->GetCommandBuffer();
+        const auto frameIndex    = mSwapChain->GetCurrentFrameIndex();
+        const auto frameCount    = mSwapChain->GetFrameCount();
+
+        // Poll THIS FiF slot before reuse. BeginFrame's WaitNextFrame already
+        // waited for this slot's prior GPU work — do not poll frameIndex-1
+        // (still in flight) and do not use VK_QUERY_RESULT_WAIT (can DEVICE_LOST).
+        FrameGpuTimingSample sample = mLastFrameGpuTiming;
+        if (mFrameTimestampPool && mFrameTimestampPeriodNs > 0.f &&
+            frameIndex < mFrameTimingSlotPending.size() &&
+            mFrameTimingSlotPending[frameIndex])
+        {
+            const auto base = frameTimestampBase(frameIndex);
+            const auto stageCount =
+                std::min(mFrameTimingSlotStageCount[frameIndex],
+                         kMaxFrameGpuStages);
+            if (stageCount > 0)
+            {
+                const auto queryCount = stageCount * kTimestampsPerStage;
+                std::array<std::uint64_t,
+                           kMaxFrameGpuStages * kTimestampsPerStage>
+                    stamps {};
+                const auto result = mDevice->Get().getQueryPoolResults(
+                    mFrameTimestampPool, base, queryCount,
+                    sizeof(std::uint64_t) * queryCount, stamps.data(),
+                    sizeof(std::uint64_t), vk::QueryResultFlagBits::e64);
+                if (result == vk::Result::eSuccess)
+                {
+                    sample            = {};
+                    sample.enabled    = true;
+                    sample.stageCount = stageCount;
+                    float total       = 0.f;
+                    for (std::uint32_t i = 0; i < stageCount; ++i)
+                    {
+                        const auto  a = stamps[i * 2];
+                        const auto  b = stamps[i * 2 + 1];
+                        const float ms =
+                            (b > a) ? static_cast<float>(b - a) *
+                                          mFrameTimestampPeriodNs * 1.0e-6f
+                                    : 0.f;
+                        sample.stages[i].gpuMs = ms;
+                        total += ms;
+                        if (i < mFrameStages.size())
+                        {
+                            const char* name = mFrameStages[i]->Name();
+                            if (name)
+                            {
+                                std::strncpy(
+                                    sample.stages[i].name, name,
+                                    sizeof(sample.stages[i].name) - 1);
+                            }
+                        }
+                    }
+                    sample.totalGpuMs = total;
+                }
+            }
+            mFrameTimingSlotPending[frameIndex] = 0;
+        }
+        mLastFrameGpuTiming = sample;
 
         mDevice->BeginDebugLabel(commandBuffer, DebugLabel::Frame);
-        for (auto& stage : mFrameStages)
+
+        const auto timedStages =
+            std::min(static_cast<std::uint32_t>(mFrameStages.size()),
+                     kMaxFrameGpuStages);
+        if (mFrameTimestampPool && timedStages > 0)
         {
+            const auto base = frameTimestampBase(frameIndex);
+            commandBuffer.resetQueryPool(mFrameTimestampPool, base,
+                                         timedStages * kTimestampsPerStage);
+        }
+
+        for (std::uint32_t i = 0; i < mFrameStages.size(); ++i)
+        {
+            auto& stage = mFrameStages[i];
             mDevice->BeginDebugLabel(commandBuffer,
                                      DebugLabel::ForStage(stage->Name()));
+            if (i < timedStages)
+            {
+                writeFrameTimestamp(
+                    commandBuffer,
+                    frameTimestampBase(frameIndex) + i * kTimestampsPerStage,
+                    vk::PipelineStageFlagBits::eTopOfPipe);
+            }
             stage->Execute(ctx);
+            if (i < timedStages)
+            {
+                writeFrameTimestamp(commandBuffer,
+                                    frameTimestampBase(frameIndex) +
+                                        i * kTimestampsPerStage + 1,
+                                    vk::PipelineStageFlagBits::eBottomOfPipe);
+            }
             mDevice->EndDebugLabel(commandBuffer);
         }
         mDevice->EndDebugLabel(commandBuffer);
+
+        if (mFrameTimestampPool && timedStages > 0 &&
+            frameIndex < mFrameTimingSlotPending.size())
+        {
+            mFrameTimingSlotPending[frameIndex]    = 1;
+            mFrameTimingSlotStageCount[frameIndex] = timedStages;
+        }
+
+        (void) frameCount;
     }
 
     void Renderer::Impl::Present()

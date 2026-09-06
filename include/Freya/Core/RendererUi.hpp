@@ -25,6 +25,8 @@ namespace FREYA_NAMESPACE
         void* graphicsQueue = nullptr; ///< VkQueue (graphics)
         void* presentQueue = nullptr; ///< VkQueue (present, may equal graphics)
         void* renderPass   = nullptr; ///< VkRenderPass of the UI pass
+        std::uint32_t graphicsQueueFamily =
+            0;                        ///< queue family index for graphicsQueue
         std::uint32_t viewWidth  = 0; ///< swapchain width in pixels
         std::uint32_t viewHeight = 0; ///< swapchain height in pixels
         std::uint32_t minImageCount =

@@ -3,6 +3,7 @@
 #include <Freya/Freya.hpp>
 
 #include <cstdint>
+#include <functional>
 #include <unordered_set>
 
 namespace FreyaExamples
@@ -36,6 +37,13 @@ namespace FreyaExamples
         [[nodiscard]] glm::vec3 Forward() const;
 
         void Apply(fra::Renderer& renderer) const;
+
+        /**
+         * @brief When set and returns true, mouse look / movement are skipped
+         * (e.g. ImGui wants capture).
+         */
+        std::function<bool()> blockMouse;
+        std::function<bool()> blockKeyboard;
 
       private:
         void setLookHeld(bool held);

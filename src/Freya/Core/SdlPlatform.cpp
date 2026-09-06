@@ -121,11 +121,21 @@ namespace FREYA_NAMESPACE
         return SDL_GetDisplayContentScale(displayId);
     }
 
+    void SdlPlatform::SetNativeEventObserver(const NativeEventObserver observer,
+                                             void*                     user)
+    {
+        mEventObserver = observer;
+        mEventUser     = user;
+    }
+
     void SdlPlatform::PumpEvents()
     {
         SDL_Event sdlEvent;
         while (SDL_PollEvent(&sdlEvent))
         {
+            if (mEventObserver)
+                mEventObserver(&sdlEvent, mEventUser);
+
             std::uint32_t windowId = 0;
             switch (sdlEvent.type)
             {

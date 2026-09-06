@@ -42,6 +42,7 @@
 
 #include "Freya/Core/BillboardDraw.hpp"
 #include "Freya/Core/DebugDraw.hpp"
+#include "Freya/Core/FrameGpuTiming.hpp"
 #include "Freya/Core/IFrameStage.hpp"
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/ParticleEmitter.hpp"

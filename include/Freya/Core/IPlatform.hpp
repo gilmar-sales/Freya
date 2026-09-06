@@ -21,6 +21,14 @@ namespace FREYA_NAMESPACE
     };
 
     /**
+     * @brief Optional observer for raw platform events (opaque native type).
+     *
+     * For SdlPlatform, @p nativeEvent is `const SDL_Event*`. Used by example
+     * tooling (e.g. Dear ImGui) without Freya depending on ImGui.
+     */
+    using NativeEventObserver = void (*)(const void* nativeEvent, void* user);
+
+    /**
      * @brief Platform abstraction for window lifetime and input pumping.
      *
      * One process-wide instance owns SDL (or another backend) init/shutdown,
@@ -31,6 +39,13 @@ namespace FREYA_NAMESPACE
     {
       public:
         virtual ~IPlatform() = default;
+
+        /**
+         * @brief Registers a single observer invoked for every polled native
+         * event (before Freya translation). Pass nullptr to clear.
+         */
+        virtual void SetNativeEventObserver(NativeEventObserver observer,
+                                            void*               user) = 0;
 
         /**
          * @brief Creates a native window.

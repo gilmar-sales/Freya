@@ -30,6 +30,8 @@ namespace FreyaExamples
 
     void FlyCam::Update(const float dt)
     {
+        if (blockKeyboard && blockKeyboard())
+            return;
         if (requireLookToMove && !lookHeld)
             return;
 
@@ -79,6 +81,8 @@ namespace FreyaExamples
 
         events.Subscribe<fra::MouseButtonPressedEvent>(
             [this](const fra::MouseButtonPressedEvent& event) {
+                if (blockMouse && blockMouse())
+                    return;
                 if (event.button == fra::MouseButton::Right)
                     setLookHeld(true);
             });
@@ -91,6 +95,8 @@ namespace FreyaExamples
 
         events.Subscribe<fra::MouseMoveEvent>(
             [this](const fra::MouseMoveEvent& event) {
+                if (blockMouse && blockMouse())
+                    return;
                 if (!lookHeld)
                     return;
                 yaw += event.deltaX * mouseSensitivity;

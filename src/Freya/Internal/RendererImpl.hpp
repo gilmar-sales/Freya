@@ -184,6 +184,8 @@ namespace FREYA_NAMESPACE
 
         bool PollGpuAnimTiming(GpuAnimTimingSample& out);
 
+        bool PollFrameGpuTiming(FrameGpuTimingSample& out);
+
         void SetGpuAnimCopyPrevBones(bool enabled);
         void UploadGpuAnimInstances(std::span<const GpuAnimInstance> instances);
         void CaptureGpuAnimDebugSnapshot(GpuAnimDebugSnapshot& out) const;
@@ -242,6 +244,17 @@ namespace FREYA_NAMESPACE
 
         void flushLegacyDrawCommands();
 
+        void createFrameTimestampPool();
+        void destroyFrameTimestampPool();
+        void writeFrameTimestamp(vk::CommandBuffer         commandBuffer,
+                                 std::uint32_t             queryIndex,
+                                 vk::PipelineStageFlagBits stage) const;
+
+        [[nodiscard]] std::uint32_t frameTimestampBase(
+            std::uint32_t frameIndex) const;
+
+        static constexpr std::uint32_t kTimestampsPerStage = 2;
+
         skr::Arc<skr::ServiceProvider>   mServiceProvider;
         skr::Arc<Instance>               mInstance;
         skr::Arc<Surface>                mSurface;
@@ -297,6 +310,12 @@ namespace FREYA_NAMESPACE
         bool                             mUsedUploadApi = false;
 
         std::vector<FrameStagePtr> mFrameStages;
+
+        vk::QueryPool             mFrameTimestampPool     = nullptr;
+        float                     mFrameTimestampPeriodNs = 0.f;
+        FrameGpuTimingSample      mLastFrameGpuTiming {};
+        std::vector<std::uint8_t> mFrameTimingSlotPending;
+        std::vector<std::uint32_t> mFrameTimingSlotStageCount;
 
         bool          mPickRequested        = false;
         std::uint32_t mPickX                = 0;

@@ -73,6 +73,22 @@ Reuse helpers from `FreyaExamples::`:
 - `CreateGroundPlane` — procedural ground quad
 - `FindClipContaining` — animation clip name search
 - `CycleQuality` / `QualityName` — Low→…→Off quality enums
+- `DebugOverlay` — Dear ImGui panel (quality / SSAO debug views /
+  CPU + per-stage GPU ms via Vulkan timestamps)
+
+## Debug overlay
+
+`IndustrialPipeLamp` and `SsaoDebug` enable `FreyaExamples::DebugOverlay`
+on startup. The panel shows:
+
+- **Timing** — CPU frame/update ms and GPU ms per `IFrameStage` from
+  `Renderer::PollFrameGpuTiming` (Vulkan timestamps on desktop). This is
+  **not** Mali HWCPipe (`PTILES` / late-ZS); those counters are Arm-only.
+- **Quality** — Shadow / SSAO / TAA / Bloom / VSync
+- **Debug views** — SSAO Lit/Blurred/Raw, shadow debug, debug draw, SSAO knobs
+
+The scene is rendered to an offscreen viewport (`SetViewportTarget`) and
+blitted behind ImGui on the swapchain UI pass (`BeginUI` / `EndUI`).
 
 ## Running Examples
 

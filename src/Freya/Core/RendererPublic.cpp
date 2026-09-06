@@ -450,6 +450,11 @@ namespace FREYA_NAMESPACE
         return mImpl->PollGpuAnimTiming(out);
     }
 
+    bool Renderer::PollFrameGpuTiming(FrameGpuTimingSample& out)
+    {
+        return mImpl->PollFrameGpuTiming(out);
+    }
+
     std::uint32_t Renderer::GetCurrentFrameIndex() const
     {
         return mImpl->mSwapChain->GetCurrentFrameIndex();

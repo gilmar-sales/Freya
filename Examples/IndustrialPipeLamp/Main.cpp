@@ -1,5 +1,6 @@
 #include <Freya/Freya.hpp>
 
+#include <FreyaExamples/DebugOverlay.hpp>
 #include <FreyaExamples/FlyCam.hpp>
 #include <FreyaExamples/GroundMesh.hpp>
 #include <FreyaExamples/QualityCycle.hpp>
@@ -27,8 +28,15 @@ class MainApp final : public fra::AbstractApplication
 
     void StartUp() override
     {
-        mMainCam.window = mWindow;
+        mMainCam.window     = mWindow;
+        mMainCam.blockMouse = [this] { return mOverlay.WantsCaptureMouse(); };
+        mMainCam.blockKeyboard = [this] {
+            return mOverlay.WantsCaptureKeyboard();
+        };
         mMainCam.BindInput(*mEventManager);
+
+        if (mPlatform)
+            mOverlay.Init(*mRenderer, *mWindow, *mPlatform);
 
         mEventManager->Subscribe<fra::KeyReleasedEvent>(
             [this](const fra::KeyReleasedEvent& event) {
@@ -310,7 +318,8 @@ class MainApp final : public fra::AbstractApplication
                "3=cool point  4=all spots | F3 light gizmos | "
                "F9 shadow factor | F10 secondary window\n"
             << "TAA check: lamp 0 orbits — ghost trail => bad velocity; "
-               "F5–F8 cycle quality (Low→Med→High→Ultra→Off)\n";
+               "F5–F8 cycle quality (Low→Med→High→Ultra→Off)\n"
+            << "ImGui: Freya Debug panel (timing / quality / SSAO views)\n";
 
         // All casters on by default (same as key 0).
         setShadowCasterMode(0);
@@ -318,6 +327,9 @@ class MainApp final : public fra::AbstractApplication
 
     void Update() override
     {
+        mOverlay.MarkUpdateStart();
+        mOverlay.BeginFrame();
+
         const float dt = mWindow->GetDeltaTime();
         mCurrentTime += dt;
         mMainCam.Update(dt);
@@ -383,7 +395,11 @@ class MainApp final : public fra::AbstractApplication
 
         mMainCam.Apply(*mRenderer);
         mRenderer->UploadSceneInstances(buildSceneInstances(true));
-        mRenderer->EndFrame();
+
+        const float cpuFrameMs  = mWindow->GetDeltaTime() * 1000.f;
+        const float cpuUpdateMs = mOverlay.ElapsedUpdateMs();
+        mOverlay.Draw(*mRenderer, *mFreyaOptions, cpuFrameMs, cpuUpdateMs);
+        mOverlay.EndFrame(*mRenderer);
     }
 
     void UpdateSecondaryWindow(const skr::Arc<fra::Window>& window) override
@@ -702,6 +718,7 @@ class MainApp final : public fra::AbstractApplication
     skr::Arc<fra::Window>       mSecondaryWindow;
     FreyaExamples::FlyCam       mMainCam;
     FreyaExamples::FlyCam       mSecondaryCam;
+    FreyaExamples::DebugOverlay mOverlay;
     glm::mat4                   mModelMatrix[kInstanceCount] {};
     float                       mCurrentTime {};
     std::vector<AnimatedLight>  mAnimatedLights;

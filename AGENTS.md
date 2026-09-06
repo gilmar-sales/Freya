@@ -4,7 +4,7 @@
 
 - CMake 3.29+, requires Vulkan SDK and **GCC 16+** (C++26 reflection via
   `-freflection`; Clang/MSVC are not supported yet). All deps fetched via
-  `FetchContent`: SDL3, glm, assimp, skirnir.
+  `FetchContent`: SDL3, glm, assimp, skirnir (Dear ImGui only for examples).
 - Pinned dependency versions:
 
   | Dependency     | Version / Tag    |
@@ -14,6 +14,7 @@
   | assimp         | `v6.0.5`         |
   | skirnir        | `v0.23.0`        |
   | stb_image.h    | `v2.30` (vendored in `src/Freya/Vendor/`) |
+  | Dear ImGui     | `v1.91.8` (examples `Examples/Common/` only) |
 - Static lib only (`BUILD_SHARED_LIBS OFF`).
 - `build/` is the active build directory (Ninja, used by CI). `.gitignore` patterns `cmake-build-*/` and `build/` (but `build/` is committed — do not delete it).
 - **Generator: Ninja is mandatory.** Always pass `-G Ninja` when configuring (CI uses Ninja, and the shader copy targets in `cmake/CompileShaders.cmake` rely on Ninja generator behavior). Do not use the default generator.
