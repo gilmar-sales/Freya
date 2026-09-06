@@ -11,9 +11,9 @@ namespace FreyaExamples
     /**
      * @brief Shared freecam for Freya examples (RMB look, WASD move).
      *
-     * Defaults match IndustrialPipeLamp / CellBulbasaur / SsaoDebug
-     * (flattened walk, vertical Space/Q and Ctrl/E). SkinnedFox uses
-     * flattenForward=false, requireLookToMove=true, enableVerticalMove=false.
+     * WASD always moves (unless requireLookToMove and RMB is up). ImGui should
+     * only gate mouse look via blockMouse — not keyboard — so the debug panel
+     * does not steal freecam movement.
      */
     struct FlyCam
     {
@@ -39,11 +39,10 @@ namespace FreyaExamples
         void Apply(fra::Renderer& renderer) const;
 
         /**
-         * @brief When set and returns true, mouse look / movement are skipped
-         * (e.g. ImGui wants capture).
+         * @brief When set and returns true, mouse look / grab are skipped
+         * (e.g. ImGui WantCaptureMouse). Does not affect WASD.
          */
         std::function<bool()> blockMouse;
-        std::function<bool()> blockKeyboard;
 
       private:
         void setLookHeld(bool held);

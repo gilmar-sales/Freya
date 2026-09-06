@@ -30,9 +30,6 @@ class MainApp final : public fra::AbstractApplication
     {
         mMainCam.window     = mWindow;
         mMainCam.blockMouse = [this] { return mOverlay.WantsCaptureMouse(); };
-        mMainCam.blockKeyboard = [this] {
-            return mOverlay.WantsCaptureKeyboard();
-        };
         mMainCam.BindInput(*mEventManager);
 
         if (mPlatform)

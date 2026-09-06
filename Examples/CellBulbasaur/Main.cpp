@@ -1,6 +1,7 @@
 #include <Freya/Freya.hpp>
 
 #include <FreyaExamples/AnimClipUtil.hpp>
+#include <FreyaExamples/DebugOverlay.hpp>
 #include <FreyaExamples/FlyCam.hpp>
 #include <FreyaExamples/GroundMesh.hpp>
 
@@ -119,11 +120,12 @@ class MainApp final : public fra::AbstractApplication
 
     void StartUp() override
     {
-        mCam.window    = mWindow;
-        mCam.moveSpeed = 6.0f;
-        mCam.cameraPos = { 0.0f, 1.6f, 5.2f };
-        mCam.yaw       = -90.0f;
-        mCam.pitch     = -8.0f;
+        mCam.window     = mWindow;
+        mCam.moveSpeed  = 6.0f;
+        mCam.cameraPos  = { 0.0f, 1.6f, 5.2f };
+        mCam.yaw        = -90.0f;
+        mCam.pitch      = -8.0f;
+        mCam.blockMouse = [this] { return mOverlay.WantsCaptureMouse(); };
         mCam.BindInput(*mEventManager);
 
         mEventManager->Subscribe<fra::KeyReleasedEvent>(
@@ -540,16 +542,25 @@ class MainApp final : public fra::AbstractApplication
         buildSceneInstances();
         updateTitle();
 
+        // After RebuildSwapChain / InsertFrameStage so ImGui binds the final
+        // UI render pass.
+        if (mPlatform)
+            mOverlay.Init(*mRenderer, *mWindow, *mPlatform);
+
         std::cout
             << "CellBulbasaur — left: cell  right: PBR\n"
                "F4 cell | F5 outline | F6 grade | F7 underwater | F8 heat\n"
                "F9 item glow | F12 Mu glow (+N) | [ ] change +level\n"
                "F10 ground triplanar | F11 eyes unlit\n"
-               "RMB look | WASD move | Space/Q up | Ctrl/E down\n";
+               "RMB look | WASD move | Space/Q up | Ctrl/E down\n"
+               "ImGui: Freya Debug panel (timing / quality / SSAO views)\n";
     }
 
     void Update() override
     {
+        mOverlay.MarkUpdateStart();
+        mOverlay.BeginFrame();
+
         const float dt = mWindow->GetDeltaTime();
         mEffectTime += dt;
         mCam.Update(dt);
@@ -640,7 +651,10 @@ class MainApp final : public fra::AbstractApplication
                 lit);
         }
 
-        mRenderer->EndFrame();
+        const float cpuFrameMs  = dt * 1000.f;
+        const float cpuUpdateMs = mOverlay.ElapsedUpdateMs();
+        mOverlay.Draw(*mRenderer, *mFreyaOptions, cpuFrameMs, cpuUpdateMs);
+        mOverlay.EndFrame(*mRenderer);
     }
 
   private:
@@ -791,7 +805,8 @@ class MainApp final : public fra::AbstractApplication
     float                     mHpPulse = 0.0f;
     std::vector<Instance>     mInstances;
 
-    FreyaExamples::FlyCam mCam;
+    FreyaExamples::FlyCam       mCam;
+    FreyaExamples::DebugOverlay mOverlay;
 };
 
 int main(int, const char**)

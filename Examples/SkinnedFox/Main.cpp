@@ -1,6 +1,7 @@
 #include <Freya/Freya.hpp>
 
 #include <FreyaExamples/AnimClipUtil.hpp>
+#include <FreyaExamples/DebugOverlay.hpp>
 #include <FreyaExamples/FlyCam.hpp>
 #include <FreyaExamples/GroundMesh.hpp>
 #include <FreyaExamples/QualityCycle.hpp>
@@ -116,13 +117,17 @@ class MainApp final : public fra::AbstractApplication
     {
         mCam.window             = mWindow;
         mCam.flattenForward     = false;
-        mCam.requireLookToMove  = true;
+        mCam.requireLookToMove  = false;
         mCam.enableVerticalMove = false;
         mCam.moveSpeed          = 12.f;
         mCam.cameraPos          = { 0.f, 28.f, 55.f };
         mCam.yaw                = -90.f;
         mCam.pitch              = -28.f;
+        mCam.blockMouse = [this] { return mOverlay.WantsCaptureMouse(); };
         mCam.BindInput(*mEventManager);
+
+        if (mPlatform)
+            mOverlay.Init(*mRenderer, *mWindow, *mPlatform);
 
         mEventManager->Subscribe<fra::KeyPressedEvent>(
             [this](const fra::KeyPressedEvent& event) {
@@ -328,6 +333,9 @@ class MainApp final : public fra::AbstractApplication
 
     void Update() override
     {
+        mOverlay.MarkUpdateStart();
+        mOverlay.BeginFrame();
+
         const float dt = mWindow->GetDeltaTime();
         mAnimClock += dt;
         syncStrafeFromKeys();
@@ -620,9 +628,12 @@ class MainApp final : public fra::AbstractApplication
         const double msInstances =
             SecondsF(Clock::now() - tInst0).count() * 1000.0;
 
-        const auto tEnd0       = Clock::now();
-        const auto gpuFrameIdx = mRenderer->GetCurrentFrameIndex();
-        mRenderer->EndFrame();
+        const auto  tEnd0       = Clock::now();
+        const auto  gpuFrameIdx = mRenderer->GetCurrentFrameIndex();
+        const float cpuFrameMs  = dt * 1000.f;
+        const float cpuUpdateMs = mOverlay.ElapsedUpdateMs();
+        mOverlay.Draw(*mRenderer, *mFreyaOptions, cpuFrameMs, cpuUpdateMs);
+        mOverlay.EndFrame(*mRenderer);
         const double msEndFrame =
             SecondsF(Clock::now() - tEnd0).count() * 1000.0;
         const double msUpdate = SecondsF(Clock::now() - tUp0).count() * 1000.0;
@@ -794,7 +805,8 @@ class MainApp final : public fra::AbstractApplication
             << "GPU bake "
             << (mFreyaOptions->quantizeGpuAnimJoints ? "quantized" : "float")
             << "; anim_prof line every 1s (CPU split + GPU "
-               "carry/bake timestamps)\n";
+               "carry/bake timestamps)\n"
+            << "ImGui: Freya Debug panel (timing / quality / SSAO views)\n";
     }
 
     void printFeatureStatus() const
@@ -1466,7 +1478,8 @@ class MainApp final : public fra::AbstractApplication
     std::uint32_t      mGroundMesh     = 0;
     std::uint32_t      mGroundMaterial = 0;
 
-    FreyaExamples::FlyCam mCam;
+    FreyaExamples::FlyCam       mCam;
+    FreyaExamples::DebugOverlay mOverlay;
 };
 
 int main(int, const char**)

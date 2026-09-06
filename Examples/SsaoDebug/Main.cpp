@@ -41,13 +41,12 @@ class MainApp final : public fra::AbstractApplication
 
     void StartUp() override
     {
-        mCam.window        = mWindow;
-        mCam.moveSpeed     = 10.0f;
-        mCam.cameraPos     = { 0.2f, 1.4f, 4.8f };
-        mCam.yaw           = -95.0f;
-        mCam.pitch         = -12.0f;
-        mCam.blockMouse    = [this] { return mOverlay.WantsCaptureMouse(); };
-        mCam.blockKeyboard = [this] { return mOverlay.WantsCaptureKeyboard(); };
+        mCam.window     = mWindow;
+        mCam.moveSpeed  = 10.0f;
+        mCam.cameraPos  = { 0.2f, 1.4f, 4.8f };
+        mCam.yaw        = -95.0f;
+        mCam.pitch      = -12.0f;
+        mCam.blockMouse = [this] { return mOverlay.WantsCaptureMouse(); };
         mCam.BindInput(*mEventManager);
 
         if (mPlatform)

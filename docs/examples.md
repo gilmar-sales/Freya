@@ -78,17 +78,19 @@ Reuse helpers from `FreyaExamples::`:
 
 ## Debug overlay
 
-`IndustrialPipeLamp` and `SsaoDebug` enable `FreyaExamples::DebugOverlay`
-on startup. The panel shows:
+All four examples enable `FreyaExamples::DebugOverlay` on startup. The panel
+shows:
 
-- **Timing** — CPU frame/update ms and GPU ms per `IFrameStage` from
-  `Renderer::PollFrameGpuTiming` (Vulkan timestamps on desktop). This is
-  **not** Mali HWCPipe (`PTILES` / late-ZS); those counters are Arm-only.
+- **Timing** — CPU frame/update ms, render resolution, and GPU ms per
+  `IFrameStage` from `Renderer::PollFrameGpuTiming` (Vulkan timestamps on
+  desktop). This is **not** Mali HWCPipe (`PTILES` / late-ZS); those
+  counters are Arm-only.
 - **Quality** — Shadow / SSAO / TAA / Bloom / VSync
 - **Debug views** — SSAO Lit/Blurred/Raw, shadow debug, debug draw, SSAO knobs
 
 The scene is rendered to an offscreen viewport (`SetViewportTarget`) and
-blitted behind ImGui on the swapchain UI pass (`BeginUI` / `EndUI`).
+blitted behind ImGui on the swapchain UI pass (`BeginUI` / `EndUI`). FlyCam
+ignores mouse look while ImGui wants mouse capture; WASD stays available.
 
 ## Running Examples
 
