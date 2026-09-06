@@ -8,6 +8,115 @@
 #include <unordered_set>
 #include <vector>
 
+namespace
+{
+    constexpr float kMoveSpeed        = 12.0f;
+    constexpr float kMouseSensitivity = 0.12f;
+
+    struct FlyCam
+    {
+        skr::Arc<fra::Window>             window;
+        std::unordered_set<std::uint32_t> keysHeld;
+        bool                              lookHeld  = false;
+        glm::vec3                         cameraPos = { 0.0f, 4.0f, 18.0f };
+        float                             yaw       = -90.0f;
+        float                             pitch     = -12.0f;
+    };
+
+    void setLookHeld(FlyCam& cam, const bool held)
+    {
+        cam.lookHeld = held;
+        if (cam.window)
+            cam.window->SetMouseGrab(held);
+    }
+
+    [[nodiscard]] bool isHeld(const FlyCam& cam, const fra::KeyCode key)
+    {
+        return cam.keysHeld.contains(static_cast<std::uint32_t>(key));
+    }
+
+    [[nodiscard]] glm::vec3 cameraForward(const FlyCam& cam)
+    {
+        const float yawRad   = glm::radians(cam.yaw);
+        const float pitchRad = glm::radians(cam.pitch);
+        return glm::normalize(glm::vec3 {
+            std::cos(pitchRad) * std::cos(yawRad),
+            std::sin(pitchRad),
+            std::cos(pitchRad) * std::sin(yawRad),
+        });
+    }
+
+    void updateCamera(FlyCam& cam, const float dt)
+    {
+        const glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
+        const glm::vec3 look = cameraForward(cam);
+        const glm::vec3 forward =
+            glm::normalize(glm::vec3(look.x, 0.0f, look.z));
+        const glm::vec3 right = glm::normalize(glm::cross(forward, worldUp));
+        glm::vec3       move(0.0f);
+
+        if (isHeld(cam, fra::KeyCode::W))
+            move += forward;
+        if (isHeld(cam, fra::KeyCode::S))
+            move -= forward;
+        if (isHeld(cam, fra::KeyCode::D))
+            move += right;
+        if (isHeld(cam, fra::KeyCode::A))
+            move -= right;
+        if (isHeld(cam, fra::KeyCode::Space) || isHeld(cam, fra::KeyCode::Q))
+            move += worldUp;
+        if (isHeld(cam, fra::KeyCode::LCtrl) ||
+            isHeld(cam, fra::KeyCode::RCtrl) || isHeld(cam, fra::KeyCode::E))
+            move -= worldUp;
+
+        if (glm::length(move) > 1e-4f)
+            cam.cameraPos += glm::normalize(move) * kMoveSpeed * dt;
+    }
+
+    void bindFlyCamInput(fra::EventManager& events, FlyCam& cam)
+    {
+        events.Subscribe<fra::KeyPressedEvent>(
+            [&cam](const fra::KeyPressedEvent& event) {
+                cam.keysHeld.insert(static_cast<std::uint32_t>(event.key));
+            });
+
+        events.Subscribe<fra::KeyReleasedEvent>(
+            [&cam](const fra::KeyReleasedEvent& event) {
+                cam.keysHeld.erase(static_cast<std::uint32_t>(event.key));
+                if (event.key == fra::KeyCode::Escape && cam.lookHeld)
+                    setLookHeld(cam, false);
+            });
+
+        events.Subscribe<fra::MouseButtonPressedEvent>(
+            [&cam](const fra::MouseButtonPressedEvent& event) {
+                if (event.button == fra::MouseButton::Right)
+                    setLookHeld(cam, true);
+            });
+
+        events.Subscribe<fra::MouseButtonReleasedEvent>(
+            [&cam](const fra::MouseButtonReleasedEvent& event) {
+                if (event.button == fra::MouseButton::Right)
+                    setLookHeld(cam, false);
+            });
+
+        events.Subscribe<fra::MouseMoveEvent>(
+            [&cam](const fra::MouseMoveEvent& event) {
+                if (!cam.lookHeld)
+                    return;
+                cam.yaw += event.deltaX * kMouseSensitivity;
+                cam.pitch -= event.deltaY * kMouseSensitivity;
+                cam.pitch = std::clamp(cam.pitch, -89.0f, 89.0f);
+            });
+    }
+
+    void applyCamera(fra::Renderer& renderer, const FlyCam& cam)
+    {
+        const glm::vec3 forward = cameraForward(cam);
+        renderer.UpdateCamera(cam.cameraPos, cam.cameraPos + forward,
+                              glm::vec3(0.0f, 1.0f, 0.0f));
+    }
+} // namespace
+
 class MainApp final : public fra::AbstractApplication
 {
   public:
@@ -24,15 +133,11 @@ class MainApp final : public fra::AbstractApplication
 
     void StartUp() override
     {
-        mEventManager->Subscribe<fra::KeyPressedEvent>(
-            [this](const fra::KeyPressedEvent& event) {
-                mKeysHeld.insert(static_cast<std::uint32_t>(event.key));
-            });
+        mMainCam.window = mWindow;
+        bindFlyCamInput(*mEventManager, mMainCam);
 
         mEventManager->Subscribe<fra::KeyReleasedEvent>(
             [this](const fra::KeyReleasedEvent& event) {
-                mKeysHeld.erase(static_cast<std::uint32_t>(event.key));
-
                 if (event.key == fra::KeyCode::F5)
                 {
                     cycleShadowQuality();
@@ -78,12 +183,6 @@ class MainApp final : public fra::AbstractApplication
                     return;
                 }
 
-                if (event.key == fra::KeyCode::Escape && mLookHeld)
-                {
-                    setLookHeld(false);
-                    return;
-                }
-
                 if (event.key == fra::KeyCode::Num0 ||
                     event.key == fra::KeyCode::Kp0)
                 {
@@ -114,34 +213,6 @@ class MainApp final : public fra::AbstractApplication
                     setShadowCasterMode(4);
                     return;
                 }
-            });
-
-        mEventManager->Subscribe<fra::MouseButtonPressedEvent>(
-            [this](const fra::MouseButtonPressedEvent& event) {
-                if (event.button == fra::MouseButton::Right)
-                {
-                    setLookHeld(true);
-                }
-            });
-
-        mEventManager->Subscribe<fra::MouseButtonReleasedEvent>(
-            [this](const fra::MouseButtonReleasedEvent& event) {
-                if (event.button == fra::MouseButton::Right)
-                {
-                    setLookHeld(false);
-                }
-            });
-
-        mEventManager->Subscribe<fra::MouseMoveEvent>(
-            [this](const fra::MouseMoveEvent& event) {
-                if (!mLookHeld)
-                {
-                    return;
-                }
-
-                mYaw += event.deltaX * kMouseSensitivity;
-                mPitch -= event.deltaY * kMouseSensitivity;
-                mPitch = std::clamp(mPitch, -89.0f, 89.0f);
             });
 
         updateTitle();
@@ -339,7 +410,7 @@ class MainApp final : public fra::AbstractApplication
 
         std::cout
             << "Controls: RMB look | WASD move | Space/Q up | Ctrl/E down | "
-               "Esc release mouse\n"
+               "Esc release mouse (per window)\n"
             << "Shadow test: 0=all  1=directional  2=warm point  "
                "3=cool point  4=all spots | F3 light gizmos | "
                "F9 shadow factor | F10 secondary window\n"
@@ -354,7 +425,7 @@ class MainApp final : public fra::AbstractApplication
     {
         const float dt = mWindow->GetDeltaTime();
         mCurrentTime += dt;
-        updateCamera(dt);
+        updateCamera(mMainCam, dt);
 
         for (auto& animated : mAnimatedLights)
         {
@@ -415,38 +486,8 @@ class MainApp final : public fra::AbstractApplication
             drawLightGizmos();
         }
 
-        const glm::vec3 forward = cameraForward();
-        mRenderer->UpdateCamera(mCameraPos,
-                                mCameraPos + forward,
-                                glm::vec3(0.0f, 1.0f, 0.0f));
-
-        std::vector<fra::SceneInstanceUpload> instances;
-        instances.reserve(mLampModel.size() * 2 + 1);
-        for (const auto& part : mLampModel)
-        {
-            const bool isBulb = part.meshId == mBulbMeshId;
-            for (std::uint32_t i = 0; i < 2; ++i)
-            {
-                instances.push_back(fra::SceneInstanceUpload {
-                    .model       = mModelMatrix[i],
-                    .meshId      = part.meshId,
-                    .materialId  = isBulb ? mBulbMaterial : mSofaMaterial,
-                    .entityId    = i + 1,
-                    .castShadows = !isBulb,
-                });
-            }
-        }
-        instances.push_back(fra::SceneInstanceUpload {
-            .model       = mModelMatrix[2],
-            .meshId      = mGroundMesh,
-            .materialId  = mGroundMaterial,
-            .entityId    = 0,
-            .castShadows = false,
-        });
-        mRenderer->UploadSceneInstances(instances);
-
-        // EndFrame: Pick → Shadow → Geometry → Lighting → TAA →
-        // Translucent (WBOIT) → Bloom → Composite.
+        applyCamera(*mRenderer, mMainCam);
+        mRenderer->UploadSceneInstances(buildSceneInstances(true));
         mRenderer->EndFrame();
     }
 
@@ -464,32 +505,11 @@ class MainApp final : public fra::AbstractApplication
             glm::vec3(-0.2f, -1.0f, -0.15f), glm::vec3(1.0f, 0.96f, 0.9f),
             2.5f));
 
-        renderer->BeginFrame();
-        const glm::vec3 eye { 8.0f, 6.0f, 14.0f };
-        const glm::vec3 target { 0.0f, 2.0f, 0.0f };
-        renderer->UpdateCamera(eye, target, glm::vec3(0.0f, 1.0f, 0.0f));
+        updateCamera(mSecondaryCam, window->GetDeltaTime());
 
-        std::vector<fra::SceneInstanceUpload> instances;
-        instances.reserve(mLampModel.size() + 1);
-        for (const auto& part : mLampModel)
-        {
-            const bool isBulb = part.meshId == mBulbMeshId;
-            instances.push_back(fra::SceneInstanceUpload {
-                .model       = mModelMatrix[0],
-                .meshId      = part.meshId,
-                .materialId  = isBulb ? mBulbMaterial : mSofaMaterial,
-                .entityId    = 1,
-                .castShadows = !isBulb,
-            });
-        }
-        instances.push_back(fra::SceneInstanceUpload {
-            .model       = mModelMatrix[2],
-            .meshId      = mGroundMesh,
-            .materialId  = mGroundMaterial,
-            .entityId    = 0,
-            .castShadows = false,
-        });
-        renderer->UploadSceneInstances(instances);
+        renderer->BeginFrame();
+        applyCamera(*renderer, mSecondaryCam);
+        renderer->UploadSceneInstances(buildSceneInstances(false));
         renderer->EndFrame();
     }
 
@@ -501,22 +521,67 @@ class MainApp final : public fra::AbstractApplication
             if (mSecondaryWindow->IsRunning())
                 mSecondaryWindow->Close();
             mSecondaryWindow = nullptr;
+            mSecondaryCam    = {};
             std::cout << "Secondary window closed\n";
             return;
         }
 
         mSecondaryWindow = CreateWindow([](fra::FreyaOptionsBuilder& o) {
-            o.SetTitle("Industrial Pipe Lamp — Secondary [F10]")
+            o.SetTitle("Industrial Pipe Lamp — Secondary [RMB+WASD | F10]")
                 .SetWidth(1280)
                 .SetHeight(720)
                 .SetFullscreen(false)
                 .SetVSync(false);
         });
-        std::cout << "Secondary window opened (shared meshes/materials)\n";
+
+        mSecondaryCam        = mMainCam;
+        mSecondaryCam.window = mSecondaryWindow;
+        mSecondaryCam.keysHeld.clear();
+        mSecondaryCam.lookHeld = false;
+
+        const auto events = GetWindowServices(*mSecondaryWindow)
+                                ->GetService<fra::EventManager>();
+        bindFlyCamInput(*events, mSecondaryCam);
+        events->Subscribe<fra::KeyReleasedEvent>(
+            [this](const fra::KeyReleasedEvent& event) {
+                if (event.key == fra::KeyCode::F10)
+                    toggleSecondaryWindow();
+            });
+
+        std::cout << "Secondary window opened (shared meshes; RMB+WASD)\n";
     }
-    static constexpr std::size_t kInstanceCount    = 3;
-    static constexpr float       kMoveSpeed        = 12.0f;
-    static constexpr float       kMouseSensitivity = 0.12f;
+
+    [[nodiscard]] std::vector<fra::SceneInstanceUpload> buildSceneInstances(
+        const bool bothLamps) const
+    {
+        const std::uint32_t                   lampCount = bothLamps ? 2u : 1u;
+        std::vector<fra::SceneInstanceUpload> instances;
+        instances.reserve(mLampModel.size() * lampCount + 1);
+        for (const auto& part : mLampModel)
+        {
+            const bool isBulb = part.meshId == mBulbMeshId;
+            for (std::uint32_t i = 0; i < lampCount; ++i)
+            {
+                instances.push_back(fra::SceneInstanceUpload {
+                    .model       = mModelMatrix[i],
+                    .meshId      = part.meshId,
+                    .materialId  = isBulb ? mBulbMaterial : mSofaMaterial,
+                    .entityId    = i + 1,
+                    .castShadows = !isBulb,
+                });
+            }
+        }
+        instances.push_back(fra::SceneInstanceUpload {
+            .model       = mModelMatrix[2],
+            .meshId      = mGroundMesh,
+            .materialId  = mGroundMaterial,
+            .entityId    = 0,
+            .castShadows = false,
+        });
+        return instances;
+    }
+
+    static constexpr std::size_t kInstanceCount = 3;
 
     std::uint32_t createGroundMesh()
     {
@@ -538,55 +603,6 @@ class MainApp final : public fra::AbstractApplication
         };
 
         return mMeshPool->CreateMesh(vertices, indices);
-    }
-
-    [[nodiscard]] bool isHeld(fra::KeyCode key) const
-    {
-        return mKeysHeld.contains(static_cast<std::uint32_t>(key));
-    }
-
-    void setLookHeld(bool held)
-    {
-        mLookHeld = held;
-        mWindow->SetMouseGrab(held);
-    }
-
-    [[nodiscard]] glm::vec3 cameraForward() const
-    {
-        const float yawRad   = glm::radians(mYaw);
-        const float pitchRad = glm::radians(mPitch);
-        return glm::normalize(glm::vec3 {
-            std::cos(pitchRad) * std::cos(yawRad),
-            std::sin(pitchRad),
-            std::cos(pitchRad) * std::sin(yawRad),
-        });
-    }
-
-    void updateCamera(float dt)
-    {
-        const glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
-        const glm::vec3 look = cameraForward();
-        const glm::vec3 forward =
-            glm::normalize(glm::vec3(look.x, 0.0f, look.z));
-        const glm::vec3 right = glm::normalize(glm::cross(forward, worldUp));
-        glm::vec3       move(0.0f);
-
-        if (isHeld(fra::KeyCode::W))
-            move += forward;
-        if (isHeld(fra::KeyCode::S))
-            move -= forward;
-        if (isHeld(fra::KeyCode::D))
-            move += right;
-        if (isHeld(fra::KeyCode::A))
-            move -= right;
-        if (isHeld(fra::KeyCode::Space) || isHeld(fra::KeyCode::Q))
-            move += worldUp;
-        if (isHeld(fra::KeyCode::LCtrl) || isHeld(fra::KeyCode::RCtrl) ||
-            isHeld(fra::KeyCode::E))
-            move -= worldUp;
-
-        if (glm::length(move) > 1e-4f)
-            mCameraPos += glm::normalize(move) * kMoveSpeed * dt;
     }
 
     void updateBulbSpots()
@@ -892,15 +908,11 @@ class MainApp final : public fra::AbstractApplication
     skr::Arc<fra::LightService> mLightService;
     skr::Arc<fra::FreyaOptions> mFreyaOptions;
     skr::Arc<fra::Window>       mSecondaryWindow;
+    FlyCam                      mMainCam;
+    FlyCam                      mSecondaryCam;
     glm::mat4                   mModelMatrix[kInstanceCount] {};
     float                       mCurrentTime {};
     std::vector<AnimatedLight>  mAnimatedLights;
-
-    std::unordered_set<std::uint32_t> mKeysHeld;
-    bool                              mLookHeld  = false;
-    glm::vec3                         mCameraPos = { 0.0f, 4.0f, 18.0f };
-    float                             mYaw       = -90.0f;
-    float                             mPitch     = -12.0f;
 
     std::uint32_t              mDirectionalIndex = 0;
     std::uint32_t              mWarmPointIndex   = 0;
