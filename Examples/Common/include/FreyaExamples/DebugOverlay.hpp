@@ -75,6 +75,7 @@ namespace FreyaExamples
         bool            mEnabled        = true;
         fra::Renderer*  mRenderer       = nullptr;
         fra::IPlatform* mPlatform       = nullptr;
+        void*           mSdlWindow      = nullptr; ///< SDL_Window*
         void*           mDescriptorPool = nullptr; ///< VkDescriptorPool
         void*           mDevice         = nullptr; ///< VkDevice (for shutdown)
         void*           mViewportSet    = nullptr; ///< VkDescriptorSet

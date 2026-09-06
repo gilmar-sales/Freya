@@ -102,9 +102,10 @@ namespace FreyaExamples
             return false;
         }
 
-        mDevice   = handles.device;
-        mRenderer = &renderer;
-        mPlatform = &platform;
+        mDevice    = handles.device;
+        mRenderer  = &renderer;
+        mPlatform  = &platform;
+        mSdlWindow = handles.window;
 
         if (!createDescriptorPool(handles.device))
         {
@@ -274,6 +275,7 @@ namespace FreyaExamples
             mDevice = nullptr;
         }
         mRenderer          = nullptr;
+        mSdlWindow         = nullptr;
         mPendingVSync      = false;
         mPendingVSyncValue = false;
     }
@@ -288,6 +290,14 @@ namespace FreyaExamples
 
         if (!mEnabled)
             return;
+
+        auto* sdlWindow = static_cast<SDL_Window*>(mSdlWindow);
+        int   w         = 0;
+        int   h         = 0;
+        if (!sdlWindow || !SDL_GetWindowSize(sdlWindow, &w, &h) || w < 0 ||
+            h < 0)
+            return;
+
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();

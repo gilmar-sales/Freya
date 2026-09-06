@@ -123,6 +123,8 @@ namespace FREYA_NAMESPACE
         while (mWindow->IsRunning())
         {
             mPlatform->PumpEvents();
+            if (!mWindow->IsRunning())
+                break;
 
             mWindow->Update();
             Update();
