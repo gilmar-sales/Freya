@@ -113,7 +113,7 @@ window. Secondary windows use `GetWindowServices(*window)` /
 
 `Renderer::EndScene` runs an ordered list of `IFrameStage` adapters:
 
-`GpuAnim → Pick → Shadow → DeferredGeometry → SsaoLighting → Taa → Translucent → Bloom → Composite → DebugDraw`
+`GpuAnim → Pick → Shadow → DeferredGeometry → Ssao → Lighting → Taa → Translucent → Bloom → Composite → DebugDraw`
 
 ```cpp
 #include <Freya/Freya.hpp>

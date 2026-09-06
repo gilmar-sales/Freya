@@ -186,8 +186,8 @@ namespace FREYA_NAMESPACE
             ctx.buildHiZ();
     }
 
-    void SsaoLightingFrameStage::Rebuild(StageContext&         stageCtx,
-                                         skr::ServiceProvider& sp)
+    void SsaoFrameStage::Rebuild(StageContext&         stageCtx,
+                                 skr::ServiceProvider& sp)
     {
         auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.ssaoPass)
@@ -204,7 +204,26 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void SsaoLightingFrameStage::Execute(StageContext& stageCtx)
+    void SsaoFrameStage::Execute(StageContext& stageCtx)
+    {
+        auto& ctx = AsRenderFrameContext(stageCtx);
+        if (!ctx.ssaoPass || !*ctx.ssaoPass || !ctx.deferred || !*ctx.deferred)
+            return;
+
+        (*ctx.ssaoPass)
+            ->Dispatch(ctx.commandPool,
+                       (*ctx.deferred)->GetDepthImage(),
+                       (*ctx.deferred)->GetNormalImage(),
+                       ctx.projection->view,
+                       ctx.projection->unjitteredProjection,
+                       ctx.options->ReverseZ,
+                       ctx.options->ssaoRadius,
+                       ctx.options->ssaoBias,
+                       ctx.options->ssaoPower,
+                       ctx.options->ssaoIntensity);
+    }
+
+    void LightingFrameStage::Execute(StageContext& stageCtx)
     {
         auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.deferred || !*ctx.deferred)
@@ -221,17 +240,6 @@ namespace FREYA_NAMESPACE
         skr::Arc<Image> ssaoImage;
         if (ctx.ssaoPass && *ctx.ssaoPass)
         {
-            (*ctx.ssaoPass)
-                ->Dispatch(ctx.commandPool,
-                           (*ctx.deferred)->GetDepthImage(),
-                           (*ctx.deferred)->GetNormalImage(),
-                           ctx.projection->view,
-                           ctx.projection->unjitteredProjection,
-                           ctx.options->ReverseZ,
-                           ctx.options->ssaoRadius,
-                           ctx.options->ssaoBias,
-                           ctx.options->ssaoPower,
-                           ctx.options->ssaoIntensity);
             ssaoImage = ctx.options->ssaoDebugView == SsaoDebugView::Raw
                             ? (*ctx.ssaoPass)->GetRawImage()
                             : (*ctx.ssaoPass)->GetOutputImage();

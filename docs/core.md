@@ -83,7 +83,7 @@ mRenderer->EndFrame(); // EndScene + Present
 
 Default order:
 
-`Pick → Shadow → DeferredGeometry → SsaoLighting → Taa → Bloom → Composite`
+`Pick → Shadow → DeferredGeometry → Ssao → Lighting → Taa → Bloom → Composite`
 
 ```cpp
 #include <Freya/Freya.hpp>

@@ -29,15 +29,19 @@ namespace FREYA_NAMESPACE
         void Execute(StageContext& ctx) override;
     };
 
-    class SsaoLightingFrameStage : public IFrameStage
+    class SsaoFrameStage : public IFrameStage
     {
       public:
-        [[nodiscard]] const char* Name() const override
-        {
-            return "SsaoLighting";
-        }
+        [[nodiscard]] const char* Name() const override { return "Ssao"; }
         void Rebuild(StageContext& ctx, skr::ServiceProvider& sp) override;
         void Execute(StageContext& ctx) override;
+    };
+
+    class LightingFrameStage : public IFrameStage
+    {
+      public:
+        [[nodiscard]] const char* Name() const override { return "Lighting"; }
+        void                      Execute(StageContext& ctx) override;
     };
 
     class TaaFrameStage : public IFrameStage

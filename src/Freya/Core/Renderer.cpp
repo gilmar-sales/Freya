@@ -330,7 +330,8 @@ namespace FREYA_NAMESPACE
             std::make_shared<PickFrameStage>(),
             std::make_shared<ShadowFrameStage>(),
             std::make_shared<DeferredGeometryFrameStage>(),
-            std::make_shared<SsaoLightingFrameStage>(),
+            std::make_shared<SsaoFrameStage>(),
+            std::make_shared<LightingFrameStage>(),
             std::make_shared<TaaFrameStage>(),
             std::make_shared<TranslucentFrameStage>(),
             std::make_shared<BillboardVfxFrameStage>(),
@@ -1648,6 +1649,8 @@ namespace FREYA_NAMESPACE
                 mFrameTimestampPool, base, timedStages * kTimestampsPerStage);
         }
 
+        constexpr auto kTsStage = vk::PipelineStageFlagBits::eBottomOfPipe;
+
         for (std::uint32_t i = 0; i < mFrameStages.size(); ++i)
         {
             auto& stage = mFrameStages[i];
@@ -1658,7 +1661,7 @@ namespace FREYA_NAMESPACE
                 writeFrameTimestamp(
                     commandBuffer,
                     frameTimestampBase(frameIndex) + i * kTimestampsPerStage,
-                    vk::PipelineStageFlagBits::eTopOfPipe);
+                    kTsStage);
             }
             stage->Execute(ctx);
             if (i < timedStages)
@@ -1666,7 +1669,7 @@ namespace FREYA_NAMESPACE
                 writeFrameTimestamp(commandBuffer,
                                     frameTimestampBase(frameIndex) +
                                         i * kTimestampsPerStage + 1,
-                                    vk::PipelineStageFlagBits::eBottomOfPipe);
+                                    kTsStage);
             }
             mDevice->EndDebugLabel(commandBuffer);
         }
