@@ -567,6 +567,7 @@ namespace FREYA_NAMESPACE
         pc.lodPixelRef     = 256.0f;
         pc.lodStep         = 2.0f;
         pc.techniqueFilter = techniqueFilter;
+        pc.maxDraws        = currentFrame().capacity;
 
         auto&      frame = currentFrame();
         auto&      list  = drawListFor(frame, techniqueFilter);

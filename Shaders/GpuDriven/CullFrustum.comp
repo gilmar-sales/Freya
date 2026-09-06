@@ -63,6 +63,7 @@ layout(push_constant) uniform CullPC {
     float lodStep;
     uint techniqueFilter;
     uint _padTech;
+    uint maxDraws;
 } cull;
 
 layout(std430, binding = 0) readonly buffer MeshInfoBuffer {
@@ -102,47 +103,61 @@ const uint kCullModeCamera      = 0u;
 const uint kCullModeShadow      = 1u;
 const uint kCullModeTranslucent = 2u;
 
-bool aabbOutsideFrustum(mat4 mvp, vec3 bmin, vec3 bmax)
+void includeProjectedPoint(vec4 clip, inout vec2 smin, inout vec2 smax,
+                           inout float nearestZ, inout int valid)
 {
-    vec3 corners[8] = vec3[](
-        vec3(bmin.x, bmin.y, bmin.z),
-        vec3(bmax.x, bmin.y, bmin.z),
-        vec3(bmin.x, bmax.y, bmin.z),
-        vec3(bmax.x, bmax.y, bmin.z),
-        vec3(bmin.x, bmin.y, bmax.z),
-        vec3(bmax.x, bmin.y, bmax.z),
-        vec3(bmin.x, bmax.y, bmax.z),
-        vec3(bmax.x, bmax.y, bmax.z));
+    if (clip.w <= 0.0)
+        return;
 
-    int outLeft = 0, outRight = 0, outBottom = 0, outTop = 0;
-    int outNear = 0, outFar = 0;
+    float z = clip.z / clip.w;
+    if (z < 0.0 || z > 1.0)
+        return;
+
+    vec2 uv = (clip.xy / clip.w) * 0.5 + 0.5;
+    smin = min(smin, uv);
+    smax = max(smax, uv);
+    if (cull.reverseZ != 0u)
+        nearestZ = max(nearestZ, z);
+    else
+        nearestZ = min(nearestZ, z);
+    ++valid;
+}
+
+bool projectAabb(vec4 clipCorners[8], out vec2 smin, out vec2 smax,
+                 out float nearestZ)
+{
+    const int edges[24] = int[](
+        0, 1, 0, 2, 0, 4, 1, 3, 1, 5, 2, 3,
+        2, 6, 3, 7, 4, 5, 4, 6, 5, 7, 6, 7);
+    smin = vec2(1e10);
+    smax = vec2(-1e10);
+    nearestZ = cull.reverseZ != 0u ? -1e10 : 1e10;
+    int valid = 0;
 
     for (int i = 0; i < 8; ++i)
     {
-        vec4 clip = mvp * vec4(corners[i], 1.0);
-        if (clip.w <= 0.0)
-        {
-            ++outNear;
-            continue;
-        }
-        if (clip.x < -clip.w) ++outLeft;
-        if (clip.x >  clip.w) ++outRight;
-        if (clip.y < -clip.w) ++outBottom;
-        if (clip.y >  clip.w) ++outTop;
-        if (cull.reverseZ != 0u)
-        {
-            if (clip.z < 0.0)     ++outFar;
-            if (clip.z >  clip.w) ++outNear;
-        }
-        else
-        {
-            if (clip.z < 0.0)     ++outNear;
-            if (clip.z >  clip.w) ++outFar;
-        }
+        vec4 clip = clipCorners[i];
+        float z = clip.w > 0.0 ? clip.z / clip.w : -1.0;
+        if (clip.w > 0.0 && z >= 0.0 && z <= 1.0)
+            includeProjectedPoint(clip, smin, smax, nearestZ, valid);
     }
 
-    return outLeft == 8 || outRight == 8 || outBottom == 8 || outTop == 8 ||
-           outNear == 8 || outFar == 8;
+    for (int edge = 0; edge < 12; ++edge)
+    {
+        int a = edges[edge * 2];
+        int b = edges[edge * 2 + 1];
+        vec4 ca = clipCorners[a];
+        vec4 cb = clipCorners[b];
+        float pa = cull.reverseZ != 0u ? ca.w - ca.z : ca.z;
+        float pb = cull.reverseZ != 0u ? cb.w - cb.z : cb.z;
+        if ((pa < 0.0) == (pb < 0.0) || pa == pb)
+            continue;
+        float t = pa / (pa - pb);
+        includeProjectedPoint(mix(ca, cb, t), smin, smax, nearestZ,
+                               valid);
+    }
+
+    return valid != 0;
 }
 
 uint selectLod(float screenDiameter, uint lodCount)
@@ -162,60 +177,39 @@ uint selectLod(float screenDiameter, uint lodCount)
     return lod;
 }
 
-bool occludedByHiZ(mat4 mvp, vec3 bmin, vec3 bmax)
+bool occludedByHiZ(vec2 smin, vec2 smax, float nearestZ)
 {
     if (cull.hizEnabled == 0u)
-        return false;
-
-    vec2 smin = vec2(1e10);
-    vec2 smax = vec2(-1e10);
-    float nearestZ = cull.reverseZ != 0u ? -1e10 : 1e10;
-    int valid = 0;
-
-    vec3 corners[8] = vec3[](
-        vec3(bmin.x, bmin.y, bmin.z),
-        vec3(bmax.x, bmin.y, bmin.z),
-        vec3(bmin.x, bmax.y, bmin.z),
-        vec3(bmax.x, bmax.y, bmin.z),
-        vec3(bmin.x, bmin.y, bmax.z),
-        vec3(bmax.x, bmin.y, bmax.z),
-        vec3(bmin.x, bmax.y, bmax.z),
-        vec3(bmax.x, bmax.y, bmax.z));
-
-    for (int i = 0; i < 8; ++i)
-    {
-        vec4 clip = mvp * vec4(corners[i], 1.0);
-        if (clip.w <= 0.0)
-            continue;
-        vec3 ndc = clip.xyz / clip.w;
-        vec2 uv = ndc.xy * 0.5 + 0.5;
-        smin = min(smin, uv);
-        smax = max(smax, uv);
-        if (cull.reverseZ != 0u)
-            nearestZ = max(nearestZ, ndc.z);
-        else
-            nearestZ = min(nearestZ, ndc.z);
-        ++valid;
-    }
-
-    if (valid == 0)
         return false;
 
     smin = clamp(smin, vec2(0.0), vec2(1.0));
     smax = clamp(smax, vec2(0.0), vec2(1.0));
     vec2 sizePx = (smax - smin) * cull.screenSize;
     float maxDim = max(max(sizePx.x, sizePx.y), 1.0);
-    float mip = floor(log2(maxDim));
+    float mip = ceil(log2(maxDim));
     float levels = float(textureQueryLevels(hizPyramid));
     mip = clamp(mip, 0.0, max(levels - 1.0, 0.0));
 
-    vec2 center = (smin + smax) * 0.5;
-    float occluder = textureLod(hizPyramid, center, mip).r;
+    vec2 samples[5] = vec2[](
+        smin,
+        vec2(smax.x, smin.y),
+        vec2(smin.x, smax.y),
+        smax,
+        (smin + smax) * 0.5);
+    float occluder = cull.reverseZ != 0u ? 1e10 : -1e10;
+    for (int i = 0; i < 5; ++i)
+    {
+        float sampleZ = textureLod(hizPyramid, samples[i], mip).r;
+        if (cull.reverseZ != 0u)
+            occluder = min(occluder, sampleZ);
+        else
+            occluder = max(occluder, sampleZ);
+    }
 
-    // Conservatively: if AABB nearest depth is farther than Hi-Z farthest.
+    const float depthEpsilon = 1e-4;
     if (cull.reverseZ != 0u)
-        return nearestZ < occluder;
-    return nearestZ > occluder;
+        return nearestZ < occluder - depthEpsilon;
+    return nearestZ > occluder + depthEpsilon;
 }
 
 void main()
@@ -245,18 +239,6 @@ void main()
         return;
 
     mat4 mvp = cull.viewProj * inst.model;
-    if (aabbOutsideFrustum(mvp, mesh.aabbMin.xyz, mesh.aabbMax.xyz))
-        return;
-
-    // Skinned AABBs are rest-pose inflated approximations; Hi-Z would false-
-    // cull posed silhouette. Match translucent: frustum-only.
-    if (cull.cullMode != kCullModeShadow &&
-        cull.cullMode != kCullModeTranslucent &&
-        (inst.flags & kFlagSkinned) == 0u &&
-        occludedByHiZ(mvp, mesh.aabbMin.xyz, mesh.aabbMax.xyz))
-        return;
-
-    // Screen-space diameter from AABB corners of MVP.
     vec3 bmin = mesh.aabbMin.xyz;
     vec3 bmax = mesh.aabbMax.xyz;
     vec3 corners[8] = vec3[](
@@ -268,19 +250,54 @@ void main()
         vec3(bmax.x, bmin.y, bmax.z),
         vec3(bmin.x, bmax.y, bmax.z),
         vec3(bmax.x, bmax.y, bmax.z));
-    vec2 smin = vec2(1e10);
-    vec2 smax = vec2(-1e10);
+    vec4 clipCorners[8];
+    for (int i = 0; i < 8; ++i)
+        clipCorners[i] = mvp * vec4(corners[i], 1.0);
+
+    vec2 projectedMin, projectedMax;
+    float projectedNearestZ;
+    if (!projectAabb(clipCorners, projectedMin, projectedMax,
+                     projectedNearestZ))
+        return;
+
+    bool outsideLeft = true;
+    bool outsideRight = true;
+    bool outsideBottom = true;
+    bool outsideTop = true;
+    bool outsideNear = true;
+    bool outsideFar = true;
     for (int i = 0; i < 8; ++i)
     {
-        vec4 clip = mvp * vec4(corners[i], 1.0);
-        if (clip.w <= 0.0)
-            continue;
-        vec2 uv = (clip.xy / clip.w) * 0.5 + 0.5;
-        smin = min(smin, uv);
-        smax = max(smax, uv);
+        vec4 clip = clipCorners[i];
+        outsideLeft = outsideLeft && clip.x < -clip.w;
+        outsideRight = outsideRight && clip.x > clip.w;
+        outsideBottom = outsideBottom && clip.y < -clip.w;
+        outsideTop = outsideTop && clip.y > clip.w;
+        if (cull.reverseZ != 0u)
+        {
+            outsideNear = outsideNear && clip.z > clip.w;
+            outsideFar = outsideFar && clip.z < 0.0;
+        }
+        else
+        {
+            outsideNear = outsideNear && clip.z < 0.0;
+            outsideFar = outsideFar && clip.z > clip.w;
+        }
     }
+    if (outsideLeft || outsideRight || outsideBottom || outsideTop ||
+        outsideNear || outsideFar)
+        return;
+
+    // Skinned AABBs are rest-pose inflated approximations; Hi-Z would false-
+    // cull posed silhouette. Match translucent: frustum-only.
+    if (cull.cullMode != kCullModeShadow &&
+        cull.cullMode != kCullModeTranslucent &&
+        (inst.flags & kFlagSkinned) == 0u &&
+        occludedByHiZ(projectedMin, projectedMax, projectedNearestZ))
+        return;
+
     float screenDiameter =
-        length((smax - smin) * cull.screenSize);
+        length((projectedMax - projectedMin) * cull.screenSize);
 
     uint lod = selectLod(screenDiameter, mesh.lodCount);
     MeshLodInfo range = lods[mesh.lodBase + lod];
@@ -288,6 +305,8 @@ void main()
         return;
 
     uint slot = atomicAdd(drawCount, 1u);
+    if (slot >= cull.maxDraws)
+        return;
     draws[slot].indexCount    = range.indexCount;
     draws[slot].instanceCount = 1u;
     draws[slot].firstIndex    = range.firstIndex;

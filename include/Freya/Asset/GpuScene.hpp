@@ -157,8 +157,9 @@ namespace FREYA_NAMESPACE
         /// `kTechniqueFilterAll` or a concrete technique id.
         std::uint32_t techniqueFilter = kTechniqueFilterAll;
         std::uint32_t _padTech        = 0;
+        std::uint32_t maxDraws        = 0;
     };
 
-    static_assert(sizeof(CullPushConstants) == 120, "CullPushConstants size");
+    static_assert(sizeof(CullPushConstants) == 124, "CullPushConstants size");
 
 } // namespace FREYA_NAMESPACE
