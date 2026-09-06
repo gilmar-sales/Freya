@@ -7,8 +7,9 @@ Shared helpers live in `Examples/Common/` (`FreyaExamplesCommon`).
 
 Location: `Examples/IndustrialPipeLamp/`
 
-Deferred PBR reference: lamps, animated lights, shadow-caster modes,
-quality cycling (F5–F8), light gizmos, and a secondary window (F10).
+Deferred PBR reference: lamps, animated lights, shadow-caster modes
+(0–4), light gizmos (F3), and a secondary window (F10). Quality /
+deferred views live in the ImGui debug panel.
 
 ```bash
 cd build/Examples/IndustrialPipeLamp
@@ -19,8 +20,8 @@ cd build/Examples/IndustrialPipeLamp
 
 Location: `Examples/SsaoDebug/`
 
-SSAO debug scene (DamagedHelmet, Dragon, ally_ship) with view/quality
-cycling and parameter nudging.
+SSAO debug scene (DamagedHelmet, Dragon, ally_ship). Quality, deferred
+views, and SSAO knobs live in the ImGui debug panel.
 
 ```bash
 cd build/Examples/SsaoDebug

@@ -3,54 +3,9 @@
 #include <FreyaExamples/DebugOverlay.hpp>
 #include <FreyaExamples/FlyCam.hpp>
 #include <FreyaExamples/GroundMesh.hpp>
-#include <FreyaExamples/QualityCycle.hpp>
 
-#include <cstdio>
 #include <iostream>
 #include <vector>
-
-namespace
-{
-    const char* DeferredDebugViewName(fra::DeferredDebugView v)
-    {
-        switch (v)
-        {
-            case fra::DeferredDebugView::None:
-                return "Lit";
-            case fra::DeferredDebugView::Albedo:
-                return "Albedo";
-            case fra::DeferredDebugView::Normal:
-                return "Normal";
-            case fra::DeferredDebugView::Depth:
-                return "Depth";
-            case fra::DeferredDebugView::Roughness:
-                return "Roughness";
-            case fra::DeferredDebugView::Metalness:
-                return "Metalness";
-            case fra::DeferredDebugView::MaterialAO:
-                return "Material AO";
-            case fra::DeferredDebugView::MaterialId:
-                return "Material ID";
-            case fra::DeferredDebugView::Velocity:
-                return "Velocity";
-            case fra::DeferredDebugView::SsaoBlurred:
-                return "SSAO Blurred";
-            case fra::DeferredDebugView::SsaoRaw:
-                return "SSAO Raw";
-            case fra::DeferredDebugView::Shadows:
-                return "Shadows";
-        }
-        return "?";
-    }
-
-    fra::DeferredDebugView CycleDeferredDebugView(fra::DeferredDebugView v)
-    {
-        const auto i = static_cast<std::uint32_t>(v);
-        const auto n =
-            static_cast<std::uint32_t>(fra::DeferredDebugView::Shadows);
-        return static_cast<fra::DeferredDebugView>((i + 1u) % (n + 1u));
-    }
-} // namespace
 
 class MainApp final : public fra::AbstractApplication
 {
@@ -77,54 +32,6 @@ class MainApp final : public fra::AbstractApplication
 
         if (mPlatform)
             mOverlay.Init(*mRenderer, *mWindow, *mPlatform);
-
-        mEventManager->Subscribe<fra::KeyReleasedEvent>(
-            [this](const fra::KeyReleasedEvent& event) {
-                if (event.key == fra::KeyCode::F6)
-                {
-                    cycleSsaoQuality();
-                    return;
-                }
-                if (event.key == fra::KeyCode::V)
-                {
-                    cycleDebugView();
-                    return;
-                }
-                if (event.key == fra::KeyCode::R)
-                {
-                    resetSsaoParams();
-                    return;
-                }
-
-                const bool  increase = mCam.IsHeld(fra::KeyCode::LShift) ||
-                                       mCam.IsHeld(fra::KeyCode::RShift);
-                const float sign     = increase ? 1.0f : -1.0f;
-
-                if (event.key == fra::KeyCode::Num1 ||
-                    event.key == fra::KeyCode::Kp1)
-                {
-                    nudgeRadius(sign * 0.05f);
-                    return;
-                }
-                if (event.key == fra::KeyCode::Num2 ||
-                    event.key == fra::KeyCode::Kp2)
-                {
-                    nudgeBias(sign * 0.005f);
-                    return;
-                }
-                if (event.key == fra::KeyCode::Num3 ||
-                    event.key == fra::KeyCode::Kp3)
-                {
-                    nudgePower(sign * 0.05f);
-                    return;
-                }
-                if (event.key == fra::KeyCode::Num4 ||
-                    event.key == fra::KeyCode::Kp4)
-                {
-                    nudgeIntensity(sign * 0.05f);
-                    return;
-                }
-            });
 
         mRenderer->ClearProjections();
 
@@ -166,13 +73,8 @@ class MainApp final : public fra::AbstractApplication
         std::cout
             << "SSAO Debug — DamagedHelmet + Dragon + ally_ship\n"
             << "RMB look | WASD move | Space/Q up | Ctrl/E down\n"
-            << "V  cycle view: Lit / AO Blurred / AO Raw\n"
-            << "F6 cycle SSAO quality (Low→Med→High→Ultra→Off)\n"
-            << "1–4 nudge radius/bias/power/intensity (−); Shift+1–4 (+)\n"
-            << "R  reset params to current quality preset\n"
-            << "ImGui: Freya Debug panel (timing / quality / SSAO views)\n";
-
-        updateTitle();
+            << "ImGui: Freya Debug panel (SSAO quality / deferred views / "
+               "params)\n";
     }
 
     void Update() override
@@ -272,105 +174,6 @@ class MainApp final : public fra::AbstractApplication
             inst.entityId   = nextEntity++;
             mInstances.push_back(inst);
         }
-    }
-
-    void cycleSsaoQuality()
-    {
-        const auto next =
-            FreyaExamples::CycleQuality(mRenderer->GetSsaoQuality());
-        mRenderer->SetSsaoQuality(next);
-        std::cout << "SSAO quality: " << FreyaExamples::QualityName(next)
-                  << '\n';
-        updateTitle();
-    }
-
-    void cycleDebugView()
-    {
-        const auto next =
-            CycleDeferredDebugView(mRenderer->GetDeferredDebugView());
-        mRenderer->SetDeferredDebugView(next);
-        std::cout << "Deferred view: " << DeferredDebugViewName(next) << '\n';
-        updateTitle();
-    }
-
-    void resetSsaoParams()
-    {
-        const auto quality = mRenderer->GetSsaoQuality();
-        if (quality == fra::SsaoQuality::Off)
-        {
-            std::cout << "SSAO is Off — enable a quality preset first (F6)\n";
-            return;
-        }
-
-        switch (quality)
-        {
-            case fra::SsaoQuality::Low:
-                mRenderer->SetSsaoRadius(0.4f);
-                mRenderer->SetSsaoBias(0.03f);
-                mRenderer->SetSsaoPower(1.4f);
-                mRenderer->SetSsaoIntensity(0.5f);
-                break;
-            case fra::SsaoQuality::Medium:
-                mRenderer->SetSsaoRadius(0.5f);
-                mRenderer->SetSsaoBias(0.025f);
-                mRenderer->SetSsaoPower(1.5f);
-                mRenderer->SetSsaoIntensity(0.5f);
-                break;
-            case fra::SsaoQuality::High:
-                mRenderer->SetSsaoRadius(0.65f);
-                mRenderer->SetSsaoBias(0.025f);
-                mRenderer->SetSsaoPower(1.6f);
-                mRenderer->SetSsaoIntensity(0.5f);
-                break;
-            case fra::SsaoQuality::Ultra:
-                mRenderer->SetSsaoRadius(0.8f);
-                mRenderer->SetSsaoBias(0.02f);
-                mRenderer->SetSsaoPower(1.7f);
-                mRenderer->SetSsaoIntensity(0.5f);
-                break;
-            case fra::SsaoQuality::Off:
-                break;
-        }
-        std::cout << "SSAO params reset to "
-                  << FreyaExamples::QualityName(quality) << " preset\n";
-        updateTitle();
-    }
-
-    void nudgeRadius(float delta)
-    {
-        mRenderer->SetSsaoRadius(mRenderer->GetSsaoRadius() + delta);
-        updateTitle();
-    }
-
-    void nudgeBias(float delta)
-    {
-        mRenderer->SetSsaoBias(mRenderer->GetSsaoBias() + delta);
-        updateTitle();
-    }
-
-    void nudgePower(float delta)
-    {
-        mRenderer->SetSsaoPower(mRenderer->GetSsaoPower() + delta);
-        updateTitle();
-    }
-
-    void nudgeIntensity(float delta)
-    {
-        mRenderer->SetSsaoIntensity(mRenderer->GetSsaoIntensity() + delta);
-        updateTitle();
-    }
-
-    void updateTitle()
-    {
-        char buf[256];
-        std::snprintf(
-            buf, sizeof(buf),
-            "SSAO Debug [%s | %s]  r=%.2f b=%.3f p=%.2f i=%.2f  [V view F6 q]",
-            DeferredDebugViewName(mRenderer->GetDeferredDebugView()),
-            FreyaExamples::QualityName(mRenderer->GetSsaoQuality()),
-            mRenderer->GetSsaoRadius(), mRenderer->GetSsaoBias(),
-            mRenderer->GetSsaoPower(), mRenderer->GetSsaoIntensity());
-        mFreyaOptions->title = buf;
     }
 
     skr::Arc<fra::MeshPool>     mMeshPool;

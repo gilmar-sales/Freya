@@ -373,8 +373,7 @@ class MainApp final : public fra::AbstractApplication
         std::vector<fra::FiredAnimationEvent> events;
         events.reserve(8);
         auto&      debugDraw = mRenderer->GetDebugDraw();
-        const bool drawDebug =
-            mEnableDebugDraw && mRenderer->IsDebugDrawEnabled();
+        const bool drawDebug = mRenderer->IsDebugDrawEnabled();
         std::uint32_t foxIndex    = 0;
         std::uint32_t animUpdates = 0;
         std::uint32_t lodHist[4]  = {};
@@ -786,7 +785,6 @@ class MainApp final : public fra::AbstractApplication
             << "Feature toggles:\n"
             << "  F1  help/status\n"
             << "  F2  cast shadows (foxes)\n"
-            << "  F3  debug draw\n"
             << "  F4  AnimGraph evaluate (off = rest pose)\n"
             << "  F5  upper BlendMasked layer\n"
             << "  F6  additive upper layer\n"
@@ -813,7 +811,8 @@ class MainApp final : public fra::AbstractApplication
     {
         const auto& o = *mFreyaOptions;
         std::cout << "Features  shadow=" << onOff(mEnableShadows)
-                  << " debug=" << onOff(mEnableDebugDraw)
+                  << " debug="
+                  << onOff(mRenderer->IsDebugDrawEnabled())
                   << " graph=" << onOff(mEnableAnimGraph)
                   << " mask=" << onOff(mEnableUpperMask) << " add="
                   << onOff(mEnableAdditive) << " look=" << onOff(mEnableLookAt)
@@ -890,8 +889,6 @@ class MainApp final : public fra::AbstractApplication
     void toggle(bool& flag, const char* name)
     {
         flag = !flag;
-        if (&flag == &mEnableDebugDraw)
-            mRenderer->SetDebugDrawEnabled(flag);
         std::cout << name << ' ' << (flag ? "ON" : "OFF") << '\n';
         printFeatureStatus();
     }
@@ -921,9 +918,6 @@ class MainApp final : public fra::AbstractApplication
                 break;
             case fra::KeyCode::F2:
                 toggle(mEnableShadows, "Shadows");
-                break;
-            case fra::KeyCode::F3:
-                toggle(mEnableDebugDraw, "DebugDraw");
                 break;
             case fra::KeyCode::F4:
                 toggle(mEnableAnimGraph, "AnimGraph");
@@ -995,7 +989,6 @@ class MainApp final : public fra::AbstractApplication
     std::int32_t                 mHeadJoint          = -1;
     bool                         mIkReady            = true;
     bool                         mEnableShadows      = true;
-    bool                         mEnableDebugDraw    = false;
     bool                         mEnableAnimGraph    = true;
     bool                         mEnableUpperMask    = true;
     bool                         mEnableAdditive     = true;

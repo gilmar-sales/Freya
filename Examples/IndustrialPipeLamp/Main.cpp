@@ -3,7 +3,6 @@
 #include <FreyaExamples/DebugOverlay.hpp>
 #include <FreyaExamples/FlyCam.hpp>
 #include <FreyaExamples/GroundMesh.hpp>
-#include <FreyaExamples/QualityCycle.hpp>
 
 #include <cmath>
 #include <cstdint>
@@ -37,47 +36,12 @@ class MainApp final : public fra::AbstractApplication
 
         mEventManager->Subscribe<fra::KeyReleasedEvent>(
             [this](const fra::KeyReleasedEvent& event) {
-                if (event.key == fra::KeyCode::F5)
-                {
-                    cycleShadowQuality();
-                    return;
-                }
-                if (event.key == fra::KeyCode::F6)
-                {
-                    cycleSsaoQuality();
-                    return;
-                }
-                if (event.key == fra::KeyCode::F7)
-                {
-                    cycleTaaQuality();
-                    return;
-                }
-                if (event.key == fra::KeyCode::F8)
-                {
-                    cycleBloomQuality();
-                    return;
-                }
                 if (event.key == fra::KeyCode::F3)
                 {
                     mShowLightGizmos = !mShowLightGizmos;
                     mRenderer->SetDebugDrawEnabled(mShowLightGizmos);
                     std::cout
                         << "Light gizmos: " << (mShowLightGizmos ? "on" : "off")
-                        << '\n';
-                    updateTitle();
-                    return;
-                }
-                if (event.key == fra::KeyCode::F9)
-                {
-                    const auto cur  = mRenderer->GetDeferredDebugView();
-                    const auto next = cur == fra::DeferredDebugView::Shadows
-                                          ? fra::DeferredDebugView::None
-                                          : fra::DeferredDebugView::Shadows;
-                    mRenderer->SetDeferredDebugView(next);
-                    std::cout
-                        << "Shadow debug: "
-                        << (next == fra::DeferredDebugView::Shadows ? "on"
-                                                                    : "off")
                         << '\n';
                     updateTitle();
                     return;
@@ -319,10 +283,9 @@ class MainApp final : public fra::AbstractApplication
                "Esc release mouse (per window)\n"
             << "Shadow test: 0=all  1=directional  2=warm point  "
                "3=cool point  4=all spots | F3 light gizmos | "
-               "F9 shadow factor | F10 secondary window\n"
-            << "TAA check: lamp 0 orbits — ghost trail => bad velocity; "
-               "F5–F8 cycle quality (Low→Med→High→Ultra→Off)\n"
-            << "ImGui: Freya Debug panel (timing / quality / SSAO views)\n";
+               "F10 secondary window\n"
+            << "TAA check: lamp 0 orbits — ghost trail => bad velocity\n"
+            << "ImGui: Freya Debug panel (timing / quality / deferred views)\n";
 
         // All casters on by default (same as key 0).
         setShadowCasterMode(0);
@@ -376,7 +339,7 @@ class MainApp final : public fra::AbstractApplication
 
         // Orbit lamp 0 so TAA object motion can be validated (lamp 1 + ground
         // stay static). Ghosting on the moving lamp with TAA on, gone with
-        // TAA off (F7 quality / disable), points at bad velocity history.
+        // TAA off (ImGui quality Off), points at bad velocity history.
         {
             constexpr float kOrbitRadius = 4.0f;
             constexpr float kOrbitSpeed  = 0.9f;
@@ -559,46 +522,6 @@ class MainApp final : public fra::AbstractApplication
         updateTitle();
     }
 
-    void cycleShadowQuality()
-    {
-        const auto next =
-            FreyaExamples::CycleQuality(mRenderer->GetShadowQuality());
-        mRenderer->SetShadowQuality(next);
-        std::cout << "Shadow quality: " << FreyaExamples::QualityName(next)
-                  << " [F5]\n";
-        updateTitle();
-    }
-
-    void cycleSsaoQuality()
-    {
-        const auto next =
-            FreyaExamples::CycleQuality(mRenderer->GetSsaoQuality());
-        mRenderer->SetSsaoQuality(next);
-        std::cout << "SSAO quality: " << FreyaExamples::QualityName(next)
-                  << " [F6]\n";
-        updateTitle();
-    }
-
-    void cycleTaaQuality()
-    {
-        const auto next =
-            FreyaExamples::CycleQuality(mRenderer->GetTaaQuality());
-        mRenderer->SetTaaQuality(next);
-        std::cout << "TAA quality: " << FreyaExamples::QualityName(next)
-                  << " [F7]\n";
-        updateTitle();
-    }
-
-    void cycleBloomQuality()
-    {
-        const auto next =
-            FreyaExamples::CycleQuality(mRenderer->GetBloomQuality());
-        mRenderer->SetBloomQuality(next);
-        std::cout << "Bloom quality: " << FreyaExamples::QualityName(next)
-                  << " [F8]\n";
-        updateTitle();
-    }
-
     void updateTitle()
     {
         static constexpr const char* kShadow[] = {
@@ -609,24 +532,8 @@ class MainApp final : public fra::AbstractApplication
                 ? kShadow[mShadowCasterMode]
                 : "?";
         mFreyaOptions->title =
-            std::string("Industrial Pipe Lamp | Shd ") +
-            FreyaExamples::QualityShortName(
-                static_cast<int>(mRenderer->GetShadowQuality())) +
-            " [F5] SSAO " +
-            FreyaExamples::QualityShortName(
-                static_cast<int>(mRenderer->GetSsaoQuality())) +
-            " [F6] TAA " +
-            FreyaExamples::QualityShortName(
-                static_cast<int>(mRenderer->GetTaaQuality())) +
-            " [F7] Blm " +
-            FreyaExamples::QualityShortName(
-                static_cast<int>(mRenderer->GetBloomQuality())) +
-            " [F8] | " +
-            (mRenderer->GetDeferredDebugView() ==
-                     fra::DeferredDebugView::Shadows
-                 ? "shdDBG "
-                 : "") +
-            (mShowLightGizmos ? "gizmo " : "") + shadowName + " [0-4]";
+            std::string("Industrial Pipe Lamp | casters ") + shadowName +
+            " [0-4]" + (mShowLightGizmos ? " | gizmos" : "") + " | ImGui debug";
     }
 
     void drawLightGizmos()
