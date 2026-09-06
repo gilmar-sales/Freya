@@ -34,6 +34,7 @@ namespace FREYA_NAMESPACE
                   const std::vector<vk::Fence>&      inFlightFences) :
             mDevice(device), mInstance(instance), mSurface(surface),
             mSwapChain(swapChain), mFrames(frames), mCurrentFrameIndex(0),
+            mCurrentImageIndex(0),
             mImageAvailableSemaphores(imageAvailableSemaphores),
             mRenderFinishedSemaphores(renderFinishedSemaphores),
             mInFlightFences(inFlightFences)

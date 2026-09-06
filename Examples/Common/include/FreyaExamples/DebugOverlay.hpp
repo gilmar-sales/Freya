@@ -68,14 +68,20 @@ namespace FreyaExamples
         void destroyDescriptorPool(void* vkDevice);
         void releaseViewportTexture();
         void ensureViewportTexture(void* sampler, void* imageView);
+        bool reinitVulkanBackend(fra::Renderer& renderer);
+        void applyPendingSwapchainChanges();
 
         bool            mInitialized    = false;
         bool            mEnabled        = true;
+        fra::Renderer*  mRenderer       = nullptr;
         fra::IPlatform* mPlatform       = nullptr;
         void*           mDescriptorPool = nullptr; ///< VkDescriptorPool
         void*           mDevice         = nullptr; ///< VkDevice (for shutdown)
         void*           mViewportSet    = nullptr; ///< VkDescriptorSet
         void*           mViewportView   = nullptr; ///< VkImageView cached key
+
+        bool mPendingVSync      = false;
+        bool mPendingVSyncValue = false;
 
         std::chrono::steady_clock::time_point mUpdateStart {};
     };

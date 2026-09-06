@@ -190,9 +190,9 @@ namespace FREYA_NAMESPACE
             return;
 
         const std::uint32_t frameCount = std::max<std::uint32_t>(
-            1u, mSwapChain ? static_cast<std::uint32_t>(
-                                 mSwapChain->GetFrameCount())
-                           : mFreyaOptions->frameCount);
+            1u, mSwapChain
+                    ? static_cast<std::uint32_t>(mSwapChain->GetFrameCount())
+                    : mFreyaOptions->frameCount);
         const auto queriesPerFrame = kMaxFrameGpuStages * kTimestampsPerStage;
         try
         {
@@ -1582,7 +1582,8 @@ namespace FREYA_NAMESPACE
 
         // Poll THIS FiF slot before reuse. BeginFrame's WaitNextFrame already
         // waited for this slot's prior GPU work — do not poll frameIndex-1
-        // (still in flight) and do not use VK_QUERY_RESULT_WAIT (can DEVICE_LOST).
+        // (still in flight) and do not use VK_QUERY_RESULT_WAIT (can
+        // DEVICE_LOST).
         FrameGpuTimingSample sample = mLastFrameGpuTiming;
         if (mFrameTimestampPool && mFrameTimestampPeriodNs > 0.f &&
             frameIndex < mFrameTimingSlotPending.size() &&
@@ -1597,7 +1598,7 @@ namespace FREYA_NAMESPACE
                 const auto queryCount = stageCount * kTimestampsPerStage;
                 std::array<std::uint64_t,
                            kMaxFrameGpuStages * kTimestampsPerStage>
-                    stamps {};
+                           stamps {};
                 const auto result = mDevice->Get().getQueryPoolResults(
                     mFrameTimestampPool, base, queryCount,
                     sizeof(std::uint64_t) * queryCount, stamps.data(),
@@ -1623,9 +1624,8 @@ namespace FREYA_NAMESPACE
                             const char* name = mFrameStages[i]->Name();
                             if (name)
                             {
-                                std::strncpy(
-                                    sample.stages[i].name, name,
-                                    sizeof(sample.stages[i].name) - 1);
+                                std::strncpy(sample.stages[i].name, name,
+                                             sizeof(sample.stages[i].name) - 1);
                             }
                         }
                     }
@@ -1644,8 +1644,8 @@ namespace FREYA_NAMESPACE
         if (mFrameTimestampPool && timedStages > 0)
         {
             const auto base = frameTimestampBase(frameIndex);
-            commandBuffer.resetQueryPool(mFrameTimestampPool, base,
-                                         timedStages * kTimestampsPerStage);
+            commandBuffer.resetQueryPool(
+                mFrameTimestampPool, base, timedStages * kTimestampsPerStage);
         }
 
         for (std::uint32_t i = 0; i < mFrameStages.size(); ++i)

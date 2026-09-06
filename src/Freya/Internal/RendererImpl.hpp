@@ -311,10 +311,10 @@ namespace FREYA_NAMESPACE
 
         std::vector<FrameStagePtr> mFrameStages;
 
-        vk::QueryPool             mFrameTimestampPool     = nullptr;
-        float                     mFrameTimestampPeriodNs = 0.f;
-        FrameGpuTimingSample      mLastFrameGpuTiming {};
-        std::vector<std::uint8_t> mFrameTimingSlotPending;
+        vk::QueryPool              mFrameTimestampPool     = nullptr;
+        float                      mFrameTimestampPeriodNs = 0.f;
+        FrameGpuTimingSample       mLastFrameGpuTiming {};
+        std::vector<std::uint8_t>  mFrameTimingSlotPending;
         std::vector<std::uint32_t> mFrameTimingSlotStageCount;
 
         bool          mPickRequested        = false;

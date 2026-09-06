@@ -103,6 +103,7 @@ namespace FreyaExamples
         }
 
         mDevice   = handles.device;
+        mRenderer = &renderer;
         mPlatform = &platform;
 
         if (!createDescriptorPool(handles.device))
@@ -127,6 +128,41 @@ namespace FreyaExamples
             return false;
         }
 
+        if (!reinitVulkanBackend(renderer))
+        {
+            Shutdown();
+            return false;
+        }
+
+        platform.SetNativeEventObserver(&DebugOverlay::onNativeEvent, this);
+        mInitialized = true;
+        return true;
+    }
+
+    bool DebugOverlay::reinitVulkanBackend(fra::Renderer& renderer)
+    {
+        auto handles = renderer.GetImGuiNativeHandles();
+        if (!handles.device || !handles.renderPass)
+        {
+            std::fprintf(stderr,
+                         "DebugOverlay: incomplete ImGui native handles\n");
+            return false;
+        }
+
+        // Required when the TU was built with VK_NO_PROTOTYPES /
+        // IMGUI_IMPL_VULKAN_NO_PROTOTYPES; harmless when prototypes are linked.
+        if (!ImGui_ImplVulkan_LoadFunctions(
+                [](const char* functionName, void* userData) {
+                    return vkGetInstanceProcAddr(
+                        static_cast<VkInstance>(userData), functionName);
+                },
+                handles.instance))
+        {
+            std::fprintf(stderr,
+                         "DebugOverlay: ImGui Vulkan LoadFunctions failed\n");
+            return false;
+        }
+
         ImGui_ImplVulkan_InitInfo initInfo {};
         initInfo.Instance = static_cast<VkInstance>(handles.instance);
         initInfo.PhysicalDevice =
@@ -142,31 +178,37 @@ namespace FreyaExamples
         initInfo.RenderPass    = static_cast<VkRenderPass>(handles.renderPass);
         initInfo.CheckVkResultFn = checkVk;
 
-        // Required when the TU was built with VK_NO_PROTOTYPES /
-        // IMGUI_IMPL_VULKAN_NO_PROTOTYPES; harmless when prototypes are linked.
-        if (!ImGui_ImplVulkan_LoadFunctions(
-                [](const char* functionName, void* userData) {
-                    return vkGetInstanceProcAddr(
-                        static_cast<VkInstance>(userData), functionName);
-                },
-                handles.instance))
-        {
-            std::fprintf(stderr,
-                         "DebugOverlay: ImGui Vulkan LoadFunctions failed\n");
-            Shutdown();
-            return false;
-        }
-
         if (!ImGui_ImplVulkan_Init(&initInfo))
         {
             std::fprintf(stderr, "DebugOverlay: Vulkan ImGui init failed\n");
-            Shutdown();
             return false;
         }
-
-        platform.SetNativeEventObserver(&DebugOverlay::onNativeEvent, this);
-        mInitialized = true;
         return true;
+    }
+
+    void DebugOverlay::applyPendingSwapchainChanges()
+    {
+        if (!mPendingVSync || !mRenderer)
+            return;
+
+        mPendingVSync = false;
+        if (mRenderer->GetVSync() == mPendingVSyncValue)
+            return;
+
+        // Between frames: no open command buffer. Rebuild then rebind ImGui
+        // to the new CompositePass UI render pass / image count.
+        mRenderer->SetVSync(mPendingVSyncValue);
+
+        if (mDevice)
+            vkDeviceWaitIdle(static_cast<VkDevice>(mDevice));
+        releaseViewportTexture();
+        ImGui_ImplVulkan_Shutdown();
+        if (!reinitVulkanBackend(*mRenderer))
+        {
+            std::fprintf(stderr,
+                         "DebugOverlay: failed to rebind ImGui after VSync\n");
+            mEnabled = false;
+        }
     }
 
     void DebugOverlay::releaseViewportTexture()
@@ -231,11 +273,20 @@ namespace FreyaExamples
             destroyDescriptorPool(mDevice);
             mDevice = nullptr;
         }
+        mRenderer          = nullptr;
+        mPendingVSync      = false;
+        mPendingVSyncValue = false;
     }
 
     void DebugOverlay::BeginFrame()
     {
-        if (!mInitialized || !mEnabled)
+        if (!mInitialized)
+            return;
+
+        // Apply swapchain rebuilds before Renderer::BeginFrame / recording.
+        applyPendingSwapchainChanges();
+
+        if (!mEnabled)
             return;
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplSDL3_NewFrame();
@@ -345,9 +396,15 @@ namespace FreyaExamples
                              "Low\0Medium\0High\0Ultra\0Off\0"))
                 renderer.SetBloomQuality(static_cast<fra::BloomQuality>(bloom));
 
-            bool vsync = renderer.GetVSync();
+            // Defer SetVSync: rebuilding the swapchain mid-frame (open CB /
+            // stale image index / new framebuffer count) aborts.
+            bool vsync =
+                mPendingVSync ? mPendingVSyncValue : renderer.GetVSync();
             if (ImGui::Checkbox("VSync", &vsync))
-                renderer.SetVSync(vsync);
+            {
+                mPendingVSync      = true;
+                mPendingVSyncValue = vsync;
+            }
 
             (void) QualityLabel;
         }
