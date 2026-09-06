@@ -302,8 +302,8 @@ namespace FREYA_NAMESPACE
         return skr::MakeArc<IndirectDrawSystem>(
             mDevice, mCommandPool, mMeshPool, mMaterials,
             mServiceProvider->GetService<MaterialPool>(), frameCount,
-            cullPipeline, cullPipelineLayout,
-            cullSetLayout, cullDescriptorPool, std::move(cullDescriptorSets),
-            std::move(hiz), std::move(fallbackImageArc));
+            cullPipeline, cullPipelineLayout, cullSetLayout, cullDescriptorPool,
+            std::move(cullDescriptorSets), std::move(hiz),
+            std::move(fallbackImageArc));
     }
 } // namespace FREYA_NAMESPACE

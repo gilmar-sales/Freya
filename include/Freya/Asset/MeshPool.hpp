@@ -18,6 +18,7 @@ namespace FREYA_NAMESPACE
     class Device;
     class PhysicalDevice;
     class CommandPool;
+    class TransferCommandPool;
     class Buffer;
     class Renderer;
     class IndirectDrawSystem;
@@ -29,7 +30,7 @@ namespace FREYA_NAMESPACE
       public:
         MeshPool(const skr::Arc<Device>&                device,
                  const skr::Arc<PhysicalDevice>&        physicalDevice,
-                 const skr::Arc<CommandPool>&           commandPool,
+                 const skr::Arc<TransferCommandPool>&   transferPool,
                  const skr::Arc<skr::Logger<MeshPool>>& logger,
                  const skr::Arc<MaterialPool>&          materialPool,
                  const skr::Arc<TexturePool>&           texturePool);
@@ -63,16 +64,18 @@ namespace FREYA_NAMESPACE
       protected:
         friend class FREYA_NAMESPACE::IndirectDrawSystem;
 
-        void BindGeometry() const;
+        void BindGeometry(const skr::Arc<CommandPool>& commandPool) const;
 
         [[nodiscard]] const skr::Arc<Buffer>& GetVertexBuffer() const;
         [[nodiscard]] const skr::Arc<Buffer>& GetIndexBuffer() const;
 
-        void Draw(std::uint32_t meshId);
+        void Draw(const skr::Arc<CommandPool>& commandPool,
+                  std::uint32_t                meshId);
 
-        void DrawInstanced(std::uint32_t meshId,
-                           size_t        instanceCount,
-                           size_t        firstInstance = 0);
+        void DrawInstanced(const skr::Arc<CommandPool>& commandPool,
+                           std::uint32_t                meshId,
+                           size_t                       instanceCount,
+                           size_t                       firstInstance = 0);
 
       private:
         struct Impl;

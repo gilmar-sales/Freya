@@ -13,6 +13,7 @@
 
 #include "Freya/Core/AbstractApplication.hpp"
 #include "Freya/Core/FreyaExtension.hpp"
+#include "Freya/Core/IPlatform.hpp"
 #include "Freya/FreyaOptions.hpp"
 
 #include "Freya/Builders/FreyaOptionsBuilder.hpp"

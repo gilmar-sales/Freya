@@ -267,11 +267,11 @@ namespace FREYA_NAMESPACE
         skr::Arc<MaterialDescriptorResources> mMaterials;
         skr::Arc<MaterialPool>                mMaterialPool;
 
-        std::uint32_t mFrameCount = 1;
-        std::uint32_t mFrameIndex = 0;
-        std::uint64_t mFrameSerial = 0;
-        std::uint64_t mHiZMotionSerial = ~std::uint64_t(0);
-        bool          mHiZSafeForFrame = false;
+        std::uint32_t mFrameCount          = 1;
+        std::uint32_t mFrameIndex          = 0;
+        std::uint64_t mFrameSerial         = 0;
+        std::uint64_t mHiZMotionSerial     = ~std::uint64_t(0);
+        bool          mHiZSafeForFrame     = false;
         bool          mHasLastCullViewProj = false;
         glm::mat4     mLastCullViewProj { 1.0f };
 

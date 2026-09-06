@@ -86,6 +86,29 @@ Present mode, GPU type, and device extensions are chosen inside the engine
 from `FreyaOptions` (vsync, sample count, quality presets). Vulkan builders
 are not part of the public extension API.
 
+## Multiple windows
+
+`AbstractApplication::CreateWindow` opens another Freya window at runtime.
+Each window gets its own scoped `Renderer` / `LightService` /
+`IndirectDrawSystem`. Asset pools stay shared:
+
+| Shared (singleton) | Per window (scoped) |
+|--------------------|---------------------|
+| `MeshPool`, `TexturePool`, `MaterialPool` | `Window`, `Renderer`, `SwapChain` |
+| `Device`, `Instance`, `IPlatform` | `LightService`, `ShadowPass`, `CommandPool` |
+
+```cpp
+auto window = CreateWindow([](fra::FreyaOptionsBuilder& o) {
+    o.SetTitle("Game View").SetWidth(1280).SetHeight(720);
+});
+// Shared mesh ids from the main window's MeshPool still work here.
+// Close with window->Close().
+```
+
+Use `GetMainServiceProvider()` for scoped services belonging to the main
+window. Secondary windows use `GetWindowServices(*window)` /
+`GetRenderer(*window)`.
+
 ## Frame stages
 
 `Renderer::EndScene` runs an ordered list of `IFrameStage` adapters:

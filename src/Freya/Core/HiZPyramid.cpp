@@ -88,10 +88,10 @@ namespace FREYA_NAMESPACE
         // Old mip views/image may be in use by an in-flight frame.
         mDevice->Get().waitIdle();
         destroyMipViews();
-        mReady  = false;
+        mReady       = false;
         mImageLayout = vk::ImageLayout::eUndefined;
-        mWidth  = width;
-        mHeight = height;
+        mWidth       = width;
+        mHeight      = height;
         mMipLevels =
             std::min(kMaxMipLevels,
                      static_cast<std::uint32_t>(
@@ -250,16 +250,14 @@ namespace FREYA_NAMESPACE
         }
 
         {
-            const bool firstBuild =
-                mImageLayout == vk::ImageLayout::eUndefined;
+            const bool firstBuild = mImageLayout == vk::ImageLayout::eUndefined;
             const auto barrier =
                 vk::ImageMemoryBarrier()
                     .setOldLayout(mImageLayout)
                     .setNewLayout(vk::ImageLayout::eGeneral)
-                    .setSrcAccessMask(
-                        firstBuild
-                            ? vk::AccessFlags {}
-                            : vk::AccessFlagBits::eShaderRead)
+                    .setSrcAccessMask(firstBuild
+                                          ? vk::AccessFlags {}
+                                          : vk::AccessFlagBits::eShaderRead)
                     .setDstAccessMask(vk::AccessFlagBits::eShaderWrite)
                     .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
                     .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
@@ -274,8 +272,8 @@ namespace FREYA_NAMESPACE
             cb.pipelineBarrier(
                 firstBuild ? vk::PipelineStageFlagBits::eTopOfPipe
                            : vk::PipelineStageFlagBits::eComputeShader,
-                               vk::PipelineStageFlagBits::eComputeShader, {}, 0,
-                               nullptr, 0, nullptr, 1, &barrier);
+                vk::PipelineStageFlagBits::eComputeShader, {}, 0, nullptr, 0,
+                nullptr, 1, &barrier);
             mImageLayout = vk::ImageLayout::eGeneral;
         }
 
@@ -323,8 +321,8 @@ namespace FREYA_NAMESPACE
                 mReduceSets[frame * reduceStride + (mip - 1u)];
 
             const auto scale = 1u << mip;
-            const auto dstW = std::max(1u, (mWidth + scale - 1u) / scale);
-            const auto dstH = std::max(1u, (mHeight + scale - 1u) / scale);
+            const auto dstW  = std::max(1u, (mWidth + scale - 1u) / scale);
+            const auto dstH  = std::max(1u, (mHeight + scale - 1u) / scale);
             struct ReducePC
             {
                 std::uint32_t extentX;

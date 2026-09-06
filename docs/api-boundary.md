@@ -23,7 +23,9 @@ Treat as **app-stable**:
 - `FreyaOptions` / `FreyaOptionsBuilder`
 - `FreyaExtension::WithOptions`
 - `MeshPool` / `TexturePool` / `MaterialPool` / `MaterialCreateInfo`
-- `AbstractApplication` lifecycle
+- `AbstractApplication` lifecycle and multi-window API (`CreateWindow`,
+  `GetRenderer` / `GetWindowServices`, `GetMainServiceProvider`)
+- `IPlatform` (process-wide window/event backend; default `SdlPlatform`)
 - `Renderer` frame loop, quality knobs, pick, debug draw, GPU anim methods
 - `Renderer::NativeCommandBuffer` / `NativeDevice` (opaque `void*` =
   `VkCommandBuffer` / `VkDevice`)

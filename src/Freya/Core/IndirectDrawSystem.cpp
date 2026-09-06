@@ -44,9 +44,9 @@ namespace FREYA_NAMESPACE
             hizFallbackImage) :
         mDevice(device), mCommandPool(commandPool), mMeshPool(meshPool),
         mMaterials(materials), mMaterialPool(materialPool),
-        mFrameCount(std::max(1u, frameCount)),
-        mCullPipeline(cullPipeline), mCullPipelineLayout(cullPipelineLayout),
-        mCullSetLayout(cullSetLayout), mCullDescriptorPool(cullDescriptorPool),
+        mFrameCount(std::max(1u, frameCount)), mCullPipeline(cullPipeline),
+        mCullPipelineLayout(cullPipelineLayout), mCullSetLayout(cullSetLayout),
+        mCullDescriptorPool(cullDescriptorPool),
         mCullDescriptorSets(std::move(cullDescriptorSets)),
         mHiZ(std::move(hiz)), mHizFallbackImage(std::move(hizFallbackImage))
     {
@@ -241,8 +241,7 @@ namespace FREYA_NAMESPACE
 
         auto& frame = mFrames[frameIndex];
         if (!frame.sceneInstances || !frame.sourceTransforms ||
-            !frame.main.compactTransforms ||
-            !frame.main.indirect ||
+            !frame.main.compactTransforms || !frame.main.indirect ||
             !frame.main.drawCount)
         {
             return;
@@ -442,7 +441,7 @@ namespace FREYA_NAMESPACE
         const std::span<const SceneInstanceUpload> uploads,
         const std::uint32_t                        frameIndex)
     {
-        mFrameIndex                 = frameIndex % mFrameCount;
+        mFrameIndex = frameIndex % mFrameCount;
         ++mFrameSerial;
         mCullDescRefreshedThisFrame = false;
 
@@ -555,8 +554,7 @@ namespace FREYA_NAMESPACE
 
         zeroDrawCount(techniqueFilter);
 
-        if (mode == CullMode::Camera &&
-            mHiZMotionSerial != mFrameSerial)
+        if (mode == CullMode::Camera && mHiZMotionSerial != mFrameSerial)
         {
             bool viewChanged = !mHasLastCullViewProj;
             if (!viewChanged)
@@ -581,11 +579,10 @@ namespace FREYA_NAMESPACE
         pc.instanceCount = mInstanceCount;
         pc.cullMode      = static_cast<std::uint32_t>(mode);
         pc.reverseZ      = reverseZ ? 1u : 0u;
-        pc.hizEnabled =
-            (mHiZSafeForFrame && mode == CullMode::Camera && mHiZ &&
-             mHiZ->IsReady())
-                ? 1u
-                : 0u;
+        pc.hizEnabled = (mHiZSafeForFrame && mode == CullMode::Camera && mHiZ &&
+                         mHiZ->IsReady())
+                            ? 1u
+                            : 0u;
         pc.lodPixelRef     = 256.0f;
         pc.lodStep         = 2.0f;
         pc.techniqueFilter = techniqueFilter;
@@ -729,7 +726,7 @@ namespace FREYA_NAMESPACE
         auto& cb    = mCommandPool->GetCommandBuffer();
 
         list.compactTransforms->Bind(mCommandPool);
-        mMeshPool->BindGeometry();
+        mMeshPool->BindGeometry(mCommandPool);
 
         if (bindMaterials && pipelineLayout)
         {

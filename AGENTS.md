@@ -99,7 +99,13 @@ ctest --test-dir build --output-on-failure
 
 - Extend `fra::AbstractApplication`; implement `StartUp()` and `Update()`.
 - Use `skr::ApplicationBuilder` with `WithExtension<fra::FreyaExtension>()` to configure.
-- Services (Renderer, Window, MeshPool, TexturePool, MaterialPool, LightService) obtained via `serviceProvider->GetService<T>()`.
+- Resolve **scoped** services (LightService, FreyaOptions, EventManager) via
+  `GetMainServiceProvider()` (or `GetWindowServices(*window)` for secondary
+  windows). Shared pools (`MeshPool` / `TexturePool` / `MaterialPool`) remain
+  root singletons and can still be taken from the constructor `serviceProvider`.
+- Open extra windows with `CreateWindow`; close with `Window::Close()`.
+  Override `UpdateSecondaryWindow` and use `GetRenderer(*window)` to draw
+  (IndustrialPipeLamp: F10).
 - FreyaOptions: title, dimensions, vSync, fullscreen, sampleCount, frameCount,
   clearColor, drawDistance, maxLights, ReverseZ, shaderRoot,
   enableSsao/enableTaa/enableBloom.

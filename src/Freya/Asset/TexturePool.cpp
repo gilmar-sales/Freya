@@ -15,8 +15,8 @@
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Containers/SparseSet.hpp"
-#include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/TransferCommandPool.hpp"
 
 #include <vulkan/vulkan.hpp>
 
@@ -29,7 +29,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<skr::Logger<TexturePool>>    logger;
         skr::Arc<skr::ServiceProvider>        serviceProvider;
         skr::Arc<Device>                      device;
-        skr::Arc<CommandPool>                 commandPool;
+        skr::Arc<TransferCommandPool>         transferPool;
         skr::Arc<MaterialDescriptorResources> materialsRes;
         std::vector<skr::Arc<Buffer>>         stagingBuffers;
         SparseSet<Texture>                    textures { 4096 };
@@ -44,7 +44,8 @@ namespace FREYA_NAMESPACE
     {
         mImpl->serviceProvider = serviceProvider;
         mImpl->device          = serviceProvider->GetService<Device>();
-        mImpl->commandPool     = serviceProvider->GetService<CommandPool>();
+        mImpl->transferPool =
+            serviceProvider->GetService<TransferCommandPool>();
         mImpl->materialsRes =
             serviceProvider->GetService<MaterialDescriptorResources>();
         mImpl->logger = serviceProvider->GetService<skr::Logger<TexturePool>>();

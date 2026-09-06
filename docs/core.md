@@ -26,10 +26,47 @@ class MyApp final : public fra::AbstractApplication
 
 | Member | Type | Description |
 |--------|------|-------------|
-| `mWindow` | `skr::Arc<Window>` | Window instance |
-| `mRenderer` | `skr::Arc<Renderer>` | Renderer instance |
-| `mEventManager` | `skr::Arc<EventManager>` | Event manager instance |
+| `mWindow` | `skr::Arc<Window>` | Main window |
+| `mRenderer` | `skr::Arc<Renderer>` | Main window renderer |
+| `mEventManager` | `skr::Arc<EventManager>` | Main window event manager |
 | `mDeltaTime` | `float` | Time since last frame (seconds) |
+| `mMainScope` | `skr::Arc<skr::ServiceScope>` | Skirnir scope for the main window |
+
+### Multi-window
+
+Each window is a Skirnir **service scope**. Shared across windows (singletons):
+`IPlatform`, `Instance`, `Device`, `MeshPool`, `TexturePool`, `MaterialPool`.
+Per window (scoped): `Window`, `Surface`, `SwapChain`, `CommandPool`,
+`Renderer`, `LightService`, `IndirectDrawSystem`, shadows / pick / IBL.
+
+```cpp
+// Resolve scoped services from the main window scope (not the root provider).
+auto lights = GetMainServiceProvider()->GetService<fra::LightService>();
+
+// F10-style secondary view with its own camera / lights, shared meshes.
+auto game = CreateWindow([](fra::FreyaOptionsBuilder& o) {
+    o.SetTitle("Game").SetWidth(1280).SetHeight(720).SetFullscreen(false);
+});
+
+void UpdateSecondaryWindow(const skr::Arc<fra::Window>& window) override
+{
+    auto renderer = GetRenderer(*window);
+    auto lights = GetWindowServices(*window)->GetService<fra::LightService>();
+    // ... upload instances using the shared MeshPool, then EndFrame()
+}
+
+// Close with the window itself — the app loop tears down its scope.
+game->Close();
+```
+
+`Run()` pumps platform events once per frame, updates the main window, then
+each live secondary window. `Window::Close()` (or the OS close button)
+destroys the native window immediately; the next frame drops the window
+scope.
+
+**Bootstrap:** resolve `Device` / `PhysicalDevice` for the first time from a
+window scope (AbstractApplication does this). Do not resolve them from the
+root provider — `DeviceBuilder` needs a `Surface`.
 
 ## Renderer
 
@@ -82,11 +119,12 @@ Apps that do not customize the frame graph can keep calling `EndFrame()`.
 
 ## Window
 
-Window management and input handling.
+Window management and input handling. Events are routed by `IPlatform`
+(`SdlPlatform`) so multiple windows do not steal each other's input.
 
 ```cpp
 mWindow->IsRunning();      // Check if window is running
-mWindow->Update();         // Process window events
+mWindow->Update();         // Advance timing / FPS title (events via PumpEvents)
 mWindow->GetDeltaTime();   // Get delta time in seconds
 ```
 

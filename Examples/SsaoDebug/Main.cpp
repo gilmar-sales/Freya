@@ -50,10 +50,11 @@ class MainApp final : public fra::AbstractApplication
     explicit MainApp(const skr::Arc<skr::ServiceProvider>& serviceProvider) :
         AbstractApplication(serviceProvider)
     {
-        mMeshPool     = serviceProvider->GetService<fra::MeshPool>();
-        mMaterialPool = serviceProvider->GetService<fra::MaterialPool>();
-        mLightService = serviceProvider->GetService<fra::LightService>();
-        mFreyaOptions = serviceProvider->GetService<fra::FreyaOptions>();
+        auto windowServices = GetMainServiceProvider();
+        mMeshPool           = serviceProvider->GetService<fra::MeshPool>();
+        mMaterialPool       = serviceProvider->GetService<fra::MaterialPool>();
+        mLightService       = windowServices->GetService<fra::LightService>();
+        mFreyaOptions       = windowServices->GetService<fra::FreyaOptions>();
     }
 
     void StartUp() override
@@ -483,12 +484,12 @@ class MainApp final : public fra::AbstractApplication
     skr::Arc<fra::LightService> mLightService;
     skr::Arc<fra::FreyaOptions> mFreyaOptions;
 
-    std::uint32_t              mGroundMesh     = 0;
-    std::uint32_t              mGroundMaterial = 0;
+    std::uint32_t                  mGroundMesh     = 0;
+    std::uint32_t                  mGroundMaterial = 0;
     std::vector<fra::ModelSubmesh> mHelmetModel;
     std::vector<fra::ModelSubmesh> mDragonModel;
     std::vector<fra::ModelSubmesh> mShipModel;
-    std::vector<Instance>      mInstances;
+    std::vector<Instance>          mInstances;
 
     glm::vec3 mCameraPos { 0.2f, 1.4f, 4.8f };
     float     mYaw      = -95.0f;

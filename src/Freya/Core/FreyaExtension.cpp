@@ -36,19 +36,45 @@
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Asset/TexturePool.hpp"
 #include "Freya/Core/IBLService.hpp"
+#include "Freya/Core/IPlatform.hpp"
 #include "Freya/Core/IndirectDrawSystem.hpp"
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/PickPass.hpp"
+#include "Freya/Core/SdlPlatform.hpp"
 #include "Freya/Core/ShadowPass.hpp"
+#include "Freya/Core/TransferCommandPool.hpp"
+#include "Freya/Core/WindowConfigContext.hpp"
 
 namespace FREYA_NAMESPACE
 {
 
     void FreyaExtension::ConfigureServices(skr::ServiceCollection& services)
     {
-        services.AddSingleton<FreyaOptions>([this](skr::ServiceProvider&) {
-            return mFreyaOptionsBuilder.Build();
-        });
+        const auto baseOptions = mFreyaOptionsBuilder.Build();
+
+        services.AddSingleton<FreyaOptionsTemplate>(
+            [baseOptions](skr::ServiceProvider&) {
+                return skr::MakeArc<FreyaOptionsTemplate>(
+                    FreyaOptionsTemplate { .options = baseOptions });
+            });
+
+        services.AddScoped<WindowConfigContext>();
+
+        services.AddScoped<FreyaOptions>(
+            [](skr::ServiceProvider& serviceProvider) {
+                const auto ctx =
+                    serviceProvider.GetService<WindowConfigContext>();
+                if (!ctx->options)
+                {
+                    serviceProvider.GetService<skr::Logger<FreyaExtension>>()
+                        ->LogFatal(
+                            "WindowConfigContext must be seeded with "
+                            "FreyaOptions before resolving FreyaOptions.");
+                }
+                return ctx->options;
+            });
+
+        services.AddSingleton<IPlatform, SdlPlatform>();
 
         services.AddTransient<WindowBuilder>();
         services.AddTransient<InstanceBuilder>();
@@ -77,42 +103,35 @@ namespace FREYA_NAMESPACE
         services.AddTransient<PickPassBuilder>();
         services.AddTransient<IndirectDrawSystemBuilder>();
 
+        // Instance reads the process-wide template — never scoped FreyaOptions.
         services.AddSingleton<Instance>(
-            [](skr::ServiceProvider& serviceProvider) {
-                auto freyaOptions = serviceProvider.GetService<FreyaOptions>();
+            [baseOptions](skr::ServiceProvider& serviceProvider) {
                 auto instanceBuilder =
                     serviceProvider.GetService<InstanceBuilder>();
 
-                instanceBuilder->SetApplicationName(freyaOptions->title);
+                instanceBuilder->SetApplicationName(baseOptions->title);
 
                 return instanceBuilder->Build();
             });
 
-        services.AddSingleton<Surface>(
-            [](skr::ServiceProvider& serviceProvider) {
-                auto surfaceBuilder =
-                    serviceProvider.GetService<SurfaceBuilder>();
+        services.AddScoped<Surface>([](skr::ServiceProvider& serviceProvider) {
+            return serviceProvider.GetService<SurfaceBuilder>()->Build();
+        });
 
-                return surfaceBuilder->Build();
-            });
-
+        // Device / PhysicalDevice are singletons but must be first resolved
+        // from a window scope (DeviceBuilder needs Surface).
         services.AddSingleton<PhysicalDevice>(
             [](skr::ServiceProvider& serviceProvider) {
-                auto physicalDeviceBuilder =
-                    serviceProvider.GetService<PhysicalDeviceBuilder>();
-
-                return physicalDeviceBuilder->Build();
+                return serviceProvider.GetService<PhysicalDeviceBuilder>()
+                    ->Build();
             });
 
         services.AddSingleton<Device>(
             [](skr::ServiceProvider& serviceProvider) {
-                auto deviceBuilder =
-                    serviceProvider.GetService<DeviceBuilder>();
-
-                return deviceBuilder->Build();
+                return serviceProvider.GetService<DeviceBuilder>()->Build();
             });
 
-        services.AddSingleton<CommandPool>(
+        services.AddScoped<CommandPool>(
             [](skr::ServiceProvider serviceProvider) {
                 auto freyaOptions = serviceProvider.GetService<FreyaOptions>();
 
@@ -121,15 +140,20 @@ namespace FREYA_NAMESPACE
                     .Build();
             });
 
-        services.AddTransient<SwapChain>(
+        services.AddSingleton<TransferCommandPool>(
             [](skr::ServiceProvider& serviceProvider) {
-                auto swapChainBuilder =
-                    serviceProvider.GetService<SwapChainBuilder>();
-
-                return swapChainBuilder->Build();
+                auto pool = serviceProvider.GetService<CommandPoolBuilder>()
+                                ->SetCount(2)
+                                .Build();
+                return skr::MakeArc<TransferCommandPool>(std::move(pool));
             });
 
-        services.AddSingleton<EventManager>();
+        services.AddTransient<SwapChain>(
+            [](skr::ServiceProvider& serviceProvider) {
+                return serviceProvider.GetService<SwapChainBuilder>()->Build();
+            });
+
+        services.AddScoped<EventManager>();
 
         services.AddSingleton<MaterialDescriptorResources>(
             [](skr::ServiceProvider& serviceProvider) {
@@ -138,7 +162,7 @@ namespace FREYA_NAMESPACE
                     ->Build();
             });
 
-        services.AddSingleton<BoneMatrixResources>(
+        services.AddScoped<BoneMatrixResources>(
             [](skr::ServiceProvider& serviceProvider) {
                 return serviceProvider.GetService<BoneMatrixResourcesBuilder>()
                     ->Build();
@@ -150,7 +174,7 @@ namespace FREYA_NAMESPACE
         services.AddSingleton<LightingTechniqueRegistry>();
         services.AddSingleton<MeshPool>();
 
-        services.AddSingleton<LightService>(
+        services.AddScoped<LightService>(
             [](skr::ServiceProvider& serviceProvider) {
                 auto device       = serviceProvider.GetService<Device>();
                 auto freyaOptions = serviceProvider.GetService<FreyaOptions>();
@@ -162,39 +186,30 @@ namespace FREYA_NAMESPACE
                 return lights;
             });
 
-        services.AddSingleton<IBLService>();
+        services.AddScoped<IBLService>();
 
-        services.AddSingleton<ShadowPass>(
+        services.AddScoped<ShadowPass>(
             [](skr::ServiceProvider& serviceProvider) {
                 return serviceProvider.GetService<ShadowPassBuilder>()->Build();
             });
 
-        services.AddSingleton<PickPass>(
-            [](skr::ServiceProvider& serviceProvider) {
-                return serviceProvider.GetService<PickPassBuilder>()->Build();
-            });
+        services.AddScoped<PickPass>([](skr::ServiceProvider& serviceProvider) {
+            return serviceProvider.GetService<PickPassBuilder>()->Build();
+        });
 
-        services.AddSingleton<IndirectDrawSystem>(
+        services.AddScoped<IndirectDrawSystem>(
             [](skr::ServiceProvider& serviceProvider) {
                 return serviceProvider.GetService<IndirectDrawSystemBuilder>()
                     ->Build();
             });
 
-        services.AddSingleton<Window>(
-            [](skr::ServiceProvider& serviceProvider) {
-                auto windowBuilder =
-                    serviceProvider.GetService<WindowBuilder>();
+        services.AddScoped<Window>([](skr::ServiceProvider& serviceProvider) {
+            return serviceProvider.GetService<WindowBuilder>()->Build();
+        });
 
-                return windowBuilder->Build();
-            });
-
-        services.AddSingleton<Renderer>(
-            [](skr::ServiceProvider& serviceProvider) {
-                auto rendererBuilder =
-                    serviceProvider.GetService<RendererBuilder>();
-
-                return rendererBuilder->Build();
-            });
+        services.AddScoped<Renderer>([](skr::ServiceProvider& serviceProvider) {
+            return serviceProvider.GetService<RendererBuilder>()->Build();
+        });
     }
 
 } // namespace FREYA_NAMESPACE

@@ -2,6 +2,11 @@
 
 Freya manages meshes, textures, and PBR materials through pool services.
 
+These pools are **process-wide singletons** on a shared `Device`. Multiple
+windows / renderers reuse the same mesh, texture, and material IDs. Scene
+state (instances, lights, cull) is per-window — see [Core](core.md)
+multi-window.
+
 ## MeshPool
 
 ```cpp

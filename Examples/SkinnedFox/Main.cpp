@@ -111,11 +111,12 @@ class MainApp final : public fra::AbstractApplication
     explicit MainApp(const skr::Arc<skr::ServiceProvider>& serviceProvider) :
         AbstractApplication(serviceProvider)
     {
-        mMeshPool     = serviceProvider->GetService<fra::MeshPool>();
-        mTexturePool  = serviceProvider->GetService<fra::TexturePool>();
-        mMaterialPool = serviceProvider->GetService<fra::MaterialPool>();
-        mLightService = serviceProvider->GetService<fra::LightService>();
-        mFreyaOptions = serviceProvider->GetService<fra::FreyaOptions>();
+        auto windowServices = GetMainServiceProvider();
+        mMeshPool           = serviceProvider->GetService<fra::MeshPool>();
+        mTexturePool        = serviceProvider->GetService<fra::TexturePool>();
+        mMaterialPool       = serviceProvider->GetService<fra::MaterialPool>();
+        mLightService       = windowServices->GetService<fra::LightService>();
+        mFreyaOptions       = windowServices->GetService<fra::FreyaOptions>();
     }
 
     void StartUp() override

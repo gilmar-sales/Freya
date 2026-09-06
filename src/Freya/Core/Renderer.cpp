@@ -790,8 +790,7 @@ namespace FREYA_NAMESPACE
         if (!mServiceProvider)
             return false;
 
-        if (mOutputTarget &&
-            mOutputTarget->GetExtent().width == width &&
+        if (mOutputTarget && mOutputTarget->GetExtent().width == width &&
             mOutputTarget->GetExtent().height == height)
         {
             return true;
@@ -947,9 +946,9 @@ namespace FREYA_NAMESPACE
     {
         const auto  extent = getRenderExtent();
         const float aspect =
-            extent.height > 0
-                ? static_cast<float>(extent.width) / static_cast<float>(extent.height)
-                : 16.0f / 9.0f;
+            extent.height > 0 ? static_cast<float>(extent.width) /
+                                    static_cast<float>(extent.height)
+                              : 16.0f / 9.0f;
 
         auto projectionUniformBuffer = mCurrentProjection;
         projectionUniformBuffer.view = glm::lookAt(position, target, up);

@@ -14,11 +14,12 @@ class MainApp final : public fra::AbstractApplication
     explicit MainApp(const skr::Arc<skr::ServiceProvider>& serviceProvider) :
         AbstractApplication(serviceProvider)
     {
-        mMeshPool     = serviceProvider->GetService<fra::MeshPool>();
-        mTexturePool  = serviceProvider->GetService<fra::TexturePool>();
-        mMaterialPool = serviceProvider->GetService<fra::MaterialPool>();
-        mLightService = serviceProvider->GetService<fra::LightService>();
-        mFreyaOptions = serviceProvider->GetService<fra::FreyaOptions>();
+        auto windowServices = GetMainServiceProvider();
+        mMeshPool           = serviceProvider->GetService<fra::MeshPool>();
+        mTexturePool        = serviceProvider->GetService<fra::TexturePool>();
+        mMaterialPool       = serviceProvider->GetService<fra::MaterialPool>();
+        mLightService       = windowServices->GetService<fra::LightService>();
+        mFreyaOptions       = windowServices->GetService<fra::FreyaOptions>();
     }
 
     void StartUp() override
@@ -69,6 +70,11 @@ class MainApp final : public fra::AbstractApplication
                     std::cout
                         << "Shadow debug: " << (next ? "on" : "off") << '\n';
                     updateTitle();
+                    return;
+                }
+                if (event.key == fra::KeyCode::F10)
+                {
+                    toggleSecondaryWindow();
                     return;
                 }
 
@@ -213,8 +219,8 @@ class MainApp final : public fra::AbstractApplication
               .normal    = mSpaceShipNormal,
               .roughness = mSpaceShipRoughness });
 
-        mSpaceShipModel = mMeshPool->CreateModelFromFile(
-            "./Resources/Models/SpaceShip.fbx");
+        mSpaceShipModel =
+            mMeshPool->CreateModelFromFile("./Resources/Models/SpaceShip.fbx");
 
         // Fill lights stay dim so local casters dominate when diagnosed.
         // castShadows is toggled one-at-a-time (spots all share mode 4).
@@ -336,7 +342,7 @@ class MainApp final : public fra::AbstractApplication
                "Esc release mouse\n"
             << "Shadow test: 0=all  1=directional  2=warm point  "
                "3=cool point  4=all spots | F3 light gizmos | "
-               "F9 shadow factor\n"
+               "F9 shadow factor | F10 secondary window\n"
             << "TAA check: lamp 0 orbits — ghost trail => bad velocity; "
                "F5–F8 cycle quality (Low→Med→High→Ultra→Off)\n";
 
@@ -444,7 +450,70 @@ class MainApp final : public fra::AbstractApplication
         mRenderer->EndFrame();
     }
 
+    void UpdateSecondaryWindow(const skr::Arc<fra::Window>& window) override
+    {
+        if (!window || !window->IsRunning())
+            return;
+
+        auto renderer = GetRenderer(*window);
+        auto lights =
+            GetWindowServices(*window)->GetService<fra::LightService>();
+
+        lights->ClearLights();
+        lights->AddLight(fra::MakeDirectionalLight(
+            glm::vec3(-0.2f, -1.0f, -0.15f), glm::vec3(1.0f, 0.96f, 0.9f),
+            2.5f));
+
+        renderer->BeginFrame();
+        const glm::vec3 eye { 8.0f, 6.0f, 14.0f };
+        const glm::vec3 target { 0.0f, 2.0f, 0.0f };
+        renderer->UpdateCamera(eye, target, glm::vec3(0.0f, 1.0f, 0.0f));
+
+        std::vector<fra::SceneInstanceUpload> instances;
+        instances.reserve(mLampModel.size() + 1);
+        for (const auto& part : mLampModel)
+        {
+            const bool isBulb = part.meshId == mBulbMeshId;
+            instances.push_back(fra::SceneInstanceUpload {
+                .model       = mModelMatrix[0],
+                .meshId      = part.meshId,
+                .materialId  = isBulb ? mBulbMaterial : mSofaMaterial,
+                .entityId    = 1,
+                .castShadows = !isBulb,
+            });
+        }
+        instances.push_back(fra::SceneInstanceUpload {
+            .model       = mModelMatrix[2],
+            .meshId      = mGroundMesh,
+            .materialId  = mGroundMaterial,
+            .entityId    = 0,
+            .castShadows = false,
+        });
+        renderer->UploadSceneInstances(instances);
+        renderer->EndFrame();
+    }
+
   private:
+    void toggleSecondaryWindow()
+    {
+        if (mSecondaryWindow)
+        {
+            if (mSecondaryWindow->IsRunning())
+                mSecondaryWindow->Close();
+            mSecondaryWindow = nullptr;
+            std::cout << "Secondary window closed\n";
+            return;
+        }
+
+        mSecondaryWindow = CreateWindow([](fra::FreyaOptionsBuilder& o) {
+            o.SetTitle("Industrial Pipe Lamp — Secondary [F10]")
+                .SetWidth(1280)
+                .SetHeight(720)
+                .SetFullscreen(false)
+                .SetVSync(false);
+        });
+        std::cout << "Secondary window opened (shared meshes/materials)\n";
+    }
     static constexpr std::size_t kInstanceCount    = 3;
     static constexpr float       kMoveSpeed        = 12.0f;
     static constexpr float       kMouseSensitivity = 0.12f;
@@ -819,9 +888,10 @@ class MainApp final : public fra::AbstractApplication
 
     skr::Arc<fra::MaterialPool> mMaterialPool;
     skr::Arc<fra::TexturePool>  mTexturePool;
-    skr::Arc<fra::MeshPool>       mMeshPool;
+    skr::Arc<fra::MeshPool>     mMeshPool;
     skr::Arc<fra::LightService> mLightService;
     skr::Arc<fra::FreyaOptions> mFreyaOptions;
+    skr::Arc<fra::Window>       mSecondaryWindow;
     glm::mat4                   mModelMatrix[kInstanceCount] {};
     float                       mCurrentTime {};
     std::vector<AnimatedLight>  mAnimatedLights;

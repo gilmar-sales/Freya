@@ -8,6 +8,7 @@
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
+#include "Freya/Core/TransferCommandPool.hpp"
 
 #ifndef NDEBUG
     #undef __OPTIMIZE__
@@ -58,7 +59,7 @@ namespace FREYA_NAMESPACE
     {
         skr::Arc<Device>                device;
         skr::Arc<PhysicalDevice>        physicalDevice;
-        skr::Arc<CommandPool>           commandPool;
+        skr::Arc<TransferCommandPool>   transferPool;
         skr::Arc<skr::Logger<MeshPool>> logger;
         skr::Arc<MaterialPool>          materialPool;
         skr::Arc<TexturePool>           texturePool;
@@ -77,8 +78,8 @@ namespace FREYA_NAMESPACE
         Impl(skr::Arc<Device> inDevice,
              skr::Arc<PhysicalDevice>
                  inPhysicalDevice,
-             skr::Arc<CommandPool>
-                 inCommandPool,
+             skr::Arc<TransferCommandPool>
+                 inTransferPool,
              skr::Arc<skr::Logger<MeshPool>>
                  inLogger,
              skr::Arc<MaterialPool>
@@ -87,7 +88,8 @@ namespace FREYA_NAMESPACE
                  inTexturePool) :
             device(std::move(inDevice)),
             physicalDevice(std::move(inPhysicalDevice)),
-            commandPool(std::move(inCommandPool)), logger(std::move(inLogger)),
+            transferPool(std::move(inTransferPool)),
+            logger(std::move(inLogger)),
             materialPool(std::move(inMaterialPool)),
             texturePool(std::move(inTexturePool)), meshes(4096)
         {
@@ -146,7 +148,7 @@ namespace FREYA_NAMESPACE
                 constexpr auto beginInfo =
                     vk::CommandBufferBeginInfo().setFlags(
                         vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-                const auto cmd = commandPool->CreateCommandBuffer();
+                const auto cmd = transferPool->CreateCommandBuffer();
                 cmd.begin(beginInfo);
                 const auto region =
                     vk::BufferCopy().setSrcOffset(0).setDstOffset(0).setSize(
@@ -157,7 +159,7 @@ namespace FREYA_NAMESPACE
                                         .setCommandBufferCount(1)
                                         .setPCommandBuffers(&cmd);
                 device->SubmitAndWait(device->GetTransferQueue(), submit);
-                commandPool->FreeCommandBuffer(cmd);
+                transferPool->FreeCommandBuffer(cmd);
             }
 
             buffer = std::move(newBuffer);
@@ -171,9 +173,8 @@ namespace FREYA_NAMESPACE
                 indicesIn
             };
 
-            logger->LogTrace(
-                "Creating mesh with {} vertices, {} indices.",
-                vertices.size(), indicesIn.size());
+            logger->LogTrace("Creating mesh with {} vertices, {} indices.",
+                             vertices.size(), indicesIn.size());
 
             const auto vertexMemorySize =
                 static_cast<std::uint32_t>(vertices.size() * sizeof(Vertex));
@@ -191,7 +192,7 @@ namespace FREYA_NAMESPACE
 
             constexpr auto beginInfo = vk::CommandBufferBeginInfo().setFlags(
                 vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-            const auto commandBuffer = commandPool->CreateCommandBuffer();
+            const auto commandBuffer = transferPool->CreateCommandBuffer();
             commandBuffer.begin(beginInfo);
 
             const auto stagingBuffer =
@@ -245,7 +246,7 @@ namespace FREYA_NAMESPACE
                 vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(
                     &commandBuffer);
             device->SubmitAndWait(device->GetTransferQueue(), submitInfo);
-            commandPool->FreeCommandBuffer(commandBuffer);
+            transferPool->FreeCommandBuffer(commandBuffer);
 
             glm::vec3 aabbMin(std::numeric_limits<float>::max());
             glm::vec3 aabbMax(std::numeric_limits<float>::lowest());
@@ -335,7 +336,7 @@ namespace FREYA_NAMESPACE
                 if (mesh->HasVertexColors(0))
                 {
                     const auto& vc = mesh->mColors[0][i];
-                    aColor           = aiColor3D(vc.r, vc.g, vc.b);
+                    aColor         = aiColor3D(vc.r, vc.g, vc.b);
                 }
                 else if (bakeMaterialDiffuse && scene->mMaterials &&
                          mesh->mMaterialIndex < scene->mNumMaterials)
@@ -661,8 +662,7 @@ namespace FREYA_NAMESPACE
         }
 
         std::vector<std::uint32_t> importAllMaterials(
-            const aiScene*     scene,
-            const std::string& directory)
+            const aiScene* scene, const std::string& directory)
         {
             std::unordered_map<std::string, std::uint32_t> textureCache;
             std::vector<std::uint32_t> materialIds(scene->mNumMaterials, 0);
@@ -674,7 +674,7 @@ namespace FREYA_NAMESPACE
             return materialIds;
         }
 
-        template<typename Fn>
+        template <typename Fn>
         void walkSceneSubmeshes(const aiScene*                    scene,
                                 const std::vector<std::uint32_t>& materialIds,
                                 Fn&&                              fn)
@@ -682,7 +682,7 @@ namespace FREYA_NAMESPACE
             const auto walk = [&](auto&& self, const aiNode* node) -> void {
                 for (unsigned i = 0; i < node->mNumMeshes; ++i)
                 {
-                    const aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+                    const aiMesh* mesh     = scene->mMeshes[node->mMeshes[i]];
                     const auto    matIndex = mesh->mMaterialIndex;
                     const auto    materialId =
                         matIndex < materialIds.size() ? materialIds[matIndex]
@@ -807,7 +807,7 @@ namespace FREYA_NAMESPACE
                 if (mesh->HasVertexColors(0))
                 {
                     const auto& vc = mesh->mColors[0][i];
-                    aColor           = aiColor3D(vc.r, vc.g, vc.b);
+                    aColor         = aiColor3D(vc.r, vc.g, vc.b);
                 }
 
                 vertices[i] = Vertex {
@@ -864,9 +864,9 @@ namespace FREYA_NAMESPACE
 
         void processSkinnedNode(
             std::vector<ModelSubmesh>& submeshes, const aiNode* node,
-            const aiScene* scene,
+            const aiScene*                                        scene,
             const std::unordered_map<std::string, std::uint32_t>& nameToIndex,
-            const std::vector<std::uint32_t>& materialIds)
+            const std::vector<std::uint32_t>&                     materialIds)
         {
             for (unsigned int i = 0; i < node->mNumMeshes; ++i)
             {
@@ -958,10 +958,9 @@ namespace FREYA_NAMESPACE
             collectBoneNames(scene, nameToIndex, out.skeleton);
             if (out.skeleton.JointCount() == 0)
             {
-                logger->LogError(
-                    "Skinned load found no bones in '{}'; use "
-                    "CreateModelFromFile for static models.",
-                    path);
+                logger->LogError("Skinned load found no bones in '{}'; use "
+                                 "CreateModelFromFile for static models.",
+                                 path);
                 return out;
             }
 
@@ -999,7 +998,7 @@ namespace FREYA_NAMESPACE
             return out;
         }
 
-        void bindGeometry() const
+        void bindGeometry(const skr::Arc<CommandPool>& commandPool) const
         {
             constexpr vk::DeviceSize zeroOffset = 0;
             auto&                    cb = commandPool->GetCommandBuffer();
@@ -1007,23 +1006,25 @@ namespace FREYA_NAMESPACE
             cb.bindIndexBuffer(indexBuffer->Get(), 0, vk::IndexType::eUint32);
         }
 
-        void draw(std::uint32_t meshId)
+        void draw(const skr::Arc<CommandPool>& commandPool,
+                  std::uint32_t                meshId)
         {
             if (!meshes.contains(meshId))
                 return;
             const auto& mesh = meshes[meshId];
-            bindGeometry();
+            bindGeometry(commandPool);
             commandPool->GetCommandBuffer().drawIndexed(
                 mesh.indexCount, 1, mesh.firstIndex, mesh.vertexOffset, 0);
         }
 
-        void drawInstanced(std::uint32_t meshId, size_t instanceCount,
+        void drawInstanced(const skr::Arc<CommandPool>& commandPool,
+                           std::uint32_t meshId, size_t instanceCount,
                            size_t firstInstance)
         {
             if (!meshes.contains(meshId))
                 return;
             const auto& mesh = meshes[meshId];
-            bindGeometry();
+            bindGeometry(commandPool);
             commandPool->GetCommandBuffer().drawIndexed(
                 mesh.indexCount, instanceCount, mesh.firstIndex,
                 mesh.vertexOffset, firstInstance);
@@ -1032,11 +1033,11 @@ namespace FREYA_NAMESPACE
 
     MeshPool::MeshPool(const skr::Arc<Device>&                device,
                        const skr::Arc<PhysicalDevice>&        physicalDevice,
-                       const skr::Arc<CommandPool>&           commandPool,
+                       const skr::Arc<TransferCommandPool>&   transferPool,
                        const skr::Arc<skr::Logger<MeshPool>>& logger,
                        const skr::Arc<MaterialPool>&          materialPool,
                        const skr::Arc<TexturePool>&           texturePool) :
-        mImpl(std::make_unique<Impl>(device, physicalDevice, commandPool,
+        mImpl(std::make_unique<Impl>(device, physicalDevice, transferPool,
                                      logger, materialPool, texturePool))
     {
     }
@@ -1102,9 +1103,9 @@ namespace FREYA_NAMESPACE
         out = mImpl->meshLods;
     }
 
-    void MeshPool::BindGeometry() const
+    void MeshPool::BindGeometry(const skr::Arc<CommandPool>& commandPool) const
     {
-        mImpl->bindGeometry();
+        mImpl->bindGeometry(commandPool);
     }
 
     const skr::Arc<Buffer>& MeshPool::GetVertexBuffer() const
@@ -1117,15 +1118,17 @@ namespace FREYA_NAMESPACE
         return mImpl->indexBuffer;
     }
 
-    void MeshPool::Draw(const std::uint32_t meshId)
+    void MeshPool::Draw(const skr::Arc<CommandPool>& commandPool,
+                        const std::uint32_t          meshId)
     {
-        mImpl->draw(meshId);
+        mImpl->draw(commandPool, meshId);
     }
 
-    void MeshPool::DrawInstanced(std::uint32_t meshId, size_t instanceCount,
+    void MeshPool::DrawInstanced(const skr::Arc<CommandPool>& commandPool,
+                                 std::uint32_t meshId, size_t instanceCount,
                                  size_t firstInstance)
     {
-        mImpl->drawInstanced(meshId, instanceCount, firstInstance);
+        mImpl->drawInstanced(commandPool, meshId, instanceCount, firstInstance);
     }
 
     void MeshPool::Destroy(const std::uint32_t meshId)
