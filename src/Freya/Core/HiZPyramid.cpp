@@ -89,6 +89,7 @@ namespace FREYA_NAMESPACE
         mDevice->Get().waitIdle();
         destroyMipViews();
         mReady  = false;
+        mImageLayout = vk::ImageLayout::eUndefined;
         mWidth  = width;
         mHeight = height;
         mMipLevels =
@@ -249,11 +250,16 @@ namespace FREYA_NAMESPACE
         }
 
         {
+            const bool firstBuild =
+                mImageLayout == vk::ImageLayout::eUndefined;
             const auto barrier =
                 vk::ImageMemoryBarrier()
-                    .setOldLayout(vk::ImageLayout::eUndefined)
+                    .setOldLayout(mImageLayout)
                     .setNewLayout(vk::ImageLayout::eGeneral)
-                    .setSrcAccessMask({})
+                    .setSrcAccessMask(
+                        firstBuild
+                            ? vk::AccessFlags {}
+                            : vk::AccessFlagBits::eShaderRead)
                     .setDstAccessMask(vk::AccessFlagBits::eShaderWrite)
                     .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
                     .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
@@ -265,9 +271,12 @@ namespace FREYA_NAMESPACE
                             .setLevelCount(mMipLevels)
                             .setBaseArrayLayer(0)
                             .setLayerCount(1));
-            cb.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,
+            cb.pipelineBarrier(
+                firstBuild ? vk::PipelineStageFlagBits::eTopOfPipe
+                           : vk::PipelineStageFlagBits::eComputeShader,
                                vk::PipelineStageFlagBits::eComputeShader, {}, 0,
                                nullptr, 0, nullptr, 1, &barrier);
+            mImageLayout = vk::ImageLayout::eGeneral;
         }
 
         const auto copySet = mCopySets[frame];
@@ -313,8 +322,9 @@ namespace FREYA_NAMESPACE
             const auto reduceSet =
                 mReduceSets[frame * reduceStride + (mip - 1u)];
 
-            const auto dstW = std::max(1u, mWidth >> mip);
-            const auto dstH = std::max(1u, mHeight >> mip);
+            const auto scale = 1u << mip;
+            const auto dstW = std::max(1u, (mWidth + scale - 1u) / scale);
+            const auto dstH = std::max(1u, (mHeight + scale - 1u) / scale);
             struct ReducePC
             {
                 std::uint32_t extentX;
@@ -351,6 +361,7 @@ namespace FREYA_NAMESPACE
             cb.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader,
                                vk::PipelineStageFlagBits::eComputeShader, {}, 0,
                                nullptr, 0, nullptr, 1, &barrier);
+            mImageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
         }
 
         mReady = true;

@@ -155,7 +155,6 @@ namespace FREYA_NAMESPACE
         bool enableSsao    = true;
         bool enableTaa     = true;
         bool enableBloom   = true;
-        bool enableHiZ     = true;
 
         /// 1 = full, 2 = half, 4 = quarter of render extent.
         std::uint32_t ssaoResolutionDivisor = 2;

@@ -3,7 +3,7 @@
 #include "Freya/Builders/BufferBuilder.hpp"
 
 #include <algorithm>
-#include <cstring>
+#include <cmath>
 
 namespace FREYA_NAMESPACE
 {
@@ -32,7 +32,6 @@ namespace FREYA_NAMESPACE
         const skr::Arc<MaterialDescriptorResources>& materials,
         const skr::Arc<MaterialPool>&                materialPool,
         const std::uint32_t                          frameCount,
-        const bool                                   enableHiZ,
         const vk::Pipeline                           cullPipeline,
         const vk::PipelineLayout                     cullPipelineLayout,
         const vk::DescriptorSetLayout                cullSetLayout,
@@ -45,7 +44,7 @@ namespace FREYA_NAMESPACE
             hizFallbackImage) :
         mDevice(device), mCommandPool(commandPool), mMeshPool(meshPool),
         mMaterials(materials), mMaterialPool(materialPool),
-        mFrameCount(std::max(1u, frameCount)), mEnableHiZ(enableHiZ),
+        mFrameCount(std::max(1u, frameCount)),
         mCullPipeline(cullPipeline), mCullPipelineLayout(cullPipelineLayout),
         mCullSetLayout(cullSetLayout), mCullDescriptorPool(cullDescriptorPool),
         mCullDescriptorSets(std::move(cullDescriptorSets)),
@@ -242,7 +241,8 @@ namespace FREYA_NAMESPACE
 
         auto& frame = mFrames[frameIndex];
         if (!frame.sceneInstances || !frame.sourceTransforms ||
-            !frame.main.compactTransforms || !frame.main.indirect ||
+            !frame.main.compactTransforms ||
+            !frame.main.indirect ||
             !frame.main.drawCount)
         {
             return;
@@ -279,7 +279,6 @@ namespace FREYA_NAMESPACE
                 .setSampler(hizSampler)
                 .setImageView(hizView)
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-
         auto writeSet = [&](vk::DescriptorSet set, DrawListResources& list) {
             if (!list.indirect || !list.compactTransforms || !list.drawCount)
                 return;
@@ -444,6 +443,7 @@ namespace FREYA_NAMESPACE
         const std::uint32_t                        frameIndex)
     {
         mFrameIndex                 = frameIndex % mFrameCount;
+        ++mFrameSerial;
         mCullDescRefreshedThisFrame = false;
 
         if (uploads.empty())
@@ -555,6 +555,24 @@ namespace FREYA_NAMESPACE
 
         zeroDrawCount(techniqueFilter);
 
+        if (mode == CullMode::Camera &&
+            mHiZMotionSerial != mFrameSerial)
+        {
+            bool viewChanged = !mHasLastCullViewProj;
+            if (!viewChanged)
+            {
+                for (int col = 0; col < 4 && !viewChanged; ++col)
+                    for (int row = 0; row < 4; ++row)
+                        viewChanged |=
+                            std::abs(viewProj[col][row] -
+                                     mLastCullViewProj[col][row]) > 1e-5f;
+            }
+            mLastCullViewProj    = viewProj;
+            mHasLastCullViewProj = true;
+            mHiZSafeForFrame     = !viewChanged;
+            mHiZMotionSerial     = mFrameSerial;
+        }
+
         CullPushConstants pc {};
         pc.viewProj      = viewProj;
         pc.cameraPos     = glm::vec4(mCameraPos, 0.0f);
@@ -564,13 +582,15 @@ namespace FREYA_NAMESPACE
         pc.cullMode      = static_cast<std::uint32_t>(mode);
         pc.reverseZ      = reverseZ ? 1u : 0u;
         pc.hizEnabled =
-            (mEnableHiZ && mode == CullMode::Camera && mHiZ && mHiZ->IsReady())
+            (mHiZSafeForFrame && mode == CullMode::Camera && mHiZ &&
+             mHiZ->IsReady())
                 ? 1u
                 : 0u;
         pc.lodPixelRef     = 256.0f;
         pc.lodStep         = 2.0f;
         pc.techniqueFilter = techniqueFilter;
         pc.maxDraws        = currentFrame().capacity;
+        pc.hizDepthBias    = 1e-4f;
 
         auto&      frame = currentFrame();
         auto&      list  = drawListFor(frame, techniqueFilter);

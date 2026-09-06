@@ -158,8 +158,9 @@ namespace FREYA_NAMESPACE
         std::uint32_t techniqueFilter = kTechniqueFilterAll;
         std::uint32_t _padTech        = 0;
         std::uint32_t maxDraws        = 0;
+        float         hizDepthBias    = 1e-4f;
     };
 
-    static_assert(sizeof(CullPushConstants) == 124, "CullPushConstants size");
+    static_assert(sizeof(CullPushConstants) == 128, "CullPushConstants size");
 
 } // namespace FREYA_NAMESPACE

@@ -238,6 +238,9 @@ bool occludedByHiZ(vec2 smin, vec2 smax, float nearestZ)
 
     vec2 csmin = clamp(smin, vec2(0.0), vec2(1.0));
     vec2 csmax = clamp(smax, vec2(0.0), vec2(1.0));
+    vec2 pixelSize = 1.0 / max(cull.screenSize, vec2(1.0));
+    csmin = max(vec2(0.0), csmin - pixelSize * 0.5);
+    csmax = min(vec2(1.0), csmax + pixelSize * 0.5);
 
     vec2 sizePx = (csmax - csmin) * cull.screenSize;
     float maxDim = max(max(sizePx.x, sizePx.y), 1.0);
@@ -249,6 +252,10 @@ bool occludedByHiZ(vec2 smin, vec2 smax, float nearestZ)
     float mip = ceil(log2(maxDim));
     float levels = float(textureQueryLevels(hizPyramid));
     mip = clamp(mip, 0.0, max(levels - 1.0, 0.0));
+    vec2 mipExtent = max(ceil(cull.screenSize / exp2(mip)), vec2(1.0));
+    vec2 mipTexel = 1.0 / mipExtent;
+    csmin = max(vec2(0.0), csmin - mipTexel * 0.5);
+    csmax = min(vec2(1.0), csmax + mipTexel * 0.5);
 
     vec2 samples[5] = vec2[](
         csmin,

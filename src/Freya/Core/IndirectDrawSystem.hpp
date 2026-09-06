@@ -36,7 +36,6 @@ namespace FREYA_NAMESPACE
             const skr::Arc<MaterialDescriptorResources>& materials,
             const skr::Arc<MaterialPool>&                materialPool,
             std::uint32_t                                frameCount,
-            bool                                         enableHiZ,
             vk::Pipeline                                 cullPipeline,
             vk::PipelineLayout                           cullPipelineLayout,
             vk::DescriptorSetLayout                      cullSetLayout,
@@ -270,7 +269,11 @@ namespace FREYA_NAMESPACE
 
         std::uint32_t mFrameCount = 1;
         std::uint32_t mFrameIndex = 0;
-        bool          mEnableHiZ  = true;
+        std::uint64_t mFrameSerial = 0;
+        std::uint64_t mHiZMotionSerial = ~std::uint64_t(0);
+        bool          mHiZSafeForFrame = false;
+        bool          mHasLastCullViewProj = false;
+        glm::mat4     mLastCullViewProj { 1.0f };
 
         vk::Pipeline                   mCullPipeline;
         vk::PipelineLayout             mCullPipelineLayout;

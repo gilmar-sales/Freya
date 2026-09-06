@@ -260,12 +260,6 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        FreyaOptionsBuilder& SetHiZEnabled(bool enabled)
-        {
-            mFreyaOptions->enableHiZ = enabled;
-            return *this;
-        }
-
         FreyaOptionsBuilder& SetAnimBakeHz(float hz)
         {
             mFreyaOptions->animBakeHz = std::max(1.f, hz);

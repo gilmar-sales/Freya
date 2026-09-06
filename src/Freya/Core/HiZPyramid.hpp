@@ -96,6 +96,8 @@ namespace FREYA_NAMESPACE
         std::uint32_t              mHeight    = 0;
         std::uint32_t              mMipLevels = 0;
         bool                       mReady     = false;
+        vk::ImageLayout            mImageLayout =
+            vk::ImageLayout::eUndefined;
 
         std::uint32_t              mPyramidGeneration = 1;
         std::vector<std::uint32_t> mFramePyramidGeneration;
