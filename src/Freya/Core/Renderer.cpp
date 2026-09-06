@@ -278,6 +278,32 @@ namespace FREYA_NAMESPACE
         mSwapChain = mServiceProvider->GetService<SwapChainBuilder>()->Build();
 
         createFrameTimestampPool();
+
+        // SetViewportTarget clients (DebugOverlay) must follow the drawable
+        // size. Otherwise getRenderExtent() stays at Init resolution while the
+        // window/swapchain changes — lighting GPU time looks
+        // resolution-invariant.
+        if (mViewportTarget)
+        {
+            const auto extent = mSwapChain->GetExtent();
+            const auto cur =
+                mOutputTarget ? mOutputTarget->GetExtent() : vk::Extent2D {};
+            if (!mOutputTarget || cur.width != extent.width ||
+                cur.height != extent.height)
+            {
+                auto target =
+                    mServiceProvider->GetService<RenderTargetBuilder>()
+                        ->SetWidth(extent.width)
+                        .SetHeight(extent.height)
+                        .Build();
+                if (target)
+                {
+                    mViewportTarget = target;
+                    mOutputTarget   = target;
+                }
+            }
+        }
+
         rebuildSceneResources();
     }
 
@@ -723,6 +749,7 @@ namespace FREYA_NAMESPACE
     {
         mDevice->Get().waitIdle();
         mOutputTarget.reset();
+        mViewportTarget.reset();
         rebuildSceneResources();
     }
 
@@ -867,7 +894,10 @@ namespace FREYA_NAMESPACE
             static_cast<VkImageView>(mOutputTarget->GetColorImageView()));
         image.sampler = reinterpret_cast<void*>(
             static_cast<VkSampler>(mOutputTarget->GetSampler()));
-        image.valid = true;
+        const auto extent = mOutputTarget->GetExtent();
+        image.width       = extent.width;
+        image.height      = extent.height;
+        image.valid       = true;
         return image;
     }
 

@@ -354,6 +354,11 @@ namespace FreyaExamples
             ImGui::Text("CPU frame:  %.2f ms (%.1f FPS)", cpuFrameMs,
                         cpuFrameMs > 1e-3f ? 1000.f / cpuFrameMs : 0.f);
             ImGui::Text("CPU update: %.2f ms", cpuUpdateMs);
+            if (viewport.valid)
+                ImGui::Text("Render:     %ux%u", viewport.width,
+                            viewport.height);
+            else
+                ImGui::Text("Window:     %ux%u", options.width, options.height);
 
             fra::FrameGpuTimingSample gpu {};
             if (renderer.PollFrameGpuTiming(gpu) && gpu.enabled)

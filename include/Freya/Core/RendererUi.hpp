@@ -43,8 +43,10 @@ namespace FREYA_NAMESPACE
     struct ImGuiViewportImage
     {
         void* imageView =
-            nullptr;             ///< VkImageView of the offscreen target color
-        void* sampler = nullptr; ///< VkSampler for UI sampling
-        bool  valid   = false;   ///< false when no viewport target is set
+            nullptr; ///< VkImageView of the offscreen target color
+        void*         sampler = nullptr; ///< VkSampler for UI sampling
+        std::uint32_t width   = 0;       ///< offscreen target width in pixels
+        std::uint32_t height  = 0;       ///< offscreen target height in pixels
+        bool          valid   = false; ///< false when no viewport target is set
     };
 } // namespace FREYA_NAMESPACE
