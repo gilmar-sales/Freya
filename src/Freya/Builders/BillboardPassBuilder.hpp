@@ -30,6 +30,8 @@ namespace FREYA_NAMESPACE
             vk::Format depthFormat) const;
         [[nodiscard]] vk::RenderPass createLdrRenderPass(
             vk::Format depthFormat) const;
+        [[nodiscard]] vk::RenderPass createOffscreenLdrRenderPass(
+            vk::Format depthFormat) const;
         [[nodiscard]] vk::Pipeline createPipeline(
             vk::ShaderModule vert, vk::ShaderModule frag,
             vk::PipelineLayout layout, vk::RenderPass renderPass, bool additive,

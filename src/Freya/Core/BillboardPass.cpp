@@ -40,21 +40,30 @@ namespace FREYA_NAMESPACE
         const skr::Arc<Device>&                      device,
         const skr::Arc<FreyaOptions>&                freyaOptions,
         const skr::Arc<MaterialDescriptorResources>& materials,
-        const vk::RenderPass hdrRenderPass, const vk::RenderPass ldrRenderPass,
-        const vk::PipelineLayout              pipelineLayout,
-        const vk::DescriptorSetLayout         setLayout,
-        const vk::DescriptorPool              descriptorPool,
-        const std::vector<vk::DescriptorSet>& instanceSets,
-        std::vector<skr::Arc<Buffer>>         instanceBuffers,
-        const Pipelines hdrPipelines, const Pipelines ldrPipelines,
-        std::vector<vk::Framebuffer> ldrFramebuffers, const vk::Extent2D extent,
+        const vk::RenderPass                         hdrRenderPass,
+        const vk::RenderPass                         ldrRenderPass,
+        const vk::RenderPass                         offscreenLdrRenderPass,
+        const vk::PipelineLayout                     pipelineLayout,
+        const vk::DescriptorSetLayout                setLayout,
+        const vk::DescriptorPool                     descriptorPool,
+        const std::vector<vk::DescriptorSet>&        instanceSets,
+        std::vector<skr::Arc<Buffer>>
+                        instanceBuffers,
+        const Pipelines hdrPipelines,
+        const Pipelines ldrPipelines,
+        const Pipelines offscreenLdrPipelines,
+        std::vector<vk::Framebuffer>
+                            ldrFramebuffers,
+        const vk::Extent2D  extent,
         const std::uint32_t maxQuads) :
         mDevice(device), mFreyaOptions(freyaOptions), mMaterials(materials),
         mHdrRenderPass(hdrRenderPass), mLdrRenderPass(ldrRenderPass),
+        mOffscreenLdrRenderPass(offscreenLdrRenderPass),
         mPipelineLayout(pipelineLayout), mSetLayout(setLayout),
         mDescriptorPool(descriptorPool), mInstanceSets(instanceSets),
         mInstanceBuffers(std::move(instanceBuffers)),
         mHdrPipelines(hdrPipelines), mLdrPipelines(ldrPipelines),
+        mOffscreenLdrPipelines(offscreenLdrPipelines),
         mLdrFramebuffers(std::move(ldrFramebuffers)), mHdrExtent(extent),
         mLdrExtent(extent), mMaxQuads(maxQuads)
     {
@@ -80,12 +89,18 @@ namespace FREYA_NAMESPACE
         destroyPipe(mLdrPipelines.alphaNoDepth);
         destroyPipe(mLdrPipelines.addDepth);
         destroyPipe(mLdrPipelines.addNoDepth);
+        destroyPipe(mOffscreenLdrPipelines.alphaDepth);
+        destroyPipe(mOffscreenLdrPipelines.alphaNoDepth);
+        destroyPipe(mOffscreenLdrPipelines.addDepth);
+        destroyPipe(mOffscreenLdrPipelines.addNoDepth);
         if (mPipelineLayout)
             d.destroyPipelineLayout(mPipelineLayout);
         if (mHdrRenderPass)
             d.destroyRenderPass(mHdrRenderPass);
         if (mLdrRenderPass)
             d.destroyRenderPass(mLdrRenderPass);
+        if (mOffscreenLdrRenderPass)
+            d.destroyRenderPass(mOffscreenLdrRenderPass);
         if (mDescriptorPool)
             d.destroyDescriptorPool(mDescriptorPool);
         if (mSetLayout)
@@ -113,6 +128,7 @@ namespace FREYA_NAMESPACE
         }
         mLdrFramebuffers.clear();
         mLdrDepthView = nullptr;
+        mLdrOffscreen = false;
     }
 
     void BillboardPass::UpdateHdrTargets(
@@ -152,6 +168,7 @@ namespace FREYA_NAMESPACE
         if (!depth || !swapChain || !mLdrRenderPass)
             return;
 
+        mLdrOffscreen      = false;
         mLdrDepthView      = depth->GetImageView();
         const auto& frames = swapChain->GetFrames();
         const auto  extent = swapChain->GetExtent();
@@ -170,15 +187,41 @@ namespace FREYA_NAMESPACE
         }
     }
 
+    void BillboardPass::UpdateLdrOffscreen(const skr::Arc<Image>& color,
+                                           const skr::Arc<Image>& depth,
+                                           const vk::Extent2D     extent)
+    {
+        mDevice->Get().waitIdle();
+        destroyLdrFramebuffers();
+        if (!color || !depth || !mOffscreenLdrRenderPass)
+            return;
+        if (extent.width == 0 || extent.height == 0)
+            return;
+
+        mLdrOffscreen = true;
+        mLdrDepthView = depth->GetImageView();
+        mLdrExtent    = extent;
+        mLdrFramebuffers.resize(1);
+        auto views = std::array { color->GetImageView(), mLdrDepthView };
+        mLdrFramebuffers[0] = mDevice->Get().createFramebuffer(
+            vk::FramebufferCreateInfo()
+                .setRenderPass(mOffscreenLdrRenderPass)
+                .setAttachments(views)
+                .setWidth(extent.width)
+                .setHeight(extent.height)
+                .setLayers(1));
+    }
+
     vk::Pipeline BillboardPass::pickPipeline(const BillboardTarget target,
                                              const BillboardBlend  blend,
                                              const bool depthTest) const
     {
-        const auto& p =
-            target == BillboardTarget::Hdr ? mHdrPipelines : mLdrPipelines;
+        const Pipelines* p = &mHdrPipelines;
+        if (target == BillboardTarget::Ldr)
+            p = mLdrOffscreen ? &mOffscreenLdrPipelines : &mLdrPipelines;
         if (blend == BillboardBlend::Additive)
-            return depthTest ? p.addDepth : p.addNoDepth;
-        return depthTest ? p.alphaDepth : p.alphaNoDepth;
+            return depthTest ? p->addDepth : p->addNoDepth;
+        return depthTest ? p->alphaDepth : p->alphaNoDepth;
     }
 
     void BillboardPass::Draw(
@@ -196,20 +239,29 @@ namespace FREYA_NAMESPACE
             frameIndex >= mInstanceSets.size())
             return;
 
-        const vk::Framebuffer framebuffer =
-            target == BillboardTarget::Hdr
-                ? (frameIndex < mHdrFramebuffers.size()
-                       ? mHdrFramebuffers[frameIndex]
-                       : vk::Framebuffer {})
-                : (imageIndex < mLdrFramebuffers.size()
-                       ? mLdrFramebuffers[imageIndex]
-                       : vk::Framebuffer {});
-        if (!framebuffer)
-            return;
-
-        const auto renderPass =
-            target == BillboardTarget::Hdr ? mHdrRenderPass : mLdrRenderPass;
-        if (!renderPass)
+        vk::Framebuffer framebuffer {};
+        vk::RenderPass  renderPass {};
+        if (target == BillboardTarget::Hdr)
+        {
+            framebuffer = frameIndex < mHdrFramebuffers.size()
+                              ? mHdrFramebuffers[frameIndex]
+                              : vk::Framebuffer {};
+            renderPass  = mHdrRenderPass;
+        }
+        else if (mLdrOffscreen)
+        {
+            framebuffer = !mLdrFramebuffers.empty() ? mLdrFramebuffers[0]
+                                                    : vk::Framebuffer {};
+            renderPass  = mOffscreenLdrRenderPass;
+        }
+        else
+        {
+            framebuffer = imageIndex < mLdrFramebuffers.size()
+                              ? mLdrFramebuffers[imageIndex]
+                              : vk::Framebuffer {};
+            renderPass  = mLdrRenderPass;
+        }
+        if (!framebuffer || !renderPass)
             return;
 
         struct Batch

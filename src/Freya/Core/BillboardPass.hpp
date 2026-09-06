@@ -41,12 +41,14 @@ namespace FREYA_NAMESPACE
             const skr::Arc<FreyaOptions>&                freyaOptions,
             const skr::Arc<MaterialDescriptorResources>& materials,
             vk::RenderPass hdrRenderPass, vk::RenderPass ldrRenderPass,
+            vk::RenderPass                        offscreenLdrRenderPass,
             vk::PipelineLayout                    pipelineLayout,
             vk::DescriptorSetLayout               setLayout,
             vk::DescriptorPool                    descriptorPool,
             const std::vector<vk::DescriptorSet>& instanceSets,
             std::vector<skr::Arc<Buffer>>         instanceBuffers,
             Pipelines hdrPipelines, Pipelines ldrPipelines,
+            Pipelines                    offscreenLdrPipelines,
             std::vector<vk::Framebuffer> ldrFramebuffers, vk::Extent2D extent,
             std::uint32_t maxQuads);
 
@@ -61,6 +63,15 @@ namespace FREYA_NAMESPACE
 
         void UpdateLdrDepth(const skr::Arc<Image>&     depth,
                             const skr::Arc<SwapChain>& swapChain);
+
+        /**
+         * @brief LDR UI into an offscreen color (e.g. ImGui viewport) after
+         * tonemap. Color must be ShaderReadOnlyOptimal; final layout stays
+         * ShaderReadOnlyOptimal for sampling.
+         */
+        void UpdateLdrOffscreen(const skr::Arc<Image>& color,
+                                const skr::Arc<Image>& depth,
+                                vk::Extent2D           extent);
 
         void Draw(const skr::Arc<CommandPool>& commandPool,
                   const skr::Arc<SwapChain>& swapChain, BillboardTarget target,
@@ -80,6 +91,7 @@ namespace FREYA_NAMESPACE
 
         vk::RenderPass                 mHdrRenderPass {};
         vk::RenderPass                 mLdrRenderPass {};
+        vk::RenderPass                 mOffscreenLdrRenderPass {};
         vk::PipelineLayout             mPipelineLayout {};
         vk::DescriptorSetLayout        mSetLayout {};
         vk::DescriptorPool             mDescriptorPool {};
@@ -88,6 +100,7 @@ namespace FREYA_NAMESPACE
 
         Pipelines mHdrPipelines {};
         Pipelines mLdrPipelines {};
+        Pipelines mOffscreenLdrPipelines {};
 
         std::vector<vk::Framebuffer> mHdrFramebuffers;
         std::vector<vk::ImageView>   mHdrColorViews;
@@ -95,6 +108,7 @@ namespace FREYA_NAMESPACE
 
         std::vector<vk::Framebuffer> mLdrFramebuffers;
         vk::ImageView                mLdrDepthView {};
+        bool                         mLdrOffscreen = false;
 
         vk::Extent2D  mHdrExtent {};
         vk::Extent2D  mLdrExtent {};

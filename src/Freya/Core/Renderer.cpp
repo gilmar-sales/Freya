@@ -806,8 +806,8 @@ namespace FREYA_NAMESPACE
             mCommandPool, tonemapHdr ? 1.0f : 0.0f);
         mCompositePass->End(mCommandPool);
 
-        if (mOutputTarget)
-            beginUIPass();
+        // Defer swapchain UI pass until BeginUI so BillboardUi can draw into
+        // the offscreen viewport first (post-tonemap, no nested render pass).
     }
 
     vk::RenderPass Renderer::Impl::GetUIRenderPass()

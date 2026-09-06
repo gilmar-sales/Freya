@@ -177,6 +177,81 @@ namespace FREYA_NAMESPACE
                 .setDependencies(deps));
     }
 
+    vk::RenderPass BillboardPassBuilder::createOffscreenLdrRenderPass(
+        const vk::Format depthFormat) const
+    {
+        // Post-tonemap UI into a sampled viewport (ShaderReadOnly ↔ load).
+        const auto surfaceFormat = mSurface->QuerySurfaceFormat().format;
+        auto       attachments   = std::array {
+            vk::AttachmentDescription()
+                .setFormat(surfaceFormat)
+                .setSamples(vk::SampleCountFlagBits::e1)
+                .setLoadOp(vk::AttachmentLoadOp::eLoad)
+                .setStoreOp(vk::AttachmentStoreOp::eStore)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setInitialLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
+            vk::AttachmentDescription()
+                .setFormat(depthFormat)
+                .setSamples(vk::SampleCountFlagBits::e1)
+                .setLoadOp(vk::AttachmentLoadOp::eLoad)
+                .setStoreOp(vk::AttachmentStoreOp::eStore)
+                .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                .setInitialLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal)
+                .setFinalLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal),
+        };
+
+        auto colorRef = vk::AttachmentReference().setAttachment(0).setLayout(
+            vk::ImageLayout::eColorAttachmentOptimal);
+        auto depthRef = vk::AttachmentReference().setAttachment(1).setLayout(
+            vk::ImageLayout::eDepthStencilReadOnlyOptimal);
+
+        auto subpass =
+            vk::SubpassDescription()
+                .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+                .setColorAttachments(colorRef)
+                .setPDepthStencilAttachment(&depthRef);
+
+        auto deps = std::array {
+            vk::SubpassDependency()
+                .setSrcSubpass(VK_SUBPASS_EXTERNAL)
+                .setDstSubpass(0)
+                .setSrcStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                    vk::PipelineStageFlagBits::eFragmentShader |
+                    vk::PipelineStageFlagBits::eEarlyFragmentTests |
+                    vk::PipelineStageFlagBits::eLateFragmentTests)
+                .setDstStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                    vk::PipelineStageFlagBits::eEarlyFragmentTests |
+                    vk::PipelineStageFlagBits::eLateFragmentTests)
+                .setSrcAccessMask(
+                    vk::AccessFlagBits::eColorAttachmentWrite |
+                    vk::AccessFlagBits::eShaderRead |
+                    vk::AccessFlagBits::eDepthStencilAttachmentRead)
+                .setDstAccessMask(
+                    vk::AccessFlagBits::eColorAttachmentWrite |
+                    vk::AccessFlagBits::eColorAttachmentRead |
+                    vk::AccessFlagBits::eDepthStencilAttachmentRead),
+            vk::SubpassDependency()
+                .setSrcSubpass(0)
+                .setDstSubpass(VK_SUBPASS_EXTERNAL)
+                .setSrcStageMask(
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput)
+                .setDstStageMask(vk::PipelineStageFlagBits::eFragmentShader)
+                .setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eShaderRead),
+        };
+
+        return mDevice->Get().createRenderPass(
+            vk::RenderPassCreateInfo()
+                .setAttachments(attachments)
+                .setSubpasses(subpass)
+                .setDependencies(deps));
+    }
+
     vk::Pipeline BillboardPassBuilder::createPipeline(
         const vk::ShaderModule vert, const vk::ShaderModule frag,
         const vk::PipelineLayout layout, const vk::RenderPass renderPass,
@@ -273,9 +348,10 @@ namespace FREYA_NAMESPACE
     skr::Arc<BillboardPass> BillboardPassBuilder::Build(
         const skr::Arc<SwapChain>& swapChain, const skr::Arc<Image>& depthImage)
     {
-        const auto depthFormat = mPhysicalDevice->GetDepthFormat();
-        auto       hdrPass     = createHdrRenderPass(depthFormat);
-        auto       ldrPass     = createLdrRenderPass(depthFormat);
+        const auto depthFormat      = mPhysicalDevice->GetDepthFormat();
+        auto       hdrPass          = createHdrRenderPass(depthFormat);
+        auto       ldrPass          = createLdrRenderPass(depthFormat);
+        auto       offscreenLdrPass = createOffscreenLdrRenderPass(depthFormat);
 
         const auto& root       = mFreyaOptions->shaderRoot;
         auto        loadShader = [&](const std::string& relative) {
@@ -310,6 +386,7 @@ namespace FREYA_NAMESPACE
 
         BillboardPass::Pipelines hdr {};
         BillboardPass::Pipelines ldr {};
+        BillboardPass::Pipelines offscreenLdr {};
         auto                     v = vertShader->Get();
         auto                     f = fragShader->Get();
         hdr.alphaDepth =
@@ -328,6 +405,14 @@ namespace FREYA_NAMESPACE
             createPipeline(v, f, pipelineLayout, ldrPass, true, true);
         ldr.addNoDepth =
             createPipeline(v, f, pipelineLayout, ldrPass, true, false);
+        offscreenLdr.alphaDepth =
+            createPipeline(v, f, pipelineLayout, offscreenLdrPass, false, true);
+        offscreenLdr.alphaNoDepth = createPipeline(
+            v, f, pipelineLayout, offscreenLdrPass, false, false);
+        offscreenLdr.addDepth =
+            createPipeline(v, f, pipelineLayout, offscreenLdrPass, true, true);
+        offscreenLdr.addNoDepth =
+            createPipeline(v, f, pipelineLayout, offscreenLdrPass, true, false);
 
         mDevice->Get().destroyShaderModule(v);
         mDevice->Get().destroyShaderModule(f);
@@ -379,7 +464,8 @@ namespace FREYA_NAMESPACE
         const auto extent = swapChain->GetExtent();
         auto       pass   = skr::MakeArc<BillboardPass>(
             mDevice, mFreyaOptions, mMaterials, hdrPass, ldrPass,
-            pipelineLayout, setLayout, pool, sets, std::move(buffers), hdr, ldr,
+            offscreenLdrPass, pipelineLayout, setLayout, pool, sets,
+            std::move(buffers), hdr, ldr, offscreenLdr,
             std::vector<vk::Framebuffer> {}, extent, maxQuads);
 
         if (depthImage)

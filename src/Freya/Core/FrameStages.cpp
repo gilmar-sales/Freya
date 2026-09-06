@@ -16,6 +16,7 @@
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/Image.hpp"
 #include "Freya/Core/RenderFrameContext.hpp"
+#include "Freya/Core/RenderTarget.hpp"
 
 #include <glm/gtc/matrix_inverse.hpp>
 
@@ -385,8 +386,19 @@ namespace FREYA_NAMESPACE
             !*ctx.deferred)
             return;
         (void) sp;
-        (*ctx.billboardPass)
-            ->UpdateLdrDepth((*ctx.deferred)->GetDepthImage(), ctx.swapChain);
+        if (ctx.outputTarget && *ctx.outputTarget)
+        {
+            (*ctx.billboardPass)
+                ->UpdateLdrOffscreen((*ctx.outputTarget)->GetColorImage(),
+                                     (*ctx.deferred)->GetDepthImage(),
+                                     ctx.VkExtent());
+        }
+        else
+        {
+            (*ctx.billboardPass)
+                ->UpdateLdrDepth((*ctx.deferred)->GetDepthImage(),
+                                 ctx.swapChain);
+        }
     }
 
     void BillboardUiFrameStage::Execute(StageContext& stageCtx)
@@ -395,8 +407,7 @@ namespace FREYA_NAMESPACE
         if (!ctx.billboardPass || !*ctx.billboardPass || !ctx.billboardDraw ||
             !ctx.projection)
             return;
-        if (ctx.outputTarget && *ctx.outputTarget)
-            return;
+        // Post-composite LDR: swapchain or offscreen viewport (no bloom).
         const auto& proj = *ctx.projection;
         (*ctx.billboardPass)
             ->Draw(ctx.commandPool, ctx.swapChain, BillboardTarget::Ldr,
