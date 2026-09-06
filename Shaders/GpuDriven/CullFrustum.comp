@@ -62,7 +62,7 @@ layout(push_constant) uniform CullPC {
     float lodPixelRef;
     float lodStep;
     uint techniqueFilter;
-    uint _padTech;
+    uint useCandidates; // 1 = id indexes candidateInstances
     uint maxDraws;
     float hizDepthBias; // NDC-space bias; tune to your near/far + Hi-Z precision
 } cull;
@@ -96,6 +96,14 @@ layout(std430, binding = 6) buffer DrawCountBuffer {
 };
 
 layout(binding = 7) uniform sampler2D hizPyramid;
+
+layout(std430, binding = 8) readonly buffer CandidateInstanceBuffer {
+    uint candidateInstances[];
+};
+
+layout(std430, binding = 9) readonly buffer CandidateCountBuffer {
+    uint candidateCountValue;
+};
 
 const uint kFlagCastShadows   = 1u;
 const uint kFlagTranslucent   = 2u;
@@ -284,9 +292,18 @@ bool occludedByHiZ(vec2 smin, vec2 smax, float nearestZ)
 
 void main()
 {
-    uint id = gl_GlobalInvocationID.x;
-    if (id >= cull.instanceCount)
+    uint slotId = gl_GlobalInvocationID.x;
+    uint id     = slotId;
+    if (cull.useCandidates != 0u)
+    {
+        if (slotId >= candidateCountValue)
+            return;
+        id = candidateInstances[slotId];
+    }
+    else if (slotId >= cull.instanceCount)
+    {
         return;
+    }
 
     SceneInstance inst = instances[id];
 

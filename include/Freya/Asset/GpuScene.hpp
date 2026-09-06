@@ -156,9 +156,10 @@ namespace FREYA_NAMESPACE
         float         lodStep       = 2.0f;   ///< diameter shrink per LOD
         /// `kTechniqueFilterAll` or a concrete technique id.
         std::uint32_t techniqueFilter = kTechniqueFilterAll;
-        std::uint32_t _padTech        = 0;
-        std::uint32_t maxDraws        = 0;
-        float         hizDepthBias    = 1e-4f;
+        /// 1 = iterate `candidateInstances[0..instanceCount)`; 0 = flat.
+        std::uint32_t useCandidates = 0;
+        std::uint32_t maxDraws      = 0;
+        float         hizDepthBias  = 1e-4f;
     };
 
     static_assert(sizeof(CullPushConstants) == 128, "CullPushConstants size");

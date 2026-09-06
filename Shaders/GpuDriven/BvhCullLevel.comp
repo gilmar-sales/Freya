@@ -1,0 +1,149 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+struct BvhNode {
+    vec3 aabbMin;
+    uint leftOrFirst;
+    vec3 aabbMax;
+    uint countOrRight;
+};
+
+layout(push_constant) uniform BvhCullPC {
+    mat4 viewProj;
+    vec2 screenSize;
+    uint reverseZ;
+    uint hizEnabled;
+    uint queueCount;
+    uint maxCandidates;
+    uint maxQueue;
+    float hizDepthBias;
+} cull;
+
+layout(std430, binding = 0) readonly buffer BvhNodeBuffer {
+    BvhNode nodes[];
+};
+
+layout(std430, binding = 1) readonly buffer LeafInstanceBuffer {
+    uint leafInstances[];
+};
+
+layout(std430, binding = 2) readonly buffer QueueInBuffer {
+    uint queueIn[];
+};
+
+layout(std430, binding = 3) writeonly buffer QueueOutBuffer {
+    uint queueOut[];
+};
+
+layout(std430, binding = 4) buffer CounterOutBuffer {
+    uint counterOut;
+};
+
+layout(std430, binding = 5) writeonly buffer CandidateBuffer {
+    uint candidates[];
+};
+
+layout(std430, binding = 6) buffer CandidateCountBuffer {
+    uint candidateCount;
+};
+
+// Kept for descriptor-layout parity with future node Hi-Z; unused today
+// (per-instance Hi-Z stays in CullFrustum — large node AABBs false-cull).
+layout(binding = 7) uniform sampler2D hizPyramid;
+
+layout(std430, binding = 8) readonly buffer CounterInBuffer {
+    uint counterIn;
+};
+
+const uint kLeafFlag = 0x80000000u;
+
+void computeClipCorners(mat4 mvp, vec3 bmin, vec3 bmax, out vec4 corners[8])
+{
+    vec3 local[8] = vec3[](
+        vec3(bmin.x, bmin.y, bmin.z),
+        vec3(bmax.x, bmin.y, bmin.z),
+        vec3(bmin.x, bmax.y, bmin.z),
+        vec3(bmax.x, bmax.y, bmin.z),
+        vec3(bmin.x, bmin.y, bmax.z),
+        vec3(bmax.x, bmin.y, bmax.z),
+        vec3(bmin.x, bmax.y, bmax.z),
+        vec3(bmax.x, bmax.y, bmax.z));
+
+    for (int i = 0; i < 8; ++i)
+        corners[i] = mvp * vec4(local[i], 1.0);
+}
+
+bool aabbOutsideFrustum(vec4 corners[8])
+{
+    bool outsideLeft   = true;
+    bool outsideRight  = true;
+    bool outsideBottom = true;
+    bool outsideTop    = true;
+    bool outsideNear   = true;
+    bool outsideFar    = true;
+
+    for (int i = 0; i < 8; ++i)
+    {
+        vec4 c = corners[i];
+        outsideLeft   = outsideLeft   && (c.x < -c.w);
+        outsideRight  = outsideRight  && (c.x >  c.w);
+        outsideBottom = outsideBottom && (c.y < -c.w);
+        outsideTop    = outsideTop    && (c.y >  c.w);
+        if (cull.reverseZ != 0u)
+        {
+            outsideNear = outsideNear && (c.z > c.w);
+            outsideFar  = outsideFar  && (c.z < 0.0);
+        }
+        else
+        {
+            outsideNear = outsideNear && (c.z < 0.0);
+            outsideFar  = outsideFar  && (c.z > c.w);
+        }
+    }
+
+    return outsideLeft || outsideRight || outsideBottom || outsideTop ||
+           outsideNear || outsideFar;
+}
+
+void emitCandidates(uint first, uint count)
+{
+    // Capacity is sized to instanceCount; this is a safety clamp only.
+    uint base = atomicAdd(candidateCount, count);
+    if (base >= cull.maxCandidates)
+        return;
+    uint writeCount = min(count, cull.maxCandidates - base);
+    for (uint i = 0u; i < writeCount; ++i)
+        candidates[base + i] = leafInstances[first + i];
+}
+
+void main()
+{
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= counterIn)
+        return;
+
+    uint nodeIndex = queueIn[id];
+    BvhNode node = nodes[nodeIndex];
+
+    vec4 clipCorners[8];
+    computeClipCorners(cull.viewProj, node.aabbMin, node.aabbMax, clipCorners);
+
+    if (aabbOutsideFrustum(clipCorners))
+        return;
+
+    if ((node.countOrRight & kLeafFlag) != 0u)
+    {
+        uint count = node.countOrRight & ~kLeafFlag;
+        if (count == 0u)
+            return;
+        emitCandidates(node.leftOrFirst, count);
+        return;
+    }
+
+    uint slot = atomicAdd(counterOut, 2u);
+    if (slot + 1u >= cull.maxQueue)
+        return;
+    queueOut[slot]      = node.leftOrFirst;
+    queueOut[slot + 1u] = node.countOrRight;
+}

@@ -5,6 +5,7 @@
 #include "Freya/Asset/MaterialDescriptorResources.hpp"
 #include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"
+#include "Freya/Asset/SceneBvh.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
@@ -23,7 +24,9 @@ namespace FREYA_NAMESPACE
     /**
      * @brief GPU-driven scene: Approach B MDI + frustum/Hi-Z cull + LOD.
      *
-     * Compute compacta uma DrawIndexedIndirectCommand por instância visível
+     * Optional hierarchical BVH pre-filter (level-synchronous indirect
+     * dispatches) produces a candidate instance list; flat CullFrustum then
+     * compacta uma DrawIndexedIndirectCommand por instância visível
      * (LOD selecionado) e a CPU emite um único drawIndexedIndirectCount.
      */
     class IndirectDrawSystem
@@ -41,11 +44,25 @@ namespace FREYA_NAMESPACE
             vk::DescriptorSetLayout                      cullSetLayout,
             vk::DescriptorPool                           cullDescriptorPool,
             std::vector<vk::DescriptorSet>
-                cullDescriptorSets,
+                                    cullDescriptorSets,
+            vk::Pipeline            bvhCullPipeline,
+            vk::PipelineLayout      bvhCullPipelineLayout,
+            vk::DescriptorSetLayout bvhCullSetLayout,
+            vk::DescriptorPool      bvhCullDescriptorPool,
+            std::vector<vk::DescriptorSet>
+                                    bvhCullDescriptorSets,
+            vk::Pipeline            preparePipeline,
+            vk::PipelineLayout      preparePipelineLayout,
+            vk::DescriptorSetLayout prepareSetLayout,
+            vk::DescriptorPool      prepareDescriptorPool,
+            std::vector<vk::DescriptorSet>
+                prepareDescriptorSets,
             skr::Arc<HiZPyramid>
                 hiz,
             skr::Arc<Image>
-                hizFallbackImage);
+                          hizFallbackImage,
+            bool          enableHierarchicalCulling,
+            std::uint32_t hierarchicalCullMinInstances);
 
         ~IndirectDrawSystem();
 
@@ -241,16 +258,41 @@ namespace FREYA_NAMESPACE
             DrawListResources main;
             std::array<DrawListResources, kMaxMaterialTechniques> techniques {};
             std::uint32_t                                         capacity = 0;
+
+            // Hierarchical cull (shared across technique draw lists).
+            skr::Arc<Buffer> bvhNodes;
+            skr::Arc<Buffer> bvhLeafInstances;
+            skr::Arc<Buffer> bvhQueueA;
+            skr::Arc<Buffer> bvhQueueB;
+            skr::Arc<Buffer> bvhCounterA;
+            skr::Arc<Buffer> bvhCounterB;
+            skr::Arc<Buffer> bvhDispatchArgsA;
+            skr::Arc<Buffer> bvhDispatchArgsB;
+            skr::Arc<Buffer> candidateInstances;
+            skr::Arc<Buffer> candidateCount;
+            skr::Arc<Buffer> cullDispatchArgs;
+            std::uint32_t    bvhNodeCapacity   = 0;
+            std::uint32_t    bvhQueueCapacity  = 0;
+            std::uint32_t    candidateCapacity = 0;
         };
 
         void ensureCapacity(std::uint32_t instanceCount);
         void ensureCapacityForFrame(std::uint32_t frameIndex,
                                     std::uint32_t instanceCount);
+        void ensureBvhCapacity(std::uint32_t frameIndex,
+                               std::uint32_t nodeCount,
+                               std::uint32_t instanceCount);
         void updateCullDescriptors(std::uint32_t frameIndex);
+        void updateBvhDescriptors(std::uint32_t frameIndex);
         void bumpCullDescVersion();
         void refreshCullDescriptorsIfNeeded();
         void uploadFrameBuffers();
+        void uploadBvhBuffers();
         void zeroDrawCount(std::uint32_t techniqueFilter);
+        void rebuildOrRefitBvh();
+        void dispatchBvhTraversal(const glm::mat4& viewProj, bool reverseZ,
+                                  bool hizEnabled);
+        [[nodiscard]] bool shouldUseHierarchicalCull() const;
 
         [[nodiscard]] FrameResources&    currentFrame();
         [[nodiscard]] DrawListResources& drawListFor(
@@ -260,6 +302,9 @@ namespace FREYA_NAMESPACE
 
         static constexpr std::uint32_t kCullSetsPerFrame =
             1u + kMaxMaterialTechniques;
+        /// Two ping-pong BVH sets + one prepare-for-cull set per frame.
+        static constexpr std::uint32_t kBvhSetsPerFrame     = 2u;
+        static constexpr std::uint32_t kPrepareSetsPerFrame = 3u;
 
         skr::Arc<Device>                      mDevice;
         skr::Arc<CommandPool>                 mCommandPool;
@@ -267,11 +312,11 @@ namespace FREYA_NAMESPACE
         skr::Arc<MaterialDescriptorResources> mMaterials;
         skr::Arc<MaterialPool>                mMaterialPool;
 
-        std::uint32_t mFrameCount = 1;
-        std::uint32_t mFrameIndex = 0;
-        std::uint64_t mFrameSerial = 0;
-        std::uint64_t mHiZMotionSerial = ~std::uint64_t(0);
-        bool          mHiZSafeForFrame = false;
+        std::uint32_t mFrameCount          = 1;
+        std::uint32_t mFrameIndex          = 0;
+        std::uint64_t mFrameSerial         = 0;
+        std::uint64_t mHiZMotionSerial     = ~std::uint64_t(0);
+        bool          mHiZSafeForFrame     = false;
         bool          mHasLastCullViewProj = false;
         glm::mat4     mLastCullViewProj { 1.0f };
 
@@ -280,6 +325,18 @@ namespace FREYA_NAMESPACE
         vk::DescriptorSetLayout        mCullSetLayout;
         vk::DescriptorPool             mCullDescriptorPool;
         std::vector<vk::DescriptorSet> mCullDescriptorSets;
+
+        vk::Pipeline                   mBvhCullPipeline;
+        vk::PipelineLayout             mBvhCullPipelineLayout;
+        vk::DescriptorSetLayout        mBvhCullSetLayout;
+        vk::DescriptorPool             mBvhCullDescriptorPool;
+        std::vector<vk::DescriptorSet> mBvhCullDescriptorSets;
+
+        vk::Pipeline                   mPreparePipeline;
+        vk::PipelineLayout             mPreparePipelineLayout;
+        vk::DescriptorSetLayout        mPrepareSetLayout;
+        vk::DescriptorPool             mPrepareDescriptorPool;
+        std::vector<vk::DescriptorSet> mPrepareDescriptorSets;
 
         skr::Arc<HiZPyramid> mHiZ;
         skr::Arc<Image>      mHizFallbackImage;
@@ -294,6 +351,13 @@ namespace FREYA_NAMESPACE
         std::vector<InstanceTransform> mInstanceTransforms;
         std::vector<InstanceTransform> mPrevTransforms;
         EntityModelMap                 mPrevModelByEntity;
+
+        SceneBvh                  mSceneBvh;
+        std::vector<InstanceAabb> mInstanceAabbs;
+        bool                      mEnableHierarchicalCulling = false;
+        std::uint32_t             mHierarchicalCullMinInstances =
+            kHierarchicalCullMinInstances;
+        bool mBvhGpuDirty = true;
 
         std::uint32_t mInstanceCount     = 0;
         std::uint32_t mMeshInfoCapacity  = 0;

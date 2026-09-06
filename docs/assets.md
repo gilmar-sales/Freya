@@ -154,6 +154,16 @@ Prefer `Renderer::UploadSceneInstances` with one record per logical instance.
 Contiguous uploads that share the same `meshId` become **one** multi-draw
 indirect command; frustum cull (compute) atomic-compacts visible instances.
 
+Optional **hierarchical culling** (`FreyaOptions::enableHierarchicalCulling`,
+default on): the CPU builds a median-split BVH over instance world AABBs
+(rebuild on topology change, refit on transform-only updates). Each
+`DispatchCull` then runs a level-synchronous GPU traversal
+(`BvhCullLevel.comp` + `PrepareBvhDispatch.comp` with chained
+`vkCmdDispatchIndirect`) that emits a compact candidate list. Flat
+`CullFrustum.comp` still does per-candidate frustum / Hi-Z / LOD / compact.
+Traversal is skipped when `instanceCount < hierarchicalCullMinInstances`
+(default 512) so small scenes keep the flat path.
+
 **Contract:** sort by `(meshId, entityId)` when possible (Freya skips its
 internal sort if already ordered by vertex/index chunk + mesh + entity).
 TAA `prevModel` is resolved by `entityId` (first frame / new ids: `prev ==

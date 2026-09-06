@@ -155,6 +155,10 @@ namespace FREYA_NAMESPACE
         bool enableSsao    = true;
         bool enableTaa     = true;
         bool enableBloom   = true;
+        /// GPU BVH instance hierarchy as a pre-filter before flat cull.
+        bool enableHierarchicalCulling = true;
+        /// Skip BVH traversal below this instance count (flat cull only).
+        std::uint32_t hierarchicalCullMinInstances = 1;
 
         /// 1 = full, 2 = half, 4 = quarter of render extent.
         std::uint32_t ssaoResolutionDivisor = 2;

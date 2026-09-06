@@ -411,6 +411,19 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        FreyaOptionsBuilder& SetEnableHierarchicalCulling(bool enable)
+        {
+            mFreyaOptions->enableHierarchicalCulling = enable;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetHierarchicalCullMinInstances(
+            std::uint32_t minInstances)
+        {
+            mFreyaOptions->hierarchicalCullMinInstances = minInstances;
+            return *this;
+        }
+
         /**
          * @brief Builds and returns the FreyaOptions object.
          * @return Shared pointer to configured FreyaOptions

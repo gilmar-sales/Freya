@@ -70,7 +70,7 @@ See [Flexibility](flexibility.md).
 | `SetSamples(uint32_t)` | Set MSAA sample count |
 | `SetDrawDistance(float)` | Set render distance |
 | `SetInstanceModels(const mat4*, size_t)` | Legacy instance matrices (with DrawInstanced) |
-| `UploadSceneInstances(span)` | Prefer: GPU-driven scene table (batched MDI + cull) |
+| `UploadSceneInstances(span)` | Prefer: GPU-driven scene table (batched MDI + cull; optional BVH hierarchy via `enableHierarchicalCulling`) |
 | `GetCurrentFrameIndex()` | Get current frame index |
 | `GetFrameCount()` | Get total frame count |
 | `CalculateProjectionMatrix(float near, float far)` | Calculate projection matrix |

@@ -240,6 +240,9 @@ Not in this release (documented for planning):
 - Clustered lighting (naive fullscreen loop; `kMaxLights` = 64)
 - HDR / wide color-space swapchain policy
 - Event unsubscribe API
+- Persistent-thread / work-stealing BVH traversal (current hierarchical cull
+  uses portable level-synchronous `DispatchIndirect` passes)
+- GPU-parallel BVH refit (Karras); CPU refit is used today
 
 WBOIT translucency supports physical glass: `transmission` / `ior` on
 `MaterialCreateInfo` drive screen-space refraction of opaque HDR plus IBL
