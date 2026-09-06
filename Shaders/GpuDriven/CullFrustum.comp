@@ -64,6 +64,7 @@ layout(push_constant) uniform CullPC {
     uint techniqueFilter;
     uint _padTech;
     uint maxDraws;
+    float hizDepthBias; // NDC-space bias; tune to your near/far + Hi-Z precision
 } cull;
 
 layout(std430, binding = 0) readonly buffer MeshInfoBuffer {
@@ -103,8 +104,67 @@ const uint kCullModeCamera      = 0u;
 const uint kCullModeShadow      = 1u;
 const uint kCullModeTranslucent = 2u;
 
+// Corner index pairs that form the 12 edges of an AABB (used only for
+// near-plane clipping when projecting to screen space).
+const int kAabbEdges[24] = int[](
+    0, 1, 0, 2, 0, 4, 1, 3, 1, 5, 2, 3,
+    2, 6, 3, 7, 4, 5, 4, 6, 5, 7, 6, 7);
+
+// Transforms the 8 AABB corners into clip space exactly once. Every other
+// function below (frustum test, screen-space projection, Hi-Z sampling)
+// reuses this array instead of re-multiplying by `mvp`.
+void computeClipCorners(mat4 mvp, vec3 bmin, vec3 bmax, out vec4 corners[8])
+{
+    vec3 local[8] = vec3[](
+        vec3(bmin.x, bmin.y, bmin.z),
+        vec3(bmax.x, bmin.y, bmin.z),
+        vec3(bmin.x, bmax.y, bmin.z),
+        vec3(bmax.x, bmax.y, bmin.z),
+        vec3(bmin.x, bmin.y, bmax.z),
+        vec3(bmax.x, bmin.y, bmax.z),
+        vec3(bmin.x, bmax.y, bmax.z),
+        vec3(bmax.x, bmax.y, bmax.z));
+
+    for (int i = 0; i < 8; ++i)
+        corners[i] = mvp * vec4(local[i], 1.0);
+}
+
+// True only if ALL 8 corners fall outside the same frustum plane
+// (a conservative, correct "fully outside" test).
+bool aabbOutsideFrustum(vec4 corners[8])
+{
+    bool outsideLeft   = true;
+    bool outsideRight  = true;
+    bool outsideBottom = true;
+    bool outsideTop    = true;
+    bool outsideNear   = true;
+    bool outsideFar    = true;
+
+    for (int i = 0; i < 8; ++i)
+    {
+        vec4 c = corners[i];
+        outsideLeft   = outsideLeft   && (c.x < -c.w);
+        outsideRight  = outsideRight  && (c.x >  c.w);
+        outsideBottom = outsideBottom && (c.y < -c.w);
+        outsideTop    = outsideTop    && (c.y >  c.w);
+        if (cull.reverseZ != 0u)
+        {
+            outsideNear = outsideNear && (c.z > c.w);
+            outsideFar  = outsideFar  && (c.z < 0.0);
+        }
+        else
+        {
+            outsideNear = outsideNear && (c.z < 0.0);
+            outsideFar  = outsideFar  && (c.z > c.w);
+        }
+    }
+
+    return outsideLeft || outsideRight || outsideBottom || outsideTop ||
+           outsideNear || outsideFar;
+}
+
 void includeProjectedPoint(vec4 clip, inout vec2 smin, inout vec2 smax,
-                           inout float nearestZ, inout int valid)
+                            inout float nearestZ, inout int valid)
 {
     if (clip.w <= 0.0)
         return;
@@ -123,38 +183,30 @@ void includeProjectedPoint(vec4 clip, inout vec2 smin, inout vec2 smax,
     ++valid;
 }
 
-bool projectAabb(vec4 clipCorners[8], out vec2 smin, out vec2 smax,
-                 out float nearestZ)
+// Projects the AABB to a screen-space rectangle + nearest depth, clipping
+// against the near plane so corners behind the camera don't distort the
+// result. Takes the already-transformed clip-space corners; no re-transform.
+bool projectAabb(vec4 corners[8], out vec2 smin, out vec2 smax,
+                  out float nearestZ)
 {
-    const int edges[24] = int[](
-        0, 1, 0, 2, 0, 4, 1, 3, 1, 5, 2, 3,
-        2, 6, 3, 7, 4, 5, 4, 6, 5, 7, 6, 7);
     smin = vec2(1e10);
     smax = vec2(-1e10);
     nearestZ = cull.reverseZ != 0u ? -1e10 : 1e10;
     int valid = 0;
 
     for (int i = 0; i < 8; ++i)
-    {
-        vec4 clip = clipCorners[i];
-        float z = clip.w > 0.0 ? clip.z / clip.w : -1.0;
-        if (clip.w > 0.0 && z >= 0.0 && z <= 1.0)
-            includeProjectedPoint(clip, smin, smax, nearestZ, valid);
-    }
+        includeProjectedPoint(corners[i], smin, smax, nearestZ, valid);
 
     for (int edge = 0; edge < 12; ++edge)
     {
-        int a = edges[edge * 2];
-        int b = edges[edge * 2 + 1];
-        vec4 ca = clipCorners[a];
-        vec4 cb = clipCorners[b];
+        vec4 ca = corners[kAabbEdges[edge * 2]];
+        vec4 cb = corners[kAabbEdges[edge * 2 + 1]];
         float pa = cull.reverseZ != 0u ? ca.w - ca.z : ca.z;
         float pb = cull.reverseZ != 0u ? cb.w - cb.z : cb.z;
         if ((pa < 0.0) == (pb < 0.0) || pa == pb)
             continue;
         float t = pa / (pa - pb);
-        includeProjectedPoint(mix(ca, cb, t), smin, smax, nearestZ,
-                               valid);
+        includeProjectedPoint(mix(ca, cb, t), smin, smax, nearestZ, valid);
     }
 
     return valid != 0;
@@ -177,25 +229,34 @@ uint selectLod(float screenDiameter, uint lodCount)
     return lod;
 }
 
+// Takes an already-computed screen-space rect + nearest depth (from
+// projectAabb) instead of re-projecting the AABB a second time.
 bool occludedByHiZ(vec2 smin, vec2 smax, float nearestZ)
 {
     if (cull.hizEnabled == 0u)
         return false;
 
-    smin = clamp(smin, vec2(0.0), vec2(1.0));
-    smax = clamp(smax, vec2(0.0), vec2(1.0));
-    vec2 sizePx = (smax - smin) * cull.screenSize;
+    vec2 csmin = clamp(smin, vec2(0.0), vec2(1.0));
+    vec2 csmax = clamp(smax, vec2(0.0), vec2(1.0));
+
+    vec2 sizePx = (csmax - csmin) * cull.screenSize;
     float maxDim = max(max(sizePx.x, sizePx.y), 1.0);
+
+    // ceil (not floor): guarantees the sampled texel's footprint is at
+    // least as large as the screen-space rectangle. floor() can pick a
+    // texel smaller than the rectangle, so which texel a corner lands in
+    // becomes sensitive to sub-pixel movement -> flicker frame to frame.
     float mip = ceil(log2(maxDim));
     float levels = float(textureQueryLevels(hizPyramid));
     mip = clamp(mip, 0.0, max(levels - 1.0, 0.0));
 
     vec2 samples[5] = vec2[](
-        smin,
-        vec2(smax.x, smin.y),
-        vec2(smin.x, smax.y),
-        smax,
-        (smin + smax) * 0.5);
+        csmin,
+        vec2(csmax.x, csmin.y),
+        vec2(csmin.x, csmax.y),
+        csmax,
+        (csmin + csmax) * 0.5);
+
     float occluder = cull.reverseZ != 0u ? 1e10 : -1e10;
     for (int i = 0; i < 5; ++i)
     {
@@ -206,10 +267,12 @@ bool occludedByHiZ(vec2 smin, vec2 smax, float nearestZ)
             occluder = max(occluder, sampleZ);
     }
 
-    const float depthEpsilon = 1e-4;
+    // Small bias so results near the occlusion boundary don't flip sign
+    // from float noise between frames (AABB vs. real rendered depth).
+    float bias = cull.hizDepthBias;
     if (cull.reverseZ != 0u)
-        return nearestZ < occluder - depthEpsilon;
-    return nearestZ > occluder + depthEpsilon;
+        return (occluder - nearestZ) > bias;
+    return (nearestZ - occluder) > bias;
 }
 
 void main()
@@ -239,53 +302,22 @@ void main()
         return;
 
     mat4 mvp = cull.viewProj * inst.model;
-    vec3 bmin = mesh.aabbMin.xyz;
-    vec3 bmax = mesh.aabbMax.xyz;
-    vec3 corners[8] = vec3[](
-        vec3(bmin.x, bmin.y, bmin.z),
-        vec3(bmax.x, bmin.y, bmin.z),
-        vec3(bmin.x, bmax.y, bmin.z),
-        vec3(bmax.x, bmax.y, bmin.z),
-        vec3(bmin.x, bmin.y, bmax.z),
-        vec3(bmax.x, bmin.y, bmax.z),
-        vec3(bmin.x, bmax.y, bmax.z),
-        vec3(bmax.x, bmax.y, bmax.z));
-    vec4 clipCorners[8];
-    for (int i = 0; i < 8; ++i)
-        clipCorners[i] = mvp * vec4(corners[i], 1.0);
 
-    vec2 projectedMin, projectedMax;
-    float projectedNearestZ;
-    if (!projectAabb(clipCorners, projectedMin, projectedMax,
-                     projectedNearestZ))
+    // Transform the 8 corners ONCE. Everything below reuses this array
+    // instead of re-multiplying by mvp (the previous version did this
+    // transform up to 4x per instance: once for the frustum test, once
+    // in the vertex loop of projectAabb, once more for its edge loop,
+    // and once again inside a second, redundant projectAabb call from
+    // occludedByHiZ).
+    vec4 clipCorners[8];
+    computeClipCorners(mvp, mesh.aabbMin.xyz, mesh.aabbMax.xyz, clipCorners);
+
+    if (aabbOutsideFrustum(clipCorners))
         return;
 
-    bool outsideLeft = true;
-    bool outsideRight = true;
-    bool outsideBottom = true;
-    bool outsideTop = true;
-    bool outsideNear = true;
-    bool outsideFar = true;
-    for (int i = 0; i < 8; ++i)
-    {
-        vec4 clip = clipCorners[i];
-        outsideLeft = outsideLeft && clip.x < -clip.w;
-        outsideRight = outsideRight && clip.x > clip.w;
-        outsideBottom = outsideBottom && clip.y < -clip.w;
-        outsideTop = outsideTop && clip.y > clip.w;
-        if (cull.reverseZ != 0u)
-        {
-            outsideNear = outsideNear && clip.z > clip.w;
-            outsideFar = outsideFar && clip.z < 0.0;
-        }
-        else
-        {
-            outsideNear = outsideNear && clip.z < 0.0;
-            outsideFar = outsideFar && clip.z > clip.w;
-        }
-    }
-    if (outsideLeft || outsideRight || outsideBottom || outsideTop ||
-        outsideNear || outsideFar)
+    vec2 projMin, projMax;
+    float projNearestZ;
+    if (!projectAabb(clipCorners, projMin, projMax, projNearestZ))
         return;
 
     // Skinned AABBs are rest-pose inflated approximations; Hi-Z would false-
@@ -293,11 +325,14 @@ void main()
     if (cull.cullMode != kCullModeShadow &&
         cull.cullMode != kCullModeTranslucent &&
         (inst.flags & kFlagSkinned) == 0u &&
-        occludedByHiZ(projectedMin, projectedMax, projectedNearestZ))
+        occludedByHiZ(projMin, projMax, projNearestZ))
         return;
 
-    float screenDiameter =
-        length((projectedMax - projectedMin) * cull.screenSize);
+    // Clamp to the viewport before measuring screen size, so an AABB that
+    // extends past the screen edges doesn't inflate the LOD selection.
+    vec2 clampedMin = clamp(projMin, vec2(0.0), vec2(1.0));
+    vec2 clampedMax = clamp(projMax, vec2(0.0), vec2(1.0));
+    float screenDiameter = length((clampedMax - clampedMin) * cull.screenSize);
 
     uint lod = selectLod(screenDiameter, mesh.lodCount);
     MeshLodInfo range = lods[mesh.lodBase + lod];

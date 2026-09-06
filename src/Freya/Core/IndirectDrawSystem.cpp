@@ -32,6 +32,7 @@ namespace FREYA_NAMESPACE
         const skr::Arc<MaterialDescriptorResources>& materials,
         const skr::Arc<MaterialPool>&                materialPool,
         const std::uint32_t                          frameCount,
+        const bool                                   enableHiZ,
         const vk::Pipeline                           cullPipeline,
         const vk::PipelineLayout                     cullPipelineLayout,
         const vk::DescriptorSetLayout                cullSetLayout,
@@ -44,9 +45,9 @@ namespace FREYA_NAMESPACE
             hizFallbackImage) :
         mDevice(device), mCommandPool(commandPool), mMeshPool(meshPool),
         mMaterials(materials), mMaterialPool(materialPool),
-        mFrameCount(std::max(1u, frameCount)), mCullPipeline(cullPipeline),
-        mCullPipelineLayout(cullPipelineLayout), mCullSetLayout(cullSetLayout),
-        mCullDescriptorPool(cullDescriptorPool),
+        mFrameCount(std::max(1u, frameCount)), mEnableHiZ(enableHiZ),
+        mCullPipeline(cullPipeline), mCullPipelineLayout(cullPipelineLayout),
+        mCullSetLayout(cullSetLayout), mCullDescriptorPool(cullDescriptorPool),
         mCullDescriptorSets(std::move(cullDescriptorSets)),
         mHiZ(std::move(hiz)), mHizFallbackImage(std::move(hizFallbackImage))
     {
@@ -563,7 +564,9 @@ namespace FREYA_NAMESPACE
         pc.cullMode      = static_cast<std::uint32_t>(mode);
         pc.reverseZ      = reverseZ ? 1u : 0u;
         pc.hizEnabled =
-            (mode == CullMode::Camera && mHiZ && mHiZ->IsReady()) ? 1u : 0u;
+            (mEnableHiZ && mode == CullMode::Camera && mHiZ && mHiZ->IsReady())
+                ? 1u
+                : 0u;
         pc.lodPixelRef     = 256.0f;
         pc.lodStep         = 2.0f;
         pc.techniqueFilter = techniqueFilter;
