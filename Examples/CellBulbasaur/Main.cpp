@@ -1,11 +1,13 @@
 #include <Freya/Freya.hpp>
 
+#include <FreyaExamples/AnimClipUtil.hpp>
+#include <FreyaExamples/FlyCam.hpp>
+#include <FreyaExamples/GroundMesh.hpp>
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <iostream>
-#include <string_view>
-#include <unordered_set>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -117,20 +119,15 @@ class MainApp final : public fra::AbstractApplication
 
     void StartUp() override
     {
-        mEventManager->Subscribe<fra::KeyPressedEvent>(
-            [this](const fra::KeyPressedEvent& event) {
-                mKeysHeld.insert(static_cast<std::uint32_t>(event.key));
-            });
+        mCam.window    = mWindow;
+        mCam.moveSpeed = 6.0f;
+        mCam.cameraPos = { 0.0f, 1.6f, 5.2f };
+        mCam.yaw       = -90.0f;
+        mCam.pitch     = -8.0f;
+        mCam.BindInput(*mEventManager);
 
         mEventManager->Subscribe<fra::KeyReleasedEvent>(
             [this](const fra::KeyReleasedEvent& event) {
-                mKeysHeld.erase(static_cast<std::uint32_t>(event.key));
-
-                if (event.key == fra::KeyCode::Escape && mLookHeld)
-                {
-                    setLookHeld(false);
-                    return;
-                }
                 if (event.key == fra::KeyCode::F4)
                 {
                     ToggleEffect(mCellEffect, "Cell");
@@ -221,27 +218,6 @@ class MainApp final : public fra::AbstractApplication
                     updateTitle();
                     return;
                 }
-            });
-
-        mEventManager->Subscribe<fra::MouseButtonPressedEvent>(
-            [this](const fra::MouseButtonPressedEvent& event) {
-                if (event.button == fra::MouseButton::Right)
-                    setLookHeld(true);
-            });
-
-        mEventManager->Subscribe<fra::MouseButtonReleasedEvent>(
-            [this](const fra::MouseButtonReleasedEvent& event) {
-                if (event.button == fra::MouseButton::Right)
-                    setLookHeld(false);
-            });
-
-        mEventManager->Subscribe<fra::MouseMoveEvent>(
-            [this](const fra::MouseMoveEvent& event) {
-                if (!mLookHeld)
-                    return;
-                mYaw += event.deltaX * kMouseSensitivity;
-                mPitch -= event.deltaY * kMouseSensitivity;
-                mPitch = std::clamp(mPitch, -89.0f, 89.0f);
             });
 
         mRenderer->ClearProjections();
@@ -409,7 +385,8 @@ class MainApp final : public fra::AbstractApplication
         const auto bodyAAlbedo = mTexturePool->CreateTextureFromFile(
             "./Resources/Textures/bodyA.png");
 
-        mGroundMesh     = createGroundMesh();
+        mGroundMesh = FreyaExamples::CreateGroundPlane(
+            *mMeshPool, 8.0f, glm::vec3(0.72f, 0.78f, 0.55f));
         mGroundMaterial = mMaterialPool->Create({
             .albedo          = bodyAAlbedo,
             .albedoFactor    = { 0.75f, 0.82f, 0.55f, 1.0f },
@@ -490,7 +467,7 @@ class MainApp final : public fra::AbstractApplication
             for (const auto& clip : mSkinned.clips)
                 std::cout << "  clip: " << clip.name << " (" << clip.duration
                           << "s)\n";
-            mIdleClip = findClip(mSkinned, "idle");
+            mIdleClip = FreyaExamples::FindClipContaining(mSkinned, "idle");
             if (!mIdleClip && !mSkinned.clips.empty())
                 mIdleClip = &mSkinned.clips.front();
         }
@@ -575,7 +552,7 @@ class MainApp final : public fra::AbstractApplication
     {
         const float dt = mWindow->GetDeltaTime();
         mEffectTime += dt;
-        updateCamera(dt);
+        mCam.Update(dt);
 
         if (mHeatEffect && mHeatEffect->Enabled())
         {
@@ -595,9 +572,7 @@ class MainApp final : public fra::AbstractApplication
 
         mRenderer->BeginFrame();
 
-        const glm::vec3 forward = cameraForward();
-        mRenderer->UpdateCamera(
-            mCameraPos, mCameraPos + forward, glm::vec3(0.0f, 1.0f, 0.0f));
+        mCam.Apply(*mRenderer);
 
         const auto jointCount = mSkinned.skeleton.JointCount();
         if (jointCount > 0)
@@ -669,9 +644,7 @@ class MainApp final : public fra::AbstractApplication
     }
 
   private:
-    static constexpr float kMoveSpeed        = 6.0f;
-    static constexpr float kMouseSensitivity = 0.12f;
-    static constexpr float kModelScale       = 100.0f;
+    static constexpr float kModelScale = 100.0f;
 
     struct Instance
     {
@@ -684,17 +657,6 @@ class MainApp final : public fra::AbstractApplication
         std::uint32_t boneCount   = 0;
     };
 
-    static const fra::AnimationClip* findClip(const fra::SkinnedModel& model,
-                                              std::string_view         needle)
-    {
-        for (const auto& clip : model.clips)
-        {
-            if (clip.name.find(needle) != std::string::npos)
-                return &clip;
-        }
-        return nullptr;
-    }
-
     std::uint32_t materialForMesh(std::size_t index, bool cellShaded) const
     {
         switch (index % 3)
@@ -706,23 +668,6 @@ class MainApp final : public fra::AbstractApplication
             default:
                 return cellShaded ? mBodyAMaterial : mPbrBodyAMaterial;
         }
-    }
-
-    std::uint32_t createGroundMesh()
-    {
-        constexpr float half = 8.0f;
-        const auto      tint = glm::vec3(0.72f, 0.78f, 0.55f);
-        const auto      up   = glm::vec3(0.0f, 1.0f, 0.0f);
-        const auto      tan  = glm::vec3(1.0f, 0.0f, 0.0f);
-
-        const std::vector<fra::Vertex> vertices = {
-            { { -half, 0.0f, -half }, tint, up, tan, { 0.0f, 0.0f } },
-            { { half, 0.0f, -half }, tint, up, tan, { 1.0f, 0.0f } },
-            { { half, 0.0f, half }, tint, up, tan, { 1.0f, 1.0f } },
-            { { -half, 0.0f, half }, tint, up, tan, { 0.0f, 1.0f } },
-        };
-        const std::vector<std::uint32_t> indices = { 0, 3, 2, 0, 2, 1 };
-        return mMeshPool->CreateMesh(vertices, indices);
     }
 
     void buildSceneInstances()
@@ -763,55 +708,6 @@ class MainApp final : public fra::AbstractApplication
 
         addBulbasaur(-1.2f, true);
         addBulbasaur(1.2f, false);
-    }
-
-    [[nodiscard]] bool isHeld(fra::KeyCode key) const
-    {
-        return mKeysHeld.contains(static_cast<std::uint32_t>(key));
-    }
-
-    void setLookHeld(bool held)
-    {
-        mLookHeld = held;
-        mWindow->SetMouseGrab(held);
-    }
-
-    [[nodiscard]] glm::vec3 cameraForward() const
-    {
-        const float yawRad   = glm::radians(mYaw);
-        const float pitchRad = glm::radians(mPitch);
-        return glm::normalize(glm::vec3 {
-            std::cos(pitchRad) * std::cos(yawRad),
-            std::sin(pitchRad),
-            std::cos(pitchRad) * std::sin(yawRad),
-        });
-    }
-
-    void updateCamera(float dt)
-    {
-        const glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
-        const glm::vec3 look = cameraForward();
-        const glm::vec3 forward =
-            glm::normalize(glm::vec3(look.x, 0.0f, look.z));
-        const glm::vec3 right = glm::normalize(glm::cross(forward, worldUp));
-        glm::vec3       move(0.0f);
-
-        if (isHeld(fra::KeyCode::W))
-            move += forward;
-        if (isHeld(fra::KeyCode::S))
-            move -= forward;
-        if (isHeld(fra::KeyCode::D))
-            move += right;
-        if (isHeld(fra::KeyCode::A))
-            move -= right;
-        if (isHeld(fra::KeyCode::Space) || isHeld(fra::KeyCode::Q))
-            move += worldUp;
-        if (isHeld(fra::KeyCode::LCtrl) || isHeld(fra::KeyCode::RCtrl) ||
-            isHeld(fra::KeyCode::E))
-            move -= worldUp;
-
-        if (glm::length(move) > 1e-4f)
-            mCameraPos += glm::normalize(move) * kMoveSpeed * dt;
     }
 
     void applyMuGlowLevel()
@@ -895,12 +791,7 @@ class MainApp final : public fra::AbstractApplication
     float                     mHpPulse = 0.0f;
     std::vector<Instance>     mInstances;
 
-    glm::vec3 mCameraPos { 0.0f, 1.6f, 5.2f };
-    float     mYaw      = -90.0f;
-    float     mPitch    = -8.0f;
-    bool      mLookHeld = false;
-
-    std::unordered_set<std::uint32_t> mKeysHeld;
+    FreyaExamples::FlyCam mCam;
 };
 
 int main(int, const char**)

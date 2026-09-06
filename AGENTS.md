@@ -67,7 +67,7 @@ ctest --test-dir build --output-on-failure
 |---|---|
 | `include/Freya/` | Public headers. Umbrella `Freya.hpp` (app surface). Vulkan types live in `src/Freya/`. |
 | `src/Freya/` | Library `.cpp` plus `Vendor/` (`stb_image.h`). Headers live under `include/Freya/`. |
-| `Examples/IndustrialPipeLamp/` | Only example; binary lands at `build/Examples/IndustrialPipeLamp/IndustrialPipeLamp`. |
+| `Examples/` | Demo apps (`IndustrialPipeLamp`, `SsaoDebug`, `SkinnedFox`, `CellBulbasaur`) plus shared `Examples/Common/` (`FreyaExamplesCommon`). |
 | `Shaders/` | GLSL sources: `DeferredCompressed/`, `Shadow/`, `Pick/`. |
 | `textures/` | Root-level texture (not used by the IndustrialPipeLamp example, which uses its own `Examples/IndustrialPipeLamp/Resources/Textures/`). |
 | `docs/` | MkDocs-material documentation, deployed via `mkdocs gh-deploy`. |

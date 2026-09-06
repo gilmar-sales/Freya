@@ -1,6 +1,31 @@
 # Examples
 
 Freya includes example applications demonstrating various engine features.
+Shared helpers live in `Examples/Common/` (`FreyaExamplesCommon`).
+
+## IndustrialPipeLamp
+
+Location: `Examples/IndustrialPipeLamp/`
+
+Deferred PBR reference: lamps, animated lights, shadow-caster modes,
+quality cycling (F5–F8), light gizmos, and a secondary window (F10).
+
+```bash
+cd build/Examples/IndustrialPipeLamp
+./IndustrialPipeLamp
+```
+
+## SsaoDebug
+
+Location: `Examples/SsaoDebug/`
+
+SSAO debug scene (DamagedHelmet, Dragon, ally_ship) with view/quality
+cycling and parameter nudging.
+
+```bash
+cd build/Examples/SsaoDebug
+./SsaoDebug
+```
 
 ## SkinnedFox
 
@@ -28,6 +53,26 @@ triplanar (`F10`). TAA/bloom stay available from options.
 cd build/Examples/CellBulbasaur
 ./CellBulbasaur
 ```
+
+## Creating a new example
+
+1. Add `Examples/<Name>/Main.cpp` and `Resources/` as needed.
+2. Add a short `CMakeLists.txt`:
+
+```cmake
+add_freya_example(MyExample SOURCES Main.cpp)
+# optional: IBL studio|outdoor|both|none  (default: studio)
+```
+
+3. Register it in [Examples/CMakeLists.txt](../Examples/CMakeLists.txt) with
+   `add_subdirectory(MyExample)`.
+
+Reuse helpers from `FreyaExamples::`:
+
+- `FlyCam` — RMB look + WASD (options for flatten / look-gated move)
+- `CreateGroundPlane` — procedural ground quad
+- `FindClipContaining` — animation clip name search
+- `CycleQuality` / `QualityName` — Low→…→Off quality enums
 
 ## Running Examples
 

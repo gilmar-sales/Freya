@@ -1,5 +1,10 @@
 #include <Freya/Freya.hpp>
 
+#include <FreyaExamples/AnimClipUtil.hpp>
+#include <FreyaExamples/FlyCam.hpp>
+#include <FreyaExamples/GroundMesh.hpp>
+#include <FreyaExamples/QualityCycle.hpp>
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -7,7 +12,6 @@
 #include <iostream>
 #include <span>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -28,17 +32,6 @@ namespace
         Fox0,
         Crowd
     };
-
-    const fra::AnimationClip* findClip(const fra::SkinnedModel& model,
-                                       std::string_view         needle)
-    {
-        for (const auto& clip : model.clips)
-        {
-            if (clip.name.find(needle) != std::string::npos)
-                return &clip;
-        }
-        return nullptr;
-    }
 
     std::int32_t findJointAny(const fra::Skeleton& skeleton,
                               std::initializer_list<const char*>
@@ -121,34 +114,19 @@ class MainApp final : public fra::AbstractApplication
 
     void StartUp() override
     {
+        mCam.window             = mWindow;
+        mCam.flattenForward     = false;
+        mCam.requireLookToMove  = true;
+        mCam.enableVerticalMove = false;
+        mCam.moveSpeed          = 12.f;
+        mCam.cameraPos          = { 0.f, 28.f, 55.f };
+        mCam.yaw                = -90.f;
+        mCam.pitch              = -28.f;
+        mCam.BindInput(*mEventManager);
+
         mEventManager->Subscribe<fra::KeyPressedEvent>(
             [this](const fra::KeyPressedEvent& event) {
-                mKeysHeld.insert(static_cast<std::uint32_t>(event.key));
                 onKeyPressed(event.key);
-            });
-        mEventManager->Subscribe<fra::KeyReleasedEvent>(
-            [this](const fra::KeyReleasedEvent& event) {
-                mKeysHeld.erase(static_cast<std::uint32_t>(event.key));
-                if (event.key == fra::KeyCode::Escape && mLookHeld)
-                    setLookHeld(false);
-            });
-        mEventManager->Subscribe<fra::MouseButtonPressedEvent>(
-            [this](const fra::MouseButtonPressedEvent& event) {
-                if (event.button == fra::MouseButton::Right)
-                    setLookHeld(true);
-            });
-        mEventManager->Subscribe<fra::MouseButtonReleasedEvent>(
-            [this](const fra::MouseButtonReleasedEvent& event) {
-                if (event.button == fra::MouseButton::Right)
-                    setLookHeld(false);
-            });
-        mEventManager->Subscribe<fra::MouseMoveEvent>(
-            [this](const fra::MouseMoveEvent& event) {
-                if (!mLookHeld)
-                    return;
-                mYaw += event.deltaX * 0.12f;
-                mPitch -= event.deltaY * 0.12f;
-                mPitch = std::clamp(mPitch, -89.0f, 89.0f);
             });
 
         mRenderer->ClearProjections();
@@ -161,9 +139,10 @@ class MainApp final : public fra::AbstractApplication
             return;
         }
 
-        const auto* idle = findClip(mSkinned, "Survey");
-        const auto* walk = findClip(mSkinned, "Walk");
-        const auto* run  = findClip(mSkinned, "Run");
+        const auto* idle =
+            FreyaExamples::FindClipContaining(mSkinned, "Survey");
+        const auto* walk = FreyaExamples::FindClipContaining(mSkinned, "Walk");
+        const auto* run  = FreyaExamples::FindClipContaining(mSkinned, "Run");
         if (!idle)
             idle = mSkinned.clips.empty() ? nullptr : &mSkinned.clips[0];
         if (!walk)
@@ -187,9 +166,9 @@ class MainApp final : public fra::AbstractApplication
 
         // Re-resolve pointers after mutating clips vector is safe — clips
         // storage is stable; refresh in case Ensure ran on those entries.
-        idle = findClip(mSkinned, "Survey");
-        walk = findClip(mSkinned, "Walk");
-        run  = findClip(mSkinned, "Run");
+        idle = FreyaExamples::FindClipContaining(mSkinned, "Survey");
+        walk = FreyaExamples::FindClipContaining(mSkinned, "Walk");
+        run  = FreyaExamples::FindClipContaining(mSkinned, "Run");
         if (!idle)
             idle = mSkinned.clips.empty() ? nullptr : &mSkinned.clips[0];
         if (!walk)
@@ -330,7 +309,8 @@ class MainApp final : public fra::AbstractApplication
         printFeatureHelp();
         printFeatureStatus();
 
-        mGroundMesh     = createGroundMesh();
+        mGroundMesh = FreyaExamples::CreateGroundPlane(
+            *mMeshPool, 0.5f, glm::vec3(1.f, 1.f, 1.f), false);
         mGroundMaterial = mMaterialPool->Create({
             .albedoFactor    = { 0.35f, 0.38f, 0.32f, 1.f },
             .roughnessFactor = 0.9f,
@@ -342,8 +322,8 @@ class MainApp final : public fra::AbstractApplication
         key.castShadows = true;
         mLightService->AddLight(key);
 
-        mCameraPos = { 0.f, 28.f, 55.f };
-        mPitch     = -28.f;
+        mCam.cameraPos = { 0.f, 28.f, 55.f };
+        mCam.pitch     = -28.f;
     }
 
     void Update() override
@@ -351,28 +331,7 @@ class MainApp final : public fra::AbstractApplication
         const float dt = mWindow->GetDeltaTime();
         mAnimClock += dt;
         syncStrafeFromKeys();
-
-        if (mLookHeld)
-        {
-            const float yawRad   = glm::radians(mYaw);
-            const float pitchRad = glm::radians(mPitch);
-            glm::vec3   front;
-            front.x = std::cos(yawRad) * std::cos(pitchRad);
-            front.y = std::sin(pitchRad);
-            front.z = std::sin(yawRad) * std::cos(pitchRad);
-            front   = glm::normalize(front);
-            const glm::vec3 right =
-                glm::normalize(glm::cross(front, glm::vec3(0, 1, 0)));
-            const float speed = 12.f * dt;
-            if (mKeysHeld.contains(static_cast<std::uint32_t>(fra::KeyCode::W)))
-                mCameraPos += front * speed;
-            if (mKeysHeld.contains(static_cast<std::uint32_t>(fra::KeyCode::S)))
-                mCameraPos -= front * speed;
-            if (mKeysHeld.contains(static_cast<std::uint32_t>(fra::KeyCode::A)))
-                mCameraPos -= right * speed;
-            if (mKeysHeld.contains(static_cast<std::uint32_t>(fra::KeyCode::D)))
-                mCameraPos += right * speed;
-        }
+        mCam.Update(dt);
 
         using Clock     = std::chrono::steady_clock;
         using SecondsF  = std::chrono::duration<double>;
@@ -418,8 +377,8 @@ class MainApp final : public fra::AbstractApplication
         for (auto& fox : mFoxes)
         {
             const glm::vec3 foxPos(fox.model[3]);
-            fra::UpdateAnimLodTier(
-                *mFreyaOptions, fox.lodTier, glm::length(foxPos - mCameraPos));
+            fra::UpdateAnimLodTier(*mFreyaOptions, fox.lodTier,
+                                   glm::length(foxPos - mCam.cameraPos));
             const auto tier = std::min<std::uint8_t>(fox.lodTier, 3);
             ++lodHist[tier];
             const float hz  = fra::AnimLodHz(*mFreyaOptions, fox.lodTier);
@@ -533,8 +492,8 @@ class MainApp final : public fra::AbstractApplication
             {
                 (void) fra::ApplyLookAt(
                     mSkinned.skeleton, local, fox.model,
-                    static_cast<std::uint32_t>(mHeadJoint), mCameraPos, 0.75f,
-                    1.2f, 0.8f, kLookLocalForward);
+                    static_cast<std::uint32_t>(mHeadJoint), mCam.cameraPos,
+                    0.75f, 1.2f, 0.8f, kLookLocalForward);
             }
 
             glm::vec3  ikTarget {};
@@ -563,7 +522,7 @@ class MainApp final : public fra::AbstractApplication
                 {
                     debugDraw.DrawLookRay(
                         mSkinned.skeleton, local, fox.model,
-                        static_cast<std::uint32_t>(mHeadJoint), mCameraPos,
+                        static_cast<std::uint32_t>(mHeadJoint), mCam.cameraPos,
                         { 0.3f, 0.85f, 1.f, 1.f });
                 }
                 if (doIk)
@@ -627,15 +586,7 @@ class MainApp final : public fra::AbstractApplication
             mRenderer->UploadGpuAnimInstances({});
         }
 
-        const float yawRad   = glm::radians(mYaw);
-        const float pitchRad = glm::radians(mPitch);
-        glm::vec3   front;
-        front.x = std::cos(yawRad) * std::cos(pitchRad);
-        front.y = std::sin(pitchRad);
-        front.z = std::sin(yawRad) * std::cos(pitchRad);
-        front   = glm::normalize(front);
-        mRenderer->UpdateCamera(
-            mCameraPos, mCameraPos + front, glm::vec3(0.f, 1.f, 0.f));
+        mCam.Apply(*mRenderer);
 
         const auto                            tInst0 = Clock::now();
         std::vector<fra::SceneInstanceUpload> instances;
@@ -715,7 +666,7 @@ class MainApp final : public fra::AbstractApplication
                 (1024.0 * 1024.0);
             const bool quant = mFreyaOptions->quantizeGpuAnimJoints;
             std::cout << "anim_prof mode=" << gpuAnimModeName(mGpuAnimMode)
-                      << " q=" << animQualityName(mAnimationQuality)
+                      << " q=" << FreyaExamples::QualityName(mAnimationQuality)
                       << " quant=" << (quant ? 1 : 0) << " fps=" << fps
                       << " adv_ms=" << (mProfAdvMs / n) << " eval_ms="
                       << (mProfEvalMs / n) << " pack_ms=" << (mProfPackMs / n)
@@ -773,12 +724,6 @@ class MainApp final : public fra::AbstractApplication
         bool                   useRootMotion    = false;
     };
 
-    void setLookHeld(const bool held)
-    {
-        mLookHeld = held;
-        mWindow->SetMouseGrab(held);
-    }
-
     void setSpeed(const float speed)
     {
         mSpeed = std::clamp(speed, 0.f, 3.f);
@@ -796,9 +741,9 @@ class MainApp final : public fra::AbstractApplication
     void syncStrafeFromKeys()
     {
         float s = 0.f;
-        if (mKeysHeld.contains(static_cast<std::uint32_t>(fra::KeyCode::Q)))
+        if (mCam.IsHeld(fra::KeyCode::Q))
             s -= 1.f;
-        if (mKeysHeld.contains(static_cast<std::uint32_t>(fra::KeyCode::E)))
+        if (mCam.IsHeld(fra::KeyCode::E))
             s += 1.f;
         s = std::clamp(s, -1.f, 1.f);
         if (std::abs(s - mStrafe) < 1e-4f)
@@ -809,24 +754,6 @@ class MainApp final : public fra::AbstractApplication
     }
 
     static const char* onOff(const bool v) { return v ? "ON " : "off"; }
-
-    static const char* animQualityName(const fra::AnimationQuality q)
-    {
-        switch (q)
-        {
-            case fra::AnimationQuality::Low:
-                return "Low";
-            case fra::AnimationQuality::Medium:
-                return "Medium";
-            case fra::AnimationQuality::High:
-                return "High";
-            case fra::AnimationQuality::Ultra:
-                return "Ultra";
-            case fra::AnimationQuality::Off:
-                return "Off";
-        }
-        return "?";
-    }
 
     static const char* gpuAnimModeName(const GpuAnimMode mode)
     {
@@ -881,7 +808,7 @@ class MainApp final : public fra::AbstractApplication
                   << " ik=" << onOff(mEnableIk)
                   << " root=" << onOff(mEnableRootMotion)
                   << " events=" << onOff(mEnableEvents)
-                  << " animQ=" << animQualityName(mAnimationQuality)
+                  << " animQ=" << FreyaExamples::QualityName(mAnimationQuality)
                   << " lod=" << onOff(o.enableAnimLod)
                   << " quant=" << onOff(o.quantizeGpuAnimJoints) << '\n'
                   << "  lodHz=" << o.animLodHz[0] << '/' << o.animLodHz[1]
@@ -938,31 +865,14 @@ class MainApp final : public fra::AbstractApplication
         for (std::uint32_t i = 0; i < mFoxes.size(); ++i)
             mFoxes[i].lodAccum =
                 (static_cast<float>(i % 64u) / 64.f) * staggerT;
-        std::cout << "AnimationQuality " << animQualityName(quality) << '\n';
+        std::cout << "AnimationQuality " << FreyaExamples::QualityName(quality)
+                  << '\n';
         printFeatureStatus();
     }
 
     void cycleAnimationQuality()
     {
-        using Q = fra::AnimationQuality;
-        switch (mAnimationQuality)
-        {
-            case Q::Low:
-                setAnimationQuality(Q::Medium);
-                break;
-            case Q::Medium:
-                setAnimationQuality(Q::High);
-                break;
-            case Q::High:
-                setAnimationQuality(Q::Ultra);
-                break;
-            case Q::Ultra:
-                setAnimationQuality(Q::Off);
-                break;
-            case Q::Off:
-                setAnimationQuality(Q::Low);
-                break;
-        }
+        setAnimationQuality(FreyaExamples::CycleQuality(mAnimationQuality));
     }
 
     void toggle(bool& flag, const char* name)
@@ -1039,34 +949,6 @@ class MainApp final : public fra::AbstractApplication
             default:
                 break;
         }
-    }
-
-    std::uint32_t createGroundMesh()
-    {
-        const std::vector<fra::Vertex> vertices = {
-            { { -0.5f, 0.f, -0.5f },
-              { 1, 1, 1 },
-              { 0, 1, 0 },
-              { 1, 0, 0 },
-              { 0, 0 } },
-            { { 0.5f, 0.f, -0.5f },
-              { 1, 1, 1 },
-              { 0, 1, 0 },
-              { 1, 0, 0 },
-              { 1, 0 } },
-            { { 0.5f, 0.f, 0.5f },
-              { 1, 1, 1 },
-              { 0, 1, 0 },
-              { 1, 0, 0 },
-              { 1, 1 } },
-            { { -0.5f, 0.f, 0.5f },
-              { 1, 1, 1 },
-              { 0, 1, 0 },
-              { 1, 0, 0 },
-              { 0, 1 } },
-        };
-        const std::vector<std::uint32_t> indices = { 0, 1, 2, 0, 2, 3 };
-        return mMeshPool->CreateMesh(vertices, indices);
     }
 
     skr::Arc<fra::MeshPool>     mMeshPool;
@@ -1376,8 +1258,8 @@ class MainApp final : public fra::AbstractApplication
             const float pitch = feat.lookSkipClamp ? -1.f : 0.8f;
             (void) fra::ApplyLookAt(
                 mSkinned.skeleton, local, fox.model,
-                static_cast<std::uint32_t>(mHeadJoint), mCameraPos, 0.75f, yaw,
-                pitch, kLookLocalForward);
+                static_cast<std::uint32_t>(mHeadJoint), mCam.cameraPos, 0.75f,
+                yaw, pitch, kLookLocalForward);
         }
         if (feat.ik && mIkReady)
         {
@@ -1521,7 +1403,7 @@ class MainApp final : public fra::AbstractApplication
         inst.lookMaxPitch     = feat.lookSkipClamp ? -1.f : 0.8f;
         if (feat.look)
         {
-            inst.lookTarget = mCameraPos;
+            inst.lookTarget = mCam.cameraPos;
             inst.lookWeight = 0.75f;
         }
         if (feat.ik)
@@ -1584,11 +1466,7 @@ class MainApp final : public fra::AbstractApplication
     std::uint32_t      mGroundMesh     = 0;
     std::uint32_t      mGroundMaterial = 0;
 
-    std::unordered_set<std::uint32_t> mKeysHeld;
-    bool                              mLookHeld  = false;
-    glm::vec3                         mCameraPos = { 0.f, 28.f, 55.f };
-    float                             mYaw       = -90.f;
-    float                             mPitch     = -28.f;
+    FreyaExamples::FlyCam mCam;
 };
 
 int main(int, const char**)

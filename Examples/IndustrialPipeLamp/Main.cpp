@@ -1,121 +1,15 @@
 #include <Freya/Freya.hpp>
 
-#include <algorithm>
+#include <FreyaExamples/FlyCam.hpp>
+#include <FreyaExamples/GroundMesh.hpp>
+#include <FreyaExamples/QualityCycle.hpp>
+
 #include <cmath>
 #include <cstdint>
 #include <iostream>
 #include <optional>
-#include <unordered_set>
+#include <string>
 #include <vector>
-
-namespace
-{
-    constexpr float kMoveSpeed        = 12.0f;
-    constexpr float kMouseSensitivity = 0.12f;
-
-    struct FlyCam
-    {
-        skr::Arc<fra::Window>             window;
-        std::unordered_set<std::uint32_t> keysHeld;
-        bool                              lookHeld  = false;
-        glm::vec3                         cameraPos = { 0.0f, 4.0f, 18.0f };
-        float                             yaw       = -90.0f;
-        float                             pitch     = -12.0f;
-    };
-
-    void setLookHeld(FlyCam& cam, const bool held)
-    {
-        cam.lookHeld = held;
-        if (cam.window)
-            cam.window->SetMouseGrab(held);
-    }
-
-    [[nodiscard]] bool isHeld(const FlyCam& cam, const fra::KeyCode key)
-    {
-        return cam.keysHeld.contains(static_cast<std::uint32_t>(key));
-    }
-
-    [[nodiscard]] glm::vec3 cameraForward(const FlyCam& cam)
-    {
-        const float yawRad   = glm::radians(cam.yaw);
-        const float pitchRad = glm::radians(cam.pitch);
-        return glm::normalize(glm::vec3 {
-            std::cos(pitchRad) * std::cos(yawRad),
-            std::sin(pitchRad),
-            std::cos(pitchRad) * std::sin(yawRad),
-        });
-    }
-
-    void updateCamera(FlyCam& cam, const float dt)
-    {
-        const glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
-        const glm::vec3 look = cameraForward(cam);
-        const glm::vec3 forward =
-            glm::normalize(glm::vec3(look.x, 0.0f, look.z));
-        const glm::vec3 right = glm::normalize(glm::cross(forward, worldUp));
-        glm::vec3       move(0.0f);
-
-        if (isHeld(cam, fra::KeyCode::W))
-            move += forward;
-        if (isHeld(cam, fra::KeyCode::S))
-            move -= forward;
-        if (isHeld(cam, fra::KeyCode::D))
-            move += right;
-        if (isHeld(cam, fra::KeyCode::A))
-            move -= right;
-        if (isHeld(cam, fra::KeyCode::Space) || isHeld(cam, fra::KeyCode::Q))
-            move += worldUp;
-        if (isHeld(cam, fra::KeyCode::LCtrl) ||
-            isHeld(cam, fra::KeyCode::RCtrl) || isHeld(cam, fra::KeyCode::E))
-            move -= worldUp;
-
-        if (glm::length(move) > 1e-4f)
-            cam.cameraPos += glm::normalize(move) * kMoveSpeed * dt;
-    }
-
-    void bindFlyCamInput(fra::EventManager& events, FlyCam& cam)
-    {
-        events.Subscribe<fra::KeyPressedEvent>(
-            [&cam](const fra::KeyPressedEvent& event) {
-                cam.keysHeld.insert(static_cast<std::uint32_t>(event.key));
-            });
-
-        events.Subscribe<fra::KeyReleasedEvent>(
-            [&cam](const fra::KeyReleasedEvent& event) {
-                cam.keysHeld.erase(static_cast<std::uint32_t>(event.key));
-                if (event.key == fra::KeyCode::Escape && cam.lookHeld)
-                    setLookHeld(cam, false);
-            });
-
-        events.Subscribe<fra::MouseButtonPressedEvent>(
-            [&cam](const fra::MouseButtonPressedEvent& event) {
-                if (event.button == fra::MouseButton::Right)
-                    setLookHeld(cam, true);
-            });
-
-        events.Subscribe<fra::MouseButtonReleasedEvent>(
-            [&cam](const fra::MouseButtonReleasedEvent& event) {
-                if (event.button == fra::MouseButton::Right)
-                    setLookHeld(cam, false);
-            });
-
-        events.Subscribe<fra::MouseMoveEvent>(
-            [&cam](const fra::MouseMoveEvent& event) {
-                if (!cam.lookHeld)
-                    return;
-                cam.yaw += event.deltaX * kMouseSensitivity;
-                cam.pitch -= event.deltaY * kMouseSensitivity;
-                cam.pitch = std::clamp(cam.pitch, -89.0f, 89.0f);
-            });
-    }
-
-    void applyCamera(fra::Renderer& renderer, const FlyCam& cam)
-    {
-        const glm::vec3 forward = cameraForward(cam);
-        renderer.UpdateCamera(cam.cameraPos, cam.cameraPos + forward,
-                              glm::vec3(0.0f, 1.0f, 0.0f));
-    }
-} // namespace
 
 class MainApp final : public fra::AbstractApplication
 {
@@ -134,7 +28,7 @@ class MainApp final : public fra::AbstractApplication
     void StartUp() override
     {
         mMainCam.window = mWindow;
-        bindFlyCamInput(*mEventManager, mMainCam);
+        mMainCam.BindInput(*mEventManager);
 
         mEventManager->Subscribe<fra::KeyReleasedEvent>(
             [this](const fra::KeyReleasedEvent& event) {
@@ -275,7 +169,8 @@ class MainApp final : public fra::AbstractApplication
                          "bulb Blend material will not apply\n";
         }
 
-        mGroundMesh     = createGroundMesh();
+        mGroundMesh = FreyaExamples::CreateGroundPlane(
+            *mMeshPool, 80.0f, glm::vec3(0.72f, 0.72f, 0.76f));
         mGroundMaterial = mMaterialPool->Create({});
 
         mSpaceShipAlbedo = mTexturePool->CreateTextureFromFile(
@@ -425,7 +320,7 @@ class MainApp final : public fra::AbstractApplication
     {
         const float dt = mWindow->GetDeltaTime();
         mCurrentTime += dt;
-        updateCamera(mMainCam, dt);
+        mMainCam.Update(dt);
 
         for (auto& animated : mAnimatedLights)
         {
@@ -486,7 +381,7 @@ class MainApp final : public fra::AbstractApplication
             drawLightGizmos();
         }
 
-        applyCamera(*mRenderer, mMainCam);
+        mMainCam.Apply(*mRenderer);
         mRenderer->UploadSceneInstances(buildSceneInstances(true));
         mRenderer->EndFrame();
     }
@@ -505,10 +400,10 @@ class MainApp final : public fra::AbstractApplication
             glm::vec3(-0.2f, -1.0f, -0.15f), glm::vec3(1.0f, 0.96f, 0.9f),
             2.5f));
 
-        updateCamera(mSecondaryCam, window->GetDeltaTime());
+        mSecondaryCam.Update(window->GetDeltaTime());
 
         renderer->BeginFrame();
-        applyCamera(*renderer, mSecondaryCam);
+        mSecondaryCam.Apply(*renderer);
         renderer->UploadSceneInstances(buildSceneInstances(false));
         renderer->EndFrame();
     }
@@ -541,7 +436,7 @@ class MainApp final : public fra::AbstractApplication
 
         const auto events = GetWindowServices(*mSecondaryWindow)
                                 ->GetService<fra::EventManager>();
-        bindFlyCamInput(*events, mSecondaryCam);
+        mSecondaryCam.BindInput(*events);
         events->Subscribe<fra::KeyReleasedEvent>(
             [this](const fra::KeyReleasedEvent& event) {
                 if (event.key == fra::KeyCode::F10)
@@ -582,28 +477,6 @@ class MainApp final : public fra::AbstractApplication
     }
 
     static constexpr std::size_t kInstanceCount = 3;
-
-    std::uint32_t createGroundMesh()
-    {
-        constexpr float half = 80.0f;
-        const auto      tint = glm::vec3(0.72f, 0.72f, 0.76f);
-        const auto      up   = glm::vec3(0.0f, 1.0f, 0.0f);
-        const auto      tan  = glm::vec3(1.0f, 0.0f, 0.0f);
-
-        const std::vector<fra::Vertex> vertices = {
-            { { -half, 0.0f, -half }, tint, up, tan, { 0.0f, 0.0f } },
-            { { half, 0.0f, -half }, tint, up, tan, { 1.0f, 0.0f } },
-            { { half, 0.0f, half }, tint, up, tan, { 1.0f, 1.0f } },
-            { { -half, 0.0f, half }, tint, up, tan, { 0.0f, 1.0f } },
-        };
-        // Single-sided (+Y). Two-sided coplanar indices z-fight in the CSM
-        // depth map under CullBack + lightProj Y-flip.
-        const std::vector<std::uint32_t> indices = {
-            0, 3, 2, 0, 2, 1,
-        };
-
-        return mMeshPool->CreateMesh(vertices, indices);
-    }
 
     void updateBulbSpots()
     {
@@ -669,134 +542,48 @@ class MainApp final : public fra::AbstractApplication
 
     void cycleShadowQuality()
     {
-        const auto         current = mRenderer->GetShadowQuality();
-        fra::ShadowQuality next    = fra::ShadowQuality::Low;
-        switch (current)
-        {
-            case fra::ShadowQuality::Low:
-                next = fra::ShadowQuality::Medium;
-                break;
-            case fra::ShadowQuality::Medium:
-                next = fra::ShadowQuality::High;
-                break;
-            case fra::ShadowQuality::High:
-                next = fra::ShadowQuality::Ultra;
-                break;
-            case fra::ShadowQuality::Ultra:
-                next = fra::ShadowQuality::Off;
-                break;
-            case fra::ShadowQuality::Off:
-                next = fra::ShadowQuality::Low;
-                break;
-        }
-
+        const auto next =
+            FreyaExamples::CycleQuality(mRenderer->GetShadowQuality());
         mRenderer->SetShadowQuality(next);
-
-        static constexpr const char* kNames[] = { "Low", "Medium", "High",
-                                                  "Ultra", "Off" };
-        std::cout << "Shadow quality: " << kNames[static_cast<int>(next)]
+        std::cout << "Shadow quality: " << FreyaExamples::QualityName(next)
                   << " [F5]\n";
         updateTitle();
     }
 
     void cycleSsaoQuality()
     {
-        const auto       current = mRenderer->GetSsaoQuality();
-        fra::SsaoQuality next    = fra::SsaoQuality::Low;
-        switch (current)
-        {
-            case fra::SsaoQuality::Low:
-                next = fra::SsaoQuality::Medium;
-                break;
-            case fra::SsaoQuality::Medium:
-                next = fra::SsaoQuality::High;
-                break;
-            case fra::SsaoQuality::High:
-                next = fra::SsaoQuality::Ultra;
-                break;
-            case fra::SsaoQuality::Ultra:
-                next = fra::SsaoQuality::Off;
-                break;
-            case fra::SsaoQuality::Off:
-                next = fra::SsaoQuality::Low;
-                break;
-        }
+        const auto next =
+            FreyaExamples::CycleQuality(mRenderer->GetSsaoQuality());
         mRenderer->SetSsaoQuality(next);
-        static constexpr const char* kNames[] = { "Low", "Medium", "High",
-                                                  "Ultra", "Off" };
-        std::cout << "SSAO quality: " << kNames[static_cast<int>(next)]
+        std::cout << "SSAO quality: " << FreyaExamples::QualityName(next)
                   << " [F6]\n";
         updateTitle();
     }
 
     void cycleTaaQuality()
     {
-        const auto      current = mRenderer->GetTaaQuality();
-        fra::TaaQuality next    = fra::TaaQuality::Low;
-        switch (current)
-        {
-            case fra::TaaQuality::Low:
-                next = fra::TaaQuality::Medium;
-                break;
-            case fra::TaaQuality::Medium:
-                next = fra::TaaQuality::High;
-                break;
-            case fra::TaaQuality::High:
-                next = fra::TaaQuality::Ultra;
-                break;
-            case fra::TaaQuality::Ultra:
-                next = fra::TaaQuality::Off;
-                break;
-            case fra::TaaQuality::Off:
-                next = fra::TaaQuality::Low;
-                break;
-        }
+        const auto next =
+            FreyaExamples::CycleQuality(mRenderer->GetTaaQuality());
         mRenderer->SetTaaQuality(next);
-        static constexpr const char* kNames[] = { "Low", "Medium", "High",
-                                                  "Ultra", "Off" };
-        std::cout << "TAA quality: " << kNames[static_cast<int>(next)]
+        std::cout << "TAA quality: " << FreyaExamples::QualityName(next)
                   << " [F7]\n";
         updateTitle();
     }
 
     void cycleBloomQuality()
     {
-        const auto        current = mRenderer->GetBloomQuality();
-        fra::BloomQuality next    = fra::BloomQuality::Low;
-        switch (current)
-        {
-            case fra::BloomQuality::Low:
-                next = fra::BloomQuality::Medium;
-                break;
-            case fra::BloomQuality::Medium:
-                next = fra::BloomQuality::High;
-                break;
-            case fra::BloomQuality::High:
-                next = fra::BloomQuality::Ultra;
-                break;
-            case fra::BloomQuality::Ultra:
-                next = fra::BloomQuality::Off;
-                break;
-            case fra::BloomQuality::Off:
-                next = fra::BloomQuality::Low;
-                break;
-        }
+        const auto next =
+            FreyaExamples::CycleQuality(mRenderer->GetBloomQuality());
         mRenderer->SetBloomQuality(next);
-        static constexpr const char* kNames[] = { "Low", "Medium", "High",
-                                                  "Ultra", "Off" };
-        std::cout << "Bloom quality: " << kNames[static_cast<int>(next)]
+        std::cout << "Bloom quality: " << FreyaExamples::QualityName(next)
                   << " [F8]\n";
         updateTitle();
     }
 
     void updateTitle()
     {
-        static constexpr const char* kQuality[] = { "L", "M", "H", "U", "-" };
-        static constexpr const char* kShadow[]  = {
+        static constexpr const char* kShadow[] = {
             "all", "dir", "warmPt", "coolPt", "spots",
-        };
-        auto qName = [](int index) {
-            return (index >= 0 && index <= 4) ? kQuality[index] : "?";
         };
         const char* shadowName =
             (mShadowCasterMode >= 0 && mShadowCasterMode <= 4)
@@ -804,13 +591,18 @@ class MainApp final : public fra::AbstractApplication
                 : "?";
         mFreyaOptions->title =
             std::string("Industrial Pipe Lamp | Shd ") +
-            qName(static_cast<int>(mRenderer->GetShadowQuality())) +
+            FreyaExamples::QualityShortName(
+                static_cast<int>(mRenderer->GetShadowQuality())) +
             " [F5] SSAO " +
-            qName(static_cast<int>(mRenderer->GetSsaoQuality())) +
-            " [F6] TAA " + qName(static_cast<int>(mRenderer->GetTaaQuality())) +
+            FreyaExamples::QualityShortName(
+                static_cast<int>(mRenderer->GetSsaoQuality())) +
+            " [F6] TAA " +
+            FreyaExamples::QualityShortName(
+                static_cast<int>(mRenderer->GetTaaQuality())) +
             " [F7] Blm " +
-            qName(static_cast<int>(mRenderer->GetBloomQuality())) + " [F8] | " +
-            (mRenderer->GetShadowDebug() ? "shdDBG " : "") +
+            FreyaExamples::QualityShortName(
+                static_cast<int>(mRenderer->GetBloomQuality())) +
+            " [F8] | " + (mRenderer->GetShadowDebug() ? "shdDBG " : "") +
             (mShowLightGizmos ? "gizmo " : "") + shadowName + " [0-4]";
     }
 
@@ -908,8 +700,8 @@ class MainApp final : public fra::AbstractApplication
     skr::Arc<fra::LightService> mLightService;
     skr::Arc<fra::FreyaOptions> mFreyaOptions;
     skr::Arc<fra::Window>       mSecondaryWindow;
-    FlyCam                      mMainCam;
-    FlyCam                      mSecondaryCam;
+    FreyaExamples::FlyCam       mMainCam;
+    FreyaExamples::FlyCam       mSecondaryCam;
     glm::mat4                   mModelMatrix[kInstanceCount] {};
     float                       mCurrentTime {};
     std::vector<AnimatedLight>  mAnimatedLights;
