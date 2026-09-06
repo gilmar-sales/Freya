@@ -40,18 +40,33 @@ namespace FREYA_NAMESPACE
     };
 
     /**
-     * @brief SSAO debug visualization for lighting / composite.
+     * @brief Deferred lighting debug visualization (G-buffer / SSAO / shadows).
      *
-     * None keeps the normal lit path. Blurred / Raw replace lighting with
-     * grayscale AO (LDR composite, no ACES) using the post-blur or raw
-     * R8 buffer respectively.
+     * None keeps the lit path. Any other value replaces lighting output with
+     * a debug visualization and disables ACES tonemap in composite.
+     * Values match the lighting.frag push-constant debugMode.
      */
-    enum class SsaoDebugView
+    enum class DeferredDebugView : std::uint32_t
     {
-        None,    ///< lit scene with SSAO applied to IBL
-        Blurred, ///< grayscale blurred AO
-        Raw      ///< grayscale pre-blur AO
+        None        = 0,
+        Albedo      = 1,
+        Normal      = 2,
+        Depth       = 3,
+        Roughness   = 4,
+        Metalness   = 5,
+        MaterialAO  = 6,
+        MaterialId  = 7,
+        Velocity    = 8,
+        SsaoBlurred = 9,
+        SsaoRaw     = 10,
+        Shadows     = 11,
     };
+
+    [[nodiscard]] inline bool IsDeferredDebugActive(
+        const DeferredDebugView view)
+    {
+        return view != DeferredDebugView::None;
+    }
 
     /**
      * @brief TAA responsiveness vs stability preset.
@@ -151,7 +166,6 @@ namespace FREYA_NAMESPACE
         std::string shaderRoot = "./Resources/Shaders";
 
         bool enableShadows = true;
-        bool shadowDebug   = false;
         bool enableSsao    = true;
         bool enableTaa     = true;
         bool enableBloom   = true;
@@ -162,10 +176,10 @@ namespace FREYA_NAMESPACE
         /// Human-scale creases ≈ 0.3–1.0.
         float ssaoRadius = 0.5f;
         /// View-Z acne bias (LearnOpenGL default 0.025).
-        float         ssaoBias      = 0.025f;
-        float         ssaoPower     = 1.5f;
-        float         ssaoIntensity = 0.5f;
-        SsaoDebugView ssaoDebugView = SsaoDebugView::None;
+        float             ssaoBias          = 0.025f;
+        float             ssaoPower         = 1.5f;
+        float             ssaoIntensity     = 0.5f;
+        DeferredDebugView deferredDebugView = DeferredDebugView::None;
 
         /// Blend weight toward current frame (0–1). Higher = less ghosting.
         float taaCurrentWeight = 0.1f;

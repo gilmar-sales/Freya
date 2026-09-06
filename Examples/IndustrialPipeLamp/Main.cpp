@@ -69,10 +69,16 @@ class MainApp final : public fra::AbstractApplication
                 }
                 if (event.key == fra::KeyCode::F9)
                 {
-                    const bool next = !mRenderer->GetShadowDebug();
-                    mRenderer->SetShadowDebug(next);
+                    const auto cur  = mRenderer->GetDeferredDebugView();
+                    const auto next = cur == fra::DeferredDebugView::Shadows
+                                          ? fra::DeferredDebugView::None
+                                          : fra::DeferredDebugView::Shadows;
+                    mRenderer->SetDeferredDebugView(next);
                     std::cout
-                        << "Shadow debug: " << (next ? "on" : "off") << '\n';
+                        << "Shadow debug: "
+                        << (next == fra::DeferredDebugView::Shadows ? "on"
+                                                                    : "off")
+                        << '\n';
                     updateTitle();
                     return;
                 }
@@ -615,7 +621,11 @@ class MainApp final : public fra::AbstractApplication
             " [F7] Blm " +
             FreyaExamples::QualityShortName(
                 static_cast<int>(mRenderer->GetBloomQuality())) +
-            " [F8] | " + (mRenderer->GetShadowDebug() ? "shdDBG " : "") +
+            " [F8] | " +
+            (mRenderer->GetDeferredDebugView() ==
+                     fra::DeferredDebugView::Shadows
+                 ? "shdDBG "
+                 : "") +
             (mShowLightGizmos ? "gizmo " : "") + shadowName + " [0-4]";
     }
 

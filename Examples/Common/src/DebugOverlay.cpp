@@ -417,14 +417,16 @@ namespace FreyaExamples
         if (ImGui::CollapsingHeader("Debug views",
                                     ImGuiTreeNodeFlags_DefaultOpen))
         {
-            int view = static_cast<int>(renderer.GetSsaoDebugView());
-            if (ImGui::Combo("SSAO view", &view, "Lit\0AO Blurred\0AO Raw\0"))
-                renderer.SetSsaoDebugView(
-                    static_cast<fra::SsaoDebugView>(view));
-
-            bool shadowDbg = renderer.GetShadowDebug();
-            if (ImGui::Checkbox("Shadow debug", &shadowDbg))
-                renderer.SetShadowDebug(shadowDbg);
+            int view = static_cast<int>(renderer.GetDeferredDebugView());
+            if (ImGui::Combo(
+                    "Deferred view", &view,
+                    "Lit\0Albedo\0Normal\0Depth\0Roughness\0Metalness\0"
+                    "Material AO\0Material ID\0Velocity\0SSAO Blurred\0"
+                    "SSAO Raw\0Shadows\0"))
+            {
+                renderer.SetDeferredDebugView(
+                    static_cast<fra::DeferredDebugView>(view));
+            }
 
             bool dbgDraw = renderer.IsDebugDrawEnabled();
             if (ImGui::Checkbox("Debug draw", &dbgDraw))

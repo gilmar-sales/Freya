@@ -510,8 +510,6 @@ namespace FREYA_NAMESPACE
         ctx.drawDebugOverlay   = [this]() {
             if (!mDebugDrawEnabled || !mDebugDrawPass || mDebugDraw.Empty())
                 return;
-            if (mOutputTarget)
-                return;
             const glm::mat4 viewProj = mCurrentProjection.unjitteredProjection *
                                        mCurrentProjection.view;
             mDebugDrawPass->Draw(mSwapChain, mCommandPool,
@@ -673,9 +671,9 @@ namespace FREYA_NAMESPACE
         rebuildSceneResources();
     }
 
-    void Renderer::Impl::SetSsaoDebugView(const SsaoDebugView view)
+    void Renderer::Impl::SetDeferredDebugView(const DeferredDebugView view)
     {
-        mFreyaOptions->ssaoDebugView = view;
+        mFreyaOptions->deferredDebugView = view;
     }
 
     void Renderer::Impl::SetSsaoRadius(const float radius)

@@ -302,6 +302,7 @@ namespace FREYA_NAMESPACE
             uboBinding(4),  uboBinding(5),  cisBinding(6),  cisBinding(7),
             cisBinding(8),  cisBinding(9),  cisBinding(10), uboBinding(11),
             cisBinding(12), cisBinding(13), cisBinding(14), cisBinding(15),
+            cisBinding(16),
         };
 
         auto lightingSetLayout = mDevice->Get().createDescriptorSetLayout(
@@ -310,7 +311,7 @@ namespace FREYA_NAMESPACE
         std::array lightingPoolSizes = {
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(13 * mFreyaOptions->frameCount),
+                .setDescriptorCount(14 * mFreyaOptions->frameCount),
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eUniformBuffer)
                 .setDescriptorCount(3 * mFreyaOptions->frameCount),
@@ -348,6 +349,9 @@ namespace FREYA_NAMESPACE
                         vk::ImageLayout::eShaderReadOnlyOptimal);
         auto pbrSampleInfo =
             makeCisInfo(pbrImage->GetImageView(),
+                        vk::ImageLayout::eShaderReadOnlyOptimal);
+        auto velocitySampleInfo =
+            makeCisInfo(velocityImage->GetImageView(),
                         vk::ImageLayout::eShaderReadOnlyOptimal);
 
         auto irradianceInfo =
@@ -420,6 +424,13 @@ namespace FREYA_NAMESPACE
                         vk::DescriptorType::eCombinedImageSampler)
                     .setDescriptorCount(1)
                     .setImageInfo(pbrSampleInfo),
+                vk::WriteDescriptorSet()
+                    .setDstSet(set)
+                    .setDstBinding(16)
+                    .setDescriptorType(
+                        vk::DescriptorType::eCombinedImageSampler)
+                    .setDescriptorCount(1)
+                    .setImageInfo(velocitySampleInfo),
                 vk::WriteDescriptorSet()
                     .setDstSet(set)
                     .setDstBinding(4)

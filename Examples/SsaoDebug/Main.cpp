@@ -11,18 +11,44 @@
 
 namespace
 {
-    const char* SsaoDebugViewName(fra::SsaoDebugView v)
+    const char* DeferredDebugViewName(fra::DeferredDebugView v)
     {
         switch (v)
         {
-            case fra::SsaoDebugView::None:
+            case fra::DeferredDebugView::None:
                 return "Lit";
-            case fra::SsaoDebugView::Blurred:
-                return "AO Blurred";
-            case fra::SsaoDebugView::Raw:
-                return "AO Raw";
+            case fra::DeferredDebugView::Albedo:
+                return "Albedo";
+            case fra::DeferredDebugView::Normal:
+                return "Normal";
+            case fra::DeferredDebugView::Depth:
+                return "Depth";
+            case fra::DeferredDebugView::Roughness:
+                return "Roughness";
+            case fra::DeferredDebugView::Metalness:
+                return "Metalness";
+            case fra::DeferredDebugView::MaterialAO:
+                return "Material AO";
+            case fra::DeferredDebugView::MaterialId:
+                return "Material ID";
+            case fra::DeferredDebugView::Velocity:
+                return "Velocity";
+            case fra::DeferredDebugView::SsaoBlurred:
+                return "SSAO Blurred";
+            case fra::DeferredDebugView::SsaoRaw:
+                return "SSAO Raw";
+            case fra::DeferredDebugView::Shadows:
+                return "Shadows";
         }
         return "?";
+    }
+
+    fra::DeferredDebugView CycleDeferredDebugView(fra::DeferredDebugView v)
+    {
+        const auto i = static_cast<std::uint32_t>(v);
+        const auto n =
+            static_cast<std::uint32_t>(fra::DeferredDebugView::Shadows);
+        return static_cast<fra::DeferredDebugView>((i + 1u) % (n + 1u));
     }
 } // namespace
 
@@ -260,22 +286,10 @@ class MainApp final : public fra::AbstractApplication
 
     void cycleDebugView()
     {
-        const auto         current = mRenderer->GetSsaoDebugView();
-        fra::SsaoDebugView next    = fra::SsaoDebugView::None;
-        switch (current)
-        {
-            case fra::SsaoDebugView::None:
-                next = fra::SsaoDebugView::Blurred;
-                break;
-            case fra::SsaoDebugView::Blurred:
-                next = fra::SsaoDebugView::Raw;
-                break;
-            case fra::SsaoDebugView::Raw:
-                next = fra::SsaoDebugView::None;
-                break;
-        }
-        mRenderer->SetSsaoDebugView(next);
-        std::cout << "SSAO view: " << SsaoDebugViewName(next) << '\n';
+        const auto next =
+            CycleDeferredDebugView(mRenderer->GetDeferredDebugView());
+        mRenderer->SetDeferredDebugView(next);
+        std::cout << "Deferred view: " << DeferredDebugViewName(next) << '\n';
         updateTitle();
     }
 
@@ -352,7 +366,7 @@ class MainApp final : public fra::AbstractApplication
         std::snprintf(
             buf, sizeof(buf),
             "SSAO Debug [%s | %s]  r=%.2f b=%.3f p=%.2f i=%.2f  [V view F6 q]",
-            SsaoDebugViewName(mRenderer->GetSsaoDebugView()),
+            DeferredDebugViewName(mRenderer->GetDeferredDebugView()),
             FreyaExamples::QualityName(mRenderer->GetSsaoQuality()),
             mRenderer->GetSsaoRadius(), mRenderer->GetSsaoBias(),
             mRenderer->GetSsaoPower(), mRenderer->GetSsaoIntensity());
@@ -394,7 +408,8 @@ int main(int, const char**)
                         .SetEnableTaa(false)
                         .SetEnableBloom(false)
                         .SetSsaoQuality(fra::SsaoQuality::High)
-                        .SetSsaoDebugView(fra::SsaoDebugView::Blurred);
+                        .SetDeferredDebugView(
+                            fra::DeferredDebugView::SsaoBlurred);
                 });
             })
             .Build<MainApp>();

@@ -87,7 +87,7 @@ namespace FREYA_NAMESPACE
 
         void SetShadowQuality(ShadowQuality quality);
         void SetSsaoQuality(SsaoQuality quality);
-        void SetSsaoDebugView(SsaoDebugView view);
+        void SetDeferredDebugView(DeferredDebugView view);
         void SetSsaoRadius(float radius);
         void SetSsaoBias(float bias);
         void SetSsaoPower(float power);

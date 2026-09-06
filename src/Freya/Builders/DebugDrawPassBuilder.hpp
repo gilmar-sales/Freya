@@ -22,7 +22,11 @@ namespace FREYA_NAMESPACE
         skr::Arc<DebugDrawPass> Build(const skr::Arc<SwapChain>& swapChain);
 
       private:
-        [[nodiscard]] vk::RenderPass createRenderPass() const;
+        [[nodiscard]] vk::RenderPass createSwapchainRenderPass() const;
+        [[nodiscard]] vk::RenderPass createOffscreenRenderPass() const;
+        [[nodiscard]] vk::Pipeline   createPipeline(
+            vk::ShaderModule vert, vk::ShaderModule frag,
+            vk::PipelineLayout layout, vk::RenderPass renderPass) const;
 
         skr::Arc<Device>               mDevice;
         skr::Arc<PhysicalDevice>       mPhysicalDevice;

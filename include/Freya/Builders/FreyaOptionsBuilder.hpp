@@ -296,9 +296,9 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        FreyaOptionsBuilder& SetSsaoDebugView(SsaoDebugView view)
+        FreyaOptionsBuilder& SetDeferredDebugView(DeferredDebugView view)
         {
-            mFreyaOptions->ssaoDebugView = view;
+            mFreyaOptions->deferredDebugView = view;
             return *this;
         }
 
@@ -384,12 +384,6 @@ namespace FREYA_NAMESPACE
         FreyaOptionsBuilder& SetEnableShadows(bool enable)
         {
             mFreyaOptions->enableShadows = enable;
-            return *this;
-        }
-
-        FreyaOptionsBuilder& SetShadowDebug(bool enable)
-        {
-            mFreyaOptions->shadowDebug = enable;
             return *this;
         }
 

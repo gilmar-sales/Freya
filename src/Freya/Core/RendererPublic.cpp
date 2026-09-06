@@ -51,24 +51,14 @@ namespace FREYA_NAMESPACE
         return mImpl->mSsaoQuality;
     }
 
-    void Renderer::SetSsaoDebugView(const SsaoDebugView view)
+    void Renderer::SetDeferredDebugView(const DeferredDebugView view)
     {
-        mImpl->SetSsaoDebugView(view);
+        mImpl->SetDeferredDebugView(view);
     }
 
-    void Renderer::SetShadowDebug(const bool enable)
+    DeferredDebugView Renderer::GetDeferredDebugView() const
     {
-        mImpl->mFreyaOptions->shadowDebug = enable;
-    }
-
-    bool Renderer::GetShadowDebug() const
-    {
-        return mImpl->mFreyaOptions->shadowDebug;
-    }
-
-    SsaoDebugView Renderer::GetSsaoDebugView() const
-    {
-        return mImpl->mFreyaOptions->ssaoDebugView;
+        return mImpl->mFreyaOptions->deferredDebugView;
     }
 
     void Renderer::SetSsaoRadius(const float radius)

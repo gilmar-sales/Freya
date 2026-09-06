@@ -55,9 +55,10 @@ layout(set = 0, binding = 12) uniform sampler2DArrayShadow cascadeShadowMap;
 layout(set = 0, binding = 13) uniform sampler2DArrayShadow spotShadowMap;
 layout(set = 0, binding = 14) uniform samplerCubeArrayShadow pointShadowMap;
 layout(set = 0, binding = 15) uniform sampler2D inSsao;
+layout(set = 0, binding = 16) uniform sampler2D inVelocity;
 
 layout(push_constant) uniform LightingPush {
-    uint debugMode; // 0 = lit, 1 = SSAO, 2 = shadow factor
+    uint debugMode; // DeferredDebugView (0 = lit)
     uint _pad0;
     uint _pad1;
     uint _pad2;
@@ -84,48 +85,100 @@ vec3 ReconstructWorldPos(vec2 uv, float depth) {
     return world.xyz / world.w;
 }
 
+// Linearize depth for visualization (works for Reverse-Z and standard).
+float VisualizeDepth(float depth, bool reverseZ) {
+    if (reverseZ) {
+        // Near ≈ 1, far ≈ 0 — flip and compress for readability.
+        float t = clamp(1.0 - depth, 0.0, 1.0);
+        return pow(t, 0.35);
+    }
+    return pow(clamp(depth, 0.0, 1.0), 0.35);
+}
+
 void main() {
     float depth = texture(inDepth, inUV).r;
     bool reverseZ = shadows.reverseZ.x > 0.5;
     float ssao = texture(inSsao, inUV).r;
+    bool sky = reverseZ ? (depth <= 1e-6) : (depth >= 0.999999);
 
-    // Grayscale AO debug: sky stays white; no ACES (composite tonemap off).
+    // DeferredDebugView — LDR output, composite skips ACES.
     if (push.debugMode != 0u) {
-        bool sky = reverseZ ? (depth <= 1e-6) : (depth >= 0.999999);
-        if (push.debugMode == 1u) {
+        if (sky && push.debugMode != 3u) {
+            outColor = vec4(1.0, 1.0, 1.0, 0.0);
+            return;
+        }
+
+        if (push.debugMode == 1u) { // Albedo
+            outColor = vec4(texture(inAlbedo, inUV).rgb, 0.0);
+            return;
+        }
+        if (push.debugMode == 2u) { // World normal
+            vec3 N = normalize(texture(inNormal, inUV).rgb * 2.0 - 1.0);
+            outColor = vec4(N * 0.5 + 0.5, 0.0);
+            return;
+        }
+        if (push.debugMode == 3u) { // Depth
+            float d = sky ? 0.0 : VisualizeDepth(depth, reverseZ);
+            outColor = vec4(vec3(d), 0.0);
+            return;
+        }
+        if (push.debugMode == 4u) { // Roughness
+            outColor = vec4(vec3(texture(inPbr, inUV).r), 0.0);
+            return;
+        }
+        if (push.debugMode == 5u) { // Metalness
+            outColor = vec4(vec3(texture(inPbr, inUV).g), 0.0);
+            return;
+        }
+        if (push.debugMode == 6u) { // Material AO (PBR.b when uncoated)
+            vec4 pbr = texture(inPbr, inUV);
+            float ao = (pbr.a > 1e-3) ? 1.0 : pbr.b;
+            outColor = vec4(vec3(ao), 0.0);
+            return;
+        }
+        if (push.debugMode == 7u) { // Material ID (albedo.a)
+            outColor = vec4(vec3(texture(inAlbedo, inUV).a), 0.0);
+            return;
+        }
+        if (push.debugMode == 8u) { // Velocity → R=G, G=B scaled
+            vec2 vel = texture(inVelocity, inUV).rg;
+            outColor = vec4(vel * 10.0 + 0.5, 0.5, 0.0);
+            return;
+        }
+        if (push.debugMode == 9u || push.debugMode == 10u) { // SSAO
             float ao = sky ? 1.0 : ssao;
             outColor = vec4(vec3(ao), 0.0);
             return;
         }
-        if (sky) {
-            outColor = vec4(1.0, 1.0, 1.0, 0.0);
+        if (push.debugMode == 11u) { // Shadows
+            vec3 fragPos = ReconstructWorldPos(inUV, depth);
+            vec3 N = normalize(texture(inNormal, inUV).rgb * 2.0 - 1.0);
+            uint flags = UnpackFlags(texture(inNormal, inUV).a);
+            bool receiveShadow = (flags == kFlagReceiveShadow);
+            float minShadow = 1.0;
+            for (int i = 0; i < int(lights.lightCount); i++) {
+                float lightType = lights.lightPositions[i].w;
+                if (lightType >= 2.5)
+                    continue;
+                vec3 lightPos = lights.lightPositions[i].xyz;
+                vec3 lightDir = lights.lightDirectionsAndCutoff[i].xyz;
+                vec3 L;
+                if (lightType >= 0.5 && lightType < 1.5)
+                    L = normalize(-lightDir);
+                else
+                    L = normalize(lightPos - fragPos);
+                float s = GetShadowFactor(i, lightType, fragPos, N, L,
+                                          receiveShadow);
+                minShadow = min(minShadow, s);
+            }
+            outColor = vec4(vec3(minShadow), 0.0);
             return;
         }
-        vec3 fragPos = ReconstructWorldPos(inUV, depth);
-        vec3 N = normalize(texture(inNormal, inUV).rgb * 2.0 - 1.0);
-        uint flags = UnpackFlags(texture(inNormal, inUV).a);
-        bool receiveShadow = (flags == kFlagReceiveShadow);
-        float minShadow = 1.0;
-        for (int i = 0; i < int(lights.lightCount); i++) {
-            float lightType = lights.lightPositions[i].w;
-            if (lightType >= 2.5)
-                continue;
-            vec3 lightPos = lights.lightPositions[i].xyz;
-            vec3 lightDir = lights.lightDirectionsAndCutoff[i].xyz;
-            vec3 L;
-            if (lightType >= 0.5 && lightType < 1.5)
-                L = normalize(-lightDir);
-            else
-                L = normalize(lightPos - fragPos);
-            float s = GetShadowFactor(i, lightType, fragPos, N, L,
-                                      receiveShadow);
-            minShadow = min(minShadow, s);
-        }
-        outColor = vec4(vec3(minShadow), 0.0);
+        outColor = vec4(1.0, 0.0, 1.0, 0.0);
         return;
     }
 
-    if (reverseZ ? (depth <= 1e-6) : (depth >= 0.999999)) {
+    if (sky) {
         discard;
     }
 

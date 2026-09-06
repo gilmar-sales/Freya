@@ -86,7 +86,8 @@ shows:
   desktop). This is **not** Mali HWCPipe (`PTILES` / late-ZS); those
   counters are Arm-only.
 - **Quality** — Shadow / SSAO / TAA / Bloom / VSync
-- **Debug views** — SSAO Lit/Blurred/Raw, shadow debug, debug draw, SSAO knobs
+- **Debug views** — deferred G-buffer / SSAO / shadows (`DeferredDebugView`),
+  debug draw, SSAO knobs
 
 The scene is rendered to an offscreen viewport (`SetViewportTarget`) and
 blitted behind ImGui on the swapchain UI pass (`BeginUI` / `EndUI`). FlyCam

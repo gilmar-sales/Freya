@@ -230,18 +230,13 @@ namespace FREYA_NAMESPACE
         if (!ctx.deferred || !*ctx.deferred)
             return;
 
-        const bool ssaoDebug =
-            ctx.options->ssaoDebugView != SsaoDebugView::None;
-        std::uint32_t lightingDebug = 0;
-        if (ssaoDebug)
-            lightingDebug = 1;
-        else if (ctx.options->shadowDebug)
-            lightingDebug = 2;
+        const auto debugView     = ctx.options->deferredDebugView;
+        const auto lightingDebug = static_cast<std::uint32_t>(debugView);
 
         skr::Arc<Image> ssaoImage;
         if (ctx.ssaoPass && *ctx.ssaoPass)
         {
-            ssaoImage = ctx.options->ssaoDebugView == SsaoDebugView::Raw
+            ssaoImage = debugView == DeferredDebugView::SsaoRaw
                             ? (*ctx.ssaoPass)->GetRawImage()
                             : (*ctx.ssaoPass)->GetOutputImage();
         }
@@ -600,9 +595,9 @@ namespace FREYA_NAMESPACE
         if (!scene)
             return;
 
-        ctx.beginComposite(ctx.frameIndex, scene,
-                           ctx.options->ssaoDebugView == SsaoDebugView::None &&
-                               !ctx.options->shadowDebug);
+        ctx.beginComposite(
+            ctx.frameIndex, scene,
+            !IsDeferredDebugActive(ctx.options->deferredDebugView));
         if (ctx.commitTaaHistory)
             ctx.commitTaaHistory();
     }
@@ -616,6 +611,14 @@ namespace FREYA_NAMESPACE
         ctx.debugDrawPass->reset();
         *ctx.debugDrawPass =
             sp.GetService<DebugDrawPassBuilder>()->Build(ctx.swapChain);
+        if (!*ctx.debugDrawPass)
+            return;
+        if (ctx.outputTarget && *ctx.outputTarget)
+        {
+            (*ctx.debugDrawPass)
+                ->UpdateOffscreen((*ctx.outputTarget)->GetColorImage(),
+                                  ctx.VkExtent());
+        }
     }
 
     void DebugDrawFrameStage::Execute(StageContext& stageCtx)
