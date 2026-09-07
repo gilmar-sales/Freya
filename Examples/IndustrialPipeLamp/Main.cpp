@@ -1,4 +1,4 @@
-#include <Freya/Advanced.hpp>
+#include <Freya/Freya.hpp>
 
 #include <FreyaExamples/CullAabbDebugDraw.hpp>
 #include <FreyaExamples/DebugOverlay.hpp>
@@ -16,7 +16,7 @@
 class MainApp final : public fra::AbstractApplication
 {
   public:
-    explicit MainApp(const skr::Arc<skr::ServiceProvider>& serviceProvider) :
+    explicit MainApp(const fra::Ref<fra::ServiceProvider>& serviceProvider) :
         AbstractApplication(serviceProvider)
     {
         auto windowServices = GetMainServiceProvider();
@@ -138,9 +138,9 @@ class MainApp final : public fra::AbstractApplication
         mLampModel = mMeshPool->CreateModelFromFile(
             "./Resources/Models/industrial_pipe_lamp.glb");
         // GLB node order with KEEP_HIERARCHY: body (0), bulb (1), switch (2).
-        mBulbMeshId = mLampModel.size() > 1 ? mLampModel[1].meshId
-                                            : std::uint32_t { ~0u };
-        if (mBulbMeshId == ~0u)
+        mBulbMesh = mLampModel.size() > 1 ? mLampModel[1].mesh
+                                      : fra::MeshHandle {};
+        if (!mBulbMesh.IsValid())
         {
             std::cerr << "Lamp GLB has " << mLampModel.size()
                       << " submesh(es); expected body/bulb/switch — "
@@ -349,7 +349,8 @@ class MainApp final : public fra::AbstractApplication
         }
 
         mMainCam.Apply(*mRenderer);
-        mRenderer->UploadSceneInstances(buildSceneInstances(true));
+        syncScene(mScene, true);
+        mScene.Upload(*mRenderer);
 
         if (mOverlay.ShowCullAabbs())
             drawCullAabbs();
@@ -378,7 +379,8 @@ class MainApp final : public fra::AbstractApplication
 
         renderer->BeginFrame();
         mSecondaryCam.Apply(*renderer);
-        renderer->UploadSceneInstances(buildSceneInstances(false));
+        syncScene(mSecondaryScene, false);
+        mSecondaryScene.Upload(*renderer);
         renderer->EndFrame();
     }
 
@@ -420,34 +422,31 @@ class MainApp final : public fra::AbstractApplication
         std::cout << "Secondary window opened (shared meshes; RMB+WASD)\n";
     }
 
-    [[nodiscard]] std::vector<fra::SceneInstanceUpload> buildSceneInstances(
-        const bool bothLamps) const
+    void syncScene(fra::Scene& scene, const bool bothLamps)
     {
-        const std::uint32_t                   lampCount = bothLamps ? 2u : 1u;
-        std::vector<fra::SceneInstanceUpload> instances;
-        instances.reserve(mLampModel.size() * lampCount + 1);
+        scene.Clear();
+        const std::uint32_t lampCount = bothLamps ? 2u : 1u;
         for (const auto& part : mLampModel)
         {
-            const bool isBulb = part.meshId == mBulbMeshId;
+            const bool isBulb = part.mesh == mBulbMesh;
             for (std::uint32_t i = 0; i < lampCount; ++i)
             {
-                instances.push_back(fra::SceneInstanceUpload {
-                    .model       = mModelMatrix[i],
-                    .meshId      = part.meshId,
-                    .materialId  = isBulb ? mBulbMaterial : mSofaMaterial,
-                    .entityId    = i + 1,
-                    .castShadows = !isBulb,
-                });
+                fra::Scene::Instance inst {};
+                inst.model       = mModelMatrix[i];
+                inst.mesh        = part.mesh;
+                inst.material    = isBulb ? mBulbMaterial : mSofaMaterial;
+                inst.entityId    = i + 1;
+                inst.castShadows = !isBulb;
+                scene.Add(inst);
             }
         }
-        instances.push_back(fra::SceneInstanceUpload {
-            .model       = mModelMatrix[2],
-            .meshId      = mGroundMesh,
-            .materialId  = mGroundMaterial,
-            .entityId    = 0,
-            .castShadows = false,
-        });
-        return instances;
+        fra::Scene::Instance ground {};
+        ground.model       = mModelMatrix[2];
+        ground.mesh        = mGroundMesh;
+        ground.material    = mGroundMaterial;
+        ground.entityId    = 0;
+        ground.castShadows = false;
+        scene.Add(ground);
     }
 
     /**
@@ -463,12 +462,12 @@ class MainApp final : public fra::AbstractApplication
         auto& dd = mRenderer->GetDebugDraw();
         for (const auto& part : mLampModel)
         {
-            const bool      isBulb = part.meshId == mBulbMeshId;
+            const bool      isBulb = part.mesh == mBulbMesh;
             const glm::vec4 color  = isBulb ? glm::vec4(1.0f, 0.8f, 0.2f, 0.9f)
                                             : glm::vec4(0.2f, 0.9f, 1.0f, 0.6f);
             for (std::uint32_t i = 0; i < 2; ++i)
                 FreyaExamples::DrawCullAabb(
-                    dd, *mMeshPool, part.meshId, mModelMatrix[i], color);
+                    dd, *mMeshPool, part.mesh, mModelMatrix[i], color);
         }
         FreyaExamples::DrawCullAabb(
             dd, *mMeshPool, mGroundMesh, mModelMatrix[2],
@@ -623,24 +622,26 @@ class MainApp final : public fra::AbstractApplication
     };
 
     std::vector<fra::ModelSubmesh> mLampModel;
-    std::optional<std::uint32_t>   mSofaAlbedo {};
-    std::optional<std::uint32_t>   mSofaNormal {};
-    std::optional<std::uint32_t>   mSofaRoughness {};
-    std::optional<std::uint32_t>   mSofaEmissive {};
-    std::optional<std::uint32_t>   mSofaMetalness {};
-    std::uint32_t                  mSofaMaterial {};
-    std::uint32_t                  mBulbMaterial {};
-    std::uint32_t                  mBulbMeshId { ~0u };
+    std::optional<fra::TextureHandle> mSofaAlbedo {};
+    std::optional<fra::TextureHandle> mSofaNormal {};
+    std::optional<fra::TextureHandle> mSofaRoughness {};
+    std::optional<fra::TextureHandle> mSofaEmissive {};
+    std::optional<fra::TextureHandle> mSofaMetalness {};
+    fra::MaterialHandle               mSofaMaterial {};
+    fra::MaterialHandle               mBulbMaterial {};
+    fra::MeshHandle                   mBulbMesh {};
 
-    std::uint32_t mGroundMesh {};
-    std::uint32_t mGroundMaterial {};
+    fra::MeshHandle     mGroundMesh {};
+    fra::MaterialHandle mGroundMaterial {};
+    fra::Scene          mScene;
+    fra::Scene          mSecondaryScene;
 
-    skr::Arc<fra::MaterialPool> mMaterialPool;
-    skr::Arc<fra::TexturePool>  mTexturePool;
-    skr::Arc<fra::MeshPool>     mMeshPool;
-    skr::Arc<fra::LightService> mLightService;
-    skr::Arc<fra::FreyaOptions> mFreyaOptions;
-    skr::Arc<fra::Window>       mSecondaryWindow;
+    fra::Ref<fra::MaterialPool> mMaterialPool;
+    fra::Ref<fra::TexturePool>  mTexturePool;
+    fra::Ref<fra::MeshPool>     mMeshPool;
+    fra::Ref<fra::LightService> mLightService;
+    fra::Ref<fra::FreyaOptions> mFreyaOptions;
+    fra::Ref<fra::Window>       mSecondaryWindow;
     FreyaExamples::FlyCam       mMainCam;
     FreyaExamples::FlyCam       mSecondaryCam;
     FreyaExamples::DebugOverlay mOverlay;
@@ -657,34 +658,26 @@ class MainApp final : public fra::AbstractApplication
     bool                       mShowLightGizmos  = true;
 };
 
-int main(int argc, const char** argv)
+int main(int, const char**)
 {
-    const auto app =
-        skr::ApplicationBuilder()
-            .WithExtension<skr::LoggingExtension>([](skr::LoggingExtension& l) {
-                FreyaExamples::ConfigureLogging(l, "IndustrialPipeLamp.log");
-            })
-            .WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
-                freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
-                    freyaOptions
-                        .SetTitle("Industrial Pipe Lamp — Deferred [RMB+WASD]")
-                        .SetWidth(1920)
-                        .SetHeight(1080)
-                        .SetVSync(false)
-                        .SetSampleCount(8)
-                        .WithReverseZ()
-                        .SetIblIntensity(0.12f)
-                        .SetShadowQuality(fra::ShadowQuality::High)
-                        .SetShadowBias(0.002f)
-                        .SetShadowLightSize(0.035f)
-                        .SetShadowMaxSoftness(8.0f)
-                        .SetShadowMinVisibility(0.0f)
-                        .SetFullscreen(false);
-                });
-            })
-            .Build<MainApp>();
-
-    app->Run();
-
-    return 0;
+    return fra::RunApp<MainApp>(
+        [](fra::FreyaOptionsBuilder& freyaOptions) {
+            freyaOptions
+                .SetTitle("Industrial Pipe Lamp — Deferred [RMB+WASD]")
+                .SetWidth(1920)
+                .SetHeight(1080)
+                .SetVSync(false)
+                .SetSampleCount(8)
+                .WithReverseZ()
+                .SetIblIntensity(0.12f)
+                .SetShadowQuality(fra::ShadowQuality::High)
+                .SetShadowBias(0.002f)
+                .SetShadowLightSize(0.035f)
+                .SetShadowMaxSoftness(8.0f)
+                .SetShadowMinVisibility(0.0f)
+                .SetFullscreen(false);
+        },
+        [](skr::LoggingExtension& l) {
+            FreyaExamples::ConfigureLogging(l, "IndustrialPipeLamp.log");
+        });
 }

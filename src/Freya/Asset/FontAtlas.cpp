@@ -35,9 +35,9 @@ namespace FREYA_NAMESPACE
 
     std::uint32_t FontAtlas::HeapIndex() const
     {
-        if (mTextureId == kInvalid)
+        if (!mTexture.IsValid())
             return 0;
-        return MaterialDescriptorResources::TextureHeapIndex(mTextureId);
+        return MaterialDescriptorResources::TextureHeapIndex(mTexture.Id());
     }
 
     const FontGlyph* FontAtlas::Find(const char32_t codepoint) const
@@ -156,7 +156,7 @@ namespace FREYA_NAMESPACE
         for (char32_t cp = 160; cp <= 255; ++cp)
             bakeCodepoint(cp);
 
-        atlas.mTextureId = textures.CreateTextureFromMemory(
+        atlas.mTexture = textures.CreateTextureFromMemory(
             atlasPixels.data(), kAtlasSize, kAtlasSize, 1, 1);
         return atlas;
     }

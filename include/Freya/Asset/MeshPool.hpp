@@ -1,10 +1,10 @@
 #pragma once
 
-#include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Asset/Material.hpp"
 #include "Freya/Asset/Mesh.hpp"
 #include "Freya/Asset/SkinnedModel.hpp"
 #include "Freya/Asset/Vertex.hpp"
+#include "Freya/Scene/AssetHandle.hpp"
 
 #include <Skirnir/Skirnir.hpp>
 
@@ -19,6 +19,7 @@ namespace FREYA_NAMESPACE
     class Buffer;
     class CommandPool;
     class IndirectDrawSystem;
+    class MeshPoolGpuAccess;
 
     class MeshPool
     {
@@ -32,38 +33,34 @@ namespace FREYA_NAMESPACE
         MeshPool(MeshPool&&) noexcept;
         MeshPool& operator=(MeshPool&&) noexcept;
 
-        std::uint32_t CreateMesh(const std::vector<Vertex>&        vertices,
-                                 const std::vector<std::uint32_t>& indices);
+        MeshHandle CreateMesh(const std::vector<Vertex>&        vertices,
+                              const std::vector<std::uint32_t>& indices);
 
         std::vector<ModelSubmesh> CreateModelFromFile(const std::string& path);
 
         SkinnedModel CreateSkinnedModelFromFile(const std::string& path);
 
-        [[nodiscard]] bool Contains(std::uint32_t meshId) const;
+        [[nodiscard]] bool Contains(MeshHandle mesh) const;
 
-        [[nodiscard]] const Mesh& GetMesh(std::uint32_t meshId) const;
+        [[nodiscard]] const Mesh& GetMesh(MeshHandle mesh) const;
 
         [[nodiscard]] std::uint32_t GetMeshCount() const;
 
-        void FillMeshInfos(std::vector<MeshInfo>& out) const;
-
-        void FillMeshLods(std::vector<MeshLodInfo>& out) const;
-
-        void Destroy(std::uint32_t meshId);
+        void Destroy(MeshHandle mesh);
 
       private:
         friend class IndirectDrawSystem;
+        friend class MeshPoolGpuAccess;
 
         void BindGeometry(const skr::Arc<CommandPool>& commandPool) const;
 
         [[nodiscard]] const skr::Arc<Buffer>& GetVertexBuffer() const;
         [[nodiscard]] const skr::Arc<Buffer>& GetIndexBuffer() const;
 
-        void Draw(const skr::Arc<CommandPool>& commandPool,
-                  std::uint32_t                meshId);
+        void Draw(const skr::Arc<CommandPool>& commandPool, MeshHandle mesh);
 
         void DrawInstanced(const skr::Arc<CommandPool>& commandPool,
-                           std::uint32_t                meshId,
+                           MeshHandle                   mesh,
                            size_t                       instanceCount,
                            size_t                       firstInstance = 0);
 

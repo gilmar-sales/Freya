@@ -4,10 +4,10 @@
 
 namespace FreyaExamples
 {
-    std::uint32_t CreateGroundPlane(fra::MeshPool&  meshPool,
-                                    const float     halfExtent,
-                                    const glm::vec3 tint,
-                                    const bool      windingCCW)
+    fra::MeshHandle CreateGroundPlane(fra::MeshPool&  meshPool,
+                                      const float     halfExtent,
+                                      const glm::vec3 tint,
+                                      const bool      windingCCW)
     {
         const auto up  = glm::vec3(0.0f, 1.0f, 0.0f);
         const auto tan = glm::vec3(1.0f, 0.0f, 0.0f);

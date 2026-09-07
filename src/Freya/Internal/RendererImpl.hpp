@@ -3,7 +3,9 @@
 #include "Freya/Core/Renderer.hpp"
 
 #include "Freya/Asset/BoneMatrixResources.hpp"
+#include "Freya/Asset/CullFrameDump.hpp"
 #include "Freya/Asset/MeshPool.hpp"
+#include "Freya/Asset/SceneInstanceUpload.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/RenderTargetBuilder.hpp"
 #include "Freya/Core/BillboardPass.hpp"
@@ -13,6 +15,9 @@
 #include "Freya/Core/DebugDrawPass.hpp"
 #include "Freya/Core/DeferredCompressedPass.hpp"
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/GpuAnimPass.hpp"
+#include "Freya/Core/GpuAnimationSystem.hpp"
+#include "Freya/Core/IFrameStage.hpp"
 #include "Freya/Core/IndirectDrawSystem.hpp"
 #include "Freya/Core/Instance.hpp"
 #include "Freya/Core/LightService.hpp"
@@ -20,6 +25,7 @@
 #include "Freya/Core/PickPass.hpp"
 #include "Freya/Core/RenderFrameContext.hpp"
 #include "Freya/Core/RenderTarget.hpp"
+#include "Freya/Core/RendererUi.hpp"
 #include "Freya/Core/ShadowPass.hpp"
 #include "Freya/Core/SsaoPass.hpp"
 #include "Freya/Core/SwapChain.hpp"
@@ -273,6 +279,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<DebugDrawPass>          mDebugDrawPass;
         skr::Arc<BillboardPass>          mBillboardPass;
         skr::Arc<GpuAnimPass>            mGpuAnimPass;
+        GpuAnimationSystem               mGpuAnimSystem { nullptr };
         DebugDraw                        mDebugDraw;
         BillboardDraw                    mBillboardDraw;
         bool                             mDebugDrawEnabled = false;

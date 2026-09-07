@@ -16,6 +16,12 @@ namespace FREYA_NAMESPACE
     constexpr std::uint32_t kGpuAnimMaxInstances = 2048;
     constexpr std::uint32_t kGpuAnimMaxClips     = 24;
 
+    /// Sentinel bone palette offset: instance is not skinned.
+    constexpr std::uint32_t kNoSkin = 0xFFFFFFFFu;
+
+    /// Pick miss / no-entity id for instance uploads.
+    constexpr std::uint32_t kPickMissId = 0xFFFFFFFFu;
+
     enum class LightType : std::uint32_t
     {
         Point       = 0,
@@ -25,3 +31,4 @@ namespace FREYA_NAMESPACE
     };
 
 } // namespace FREYA_NAMESPACE
+

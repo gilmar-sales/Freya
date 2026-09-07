@@ -15,6 +15,7 @@
 #include "Freya/Core/Limits.hpp"
 
 #include "Freya/Core/AbstractApplication.hpp"
+#include "Freya/Core/FreyaApp.hpp"
 #include "Freya/Core/FreyaExtension.hpp"
 #include "Freya/FreyaOptions.hpp"
 
@@ -24,13 +25,11 @@
 #include "Freya/Asset/AnimationClip.hpp"
 #include "Freya/Asset/BakedAnimation.hpp"
 #include "Freya/Asset/FontAtlas.hpp"
-#include "Freya/Asset/InstanceTransform.hpp"
 #include "Freya/Asset/Material.hpp"
 #include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Asset/Pose.hpp"
 #include "Freya/Asset/Rig.hpp"
-#include "Freya/Asset/SceneInstanceUpload.hpp"
 #include "Freya/Asset/Skeleton.hpp"
 #include "Freya/Asset/SkinnedModel.hpp"
 #include "Freya/Asset/TexturePool.hpp"

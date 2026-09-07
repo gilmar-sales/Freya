@@ -1,13 +1,13 @@
 #pragma once
 
+#include "Freya/Asset/InstanceTransform.hpp"
+#include "Freya/Config.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 
 #include <glm/glm.hpp>
-
-#include "Freya/Asset/InstanceTransform.hpp"
-#include "Freya/Asset/SceneInstanceUpload.hpp"
 
 namespace FREYA_NAMESPACE
 {

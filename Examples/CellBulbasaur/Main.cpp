@@ -108,7 +108,7 @@ namespace
 class MainApp final : public fra::AbstractApplication
 {
   public:
-    explicit MainApp(const skr::Arc<skr::ServiceProvider>& serviceProvider) :
+    explicit MainApp(const fra::Ref<fra::ServiceProvider>& serviceProvider) :
         AbstractApplication(serviceProvider)
     {
         auto windowServices = GetMainServiceProvider();
@@ -219,7 +219,7 @@ class MainApp final : public fra::AbstractApplication
                 {
                     mEyesUnlit = !mEyesUnlit;
                     auto setEyeTech =
-                        [&](std::uint32_t id, std::uint32_t cellOrDefault) {
+                        [&](fra::MaterialHandle id, std::uint32_t cellOrDefault) {
                             auto info = mMaterialPool->GetCreateInfo(id);
                             info.techniqueId =
                                 mEyesUnlit ? mUnlitTechnique : cellOrDefault;
@@ -255,7 +255,7 @@ class MainApp final : public fra::AbstractApplication
         const auto revZ       = mFreyaOptions->ReverseZ ? 1.0f : 0.0f;
         auto       insertPost = [&](skr::Arc<fra::PostProcess> effect) {
             if (effect)
-                mRenderer->InsertFrameStage(
+                fra::Advanced(*mRenderer).InsertFrameStage(
                     "BillboardVfx", effect->MakeStage());
         };
 
@@ -411,8 +411,8 @@ class MainApp final : public fra::AbstractApplication
         });
 
         auto makeBodyMats =
-            [&](std::uint32_t& eye, std::uint32_t& bodyB, std::uint32_t& bodyA,
-                std::uint32_t techniqueId) {
+            [&](fra::MaterialHandle& eye, fra::MaterialHandle& bodyB,
+                fra::MaterialHandle& bodyA, std::uint32_t techniqueId) {
                 eye   = mMaterialPool->Create({
                     .albedo          = eyeAlbedo,
                     .roughnessFactor = 1.0f,
@@ -440,33 +440,33 @@ class MainApp final : public fra::AbstractApplication
 
         if (mCellEffect)
         {
-            mCellEffect->BindMaterial(mEyeMaterial);
-            mCellEffect->BindMaterial(mBodyBMaterial);
-            mCellEffect->BindMaterial(mBodyAMaterial);
+            mCellEffect->BindMaterial(mEyeMaterial.Id());
+            mCellEffect->BindMaterial(mBodyBMaterial.Id());
+            mCellEffect->BindMaterial(mBodyAMaterial.Id());
         }
         if (mHeatEffect)
         {
-            mHeatEffect->BindMaterial(mEyeMaterial);
-            mHeatEffect->BindMaterial(mBodyBMaterial);
-            mHeatEffect->BindMaterial(mBodyAMaterial);
+            mHeatEffect->BindMaterial(mEyeMaterial.Id());
+            mHeatEffect->BindMaterial(mBodyBMaterial.Id());
+            mHeatEffect->BindMaterial(mBodyAMaterial.Id());
         }
         if (mOutlineEffect)
         {
-            mOutlineEffect->BindMaterial(mEyeMaterial);
-            mOutlineEffect->BindMaterial(mBodyBMaterial);
-            mOutlineEffect->BindMaterial(mBodyAMaterial);
+            mOutlineEffect->BindMaterial(mEyeMaterial.Id());
+            mOutlineEffect->BindMaterial(mBodyBMaterial.Id());
+            mOutlineEffect->BindMaterial(mBodyAMaterial.Id());
         }
         if (mGlowEffect)
         {
-            mGlowEffect->BindMaterial(mEyeMaterial);
-            mGlowEffect->BindMaterial(mBodyBMaterial);
-            mGlowEffect->BindMaterial(mBodyAMaterial);
+            mGlowEffect->BindMaterial(mEyeMaterial.Id());
+            mGlowEffect->BindMaterial(mBodyBMaterial.Id());
+            mGlowEffect->BindMaterial(mBodyAMaterial.Id());
         }
         if (mMuGlowEffect)
         {
-            mMuGlowEffect->BindMaterial(mEyeMaterial);
-            mMuGlowEffect->BindMaterial(mBodyBMaterial);
-            mMuGlowEffect->BindMaterial(mBodyAMaterial);
+            mMuGlowEffect->BindMaterial(mEyeMaterial.Id());
+            mMuGlowEffect->BindMaterial(mBodyBMaterial.Id());
+            mMuGlowEffect->BindMaterial(mBodyAMaterial.Id());
         }
 
         mSkinned = mMeshPool->CreateSkinnedModelFromFile(
@@ -553,7 +553,7 @@ class MainApp final : public fra::AbstractApplication
         if (!mFont.Valid())
             std::cerr << "Failed to load NotoSans-Regular.ttf\n";
 
-        buildSceneInstances();
+        buildScene();
         updateTitle();
 
         // After RebuildSwapChain / InsertFrameStage so ImGui binds the final
@@ -619,21 +619,7 @@ class MainApp final : public fra::AbstractApplication
                 fra::PoseToSkinMatrices(mSkinned.skeleton, local));
         }
 
-        std::vector<fra::SceneInstanceUpload> instances;
-        instances.reserve(mInstances.size());
-        for (const auto& inst : mInstances)
-        {
-            instances.push_back({
-                .model       = inst.model,
-                .meshId      = inst.meshId,
-                .materialId  = inst.materialId,
-                .entityId    = inst.entityId,
-                .castShadows = inst.castShadows,
-                .boneOffset  = inst.boneOffset,
-                .boneCount   = inst.boneCount,
-            });
-        }
-        mRenderer->UploadSceneInstances(instances);
+        mScene.Upload(*mRenderer);
 
         if (mOverlay.ShowCullAabbs())
             drawCullAabbs();
@@ -686,21 +672,7 @@ class MainApp final : public fra::AbstractApplication
     // now — cull AABBs share the instance model matrix.
     static constexpr float kModelScale = 1.0f;
 
-    struct Instance
-    {
-        glm::mat4     model {};
-        std::uint32_t meshId      = 0;
-        std::uint32_t materialId  = 0;
-        std::uint32_t entityId    = 0;
-        bool          castShadows = true;
-        std::uint32_t boneOffset  = fra::kNoSkin;
-        std::uint32_t boneCount   = 0;
-        /// Eye submesh (materialForMesh index % 3 == 0) — highlighted
-        /// distinctly in the GPU-cull AABB debug draw (see drawCullAabbs).
-        bool isEye = false;
-    };
-
-    std::uint32_t materialForMesh(std::size_t index, bool cellShaded) const
+    fra::MaterialHandle materialForMesh(std::size_t index, bool cellShaded) const
     {
         switch (index % 3)
         {
@@ -713,20 +685,22 @@ class MainApp final : public fra::AbstractApplication
         }
     }
 
-    void buildSceneInstances()
+    void buildScene()
     {
-        mInstances.clear();
+        mScene.Clear();
+        mIsEye.clear();
         std::uint32_t nextEntity = 1;
 
         {
-            Instance ground {};
+            fra::Scene::Instance ground {};
             ground.model =
                 glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.2f, 0.0f));
-            ground.meshId      = mGroundMesh;
-            ground.materialId  = mGroundMaterial;
+            ground.mesh        = mGroundMesh;
+            ground.material    = mGroundMaterial;
             ground.entityId    = nextEntity++;
             ground.castShadows = true;
-            mInstances.push_back(ground);
+            const auto id      = mScene.Add(ground);
+            ensureIsEye(id, false);
         }
 
         const auto joints       = mSkinned.skeleton.JointCount();
@@ -736,20 +710,27 @@ class MainApp final : public fra::AbstractApplication
             model = glm::scale(model, glm::vec3(kModelScale));
             for (std::size_t i = 0; i < mSkinned.submeshes.size(); ++i)
             {
-                Instance inst {};
-                inst.model      = model;
-                inst.meshId     = mSkinned.submeshes[i].meshId;
-                inst.materialId = materialForMesh(i, cellShaded);
-                inst.entityId   = nextEntity++;
-                inst.boneOffset = joints > 0 ? 0u : fra::kNoSkin;
-                inst.boneCount  = joints;
-                inst.isEye      = (i % 3) == 0;
-                mInstances.push_back(inst);
+                fra::Scene::Instance inst {};
+                inst.model       = model;
+                inst.mesh        = mSkinned.submeshes[i].mesh;
+                inst.material    = materialForMesh(i, cellShaded);
+                inst.entityId    = nextEntity++;
+                inst.boneOffset  = joints > 0 ? 0u : fra::kNoSkin;
+                inst.boneCount   = joints;
+                const auto id    = mScene.Add(inst);
+                ensureIsEye(id, (i % 3) == 0);
             }
         };
 
         addBulbasaur(-1.2f, true);
         addBulbasaur(1.2f, false);
+    }
+
+    void ensureIsEye(fra::Scene::InstanceId id, bool isEye)
+    {
+        if (id >= mIsEye.size())
+            mIsEye.resize(id + 1, false);
+        mIsEye[id] = isEye;
     }
 
     /**
@@ -765,14 +746,16 @@ class MainApp final : public fra::AbstractApplication
     void drawCullAabbs()
     {
         auto& dd = mRenderer->GetDebugDraw();
-        for (const auto& inst : mInstances)
-        {
-            const glm::vec4 color =
-                inst.isEye ? glm::vec4(1.0f, 0.15f, 0.85f, 1.0f)
-                           : glm::vec4(0.2f, 0.9f, 1.0f, 0.6f);
-            FreyaExamples::DrawCullAabb(
-                dd, *mMeshPool, inst.meshId, inst.model, color);
-        }
+        mScene.ForEach(
+            [&](fra::Scene::InstanceId id, const fra::Scene::Instance& inst) {
+                const bool isEye =
+                    id < mIsEye.size() && mIsEye[id];
+                const glm::vec4 color =
+                    isEye ? glm::vec4(1.0f, 0.15f, 0.85f, 1.0f)
+                          : glm::vec4(0.2f, 0.9f, 1.0f, 0.6f);
+                FreyaExamples::DrawCullAabb(
+                    dd, *mMeshPool, inst.mesh, inst.model, color);
+            });
     }
 
     void applyMuGlowLevel()
@@ -799,7 +782,7 @@ class MainApp final : public fra::AbstractApplication
 
     void updateTitle()
     {
-        auto flag = [](const skr::Arc<fra::PostProcess>& e) {
+        auto flag = [](const fra::Ref<fra::PostProcess>& e) {
             return e && e->Enabled() ? '1' : '0';
         };
         mFreyaOptions->title =
@@ -811,14 +794,14 @@ class MainApp final : public fra::AbstractApplication
             (mEyesUnlit ? " unlit" : "");
     }
 
-    skr::Arc<skr::ServiceProvider> mServices;
-    skr::Arc<fra::PostProcess>     mCellEffect;
-    skr::Arc<fra::PostProcess>     mOutlineEffect;
-    skr::Arc<fra::PostProcess>     mGradeEffect;
-    skr::Arc<fra::PostProcess>     mUnderwaterEffect;
-    skr::Arc<fra::PostProcess>     mHeatEffect;
-    skr::Arc<fra::PostProcess>     mGlowEffect;
-    skr::Arc<fra::PostProcess>     mMuGlowEffect;
+    fra::Ref<skr::ServiceProvider> mServices;
+    fra::Ref<fra::PostProcess>     mCellEffect;
+    fra::Ref<fra::PostProcess>     mOutlineEffect;
+    fra::Ref<fra::PostProcess>     mGradeEffect;
+    fra::Ref<fra::PostProcess>     mUnderwaterEffect;
+    fra::Ref<fra::PostProcess>     mHeatEffect;
+    fra::Ref<fra::PostProcess>     mGlowEffect;
+    fra::Ref<fra::PostProcess>     mMuGlowEffect;
     HeatPush                       mHeatPush {};
     UnderwaterPush                 mUnderwaterPush {};
     MuGlowPush                     mMuGlowPush {};
@@ -829,20 +812,20 @@ class MainApp final : public fra::AbstractApplication
     bool                           mGroundTriplanar    = false;
     bool                           mEyesUnlit          = false;
     float                          mEffectTime         = 0.0f;
-    skr::Arc<fra::MeshPool>        mMeshPool;
-    skr::Arc<fra::TexturePool>     mTexturePool;
-    skr::Arc<fra::MaterialPool>    mMaterialPool;
-    skr::Arc<fra::LightService>    mLightService;
-    skr::Arc<fra::FreyaOptions>    mFreyaOptions;
+    fra::Ref<fra::MeshPool>     mMeshPool;
+    fra::Ref<fra::TexturePool>  mTexturePool;
+    fra::Ref<fra::MaterialPool> mMaterialPool;
+    fra::Ref<fra::LightService> mLightService;
+    fra::Ref<fra::FreyaOptions> mFreyaOptions;
 
-    std::uint32_t             mGroundMesh       = 0;
-    std::uint32_t             mGroundMaterial   = 0;
-    std::uint32_t             mEyeMaterial      = 0;
-    std::uint32_t             mBodyAMaterial    = 0;
-    std::uint32_t             mBodyBMaterial    = 0;
-    std::uint32_t             mPbrEyeMaterial   = 0;
-    std::uint32_t             mPbrBodyAMaterial = 0;
-    std::uint32_t             mPbrBodyBMaterial = 0;
+    fra::MeshHandle     mGroundMesh {};
+    fra::MaterialHandle mGroundMaterial {};
+    fra::MaterialHandle mEyeMaterial {};
+    fra::MaterialHandle mBodyAMaterial {};
+    fra::MaterialHandle mBodyBMaterial {};
+    fra::MaterialHandle mPbrEyeMaterial {};
+    fra::MaterialHandle mPbrBodyAMaterial {};
+    fra::MaterialHandle mPbrBodyBMaterial {};
     fra::SkinnedModel         mSkinned;
     const fra::AnimationClip* mIdleClip = nullptr;
     float                     mAnimTime = 0.0f;
@@ -854,7 +837,8 @@ class MainApp final : public fra::AbstractApplication
     std::int32_t              mFireLightIndex = -1;
     fra::FontAtlas            mFont;
     float                     mHpPulse = 0.0f;
-    std::vector<Instance>     mInstances;
+    fra::Scene                mScene;
+    std::vector<bool>         mIsEye;
 
     FreyaExamples::FlyCam       mCam;
     FreyaExamples::DebugOverlay mOverlay;
@@ -862,31 +846,24 @@ class MainApp final : public fra::AbstractApplication
 
 int main(int, const char**)
 {
-    const auto app =
-        skr::ApplicationBuilder()
-            .WithExtension<skr::LoggingExtension>([](skr::LoggingExtension& l) {
-                FreyaExamples::ConfigureLogging(l, "CellBulbasaur.log");
-            })
-            .WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
-                freya.WithOptions([](fra::FreyaOptionsBuilder& o) {
-                    o.SetTitle("CellBulbasaur")
-                        .SetWidth(1600)
-                        .SetHeight(900)
-                        .SetFullscreen(false)
-                        .SetVSync(true)
-                        .WithReverseZ()
-                        .SetSampleCount(1)
-                        .SetIblIntensity(0.0f)
-                        .SetExposure(0.85f)
-                        .SetEnvironmentMapPath("")
-                        .SetShadowQuality(fra::ShadowQuality::Ultra)
-                        .SetTaaQuality(fra::TaaQuality::Ultra)
-                        .SetBloomQuality(fra::BloomQuality::Ultra)
-                        .SetSsaoQuality(fra::SsaoQuality::Ultra);
-                });
-            })
-            .Build<MainApp>();
-
-    app->Run();
-    return 0;
+    return fra::RunApp<MainApp>(
+        [](fra::FreyaOptionsBuilder& o) {
+            o.SetTitle("CellBulbasaur")
+                .SetWidth(1600)
+                .SetHeight(900)
+                .SetFullscreen(false)
+                .SetVSync(true)
+                .WithReverseZ()
+                .SetSampleCount(1)
+                .SetIblIntensity(0.0f)
+                .SetExposure(0.85f)
+                .SetEnvironmentMapPath("")
+                .SetShadowQuality(fra::ShadowQuality::Ultra)
+                .SetTaaQuality(fra::TaaQuality::Ultra)
+                .SetBloomQuality(fra::BloomQuality::Ultra)
+                .SetSsaoQuality(fra::SsaoQuality::Ultra);
+        },
+        [](skr::LoggingExtension& l) {
+            FreyaExamples::ConfigureLogging(l, "CellBulbasaur.log");
+        });
 }

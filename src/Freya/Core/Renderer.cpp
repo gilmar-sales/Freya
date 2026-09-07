@@ -96,7 +96,8 @@ namespace FREYA_NAMESPACE
         mDevice(device), mSwapChain(swapChain), mDeferredPass(deferredPass),
         mBloomPass(bloomPass), mTaaPass(taaPass), mSsaoPass(ssaoPass),
         mCompositePass(compositePass), mDebugDrawPass(debugDrawPass),
-        mGpuAnimPass(gpuAnimPass), mCommandPool(commandPool),
+        mGpuAnimPass(gpuAnimPass), mGpuAnimSystem(this),
+        mCommandPool(commandPool),
         mLightService(lightService), mShadowPass(shadowPass),
         mPickPass(pickPass), mServiceProvider(serviceProvider),
         mFreyaOptions(freyaOptions), mEventManager(eventManager),
@@ -1497,8 +1498,8 @@ namespace FREYA_NAMESPACE
             {
                 const auto          instanceIndex = cmd.firstInstance + i;
                 SceneInstanceUpload upload {};
-                upload.meshId      = cmd.meshId;
-                upload.materialId  = cmd.materialId;
+                upload.mesh        = MeshHandle { cmd.meshId };
+                upload.material    = MaterialHandle { cmd.materialId };
                 upload.entityId    = cmd.entityId;
                 upload.castShadows = cmd.castShadows;
                 if (instanceIndex < mLegacyModels.size())

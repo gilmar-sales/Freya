@@ -1,5 +1,6 @@
 #include "Freya/Core/IndirectDrawSystem.hpp"
 
+#include "Freya/Asset/MeshPoolGpu.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 
 #include <algorithm>
@@ -360,8 +361,8 @@ namespace FREYA_NAMESPACE
 
     void IndirectDrawSystem::SyncMeshInfo()
     {
-        mMeshPool->FillMeshInfos(mMeshInfos);
-        mMeshPool->FillMeshLods(mMeshLods);
+        MeshPoolGpuAccess::FillMeshInfos(*mMeshPool, mMeshInfos);
+        MeshPoolGpuAccess::FillMeshLods(*mMeshPool, mMeshLods);
 
         const auto meshCount =
             std::max(static_cast<std::uint32_t>(mMeshInfos.size()), 1u);
@@ -506,7 +507,7 @@ namespace FREYA_NAMESPACE
             if (mMaterialPool)
             {
                 const auto& matInfo =
-                    mMaterialPool->GetCreateInfo(src.materialId);
+                    mMaterialPool->GetCreateInfo(src.material);
                 techniqueId = matInfo.techniqueId;
                 if (techniqueId >= kMaxMaterialTechniques)
                     techniqueId = 0;
@@ -520,8 +521,8 @@ namespace FREYA_NAMESPACE
 
             mSceneInstances[dst] = SceneInstance {
                 .model       = src.model,
-                .meshId      = src.meshId,
-                .materialId  = src.materialId,
+                .meshId      = src.mesh.Id(),
+                .materialId  = src.material.Id(),
                 .entityId    = src.entityId,
                 .flags       = flags,
                 .techniqueId = techniqueId,
@@ -534,7 +535,7 @@ namespace FREYA_NAMESPACE
             mInstanceTransforms[dst] = InstanceTransform {
                 .model      = src.model,
                 .prevModel  = prev,
-                .materialId = src.materialId,
+                .materialId = src.material.Id(),
                 .entityId   = src.entityId,
                 .flags      = flags,
                 .boneOffset = src.boneOffset,

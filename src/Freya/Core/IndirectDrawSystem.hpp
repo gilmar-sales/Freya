@@ -6,6 +6,7 @@
 #include "Freya/Asset/MaterialDescriptorResources.hpp"
 #include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"
+#include "Freya/Asset/SceneInstanceUpload.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"

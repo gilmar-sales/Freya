@@ -8,6 +8,7 @@
 #include <vulkan/vulkan.hpp>
 
 #include <Freya/Freya.hpp>
+#include <Freya/Asset/SceneInstanceUpload.hpp>
 #include <FreyaExamples/CullFrameDumpIo.hpp>
 
 #include "Freya/Core/IndirectDrawSystem.hpp"
@@ -37,8 +38,8 @@ namespace
         return env ? env : FREYA_GPU_FIXTURE_ROOT;
     }
 
-    std::uint32_t CreateAabbBoxMesh(fra::MeshPool& pool, const glm::vec3& bmin,
-                                    const glm::vec3& bmax)
+    fra::MeshHandle CreateAabbBoxMesh(fra::MeshPool& pool, const glm::vec3& bmin,
+                                      const glm::vec3& bmax)
     {
         const glm::vec3 corners[8] = {
             { bmin.x, bmin.y, bmin.z }, { bmax.x, bmin.y, bmin.z },
@@ -104,7 +105,7 @@ namespace
             .metalnessFactor = 0.f,
         });
 
-        std::vector<std::uint32_t> meshRemap(snap.meshes.size());
+        std::vector<fra::MeshHandle> meshRemap(snap.meshes.size());
         for (std::size_t i = 0; i < snap.meshes.size(); ++i)
         {
             const auto& m = snap.meshes[i];
@@ -117,12 +118,12 @@ namespace
         for (const auto& inst : snap.instances)
         {
             fra::SceneInstanceUpload u {};
-            u.model      = inst.model;
-            u.meshId     = inst.meshId < meshRemap.size()
-                               ? meshRemap[inst.meshId]
-                               : meshRemap.front();
-            u.materialId = materialId;
-            u.entityId   = inst.entityId;
+            u.model    = inst.model;
+            u.mesh     = inst.meshId < meshRemap.size()
+                             ? meshRemap[inst.meshId]
+                             : meshRemap.front();
+            u.material = materialId;
+            u.entityId = inst.entityId;
             u.castShadows =
                 (inst.flags & fra::kSceneInstanceFlagCastShadows) != 0;
             if (inst.flags & fra::kSceneInstanceFlagSkinned)

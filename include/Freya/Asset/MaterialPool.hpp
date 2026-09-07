@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Freya/Asset/Material.hpp"
+#include "Freya/Scene/AssetHandle.hpp"
 
 #include <Skirnir/Skirnir.hpp>
 
@@ -22,19 +23,19 @@ namespace FREYA_NAMESPACE
 
         ~MaterialPool();
 
-        std::uint32_t CreateFromTextureFiles(
+        MaterialHandle CreateFromTextureFiles(
             std::vector<std::string> texturesPath);
 
-        std::uint32_t Create(const MaterialCreateInfo& createInfo);
+        MaterialHandle Create(const MaterialCreateInfo& createInfo);
 
-        void Update(std::uint32_t id, const MaterialCreateInfo& createInfo);
+        void Update(MaterialHandle id, const MaterialCreateInfo& createInfo);
 
         [[nodiscard]] const MaterialCreateInfo& GetCreateInfo(
-            std::uint32_t id) const;
+            MaterialHandle id) const;
 
-        [[nodiscard]] bool Contains(std::uint32_t id) const;
+        [[nodiscard]] bool Contains(MaterialHandle id) const;
 
-        void Destroy(std::uint32_t id);
+        void Destroy(MaterialHandle id);
 
       private:
         std::unique_ptr<Impl> mImpl;

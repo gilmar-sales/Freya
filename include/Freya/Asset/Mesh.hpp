@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Freya/Scene/AssetHandle.hpp"
+
 #include <compare>
 #include <cstdint>
 
@@ -16,8 +18,6 @@ namespace FREYA_NAMESPACE
     struct Mesh
     {
         operator size_t() const { return id; }
-
-        operator bool() const { return id != 0; }
 
         auto operator<=>(const Mesh& other) const { return id <=> other.id; }
 
@@ -42,8 +42,8 @@ namespace FREYA_NAMESPACE
      */
     struct ModelSubmesh
     {
-        std::uint32_t meshId     = 0;
-        std::uint32_t materialId = 0;
+        MeshHandle     mesh {};
+        MaterialHandle material {};
     };
 
 } // namespace FREYA_NAMESPACE

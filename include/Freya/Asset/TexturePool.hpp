@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Freya/Scene/AssetHandle.hpp"
+
 #include <Skirnir/Skirnir.hpp>
 
 #include <cstdint>
@@ -16,19 +18,19 @@ namespace FREYA_NAMESPACE
 
         ~TexturePool();
 
-        /** @return texture id, or nullopt when the file is missing/unreadable.
+        /** @return texture handle, or nullopt when the file is missing/unreadable.
          */
-        std::optional<std::uint32_t> CreateTextureFromFile(std::string path);
+        std::optional<TextureHandle> CreateTextureFromFile(std::string path);
 
-        std::uint32_t CreateTextureFromMemory(const void*   pixels,
+        TextureHandle CreateTextureFromMemory(const void*   pixels,
                                               std::uint32_t width,
                                               std::uint32_t height,
                                               std::uint32_t channels  = 4,
                                               std::uint32_t mipLevels = 0);
 
-        [[nodiscard]] bool Contains(std::uint32_t id) const;
+        [[nodiscard]] bool Contains(TextureHandle id) const;
 
-        void Destroy(std::uint32_t id);
+        void Destroy(TextureHandle id);
 
       private:
         struct Impl;

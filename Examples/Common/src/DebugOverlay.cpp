@@ -89,13 +89,14 @@ namespace FreyaExamples
 
         const auto width  = window.GetWidth();
         const auto height = window.GetHeight();
-        if (!renderer.SetViewportTarget(width, height))
+        auto       adv    = fra::Advanced(renderer);
+        if (!adv.SetViewportTarget(width, height))
         {
             std::fprintf(stderr, "DebugOverlay: SetViewportTarget failed\n");
             return false;
         }
 
-        auto handles = renderer.GetImGuiNativeHandles();
+        auto handles = adv.GetImGuiNativeHandles();
         if (!handles.device || !handles.window || !handles.renderPass)
         {
             std::fprintf(stderr,
@@ -143,7 +144,7 @@ namespace FreyaExamples
 
     bool DebugOverlay::reinitVulkanBackend(fra::Renderer& renderer)
     {
-        auto handles = renderer.GetImGuiNativeHandles();
+        auto handles = fra::Advanced(renderer).GetImGuiNativeHandles();
         if (!handles.device || !handles.renderPass)
         {
             std::fprintf(stderr,
@@ -337,7 +338,7 @@ namespace FreyaExamples
         if (!mInitialized || !mEnabled)
             return;
 
-        auto viewport = renderer.GetViewportImage();
+        auto viewport = fra::Advanced(renderer).GetViewportImage();
         if (viewport.valid && viewport.imageView && viewport.sampler)
         {
             ensureViewportTexture(viewport.sampler, viewport.imageView);
@@ -458,7 +459,7 @@ namespace FreyaExamples
         {
             if (ImGui::Button("Dump cull frame"))
             {
-                renderer.RequestCullFrameDump();
+                fra::Advanced(renderer).RequestCullFrameDump();
                 mCullDumpPending = true;
                 mLastCullDumpPath.clear();
             }
@@ -493,7 +494,7 @@ namespace FreyaExamples
             return;
 
         fra::CullFrameSnapshot snap {};
-        if (!renderer.TryConsumeCullFrameDump(snap))
+        if (!fra::Advanced(renderer).TryConsumeCullFrameDump(snap))
             return;
 
         snap.example = mCullDumpExample;
@@ -524,7 +525,7 @@ namespace FreyaExamples
                 ImGui_ImplVulkan_RenderDrawData(
                     ImGui::GetDrawData(),
                     static_cast<VkCommandBuffer>(
-                        renderer.NativeCommandBuffer()));
+                        fra::Advanced(renderer).NativeCommandBuffer()));
             });
             return;
         }

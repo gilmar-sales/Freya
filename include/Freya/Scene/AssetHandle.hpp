@@ -18,6 +18,8 @@ namespace FREYA_NAMESPACE
 
     /**
      * @brief Typed opaque asset id (pool index). Default-constructed is null.
+     *
+     * Pool ids may be 0; validity is an engaged flag, not "id != 0".
      */
     template <typename Tag>
     class AssetHandle
@@ -25,18 +27,29 @@ namespace FREYA_NAMESPACE
       public:
         constexpr AssetHandle() = default;
 
-        constexpr explicit AssetHandle(std::uint32_t id) : mId(id) {}
+        constexpr explicit AssetHandle(std::uint32_t id) :
+            mId(id), mValid(true)
+        {
+        }
 
         [[nodiscard]] constexpr std::uint32_t Id() const { return mId; }
 
-        [[nodiscard]] constexpr bool IsValid() const { return mId != 0; }
+        [[nodiscard]] constexpr bool IsValid() const { return mValid; }
 
         constexpr explicit operator bool() const { return IsValid(); }
 
-        constexpr auto operator<=>(const AssetHandle&) const = default;
+        constexpr auto operator<=>(const AssetHandle& other) const
+        {
+            if (mValid != other.mValid)
+                return mValid <=> other.mValid;
+            return mId <=> other.mId;
+        }
+
+        constexpr bool operator==(const AssetHandle&) const = default;
 
       private:
-        std::uint32_t mId = 0;
+        std::uint32_t mId    = 0;
+        bool          mValid = false;
     };
 
     using MeshHandle     = AssetHandle<MeshTag>;

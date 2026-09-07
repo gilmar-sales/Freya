@@ -1,13 +1,9 @@
 #pragma once
 
-#include "Freya/Asset/CullFrameDump.hpp"
-#include "Freya/Asset/SceneInstanceUpload.hpp"
 #include "Freya/Core/BillboardDraw.hpp"
 #include "Freya/Core/DebugDraw.hpp"
 #include "Freya/Core/FrameGpuTiming.hpp"
-#include "Freya/Core/GpuAnimationSystem.hpp"
-#include "Freya/Core/IFrameStage.hpp"
-#include "Freya/Core/RendererUi.hpp"
+#include "Freya/Core/Limits.hpp"
 #include "Freya/FreyaOptions.hpp"
 
 #include <Skirnir/Skirnir.hpp>
@@ -20,16 +16,19 @@
 
 namespace FREYA_NAMESPACE
 {
+    struct SceneInstanceUpload;
+    class RendererAdvanced;
+    class Scene;
+
     /**
-     * @brief Per-window renderer façade.
+     * @brief Per-window renderer façade (application tier).
      *
      * Canonical frame path:
-     *   BeginFrame() → UpdateCamera / lights / UploadSceneInstances →
+     *   BeginFrame() → Camera::Apply / lights → Scene::Upload →
      *   EndFrame() or EndFrame(uiDraw).
      *
-     * Prefer Scene::Upload and Camera::Apply for app code. Prefer
-     * GpuAnimation() for GPU skinning. Draw / DrawInstanced /
-     * SetInstanceModels are deprecated.
+     * For frame stages, ImGui natives, cull dumps, and GPU animation, use
+     * RendererAdvanced (via <Freya/Advanced.hpp>).
      */
     class Renderer
     {
@@ -54,8 +53,7 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief EndScene, run @p uiDraw inside the swapchain UI pass when a
-         * viewport target is active, then Present. Replaces the manual
-         * EndScene + BeginUI + EndUI + Present sequence.
+         * viewport target is active, then Present.
          */
         void EndFrame(const std::function<void()>& uiDraw);
 
@@ -95,104 +93,10 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] float GetDrawDistance() const;
         void                SetDrawDistance(float drawDistance);
 
-        void UploadSceneInstances(std::span<const SceneInstanceUpload> uploads);
-
-        [[deprecated("Use UploadSceneInstances or Scene::Upload")]]
-        void Draw(std::uint32_t meshId,
-                  std::uint32_t materialId,
-                  std::uint32_t entityId    = kPickMissId,
-                  bool          castShadows = true);
-
-        [[deprecated("Use UploadSceneInstances or Scene::Upload")]]
-        void DrawInstanced(std::uint32_t meshId,
-                           std::uint32_t materialId,
-                           size_t        instanceCount,
-                           size_t        firstInstance = 0,
-                           bool          castShadows   = true,
-                           std::uint32_t entityId      = kPickMissId);
-
-        [[deprecated("Use UploadSceneInstances or Scene::Upload")]]
-        void SetInstanceModels(const glm::mat4* models, std::size_t count);
-
         void UploadBoneMatrices(std::span<const glm::mat4> bones);
 
         void RequestPick(std::uint32_t x, std::uint32_t y);
         bool TryConsumePickResult(std::uint32_t& outEntityId);
-
-        /**
-         * @brief One-shot: capture cull inputs/outputs after the next EndScene.
-         *
-         * Call TryConsumeCullFrameDump on a later frame (after Present / FiF
-         * wait) to retrieve the snapshot.
-         */
-        void RequestCullFrameDump();
-
-        /**
-         * @brief Pop a pending cull-frame dump filled after GPU work completed.
-         * @return false when no dump is ready.
-         */
-        bool TryConsumeCullFrameDump(CullFrameSnapshot& out);
-
-        bool InsertFrameStage(const char* beforeName, FrameStagePtr stage);
-        bool ReplaceFrameStage(const char* name, FrameStagePtr stage);
-
-        /**
-         * @brief Current frame command buffer as a Vulkan handle
-         * (VkCommandBuffer).
-         */
-        [[nodiscard]] void* NativeCommandBuffer();
-
-        /**
-         * @brief Logical device as a Vulkan handle (VkDevice).
-         */
-        [[nodiscard]] void* NativeDevice();
-
-        /**
-         * @brief Opens the swapchain UI render pass so the app can draw its
-         * Dear ImGui frame into it.
-         *
-         * Only succeeds while an offscreen viewport target is set; otherwise it
-         * returns false and the scene presents directly to the swapchain. Pair
-         * with EndUI() and call Present() afterwards. Prefer EndFrame(uiDraw).
-         */
-        [[nodiscard]] bool BeginUI();
-
-        /**
-         * @brief Closes the swapchain UI render pass opened by BeginUI().
-         *
-         * Present() closes an open UI pass automatically, so calling EndUI() is
-         * optional unless the app wants to end the pass before Present().
-         */
-        void EndUI();
-
-        /**
-         * @brief Opaque Vulkan/SDL handles for initializing the Dear ImGui
-         * back-ends in the app (ImGui_ImplVulkan / ImGui_ImplSDL3).
-         */
-        [[nodiscard]] ImGuiNativeHandles GetImGuiNativeHandles();
-
-        /**
-         * @brief Offscreen composite viewport (VkImageView + VkSampler) for
-         * ImGui::Image(). Valid only while a viewport target is set.
-         */
-        [[nodiscard]] ImGuiViewportImage GetViewportImage();
-
-        /**
-         * @brief Renders subsequent frames into an offscreen viewport target of
-         * the given pixel size instead of the swapchain. The composite step
-         * draws offscreen and the swapchain UI pass is opened for ImGui.
-         *
-         * The target is owned by the renderer and resized when the swapchain
-         * changes. Returns false if target creation failed.
-         */
-        [[nodiscard]] bool SetViewportTarget(std::uint32_t width,
-                                             std::uint32_t height);
-
-        /**
-         * @brief Clears the offscreen viewport target, restoring direct
-         * presentation to the swapchain.
-         */
-        void ClearOutputTarget();
 
         glm::mat4 MakeProjection(float fovRadians, float aspect, float near,
                                  float far) const;
@@ -220,12 +124,6 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] BillboardDraw& GetBillboardDraw();
 
         /**
-         * @brief GPU animation / crowd skinning subsystem.
-         */
-        [[nodiscard]] GpuAnimationSystem&       GpuAnimation();
-        [[nodiscard]] const GpuAnimationSystem& GpuAnimation() const;
-
-        /**
          * @brief GPU ms for each frame stage from the previous finished frame.
          * @return false when timestamp queries are unavailable or not ready.
          */
@@ -236,9 +134,15 @@ namespace FREYA_NAMESPACE
 
       private:
         friend class RendererBuilder;
+        friend class RendererAdvanced;
+        friend class Scene;
+
+        void UploadSceneInstances(std::span<const SceneInstanceUpload> uploads);
+
+        [[nodiscard]] Impl*       ImplPtr() { return mImpl.get(); }
+        [[nodiscard]] const Impl* ImplPtr() const { return mImpl.get(); }
 
         std::unique_ptr<Impl> mImpl;
-        GpuAnimationSystem    mGpuAnim;
     };
 
 } // namespace FREYA_NAMESPACE

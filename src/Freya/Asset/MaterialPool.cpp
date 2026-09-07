@@ -30,7 +30,7 @@ namespace FREYA_NAMESPACE
 
     MaterialPool::~MaterialPool() = default;
 
-    std::uint32_t MaterialPool::CreateFromTextureFiles(
+    MaterialHandle MaterialPool::CreateFromTextureFiles(
         std::vector<std::string> texturesPath)
     {
         auto&              i = *mImpl;
@@ -54,7 +54,7 @@ namespace FREYA_NAMESPACE
         return Create(info);
     }
 
-    std::uint32_t MaterialPool::Create(const MaterialCreateInfo& createInfo)
+    MaterialHandle MaterialPool::Create(const MaterialCreateInfo& createInfo)
     {
         auto& i        = *mImpl;
         auto  material = Material {
@@ -66,53 +66,54 @@ namespace FREYA_NAMESPACE
         i.materials.insert(material);
 
         i.logger->LogTrace("MaterialPool::Create id={}", material.id);
-        return material.id;
+        return MaterialHandle { material.id };
     }
 
-    void MaterialPool::Update(std::uint32_t             id,
+    void MaterialPool::Update(MaterialHandle            id,
                               const MaterialCreateInfo& createInfo)
     {
         auto& i             = *mImpl;
-        auto& material      = i.materials[id];
+        auto& material      = i.materials[id.Id()];
         material.createInfo = createInfo;
         i.writeBindlessMaterial(material);
     }
 
     const MaterialCreateInfo& MaterialPool::GetCreateInfo(
-        std::uint32_t id) const
+        MaterialHandle id) const
     {
-        return mImpl->materials[id].createInfo;
+        return mImpl->materials[id.Id()].createInfo;
     }
 
-    bool MaterialPool::Contains(const std::uint32_t id) const
+    bool MaterialPool::Contains(const MaterialHandle id) const
     {
-        return mImpl->materials.contains(id);
+        return id.IsValid() && mImpl->materials.contains(id.Id());
     }
 
-    void MaterialPool::Destroy(const std::uint32_t id)
+    void MaterialPool::Destroy(const MaterialHandle id)
     {
         auto& i = *mImpl;
-        if (!i.materials.contains(id))
+        if (!id.IsValid() || !i.materials.contains(id.Id()))
             return;
 
         Material cleared {
             .createInfo = {},
-            .id         = id,
+            .id         = id.Id(),
         };
         i.writeBindlessMaterial(cleared);
-        i.materials.remove(Material { .createInfo = {}, .id = id });
-        i.logger->LogTrace("MaterialPool::Destroy id={}", id);
+        i.materials.remove(Material { .createInfo = {}, .id = id.Id() });
+        i.logger->LogTrace("MaterialPool::Destroy id={}", id.Id());
     }
 
     void MaterialPool::Impl::writeBindlessMaterial(Material& material)
     {
         const auto& info = material.createInfo;
 
-        auto resolveIndex = [&](const std::optional<std::uint32_t>& textureId,
+        auto resolveIndex = [&](const std::optional<TextureHandle>& textureId,
                                 const std::uint32_t fallback) -> std::uint32_t {
             if (!textureId)
                 return fallback;
-            return MaterialDescriptorResources::TextureHeapIndex(*textureId);
+            return MaterialDescriptorResources::TextureHeapIndex(
+                textureId->Id());
         };
 
         MaterialGPU gpu {};

@@ -1,15 +1,13 @@
 #include "Freya/Internal/RendererImpl.hpp"
 
 #include "Freya/Core/GpuAnimPass.hpp"
+#include "Freya/Core/RendererAdvanced.hpp"
 
 #include <functional>
 
 namespace FREYA_NAMESPACE
 {
-    Renderer::Renderer(std::unique_ptr<Impl> impl) :
-        mImpl(std::move(impl)), mGpuAnim(mImpl.get())
-    {
-    }
+    Renderer::Renderer(std::unique_ptr<Impl> impl) : mImpl(std::move(impl)) {}
 
     Renderer::~Renderer() = default;
 
@@ -171,30 +169,6 @@ namespace FREYA_NAMESPACE
         mImpl->UploadSceneInstances(uploads);
     }
 
-    void Renderer::Draw(const std::uint32_t meshId,
-                        const std::uint32_t materialId,
-                        const std::uint32_t entityId, const bool castShadows)
-    {
-        mImpl->Draw(meshId, materialId, entityId, castShadows);
-    }
-
-    void Renderer::DrawInstanced(const std::uint32_t meshId,
-                                 const std::uint32_t materialId,
-                                 const size_t        instanceCount,
-                                 const size_t        firstInstance,
-                                 const bool          castShadows,
-                                 const std::uint32_t entityId)
-    {
-        mImpl->DrawInstanced(meshId, materialId, instanceCount, firstInstance,
-                             castShadows, entityId);
-    }
-
-    void Renderer::SetInstanceModels(const glm::mat4*  models,
-                                     const std::size_t count)
-    {
-        mImpl->SetInstanceModels(models, count);
-    }
-
     void Renderer::UploadBoneMatrices(const std::span<const glm::mat4> bones)
     {
         mImpl->UploadBoneMatrices(bones);
@@ -208,67 +182,6 @@ namespace FREYA_NAMESPACE
     bool Renderer::TryConsumePickResult(std::uint32_t& outEntityId)
     {
         return mImpl->TryConsumePickResult(outEntityId);
-    }
-
-    void Renderer::RequestCullFrameDump()
-    {
-        mImpl->RequestCullFrameDump();
-    }
-
-    bool Renderer::TryConsumeCullFrameDump(CullFrameSnapshot& out)
-    {
-        return mImpl->TryConsumeCullFrameDump(out);
-    }
-
-    bool Renderer::InsertFrameStage(const char* beforeName, FrameStagePtr stage)
-    {
-        return mImpl->InsertFrameStage(beforeName, std::move(stage));
-    }
-
-    bool Renderer::ReplaceFrameStage(const char* name, FrameStagePtr stage)
-    {
-        return mImpl->ReplaceFrameStage(name, std::move(stage));
-    }
-
-    void* Renderer::NativeCommandBuffer()
-    {
-        return mImpl->NativeCommandBuffer();
-    }
-
-    void* Renderer::NativeDevice()
-    {
-        return mImpl->NativeDevice();
-    }
-
-    bool Renderer::BeginUI()
-    {
-        return mImpl->BeginUI();
-    }
-
-    void Renderer::EndUI()
-    {
-        mImpl->EndUI();
-    }
-
-    ImGuiNativeHandles Renderer::GetImGuiNativeHandles()
-    {
-        return mImpl->GetImGuiNativeHandles();
-    }
-
-    ImGuiViewportImage Renderer::GetViewportImage()
-    {
-        return mImpl->GetViewportImage();
-    }
-
-    bool Renderer::SetViewportTarget(const std::uint32_t width,
-                                     const std::uint32_t height)
-    {
-        return mImpl->SetViewportTarget(width, height);
-    }
-
-    void Renderer::ClearOutputTarget()
-    {
-        mImpl->ClearOutputTarget();
     }
 
     glm::mat4 Renderer::MakeProjection(const float fovRadians,
@@ -328,16 +241,6 @@ namespace FREYA_NAMESPACE
         return mImpl->mBillboardDraw;
     }
 
-    GpuAnimationSystem& Renderer::GpuAnimation()
-    {
-        return mGpuAnim;
-    }
-
-    const GpuAnimationSystem& Renderer::GpuAnimation() const
-    {
-        return mGpuAnim;
-    }
-
     bool Renderer::PollFrameGpuTiming(FrameGpuTimingSample& out)
     {
         return mImpl->PollFrameGpuTiming(out);
@@ -351,6 +254,114 @@ namespace FREYA_NAMESPACE
     std::uint32_t Renderer::GetFrameCount() const
     {
         return mImpl->mSwapChain->GetFrameCount();
+    }
+
+    // --- RendererAdvanced ---
+
+    void RendererAdvanced::UploadSceneInstances(
+        const std::span<const SceneInstanceUpload> uploads)
+    {
+        mRenderer.UploadSceneInstances(uploads);
+    }
+
+    void RendererAdvanced::Draw(const std::uint32_t meshId,
+                                const std::uint32_t materialId,
+                                const std::uint32_t entityId,
+                                const bool          castShadows)
+    {
+        mRenderer.ImplPtr()->Draw(meshId, materialId, entityId, castShadows);
+    }
+
+    void RendererAdvanced::DrawInstanced(const std::uint32_t meshId,
+                                         const std::uint32_t materialId,
+                                         const size_t        instanceCount,
+                                         const size_t        firstInstance,
+                                         const bool          castShadows,
+                                         const std::uint32_t entityId)
+    {
+        mRenderer.ImplPtr()->DrawInstanced(meshId, materialId, instanceCount,
+                                           firstInstance, castShadows,
+                                           entityId);
+    }
+
+    void RendererAdvanced::SetInstanceModels(const glm::mat4*  models,
+                                             const std::size_t count)
+    {
+        mRenderer.ImplPtr()->SetInstanceModels(models, count);
+    }
+
+    void RendererAdvanced::RequestCullFrameDump()
+    {
+        mRenderer.ImplPtr()->RequestCullFrameDump();
+    }
+
+    bool RendererAdvanced::TryConsumeCullFrameDump(CullFrameSnapshot& out)
+    {
+        return mRenderer.ImplPtr()->TryConsumeCullFrameDump(out);
+    }
+
+    bool RendererAdvanced::InsertFrameStage(const char*   beforeName,
+                                            FrameStagePtr stage)
+    {
+        return mRenderer.ImplPtr()->InsertFrameStage(beforeName,
+                                                     std::move(stage));
+    }
+
+    bool RendererAdvanced::ReplaceFrameStage(const char*   name,
+                                             FrameStagePtr stage)
+    {
+        return mRenderer.ImplPtr()->ReplaceFrameStage(name, std::move(stage));
+    }
+
+    void* RendererAdvanced::NativeCommandBuffer()
+    {
+        return mRenderer.ImplPtr()->NativeCommandBuffer();
+    }
+
+    void* RendererAdvanced::NativeDevice()
+    {
+        return mRenderer.ImplPtr()->NativeDevice();
+    }
+
+    bool RendererAdvanced::BeginUI()
+    {
+        return mRenderer.ImplPtr()->BeginUI();
+    }
+
+    void RendererAdvanced::EndUI()
+    {
+        mRenderer.ImplPtr()->EndUI();
+    }
+
+    ImGuiNativeHandles RendererAdvanced::GetImGuiNativeHandles()
+    {
+        return mRenderer.ImplPtr()->GetImGuiNativeHandles();
+    }
+
+    ImGuiViewportImage RendererAdvanced::GetViewportImage()
+    {
+        return mRenderer.ImplPtr()->GetViewportImage();
+    }
+
+    bool RendererAdvanced::SetViewportTarget(const std::uint32_t width,
+                                             const std::uint32_t height)
+    {
+        return mRenderer.ImplPtr()->SetViewportTarget(width, height);
+    }
+
+    void RendererAdvanced::ClearOutputTarget()
+    {
+        mRenderer.ImplPtr()->ClearOutputTarget();
+    }
+
+    GpuAnimationSystem& RendererAdvanced::GpuAnimation()
+    {
+        return mRenderer.ImplPtr()->mGpuAnimSystem;
+    }
+
+    const GpuAnimationSystem& RendererAdvanced::GpuAnimation() const
+    {
+        return mRenderer.ImplPtr()->mGpuAnimSystem;
     }
 
     // --- GpuAnimationSystem (forwards into Renderer::Impl) ---

@@ -32,9 +32,9 @@ namespace FREYA_NAMESPACE
                                 float         pixelHeight = 48.f,
                                 std::uint32_t padding     = 8);
 
-        [[nodiscard]] bool Valid() const { return mTextureId != kInvalid; }
+        [[nodiscard]] bool Valid() const { return mTexture.IsValid(); }
 
-        [[nodiscard]] std::uint32_t TextureId() const { return mTextureId; }
+        [[nodiscard]] TextureHandle TextureId() const { return mTexture; }
 
         [[nodiscard]] std::uint32_t HeapIndex() const;
 
@@ -45,9 +45,7 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] float Padding() const { return mPadding; }
 
       private:
-        static constexpr std::uint32_t kInvalid = ~0u;
-
-        std::uint32_t                           mTextureId   = kInvalid;
+        TextureHandle                           mTexture {};
         float                                   mPixelHeight = 48.f;
         float                                   mPadding     = 8.f;
         std::unordered_map<char32_t, FontGlyph> mGlyphs;

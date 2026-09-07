@@ -1,17 +1,14 @@
 #pragma once
 
 #include "Freya/Config.hpp"
+#include "Freya/Core/Limits.hpp"
 
 #include <cstdint>
-#include <limits>
 
 #include <glm/glm.hpp>
 
 namespace FREYA_NAMESPACE
 {
-    /// Sentinel bone palette offset: instance is not skinned.
-    constexpr std::uint32_t kNoSkin = std::numeric_limits<std::uint32_t>::max();
-
     /**
      * @brief Per-instance vertex attributes (binding 1).
      *

@@ -2,8 +2,6 @@
 
 #include <Freya/Freya.hpp>
 
-#include <cstdint>
-
 #include <glm/glm.hpp>
 
 namespace FreyaExamples
@@ -36,9 +34,9 @@ namespace FreyaExamples
      * `MeshPool` (the same one `IndirectDrawSystem` uploads into the GPU
      * `MeshInfoBuffer`) and draws it transformed by `model`.
      *
-     * No-op if `meshId` isn't registered in `meshPool`.
+     * No-op if `mesh` isn't registered in `meshPool`.
      */
     void DrawCullAabb(fra::DebugDraw& debugDraw, fra::MeshPool& meshPool,
-                      std::uint32_t meshId, const glm::mat4& model,
+                      fra::MeshHandle mesh, const glm::mat4& model,
                       const glm::vec4& color);
 } // namespace FreyaExamples

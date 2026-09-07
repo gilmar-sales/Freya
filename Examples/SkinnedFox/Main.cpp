@@ -104,7 +104,7 @@ namespace
 class MainApp final : public fra::AbstractApplication
 {
   public:
-    explicit MainApp(const skr::Arc<skr::ServiceProvider>& serviceProvider) :
+    explicit MainApp(const fra::Ref<fra::ServiceProvider>& serviceProvider) :
         AbstractApplication(serviceProvider)
     {
         auto windowServices = GetMainServiceProvider();
@@ -203,7 +203,7 @@ class MainApp final : public fra::AbstractApplication
 
         uploadGpuAnimAssets();
         selfTestStreamRing();
-        mRenderer->GpuAnimation().SetCopyPrevBones(false);
+        fra::Advanced(*mRenderer).GpuAnimation().SetCopyPrevBones(false);
 
         mHeadJoint       = findJointAny(mSkinned.skeleton, { "Head", "head" });
         const auto thigh = findJointAny(
@@ -353,12 +353,12 @@ class MainApp final : public fra::AbstractApplication
         // N+1 GPU anim timing + joint extracts from last Dispatch.
         fra::GpuAnimTimingSample gpuTiming {};
         const bool               gpuTimingOk =
-            mRenderer->GpuAnimation().PollTiming(gpuTiming);
+            fra::Advanced(*mRenderer).GpuAnimation().PollTiming(gpuTiming);
         if (mGpuAnimMode == GpuAnimMode::Crowd)
         {
             fra::GpuJointExtractSample samples[4] {};
             std::uint32_t              n = 0;
-            if (mRenderer->GpuAnimation().PollJointExtract(samples, &n) &&
+            if (fra::Advanced(*mRenderer).GpuAnimation().PollJointExtract(samples, &n) &&
                 n > 0)
             {
                 mGpuExtractHeadSkin = samples[0].skinMatrix;
@@ -586,47 +586,48 @@ class MainApp final : public fra::AbstractApplication
 
         if (!gpuInstances.empty())
         {
-            mRenderer->GpuAnimation().SetCopyPrevBones(gpuCrowd);
-            mRenderer->GpuAnimation().UploadInstances(gpuInstances);
-            mRenderer->GpuAnimation().SetEnabled(true);
+            fra::Advanced(*mRenderer).GpuAnimation().SetCopyPrevBones(gpuCrowd);
+            fra::Advanced(*mRenderer).GpuAnimation().UploadInstances(gpuInstances);
+            fra::Advanced(*mRenderer).GpuAnimation().SetEnabled(true);
             if (gpuCrowd && gpuInstances.size() == mFoxes.size())
                 mGpuCrowdSeeded = true;
         }
         else
         {
-            mRenderer->GpuAnimation().SetEnabled(false);
-            mRenderer->GpuAnimation().UploadInstances({});
+            fra::Advanced(*mRenderer).GpuAnimation().SetEnabled(false);
+            fra::Advanced(*mRenderer).GpuAnimation().UploadInstances({});
         }
 
         mCam.Apply(*mRenderer);
 
-        const auto                            tInst0 = Clock::now();
-        std::vector<fra::SceneInstanceUpload> instances;
-        instances.reserve(mFoxes.size() * mSkinned.submeshes.size() + 1);
+        const auto tInst0 = Clock::now();
+        mScene.Clear();
         std::uint32_t entity = 1;
         for (const auto& fox : mFoxes)
         {
             for (const auto& part : mSkinned.submeshes)
             {
-                instances.push_back(fra::SceneInstanceUpload {
-                    .model       = fox.model,
-                    .meshId      = part.meshId,
-                    .materialId  = part.materialId,
-                    .entityId    = entity++,
-                    .castShadows = mEnableShadows,
-                    .boneOffset  = fox.boneOffset,
-                    .boneCount   = jointCount,
-                });
+                fra::Scene::Instance inst {};
+                inst.model       = fox.model;
+                inst.mesh        = part.mesh;
+                inst.material    = part.material;
+                inst.entityId    = entity++;
+                inst.castShadows = mEnableShadows;
+                inst.boneOffset  = fox.boneOffset;
+                inst.boneCount   = jointCount;
+                mScene.Add(inst);
             }
         }
-        instances.push_back(fra::SceneInstanceUpload {
-            .model       = groundModelMatrix(),
-            .meshId      = mGroundMesh,
-            .materialId  = mGroundMaterial,
-            .entityId    = 100000u,
-            .castShadows = false,
-        });
-        mRenderer->UploadSceneInstances(instances);
+        {
+            fra::Scene::Instance ground {};
+            ground.model       = groundModelMatrix();
+            ground.mesh        = mGroundMesh;
+            ground.material    = mGroundMaterial;
+            ground.entityId    = 100000u;
+            ground.castShadows = false;
+            mScene.Add(ground);
+        }
+        mScene.Upload(*mRenderer);
         const double msInstances =
             SecondsF(Clock::now() - tInst0).count() * 1000.0;
 
@@ -860,7 +861,7 @@ class MainApp final : public fra::AbstractApplication
                 std::cout << '\n';
             }
             fra::GpuAnimDebugSnapshot gs;
-            mRenderer->GpuAnimation().CaptureDebugSnapshot(gs);
+            fra::Advanced(*mRenderer).GpuAnimation().CaptureDebugSnapshot(gs);
             std::cout << "  gpuAnim en=" << onOff(gs.enabled)
                       << " quant=" << onOff(gs.quantizedJoints)
                       << " inst=" << gs.instanceCount
@@ -963,11 +964,11 @@ class MainApp final : public fra::AbstractApplication
         }
     }
 
-    skr::Arc<fra::MeshPool>     mMeshPool;
-    skr::Arc<fra::TexturePool>  mTexturePool;
-    skr::Arc<fra::MaterialPool> mMaterialPool;
-    skr::Arc<fra::LightService> mLightService;
-    skr::Arc<fra::FreyaOptions> mFreyaOptions;
+    fra::Ref<fra::MeshPool>     mMeshPool;
+    fra::Ref<fra::TexturePool>  mTexturePool;
+    fra::Ref<fra::MaterialPool> mMaterialPool;
+    fra::Ref<fra::LightService> mLightService;
+    fra::Ref<fra::FreyaOptions> mFreyaOptions;
 
     fra::SkinnedModel         mSkinned;
     fra::BakedClip            mBakeIdle;
@@ -1020,42 +1021,42 @@ class MainApp final : public fra::AbstractApplication
 
     void uploadGpuAnimAssets()
     {
-        mRenderer->GpuAnimation().UploadSkeleton(
+        fra::Advanced(*mRenderer).GpuAnimation().UploadSkeleton(
             fra::PackSkeleton(mSkinned.skeleton));
-        mRenderer->GpuAnimation().ResetClipCache();
+        fra::Advanced(*mRenderer).GpuAnimation().ResetClipCache();
 
         const auto uploadPinned = [&](const std::uint32_t   slot,
                                       const char*           name,
                                       const fra::BakedClip& bake) {
             const auto key = fra::GpuClipKey(name);
-            if (!mRenderer->GpuAnimation().UploadClipSlot(slot, key, bake))
+            if (!fra::Advanced(*mRenderer).GpuAnimation().UploadClipSlot(slot, key, bake))
             {
                 std::cout << "GPU clip slot " << slot << " (" << name
                           << ") upload failed\n";
                 return;
             }
-            mRenderer->GpuAnimation().PinClipSlot(slot, true);
+            fra::Advanced(*mRenderer).GpuAnimation().PinClipSlot(slot, true);
         };
         uploadPinned(0, "Idle", mBakeIdle);
         uploadPinned(1, "Walk", mBakeWalk);
         uploadPinned(2, "Run", mBakeRun);
 
         const auto jc = mSkinned.skeleton.JointCount();
-        mRenderer->GpuAnimation().UploadBoneMask(
+        fra::Advanced(*mRenderer).GpuAnimation().UploadBoneMask(
             fra::PackBoneMask(mUpperMask, jc));
         if (mFreyaOptions->quantizeGpuAnimJoints)
-            mRenderer->GpuAnimation().UploadRestJoints(
+            fra::Advanced(*mRenderer).GpuAnimation().UploadRestJoints(
                 fra::PackRestJointsQuant(mRestPose, jc));
         else
-            mRenderer->GpuAnimation().UploadRestJoints(
+            fra::Advanced(*mRenderer).GpuAnimation().UploadRestJoints(
                 fra::PackRestJointsFloat(mRestPose, jc));
         std::cout << "GPU anim bake+mask+rest uploaded ("
                   << (mFreyaOptions->quantizeGpuAnimJoints ? "quantized 16B"
                                                            : "float 48B")
                   << ") pinned=3 resident="
-                  << mRenderer->GpuAnimation().GetResidentClipCount()
+                  << fra::Advanced(*mRenderer).GpuAnimation().GetResidentClipCount()
                   << " slabJoints="
-                  << mRenderer->GpuAnimation().GetJointsPerClipSlot() << '\n';
+                  << fra::Advanced(*mRenderer).GpuAnimation().GetJointsPerClipSlot() << '\n';
     }
 
     void buildStreamCatalog()
@@ -1115,10 +1116,10 @@ class MainApp final : public fra::AbstractApplication
             mStreamCatalog[mStreamCatalogIndex % mStreamCatalog.size()];
         ++mStreamCatalogIndex;
 
-        const auto before    = mRenderer->GpuAnimation().FindClipSlot(e.key);
-        const auto resBefore = mRenderer->GpuAnimation().GetResidentClipCount();
+        const auto before    = fra::Advanced(*mRenderer).GpuAnimation().FindClipSlot(e.key);
+        const auto resBefore = fra::Advanced(*mRenderer).GpuAnimation().GetResidentClipCount();
         const auto slot =
-            mRenderer->GpuAnimation().EnsureClipResident(e.key, e.bake);
+            fra::Advanced(*mRenderer).GpuAnimation().EnsureClipResident(e.key, e.bake);
         if (slot == 0xffffffffu)
         {
             std::cout << "Stream FAIL " << e.label
@@ -1131,7 +1132,7 @@ class MainApp final : public fra::AbstractApplication
         std::cout << "Stream " << e.label << " -> slot=" << slot
                   << (hit ? " (hit)" : " (miss/upload)")
                   << (evicted ? " [LRU evict]" : "") << " resident="
-                  << mRenderer->GpuAnimation().GetResidentClipCount() << "/"
+                  << fra::Advanced(*mRenderer).GpuAnimation().GetResidentClipCount() << "/"
                   << fra::kGpuAnimMaxClips << '\n';
     }
 
@@ -1140,11 +1141,11 @@ class MainApp final : public fra::AbstractApplication
         std::uint32_t uploads = 0, hits = 0, fails = 0, evicts = 0;
         for (const auto& e : mStreamCatalog)
         {
-            const auto before = mRenderer->GpuAnimation().FindClipSlot(e.key);
+            const auto before = fra::Advanced(*mRenderer).GpuAnimation().FindClipSlot(e.key);
             const auto resBefore =
-                mRenderer->GpuAnimation().GetResidentClipCount();
+                fra::Advanced(*mRenderer).GpuAnimation().GetResidentClipCount();
             const auto slot =
-                mRenderer->GpuAnimation().EnsureClipResident(e.key, e.bake);
+                fra::Advanced(*mRenderer).GpuAnimation().EnsureClipResident(e.key, e.bake);
             if (slot == 0xffffffffu)
             {
                 ++fails;
@@ -1162,14 +1163,14 @@ class MainApp final : public fra::AbstractApplication
         }
         std::cout << "Stream self-test uploads=" << uploads << " hits=" << hits
                   << " evicts=" << evicts << " fails=" << fails << " resident="
-                  << mRenderer->GpuAnimation().GetResidentClipCount() << "/"
+                  << fra::Advanced(*mRenderer).GpuAnimation().GetResidentClipCount() << "/"
                   << fra::kGpuAnimMaxClips << '\n';
     }
 
     void bindGpuAnimRig()
     {
         const auto root = fra::FindRootJoint(mSkinned.skeleton);
-        mRenderer->GpuAnimation().SetRigIndices(
+        fra::Advanced(*mRenderer).GpuAnimation().SetRigIndices(
             mHeadJoint >= 0 ? static_cast<std::uint32_t>(mHeadJoint)
                             : 0xffffffffu,
             mLegChain.root, mLegChain.mid, mLegChain.tip,
@@ -1187,19 +1188,19 @@ class MainApp final : public fra::AbstractApplication
         mStreamedUpperSlot  = 0xffffffffu;
         const bool wasCrowd = mGpuAnimMode == GpuAnimMode::Crowd;
         const bool wasFox0  = mGpuAnimMode == GpuAnimMode::Fox0;
-        mRenderer->GpuAnimation().RebuildPass();
+        fra::Advanced(*mRenderer).GpuAnimation().RebuildPass();
         uploadGpuAnimAssets();
         bindGpuAnimRig();
-        mRenderer->GpuAnimation().SetCopyPrevBones(false);
+        fra::Advanced(*mRenderer).GpuAnimation().SetCopyPrevBones(false);
         if (wasCrowd || wasFox0)
-            mRenderer->GpuAnimation().SetEnabled(true);
+            fra::Advanced(*mRenderer).GpuAnimation().SetEnabled(true);
         if (wasCrowd)
         {
             fra::GpuJointExtractRequest req;
             req.boneOffset = 0;
             req.jointIndex =
                 mHeadJoint >= 0 ? static_cast<std::uint32_t>(mHeadJoint) : 0u;
-            mRenderer->GpuAnimation().SetJointExtract({ &req, 1 });
+            fra::Advanced(*mRenderer).GpuAnimation().SetJointExtract({ &req, 1 });
             mGpuExtractReady = false;
         }
         if (wasFox0)
@@ -1232,7 +1233,7 @@ class MainApp final : public fra::AbstractApplication
             const auto cpuSkin =
                 fra::PoseToSkinMatrices(mSkinned.skeleton, cpuLocal);
             const auto inst = makeGpuAnimInstance(fox, jointCount, feat);
-            if (!mRenderer->GpuAnimation().DispatchImmediate(
+            if (!fra::Advanced(*mRenderer).GpuAnimation().DispatchImmediate(
                     std::span<const fra::GpuAnimInstance>(&inst, 1),
                     frameIndex))
             {
@@ -1240,7 +1241,7 @@ class MainApp final : public fra::AbstractApplication
                 continue;
             }
             std::vector<glm::mat4> gpuBones(jointCount);
-            if (!mRenderer->GpuAnimation().ReadbackBones(
+            if (!fra::Advanced(*mRenderer).GpuAnimation().ReadbackBones(
                     frameIndex, fox.boneOffset, gpuBones))
             {
                 std::cout << "  " << names[s] << ": readback failed\n";
@@ -1322,7 +1323,7 @@ class MainApp final : public fra::AbstractApplication
                         .boneOffset = mFoxes[0].boneOffset,
                         .jointIndex = static_cast<std::uint32_t>(mHeadJoint),
                     };
-                    mRenderer->GpuAnimation().SetJointExtract({ &req, 1 });
+                    fra::Advanced(*mRenderer).GpuAnimation().SetJointExtract({ &req, 1 });
                 }
                 std::cout << "GpuAnim Crowd (Advance+skin at animLodHz; "
                              "layers/look/IK on GPU; fox0 head extract N+1)\n";
@@ -1330,9 +1331,9 @@ class MainApp final : public fra::AbstractApplication
             case GpuAnimMode::Crowd:
                 mGpuAnimMode     = GpuAnimMode::Off;
                 mGpuExtractReady = false;
-                mRenderer->GpuAnimation().SetJointExtract({});
-                mRenderer->GpuAnimation().SetEnabled(false);
-                mRenderer->GpuAnimation().UploadInstances({});
+                fra::Advanced(*mRenderer).GpuAnimation().SetJointExtract({});
+                fra::Advanced(*mRenderer).GpuAnimation().SetEnabled(false);
+                fra::Advanced(*mRenderer).GpuAnimation().UploadInstances({});
                 std::cout << "GpuAnim OFF (CPU)\n";
                 break;
         }
@@ -1461,7 +1462,7 @@ class MainApp final : public fra::AbstractApplication
         {
             for (const auto& part : mSkinned.submeshes)
                 FreyaExamples::DrawCullAabb(
-                    dd, *mMeshPool, part.meshId, fox.model,
+                    dd, *mMeshPool, part.mesh, fox.model,
                     glm::vec4(0.2f, 0.9f, 1.0f, 0.5f));
         }
         FreyaExamples::DrawCullAabb(
@@ -1511,8 +1512,9 @@ class MainApp final : public fra::AbstractApplication
     float              mFootstepLogTimer = 0.f;
     std::uint64_t      mFootstepTotal    = 0;
     fra::AnimEventRing mEventRing { 64 };
-    std::uint32_t      mGroundMesh     = 0;
-    std::uint32_t      mGroundMaterial = 0;
+    fra::MeshHandle     mGroundMesh {};
+    fra::MaterialHandle mGroundMaterial {};
+    fra::Scene          mScene;
 
     FreyaExamples::FlyCam       mCam;
     FreyaExamples::DebugOverlay mOverlay;
@@ -1520,27 +1522,19 @@ class MainApp final : public fra::AbstractApplication
 
 int main(int, const char**)
 {
-    const auto app =
-        skr::ApplicationBuilder()
-            .WithExtension<skr::LoggingExtension>([](skr::LoggingExtension& l) {
-                FreyaExamples::ConfigureLogging(l, "SkinnedFox.log");
-            })
-            .WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
-                freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
-                    freyaOptions
-                        .SetTitle("SkinnedFox — F1 help / F2-F12 toggles")
-                        .SetWidth(1600)
-                        .SetHeight(900)
-                        .SetVSync(false)
-                        .WithReverseZ()
-                        .SetIblIntensity(0.2f)
-                        .SetShadowQuality(fra::ShadowQuality::Medium)
-                        .SetAnimationQuality(fra::AnimationQuality::High)
-                        .SetFullscreen(false);
-                });
-            })
-            .Build<MainApp>();
-
-    app->Run();
-    return 0;
+    return fra::RunApp<MainApp>(
+        [](fra::FreyaOptionsBuilder& freyaOptions) {
+            freyaOptions.SetTitle("SkinnedFox — F1 help / F2-F12 toggles")
+                .SetWidth(1600)
+                .SetHeight(900)
+                .SetVSync(false)
+                .WithReverseZ()
+                .SetIblIntensity(0.2f)
+                .SetShadowQuality(fra::ShadowQuality::Medium)
+                .SetAnimationQuality(fra::AnimationQuality::High)
+                .SetFullscreen(false);
+        },
+        [](skr::LoggingExtension& l) {
+            FreyaExamples::ConfigureLogging(l, "SkinnedFox.log");
+        });
 }

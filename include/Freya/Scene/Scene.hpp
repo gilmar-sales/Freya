@@ -1,8 +1,7 @@
 #pragma once
 
-#include "Freya/Asset/InstanceTransform.hpp"
-#include "Freya/Asset/SceneInstanceUpload.hpp"
 #include "Freya/Config.hpp"
+#include "Freya/Core/Limits.hpp"
 #include "Freya/Scene/AssetHandle.hpp"
 
 #include <cstdint>
@@ -15,7 +14,7 @@ namespace FREYA_NAMESPACE
     class Renderer;
 
     /**
-     * @brief Retained instance list synced to the GPU via UploadSceneInstances.
+     * @brief Retained instance list synced to the GPU via Scene::Upload.
      */
     class Scene
     {

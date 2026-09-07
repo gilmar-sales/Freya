@@ -12,7 +12,7 @@
 class MainApp final : public fra::AbstractApplication
 {
   public:
-    explicit MainApp(const skr::Arc<skr::ServiceProvider>& serviceProvider) :
+    explicit MainApp(const fra::Ref<fra::ServiceProvider>& serviceProvider) :
         AbstractApplication(serviceProvider)
     {
         auto windowServices = GetMainServiceProvider();
@@ -114,11 +114,11 @@ class MainApp final : public fra::AbstractApplication
         mScene.Clear();
         std::uint32_t nextEntity = 1;
 
-        const auto addPart = [&](std::uint32_t meshId, std::uint32_t materialId,
+        const auto addPart = [&](fra::MeshHandle mesh, fra::MaterialHandle material,
                                  const glm::mat4& model) {
             fra::Scene::Instance inst {};
-            inst.mesh        = fra::MeshHandle { meshId };
-            inst.material    = fra::MaterialHandle { materialId };
+            inst.mesh        = mesh;
+            inst.material    = material;
             inst.model       = model;
             inst.entityId    = nextEntity++;
             inst.castShadows = false;
@@ -133,19 +133,19 @@ class MainApp final : public fra::AbstractApplication
             glm::translate(glm::mat4(1.0f), glm::vec3(-1.6f, 0.0f, 0.0f)),
             glm::vec3(1.15f));
         for (const auto& part : mHelmetModel)
-            addPart(part.meshId, part.materialId, helmetModel);
+            addPart(part.mesh, part.material, helmetModel);
 
         const auto dragonModel = glm::scale(
             glm::translate(glm::mat4(1.0f), glm::vec3(1.8f, 0.0f, 0.0f)),
             glm::vec3(1.0f));
         for (const auto& part : mDragonModel)
-            addPart(part.meshId, part.materialId, dragonModel);
+            addPart(part.mesh, part.material, dragonModel);
 
         const auto shipModel = glm::scale(
             glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.0f, -2.8f)),
             glm::vec3(100.0f));
         for (const auto& part : mShipModel)
-            addPart(part.meshId, part.materialId, shipModel);
+            addPart(part.mesh, part.material, shipModel);
     }
 
     void drawCullAabbs()
@@ -154,18 +154,18 @@ class MainApp final : public fra::AbstractApplication
         mScene.ForEach(
             [&](fra::Scene::InstanceId, const fra::Scene::Instance& inst) {
                 FreyaExamples::DrawCullAabb(
-                    dd, *mMeshPool, inst.mesh.Id(), inst.model,
+                    dd, *mMeshPool, inst.mesh, inst.model,
                     glm::vec4(0.2f, 0.9f, 1.0f, 0.6f));
             });
     }
 
-    skr::Arc<fra::MeshPool>     mMeshPool;
-    skr::Arc<fra::MaterialPool> mMaterialPool;
-    skr::Arc<fra::LightService> mLightService;
-    skr::Arc<fra::FreyaOptions> mFreyaOptions;
+    fra::Ref<fra::MeshPool>     mMeshPool;
+    fra::Ref<fra::MaterialPool> mMaterialPool;
+    fra::Ref<fra::LightService> mLightService;
+    fra::Ref<fra::FreyaOptions> mFreyaOptions;
 
-    std::uint32_t                  mGroundMesh     = 0;
-    std::uint32_t                  mGroundMaterial = 0;
+    fra::MeshHandle                mGroundMesh {};
+    fra::MaterialHandle            mGroundMaterial {};
     std::vector<fra::ModelSubmesh> mHelmetModel;
     std::vector<fra::ModelSubmesh> mDragonModel;
     std::vector<fra::ModelSubmesh> mShipModel;
@@ -177,32 +177,24 @@ class MainApp final : public fra::AbstractApplication
 
 int main(int, const char**)
 {
-    const auto app =
-        skr::ApplicationBuilder()
-            .WithExtension<skr::LoggingExtension>([](skr::LoggingExtension& l) {
-                FreyaExamples::ConfigureLogging(l, "SsaoDebug.log");
-            })
-            .WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
-                freya.WithOptions([](fra::FreyaOptionsBuilder& o) {
-                    o.SetTitle("SSAO Debug")
-                        .SetWidth(1600)
-                        .SetHeight(900)
-                        .SetFullscreen(false)
-                        .SetVSync(true)
-                        .WithReverseZ()
-                        .SetSampleCount(1)
-                        .SetIblIntensity(0.85f)
-                        .SetExposure(0.8f)
-                        .SetShadowQuality(fra::ShadowQuality::Off)
-                        .SetEnableTaa(false)
-                        .SetEnableBloom(false)
-                        .SetSsaoQuality(fra::SsaoQuality::High)
-                        .SetDeferredDebugView(
-                            fra::DeferredDebugView::SsaoBlurred);
-                });
-            })
-            .Build<MainApp>();
-
-    app->Run();
-    return 0;
+    return fra::RunApp<MainApp>(
+        [](fra::FreyaOptionsBuilder& o) {
+            o.SetTitle("SSAO Debug")
+                .SetWidth(1600)
+                .SetHeight(900)
+                .SetFullscreen(false)
+                .SetVSync(true)
+                .WithReverseZ()
+                .SetSampleCount(1)
+                .SetIblIntensity(0.85f)
+                .SetExposure(0.8f)
+                .SetShadowQuality(fra::ShadowQuality::Off)
+                .SetEnableTaa(false)
+                .SetEnableBloom(false)
+                .SetSsaoQuality(fra::SsaoQuality::High)
+                .SetDeferredDebugView(fra::DeferredDebugView::SsaoBlurred);
+        },
+        [](skr::LoggingExtension& l) {
+            FreyaExamples::ConfigureLogging(l, "SsaoDebug.log");
+        });
 }

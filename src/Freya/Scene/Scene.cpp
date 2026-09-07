@@ -1,5 +1,6 @@
 #include "Freya/Scene/Scene.hpp"
 
+#include "Freya/Asset/SceneInstanceUpload.hpp"
 #include "Freya/Core/Renderer.hpp"
 
 #include <utility>
@@ -78,8 +79,8 @@ namespace FREYA_NAMESPACE
             const auto& inst = mInstances[i];
             uploads.push_back(SceneInstanceUpload {
                 .model       = inst.model,
-                .meshId      = inst.mesh.Id(),
-                .materialId  = inst.material.Id(),
+                .mesh        = inst.mesh,
+                .material    = inst.material,
                 .entityId    = inst.entityId,
                 .castShadows = inst.castShadows,
                 .boneOffset  = inst.boneOffset,

@@ -42,12 +42,12 @@ namespace FreyaExamples
     }
 
     void DrawCullAabb(fra::DebugDraw& debugDraw, fra::MeshPool& meshPool,
-                      const std::uint32_t meshId, const glm::mat4& model,
+                      const fra::MeshHandle mesh, const glm::mat4& model,
                       const glm::vec4& color)
     {
-        if (!meshPool.Contains(meshId))
+        if (!meshPool.Contains(mesh))
             return;
-        const auto& mesh = meshPool.GetMesh(meshId);
-        DrawCullAabb(debugDraw, model, mesh.aabbMin, mesh.aabbMax, color);
+        const auto& m = meshPool.GetMesh(mesh);
+        DrawCullAabb(debugDraw, model, m.aabbMin, m.aabbMax, color);
     }
 } // namespace FreyaExamples

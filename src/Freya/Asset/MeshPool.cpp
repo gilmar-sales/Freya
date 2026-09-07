@@ -1,6 +1,7 @@
 #include "Freya/Asset/MeshPool.hpp"
 
 #include "Freya/Asset/MaterialPool.hpp"
+#include "Freya/Asset/MeshPoolGpu.hpp"
 #include "Freya/Asset/TexturePool.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Containers/MeshSet.hpp" // src/Freya/Containers (internal)
@@ -394,11 +395,11 @@ namespace FREYA_NAMESPACE
                    out.length > 0;
         }
 
-        std::optional<std::uint32_t> loadAssimpTexture(
-            const aiScene*                                  scene,
-            const std::string&                              directory,
-            const aiString&                                 texPath,
-            std::unordered_map<std::string, std::uint32_t>& cache)
+        std::optional<TextureHandle> loadAssimpTexture(
+            const aiScene*                                     scene,
+            const std::string&                                 directory,
+            const aiString&                                    texPath,
+            std::unordered_map<std::string, TextureHandle>& cache)
         {
             std::string key = texPath.C_Str();
             if (key.empty())
@@ -407,7 +408,7 @@ namespace FREYA_NAMESPACE
             if (const auto it = cache.find(key); it != cache.end())
                 return it->second;
 
-            std::uint32_t id       = 0;
+            TextureHandle id {};
             const auto*   embedded = scene->GetEmbeddedTexture(texPath.C_Str());
             if (embedded)
             {
@@ -466,13 +467,13 @@ namespace FREYA_NAMESPACE
             return id;
         }
 
-        std::optional<std::uint32_t> loadFirstTexture(
+        std::optional<TextureHandle> loadFirstTexture(
             const aiMaterial*  mat,
             const aiScene*     scene,
             const std::string& directory,
             std::initializer_list<aiTextureType>
-                                                            types,
-            std::unordered_map<std::string, std::uint32_t>& cache,
+                                                               types,
+            std::unordered_map<std::string, TextureHandle>& cache,
             aiString* matchedPath = nullptr)
         {
             aiString path;
@@ -493,11 +494,11 @@ namespace FREYA_NAMESPACE
             return std::nullopt;
         }
 
-        std::uint32_t importAssimpMaterial(
-            const aiMaterial*                               mat,
-            const aiScene*                                  scene,
-            const std::string&                              directory,
-            std::unordered_map<std::string, std::uint32_t>& cache)
+        MaterialHandle importAssimpMaterial(
+            const aiMaterial*                                  mat,
+            const aiScene*                                     scene,
+            const std::string&                                 directory,
+            std::unordered_map<std::string, TextureHandle>& cache)
         {
             MaterialCreateInfo info {};
             info.metalnessFactor = 0.f;
@@ -664,33 +665,33 @@ namespace FREYA_NAMESPACE
             return materialPool->Create(info);
         }
 
-        std::vector<std::uint32_t> importAllMaterials(
+        std::vector<MaterialHandle> importAllMaterials(
             const aiScene* scene, const std::string& directory)
         {
-            std::unordered_map<std::string, std::uint32_t> textureCache;
-            std::vector<std::uint32_t> materialIds(scene->mNumMaterials, 0);
+            std::unordered_map<std::string, TextureHandle> textureCache;
+            std::vector<MaterialHandle> materials(scene->mNumMaterials);
             for (unsigned i = 0; i < scene->mNumMaterials; ++i)
             {
-                materialIds[i] = importAssimpMaterial(
+                materials[i] = importAssimpMaterial(
                     scene->mMaterials[i], scene, directory, textureCache);
             }
-            return materialIds;
+            return materials;
         }
 
         template <typename Fn>
-        void walkSceneSubmeshes(const aiScene*                    scene,
-                                const std::vector<std::uint32_t>& materialIds,
-                                Fn&&                              fn)
+        void walkSceneSubmeshes(const aiScene*                       scene,
+                                const std::vector<MaterialHandle>& materials,
+                                Fn&&                                 fn)
         {
             const auto walk = [&](auto&& self, const aiNode* node) -> void {
                 for (unsigned i = 0; i < node->mNumMeshes; ++i)
                 {
                     const aiMesh* mesh     = scene->mMeshes[node->mMeshes[i]];
                     const auto    matIndex = mesh->mMaterialIndex;
-                    const auto    materialId =
-                        matIndex < materialIds.size() ? materialIds[matIndex]
-                                                      : 0u;
-                    fn(mesh, materialId);
+                    const auto    material =
+                        matIndex < materials.size() ? materials[matIndex]
+                                                    : MaterialHandle {};
+                    fn(mesh, material);
                 }
                 for (unsigned i = 0; i < node->mNumChildren; ++i)
                     self(self, node->mChildren[i]);
@@ -717,14 +718,15 @@ namespace FREYA_NAMESPACE
                 return submeshes;
             }
 
-            const auto directory   = normalizeSlashes(parentDirectory(path));
-            const auto materialIds = importAllMaterials(scene, directory);
+            const auto directory  = normalizeSlashes(parentDirectory(path));
+            const auto materials  = importAllMaterials(scene, directory);
             walkSceneSubmeshes(
-                scene, materialIds,
-                [&](const aiMesh* mesh, const std::uint32_t materialId) {
+                scene, materials,
+                [&](const aiMesh* mesh, const MaterialHandle material) {
                     const auto meshId =
                         processMesh(mesh, scene, /*bakeMaterialDiffuse*/ false);
-                    submeshes.push_back(ModelSubmesh { meshId, materialId });
+                    submeshes.push_back(ModelSubmesh {
+                        MeshHandle { meshId }, material });
                 });
 
             logger->LogTrace("Loaded {} submesh(es) from {}", submeshes.size(),
@@ -961,7 +963,7 @@ namespace FREYA_NAMESPACE
             std::vector<ModelSubmesh>& submeshes, const aiNode* node,
             const aiScene*                                        scene,
             const std::unordered_map<std::string, std::uint32_t>& nameToIndex,
-            const std::vector<std::uint32_t>&                     materialIds)
+            const std::vector<MaterialHandle>&                    materials)
         {
             for (unsigned int i = 0; i < node->mNumMeshes; ++i)
             {
@@ -969,13 +971,15 @@ namespace FREYA_NAMESPACE
                 const auto    meshId =
                     processSkinnedMesh(mesh, scene, nameToIndex);
                 const auto matIndex = mesh->mMaterialIndex;
-                const auto materialId =
-                    matIndex < materialIds.size() ? materialIds[matIndex] : 0u;
-                submeshes.push_back(ModelSubmesh { meshId, materialId });
+                const auto material =
+                    matIndex < materials.size() ? materials[matIndex]
+                                                : MaterialHandle {};
+                submeshes.push_back(
+                    ModelSubmesh { MeshHandle { meshId }, material });
             }
             for (unsigned int i = 0; i < node->mNumChildren; ++i)
                 processSkinnedNode(submeshes, node->mChildren[i], scene,
-                                   nameToIndex, materialIds);
+                                   nameToIndex, materials);
         }
 
         static AnimationClip convertAnimation(
@@ -1064,10 +1068,10 @@ namespace FREYA_NAMESPACE
                                  nameToIndex, out.skeleton);
             finalizeHierarchyInverseBinds(out.skeleton);
 
-            const auto directory   = normalizeSlashes(parentDirectory(path));
-            const auto materialIds = importAllMaterials(scene, directory);
+            const auto directory = normalizeSlashes(parentDirectory(path));
+            const auto materials = importAllMaterials(scene, directory);
             processSkinnedNode(out.submeshes, scene->mRootNode, scene,
-                               nameToIndex, materialIds);
+                               nameToIndex, materials);
 
             for (unsigned a = 0; a < scene->mNumAnimations; ++a)
                 out.clips.push_back(
@@ -1129,11 +1133,10 @@ namespace FREYA_NAMESPACE
     MeshPool::MeshPool(MeshPool&&) noexcept            = default;
     MeshPool& MeshPool::operator=(MeshPool&&) noexcept = default;
 
-    std::uint32_t MeshPool::CreateMesh(
-        const std::vector<Vertex>&        vertices,
-        const std::vector<std::uint32_t>& indices)
+    MeshHandle MeshPool::CreateMesh(const std::vector<Vertex>&        vertices,
+                                    const std::vector<std::uint32_t>& indices)
     {
-        return mImpl->createMesh(vertices, indices);
+        return MeshHandle { mImpl->createMesh(vertices, indices) };
     }
 
     std::vector<ModelSubmesh> MeshPool::CreateModelFromFile(
@@ -1147,42 +1150,19 @@ namespace FREYA_NAMESPACE
         return mImpl->createSkinnedModelFromFile(path);
     }
 
-    bool MeshPool::Contains(const std::uint32_t meshId) const
+    bool MeshPool::Contains(const MeshHandle mesh) const
     {
-        return mImpl->meshes.contains(meshId);
+        return mesh.IsValid() && mImpl->meshes.contains(mesh.Id());
     }
 
-    const Mesh& MeshPool::GetMesh(const std::uint32_t meshId) const
+    const Mesh& MeshPool::GetMesh(const MeshHandle mesh) const
     {
-        return mImpl->meshes[meshId];
+        return mImpl->meshes[mesh.Id()];
     }
 
     std::uint32_t MeshPool::GetMeshCount() const
     {
         return static_cast<std::uint32_t>(mImpl->meshes.size());
-    }
-
-    void MeshPool::FillMeshInfos(std::vector<MeshInfo>& out) const
-    {
-        const auto count = GetMeshCount();
-        out.assign(count, MeshInfo {});
-        for (std::uint32_t id = 0; id < count; ++id)
-        {
-            if (!mImpl->meshes.contains(id))
-                continue;
-            const auto& mesh = mImpl->meshes[id];
-            out[id]          = MeshInfo {
-                .lodCount = mesh.lodCount,
-                .lodBase  = mesh.lodBase,
-                .aabbMin  = glm::vec4(mesh.aabbMin, 0.0f),
-                .aabbMax  = glm::vec4(mesh.aabbMax, 0.0f),
-            };
-        }
-    }
-
-    void MeshPool::FillMeshLods(std::vector<MeshLodInfo>& out) const
-    {
-        out = mImpl->meshLods;
     }
 
     void MeshPool::BindGeometry(const skr::Arc<CommandPool>& commandPool) const
@@ -1201,25 +1181,55 @@ namespace FREYA_NAMESPACE
     }
 
     void MeshPool::Draw(const skr::Arc<CommandPool>& commandPool,
-                        const std::uint32_t          meshId)
+                        const MeshHandle             mesh)
     {
-        mImpl->draw(commandPool, meshId);
+        if (!mesh.IsValid())
+            return;
+        mImpl->draw(commandPool, mesh.Id());
     }
 
     void MeshPool::DrawInstanced(const skr::Arc<CommandPool>& commandPool,
-                                 std::uint32_t meshId, size_t instanceCount,
+                                 MeshHandle mesh, size_t instanceCount,
                                  size_t firstInstance)
     {
-        mImpl->drawInstanced(commandPool, meshId, instanceCount, firstInstance);
+        if (!mesh.IsValid())
+            return;
+        mImpl->drawInstanced(commandPool, mesh.Id(), instanceCount,
+                             firstInstance);
     }
 
-    void MeshPool::Destroy(const std::uint32_t meshId)
+    void MeshPool::Destroy(const MeshHandle mesh)
     {
-        if (!mImpl->meshes.contains(meshId))
+        if (!mesh.IsValid() || !mImpl->meshes.contains(mesh.Id()))
             return;
-        mImpl->meshes.remove(Mesh { .id = meshId });
+        mImpl->meshes.remove(Mesh { .id = mesh.Id() });
         mImpl->logger->LogTrace("MeshPool::Destroy id={} (geometry retained)",
-                                meshId);
+                                mesh.Id());
+    }
+
+    void MeshPoolGpuAccess::FillMeshInfos(const MeshPool&        pool,
+                                          std::vector<MeshInfo>& out)
+    {
+        const auto count = pool.GetMeshCount();
+        out.assign(count, MeshInfo {});
+        for (std::uint32_t id = 0; id < count; ++id)
+        {
+            if (!pool.mImpl->meshes.contains(id))
+                continue;
+            const auto& mesh = pool.mImpl->meshes[id];
+            out[id]          = MeshInfo {
+                .lodCount = mesh.lodCount,
+                .lodBase  = mesh.lodBase,
+                .aabbMin  = glm::vec4(mesh.aabbMin, 0.0f),
+                .aabbMax  = glm::vec4(mesh.aabbMax, 0.0f),
+            };
+        }
+    }
+
+    void MeshPoolGpuAccess::FillMeshLods(const MeshPool&           pool,
+                                         std::vector<MeshLodInfo>& out)
+    {
+        out = pool.mImpl->meshLods;
     }
 
 } // namespace FREYA_NAMESPACE

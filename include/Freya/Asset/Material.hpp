@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Freya/Config.hpp"
+#include "Freya/Scene/AssetHandle.hpp"
 
 #include <cstdint>
 #include <optional>
@@ -63,12 +64,12 @@ namespace FREYA_NAMESPACE
      */
     struct MaterialCreateInfo
     {
-        std::optional<std::uint32_t> albedo;
-        std::optional<std::uint32_t> normal;
-        std::optional<std::uint32_t> roughness;
-        std::optional<std::uint32_t> emissive;
-        std::optional<std::uint32_t> metalness;
-        std::optional<std::uint32_t> occlusion;
+        std::optional<TextureHandle> albedo;
+        std::optional<TextureHandle> normal;
+        std::optional<TextureHandle> roughness;
+        std::optional<TextureHandle> emissive;
+        std::optional<TextureHandle> metalness;
+        std::optional<TextureHandle> occlusion;
 
         glm::vec4     albedoFactor { 1.f, 1.f, 1.f, 1.f };
         float         roughnessFactor = 1.f;

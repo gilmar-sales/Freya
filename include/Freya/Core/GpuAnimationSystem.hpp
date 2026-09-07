@@ -15,12 +15,15 @@ namespace FREYA_NAMESPACE
      * @brief GPU skinning / crowd animation subsystem (extracted from
      * Renderer).
      *
-     * Obtain via Renderer::GpuAnimation().
+     * Obtain via RendererAdvanced::GpuAnimation().
      */
     class GpuAnimationSystem
     {
       public:
-        GpuAnimationSystem() = default;
+        explicit GpuAnimationSystem(void* rendererImpl = nullptr) :
+            mImpl(rendererImpl)
+        {
+        }
 
         void               SetEnabled(bool enabled);
         [[nodiscard]] bool IsEnabled() const;
@@ -65,10 +68,6 @@ namespace FREYA_NAMESPACE
         bool PollTiming(GpuAnimTimingSample& out);
 
       private:
-        friend class Renderer;
-
-        explicit GpuAnimationSystem(void* rendererImpl) : mImpl(rendererImpl) {}
-
         void* mImpl = nullptr;
     };
 

@@ -65,7 +65,7 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    std::optional<std::uint32_t> TexturePool::CreateTextureFromFile(
+    std::optional<TextureHandle> TexturePool::CreateTextureFromFile(
         std::string path)
     {
         mImpl->logger->LogTrace("TexturePool::CreateTextureFromFile:");
@@ -89,7 +89,7 @@ namespace FREYA_NAMESPACE
         return id;
     }
 
-    std::uint32_t TexturePool::CreateTextureFromMemory(
+    TextureHandle TexturePool::CreateTextureFromMemory(
         const void* pixels, std::uint32_t width, std::uint32_t height,
         std::uint32_t channels, std::uint32_t mipLevelCount)
     {
@@ -150,7 +150,7 @@ namespace FREYA_NAMESPACE
             MaterialDescriptorResources::TextureHeapIndex(texture.id),
             texture.image->GetImageView(), texture.sampler);
 
-        return texture.id;
+        return TextureHandle { texture.id };
     }
 
     skr::Arc<Buffer> TexturePool::Impl::queryStagingBuffer(std::uint32_t size)
@@ -178,24 +178,24 @@ namespace FREYA_NAMESPACE
         return stagingBuffer;
     }
 
-    bool TexturePool::Contains(const std::uint32_t id) const
+    bool TexturePool::Contains(const TextureHandle id) const
     {
-        return mImpl->textures.contains(id);
+        return id.IsValid() && mImpl->textures.contains(id.Id());
     }
 
-    void TexturePool::Destroy(const std::uint32_t id)
+    void TexturePool::Destroy(const TextureHandle id)
     {
         auto& i = *mImpl;
-        if (!i.textures.contains(id))
+        if (!id.IsValid() || !i.textures.contains(id.Id()))
             return;
 
-        auto& texture = i.textures[id];
+        auto& texture = i.textures[id.Id()];
 
         // Rewrite the bindless heap entry to the fallback texture first so any
         // in-flight command buffer no longer references the view/sampler we are
         // about to destroy, then wait for the GPU before freeing them.
         i.materialsRes->WriteBindlessTexture(
-            MaterialDescriptorResources::TextureHeapIndex(id),
+            MaterialDescriptorResources::TextureHeapIndex(id.Id()),
             i.materialsRes->GetFallbackImageView(),
             i.materialsRes->GetFallbackSampler());
         i.device->Get().waitIdle();
@@ -208,8 +208,8 @@ namespace FREYA_NAMESPACE
             .sampler = {},
             .width   = 0,
             .height  = 0,
-            .id      = id,
+            .id      = id.Id(),
         });
-        i.logger->LogTrace("TexturePool::Destroy id={}", id);
+        i.logger->LogTrace("TexturePool::Destroy id={}", id.Id());
     }
 } // namespace FREYA_NAMESPACE

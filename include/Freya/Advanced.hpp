@@ -11,6 +11,8 @@
 
 #include "Freya/Freya.hpp"
 
+#include "Freya/Core/RendererAdvanced.hpp"
+
 #include "Freya/Core/GpuAnimationSystem.hpp"
 #include "Freya/Core/IFrameStage.hpp"
 #include "Freya/Core/IPlatform.hpp"
@@ -28,3 +30,4 @@
 #include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Asset/LightingTechniqueRegistry.hpp"
 #include "Freya/Asset/MaterialTechniqueRegistry.hpp"
+#include "Freya/Asset/SceneInstanceUpload.hpp"
