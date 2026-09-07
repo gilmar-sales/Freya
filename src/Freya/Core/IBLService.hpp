@@ -15,7 +15,9 @@ namespace FREYA_NAMESPACE
      * integration LUT, and LTC matrices for rectangular area lights.
      * Specular env mips are GGX importance-sampled (split-sum prefilter).
      * Built at construction from FreyaOptions (procedural sky or Radiance
-     * .hdr path).
+     * .hdr path). CPU bake results (prefiltered env, irradiance, BRDF LUT)
+     * are cached under ./Resources/Environments/.ibl_cache/ with versioned
+     * keys (HDR identity = stem + size + mtime).
      */
     class IBLService
     {
@@ -59,8 +61,7 @@ namespace FREYA_NAMESPACE
 
       private:
         void createSamplers();
-        void buildFromEquirect(const std::vector<float>& src, int width,
-                               int height);
+        void buildFromEquirect(const std::string& environmentMapPath);
         void generateProceduralSky(std::vector<float>& out, int width,
                                    int height) const;
         bool loadHdrFile(const std::string& path, std::vector<float>& out,

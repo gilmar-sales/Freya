@@ -4,8 +4,15 @@
 #include "Freya/Vendor/stb_image.h"
 
 #include <algorithm>
+#include <cctype>
+#include <chrono>
 #include <cmath>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <functional>
 #include <numbers>
+#include <string>
 
 namespace FREYA_NAMESPACE
 {
@@ -104,6 +111,295 @@ namespace FREYA_NAMESPACE
             return GeometrySchlickGGX(NdotV, roughness) *
                    GeometrySchlickGGX(NdotL, roughness);
         }
+
+        // Disk cache for CPU IBL bakes. Bump kIblCacheVersion when sample
+        // counts, resolutions, or packing change.
+        constexpr std::uint32_t kIblCacheVersion   = 1;
+        constexpr int           kSrcDownsampleMaxW = 1024;
+        constexpr int           kEnvPrefilterMaxW  = 512;
+        constexpr int           kIrrW              = 64;
+        constexpr int           kIrrH              = 32;
+        constexpr int           kLutSize           = 256;
+        constexpr const char*   kIblCacheDir =
+            "./Resources/Environments/.ibl_cache";
+        constexpr char kFloatMapMagic[4]  = { 'F', 'M', 'A', 'P' };
+        constexpr char kEnvBundleMagic[4] = { 'F', 'I', 'B', 'E' };
+
+        struct FloatMapHeader
+        {
+            char          magic[4];
+            std::uint32_t version;
+            std::uint32_t width;
+            std::uint32_t height;
+            std::uint32_t mipCount;
+            std::uint32_t floatCount;
+        };
+
+        struct EnvBundleHeader
+        {
+            char          magic[4];
+            std::uint32_t version;
+            std::uint32_t envWidth;
+            std::uint32_t envHeight;
+            std::uint32_t mipCount;
+            std::uint32_t envFloatCount;
+            std::uint32_t irrWidth;
+            std::uint32_t irrHeight;
+            std::uint32_t irrFloatCount;
+        };
+
+        std::size_t MipChainFloatCount(int width, int height, int mipCount)
+        {
+            std::size_t total = 0;
+            for (int mip = 0; mip < mipCount; ++mip)
+            {
+                const int mipW = std::max(1, width >> mip);
+                const int mipH = std::max(1, height >> mip);
+                total += static_cast<std::size_t>(mipW) * mipH * 4;
+            }
+            return total;
+        }
+
+        std::string SanitizeCacheToken(std::string token)
+        {
+            for (char& c : token)
+            {
+                const auto uc = static_cast<unsigned char>(c);
+                if (!std::isalnum(uc) && c != '-' && c != '_')
+                {
+                    c = '_';
+                }
+            }
+            return token;
+        }
+
+        std::filesystem::path CacheFilePath(const std::string& fileName)
+        {
+            return std::filesystem::path(kIblCacheDir) / fileName;
+        }
+
+        bool EnsureCacheDir()
+        {
+            std::error_code ec;
+            std::filesystem::create_directories(kIblCacheDir, ec);
+            return !ec;
+        }
+
+        std::string BrdfCacheFileName()
+        {
+            return "brdf_v" + std::to_string(kIblCacheVersion) + "_" +
+                   std::to_string(kLutSize) + "_s128.fmap";
+        }
+
+        std::string EnvCacheFileName(const std::string& keyToken)
+        {
+            return "env_v" + std::to_string(kIblCacheVersion) + "_" +
+                   SanitizeCacheToken(keyToken) + ".fibe";
+        }
+
+        std::string MakeHdrCacheToken(const std::string& path)
+        {
+            namespace fs = std::filesystem;
+            std::error_code ec;
+            const auto      fileSize = fs::file_size(path, ec);
+            if (ec)
+            {
+                return {};
+            }
+            const auto mtime = fs::last_write_time(path, ec);
+            if (ec)
+            {
+                return {};
+            }
+            const auto mtimeCount =
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    mtime.time_since_epoch())
+                    .count();
+            return fs::path(path).stem().string() + "_" +
+                   std::to_string(fileSize) + "_" + std::to_string(mtimeCount);
+        }
+
+        bool WriteAtomic(const std::filesystem::path&              path,
+                         const std::function<bool(std::ostream&)>& writeBody)
+        {
+            if (!EnsureCacheDir())
+            {
+                return false;
+            }
+
+            const auto tmpPath = path.string() + ".tmp";
+            {
+                std::ofstream out(tmpPath, std::ios::binary | std::ios::trunc);
+                if (!out || !writeBody(out) || !out.flush())
+                {
+                    std::error_code ec;
+                    std::filesystem::remove(tmpPath, ec);
+                    return false;
+                }
+            }
+
+            std::error_code ec;
+            std::filesystem::rename(tmpPath, path, ec);
+            if (ec)
+            {
+                std::filesystem::remove(path, ec);
+                std::filesystem::rename(tmpPath, path, ec);
+            }
+            if (ec)
+            {
+                std::filesystem::remove(tmpPath, ec);
+                return false;
+            }
+            return true;
+        }
+
+        bool LoadFloatMap(const std::filesystem::path& path,
+                          std::vector<float>& out, int expectedW, int expectedH)
+        {
+            std::ifstream in(path, std::ios::binary);
+            if (!in)
+            {
+                return false;
+            }
+
+            FloatMapHeader header {};
+            in.read(reinterpret_cast<char*>(&header), sizeof(header));
+            if (!in || std::memcmp(header.magic, kFloatMapMagic, 4) != 0 ||
+                header.version != kIblCacheVersion ||
+                header.width != static_cast<std::uint32_t>(expectedW) ||
+                header.height != static_cast<std::uint32_t>(expectedH) ||
+                header.mipCount != 1)
+            {
+                return false;
+            }
+
+            const std::size_t expected =
+                static_cast<std::size_t>(expectedW) * expectedH * 4;
+            if (header.floatCount != expected)
+            {
+                return false;
+            }
+
+            out.resize(expected);
+            in.read(reinterpret_cast<char*>(out.data()),
+                    static_cast<std::streamsize>(expected * sizeof(float)));
+            return static_cast<bool>(in);
+        }
+
+        bool SaveFloatMap(const std::filesystem::path& path,
+                          const std::vector<float>& data, int width, int height)
+        {
+            const std::size_t expected =
+                static_cast<std::size_t>(width) * height * 4;
+            if (data.size() != expected)
+            {
+                return false;
+            }
+
+            FloatMapHeader header {};
+            std::memcpy(header.magic, kFloatMapMagic, 4);
+            header.version    = kIblCacheVersion;
+            header.width      = static_cast<std::uint32_t>(width);
+            header.height     = static_cast<std::uint32_t>(height);
+            header.mipCount   = 1;
+            header.floatCount = static_cast<std::uint32_t>(expected);
+
+            return WriteAtomic(path, [&](std::ostream& out) {
+                out.write(reinterpret_cast<const char*>(&header),
+                          sizeof(header));
+                out.write(
+                    reinterpret_cast<const char*>(data.data()),
+                    static_cast<std::streamsize>(expected * sizeof(float)));
+                return static_cast<bool>(out);
+            });
+        }
+
+        bool LoadEnvBundle(const std::filesystem::path& path,
+                           std::vector<float>& envOut, int& envW, int& envH,
+                           int& mipCount, std::vector<float>& irrOut)
+        {
+            std::ifstream in(path, std::ios::binary);
+            if (!in)
+            {
+                return false;
+            }
+
+            EnvBundleHeader header {};
+            in.read(reinterpret_cast<char*>(&header), sizeof(header));
+            if (!in || std::memcmp(header.magic, kEnvBundleMagic, 4) != 0 ||
+                header.version != kIblCacheVersion ||
+                header.irrWidth != static_cast<std::uint32_t>(kIrrW) ||
+                header.irrHeight != static_cast<std::uint32_t>(kIrrH) ||
+                header.mipCount == 0)
+            {
+                return false;
+            }
+
+            const auto envExpected = MipChainFloatCount(
+                static_cast<int>(header.envWidth),
+                static_cast<int>(header.envHeight),
+                static_cast<int>(header.mipCount));
+            const auto irrExpected =
+                static_cast<std::size_t>(kIrrW) * kIrrH * 4;
+            if (header.envFloatCount != envExpected ||
+                header.irrFloatCount != irrExpected)
+            {
+                return false;
+            }
+
+            envOut.resize(envExpected);
+            irrOut.resize(irrExpected);
+            in.read(reinterpret_cast<char*>(envOut.data()),
+                    static_cast<std::streamsize>(envExpected * sizeof(float)));
+            in.read(reinterpret_cast<char*>(irrOut.data()),
+                    static_cast<std::streamsize>(irrExpected * sizeof(float)));
+            if (!in)
+            {
+                return false;
+            }
+
+            envW     = static_cast<int>(header.envWidth);
+            envH     = static_cast<int>(header.envHeight);
+            mipCount = static_cast<int>(header.mipCount);
+            return true;
+        }
+
+        bool SaveEnvBundle(const std::filesystem::path& path,
+                           const std::vector<float>& envData, int envW,
+                           int envH, int mipCount,
+                           const std::vector<float>& irrData)
+        {
+            const auto envExpected = MipChainFloatCount(envW, envH, mipCount);
+            const auto irrExpected =
+                static_cast<std::size_t>(kIrrW) * kIrrH * 4;
+            if (envData.size() != envExpected || irrData.size() != irrExpected)
+            {
+                return false;
+            }
+
+            EnvBundleHeader header {};
+            std::memcpy(header.magic, kEnvBundleMagic, 4);
+            header.version       = kIblCacheVersion;
+            header.envWidth      = static_cast<std::uint32_t>(envW);
+            header.envHeight     = static_cast<std::uint32_t>(envH);
+            header.mipCount      = static_cast<std::uint32_t>(mipCount);
+            header.envFloatCount = static_cast<std::uint32_t>(envExpected);
+            header.irrWidth      = static_cast<std::uint32_t>(kIrrW);
+            header.irrHeight     = static_cast<std::uint32_t>(kIrrH);
+            header.irrFloatCount = static_cast<std::uint32_t>(irrExpected);
+
+            return WriteAtomic(path, [&](std::ostream& out) {
+                out.write(reinterpret_cast<const char*>(&header),
+                          sizeof(header));
+                out.write(
+                    reinterpret_cast<const char*>(envData.data()),
+                    static_cast<std::streamsize>(envExpected * sizeof(float)));
+                out.write(
+                    reinterpret_cast<const char*>(irrData.data()),
+                    static_cast<std::streamsize>(irrExpected * sizeof(float)));
+                return static_cast<bool>(out);
+            });
+        }
     } // namespace
 
     IBLService::IBLService(
@@ -115,43 +411,7 @@ namespace FREYA_NAMESPACE
         mIntensity(options->iblIntensity)
     {
         mLogger->LogTrace("Building 'fra::IBLService':");
-
-        constexpr int kEnvW = 512;
-        constexpr int kEnvH = 256;
-
-        std::vector<float> env;
-        int                width  = kEnvW;
-        int                height = kEnvH;
-
-        if (!options->environmentMapPath.empty())
-        {
-            mLogger->LogTrace("\tLoading HDR: {}",
-                              options->environmentMapPath);
-            if (loadHdrFile(options->environmentMapPath, env, width, height))
-            {
-                mLogger->LogTrace("\tLoaded HDR {}x{}", width, height);
-                downsampleEquirect(env, width, height, 1024);
-                mLogger->LogTrace("\tDownsampled equirect to {}x{}", width,
-                                  height);
-            }
-            else
-            {
-                width  = kEnvW;
-                height = kEnvH;
-                mLogger->LogTrace(
-                    "\tHDR load failed; generating procedural sky");
-                generateProceduralSky(env, width, height);
-            }
-        }
-        else
-        {
-            width  = kEnvW;
-            height = kEnvH;
-            mLogger->LogTrace("\tGenerating procedural sky");
-            generateProceduralSky(env, width, height);
-        }
-
-        buildFromEquirect(env, width, height);
+        buildFromEquirect(options->environmentMapPath);
         createSamplers();
     }
 
@@ -493,7 +753,7 @@ namespace FREYA_NAMESPACE
         std::vector<float> env    = src;
         int                width  = srcW;
         int                height = srcH;
-        downsampleEquirect(env, width, height, 512);
+        downsampleEquirect(env, width, height, kEnvPrefilterMaxW);
 
         outWidth  = width;
         outHeight = height;
@@ -616,35 +876,122 @@ namespace FREYA_NAMESPACE
             .Build();
     }
 
-    void IBLService::buildFromEquirect(const std::vector<float>& src, int width,
-                                       int height)
+    void IBLService::buildFromEquirect(const std::string& environmentMapPath)
     {
-        mLogger->LogTrace("\tBuilding IBL from equirect {}x{}", width, height);
+        std::string envKey = "procedural_v1";
+        if (!environmentMapPath.empty())
+        {
+            namespace fs = std::filesystem;
+            std::error_code ec;
+            if (fs::is_regular_file(environmentMapPath, ec))
+            {
+                const auto token = MakeHdrCacheToken(environmentMapPath);
+                if (!token.empty())
+                {
+                    envKey = token;
+                }
+            }
+        }
+
+        mLogger->LogTrace("\tBuilding IBL (cache key '{}')", envKey);
 
         std::vector<float> prefiltered;
-        int                envW     = width;
-        int                envH     = height;
+        std::vector<float> irradiance;
+        int                envW     = 0;
+        int                envH     = 0;
         int                mipCount = 1;
-        mLogger->LogTrace("\tPrefiltering specular environment");
-        prefilterSpecular(src, width, height, prefiltered, envW, envH,
-                          mipCount);
+        const auto         envPath  = CacheFilePath(EnvCacheFileName(envKey));
+
+        if (LoadEnvBundle(envPath, prefiltered, envW, envH, mipCount,
+                          irradiance))
+        {
+            mLogger->LogTrace("\tEnv cache hit {}x{} mips={}", envW, envH,
+                              mipCount);
+        }
+        else
+        {
+            std::vector<float> src;
+            int                width  = 512;
+            int                height = 256;
+
+            if (!environmentMapPath.empty())
+            {
+                mLogger->LogTrace("\tLoading HDR: {}", environmentMapPath);
+                if (loadHdrFile(environmentMapPath, src, width, height))
+                {
+                    mLogger->LogTrace("\tLoaded HDR {}x{}", width, height);
+                    downsampleEquirect(src, width, height, kSrcDownsampleMaxW);
+                    mLogger->LogTrace("\tDownsampled equirect to {}x{}", width,
+                                      height);
+                    const auto token = MakeHdrCacheToken(environmentMapPath);
+                    if (!token.empty())
+                    {
+                        envKey = token;
+                    }
+                }
+                else
+                {
+                    envKey = "procedural_v1";
+                    mLogger->LogTrace(
+                        "\tHDR load failed; generating procedural sky");
+                    generateProceduralSky(src, width, height);
+                }
+            }
+            else
+            {
+                mLogger->LogTrace("\tGenerating procedural sky");
+                generateProceduralSky(src, width, height);
+            }
+
+            mLogger->LogTrace("\tEnv cache miss; baking from equirect {}x{}",
+                              width, height);
+            mLogger->LogTrace("\tPrefiltering specular environment");
+            prefilterSpecular(src, width, height, prefiltered, envW, envH,
+                              mipCount);
+            mLogger->LogTrace("\tConvolving irradiance {}x{}", kIrrW, kIrrH);
+            convolveIrradiance(src, width, height, irradiance, kIrrW, kIrrH);
+
+            const auto writePath = CacheFilePath(EnvCacheFileName(envKey));
+            if (SaveEnvBundle(writePath, prefiltered, envW, envH, mipCount,
+                              irradiance))
+            {
+                mLogger->LogTrace("\tWrote env cache {}", writePath.string());
+            }
+            else
+            {
+                mLogger->LogTrace("\tFailed to write env cache {}",
+                                  writePath.string());
+            }
+        }
+
         mLogger->LogTrace("\tUploading environment {}x{} mips={}", envW, envH,
                           mipCount);
         mEnvironment =
             uploadFloatRgbMipChain(prefiltered, envW, envH, mipCount);
-
-        constexpr int      kIrrW = 64;
-        constexpr int      kIrrH = 32;
-        std::vector<float> irradiance;
-        mLogger->LogTrace("\tConvolving irradiance {}x{}", kIrrW, kIrrH);
-        convolveIrradiance(src, width, height, irradiance, kIrrW, kIrrH);
         mLogger->LogTrace("\tUploading irradiance");
         mIrradiance = uploadFloatRgb(irradiance, kIrrW, kIrrH, false);
 
-        constexpr int      kLutSize = 256;
         std::vector<float> lut;
-        mLogger->LogTrace("\tGenerating BRDF LUT {}x{}", kLutSize, kLutSize);
-        generateBrdfLut(lut, kLutSize);
+        const auto         brdfPath = CacheFilePath(BrdfCacheFileName());
+        if (LoadFloatMap(brdfPath, lut, kLutSize, kLutSize))
+        {
+            mLogger->LogTrace("\tBRDF cache hit {}", brdfPath.string());
+        }
+        else
+        {
+            mLogger->LogTrace("\tGenerating BRDF LUT {}x{}", kLutSize,
+                              kLutSize);
+            generateBrdfLut(lut, kLutSize);
+            if (SaveFloatMap(brdfPath, lut, kLutSize, kLutSize))
+            {
+                mLogger->LogTrace("\tWrote BRDF cache {}", brdfPath.string());
+            }
+            else
+            {
+                mLogger->LogTrace("\tFailed to write BRDF cache {}",
+                                  brdfPath.string());
+            }
+        }
         mLogger->LogTrace("\tUploading BRDF LUT");
         mBrdfLut = uploadFloatRgb(lut, kLutSize, kLutSize, false);
 
