@@ -11,17 +11,21 @@ namespace FREYA_NAMESPACE
      * Automatically enables validation layers in debug builds and queries
      * SDL3 for required Vulkan extensions.
      *
-     * @param logger Logger for build operations and assertions
+     * @param logger          Logger for build operations and assertions
+     * @param serviceProvider Root service provider (kept for debug callback)
      */
     class InstanceBuilder
     {
       public:
         /**
          * @brief Constructs builder, queries SDL3 Vulkan extensions.
-         * @param logger Logger for build operations
+         * @param logger          Logger for build operations
+         * @param serviceProvider Root service provider
          */
-        InstanceBuilder(const skr::Arc<skr::Logger<InstanceBuilder>>& logger) :
-            mLogger(logger),
+        InstanceBuilder(const skr::Arc<skr::ServiceProvider>& serviceProvider) :
+            mServiceProvider(serviceProvider),
+            mLogger(
+                serviceProvider->GetService<skr::Logger<InstanceBuilder>>()),
             mApplicationVersion(VK_MAKE_API_VERSION(0, 0, 0, 1)),
             mApplicationName("Freya Application"), mEngineName("Freya Engine"),
             mVulkanVersion(VK_MAKE_API_VERSION(0, 1, 3, 0)),
@@ -144,6 +148,8 @@ namespace FREYA_NAMESPACE
         static bool checkLayerSupport(const char* layer);
 
       private:
+        skr::Arc<skr::ServiceProvider>
+            mServiceProvider; ///< Root DI (debug messenger pUserData)
         skr::Arc<skr::Logger<InstanceBuilder>> mLogger; ///< Logger reference
 
         std::vector<const char*> mLayers;     ///< Enabled validation layers

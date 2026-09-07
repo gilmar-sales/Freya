@@ -3,19 +3,39 @@
 namespace FREYA_NAMESPACE
 {
     static VKAPI_ATTR vk::Bool32 VKAPI_CALL DebugCallback(
-        vk::DebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
-        vk::DebugUtilsMessageTypeFlagsEXT             messageType,
+        vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+        vk::DebugUtilsMessageTypeFlagsEXT /*messageType*/,
         const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData,
         void*                                         pUserData)
     {
-        std::cerr << "Vulkan Validation Layer ["
-                  << to_string(
-                         static_cast<vk::DebugUtilsMessageSeverityFlagsEXT>(
-                             messageSeverity))
-                  << "]: " << pCallbackData->pMessage << std::endl;
+        auto* serviceProvider = static_cast<skr::ServiceProvider*>(pUserData);
+        if (serviceProvider == nullptr || pCallbackData == nullptr ||
+            pCallbackData->pMessage == nullptr)
+        {
+            return vk::False;
+        }
 
-        return VK_FALSE;
-    };
+        const auto logger =
+            serviceProvider->GetService<skr::Logger<Instance>>();
+
+        switch (messageSeverity)
+        {
+            case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError:
+                logger->LogError("{}", pCallbackData->pMessage);
+                break;
+            case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning:
+                logger->LogWarning("{}", pCallbackData->pMessage);
+                break;
+            case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo:
+                logger->LogInformation("{}", pCallbackData->pMessage);
+                break;
+            default:
+                logger->LogTrace("{}", pCallbackData->pMessage);
+                break;
+        }
+
+        return vk::False;
+    }
 
     InstanceBuilder& InstanceBuilder::SetApplicationName(
         const std::string_view name)
@@ -138,13 +158,15 @@ namespace FREYA_NAMESPACE
                 vk::DebugUtilsMessengerCreateInfoEXT()
                     .setMessageSeverity(
                         vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
+                        vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo |
                         vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
                         vk::DebugUtilsMessageSeverityFlagBitsEXT::eError)
                     .setMessageType(
                         vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
                         vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
                         vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance)
-                    .setPfnUserCallback(DebugCallback);
+                    .setPfnUserCallback(DebugCallback)
+                    .setPUserData(mServiceProvider.get());
 
             VkDebugUtilsMessengerEXT nativeDebugMessenger;
 
