@@ -3,23 +3,46 @@
 #include "Freya/Asset/SceneInstanceUpload.hpp"
 #include "Freya/Core/Renderer.hpp"
 
-#include <utility>
+#include <algorithm>
 
 namespace FREYA_NAMESPACE
 {
+    namespace
+    {
+        bool UploadEntityLess(const SceneInstanceUpload& a,
+                              const SceneInstanceUpload& b)
+        {
+            if (a.entityId != b.entityId)
+                return a.entityId < b.entityId;
+            return a.mesh.Id() < b.mesh.Id();
+        }
+    } // namespace
+
+    void Scene::markTopologyDirty()
+    {
+        mTopologyDirty = true;
+        mContentDirty  = true;
+    }
+
+    void Scene::markContentDirty()
+    {
+        mContentDirty = true;
+    }
+
     Scene::InstanceId Scene::Add(const Instance& instance)
     {
+        markTopologyDirty();
         for (std::uint32_t i = 0; i < mAlive.size(); ++i)
         {
             if (!mAlive[i])
             {
                 mInstances[i] = instance;
-                mAlive[i]     = true;
+                mAlive[i]     = 1;
                 return i;
             }
         }
         mInstances.push_back(instance);
-        mAlive.push_back(true);
+        mAlive.push_back(1);
         return static_cast<InstanceId>(mInstances.size() - 1);
     }
 
@@ -27,7 +50,10 @@ namespace FREYA_NAMESPACE
     {
         if (id >= mAlive.size())
             return;
-        mAlive[id] = false;
+        if (!mAlive[id])
+            return;
+        mAlive[id] = 0;
+        markTopologyDirty();
     }
 
     void Scene::SetTransform(const InstanceId id, const glm::mat4& model)
@@ -35,12 +61,14 @@ namespace FREYA_NAMESPACE
         if (id >= mAlive.size() || !mAlive[id])
             return;
         mInstances[id].model = model;
+        markContentDirty();
     }
 
     Scene::Instance* Scene::Get(const InstanceId id)
     {
         if (id >= mAlive.size() || !mAlive[id])
             return nullptr;
+        markContentDirty();
         return &mInstances[id];
     }
 
@@ -55,12 +83,13 @@ namespace FREYA_NAMESPACE
     {
         mInstances.clear();
         mAlive.clear();
+        markTopologyDirty();
     }
 
     std::size_t Scene::Size() const
     {
         std::size_t n = 0;
-        for (bool alive : mAlive)
+        for (const auto alive : mAlive)
         {
             if (alive)
                 ++n;
@@ -68,10 +97,14 @@ namespace FREYA_NAMESPACE
         return n;
     }
 
-    void Scene::Upload(Renderer& renderer) const
+    void Scene::Upload(Renderer& renderer)
     {
-        // Reuse scratch across frames to avoid per-frame heap traffic when
-        // apps call Upload every frame on a retained Scene.
+        if (!mTopologyDirty && !mContentDirty)
+        {
+            renderer.CommitSceneFrame();
+            return;
+        }
+
         thread_local std::vector<SceneInstanceUpload> uploads;
         uploads.clear();
         uploads.reserve(Size());
@@ -90,7 +123,18 @@ namespace FREYA_NAMESPACE
                 .boneCount   = inst.boneCount,
             });
         }
-        renderer.UploadSceneInstances(uploads);
+
+        // Match IndirectDrawSystem full-upload order so transform patches
+        // align with the retained GPU instance table.
+        std::stable_sort(uploads.begin(), uploads.end(), UploadEntityLess);
+
+        if (mTopologyDirty)
+            renderer.UploadSceneInstances(uploads);
+        else
+            renderer.PatchSceneInstances(uploads);
+
+        mTopologyDirty = false;
+        mContentDirty  = false;
     }
 
 } // namespace FREYA_NAMESPACE

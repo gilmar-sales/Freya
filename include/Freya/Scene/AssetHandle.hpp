@@ -27,8 +27,7 @@ namespace FREYA_NAMESPACE
       public:
         constexpr AssetHandle() = default;
 
-        constexpr explicit AssetHandle(std::uint32_t id) :
-            mId(id), mValid(true)
+        constexpr explicit AssetHandle(std::uint32_t id) : mId(id), mValid(true)
         {
         }
 

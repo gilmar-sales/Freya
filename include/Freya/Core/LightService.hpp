@@ -155,10 +155,13 @@ namespace FREYA_NAMESPACE
          * @brief Adds a light. Returns a null handle when the pool is full.
          */
         LightHandle AddLight(const Light& light);
-        void        RemoveLight(LightHandle handle);
-        void        UpdateLightPosition(LightHandle     handle,
-                                        const glm::vec3& position);
-        void        UpdateLight(LightHandle handle, const Light& light);
+        /**
+         * @brief Removes a light. Other LightHandles stay valid (free-list
+         * slots); only @p handle becomes inert.
+         */
+        void RemoveLight(LightHandle handle);
+        void UpdateLightPosition(LightHandle handle, const glm::vec3& position);
+        void UpdateLight(LightHandle handle, const Light& light);
         const Light* GetLight(LightHandle handle) const;
         void         ClearLights();
 

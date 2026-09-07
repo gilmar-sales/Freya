@@ -114,49 +114,53 @@ class MainApp final : public fra::AbstractApplication
         mScene.Clear();
         std::uint32_t nextEntity = 1;
 
-        const auto addPart = [&](fra::MeshHandle mesh, fra::MaterialHandle material,
-                                 const glm::mat4& model) {
-            fra::Scene::Instance inst {};
-            inst.mesh        = mesh;
-            inst.material    = material;
-            inst.model       = model;
-            inst.entityId    = nextEntity++;
-            inst.castShadows = false;
-            mScene.Add(inst);
-        };
+        const auto addPart =
+            [&](fra::MeshHandle mesh, fra::MaterialHandle material,
+                const glm::mat4& model, fra::Mobility mobility) {
+                fra::Scene::Instance inst {};
+                inst.mesh        = mesh;
+                inst.material    = material;
+                inst.model       = model;
+                inst.entityId    = nextEntity++;
+                inst.castShadows = false;
+                inst.mobility    = mobility;
+                mScene.Add(inst);
+            };
 
         // Ground slightly below models so baked glTF pivots can rest on it.
         addPart(mGroundMesh, mGroundMaterial,
-                glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.05f, 0.0f)));
+                glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.05f, 0.0f)),
+                fra::Mobility::Static);
 
         const auto helmetModel = glm::scale(
             glm::translate(glm::mat4(1.0f), glm::vec3(-1.6f, 0.0f, 0.0f)),
             glm::vec3(1.15f));
         for (const auto& part : mHelmetModel)
-            addPart(part.mesh, part.material, helmetModel);
+            addPart(part.mesh, part.material, helmetModel,
+                    fra::Mobility::Static);
 
         const auto dragonModel = glm::scale(
             glm::translate(glm::mat4(1.0f), glm::vec3(1.8f, 0.0f, 0.0f)),
             glm::vec3(1.0f));
         for (const auto& part : mDragonModel)
-            addPart(part.mesh, part.material, dragonModel);
+            addPart(part.mesh, part.material, dragonModel,
+                    fra::Mobility::Static);
 
         const auto shipModel = glm::scale(
             glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.0f, -2.8f)),
             glm::vec3(100.0f));
         for (const auto& part : mShipModel)
-            addPart(part.mesh, part.material, shipModel);
+            addPart(part.mesh, part.material, shipModel, fra::Mobility::Static);
     }
 
     void drawCullAabbs()
     {
         auto& dd = mRenderer->GetDebugDraw();
-        mScene.ForEach(
-            [&](fra::Scene::InstanceId, const fra::Scene::Instance& inst) {
-                FreyaExamples::DrawCullAabb(
-                    dd, *mMeshPool, inst.mesh, inst.model,
-                    glm::vec4(0.2f, 0.9f, 1.0f, 0.6f));
-            });
+        mScene.ForEach([&](fra::Scene::InstanceId,
+                           const fra::Scene::Instance& inst) {
+            FreyaExamples::DrawCullAabb(dd, *mMeshPool, inst.mesh, inst.model,
+                                        glm::vec4(0.2f, 0.9f, 1.0f, 0.6f));
+        });
     }
 
     fra::Ref<fra::MeshPool>     mMeshPool;

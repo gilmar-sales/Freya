@@ -360,7 +360,9 @@ class MainApp final : public fra::AbstractApplication
         {
             fra::GpuJointExtractSample samples[4] {};
             std::uint32_t              n = 0;
-            if (fra::Advanced(*mRenderer).GpuAnimation().PollJointExtract(samples, &n) &&
+            if (fra::Advanced(*mRenderer)
+                    .GpuAnimation()
+                    .PollJointExtract(samples, &n) &&
                 n > 0)
             {
                 mGpuExtractHeadSkin = samples[0].skinMatrix;
@@ -589,7 +591,9 @@ class MainApp final : public fra::AbstractApplication
         if (!gpuInstances.empty())
         {
             fra::Advanced(*mRenderer).GpuAnimation().SetCopyPrevBones(gpuCrowd);
-            fra::Advanced(*mRenderer).GpuAnimation().UploadInstances(gpuInstances);
+            fra::Advanced(*mRenderer)
+                .GpuAnimation()
+                .UploadInstances(gpuInstances);
             fra::Advanced(*mRenderer).GpuAnimation().SetEnabled(true);
             if (gpuCrowd && gpuInstances.size() == mFoxes.size())
                 mGpuCrowdSeeded = true;
@@ -998,15 +1002,18 @@ class MainApp final : public fra::AbstractApplication
 
     void uploadGpuAnimAssets()
     {
-        fra::Advanced(*mRenderer).GpuAnimation().UploadSkeleton(
-            fra::PackSkeleton(mSkinned.skeleton));
+        fra::Advanced(*mRenderer)
+            .GpuAnimation()
+            .UploadSkeleton(fra::PackSkeleton(mSkinned.skeleton));
         fra::Advanced(*mRenderer).GpuAnimation().ResetClipCache();
 
         const auto uploadPinned = [&](const std::uint32_t   slot,
                                       const char*           name,
                                       const fra::BakedClip& bake) {
             const auto key = fra::GpuClipKey(name);
-            if (!fra::Advanced(*mRenderer).GpuAnimation().UploadClipSlot(slot, key, bake))
+            if (!fra::Advanced(*mRenderer)
+                     .GpuAnimation()
+                     .UploadClipSlot(slot, key, bake))
             {
                 std::cout << "GPU clip slot " << slot << " (" << name
                           << ") upload failed\n";
@@ -1019,21 +1026,26 @@ class MainApp final : public fra::AbstractApplication
         uploadPinned(2, "Run", mBakeRun);
 
         const auto jc = mSkinned.skeleton.JointCount();
-        fra::Advanced(*mRenderer).GpuAnimation().UploadBoneMask(
-            fra::PackBoneMask(mUpperMask, jc));
+        fra::Advanced(*mRenderer)
+            .GpuAnimation()
+            .UploadBoneMask(fra::PackBoneMask(mUpperMask, jc));
         if (mFreyaOptions->quantizeGpuAnimJoints)
-            fra::Advanced(*mRenderer).GpuAnimation().UploadRestJoints(
-                fra::PackRestJointsQuant(mRestPose, jc));
+            fra::Advanced(*mRenderer)
+                .GpuAnimation()
+                .UploadRestJoints(fra::PackRestJointsQuant(mRestPose, jc));
         else
-            fra::Advanced(*mRenderer).GpuAnimation().UploadRestJoints(
-                fra::PackRestJointsFloat(mRestPose, jc));
-        std::cout << "GPU anim bake+mask+rest uploaded ("
-                  << (mFreyaOptions->quantizeGpuAnimJoints ? "quantized 16B"
-                                                           : "float 48B")
-                  << ") pinned=3 resident="
-                  << fra::Advanced(*mRenderer).GpuAnimation().GetResidentClipCount()
-                  << " slabJoints="
-                  << fra::Advanced(*mRenderer).GpuAnimation().GetJointsPerClipSlot() << '\n';
+            fra::Advanced(*mRenderer)
+                .GpuAnimation()
+                .UploadRestJoints(fra::PackRestJointsFloat(mRestPose, jc));
+        std::cout
+            << "GPU anim bake+mask+rest uploaded ("
+            << (mFreyaOptions->quantizeGpuAnimJoints ? "quantized 16B"
+                                                     : "float 48B")
+            << ") pinned=3 resident="
+            << fra::Advanced(*mRenderer).GpuAnimation().GetResidentClipCount()
+            << " slabJoints="
+            << fra::Advanced(*mRenderer).GpuAnimation().GetJointsPerClipSlot()
+            << '\n';
     }
 
     void buildStreamCatalog()
@@ -1093,10 +1105,13 @@ class MainApp final : public fra::AbstractApplication
             mStreamCatalog[mStreamCatalogIndex % mStreamCatalog.size()];
         ++mStreamCatalogIndex;
 
-        const auto before    = fra::Advanced(*mRenderer).GpuAnimation().FindClipSlot(e.key);
-        const auto resBefore = fra::Advanced(*mRenderer).GpuAnimation().GetResidentClipCount();
-        const auto slot =
-            fra::Advanced(*mRenderer).GpuAnimation().EnsureClipResident(e.key, e.bake);
+        const auto before =
+            fra::Advanced(*mRenderer).GpuAnimation().FindClipSlot(e.key);
+        const auto resBefore =
+            fra::Advanced(*mRenderer).GpuAnimation().GetResidentClipCount();
+        const auto slot = fra::Advanced(*mRenderer)
+                              .GpuAnimation()
+                              .EnsureClipResident(e.key, e.bake);
         if (slot == 0xffffffffu)
         {
             std::cout << "Stream FAIL " << e.label
@@ -1106,11 +1121,12 @@ class MainApp final : public fra::AbstractApplication
         mStreamedUpperSlot = slot;
         const bool hit     = before == slot;
         const bool evicted = !hit && resBefore >= fra::kGpuAnimMaxClips;
-        std::cout << "Stream " << e.label << " -> slot=" << slot
-                  << (hit ? " (hit)" : " (miss/upload)")
-                  << (evicted ? " [LRU evict]" : "") << " resident="
-                  << fra::Advanced(*mRenderer).GpuAnimation().GetResidentClipCount() << "/"
-                  << fra::kGpuAnimMaxClips << '\n';
+        std::cout
+            << "Stream " << e.label << " -> slot=" << slot
+            << (hit ? " (hit)" : " (miss/upload)")
+            << (evicted ? " [LRU evict]" : "") << " resident="
+            << fra::Advanced(*mRenderer).GpuAnimation().GetResidentClipCount()
+            << "/" << fra::kGpuAnimMaxClips << '\n';
     }
 
     void selfTestStreamRing()
@@ -1118,11 +1134,13 @@ class MainApp final : public fra::AbstractApplication
         std::uint32_t uploads = 0, hits = 0, fails = 0, evicts = 0;
         for (const auto& e : mStreamCatalog)
         {
-            const auto before = fra::Advanced(*mRenderer).GpuAnimation().FindClipSlot(e.key);
+            const auto before =
+                fra::Advanced(*mRenderer).GpuAnimation().FindClipSlot(e.key);
             const auto resBefore =
                 fra::Advanced(*mRenderer).GpuAnimation().GetResidentClipCount();
-            const auto slot =
-                fra::Advanced(*mRenderer).GpuAnimation().EnsureClipResident(e.key, e.bake);
+            const auto slot = fra::Advanced(*mRenderer)
+                                  .GpuAnimation()
+                                  .EnsureClipResident(e.key, e.bake);
             if (slot == 0xffffffffu)
             {
                 ++fails;
@@ -1138,21 +1156,24 @@ class MainApp final : public fra::AbstractApplication
             }
             mStreamedUpperSlot = slot;
         }
-        std::cout << "Stream self-test uploads=" << uploads << " hits=" << hits
-                  << " evicts=" << evicts << " fails=" << fails << " resident="
-                  << fra::Advanced(*mRenderer).GpuAnimation().GetResidentClipCount() << "/"
-                  << fra::kGpuAnimMaxClips << '\n';
+        std::cout
+            << "Stream self-test uploads=" << uploads << " hits=" << hits
+            << " evicts=" << evicts << " fails=" << fails << " resident="
+            << fra::Advanced(*mRenderer).GpuAnimation().GetResidentClipCount()
+            << "/" << fra::kGpuAnimMaxClips << '\n';
     }
 
     void bindGpuAnimRig()
     {
         const auto root = fra::FindRootJoint(mSkinned.skeleton);
-        fra::Advanced(*mRenderer).GpuAnimation().SetRigIndices(
-            mHeadJoint >= 0 ? static_cast<std::uint32_t>(mHeadJoint)
-                            : 0xffffffffu,
-            mLegChain.root, mLegChain.mid, mLegChain.tip,
-            root >= 0 ? static_cast<std::uint32_t>(root) : 0xffffffffu,
-            kLookLocalForward);
+        fra::Advanced(*mRenderer)
+            .GpuAnimation()
+            .SetRigIndices(
+                mHeadJoint >= 0 ? static_cast<std::uint32_t>(mHeadJoint)
+                                : 0xffffffffu,
+                mLegChain.root, mLegChain.mid, mLegChain.tip,
+                root >= 0 ? static_cast<std::uint32_t>(root) : 0xffffffffu,
+                kLookLocalForward);
         std::cout << "GPU anim rig indices head=" << mHeadJoint
                   << " ik=" << mLegChain.root << "/" << mLegChain.mid << "/"
                   << mLegChain.tip << " lookFwd=+X\n";
@@ -1177,7 +1198,9 @@ class MainApp final : public fra::AbstractApplication
             req.boneOffset = 0;
             req.jointIndex =
                 mHeadJoint >= 0 ? static_cast<std::uint32_t>(mHeadJoint) : 0u;
-            fra::Advanced(*mRenderer).GpuAnimation().SetJointExtract({ &req, 1 });
+            fra::Advanced(*mRenderer)
+                .GpuAnimation()
+                .SetJointExtract({ &req, 1 });
             mGpuExtractReady = false;
         }
         if (wasFox0)
@@ -1210,16 +1233,19 @@ class MainApp final : public fra::AbstractApplication
             const auto cpuSkin =
                 fra::PoseToSkinMatrices(mSkinned.skeleton, cpuLocal);
             const auto inst = makeGpuAnimInstance(fox, jointCount, feat);
-            if (!fra::Advanced(*mRenderer).GpuAnimation().DispatchImmediate(
-                    std::span<const fra::GpuAnimInstance>(&inst, 1),
-                    frameIndex))
+            if (!fra::Advanced(*mRenderer)
+                     .GpuAnimation()
+                     .DispatchImmediate(
+                         std::span<const fra::GpuAnimInstance>(&inst, 1),
+                         frameIndex))
             {
                 std::cout << "  " << names[s] << ": dispatch failed\n";
                 continue;
             }
             std::vector<glm::mat4> gpuBones(jointCount);
-            if (!fra::Advanced(*mRenderer).GpuAnimation().ReadbackBones(
-                    frameIndex, fox.boneOffset, gpuBones))
+            if (!fra::Advanced(*mRenderer)
+                     .GpuAnimation()
+                     .ReadbackBones(frameIndex, fox.boneOffset, gpuBones))
             {
                 std::cout << "  " << names[s] << ": readback failed\n";
                 continue;
@@ -1300,7 +1326,9 @@ class MainApp final : public fra::AbstractApplication
                         .boneOffset = mFoxes[0].boneOffset,
                         .jointIndex = static_cast<std::uint32_t>(mHeadJoint),
                     };
-                    fra::Advanced(*mRenderer).GpuAnimation().SetJointExtract({ &req, 1 });
+                    fra::Advanced(*mRenderer)
+                        .GpuAnimation()
+                        .SetJointExtract({ &req, 1 });
                 }
                 std::cout << "GpuAnim Crowd (Advance+skin at animLodHz; "
                              "layers/look/IK on GPU; fox0 head extract N+1)\n";
@@ -1446,6 +1474,7 @@ class MainApp final : public fra::AbstractApplication
                 inst.castShadows = mEnableShadows;
                 inst.boneOffset  = fox.boneOffset;
                 inst.boneCount   = jointCount;
+                inst.mobility    = fra::Mobility::Dynamic;
                 mScene.Add(inst);
             }
         }
@@ -1456,11 +1485,12 @@ class MainApp final : public fra::AbstractApplication
             ground.material    = mGroundMaterial;
             ground.entityId    = 100000u;
             ground.castShadows = false;
+            ground.mobility    = fra::Mobility::Static;
             mScene.Add(ground);
         }
-        mSceneFoxCount       = mFoxes.size();
-        mSceneSubmeshCount   = mSkinned.submeshes.size();
-        mSceneCastShadows    = mEnableShadows;
+        mSceneFoxCount     = mFoxes.size();
+        mSceneSubmeshCount = mSkinned.submeshes.size();
+        mSceneCastShadows  = mEnableShadows;
     }
 
     void syncSceneInstances(std::uint32_t jointCount)
@@ -1489,8 +1519,8 @@ class MainApp final : public fra::AbstractApplication
                 inst->castShadows = mEnableShadows;
             }
         }
-        if (auto* ground = mScene.Get(id))
-            ground->model = groundModelMatrix();
+        // Ground is Mobility::Static — leave transform alone after rebuild.
+        (void) id;
     }
 
     /**
@@ -1534,29 +1564,29 @@ class MainApp final : public fra::AbstractApplication
         return 0u;
     }
 
-    float              mProfReportTimer  = 0.f;
-    std::uint32_t      mProfFrames       = 0;
-    std::uint32_t      mProfAnimUpdates  = 0;
-    std::uint32_t      mProfGpuInstSum   = 0;
-    std::uint32_t      mProfLodSum[4]    = {};
-    double             mProfAdvMs        = 0.0;
-    double             mProfEvalMs       = 0.0;
-    double             mProfPackMs       = 0.0;
-    double             mProfSkinMs       = 0.0;
-    double             mProfBoneMs       = 0.0;
-    double             mProfInstMs       = 0.0;
-    double             mProfEndMs        = 0.0;
-    double             mProfUpdateMs     = 0.0;
-    double             mProfGpuCarryMs   = 0.0;
-    double             mProfGpuBakeMs    = 0.0;
-    std::uint32_t      mProfGpuSamples   = 0;
-    double             mProfDtSum        = 0.0;
-    float              mAnimClock        = 0.f;
-    float              mSpeed            = 0.f;
-    float              mStrafe           = 0.f;
-    float              mFootstepLogTimer = 0.f;
-    std::uint64_t      mFootstepTotal    = 0;
-    fra::AnimEventRing mEventRing { 64 };
+    float               mProfReportTimer  = 0.f;
+    std::uint32_t       mProfFrames       = 0;
+    std::uint32_t       mProfAnimUpdates  = 0;
+    std::uint32_t       mProfGpuInstSum   = 0;
+    std::uint32_t       mProfLodSum[4]    = {};
+    double              mProfAdvMs        = 0.0;
+    double              mProfEvalMs       = 0.0;
+    double              mProfPackMs       = 0.0;
+    double              mProfSkinMs       = 0.0;
+    double              mProfBoneMs       = 0.0;
+    double              mProfInstMs       = 0.0;
+    double              mProfEndMs        = 0.0;
+    double              mProfUpdateMs     = 0.0;
+    double              mProfGpuCarryMs   = 0.0;
+    double              mProfGpuBakeMs    = 0.0;
+    std::uint32_t       mProfGpuSamples   = 0;
+    double              mProfDtSum        = 0.0;
+    float               mAnimClock        = 0.f;
+    float               mSpeed            = 0.f;
+    float               mStrafe           = 0.f;
+    float               mFootstepLogTimer = 0.f;
+    std::uint64_t       mFootstepTotal    = 0;
+    fra::AnimEventRing  mEventRing { 64 };
     fra::MeshHandle     mGroundMesh {};
     fra::MaterialHandle mGroundMaterial {};
     fra::Scene          mScene;

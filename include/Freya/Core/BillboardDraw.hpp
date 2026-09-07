@@ -34,7 +34,7 @@ namespace FREYA_NAMESPACE
      * @brief One camera-facing quad in world space.
      *
      * `textureIndex` is a bindless heap slot (0 = white). Convert TexturePool
-     * ids with MaterialDescriptorResources::TextureHeapIndex.
+     * handles with TexturePool::BindlessIndex.
      */
     struct Billboard
     {

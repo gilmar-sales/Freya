@@ -1,14 +1,14 @@
 #ifndef FREYA_SHADER_ROOT
-#define FREYA_SHADER_ROOT "./Resources/Shaders"
+    #define FREYA_SHADER_ROOT "./Resources/Shaders"
 #endif
 #ifndef FREYA_GPU_FIXTURE_ROOT
-#define FREYA_GPU_FIXTURE_ROOT "./tests/fixtures/gpu_cull"
+    #define FREYA_GPU_FIXTURE_ROOT "./tests/fixtures/gpu_cull"
 #endif
 
 #include <vulkan/vulkan.hpp>
 
-#include <Freya/Freya.hpp>
 #include <Freya/Asset/SceneInstanceUpload.hpp>
+#include <Freya/Freya.hpp>
 #include <FreyaExamples/CullFrameDumpIo.hpp>
 
 #include "Freya/Core/IndirectDrawSystem.hpp"
@@ -27,7 +27,7 @@ namespace
         const char* relativePath;
     };
 
-    fra::CullFrameSnapshot gCullSnap {};
+    fra::CullFrameSnapshot   gCullSnap {};
     std::vector<FixtureCase> gCases;
     std::string              gRunError;
     bool                     gAllOk = false;
@@ -38,8 +38,8 @@ namespace
         return env ? env : FREYA_GPU_FIXTURE_ROOT;
     }
 
-    fra::MeshHandle CreateAabbBoxMesh(fra::MeshPool& pool, const glm::vec3& bmin,
-                                      const glm::vec3& bmax)
+    fra::MeshHandle CreateAabbBoxMesh(
+        fra::MeshPool& pool, const glm::vec3& bmin, const glm::vec3& bmax)
     {
         const glm::vec3 corners[8] = {
             { bmin.x, bmin.y, bmin.z }, { bmax.x, bmin.y, bmin.z },
@@ -63,7 +63,7 @@ namespace
         return pool.CreateMesh(verts, indices);
     }
 
-    void AssertExpected(const fra::CullFrameExpected&          expected,
+    void AssertExpected(const fra::CullFrameExpected&         expected,
                         const std::vector<fra::CullSurvivor>& survivors,
                         const std::uint32_t                   drawCount)
     {
@@ -73,8 +73,8 @@ namespace
 
         for (const auto id : expected.mustSurviveEntityIds)
         {
-            INFO("missing mustSurvive entityId=" << id
-                 << " (survivors=" << survivors.size() << ")");
+            INFO("missing mustSurvive entityId="
+                 << id << " (survivors=" << survivors.size() << ")");
             REQUIRE(live.contains(id));
         }
         for (const auto id : expected.mustDieEntityIds)
@@ -87,14 +87,12 @@ namespace
                     static_cast<std::uint32_t>(expected.drawCount));
     }
 
-    bool ReplayOnDevice(fra::MeshPool& meshPool, fra::MaterialPool& materialPool,
-                        fra::IndirectDrawSystem&  indirect,
-                        fra::CommandPool&         commandPool,
-                        fra::Device&              device,
-                        const fra::CullFrameSnapshot& snap,
-                        std::uint32_t&                outDrawCount,
-                        std::vector<fra::CullSurvivor>& outSurvivors,
-                        std::string&                    error)
+    bool ReplayOnDevice(
+        fra::MeshPool& meshPool, fra::MaterialPool& materialPool,
+        fra::IndirectDrawSystem& indirect, fra::CommandPool& commandPool,
+        fra::Device& device, const fra::CullFrameSnapshot& snap,
+        std::uint32_t&                  outDrawCount,
+        std::vector<fra::CullSurvivor>& outSurvivors, std::string& error)
     {
         outDrawCount = 0;
         outSurvivors.clear();
@@ -109,8 +107,8 @@ namespace
         for (std::size_t i = 0; i < snap.meshes.size(); ++i)
         {
             const auto& m = snap.meshes[i];
-            meshRemap[i]  = CreateAabbBoxMesh(meshPool, glm::vec3(m.aabbMin),
-                                              glm::vec3(m.aabbMax));
+            meshRemap[i]  = CreateAabbBoxMesh(
+                meshPool, glm::vec3(m.aabbMin), glm::vec3(m.aabbMax));
         }
 
         std::vector<fra::SceneInstanceUpload> uploads;
@@ -119,9 +117,8 @@ namespace
         {
             fra::SceneInstanceUpload u {};
             u.model    = inst.model;
-            u.mesh     = inst.meshId < meshRemap.size()
-                             ? meshRemap[inst.meshId]
-                             : meshRemap.front();
+            u.mesh     = inst.meshId < meshRemap.size() ? meshRemap[inst.meshId]
+                                                        : meshRemap.front();
             u.material = materialId;
             u.entityId = inst.entityId;
             u.castShadows =
@@ -158,11 +155,10 @@ namespace
 
         indirect.SetCullView(
             glm::vec3(snap.pushConstants.cameraPos),
-            vk::Extent2D {
-                static_cast<std::uint32_t>(
-                    std::max(snap.pushConstants.screenSize.x, 1.f)),
-                static_cast<std::uint32_t>(
-                    std::max(snap.pushConstants.screenSize.y, 1.f)) });
+            vk::Extent2D { static_cast<std::uint32_t>(
+                               std::max(snap.pushConstants.screenSize.x, 1.f)),
+                           static_cast<std::uint32_t>(std::max(
+                               snap.pushConstants.screenSize.y, 1.f)) });
 
         auto pc          = snap.pushConstants;
         pc.instanceCount = static_cast<std::uint32_t>(uploads.size());
@@ -176,8 +172,8 @@ namespace
         device.GetGraphicsQueue().submit(submit);
         device.GetGraphicsQueue().waitIdle();
 
-        if (!indirect.ReadbackCullOutputs(kFrame, pc.techniqueFilter,
-                                          outDrawCount, outSurvivors))
+        if (!indirect.ReadbackCullOutputs(
+                kFrame, pc.techniqueFilter, outDrawCount, outSurvivors))
         {
             error = "readback failed";
             return false;
@@ -203,7 +199,7 @@ namespace
                     GetRootServiceProvider()->GetService<fra::MeshPool>();
                 auto materialPool =
                     GetRootServiceProvider()->GetService<fra::MaterialPool>();
-                auto indirect = sp->GetService<fra::IndirectDrawSystem>();
+                auto indirect    = sp->GetService<fra::IndirectDrawSystem>();
                 auto commandPool = sp->GetService<fra::CommandPool>();
                 auto device      = sp->GetService<fra::Device>();
                 if (!meshPool || !materialPool || !indirect || !commandPool ||
@@ -233,8 +229,8 @@ namespace
                                         *commandPool, *device, snap, drawCount,
                                         survivors, error))
                     {
-                        gRunError = cse.relativePath + std::string(": ") +
-                                    error;
+                        gRunError =
+                            cse.relativePath + std::string(": ") + error;
                         gAllOk = false;
                         break;
                     }
@@ -271,8 +267,8 @@ namespace
 
         for (const auto& cse : gCases)
         {
-            if (!std::filesystem::exists(FixtureRoot() / cse.relativePath /
-                                         "frame.json"))
+            if (!std::filesystem::exists(
+                    FixtureRoot() / cse.relativePath / "frame.json"))
                 SKIP("fixture missing: " << cse.relativePath);
         }
 

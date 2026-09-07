@@ -33,6 +33,11 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] const MaterialCreateInfo& GetCreateInfo(
             MaterialHandle id) const;
 
+        /**
+         * @brief Compact technique/alpha for GPU instance packing.
+         */
+        [[nodiscard]] MaterialDrawInfo GetDrawInfo(MaterialHandle id) const;
+
         [[nodiscard]] bool Contains(MaterialHandle id) const;
 
         void Destroy(MaterialHandle id);

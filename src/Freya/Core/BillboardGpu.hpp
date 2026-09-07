@@ -34,24 +34,23 @@ namespace FREYA_NAMESPACE
     static_assert(sizeof(BillboardGpuInstance) == 96,
                   "BillboardGpuInstance must match GLSL std430");
 
-    [[nodiscard]] inline BillboardGpuInstance ToBillboardGpu(
-        const Billboard& b)
+    [[nodiscard]] inline BillboardGpuInstance ToBillboardGpu(const Billboard& b)
     {
         BillboardGpuInstance g {};
-        g.worldPos      = b.worldPos;
-        g.clipMax       = b.clipMax;
-        g.size          = b.size;
-        g.textureIndex  = b.textureIndex;
-        g.flags         = 0;
+        g.worldPos     = b.worldPos;
+        g.clipMax      = b.clipMax;
+        g.size         = b.size;
+        g.textureIndex = b.textureIndex;
+        g.flags        = 0;
         if (b.align == BillboardAlign::Cylindrical)
             g.flags |= kBillboardFlagCylindrical;
         if (b.sdf)
             g.flags |= kBillboardFlagSdf;
-        g.color         = b.color;
-        g.uvRect        = b.uvRect;
-        g.localOffset   = b.localOffset;
-        g.outlineWidth  = b.outlineWidth;
-        g.outlineColor  = b.outlineColor;
+        g.color        = b.color;
+        g.uvRect       = b.uvRect;
+        g.localOffset  = b.localOffset;
+        g.outlineWidth = b.outlineWidth;
+        g.outlineColor = b.outlineColor;
         return g;
     }
 

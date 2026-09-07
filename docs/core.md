@@ -75,10 +75,47 @@ ordered list of `IFrameStage` adapters that drive the deferred stack.
 
 ```cpp
 mRenderer->BeginFrame();
-// record draws via Draw / DrawInstanced
+// Camera::Apply / lights → Scene::Upload
 mRenderer->EndFrame(); // EndScene + Present
 ```
 
+## Scene (retained GPU proxy)
+
+`fra::Scene` is the app-facing retained instance list. Prefer it over raw
+`UploadSceneInstances` (Advanced / tooling).
+
+```cpp
+fra::Scene::Instance ground {};
+ground.mesh     = groundMesh;
+ground.material = groundMat;
+ground.mobility = fra::Mobility::Static; // do not SetTransform every frame
+scene.Add(ground);
+
+fra::Scene::Instance actor {};
+actor.mesh     = mesh;
+actor.material = mat;
+actor.mobility = fra::Mobility::Dynamic; // default
+auto id = scene.Add(actor);
+
+// Per frame: mutate dynamics, then Upload (dirty-aware).
+scene.SetTransform(id, model);
+scene.Upload(*renderer);
+```
+
+| State | What `Upload` does |
+|-------|--------------------|
+| Unchanged | FiF slot commit only (skip rebuild / skip Copy if slot current) |
+| Transforms / bones / flags | Patch host GPU tables (no re-sort, no material create-info walk) |
+| Add / Remove / Clear | Full rebuild + sort by `entityId` |
+
+Draw submission remains GPU-driven (compute cull → multi-draw indirect).
+`Mobility` is a contract hint: static props should stay off the per-frame
+`SetTransform`/`Get` path so the scene can stay clean.
+
+For tooling without a retained list, use
+`RendererAdvanced::UploadSceneInstances`.
+
+## Frame path
 ### Frame stages
 
 Default order:
@@ -107,7 +144,7 @@ See [Flexibility](flexibility.md).
 | `SetSamples(uint32_t)` | Set MSAA sample count |
 | `SetDrawDistance(float)` | Set render distance |
 | `SetInstanceModels(const mat4*, size_t)` | Legacy instance matrices (with DrawInstanced) |
-| `UploadSceneInstances(span)` | Prefer: GPU-driven scene table (batched MDI + cull) |
+| `UploadSceneInstances(span)` | Advanced/tooling full upload (prefer `Scene::Upload`) |
 | `GetCurrentFrameIndex()` | Get current frame index |
 | `GetFrameCount()` | Get total frame count |
 | `CalculateProjectionMatrix(float near, float far)` | Calculate projection matrix |

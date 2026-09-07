@@ -23,8 +23,8 @@ namespace FreyaExamples
         {
             std::uint32_t total = 0;
             for (std::uint32_t mip = 0; mip < mipCount; ++mip)
-                total += std::max(1u, width >> mip) *
-                         std::max(1u, height >> mip);
+                total +=
+                    std::max(1u, width >> mip) * std::max(1u, height >> mip);
             return total;
         }
 
@@ -90,8 +90,8 @@ namespace FreyaExamples
             if (!hiz.pixels.empty())
             {
                 out.write(reinterpret_cast<const char*>(hiz.pixels.data()),
-                          static_cast<std::streamsize>(hiz.pixels.size() *
-                                                       sizeof(float)));
+                          static_cast<std::streamsize>(
+                              hiz.pixels.size() * sizeof(float)));
             }
             return static_cast<bool>(out);
         }
@@ -127,24 +127,24 @@ namespace FreyaExamples
             j["version"] = snap.version;
             j["meta"]    = {
                 { "example", snap.example },
-                { "label",   snap.label   },
-                { "notes",   snap.notes   },
+                { "label", snap.label },
+                { "notes", snap.notes },
             };
 
-            const auto& pc = snap.pushConstants;
+            const auto& pc     = snap.pushConstants;
             j["pushConstants"] = {
-                { "viewProj",        Mat4ToJson(pc.viewProj) },
-                { "cameraPos",       Vec4ToJson(pc.cameraPos) },
-                { "screenSize",      Vec2ToJson(pc.screenSize) },
-                { "instanceCount",   pc.instanceCount },
-                { "cullMode",        pc.cullMode },
-                { "reverseZ",        pc.reverseZ },
-                { "hizEnabled",      pc.hizEnabled },
-                { "lodPixelRef",     pc.lodPixelRef },
-                { "lodStep",         pc.lodStep },
+                { "viewProj", Mat4ToJson(pc.viewProj) },
+                { "cameraPos", Vec4ToJson(pc.cameraPos) },
+                { "screenSize", Vec2ToJson(pc.screenSize) },
+                { "instanceCount", pc.instanceCount },
+                { "cullMode", pc.cullMode },
+                { "reverseZ", pc.reverseZ },
+                { "hizEnabled", pc.hizEnabled },
+                { "lodPixelRef", pc.lodPixelRef },
+                { "lodStep", pc.lodStep },
                 { "techniqueFilter", pc.techniqueFilter },
-                { "maxDraws",        pc.maxDraws },
-                { "hizDepthBias",    pc.hizDepthBias },
+                { "maxDraws", pc.maxDraws },
+                { "hizDepthBias", pc.hizDepthBias },
             };
 
             j["meshes"] = nlohmann::json::array();
@@ -152,9 +152,9 @@ namespace FreyaExamples
             {
                 j["meshes"].push_back({
                     { "lodCount", m.lodCount },
-                    { "lodBase",  m.lodBase },
-                    { "aabbMin",  Vec4ToJson(m.aabbMin) },
-                    { "aabbMax",  Vec4ToJson(m.aabbMax) },
+                    { "lodBase", m.lodBase },
+                    { "aabbMin", Vec4ToJson(m.aabbMin) },
+                    { "aabbMax", Vec4ToJson(m.aabbMax) },
                 });
             }
 
@@ -162,8 +162,8 @@ namespace FreyaExamples
             for (const auto& lod : snap.lods)
             {
                 j["lods"].push_back({
-                    { "indexCount",   lod.indexCount },
-                    { "firstIndex",   lod.firstIndex },
+                    { "indexCount", lod.indexCount },
+                    { "firstIndex", lod.firstIndex },
                     { "vertexOffset", lod.vertexOffset },
                 });
             }
@@ -172,11 +172,11 @@ namespace FreyaExamples
             for (const auto& inst : snap.instances)
             {
                 j["instances"].push_back({
-                    { "model",       Mat4ToJson(inst.model) },
-                    { "meshId",      inst.meshId },
-                    { "materialId",  inst.materialId },
-                    { "entityId",    inst.entityId },
-                    { "flags",       inst.flags },
+                    { "model", Mat4ToJson(inst.model) },
+                    { "meshId", inst.meshId },
+                    { "materialId", inst.materialId },
+                    { "entityId", inst.entityId },
+                    { "flags", inst.flags },
                     { "techniqueId", inst.techniqueId },
                 });
             }
@@ -184,13 +184,13 @@ namespace FreyaExamples
             if (snap.hiz.present && !snap.hiz.pixels.empty())
             {
                 j["hiz"] = {
-                    { "file",     snap.hiz.file.empty() ? "hiz.r32f"
-                                                        : snap.hiz.file },
-                    { "width",    snap.hiz.width },
-                    { "height",   snap.hiz.height },
+                    { "file",
+                      snap.hiz.file.empty() ? "hiz.r32f" : snap.hiz.file },
+                    { "width", snap.hiz.width },
+                    { "height", snap.hiz.height },
                     { "mipCount", snap.hiz.mipCount },
-                    { "enabled",  snap.hiz.enabled },
-                    { "ready",    snap.hiz.ready },
+                    { "enabled", snap.hiz.enabled },
+                    { "ready", snap.hiz.ready },
                 };
             }
             else
@@ -203,8 +203,8 @@ namespace FreyaExamples
             {
                 survivors.push_back({
                     { "entityId", s.entityId },
-                    { "meshId",   s.meshId },
-                    { "slot",     s.slot },
+                    { "meshId", s.meshId },
+                    { "slot", s.slot },
                 });
             }
             j["observed"] = {
@@ -213,10 +213,9 @@ namespace FreyaExamples
             };
 
             j["expected"] = {
-                { "mustSurviveEntityIds",
-                  snap.expected.mustSurviveEntityIds },
+                { "mustSurviveEntityIds", snap.expected.mustSurviveEntityIds },
                 { "mustDieEntityIds", snap.expected.mustDieEntityIds },
-                { "drawCount",        snap.expected.drawCount },
+                { "drawCount", snap.expected.drawCount },
             };
             return j;
         }
@@ -224,7 +223,7 @@ namespace FreyaExamples
         bool SnapshotFromJson(const nlohmann::json&   j,
                               fra::CullFrameSnapshot& out)
         {
-            out = {};
+            out         = {};
             out.version = j.value("version", 1u);
             if (j.contains("meta"))
             {
@@ -235,17 +234,17 @@ namespace FreyaExamples
 
             if (!j.contains("pushConstants"))
                 return false;
-            const auto& pcj = j["pushConstants"];
-            auto&       pc  = out.pushConstants;
-            pc.viewProj     = Mat4FromJson(pcj.at("viewProj"));
-            pc.cameraPos    = Vec4FromJson(pcj.at("cameraPos"));
-            pc.screenSize   = Vec2FromJson(pcj.at("screenSize"));
-            pc.instanceCount   = pcj.value("instanceCount", 0u);
-            pc.cullMode        = pcj.value("cullMode", 0u);
-            pc.reverseZ        = pcj.value("reverseZ", 0u);
-            pc.hizEnabled      = pcj.value("hizEnabled", 0u);
-            pc.lodPixelRef     = pcj.value("lodPixelRef", 256.f);
-            pc.lodStep         = pcj.value("lodStep", 2.f);
+            const auto& pcj  = j["pushConstants"];
+            auto&       pc   = out.pushConstants;
+            pc.viewProj      = Mat4FromJson(pcj.at("viewProj"));
+            pc.cameraPos     = Vec4FromJson(pcj.at("cameraPos"));
+            pc.screenSize    = Vec2FromJson(pcj.at("screenSize"));
+            pc.instanceCount = pcj.value("instanceCount", 0u);
+            pc.cullMode      = pcj.value("cullMode", 0u);
+            pc.reverseZ      = pcj.value("reverseZ", 0u);
+            pc.hizEnabled    = pcj.value("hizEnabled", 0u);
+            pc.lodPixelRef   = pcj.value("lodPixelRef", 256.f);
+            pc.lodStep       = pcj.value("lodStep", 2.f);
             pc.techniqueFilter =
                 pcj.value("techniqueFilter", fra::kTechniqueFilterAll);
             pc.maxDraws     = pcj.value("maxDraws", 0u);
@@ -283,7 +282,7 @@ namespace FreyaExamples
 
             if (j.contains("hiz") && !j["hiz"].is_null())
             {
-                const auto& h = j["hiz"];
+                const auto& h    = j["hiz"];
                 out.hiz.present  = true;
                 out.hiz.file     = h.value("file", "hiz.r32f");
                 out.hiz.width    = h.value("width", 0u);
@@ -309,11 +308,12 @@ namespace FreyaExamples
 
             if (j.contains("expected"))
             {
-                const auto& e = j["expected"];
+                const auto& e          = j["expected"];
                 out.expected.drawCount = e.value("drawCount", -1);
                 if (e.contains("mustSurviveEntityIds"))
                     out.expected.mustSurviveEntityIds =
-                        e["mustSurviveEntityIds"].get<std::vector<std::uint32_t>>();
+                        e["mustSurviveEntityIds"]
+                            .get<std::vector<std::uint32_t>>();
                 if (e.contains("mustDieEntityIds"))
                     out.expected.mustDieEntityIds =
                         e["mustDieEntityIds"].get<std::vector<std::uint32_t>>();
@@ -337,7 +337,7 @@ namespace FreyaExamples
 #endif
         std::ostringstream oss;
         oss << std::put_time(&tm, "%Y%m%d_%H%M%S");
-        auto dir = root / oss.str();
+        auto            dir = root / oss.str();
         std::error_code ec;
         std::filesystem::create_directories(dir, ec);
         return dir;
@@ -361,7 +361,7 @@ namespace FreyaExamples
                              toWrite.hiz.file.c_str());
         }
 
-        const auto jsonPath = directory / "frame.json";
+        const auto    jsonPath = directory / "frame.json";
         std::ofstream out(jsonPath);
         if (!out)
             return {};
@@ -372,7 +372,7 @@ namespace FreyaExamples
     bool LoadCullFrameDump(const std::filesystem::path& directory,
                            fra::CullFrameSnapshot&      out)
     {
-        const auto jsonPath = directory / "frame.json";
+        const auto    jsonPath = directory / "frame.json";
         std::ifstream in(jsonPath);
         if (!in)
             return false;

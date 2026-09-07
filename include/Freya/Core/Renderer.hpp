@@ -138,6 +138,8 @@ namespace FREYA_NAMESPACE
         friend class Scene;
 
         void UploadSceneInstances(std::span<const SceneInstanceUpload> uploads);
+        void PatchSceneInstances(std::span<const SceneInstanceUpload> uploads);
+        void CommitSceneFrame();
 
         [[nodiscard]] Impl*       ImplPtr() { return mImpl.get(); }
         [[nodiscard]] const Impl* ImplPtr() const { return mImpl.get(); }

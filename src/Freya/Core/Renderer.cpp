@@ -97,11 +97,10 @@ namespace FREYA_NAMESPACE
         mBloomPass(bloomPass), mTaaPass(taaPass), mSsaoPass(ssaoPass),
         mCompositePass(compositePass), mDebugDrawPass(debugDrawPass),
         mGpuAnimPass(gpuAnimPass), mGpuAnimSystem(this),
-        mCommandPool(commandPool),
-        mLightService(lightService), mShadowPass(shadowPass),
-        mPickPass(pickPass), mServiceProvider(serviceProvider),
-        mFreyaOptions(freyaOptions), mEventManager(eventManager),
-        mCurrentProjection({}),
+        mCommandPool(commandPool), mLightService(lightService),
+        mShadowPass(shadowPass), mPickPass(pickPass),
+        mServiceProvider(serviceProvider), mFreyaOptions(freyaOptions),
+        mEventManager(eventManager), mCurrentProjection({}),
         mMeshPool(serviceProvider->GetService<MeshPool>()),
         mIndirectDraw(serviceProvider->GetService<IndirectDrawSystem>())
     {
@@ -925,12 +924,16 @@ namespace FREYA_NAMESPACE
 
     void Renderer::Impl::SetVSync(const bool vSync)
     {
+        if (mFreyaOptions->vSync == vSync)
+            return;
         mFreyaOptions->vSync = vSync;
         RebuildSwapChain();
     }
 
     void Renderer::Impl::SetSamples(const std::uint32_t samples)
     {
+        if (mFreyaOptions->sampleCount == samples)
+            return;
         mFreyaOptions->sampleCount = samples;
         RebuildSwapChain();
     }
@@ -1246,6 +1249,26 @@ namespace FREYA_NAMESPACE
         {
             mIndirectDraw->UploadSceneInstances(
                 uploads, mSwapChain->GetCurrentFrameIndex());
+        }
+    }
+
+    void Renderer::Impl::PatchSceneInstances(
+        const std::span<const SceneInstanceUpload> uploads)
+    {
+        mUsedUploadApi = true;
+        if (mIndirectDraw)
+        {
+            mIndirectDraw->PatchSceneInstances(
+                uploads, mSwapChain->GetCurrentFrameIndex());
+        }
+    }
+
+    void Renderer::Impl::CommitSceneFrame()
+    {
+        mUsedUploadApi = true;
+        if (mIndirectDraw)
+        {
+            mIndirectDraw->CommitSceneFrame(mSwapChain->GetCurrentFrameIndex());
         }
     }
 

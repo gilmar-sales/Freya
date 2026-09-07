@@ -30,9 +30,10 @@ namespace FREYA_NAMESPACE
      *        a console sink is registered.
      */
     template <typename AppT>
-    int RunApp(const std::function<void(FreyaOptionsBuilder&)>& configureOptions,
-               const std::function<void(skr::LoggingExtension&)>&
-                   configureLogging = {})
+    int RunApp(
+        const std::function<void(FreyaOptionsBuilder&)>& configureOptions,
+        const std::function<void(skr::LoggingExtension&)>&
+            configureLogging = {})
     {
         auto builder = skr::ApplicationBuilder();
         builder.WithExtension<skr::LoggingExtension>(

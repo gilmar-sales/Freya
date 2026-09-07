@@ -21,7 +21,7 @@ namespace FREYA_NAMESPACE
      */
     struct SceneInstanceUpload
     {
-        glm::mat4      model       = glm::mat4(1.0f);
+        glm::mat4      model = glm::mat4(1.0f);
         MeshHandle     mesh {};
         MaterialHandle material {};
         std::uint32_t  entityId    = 0;

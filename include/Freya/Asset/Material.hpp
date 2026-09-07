@@ -90,6 +90,17 @@ namespace FREYA_NAMESPACE
     };
 
     /**
+     * @brief Hot draw metadata (technique + coverage) for scene upload.
+     *
+     * Avoids walking the full MaterialCreateInfo on the instance upload path.
+     */
+    struct MaterialDrawInfo
+    {
+        std::uint32_t techniqueId = 0;
+        AlphaMode     alphaMode   = AlphaMode::Opaque;
+    };
+
+    /**
      * @brief CPU material record. GPU state lives in the bindless table.
      */
     struct Material

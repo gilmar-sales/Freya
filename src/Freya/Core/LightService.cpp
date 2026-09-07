@@ -60,6 +60,38 @@ namespace FREYA_NAMESPACE
     LightService& LightService::operator=(LightService&& other) noexcept =
         default;
 
+    namespace
+    {
+        void PackLights(const std::vector<Light>&        lights,
+                        const std::vector<std::uint8_t>& alive,
+                        const std::uint32_t              maxPacked,
+                        const bool                       shadowsEnabled,
+                        LightUniformBuffer&              data)
+        {
+            std::uint32_t packed = 0;
+            for (std::uint32_t n = 0; n < lights.size() && packed < maxPacked;
+                 ++n)
+            {
+                if (n >= alive.size() || !alive[n])
+                    continue;
+                data.lightPositions[packed] = glm::vec4(
+                    lights[n].position, static_cast<float>(lights[n].type));
+                data.lightColorsAndRadius[packed] =
+                    glm::vec4(lights[n].color, lights[n].radius);
+                data.lightDirectionsAndCutoff[packed] =
+                    glm::vec4(lights[n].direction, lights[n].innerCutoff);
+                data.lightOuterCutoffAndIntensity[packed] = glm::vec4(
+                    lights[n].outerCutoff, lights[n].intensity,
+                    lights[n].halfHeight,
+                    (shadowsEnabled && lights[n].castShadows) ? 1.0f : 0.0f);
+                data.lightAreaTangents[packed] =
+                    glm::vec4(lights[n].tangent, 0.0f);
+                ++packed;
+            }
+            data.lightCount = packed;
+        }
+    } // namespace
+
     LightHandle LightService::AddLight(const Light& light)
     {
         auto& i = *mImpl;
@@ -68,9 +100,20 @@ namespace FREYA_NAMESPACE
             return {};
         }
 
-        i.mLights.push_back(light);
-        i.mLightCount++;
+        for (std::uint32_t n = 0; n < i.mAlive.size(); ++n)
+        {
+            if (!i.mAlive[n])
+            {
+                i.mLights[n] = light;
+                i.mAlive[n]  = 1;
+                ++i.mLightCount;
+                return LightHandle { n };
+            }
+        }
 
+        i.mLights.push_back(light);
+        i.mAlive.push_back(1);
+        ++i.mLightCount;
         return LightHandle { static_cast<std::uint32_t>(i.mLights.size() - 1) };
     }
 
@@ -78,33 +121,18 @@ namespace FREYA_NAMESPACE
     {
         if (!handle)
             return;
-        auto&              i     = *mImpl;
+        auto&               i     = *mImpl;
         const std::uint32_t index = handle.Index();
-        if (index >= i.mLights.size())
-        {
+        if (index >= i.mAlive.size() || !i.mAlive[index])
             return;
-        }
 
-        i.mLights.erase(i.mLights.begin() + index);
-        i.mLightCount--;
+        i.mAlive[index] = 0;
+        --i.mLightCount;
 
         LightUniformBuffer data = {};
-        for (std::uint32_t n = 0; n < i.mLightCount; ++n)
-        {
-            data.lightPositions[n] = glm::vec4(
-                i.mLights[n].position,
-                static_cast<float>(i.mLights[n].type));
-            data.lightColorsAndRadius[n] =
-                glm::vec4(i.mLights[n].color, i.mLights[n].radius);
-            data.lightDirectionsAndCutoff[n] =
-                glm::vec4(i.mLights[n].direction, i.mLights[n].innerCutoff);
-            data.lightOuterCutoffAndIntensity[n] = glm::vec4(
-                i.mLights[n].outerCutoff,
-                i.mLights[n].intensity,
-                i.mLights[n].halfHeight,
-                (i.mShadowsEnabled && i.mLights[n].castShadows) ? 1.0f : 0.0f);
-            data.lightAreaTangents[n] = glm::vec4(i.mLights[n].tangent, 0.0f);
-        }
+        data.iblIntensity       = i.mIblIntensity;
+        data.exposure           = i.mExposure;
+        PackLights(i.mLights, i.mAlive, i.mMaxLights, i.mShadowsEnabled, data);
 
         for (std::uint32_t f = 0; f < i.mFrameCount; ++f)
         {
@@ -120,7 +148,7 @@ namespace FREYA_NAMESPACE
             return;
         auto&               i     = *mImpl;
         const std::uint32_t index = handle.Index();
-        if (index >= i.mLights.size())
+        if (index >= i.mAlive.size() || !i.mAlive[index])
             return;
         i.mLights[index].position = position;
     }
@@ -131,7 +159,7 @@ namespace FREYA_NAMESPACE
             return;
         auto&               i     = *mImpl;
         const std::uint32_t index = handle.Index();
-        if (index >= i.mLights.size())
+        if (index >= i.mAlive.size() || !i.mAlive[index])
             return;
         i.mLights[index] = light;
     }
@@ -142,7 +170,7 @@ namespace FREYA_NAMESPACE
             return nullptr;
         auto&               i     = *mImpl;
         const std::uint32_t index = handle.Index();
-        if (index >= i.mLights.size())
+        if (index >= i.mAlive.size() || !i.mAlive[index])
             return nullptr;
         return &i.mLights[index];
     }
@@ -151,9 +179,12 @@ namespace FREYA_NAMESPACE
     {
         auto& i = *mImpl;
         i.mLights.clear();
+        i.mAlive.clear();
         i.mLightCount = 0;
 
         LightUniformBuffer data = {};
+        data.iblIntensity       = i.mIblIntensity;
+        data.exposure           = i.mExposure;
         for (std::uint32_t f = 0; f < i.mFrameCount; ++f)
         {
             i.mBuffer->Copy(&data, sizeof(LightUniformBuffer),
@@ -168,28 +199,11 @@ namespace FREYA_NAMESPACE
         auto&              i    = *mImpl;
         LightUniformBuffer data = {};
 
-        data.lightCount    = i.mLightCount;
         data.iblIntensity  = i.mIblIntensity;
         data.exposure      = i.mExposure;
         data.viewPosition  = glm::vec4(viewPosition, 1.0f);
         data.cameraForward = glm::vec4(cameraForward, 0.0f);
-
-        for (std::uint32_t n = 0; n < i.mLightCount; ++n)
-        {
-            data.lightPositions[n] = glm::vec4(
-                i.mLights[n].position,
-                static_cast<float>(i.mLights[n].type));
-            data.lightColorsAndRadius[n] =
-                glm::vec4(i.mLights[n].color, i.mLights[n].radius);
-            data.lightDirectionsAndCutoff[n] =
-                glm::vec4(i.mLights[n].direction, i.mLights[n].innerCutoff);
-            data.lightOuterCutoffAndIntensity[n] = glm::vec4(
-                i.mLights[n].outerCutoff,
-                i.mLights[n].intensity,
-                i.mLights[n].halfHeight,
-                (i.mShadowsEnabled && i.mLights[n].castShadows) ? 1.0f : 0.0f);
-            data.lightAreaTangents[n] = glm::vec4(i.mLights[n].tangent, 0.0f);
-        }
+        PackLights(i.mLights, i.mAlive, i.mMaxLights, i.mShadowsEnabled, data);
 
         const auto offset = frameIndex * sizeof(LightUniformBuffer);
         i.mBuffer->Copy(&data, sizeof(LightUniformBuffer), offset);

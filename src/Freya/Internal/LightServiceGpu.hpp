@@ -20,8 +20,9 @@ namespace FREYA_NAMESPACE
         float            mExposure       = 0.7f;
         bool             mShadowsEnabled = true;
 
-        std::vector<Light> mLights;
-        skr::Arc<Buffer>   mBuffer;
+        std::vector<Light>        mLights;
+        std::vector<std::uint8_t> mAlive;
+        skr::Arc<Buffer>          mBuffer;
 
         vk::DescriptorSetLayout        mLayout;
         vk::DescriptorPool             mPool;

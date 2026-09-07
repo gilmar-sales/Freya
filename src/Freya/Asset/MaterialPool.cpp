@@ -84,6 +84,15 @@ namespace FREYA_NAMESPACE
         return mImpl->materials[id.Id()].createInfo;
     }
 
+    MaterialDrawInfo MaterialPool::GetDrawInfo(MaterialHandle id) const
+    {
+        const auto&      info = GetCreateInfo(id);
+        MaterialDrawInfo draw {};
+        draw.techniqueId = info.techniqueId;
+        draw.alphaMode   = info.alphaMode;
+        return draw;
+    }
+
     bool MaterialPool::Contains(const MaterialHandle id) const
     {
         return id.IsValid() && mImpl->materials.contains(id.Id());

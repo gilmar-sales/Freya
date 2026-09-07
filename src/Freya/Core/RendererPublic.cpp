@@ -7,7 +7,9 @@
 
 namespace FREYA_NAMESPACE
 {
-    Renderer::Renderer(std::unique_ptr<Impl> impl) : mImpl(std::move(impl)) {}
+    Renderer::Renderer(std::unique_ptr<Impl> impl) : mImpl(std::move(impl))
+    {
+    }
 
     Renderer::~Renderer() = default;
 
@@ -169,6 +171,17 @@ namespace FREYA_NAMESPACE
         mImpl->UploadSceneInstances(uploads);
     }
 
+    void Renderer::PatchSceneInstances(
+        const std::span<const SceneInstanceUpload> uploads)
+    {
+        mImpl->PatchSceneInstances(uploads);
+    }
+
+    void Renderer::CommitSceneFrame()
+    {
+        mImpl->CommitSceneFrame();
+    }
+
     void Renderer::UploadBoneMatrices(const std::span<const glm::mat4> bones)
     {
         mImpl->UploadBoneMatrices(bones);
@@ -272,16 +285,17 @@ namespace FREYA_NAMESPACE
         mRenderer.ImplPtr()->Draw(meshId, materialId, entityId, castShadows);
     }
 
-    void RendererAdvanced::DrawInstanced(const std::uint32_t meshId,
-                                         const std::uint32_t materialId,
-                                         const size_t        instanceCount,
-                                         const size_t        firstInstance,
-                                         const bool          castShadows,
-                                         const std::uint32_t entityId)
+    void RendererAdvanced::DrawInstanced(
+        const std::uint32_t meshId,
+        const std::uint32_t materialId,
+        const size_t        instanceCount,
+        const size_t        firstInstance,
+        const bool          castShadows,
+        const std::uint32_t entityId)
     {
-        mRenderer.ImplPtr()->DrawInstanced(meshId, materialId, instanceCount,
-                                           firstInstance, castShadows,
-                                           entityId);
+        mRenderer.ImplPtr()->DrawInstanced(
+            meshId, materialId, instanceCount, firstInstance, castShadows,
+            entityId);
     }
 
     void RendererAdvanced::SetInstanceModels(const glm::mat4*  models,

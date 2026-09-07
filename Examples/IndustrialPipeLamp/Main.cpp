@@ -138,8 +138,8 @@ class MainApp final : public fra::AbstractApplication
         mLampModel = mMeshPool->CreateModelFromFile(
             "./Resources/Models/industrial_pipe_lamp.glb");
         // GLB node order with KEEP_HIERARCHY: body (0), bulb (1), switch (2).
-        mBulbMesh = mLampModel.size() > 1 ? mLampModel[1].mesh
-                                      : fra::MeshHandle {};
+        mBulbMesh =
+            mLampModel.size() > 1 ? mLampModel[1].mesh : fra::MeshHandle {};
         if (!mBulbMesh.IsValid())
         {
             std::cerr << "Lamp GLB has " << mLampModel.size()
@@ -157,7 +157,7 @@ class MainApp final : public fra::AbstractApplication
             auto key = fra::MakeDirectionalLight(glm::vec3(-0.4f, -1.0f, -0.3f),
                                                  glm::vec3(1.0f, 0.96f, 0.9f),
                                                  0.35f);
-            key.castShadows = false;
+            key.castShadows    = false;
             mDirectionalHandle = mLightService->AddLight(key);
         }
 
@@ -409,8 +409,8 @@ class MainApp final : public fra::AbstractApplication
                     toggleSecondaryWindow();
             });
 
-        auto lights =
-            GetWindowServices(*mSecondaryWindow)->GetService<fra::LightService>();
+        auto lights = GetWindowServices(*mSecondaryWindow)
+                          ->GetService<fra::LightService>();
         lights->ClearLights();
         lights->AddLight(fra::MakeDirectionalLight(
             glm::vec3(-0.2f, -1.0f, -0.15f), glm::vec3(1.0f, 0.96f, 0.9f),
@@ -435,6 +435,7 @@ class MainApp final : public fra::AbstractApplication
                 inst.material    = isBulb ? mBulbMaterial : mSofaMaterial;
                 inst.entityId    = i + 1;
                 inst.castShadows = !isBulb;
+                inst.mobility    = fra::Mobility::Dynamic;
                 scene.Add(inst);
             }
         }
@@ -444,20 +445,21 @@ class MainApp final : public fra::AbstractApplication
         ground.material    = mGroundMaterial;
         ground.entityId    = 0;
         ground.castShadows = false;
+        ground.mobility    = fra::Mobility::Static;
         scene.Add(ground);
     }
 
     void syncTransforms(fra::Scene& scene, const bool bothLamps)
     {
         // Stable ids 0..n-1 from rebuildScene (Clear then Add in order).
-        const std::uint32_t lampCount = bothLamps ? 2u : 1u;
-        fra::Scene::InstanceId id     = 0;
+        // Ground is Static — skip SetTransform so Upload can patch/no-op.
+        const std::uint32_t    lampCount = bothLamps ? 2u : 1u;
+        fra::Scene::InstanceId id        = 0;
         for (std::size_t part = 0; part < mLampModel.size(); ++part)
         {
             for (std::uint32_t i = 0; i < lampCount; ++i)
                 scene.SetTransform(id++, mModelMatrix[i]);
         }
-        scene.SetTransform(id, mModelMatrix[2]);
     }
 
     /**
@@ -569,8 +571,7 @@ class MainApp final : public fra::AbstractApplication
         const auto count = mLightService->GetLightCount();
         for (std::uint32_t i = 0; i < count; ++i)
         {
-            const auto* light =
-                mLightService->GetLight(fra::LightHandle { i });
+            const auto* light = mLightService->GetLight(fra::LightHandle { i });
             if (light == nullptr)
             {
                 continue;
@@ -631,7 +632,7 @@ class MainApp final : public fra::AbstractApplication
         float             phaseOffset  = 0.0f;
     };
 
-    std::vector<fra::ModelSubmesh> mLampModel;
+    std::vector<fra::ModelSubmesh>    mLampModel;
     std::optional<fra::TextureHandle> mSofaAlbedo {};
     std::optional<fra::TextureHandle> mSofaNormal {};
     std::optional<fra::TextureHandle> mSofaRoughness {};
@@ -672,8 +673,7 @@ int main(int, const char**)
 {
     return fra::RunApp<MainApp>(
         [](fra::FreyaOptionsBuilder& freyaOptions) {
-            freyaOptions
-                .SetTitle("Industrial Pipe Lamp — Deferred [RMB+WASD]")
+            freyaOptions.SetTitle("Industrial Pipe Lamp — Deferred [RMB+WASD]")
                 .SetWidth(1920)
                 .SetHeight(1080)
                 .SetVSync(false)

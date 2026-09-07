@@ -396,9 +396,9 @@ namespace FREYA_NAMESPACE
         }
 
         std::optional<TextureHandle> loadAssimpTexture(
-            const aiScene*                                     scene,
-            const std::string&                                 directory,
-            const aiString&                                    texPath,
+            const aiScene*                                  scene,
+            const std::string&                              directory,
+            const aiString&                                 texPath,
             std::unordered_map<std::string, TextureHandle>& cache)
         {
             std::string key = texPath.C_Str();
@@ -472,7 +472,7 @@ namespace FREYA_NAMESPACE
             const aiScene*     scene,
             const std::string& directory,
             std::initializer_list<aiTextureType>
-                                                               types,
+                                                            types,
             std::unordered_map<std::string, TextureHandle>& cache,
             aiString* matchedPath = nullptr)
         {
@@ -495,9 +495,9 @@ namespace FREYA_NAMESPACE
         }
 
         MaterialHandle importAssimpMaterial(
-            const aiMaterial*                                  mat,
-            const aiScene*                                     scene,
-            const std::string&                                 directory,
+            const aiMaterial*                               mat,
+            const aiScene*                                  scene,
+            const std::string&                              directory,
             std::unordered_map<std::string, TextureHandle>& cache)
         {
             MaterialCreateInfo info {};
@@ -679,9 +679,9 @@ namespace FREYA_NAMESPACE
         }
 
         template <typename Fn>
-        void walkSceneSubmeshes(const aiScene*                       scene,
+        void walkSceneSubmeshes(const aiScene*                     scene,
                                 const std::vector<MaterialHandle>& materials,
-                                Fn&&                                 fn)
+                                Fn&&                               fn)
         {
             const auto walk = [&](auto&& self, const aiNode* node) -> void {
                 for (unsigned i = 0; i < node->mNumMeshes; ++i)
@@ -718,15 +718,15 @@ namespace FREYA_NAMESPACE
                 return submeshes;
             }
 
-            const auto directory  = normalizeSlashes(parentDirectory(path));
-            const auto materials  = importAllMaterials(scene, directory);
+            const auto directory = normalizeSlashes(parentDirectory(path));
+            const auto materials = importAllMaterials(scene, directory);
             walkSceneSubmeshes(
                 scene, materials,
                 [&](const aiMesh* mesh, const MaterialHandle material) {
                     const auto meshId =
                         processMesh(mesh, scene, /*bakeMaterialDiffuse*/ false);
-                    submeshes.push_back(ModelSubmesh {
-                        MeshHandle { meshId }, material });
+                    submeshes.push_back(
+                        ModelSubmesh { MeshHandle { meshId }, material });
                 });
 
             logger->LogTrace("Loaded {} submesh(es) from {}", submeshes.size(),

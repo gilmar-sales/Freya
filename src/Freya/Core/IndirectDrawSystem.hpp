@@ -54,6 +54,21 @@ namespace FREYA_NAMESPACE
         void UploadSceneInstances(std::span<const SceneInstanceUpload> uploads,
                                   std::uint32_t frameIndex);
 
+        /**
+         * @brief Transform/bones/flags patch when topology is unchanged.
+         *
+         * Falls back to UploadSceneInstances when count or identity fields
+         * diverge from the retained GPU table.
+         */
+        void PatchSceneInstances(std::span<const SceneInstanceUpload> uploads,
+                                 std::uint32_t frameIndex);
+
+        /**
+         * @brief Ensure the current FiF GPU slot matches the host scene
+         * version (Copy only when the slot is stale).
+         */
+        void CommitSceneFrame(std::uint32_t frameIndex);
+
         void SyncMeshInfo();
 
         void SetCullView(const glm::vec3& cameraPos, vk::Extent2D screenSize);
@@ -304,6 +319,8 @@ namespace FREYA_NAMESPACE
         void uploadFrameBuffers();
         void zeroDrawCount(std::uint32_t techniqueFilter);
         void recordDispatchCull(const CullPushConstants& pc);
+        void beginFrameUpload(std::uint32_t frameIndex);
+        void stampSceneVersion();
 
         [[nodiscard]] FrameResources&    currentFrame();
         [[nodiscard]] DrawListResources& drawListFor(
@@ -354,6 +371,9 @@ namespace FREYA_NAMESPACE
         std::uint32_t mMeshLodCapacity   = 0;
         bool          mMeshInfoDirty     = true;
         std::uint32_t mUsedTechniqueMask = 1u; // technique 0 always considered
+
+        std::uint64_t              mSceneVersion = 0;
+        std::vector<std::uint64_t> mFrameSceneVersion;
 
         // Cull descriptor updates are unsafe once the set is bound this frame.
         // bumpCullDescVersion must not clear mCullDescRefreshedThisFrame.

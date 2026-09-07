@@ -155,21 +155,23 @@ struct Vertex
 
 ## Instancing (GPU-driven MDI)
 
-Prefer `Renderer::UploadSceneInstances` with one record per logical instance.
-Contiguous uploads that share the same `meshId` become **one** multi-draw
-indirect command; frustum cull (compute) atomic-compacts visible instances.
+Prefer `Scene::Upload` for application code (dirty-aware retained list).
+`RendererAdvanced::UploadSceneInstances` remains for tooling / tests that
+build a span without a `Scene`.
+Frustum cull (compute) atomic-compacts visible instances into multi-draw
+indirect commands.
 
-**Contract:** sort by `(meshId, entityId)` when possible (Freya skips its
-internal sort if already ordered by vertex/index chunk + mesh + entity).
-TAA `prevModel` is resolved by `entityId` (first frame / new ids: `prev ==
+**Contract:** prefer ascending `entityId` (Freya sorts when needed). TAA
+`prevModel` is resolved by `entityId` (first frame / new ids: `prev ==
 model`).
 
 ```cpp
+#include <Freya/Advanced.hpp>
+
 std::vector<fra::SceneInstanceUpload> instances;
-// Prefer push order: same mesh contiguous, entityId ascending within mesh.
-instances.push_back({ .model = M, .meshId = mesh, .materialId = mat,
+instances.push_back({ .model = M, .mesh = mesh, .material = mat,
                       .entityId = id, .castShadows = true });
-mRenderer->UploadSceneInstances(instances);
+fra::Advanced(*renderer).UploadSceneInstances(instances);
 ```
 
 Legacy path: `SetInstanceModels` + `Draw` / `DrawInstanced` still works and is

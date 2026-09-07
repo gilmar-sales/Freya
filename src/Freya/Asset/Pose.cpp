@@ -700,7 +700,7 @@ namespace FREYA_NAMESPACE
         // Joint indices follow mesh/anim discovery order, not hierarchy —
         // parents may have a higher index than children (Bulbasaur Head=0
         // parent Spine2=7). Compute parents before children explicitly.
-        std::vector<std::uint8_t> done(n, 0);
+        std::vector<std::uint8_t>          done(n, 0);
         std::function<void(std::uint32_t)> compute = [&](std::uint32_t i) {
             if (done[i])
                 return;

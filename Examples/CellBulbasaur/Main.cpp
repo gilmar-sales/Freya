@@ -217,14 +217,14 @@ class MainApp final : public fra::AbstractApplication
                 }
                 if (event.key == fra::KeyCode::F11)
                 {
-                    mEyesUnlit = !mEyesUnlit;
-                    auto setEyeTech =
-                        [&](fra::MaterialHandle id, std::uint32_t cellOrDefault) {
-                            auto info = mMaterialPool->GetCreateInfo(id);
-                            info.techniqueId =
-                                mEyesUnlit ? mUnlitTechnique : cellOrDefault;
-                            mMaterialPool->Update(id, info);
-                        };
+                    mEyesUnlit      = !mEyesUnlit;
+                    auto setEyeTech = [&](fra::MaterialHandle id,
+                                          std::uint32_t       cellOrDefault) {
+                        auto info = mMaterialPool->GetCreateInfo(id);
+                        info.techniqueId =
+                            mEyesUnlit ? mUnlitTechnique : cellOrDefault;
+                        mMaterialPool->Update(id, info);
+                    };
                     setEyeTech(mEyeMaterial, mCellTechnique);
                     setEyeTech(
                         mPbrEyeMaterial,
@@ -255,8 +255,8 @@ class MainApp final : public fra::AbstractApplication
         const auto revZ       = mFreyaOptions->ReverseZ ? 1.0f : 0.0f;
         auto       insertPost = [&](skr::Arc<fra::PostProcess> effect) {
             if (effect)
-                fra::Advanced(*mRenderer).InsertFrameStage(
-                    "BillboardVfx", effect->MakeStage());
+                fra::Advanced(*mRenderer)
+                    .InsertFrameStage("BillboardVfx", effect->MakeStage());
         };
 
         mCellEffect =
@@ -670,7 +670,8 @@ class MainApp final : public fra::AbstractApplication
     // now — cull AABBs share the instance model matrix.
     static constexpr float kModelScale = 1.0f;
 
-    fra::MaterialHandle materialForMesh(std::size_t index, bool cellShaded) const
+    fra::MaterialHandle materialForMesh(std::size_t index,
+                                        bool        cellShaded) const
     {
         switch (index % 3)
         {
@@ -697,6 +698,7 @@ class MainApp final : public fra::AbstractApplication
             ground.material    = mGroundMaterial;
             ground.entityId    = nextEntity++;
             ground.castShadows = true;
+            ground.mobility    = fra::Mobility::Static;
             const auto id      = mScene.Add(ground);
             ensureIsEye(id, false);
         }
@@ -709,13 +711,14 @@ class MainApp final : public fra::AbstractApplication
             for (std::size_t i = 0; i < mSkinned.submeshes.size(); ++i)
             {
                 fra::Scene::Instance inst {};
-                inst.model       = model;
-                inst.mesh        = mSkinned.submeshes[i].mesh;
-                inst.material    = materialForMesh(i, cellShaded);
-                inst.entityId    = nextEntity++;
-                inst.boneOffset  = joints > 0 ? 0u : fra::kNoSkin;
-                inst.boneCount   = joints;
-                const auto id    = mScene.Add(inst);
+                inst.model      = model;
+                inst.mesh       = mSkinned.submeshes[i].mesh;
+                inst.material   = materialForMesh(i, cellShaded);
+                inst.entityId   = nextEntity++;
+                inst.boneOffset = joints > 0 ? 0u : fra::kNoSkin;
+                inst.boneCount  = joints;
+                inst.mobility   = fra::Mobility::Dynamic;
+                const auto id   = mScene.Add(inst);
                 ensureIsEye(id, (i % 3) == 0);
             }
         };
@@ -744,16 +747,14 @@ class MainApp final : public fra::AbstractApplication
     void drawCullAabbs()
     {
         auto& dd = mRenderer->GetDebugDraw();
-        mScene.ForEach(
-            [&](fra::Scene::InstanceId id, const fra::Scene::Instance& inst) {
-                const bool isEye =
-                    id < mIsEye.size() && mIsEye[id];
-                const glm::vec4 color =
-                    isEye ? glm::vec4(1.0f, 0.15f, 0.85f, 1.0f)
-                          : glm::vec4(0.2f, 0.9f, 1.0f, 0.6f);
-                FreyaExamples::DrawCullAabb(
-                    dd, *mMeshPool, inst.mesh, inst.model, color);
-            });
+        mScene.ForEach([&](fra::Scene::InstanceId      id,
+                           const fra::Scene::Instance& inst) {
+            const bool      isEye = id < mIsEye.size() && mIsEye[id];
+            const glm::vec4 color = isEye ? glm::vec4(1.0f, 0.15f, 0.85f, 1.0f)
+                                          : glm::vec4(0.2f, 0.9f, 1.0f, 0.6f);
+            FreyaExamples::DrawCullAabb(
+                dd, *mMeshPool, inst.mesh, inst.model, color);
+        });
     }
 
     void applyMuGlowLevel()
@@ -810,20 +811,20 @@ class MainApp final : public fra::AbstractApplication
     bool                           mGroundTriplanar    = false;
     bool                           mEyesUnlit          = false;
     float                          mEffectTime         = 0.0f;
-    fra::Ref<fra::MeshPool>     mMeshPool;
-    fra::Ref<fra::TexturePool>  mTexturePool;
-    fra::Ref<fra::MaterialPool> mMaterialPool;
-    fra::Ref<fra::LightService> mLightService;
-    fra::Ref<fra::FreyaOptions> mFreyaOptions;
+    fra::Ref<fra::MeshPool>        mMeshPool;
+    fra::Ref<fra::TexturePool>     mTexturePool;
+    fra::Ref<fra::MaterialPool>    mMaterialPool;
+    fra::Ref<fra::LightService>    mLightService;
+    fra::Ref<fra::FreyaOptions>    mFreyaOptions;
 
-    fra::MeshHandle     mGroundMesh {};
-    fra::MaterialHandle mGroundMaterial {};
-    fra::MaterialHandle mEyeMaterial {};
-    fra::MaterialHandle mBodyAMaterial {};
-    fra::MaterialHandle mBodyBMaterial {};
-    fra::MaterialHandle mPbrEyeMaterial {};
-    fra::MaterialHandle mPbrBodyAMaterial {};
-    fra::MaterialHandle mPbrBodyBMaterial {};
+    fra::MeshHandle           mGroundMesh {};
+    fra::MaterialHandle       mGroundMaterial {};
+    fra::MaterialHandle       mEyeMaterial {};
+    fra::MaterialHandle       mBodyAMaterial {};
+    fra::MaterialHandle       mBodyBMaterial {};
+    fra::MaterialHandle       mPbrEyeMaterial {};
+    fra::MaterialHandle       mPbrBodyAMaterial {};
+    fra::MaterialHandle       mPbrBodyBMaterial {};
     fra::SkinnedModel         mSkinned;
     const fra::AnimationClip* mIdleClip = nullptr;
     float                     mAnimTime = 0.0f;
@@ -831,8 +832,8 @@ class MainApp final : public fra::AbstractApplication
     fra::ParticleEmitter      mFire;
     fra::ParticleEmitter      mEmbers;
     fra::ParticleEmitter      mSmoke;
-    fra::Light         mFireLight;
-    fra::LightHandle   mFireLightHandle {};
+    fra::Light                mFireLight;
+    fra::LightHandle          mFireLightHandle {};
     fra::FontAtlas            mFont;
     float                     mHpPulse = 0.0f;
     fra::Scene                mScene;

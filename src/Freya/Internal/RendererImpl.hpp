@@ -120,6 +120,8 @@ namespace FREYA_NAMESPACE
                                              std::uint32_t height);
 
         void UploadSceneInstances(std::span<const SceneInstanceUpload> uploads);
+        void PatchSceneInstances(std::span<const SceneInstanceUpload> uploads);
+        void CommitSceneFrame();
 
         void Draw(std::uint32_t meshId,
                   std::uint32_t materialId,

@@ -54,6 +54,7 @@ namespace FREYA_NAMESPACE
     {
         mFrames.resize(mFrameCount);
         mFrameCullDescVersion.assign(mFrameCount, 0);
+        mFrameSceneVersion.assign(mFrameCount, 0);
         for (std::uint32_t f = 0; f < mFrameCount; ++f)
             ensureCapacityForFrame(f, kInitialInstanceCapacity);
         SyncMeshInfo();
@@ -420,7 +421,10 @@ namespace FREYA_NAMESPACE
     {
         auto& frame = currentFrame();
         if (mInstanceCount == 0 || !frame.sceneInstances)
+        {
+            zeroDrawCount(kTechniqueFilterAll);
             return;
+        }
 
         frame.sceneInstances->Copy(mSceneInstances.data(),
                                    sizeof(SceneInstance) * mInstanceCount);
@@ -428,6 +432,20 @@ namespace FREYA_NAMESPACE
             mInstanceTransforms.data(),
             sizeof(InstanceTransform) * mInstanceCount);
         zeroDrawCount(kTechniqueFilterAll);
+    }
+
+    void IndirectDrawSystem::beginFrameUpload(const std::uint32_t frameIndex)
+    {
+        mFrameIndex = frameIndex % mFrameCount;
+        ++mFrameSerial;
+        mCullDescRefreshedThisFrame = false;
+    }
+
+    void IndirectDrawSystem::stampSceneVersion()
+    {
+        ++mSceneVersion;
+        if (mFrameIndex < mFrameSceneVersion.size())
+            mFrameSceneVersion[mFrameIndex] = mSceneVersion;
     }
 
     void IndirectDrawSystem::zeroDrawCount(const std::uint32_t techniqueFilter)
@@ -439,13 +457,104 @@ namespace FREYA_NAMESPACE
             list.drawCount->Get(), 0, sizeof(std::uint32_t), 0);
     }
 
+    void IndirectDrawSystem::CommitSceneFrame(const std::uint32_t frameIndex)
+    {
+        beginFrameUpload(frameIndex);
+        if (mFrameIndex < mFrameSceneVersion.size() &&
+            mFrameSceneVersion[mFrameIndex] == mSceneVersion)
+            return;
+
+        if (mMeshInfoDirty || mMeshPool->GetMeshCount() != mMeshInfos.size())
+            SyncMeshInfo();
+
+        if (mInstanceCount > 0)
+        {
+            ensureCapacity(mInstanceCount);
+            refreshCullDescriptorsIfNeeded();
+            mCullDescRefreshedThisFrame = false;
+        }
+        uploadFrameBuffers();
+        if (mFrameIndex < mFrameSceneVersion.size())
+            mFrameSceneVersion[mFrameIndex] = mSceneVersion;
+    }
+
+    void IndirectDrawSystem::PatchSceneInstances(
+        const std::span<const SceneInstanceUpload> uploads,
+        const std::uint32_t                        frameIndex)
+    {
+        if (uploads.size() != mInstanceCount)
+        {
+            UploadSceneInstances(uploads, frameIndex);
+            return;
+        }
+
+        for (std::uint32_t i = 0; i < mInstanceCount; ++i)
+        {
+            const auto& src = uploads[i];
+            const auto& dst = mSceneInstances[i];
+            if (src.entityId != dst.entityId || src.mesh.Id() != dst.meshId ||
+                src.material.Id() != dst.materialId)
+            {
+                UploadSceneInstances(uploads, frameIndex);
+                return;
+            }
+        }
+
+        beginFrameUpload(frameIndex);
+
+        if (mMeshInfoDirty || mMeshPool->GetMeshCount() != mMeshInfos.size())
+            SyncMeshInfo();
+
+        if (mInstanceCount > 0)
+        {
+            ensureCapacity(mInstanceCount);
+            refreshCullDescriptorsIfNeeded();
+            mCullDescRefreshedThisFrame = false;
+        }
+
+        mPrevTransforms.swap(mInstanceTransforms);
+        mPrevModelByEntity.clear();
+        mPrevModelByEntity.reserve(mPrevTransforms.size());
+        for (const auto& prev : mPrevTransforms)
+            mPrevModelByEntity.insert(prev.entityId, prev.model);
+
+        mInstanceTransforms.resize(mInstanceCount);
+        for (std::uint32_t i = 0; i < mInstanceCount; ++i)
+        {
+            const auto& src = uploads[i];
+            auto flags = src.castShadows ? kSceneInstanceFlagCastShadows : 0u;
+            // Preserve technique/translucent bits from the last full upload.
+            flags |=
+                (mSceneInstances[i].flags & (kSceneInstanceFlagTranslucent));
+            if (src.boneOffset != kNoSkin)
+                flags |= kSceneInstanceFlagSkinned;
+
+            mSceneInstances[i].model = src.model;
+            mSceneInstances[i].flags = flags;
+
+            glm::mat4 prev = src.model;
+            if (const auto* found = mPrevModelByEntity.find(src.entityId))
+                prev = *found;
+
+            mInstanceTransforms[i] = InstanceTransform {
+                .model      = src.model,
+                .prevModel  = prev,
+                .materialId = src.material.Id(),
+                .entityId   = src.entityId,
+                .flags      = flags,
+                .boneOffset = src.boneOffset,
+            };
+        }
+
+        uploadFrameBuffers();
+        stampSceneVersion();
+    }
+
     void IndirectDrawSystem::UploadSceneInstances(
         const std::span<const SceneInstanceUpload> uploads,
         const std::uint32_t                        frameIndex)
     {
-        mFrameIndex = frameIndex % mFrameCount;
-        ++mFrameSerial;
-        mCullDescRefreshedThisFrame = false;
+        beginFrameUpload(frameIndex);
 
         if (uploads.empty())
         {
@@ -453,6 +562,8 @@ namespace FREYA_NAMESPACE
             mSceneInstances.clear();
             mInstanceTransforms.clear();
             mUsedTechniqueMask = 0;
+            uploadFrameBuffers();
+            stampSceneVersion();
             return;
         }
 
@@ -504,14 +615,13 @@ namespace FREYA_NAMESPACE
             const auto& src = uploads[sortKeys[dst].uploadIndex];
             auto flags = src.castShadows ? kSceneInstanceFlagCastShadows : 0u;
             std::uint32_t techniqueId = 0;
-            if (mMaterialPool)
+            if (mMaterialPool && mMaterialPool->Contains(src.material))
             {
-                const auto& matInfo =
-                    mMaterialPool->GetCreateInfo(src.material);
-                techniqueId = matInfo.techniqueId;
+                const auto draw = mMaterialPool->GetDrawInfo(src.material);
+                techniqueId     = draw.techniqueId;
                 if (techniqueId >= kMaxMaterialTechniques)
                     techniqueId = 0;
-                if (matInfo.alphaMode == AlphaMode::Blend)
+                if (draw.alphaMode == AlphaMode::Blend)
                     flags |= kSceneInstanceFlagTranslucent;
             }
             if (src.boneOffset != kNoSkin)
@@ -543,6 +653,7 @@ namespace FREYA_NAMESPACE
         }
 
         uploadFrameBuffers();
+        stampSceneVersion();
     }
 
     void IndirectDrawSystem::DispatchCull(
@@ -884,9 +995,9 @@ namespace FREYA_NAMESPACE
     }
 
     bool IndirectDrawSystem::ReadbackCullOutputsAggregated(
-        const std::uint32_t         frameIndex,
-        std::uint32_t&              outDrawCount,
-        std::vector<CullSurvivor>&  outSurvivors)
+        const std::uint32_t        frameIndex,
+        std::uint32_t&             outDrawCount,
+        std::vector<CullSurvivor>& outSurvivors)
     {
         outDrawCount = 0;
         outSurvivors.clear();

@@ -18,7 +18,8 @@ namespace FREYA_NAMESPACE
 
         ~TexturePool();
 
-        /** @return texture handle, or nullopt when the file is missing/unreadable.
+        /** @return texture handle, or nullopt when the file is
+         * missing/unreadable.
          */
         std::optional<TextureHandle> CreateTextureFromFile(std::string path);
 
@@ -29,6 +30,15 @@ namespace FREYA_NAMESPACE
                                               std::uint32_t mipLevels = 0);
 
         [[nodiscard]] bool Contains(TextureHandle id) const;
+
+        /**
+         * @brief Bindless heap slot for @p id (white=0, black=1, textures at
+         * id+2). Matches MaterialDescriptorResources::TextureHeapIndex.
+         */
+        [[nodiscard]] static std::uint32_t BindlessIndex(TextureHandle id)
+        {
+            return id.IsValid() ? id.Id() + 2u : 0u;
+        }
 
         void Destroy(TextureHandle id);
 

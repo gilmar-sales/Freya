@@ -31,4 +31,3 @@ namespace FREYA_NAMESPACE
     };
 
 } // namespace FREYA_NAMESPACE
-
