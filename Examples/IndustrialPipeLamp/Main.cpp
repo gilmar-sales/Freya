@@ -149,21 +149,6 @@ class MainApp final : public fra::AbstractApplication
             *mMeshPool, 80.0f, glm::vec3(0.72f, 0.72f, 0.76f));
         mGroundMaterial = mMaterialPool->Create({});
 
-        mSpaceShipAlbedo = mTexturePool->CreateTextureFromFile(
-            "./Resources/Textures/SpaceShip_Base_color.jpg");
-        mSpaceShipNormal = mTexturePool->CreateTextureFromFile(
-            "./Resources/Textures/SpaceShip_Normal.jpg");
-        mSpaceShipRoughness = mTexturePool->CreateTextureFromFile(
-            "./Resources/Textures/SpaceShip_Roughness.jpg");
-
-        mSpaceShipMaterial = mMaterialPool->Create(
-            { .albedo    = mSpaceShipAlbedo,
-              .normal    = mSpaceShipNormal,
-              .roughness = mSpaceShipRoughness });
-
-        mSpaceShipModel =
-            mMeshPool->CreateModelFromFile("./Resources/Models/SpaceShip.fbx");
-
         // Fill lights stay dim so local casters dominate when diagnosed.
         // castShadows is toggled one-at-a-time (spots all share mode 4).
         {
@@ -618,12 +603,6 @@ class MainApp final : public fra::AbstractApplication
 
     std::uint32_t mGroundMesh {};
     std::uint32_t mGroundMaterial {};
-
-    std::vector<fra::ModelSubmesh> mSpaceShipModel;
-    std::optional<std::uint32_t>   mSpaceShipAlbedo {};
-    std::optional<std::uint32_t>   mSpaceShipNormal {};
-    std::optional<std::uint32_t>   mSpaceShipRoughness {};
-    std::uint32_t                  mSpaceShipMaterial {};
 
     skr::Arc<fra::MaterialPool> mMaterialPool;
     skr::Arc<fra::TexturePool>  mTexturePool;
