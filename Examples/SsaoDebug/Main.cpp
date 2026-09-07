@@ -1,5 +1,6 @@
 #include <Freya/Freya.hpp>
 
+#include <FreyaExamples/CullAabbDebugDraw.hpp>
 #include <FreyaExamples/DebugOverlay.hpp>
 #include <FreyaExamples/ExampleLogging.hpp>
 #include <FreyaExamples/FlyCam.hpp>
@@ -76,7 +77,7 @@ class MainApp final : public fra::AbstractApplication
             << "SSAO Debug — DamagedHelmet + Dragon + ally_ship\n"
             << "RMB look | WASD move | Space/Q up | Ctrl/E down\n"
             << "ImGui: Freya Debug panel (SSAO quality / deferred views / "
-               "params)\n";
+               "params / GPU Cull > Show cull AABBs)\n";
     }
 
     void Update() override
@@ -103,6 +104,9 @@ class MainApp final : public fra::AbstractApplication
             });
         }
         mRenderer->UploadSceneInstances(instances);
+
+        if (mOverlay.ShowCullAabbs())
+            drawCullAabbs();
 
         const float cpuFrameMs  = dt * 1000.f;
         const float cpuUpdateMs = mOverlay.ElapsedUpdateMs();
@@ -175,6 +179,24 @@ class MainApp final : public fra::AbstractApplication
             inst.materialId = part.materialId;
             inst.entityId   = nextEntity++;
             mInstances.push_back(inst);
+        }
+    }
+
+    /**
+     * @brief Draws the exact world-space AABB the GPU cull compute shader
+     * (Shaders/GpuDriven/CullFrustum.comp) tests each instance against:
+     * MeshPool's registered mesh-local aabbMin/aabbMax transformed by the
+     * instance's model matrix. Toggle via the "Show cull AABBs" checkbox in
+     * the ImGui "Freya Debug" panel (GPU Cull section).
+     */
+    void drawCullAabbs()
+    {
+        auto& dd = mRenderer->GetDebugDraw();
+        for (const auto& inst : mInstances)
+        {
+            FreyaExamples::DrawCullAabb(dd, *mMeshPool, inst.meshId,
+                                        inst.model,
+                                        glm::vec4(0.2f, 0.9f, 1.0f, 0.6f));
         }
     }
 

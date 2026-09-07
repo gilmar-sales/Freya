@@ -1,6 +1,7 @@
 #include <Freya/Freya.hpp>
 
 #include <FreyaExamples/AnimClipUtil.hpp>
+#include <FreyaExamples/CullAabbDebugDraw.hpp>
 #include <FreyaExamples/DebugOverlay.hpp>
 #include <FreyaExamples/ExampleLogging.hpp>
 #include <FreyaExamples/FlyCam.hpp>
@@ -131,6 +132,18 @@ class MainApp final : public fra::AbstractApplication
 
         mEventManager->Subscribe<fra::KeyReleasedEvent>(
             [this](const fra::KeyReleasedEvent& event) {
+                if (event.key == fra::KeyCode::F3)
+                {
+                    const bool enabled = !mOverlay.ShowCullAabbs();
+                    mOverlay.SetShowCullAabbs(enabled);
+                    if (enabled)
+                        mRenderer->SetDebugDrawEnabled(true);
+                    std::cout << "Cull AABB debug draw: "
+                              << (enabled ? "on" : "off")
+                              << " (magenta = eye submeshes; also toggleable "
+                                 "in ImGui: Freya Debug > GPU Cull)\n";
+                    return;
+                }
                 if (event.key == fra::KeyCode::F4)
                 {
                     ToggleEffect(mCellEffect, "Cell");
@@ -551,6 +564,7 @@ class MainApp final : public fra::AbstractApplication
 
         std::cout
             << "CellBulbasaur — left: cell  right: PBR\n"
+               "F3 cull AABBs (also in ImGui: Freya Debug > GPU Cull)\n"
                "F4 cell | F5 outline | F6 grade | F7 underwater | F8 heat\n"
                "F9 item glow | F12 Mu glow (+N) | [ ] change +level\n"
                "F10 ground triplanar | F11 eyes unlit\n"
@@ -621,6 +635,9 @@ class MainApp final : public fra::AbstractApplication
         }
         mRenderer->UploadSceneInstances(instances);
 
+        if (mOverlay.ShowCullAabbs())
+            drawCullAabbs();
+
         mHpPulse += dt;
         auto&       bb     = mRenderer->GetBillboardDraw();
         const float cellHp = 0.45f + 0.45f * std::sin(mHpPulse * 0.8f);
@@ -663,7 +680,11 @@ class MainApp final : public fra::AbstractApplication
     }
 
   private:
-    static constexpr float kModelScale = 100.0f;
+    // After nonBoneParent fix, rest skin ≈ I (mesh-local units, ~0.5 tall).
+    // Old scale≈100 was compensating a missing parent scale that shrank the
+    // skinned mesh via IBM; AABB used raw verts and looked huge. Scale freely
+    // now — cull AABBs share the instance model matrix.
+    static constexpr float kModelScale = 1.0f;
 
     struct Instance
     {
@@ -674,6 +695,9 @@ class MainApp final : public fra::AbstractApplication
         bool          castShadows = true;
         std::uint32_t boneOffset  = fra::kNoSkin;
         std::uint32_t boneCount   = 0;
+        /// Eye submesh (materialForMesh index % 3 == 0) — highlighted
+        /// distinctly in the GPU-cull AABB debug draw (see drawCullAabbs).
+        bool isEye = false;
     };
 
     std::uint32_t materialForMesh(std::size_t index, bool cellShaded) const
@@ -709,8 +733,6 @@ class MainApp final : public fra::AbstractApplication
         auto       addBulbasaur = [&](float x, bool cellShaded) {
             auto model =
                 glm::translate(glm::mat4(1.0f), glm::vec3(x, 0.0f, 0.0f));
-            model = glm::rotate(model, glm::radians(90.0f),
-                                glm::vec3(1.0f, 0.0f, 0.0f));
             model = glm::scale(model, glm::vec3(kModelScale));
             for (std::size_t i = 0; i < mSkinned.submeshes.size(); ++i)
             {
@@ -721,12 +743,36 @@ class MainApp final : public fra::AbstractApplication
                 inst.entityId   = nextEntity++;
                 inst.boneOffset = joints > 0 ? 0u : fra::kNoSkin;
                 inst.boneCount  = joints;
+                inst.isEye      = (i % 3) == 0;
                 mInstances.push_back(inst);
             }
         };
 
         addBulbasaur(-1.2f, true);
         addBulbasaur(1.2f, false);
+    }
+
+    /**
+     * @brief Draws the exact world-space AABB the GPU cull compute shader
+     * (Shaders/GpuDriven/CullFrustum.comp) tests each instance against:
+     * MeshPool's registered mesh-local aabbMin/aabbMax transformed by the
+     * instance's model matrix. Eye submeshes (entityId 2/5 in the
+     * cell_eyes_false_cull fixture) are highlighted in magenta so their
+     * AABB — inflated for skinned cull conservatism — is easy to pick out
+     * against the body submeshes (cyan). Toggle via the "Debug draw"
+     * checkbox in the ImGui "Freya Debug" panel (or F3).
+     */
+    void drawCullAabbs()
+    {
+        auto& dd = mRenderer->GetDebugDraw();
+        for (const auto& inst : mInstances)
+        {
+            const glm::vec4 color = inst.isEye
+                                        ? glm::vec4(1.0f, 0.15f, 0.85f, 1.0f)
+                                        : glm::vec4(0.2f, 0.9f, 1.0f, 0.6f);
+            FreyaExamples::DrawCullAabb(dd, *mMeshPool, inst.meshId,
+                                        inst.model, color);
+        }
     }
 
     void applyMuGlowLevel()

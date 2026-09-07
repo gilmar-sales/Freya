@@ -129,10 +129,49 @@ void computeClipCorners(mat4 mvp, vec3 bmin, vec3 bmax, out vec4 corners[8])
         corners[i] = mvp * vec4(local[i], 1.0);
 }
 
-// True only if ALL 8 corners fall outside the same frustum plane
-// (a conservative, correct "fully outside" test).
+// Clips the AABB's 12 edges against the eye plane (w=0) and appends the
+// result to `clipped`, returning the point count. Corners already in
+// front of the camera (w>0) are kept as-is; edges whose endpoints straddle
+// w=0 contribute one interpolated point at the crossing. This mirrors the
+// near-plane clipping `projectAabb` already does for screen-space
+// projection: dividing by a negative w flips the sign of the x/y-vs-w
+// comparisons below, so mixing w>0 and w<=0 corners in the same
+// left/right/top/bottom test is unsound for AABBs large enough (post
+// scale/inflation) to straddle the camera's eye plane.
+int clipCornersAtEyePlane(vec4 corners[8], out vec4 clipped[14])
+{
+    int count = 0;
+    for (int i = 0; i < 8; ++i)
+    {
+        if (corners[i].w > 0.0)
+            clipped[count++] = corners[i];
+    }
+    for (int edge = 0; edge < 12; ++edge)
+    {
+        vec4 ca = corners[kAabbEdges[edge * 2]];
+        vec4 cb = corners[kAabbEdges[edge * 2 + 1]];
+        if ((ca.w > 0.0) == (cb.w > 0.0))
+            continue;
+        float t = ca.w / (ca.w - cb.w);
+        clipped[count++] = mix(ca, cb, t);
+    }
+    return count;
+}
+
+// True only if ALL corners fall outside the same frustum plane
+// (a conservative, correct "fully outside" test). The left/right/top/
+// bottom tests run on the eye-plane-clipped point set (see
+// clipCornersAtEyePlane) so corners behind the camera never corrupt the
+// result; near/far still use the raw corners since they are what actually
+// decide "behind the eye" / "past the far plane" and are already sign-
+// correct per reverseZ. If no corner survives eye-plane clipping the AABB
+// is fully behind the camera, and the untouched (still-true) left/right/
+// top/bottom flags correctly report "outside" below.
 bool aabbOutsideFrustum(vec4 corners[8])
 {
+    vec4 clipped[14];
+    int  clippedCount = clipCornersAtEyePlane(corners, clipped);
+
     bool outsideLeft   = true;
     bool outsideRight  = true;
     bool outsideBottom = true;
@@ -140,13 +179,18 @@ bool aabbOutsideFrustum(vec4 corners[8])
     bool outsideNear   = true;
     bool outsideFar    = true;
 
-    for (int i = 0; i < 8; ++i)
+    for (int i = 0; i < clippedCount; ++i)
     {
-        vec4 c = corners[i];
+        vec4 c = clipped[i];
         outsideLeft   = outsideLeft   && (c.x < -c.w);
         outsideRight  = outsideRight  && (c.x >  c.w);
         outsideBottom = outsideBottom && (c.y < -c.w);
         outsideTop    = outsideTop    && (c.y >  c.w);
+    }
+
+    for (int i = 0; i < 8; ++i)
+    {
+        vec4 c = corners[i];
         if (cull.reverseZ != 0u)
         {
             outsideNear = outsideNear && (c.z > c.w);

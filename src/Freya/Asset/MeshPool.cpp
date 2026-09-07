@@ -27,13 +27,16 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <initializer_list>
 #include <limits>
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
+#include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
@@ -264,7 +267,7 @@ namespace FREYA_NAMESPACE
             {
                 const glm::vec3 center = 0.5f * (aabbMin + aabbMax);
                 const glm::vec3 extent = 0.5f * (aabbMax - aabbMin);
-                const float     radius = glm::length(extent) * 1.25f;
+                const float     radius = glm::length(extent);
                 aabbMin                = center - glm::vec3(radius);
                 aabbMax                = center + glm::vec3(radius);
             }
@@ -761,27 +764,121 @@ namespace FREYA_NAMESPACE
                     skeleton.inverseBind.push_back(
                         toGlm(mesh->mBones[b]->mOffsetMatrix));
                     skeleton.restLocal.push_back(glm::mat4(1.f));
+                    skeleton.nonBoneParent.push_back(glm::mat4(1.f));
                 }
             }
         }
 
-        void assignParentsAndRest(
-            const aiNode*                                   node,
-            const std::int32_t                              parentBone,
+        /// Assimp only lists bones that have vertex weights. Hierarchy /
+        /// animation targets without weights (Waist, Origin, rootJoint, …)
+        /// must still be joints or their channels are dropped and FK breaks.
+        void collectAnimationJoints(
+            const aiScene*                                  scene,
             std::unordered_map<std::string, std::uint32_t>& nameToIndex,
             Skeleton&                                       skeleton)
         {
-            const auto   name = aiName(node->mName);
-            std::int32_t self = parentBone;
+            auto addJoint = [&](const std::string& name) {
+                if (name.empty() || nameToIndex.contains(name))
+                    return;
+                const auto idx =
+                    static_cast<std::uint32_t>(skeleton.names.size());
+                nameToIndex.emplace(name, idx);
+                skeleton.names.push_back(name);
+                skeleton.parents.push_back(-1);
+                skeleton.inverseBind.push_back(glm::mat4(1.f));
+                skeleton.restLocal.push_back(glm::mat4(1.f));
+                skeleton.nonBoneParent.push_back(glm::mat4(1.f));
+            };
+
+            for (unsigned a = 0; a < scene->mNumAnimations; ++a)
+            {
+                const aiAnimation* anim = scene->mAnimations[a];
+                for (unsigned c = 0; c < anim->mNumChannels; ++c)
+                    addJoint(aiName(anim->mChannels[c]->mNodeName));
+            }
+
+            // Ensure every joint's scene ancestors are joints too.
+            std::function<bool(const aiNode*)> mark =
+                [&](const aiNode* node) -> bool {
+                bool subtree = false;
+                for (unsigned i = 0; i < node->mNumChildren; ++i)
+                    subtree = mark(node->mChildren[i]) || subtree;
+                const auto name    = aiName(node->mName);
+                const bool isJoint = nameToIndex.contains(name);
+                if (subtree || isJoint)
+                    addJoint(name);
+                return subtree || isJoint || nameToIndex.contains(name);
+            };
+            mark(scene->mRootNode);
+        }
+
+        /// Rebuild every IBM as inverse(bind global). Assimp only stores
+        /// offsets for weighted bones; after inserting hierarchy/anim joints
+        /// the bind globals are the source of truth and rest skin stays I.
+        void finalizeHierarchyInverseBinds(Skeleton& skeleton)
+        {
+            const auto n = skeleton.JointCount();
+            if (n == 0)
+                return;
+
+            std::vector<glm::mat4>             bindGlobal(n, glm::mat4(1.f));
+            std::vector<std::uint8_t>          done(n, 0);
+            std::function<void(std::uint32_t)> compute =
+                [&](std::uint32_t i) {
+                    if (done[i])
+                        return;
+                    const auto parent = skeleton.parents[i];
+                    if (parent >= 0)
+                        compute(static_cast<std::uint32_t>(parent));
+                    const glm::mat4 bridge =
+                        i < skeleton.nonBoneParent.size()
+                            ? skeleton.nonBoneParent[i]
+                            : glm::mat4(1.f);
+                    const glm::mat4 local = skeleton.restLocal[i];
+                    if (parent >= 0)
+                        bindGlobal[i] =
+                            bindGlobal[static_cast<std::uint32_t>(parent)] *
+                            bridge * local;
+                    else
+                        bindGlobal[i] = bridge * local;
+                    done[i] = 1;
+                };
+            for (std::uint32_t i = 0; i < n; ++i)
+                compute(i);
+
+            for (std::uint32_t i = 0; i < n; ++i)
+                skeleton.inverseBind[i] = glm::inverse(bindGlobal[i]);
+        }
+
+        // Walk the Assimp node tree and fill parents / restLocal /
+        // nonBoneParent. Non-bone nodes between bones (glTF scene roots with
+        // scale, etc.) are recorded in nonBoneParent — not restLocal — so
+        // animation channels that overwrite joint scale cannot drop them.
+        void assignParentsAndRest(
+            const aiNode*                                   node,
+            const std::int32_t                              parentBone,
+            const glm::mat4&                                parentAccum,
+            std::unordered_map<std::string, std::uint32_t>& nameToIndex,
+            Skeleton&                                       skeleton)
+        {
+            const auto      name  = aiName(node->mName);
+            const glm::mat4 local = toGlm(node->mTransformation);
             if (const auto it = nameToIndex.find(name); it != nameToIndex.end())
             {
-                self = static_cast<std::int32_t>(it->second);
-                skeleton.parents[it->second]   = parentBone;
-                skeleton.restLocal[it->second] = toGlm(node->mTransformation);
+                const auto self = static_cast<std::int32_t>(it->second);
+                skeleton.parents[it->second]        = parentBone;
+                skeleton.restLocal[it->second]     = local;
+                skeleton.nonBoneParent[it->second] = parentAccum;
+                for (unsigned i = 0; i < node->mNumChildren; ++i)
+                    assignParentsAndRest(node->mChildren[i], self,
+                                         glm::mat4(1.f), nameToIndex,
+                                         skeleton);
+                return;
             }
+            const glm::mat4 accum = parentAccum * local;
             for (unsigned i = 0; i < node->mNumChildren; ++i)
-                assignParentsAndRest(node->mChildren[i], self, nameToIndex,
-                                     skeleton);
+                assignParentsAndRest(node->mChildren[i], parentBone, accum,
+                                     nameToIndex, skeleton);
         }
 
         std::uint32_t processSkinnedMesh(
@@ -956,6 +1053,7 @@ namespace FREYA_NAMESPACE
 
             std::unordered_map<std::string, std::uint32_t> nameToIndex;
             collectBoneNames(scene, nameToIndex, out.skeleton);
+            collectAnimationJoints(scene, nameToIndex, out.skeleton);
             if (out.skeleton.JointCount() == 0)
             {
                 logger->LogError("Skinned load found no bones in '{}'; use "
@@ -964,23 +1062,9 @@ namespace FREYA_NAMESPACE
                 return out;
             }
 
-            assignParentsAndRest(scene->mRootNode, -1, nameToIndex,
-                                 out.skeleton);
-            // Refresh inverse-bind from first bone occurrence (already set);
-            // later meshes may repeat the same bone with same offset.
-            for (unsigned m = 0; m < scene->mNumMeshes; ++m)
-            {
-                const aiMesh* mesh = scene->mMeshes[m];
-                for (unsigned b = 0; b < mesh->mNumBones; ++b)
-                {
-                    const auto name = aiName(mesh->mBones[b]->mName);
-                    const auto it   = nameToIndex.find(name);
-                    if (it == nameToIndex.end())
-                        continue;
-                    out.skeleton.inverseBind[it->second] =
-                        toGlm(mesh->mBones[b]->mOffsetMatrix);
-                }
-            }
+            assignParentsAndRest(scene->mRootNode, -1, glm::mat4(1.f),
+                                 nameToIndex, out.skeleton);
+            finalizeHierarchyInverseBinds(out.skeleton);
 
             const auto directory   = normalizeSlashes(parentDirectory(path));
             const auto materialIds = importAllMaterials(scene, directory);

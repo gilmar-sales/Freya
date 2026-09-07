@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <limits>
 #include <string>
 
@@ -696,18 +697,33 @@ namespace FREYA_NAMESPACE
     {
         const auto             n = skeleton.JointCount();
         std::vector<glm::mat4> global(n, glm::mat4(1.f));
-        for (std::uint32_t i = 0; i < n; ++i)
-        {
+        // Joint indices follow mesh/anim discovery order, not hierarchy —
+        // parents may have a higher index than children (Bulbasaur Head=0
+        // parent Spine2=7). Compute parents before children explicitly.
+        std::vector<std::uint8_t> done(n, 0);
+        std::function<void(std::uint32_t)> compute = [&](std::uint32_t i) {
+            if (done[i])
+                return;
             const glm::mat4 localM =
                 i < local.Size() ? local.joints[i].ToMatrix() : glm::mat4(1.f);
+            const glm::mat4 bridge =
+                i < skeleton.nonBoneParent.size() ? skeleton.nonBoneParent[i]
+                                                  : glm::mat4(1.f);
             const auto parent = i < skeleton.parents.size()
                                     ? skeleton.parents[i]
                                     : std::int32_t { -1 };
             if (parent >= 0 && static_cast<std::uint32_t>(parent) < n)
-                global[i] = global[static_cast<std::uint32_t>(parent)] * localM;
+            {
+                compute(static_cast<std::uint32_t>(parent));
+                global[i] = global[static_cast<std::uint32_t>(parent)] *
+                            bridge * localM;
+            }
             else
-                global[i] = localM;
-        }
+                global[i] = bridge * localM;
+            done[i] = 1;
+        };
+        for (std::uint32_t i = 0; i < n; ++i)
+            compute(i);
         return global;
     }
 

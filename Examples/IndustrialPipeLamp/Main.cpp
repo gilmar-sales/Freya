@@ -1,5 +1,6 @@
 #include <Freya/Freya.hpp>
 
+#include <FreyaExamples/CullAabbDebugDraw.hpp>
 #include <FreyaExamples/DebugOverlay.hpp>
 #include <FreyaExamples/ExampleLogging.hpp>
 #include <FreyaExamples/FlyCam.hpp>
@@ -272,7 +273,8 @@ class MainApp final : public fra::AbstractApplication
                "3=cool point  4=all spots | F3 light gizmos | "
                "F10 secondary window\n"
             << "TAA check: lamp 0 orbits — ghost trail => bad velocity\n"
-            << "ImGui: Freya Debug panel (timing / quality / deferred views)\n";
+            << "ImGui: Freya Debug panel (timing / quality / deferred "
+               "views / GPU Cull > Show cull AABBs)\n";
 
         // All casters on by default (same as key 0).
         setShadowCasterMode(0);
@@ -348,6 +350,9 @@ class MainApp final : public fra::AbstractApplication
 
         mMainCam.Apply(*mRenderer);
         mRenderer->UploadSceneInstances(buildSceneInstances(true));
+
+        if (mOverlay.ShowCullAabbs())
+            drawCullAabbs();
 
         const float cpuFrameMs  = mWindow->GetDeltaTime() * 1000.f;
         const float cpuUpdateMs = mOverlay.ElapsedUpdateMs();
@@ -443,6 +448,32 @@ class MainApp final : public fra::AbstractApplication
             .castShadows = false,
         });
         return instances;
+    }
+
+    /**
+     * @brief Draws the exact world-space AABB the GPU cull compute shader
+     * (Shaders/GpuDriven/CullFrustum.comp) tests each instance against:
+     * MeshPool's registered mesh-local aabbMin/aabbMax transformed by the
+     * instance's model matrix. Bulb submeshes are highlighted distinctly
+     * from the lamp body. Toggle via the "Show cull AABBs" checkbox in the
+     * ImGui "Freya Debug" panel (GPU Cull section).
+     */
+    void drawCullAabbs()
+    {
+        auto& dd = mRenderer->GetDebugDraw();
+        for (const auto& part : mLampModel)
+        {
+            const bool      isBulb = part.meshId == mBulbMeshId;
+            const glm::vec4 color  = isBulb
+                                        ? glm::vec4(1.0f, 0.8f, 0.2f, 0.9f)
+                                        : glm::vec4(0.2f, 0.9f, 1.0f, 0.6f);
+            for (std::uint32_t i = 0; i < 2; ++i)
+                FreyaExamples::DrawCullAabb(dd, *mMeshPool, part.meshId,
+                                            mModelMatrix[i], color);
+        }
+        FreyaExamples::DrawCullAabb(dd, *mMeshPool, mGroundMesh,
+                                    mModelMatrix[2],
+                                    glm::vec4(0.6f, 0.9f, 0.4f, 0.5f));
     }
 
     static constexpr std::size_t kInstanceCount = 3;

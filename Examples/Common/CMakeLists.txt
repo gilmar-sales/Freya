@@ -3,6 +3,7 @@ add_library(FreyaExamplesCommon STATIC
     src/GroundMesh.cpp
     src/DebugOverlay.cpp
     src/CullFrameDumpIo.cpp
+    src/CullAabbDebugDraw.cpp
 )
 
 add_library(FreyaExamples::Common ALIAS FreyaExamplesCommon)

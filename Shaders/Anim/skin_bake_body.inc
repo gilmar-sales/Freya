@@ -439,15 +439,20 @@ BakedJoint sampleJoint(ClipHeader h, float timeSec, bool loop, uint joint)
 
 void buildFk(uint base, uint jc)
 {
-    for (uint j = 0u; j < jc; ++j)
+    // Parents may have a higher joint index than children. Propagate one
+    // hierarchy level per pass (same rule as CPU LocalToGlobal).
+    for (uint pass = 0u; pass < jc; ++pass)
     {
-        BakedJoint lj     = localPose[base + j];
-        mat4       localM = trsMat(lj.t, lj.q, lj.s);
-        int        p      = parents[j];
-        if (p >= 0 && uint(p) < jc)
-            globalPose[base + j] = globalPose[base + uint(p)] * localM;
-        else
-            globalPose[base + j] = localM;
+        for (uint j = 0u; j < jc; ++j)
+        {
+            BakedJoint lj     = localPose[base + j];
+            mat4       localM = trsMat(lj.t, lj.q, lj.s);
+            int        p      = parents[j];
+            if (p >= 0 && uint(p) < jc)
+                globalPose[base + j] = globalPose[base + uint(p)] * localM;
+            else
+                globalPose[base + j] = localM;
+        }
     }
 }
 

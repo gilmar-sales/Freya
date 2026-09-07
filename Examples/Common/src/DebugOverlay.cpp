@@ -469,6 +469,18 @@ namespace FreyaExamples
             ImGui::TextWrapped(
                 "Writes frame.json (+ hiz.r32f) under ./cull_dumps/ "
                 "for FreyaGpuTests fixtures.");
+
+            ImGui::Separator();
+            if (ImGui::Checkbox("Show cull AABBs", &mShowCullAabbs))
+            {
+                if (mShowCullAabbs)
+                    renderer.SetDebugDrawEnabled(true);
+            }
+            ImGui::TextWrapped(
+                "Wireframe of the AABB the GPU cull compute shader tests "
+                "per instance (mesh-local aabbMin/aabbMax x model). Color "
+                "coding is example-defined (e.g. CellBulbasaur highlights "
+                "eye submeshes in magenta).");
         }
 
         ImGui::End();

@@ -18,8 +18,13 @@ namespace FREYA_NAMESPACE
         std::vector<std::string>  names;
         std::vector<std::int32_t> parents; ///< -1 = root
         std::vector<glm::mat4>    inverseBind;
-        /// Rest-pose local TRS matrices (Assimp node transform).
+        /// Rest-pose local TRS (Assimp node transform only — not ancestors).
         std::vector<glm::mat4> restLocal;
+        /// Product of non-bone node transforms between this joint and its
+        /// parent bone (or the scene root). Applied in LocalToGlobal so
+        /// glTF scene-scale parents (e.g. Bulbasaur `001_0` ≈109.5) stay
+        /// outside animated TRS and rest skin ≈ identity.
+        std::vector<glm::mat4> nonBoneParent;
 
         [[nodiscard]] std::uint32_t JointCount() const
         {

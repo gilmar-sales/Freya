@@ -68,6 +68,16 @@ namespace FreyaExamples
             mCullDumpExample = std::move(name);
         }
 
+        /**
+         * @brief "Show cull AABBs" checkbox state (GPU Cull section). Apps
+         * that push per-instance AABB wireframes (see
+         * FreyaExamples::DrawCullAabb) should gate that work on this flag
+         * and ensure `Renderer::SetDebugDrawEnabled(true)` so the queued
+         * lines actually render.
+         */
+        [[nodiscard]] bool ShowCullAabbs() const { return mShowCullAabbs; }
+        void SetShowCullAabbs(bool enabled) { mShowCullAabbs = enabled; }
+
       private:
         static void onNativeEvent(const void* nativeEvent, void* user);
 
@@ -97,5 +107,6 @@ namespace FreyaExamples
         std::string mCullDumpExample = "Example";
         std::string mLastCullDumpPath;
         bool        mCullDumpPending = false;
+        bool        mShowCullAabbs  = false;
     };
 } // namespace FreyaExamples

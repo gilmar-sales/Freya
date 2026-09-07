@@ -1,6 +1,7 @@
 #include <Freya/Freya.hpp>
 
 #include <FreyaExamples/AnimClipUtil.hpp>
+#include <FreyaExamples/CullAabbDebugDraw.hpp>
 #include <FreyaExamples/DebugOverlay.hpp>
 #include <FreyaExamples/ExampleLogging.hpp>
 #include <FreyaExamples/FlyCam.hpp>
@@ -617,9 +618,7 @@ class MainApp final : public fra::AbstractApplication
             }
         }
         instances.push_back(fra::SceneInstanceUpload {
-            .model = glm::scale(
-                glm::translate(glm::mat4(1.f), glm::vec3(0.f, -0.05f, 0.f)),
-                glm::vec3(120.f, 1.f, 80.f)),
+            .model       = groundModelMatrix(),
             .meshId      = mGroundMesh,
             .materialId  = mGroundMaterial,
             .entityId    = 100000u,
@@ -628,6 +627,9 @@ class MainApp final : public fra::AbstractApplication
         mRenderer->UploadSceneInstances(instances);
         const double msInstances =
             SecondsF(Clock::now() - tInst0).count() * 1000.0;
+
+        if (mOverlay.ShowCullAabbs())
+            drawCullAabbs();
 
         const auto  tEnd0       = Clock::now();
         const auto  gpuFrameIdx = mRenderer->GetCurrentFrameIndex();
@@ -806,7 +808,8 @@ class MainApp final : public fra::AbstractApplication
             << (mFreyaOptions->quantizeGpuAnimJoints ? "quantized" : "float")
             << "; anim_prof line every 1s (CPU split + GPU "
                "carry/bake timestamps)\n"
-            << "ImGui: Freya Debug panel (timing / quality / SSAO views)\n";
+            << "ImGui: Freya Debug panel (timing / quality / SSAO views / "
+               "GPU Cull > Show cull AABBs)\n";
     }
 
     void printFeatureStatus() const
@@ -1434,6 +1437,38 @@ class MainApp final : public fra::AbstractApplication
                                   mEnableUpperMask && fox.useUpperLayer);
         fox.graph.SetLayerEnabled(
             "AddIdle", mEnableAdditive && fox.useAdditiveLayer);
+    }
+
+    /**
+     * @brief Draws the exact world-space AABB the GPU cull compute shader
+     * (Shaders/GpuDriven/CullFrustum.comp) tests each instance against:
+     * MeshPool's registered mesh-local aabbMin/aabbMax transformed by the
+     * instance's model matrix. One box per fox submesh (Fox.glb has a
+     * single submesh) plus the ground plane. Toggle via the "Show cull
+     * AABBs" checkbox in the ImGui "Freya Debug" panel (GPU Cull section).
+     */
+    void drawCullAabbs()
+    {
+        auto& dd = mRenderer->GetDebugDraw();
+        for (const auto& fox : mFoxes)
+        {
+            for (const auto& part : mSkinned.submeshes)
+                FreyaExamples::DrawCullAabb(dd, *mMeshPool, part.meshId,
+                                            fox.model,
+                                            glm::vec4(0.2f, 0.9f, 1.0f, 0.5f));
+        }
+        FreyaExamples::DrawCullAabb(dd, *mMeshPool, mGroundMesh,
+                                    groundModelMatrix(),
+                                    glm::vec4(0.6f, 0.9f, 0.4f, 0.4f));
+    }
+
+    /// Ground plane world matrix (kept in sync with the scene-instance
+    /// upload in Update()).
+    [[nodiscard]] static glm::mat4 groundModelMatrix()
+    {
+        return glm::scale(
+            glm::translate(glm::mat4(1.f), glm::vec3(0.f, -0.05f, 0.f)),
+            glm::vec3(120.f, 1.f, 80.f));
     }
 
     [[nodiscard]] std::uint32_t gpuClipIndex(
