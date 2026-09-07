@@ -1,4 +1,4 @@
-#include <Freya/Freya.hpp>
+#include <Freya/Advanced.hpp>
 
 #include <FreyaExamples/AnimClipUtil.hpp>
 #include <FreyaExamples/CullAabbDebugDraw.hpp>
@@ -138,10 +138,10 @@ class MainApp final : public fra::AbstractApplication
                     mOverlay.SetShowCullAabbs(enabled);
                     if (enabled)
                         mRenderer->SetDebugDrawEnabled(true);
-                    std::cout << "Cull AABB debug draw: "
-                              << (enabled ? "on" : "off")
-                              << " (magenta = eye submeshes; also toggleable "
-                                 "in ImGui: Freya Debug > GPU Cull)\n";
+                    std::cout
+                        << "Cull AABB debug draw: " << (enabled ? "on" : "off")
+                        << " (magenta = eye submeshes; also toggleable "
+                           "in ImGui: Freya Debug > GPU Cull)\n";
                     return;
                 }
                 if (event.key == fra::KeyCode::F4)
@@ -767,11 +767,11 @@ class MainApp final : public fra::AbstractApplication
         auto& dd = mRenderer->GetDebugDraw();
         for (const auto& inst : mInstances)
         {
-            const glm::vec4 color = inst.isEye
-                                        ? glm::vec4(1.0f, 0.15f, 0.85f, 1.0f)
-                                        : glm::vec4(0.2f, 0.9f, 1.0f, 0.6f);
-            FreyaExamples::DrawCullAabb(dd, *mMeshPool, inst.meshId,
-                                        inst.model, color);
+            const glm::vec4 color =
+                inst.isEye ? glm::vec4(1.0f, 0.15f, 0.85f, 1.0f)
+                           : glm::vec4(0.2f, 0.9f, 1.0f, 0.6f);
+            FreyaExamples::DrawCullAabb(
+                dd, *mMeshPool, inst.meshId, inst.model, color);
         }
     }
 

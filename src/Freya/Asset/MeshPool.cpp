@@ -3,7 +3,7 @@
 #include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/TexturePool.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
-#include "Freya/Containers/MeshSet.hpp"
+#include "Freya/Containers/MeshSet.hpp" // src/Freya/Containers (internal)
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
@@ -823,26 +823,25 @@ namespace FREYA_NAMESPACE
 
             std::vector<glm::mat4>             bindGlobal(n, glm::mat4(1.f));
             std::vector<std::uint8_t>          done(n, 0);
-            std::function<void(std::uint32_t)> compute =
-                [&](std::uint32_t i) {
-                    if (done[i])
-                        return;
-                    const auto parent = skeleton.parents[i];
-                    if (parent >= 0)
-                        compute(static_cast<std::uint32_t>(parent));
-                    const glm::mat4 bridge =
-                        i < skeleton.nonBoneParent.size()
-                            ? skeleton.nonBoneParent[i]
-                            : glm::mat4(1.f);
-                    const glm::mat4 local = skeleton.restLocal[i];
-                    if (parent >= 0)
-                        bindGlobal[i] =
-                            bindGlobal[static_cast<std::uint32_t>(parent)] *
-                            bridge * local;
-                    else
-                        bindGlobal[i] = bridge * local;
-                    done[i] = 1;
-                };
+            std::function<void(std::uint32_t)> compute = [&](std::uint32_t i) {
+                if (done[i])
+                    return;
+                const auto parent = skeleton.parents[i];
+                if (parent >= 0)
+                    compute(static_cast<std::uint32_t>(parent));
+                const glm::mat4 bridge =
+                    i < skeleton.nonBoneParent.size()
+                        ? skeleton.nonBoneParent[i]
+                        : glm::mat4(1.f);
+                const glm::mat4 local = skeleton.restLocal[i];
+                if (parent >= 0)
+                    bindGlobal[i] =
+                        bindGlobal[static_cast<std::uint32_t>(parent)] *
+                        bridge * local;
+                else
+                    bindGlobal[i] = bridge * local;
+                done[i] = 1;
+            };
             for (std::uint32_t i = 0; i < n; ++i)
                 compute(i);
 
@@ -866,13 +865,12 @@ namespace FREYA_NAMESPACE
             if (const auto it = nameToIndex.find(name); it != nameToIndex.end())
             {
                 const auto self = static_cast<std::int32_t>(it->second);
-                skeleton.parents[it->second]        = parentBone;
+                skeleton.parents[it->second]       = parentBone;
                 skeleton.restLocal[it->second]     = local;
                 skeleton.nonBoneParent[it->second] = parentAccum;
                 for (unsigned i = 0; i < node->mNumChildren; ++i)
                     assignParentsAndRest(node->mChildren[i], self,
-                                         glm::mat4(1.f), nameToIndex,
-                                         skeleton);
+                                         glm::mat4(1.f), nameToIndex, skeleton);
                 return;
             }
             const glm::mat4 accum = parentAccum * local;
@@ -1115,14 +1113,14 @@ namespace FREYA_NAMESPACE
         }
     };
 
-    MeshPool::MeshPool(const skr::Arc<Device>&                device,
-                       const skr::Arc<PhysicalDevice>&        physicalDevice,
-                       const skr::Arc<TransferCommandPool>&   transferPool,
-                       const skr::Arc<skr::Logger<MeshPool>>& logger,
-                       const skr::Arc<MaterialPool>&          materialPool,
-                       const skr::Arc<TexturePool>&           texturePool) :
-        mImpl(std::make_unique<Impl>(device, physicalDevice, transferPool,
-                                     logger, materialPool, texturePool))
+    MeshPool::MeshPool(const skr::Arc<skr::ServiceProvider>& serviceProvider) :
+        mImpl(std::make_unique<Impl>(
+            serviceProvider->GetService<Device>(),
+            serviceProvider->GetService<PhysicalDevice>(),
+            serviceProvider->GetService<TransferCommandPool>(),
+            serviceProvider->GetService<skr::Logger<MeshPool>>(),
+            serviceProvider->GetService<MaterialPool>(),
+            serviceProvider->GetService<TexturePool>()))
     {
     }
 

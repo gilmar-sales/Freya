@@ -7,45 +7,30 @@
 namespace FREYA_NAMESPACE
 {
     /**
-     * @brief Builder for creating LightService objects.
-     *
-     * Provides fluent interface for configuring light service parameters
-     * before construction.
+     * @brief Builder for creating LightService objects (internal DI).
      */
     class LightServiceBuilder
     {
       public:
-        /**
-         * @brief Constructs builder with required dependencies.
-         * @param device     Vulkan device reference
-         * @param freyaOptions Freya options containing frameCount
-         */
         LightServiceBuilder(const skr::Arc<Device>&       device,
                             const skr::Arc<FreyaOptions>& freyaOptions) :
             mDevice(device), mFreyaOptions(freyaOptions)
         {
+            (void) mDevice;
         }
 
-        /**
-         * @brief Sets the maximum number of lights.
-         * @param maxLights Maximum light count (default: kMaxLights)
-         * @return Reference to this for chaining
-         */
         LightServiceBuilder& SetMaxLights(std::uint32_t maxLights)
         {
             mMaxLights = maxLights;
             return *this;
         }
 
-        /**
-         * @brief Builds and returns the LightService object.
-         * @return Shared pointer to created LightService
-         */
-        skr::Arc<LightService> Build()
+        skr::Arc<LightService> Build(
+            const skr::Arc<skr::ServiceProvider>& serviceProvider)
         {
-            return skr::MakeArc<LightService>(mDevice,
-                                              mFreyaOptions->frameCount,
-                                              mMaxLights);
+            if (mMaxLights != kMaxLights)
+                mFreyaOptions->maxLights = mMaxLights;
+            return skr::MakeArc<LightService>(serviceProvider);
         }
 
       private:

@@ -1,5 +1,6 @@
 #include <Freya/Asset/GpuScene.hpp>
 #include <Freya/Asset/InstanceTransform.hpp>
+#include <Freya/Asset/SceneInstanceUpload.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 

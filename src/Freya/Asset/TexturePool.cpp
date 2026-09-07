@@ -14,7 +14,7 @@
 #include "Freya/Asset/Texture.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
-#include "Freya/Containers/SparseSet.hpp"
+#include "Freya/Containers/SparseSet.hpp" // src/Freya/Containers (internal)
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/TransferCommandPool.hpp"
 

@@ -14,8 +14,6 @@
 
 namespace FREYA_NAMESPACE
 {
-    class Device;
-    class Buffer;
     struct LightServiceGpu;
 
     /**
@@ -116,9 +114,7 @@ namespace FREYA_NAMESPACE
       public:
         struct Impl;
 
-        LightService(const skr::Arc<Device>& device,
-                     std::uint32_t           frameCount,
-                     std::uint32_t           maxLights = kMaxLights);
+        LightService(const skr::Arc<skr::ServiceProvider>& serviceProvider);
 
         ~LightService();
 

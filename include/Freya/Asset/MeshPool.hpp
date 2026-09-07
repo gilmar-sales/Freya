@@ -8,6 +8,7 @@
 
 #include <Skirnir/Skirnir.hpp>
 
+#include <cstdint>
 #include <memory>
 #include <span>
 #include <string>
@@ -15,25 +16,14 @@
 
 namespace FREYA_NAMESPACE
 {
-    class Device;
-    class PhysicalDevice;
-    class CommandPool;
-    class TransferCommandPool;
     class Buffer;
-    class Renderer;
+    class CommandPool;
     class IndirectDrawSystem;
-    class MaterialPool;
-    class TexturePool;
 
     class MeshPool
     {
       public:
-        MeshPool(const skr::Arc<Device>&                device,
-                 const skr::Arc<PhysicalDevice>&        physicalDevice,
-                 const skr::Arc<TransferCommandPool>&   transferPool,
-                 const skr::Arc<skr::Logger<MeshPool>>& logger,
-                 const skr::Arc<MaterialPool>&          materialPool,
-                 const skr::Arc<TexturePool>&           texturePool);
+        MeshPool(const skr::Arc<skr::ServiceProvider>& serviceProvider);
 
         ~MeshPool();
 
@@ -61,8 +51,8 @@ namespace FREYA_NAMESPACE
 
         void Destroy(std::uint32_t meshId);
 
-      protected:
-        friend class FREYA_NAMESPACE::IndirectDrawSystem;
+      private:
+        friend class IndirectDrawSystem;
 
         void BindGeometry(const skr::Arc<CommandPool>& commandPool) const;
 
@@ -77,7 +67,6 @@ namespace FREYA_NAMESPACE
                            size_t                       instanceCount,
                            size_t                       firstInstance = 0);
 
-      private:
         struct Impl;
         std::unique_ptr<Impl> mImpl;
     };

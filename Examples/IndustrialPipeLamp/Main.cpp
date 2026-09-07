@@ -1,4 +1,4 @@
-#include <Freya/Freya.hpp>
+#include <Freya/Advanced.hpp>
 
 #include <FreyaExamples/CullAabbDebugDraw.hpp>
 #include <FreyaExamples/DebugOverlay.hpp>
@@ -464,16 +464,15 @@ class MainApp final : public fra::AbstractApplication
         for (const auto& part : mLampModel)
         {
             const bool      isBulb = part.meshId == mBulbMeshId;
-            const glm::vec4 color  = isBulb
-                                        ? glm::vec4(1.0f, 0.8f, 0.2f, 0.9f)
-                                        : glm::vec4(0.2f, 0.9f, 1.0f, 0.6f);
+            const glm::vec4 color  = isBulb ? glm::vec4(1.0f, 0.8f, 0.2f, 0.9f)
+                                            : glm::vec4(0.2f, 0.9f, 1.0f, 0.6f);
             for (std::uint32_t i = 0; i < 2; ++i)
-                FreyaExamples::DrawCullAabb(dd, *mMeshPool, part.meshId,
-                                            mModelMatrix[i], color);
+                FreyaExamples::DrawCullAabb(
+                    dd, *mMeshPool, part.meshId, mModelMatrix[i], color);
         }
-        FreyaExamples::DrawCullAabb(dd, *mMeshPool, mGroundMesh,
-                                    mModelMatrix[2],
-                                    glm::vec4(0.6f, 0.9f, 0.4f, 0.5f));
+        FreyaExamples::DrawCullAabb(
+            dd, *mMeshPool, mGroundMesh, mModelMatrix[2],
+            glm::vec4(0.6f, 0.9f, 0.4f, 0.5f));
     }
 
     static constexpr std::size_t kInstanceCount = 3;

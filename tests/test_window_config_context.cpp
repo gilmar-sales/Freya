@@ -1,5 +1,5 @@
+#include "Freya/Core/WindowConfigContext.hpp"
 #include <Freya/Builders/FreyaOptionsBuilder.hpp>
-#include <Freya/Core/WindowConfigContext.hpp>
 #include <Freya/FreyaOptions.hpp>
 
 #include <catch2/catch_test_macros.hpp>

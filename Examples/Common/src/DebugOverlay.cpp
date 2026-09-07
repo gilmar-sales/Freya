@@ -518,18 +518,17 @@ namespace FreyaExamples
         }
 
         if (mEnabled)
-            ImGui::Render();
-
-        renderer.EndScene();
-
-        if (mEnabled && renderer.BeginUI())
         {
-            ImGui_ImplVulkan_RenderDrawData(
-                ImGui::GetDrawData(),
-                static_cast<VkCommandBuffer>(renderer.NativeCommandBuffer()));
-            renderer.EndUI();
+            ImGui::Render();
+            renderer.EndFrame([&] {
+                ImGui_ImplVulkan_RenderDrawData(
+                    ImGui::GetDrawData(),
+                    static_cast<VkCommandBuffer>(
+                        renderer.NativeCommandBuffer()));
+            });
+            return;
         }
 
-        renderer.Present();
+        renderer.EndFrame();
     }
 } // namespace FreyaExamples

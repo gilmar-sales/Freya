@@ -15,7 +15,6 @@
 
 namespace FREYA_NAMESPACE
 {
-    class Device;
     class PostProcessBuilder;
 
     enum class PostProcessInput

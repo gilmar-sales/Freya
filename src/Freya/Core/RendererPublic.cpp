@@ -2,9 +2,12 @@
 
 #include "Freya/Core/GpuAnimPass.hpp"
 
+#include <functional>
+
 namespace FREYA_NAMESPACE
 {
-    Renderer::Renderer(std::unique_ptr<Impl> impl) : mImpl(std::move(impl))
+    Renderer::Renderer(std::unique_ptr<Impl> impl) :
+        mImpl(std::move(impl)), mGpuAnim(mImpl.get())
     {
     }
 
@@ -25,6 +28,17 @@ namespace FREYA_NAMESPACE
     void Renderer::EndFrame()
     {
         mImpl->EndFrame();
+    }
+
+    void Renderer::EndFrame(const std::function<void()>& uiDraw)
+    {
+        mImpl->EndScene();
+        if (uiDraw && mImpl->BeginUI())
+        {
+            uiDraw();
+            mImpl->EndUI();
+        }
+        mImpl->Present();
     }
     void Renderer::RebuildSwapChain()
     {
@@ -314,140 +328,14 @@ namespace FREYA_NAMESPACE
         return mImpl->mBillboardDraw;
     }
 
-    void Renderer::SetGpuAnimEnabled(const bool enabled)
+    GpuAnimationSystem& Renderer::GpuAnimation()
     {
-        if (mImpl->mGpuAnimPass)
-            mImpl->mGpuAnimPass->SetEnabled(enabled);
+        return mGpuAnim;
     }
 
-    bool Renderer::IsGpuAnimEnabled() const
+    const GpuAnimationSystem& Renderer::GpuAnimation() const
     {
-        return mImpl->mGpuAnimPass && mImpl->mGpuAnimPass->IsEnabled();
-    }
-
-    void Renderer::RebuildGpuAnimPass()
-    {
-        mImpl->RebuildGpuAnimPass();
-    }
-
-    void Renderer::SetGpuAnimCopyPrevBones(const bool enabled)
-    {
-        mImpl->SetGpuAnimCopyPrevBones(enabled);
-    }
-
-    void Renderer::UploadGpuAnimInstances(
-        const std::span<const GpuAnimInstance> instances)
-    {
-        mImpl->UploadGpuAnimInstances(instances);
-    }
-
-    void Renderer::CaptureGpuAnimDebugSnapshot(GpuAnimDebugSnapshot& out) const
-    {
-        mImpl->CaptureGpuAnimDebugSnapshot(out);
-    }
-
-    std::uint32_t Renderer::FindGpuAnimClipSlot(const std::uint64_t key) const
-    {
-        return mImpl->FindGpuAnimClipSlot(key);
-    }
-
-    std::uint32_t Renderer::EnsureGpuAnimClipResident(const std::uint64_t key,
-                                                      const BakedClip&    clip)
-    {
-        return mImpl->EnsureGpuAnimClipResident(key, clip);
-    }
-
-    std::uint32_t Renderer::GetGpuAnimResidentClipCount() const
-    {
-        return mImpl->GetGpuAnimResidentClipCount();
-    }
-
-    std::uint32_t Renderer::GetGpuAnimJointsPerClipSlot() const
-    {
-        return mImpl->GetGpuAnimJointsPerClipSlot();
-    }
-
-    void Renderer::UploadGpuAnimSkeleton(const GpuSkeletonPack& skeleton)
-    {
-        mImpl->UploadGpuAnimSkeleton(skeleton);
-    }
-
-    void Renderer::ResetGpuAnimClipCache()
-    {
-        mImpl->ResetGpuAnimClipCache();
-    }
-
-    bool Renderer::UploadGpuAnimClipSlot(const std::uint32_t slot,
-                                         const std::uint64_t key,
-                                         const BakedClip&    clip)
-    {
-        return mImpl->UploadGpuAnimClipSlot(slot, key, clip);
-    }
-
-    void Renderer::PinGpuAnimClipSlot(const std::uint32_t slot,
-                                      const bool          pinned)
-    {
-        mImpl->PinGpuAnimClipSlot(slot, pinned);
-    }
-
-    void Renderer::UploadGpuAnimBoneMask(const std::span<const float> weights)
-    {
-        mImpl->UploadGpuAnimBoneMask(weights);
-    }
-
-    void Renderer::UploadGpuAnimRestJoints(
-        const std::span<const GpuFloatJoint> joints)
-    {
-        mImpl->UploadGpuAnimRestJoints(joints);
-    }
-
-    void Renderer::UploadGpuAnimRestJoints(
-        const std::span<const GpuQuantJoint> joints)
-    {
-        mImpl->UploadGpuAnimRestJoints(joints);
-    }
-
-    void Renderer::SetGpuAnimRigIndices(
-        const std::uint32_t lookJoint, const std::uint32_t ikRoot,
-        const std::uint32_t ikMid, const std::uint32_t ikTip,
-        const std::uint32_t rootJoint, const glm::vec3 lookLocalForward,
-        const float lookMaxYawRad, const float lookMaxPitchRad)
-    {
-        mImpl->SetGpuAnimRigIndices(
-            lookJoint, ikRoot, ikMid, ikTip, rootJoint, lookLocalForward,
-            lookMaxYawRad, lookMaxPitchRad);
-    }
-
-    bool Renderer::ReadbackGpuAnimBones(const std::uint32_t frameIndex,
-                                        const std::uint32_t boneOffset,
-                                        std::span<glm::mat4>
-                                            out)
-    {
-        return mImpl->ReadbackGpuAnimBones(frameIndex, boneOffset, out);
-    }
-
-    bool Renderer::DispatchGpuAnimImmediate(
-        const std::span<const GpuAnimInstance> instances,
-        const std::uint32_t                    frameIndex)
-    {
-        return mImpl->DispatchGpuAnimImmediate(instances, frameIndex);
-    }
-
-    void Renderer::SetGpuAnimJointExtract(
-        const std::span<const GpuJointExtractRequest> requests)
-    {
-        mImpl->SetGpuAnimJointExtract(requests);
-    }
-
-    bool Renderer::PollGpuAnimJointExtract(std::span<GpuJointExtractSample> out,
-                                           std::uint32_t* outCount)
-    {
-        return mImpl->PollGpuAnimJointExtract(out, outCount);
-    }
-
-    bool Renderer::PollGpuAnimTiming(GpuAnimTimingSample& out)
-    {
-        return mImpl->PollGpuAnimTiming(out);
+        return mGpuAnim;
     }
 
     bool Renderer::PollFrameGpuTiming(FrameGpuTimingSample& out)
@@ -463,6 +351,156 @@ namespace FREYA_NAMESPACE
     std::uint32_t Renderer::GetFrameCount() const
     {
         return mImpl->mSwapChain->GetFrameCount();
+    }
+
+    // --- GpuAnimationSystem (forwards into Renderer::Impl) ---
+
+    void GpuAnimationSystem::SetEnabled(const bool enabled)
+    {
+        auto* impl = static_cast<Renderer::Impl*>(mImpl);
+        if (impl->mGpuAnimPass)
+            impl->mGpuAnimPass->SetEnabled(enabled);
+    }
+
+    bool GpuAnimationSystem::IsEnabled() const
+    {
+        auto* impl = static_cast<Renderer::Impl*>(mImpl);
+        return impl->mGpuAnimPass && impl->mGpuAnimPass->IsEnabled();
+    }
+
+    void GpuAnimationSystem::RebuildPass()
+    {
+        static_cast<Renderer::Impl*>(mImpl)->RebuildGpuAnimPass();
+    }
+
+    void GpuAnimationSystem::SetCopyPrevBones(const bool enabled)
+    {
+        static_cast<Renderer::Impl*>(mImpl)->SetGpuAnimCopyPrevBones(enabled);
+    }
+
+    void GpuAnimationSystem::UploadInstances(
+        const std::span<const GpuAnimInstance> instances)
+    {
+        static_cast<Renderer::Impl*>(mImpl)->UploadGpuAnimInstances(instances);
+    }
+
+    void GpuAnimationSystem::CaptureDebugSnapshot(
+        GpuAnimDebugSnapshot& out) const
+    {
+        static_cast<Renderer::Impl*>(mImpl)->CaptureGpuAnimDebugSnapshot(out);
+    }
+
+    std::uint32_t GpuAnimationSystem::FindClipSlot(
+        const std::uint64_t key) const
+    {
+        return static_cast<Renderer::Impl*>(mImpl)->FindGpuAnimClipSlot(key);
+    }
+
+    std::uint32_t GpuAnimationSystem::EnsureClipResident(
+        const std::uint64_t key, const BakedClip& clip)
+    {
+        return static_cast<Renderer::Impl*>(mImpl)->EnsureGpuAnimClipResident(
+            key, clip);
+    }
+
+    std::uint32_t GpuAnimationSystem::GetResidentClipCount() const
+    {
+        return static_cast<Renderer::Impl*>(mImpl)
+            ->GetGpuAnimResidentClipCount();
+    }
+
+    std::uint32_t GpuAnimationSystem::GetJointsPerClipSlot() const
+    {
+        return static_cast<Renderer::Impl*>(mImpl)
+            ->GetGpuAnimJointsPerClipSlot();
+    }
+
+    void GpuAnimationSystem::UploadSkeleton(const GpuSkeletonPack& skeleton)
+    {
+        static_cast<Renderer::Impl*>(mImpl)->UploadGpuAnimSkeleton(skeleton);
+    }
+
+    void GpuAnimationSystem::ResetClipCache()
+    {
+        static_cast<Renderer::Impl*>(mImpl)->ResetGpuAnimClipCache();
+    }
+
+    bool GpuAnimationSystem::UploadClipSlot(const std::uint32_t slot,
+                                            const std::uint64_t key,
+                                            const BakedClip&    clip)
+    {
+        return static_cast<Renderer::Impl*>(mImpl)->UploadGpuAnimClipSlot(
+            slot, key, clip);
+    }
+
+    void GpuAnimationSystem::PinClipSlot(const std::uint32_t slot,
+                                         const bool          pinned)
+    {
+        static_cast<Renderer::Impl*>(mImpl)->PinGpuAnimClipSlot(slot, pinned);
+    }
+
+    void GpuAnimationSystem::UploadBoneMask(
+        const std::span<const float> weights)
+    {
+        static_cast<Renderer::Impl*>(mImpl)->UploadGpuAnimBoneMask(weights);
+    }
+
+    void GpuAnimationSystem::UploadRestJoints(
+        const std::span<const GpuFloatJoint> joints)
+    {
+        static_cast<Renderer::Impl*>(mImpl)->UploadGpuAnimRestJoints(joints);
+    }
+
+    void GpuAnimationSystem::UploadRestJoints(
+        const std::span<const GpuQuantJoint> joints)
+    {
+        static_cast<Renderer::Impl*>(mImpl)->UploadGpuAnimRestJoints(joints);
+    }
+
+    void GpuAnimationSystem::SetRigIndices(
+        const std::uint32_t lookJoint, const std::uint32_t ikRoot,
+        const std::uint32_t ikMid, const std::uint32_t ikTip,
+        const std::uint32_t rootJoint, const glm::vec3 lookLocalForward,
+        const float lookMaxYawRad, const float lookMaxPitchRad)
+    {
+        static_cast<Renderer::Impl*>(mImpl)->SetGpuAnimRigIndices(
+            lookJoint, ikRoot, ikMid, ikTip, rootJoint, lookLocalForward,
+            lookMaxYawRad, lookMaxPitchRad);
+    }
+
+    bool GpuAnimationSystem::ReadbackBones(const std::uint32_t frameIndex,
+                                           const std::uint32_t boneOffset,
+                                           std::span<glm::mat4>
+                                               out)
+    {
+        return static_cast<Renderer::Impl*>(mImpl)->ReadbackGpuAnimBones(
+            frameIndex, boneOffset, out);
+    }
+
+    bool GpuAnimationSystem::DispatchImmediate(
+        const std::span<const GpuAnimInstance> instances,
+        const std::uint32_t                    frameIndex)
+    {
+        return static_cast<Renderer::Impl*>(mImpl)->DispatchGpuAnimImmediate(
+            instances, frameIndex);
+    }
+
+    void GpuAnimationSystem::SetJointExtract(
+        const std::span<const GpuJointExtractRequest> requests)
+    {
+        static_cast<Renderer::Impl*>(mImpl)->SetGpuAnimJointExtract(requests);
+    }
+
+    bool GpuAnimationSystem::PollJointExtract(
+        std::span<GpuJointExtractSample> out, std::uint32_t* outCount)
+    {
+        return static_cast<Renderer::Impl*>(mImpl)->PollGpuAnimJointExtract(
+            out, outCount);
+    }
+
+    bool GpuAnimationSystem::PollTiming(GpuAnimTimingSample& out)
+    {
+        return static_cast<Renderer::Impl*>(mImpl)->PollGpuAnimTiming(out);
     }
 
 } // namespace FREYA_NAMESPACE

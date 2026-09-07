@@ -12,7 +12,6 @@
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/IndirectDrawSystemBuilder.hpp"
 #include "Freya/Builders/InstanceBuilder.hpp"
-#include "Freya/Builders/LightServiceBuilder.hpp"
 #include "Freya/Builders/MaterialDescriptorResourcesBuilder.hpp"
 #include "Freya/Builders/PhysicalDeviceBuilder.hpp"
 #include "Freya/Builders/PickPassBuilder.hpp"
@@ -174,17 +173,7 @@ namespace FREYA_NAMESPACE
         services.AddSingleton<LightingTechniqueRegistry>();
         services.AddSingleton<MeshPool>();
 
-        services.AddScoped<LightService>(
-            [](skr::ServiceProvider& serviceProvider) {
-                auto device       = serviceProvider.GetService<Device>();
-                auto freyaOptions = serviceProvider.GetService<FreyaOptions>();
-
-                auto lights = skr::MakeArc<LightService>(
-                    device, freyaOptions->frameCount, freyaOptions->maxLights);
-                lights->SetIblIntensity(freyaOptions->iblIntensity);
-                lights->SetExposure(freyaOptions->exposure);
-                return lights;
-            });
+        services.AddScoped<LightService>();
 
         services.AddScoped<IBLService>();
 

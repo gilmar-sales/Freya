@@ -91,8 +91,6 @@ namespace FREYA_NAMESPACE
         }
 
       protected:
-        friend class ApplicationBuilder;
-
         float                  mDeltaTime = 0;
         skr::Arc<Window>       mWindow;
         skr::Arc<Renderer>     mRenderer;

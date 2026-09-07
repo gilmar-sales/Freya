@@ -80,7 +80,6 @@ target_include_directories(Freya
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Builders
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Asset
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Events
-                ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Containers
                 ${Vulkan_INCLUDE_DIRS}
 )
 target_link_libraries(Freya
@@ -104,7 +103,7 @@ target_precompile_headers(Freya PRIVATE
         <SDL3/SDL_events.h>
         <SDL3/SDL_vulkan.h>
         <Skirnir/Skirnir.hpp>
-        <Freya/Pch.hpp>
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Freya/Pch.hpp
 )
 
 # ---------------------------------------------------------------------------

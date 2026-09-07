@@ -3,7 +3,7 @@
 #include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Asset/MaterialDescriptorResources.hpp"
 #include "Freya/Asset/TexturePool.hpp"
-#include "Freya/Containers/SparseSet.hpp"
+#include "Freya/Containers/SparseSet.hpp" // src/Freya/Containers (internal)
 
 namespace FREYA_NAMESPACE
 {

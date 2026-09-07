@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Freya/Freya.hpp>
+#include <Freya/Advanced.hpp>
 
 #include <chrono>
 #include <string>
@@ -46,8 +46,8 @@ namespace FreyaExamples
                   float              cpuUpdateMs);
 
         /**
-         * @brief EndScene + ImGui into UI pass + Present. Replaces
-         * Renderer::EndFrame when the overlay is active.
+         * @brief EndScene + ImGui into UI pass + Present via
+         * Renderer::EndFrame(uiDraw).
          */
         void EndFrame(fra::Renderer& renderer);
 
@@ -107,6 +107,6 @@ namespace FreyaExamples
         std::string mCullDumpExample = "Example";
         std::string mLastCullDumpPath;
         bool        mCullDumpPending = false;
-        bool        mShowCullAabbs  = false;
+        bool        mShowCullAabbs   = false;
     };
 } // namespace FreyaExamples

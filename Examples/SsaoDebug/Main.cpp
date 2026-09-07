@@ -71,7 +71,7 @@ class MainApp final : public fra::AbstractApplication
             mLightService->AddLight(key);
         }
 
-        buildSceneInstances();
+        buildScene();
 
         std::cout
             << "SSAO Debug — DamagedHelmet + Dragon + ally_ship\n"
@@ -89,21 +89,15 @@ class MainApp final : public fra::AbstractApplication
         mCam.Update(dt);
 
         mRenderer->BeginFrame();
-        mCam.Apply(*mRenderer);
 
-        std::vector<fra::SceneInstanceUpload> instances;
-        instances.reserve(mInstances.size());
-        for (const auto& inst : mInstances)
-        {
-            instances.push_back({
-                .model       = inst.model,
-                .meshId      = inst.meshId,
-                .materialId  = inst.materialId,
-                .entityId    = inst.entityId,
-                .castShadows = false,
-            });
-        }
-        mRenderer->UploadSceneInstances(instances);
+        fra::Camera camera {};
+        camera.position = mCam.cameraPos;
+        camera.target   = mCam.cameraPos + mCam.Forward();
+        camera.up       = glm::vec3(0.0f, 1.0f, 0.0f);
+        camera.useFov   = false;
+        camera.Apply(*mRenderer);
+
+        mScene.Upload(*mRenderer);
 
         if (mOverlay.ShowCullAabbs())
             drawCullAabbs();
@@ -115,89 +109,54 @@ class MainApp final : public fra::AbstractApplication
     }
 
   private:
-    struct Instance
+    void buildScene()
     {
-        glm::mat4     model {};
-        std::uint32_t meshId     = 0;
-        std::uint32_t materialId = 0;
-        std::uint32_t entityId   = 0;
-    };
-
-    void buildSceneInstances()
-    {
-        mInstances.clear();
+        mScene.Clear();
         std::uint32_t nextEntity = 1;
 
+        const auto addPart = [&](std::uint32_t meshId, std::uint32_t materialId,
+                                 const glm::mat4& model) {
+            fra::Scene::Instance inst {};
+            inst.mesh        = fra::MeshHandle { meshId };
+            inst.material    = fra::MaterialHandle { materialId };
+            inst.model       = model;
+            inst.entityId    = nextEntity++;
+            inst.castShadows = false;
+            mScene.Add(inst);
+        };
+
         // Ground slightly below models so baked glTF pivots can rest on it.
-        {
-            Instance ground {};
-            ground.model =
-                glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.05f, 0.0f));
-            ground.meshId     = mGroundMesh;
-            ground.materialId = mGroundMaterial;
-            ground.entityId   = nextEntity++;
-            mInstances.push_back(ground);
-        }
+        addPart(mGroundMesh, mGroundMaterial,
+                glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.05f, 0.0f)));
 
         const auto helmetModel = glm::scale(
             glm::translate(glm::mat4(1.0f), glm::vec3(-1.6f, 0.0f, 0.0f)),
             glm::vec3(1.15f));
         for (const auto& part : mHelmetModel)
-        {
-            Instance inst {};
-            inst.model      = helmetModel;
-            inst.meshId     = part.meshId;
-            inst.materialId = part.materialId;
-            inst.entityId   = nextEntity++;
-            mInstances.push_back(inst);
-        }
+            addPart(part.meshId, part.materialId, helmetModel);
 
-        // Node transforms are baked via PreTransformVertices.
         const auto dragonModel = glm::scale(
             glm::translate(glm::mat4(1.0f), glm::vec3(1.8f, 0.0f, 0.0f)),
             glm::vec3(1.0f));
         for (const auto& part : mDragonModel)
-        {
-            Instance inst {};
-            inst.model      = dragonModel;
-            inst.meshId     = part.meshId;
-            inst.materialId = part.materialId;
-            inst.entityId   = nextEntity++;
-            mInstances.push_back(inst);
-        }
+            addPart(part.meshId, part.materialId, dragonModel);
 
-        // glTF node scales by 0.01; PreTransformVertices bakes that → ~3 cm.
-        // Scale ×100 → ~3 m, level with the rest of the SSAO props.
         const auto shipModel = glm::scale(
             glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.0f, -2.8f)),
             glm::vec3(100.0f));
         for (const auto& part : mShipModel)
-        {
-            Instance inst {};
-            inst.model      = shipModel;
-            inst.meshId     = part.meshId;
-            inst.materialId = part.materialId;
-            inst.entityId   = nextEntity++;
-            mInstances.push_back(inst);
-        }
+            addPart(part.meshId, part.materialId, shipModel);
     }
 
-    /**
-     * @brief Draws the exact world-space AABB the GPU cull compute shader
-     * (Shaders/GpuDriven/CullFrustum.comp) tests each instance against:
-     * MeshPool's registered mesh-local aabbMin/aabbMax transformed by the
-     * instance's model matrix. Toggle via the "Show cull AABBs" checkbox in
-     * the ImGui "Freya Debug" panel (GPU Cull section).
-     */
     void drawCullAabbs()
     {
         auto& dd = mRenderer->GetDebugDraw();
-        for (const auto& inst : mInstances)
-        {
-            FreyaExamples::DrawCullAabb(dd, *mMeshPool, inst.meshId,
-                                        inst.model,
-                                        glm::vec4(0.2f, 0.9f, 1.0f, 0.6f));
-        }
+        mScene.ForEach(
+            [&](fra::Scene::InstanceId, const fra::Scene::Instance& inst) {
+                FreyaExamples::DrawCullAabb(
+                    dd, *mMeshPool, inst.mesh.Id(), inst.model,
+                    glm::vec4(0.2f, 0.9f, 1.0f, 0.6f));
+            });
     }
 
     skr::Arc<fra::MeshPool>     mMeshPool;
@@ -210,7 +169,7 @@ class MainApp final : public fra::AbstractApplication
     std::vector<fra::ModelSubmesh> mHelmetModel;
     std::vector<fra::ModelSubmesh> mDragonModel;
     std::vector<fra::ModelSubmesh> mShipModel;
-    std::vector<Instance>          mInstances;
+    fra::Scene                     mScene;
 
     FreyaExamples::FlyCam       mCam;
     FreyaExamples::DebugOverlay mOverlay;

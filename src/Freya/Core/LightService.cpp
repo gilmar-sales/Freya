@@ -1,5 +1,6 @@
 #include "Freya/Core/Limits.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
+#include "Freya/FreyaOptions.hpp"
 #include "Freya/Internal/LightServiceGpu.hpp"
 
 #include "Freya/Builders/BufferBuilder.hpp"
@@ -8,19 +9,24 @@
 
 namespace FREYA_NAMESPACE
 {
-    LightService::LightService(const skr::Arc<Device>& device,
-                               std::uint32_t           frameCount,
-                               std::uint32_t           maxLights) :
+    LightService::LightService(
+        const skr::Arc<skr::ServiceProvider>& serviceProvider) :
         mImpl(std::make_unique<Impl>())
     {
-        mImpl->mDevice     = device;
-        mImpl->mFrameCount = frameCount;
-        mImpl->mMaxLights  = std::min(maxLights, kMaxLights);
-        mImpl->mLightCount = 0;
-        mImpl->mLayout     = nullptr;
-        mImpl->mPool       = nullptr;
+        const auto device  = serviceProvider->GetService<Device>();
+        const auto options = serviceProvider->GetService<FreyaOptions>();
 
-        const auto bufferSize = sizeof(LightUniformBuffer) * frameCount;
+        mImpl->mDevice       = device;
+        mImpl->mFrameCount   = options->frameCount;
+        mImpl->mMaxLights    = std::min(options->maxLights, kMaxLights);
+        mImpl->mLightCount   = 0;
+        mImpl->mLayout       = nullptr;
+        mImpl->mPool         = nullptr;
+        mImpl->mIblIntensity = options->iblIntensity;
+        mImpl->mExposure     = options->exposure;
+
+        const auto bufferSize =
+            sizeof(LightUniformBuffer) * options->frameCount;
 
         mImpl->mBuffer = BufferBuilder(mImpl->mDevice)
                              .SetUsage(BufferUsage::Uniform)

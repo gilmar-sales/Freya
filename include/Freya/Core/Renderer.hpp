@@ -1,18 +1,18 @@
 #pragma once
 
 #include "Freya/Asset/CullFrameDump.hpp"
-#include "Freya/Asset/GpuAnimDebug.hpp"
-#include "Freya/Asset/GpuAnimation.hpp"
-#include "Freya/Asset/GpuScene.hpp"
+#include "Freya/Asset/SceneInstanceUpload.hpp"
 #include "Freya/Core/BillboardDraw.hpp"
 #include "Freya/Core/DebugDraw.hpp"
 #include "Freya/Core/FrameGpuTiming.hpp"
+#include "Freya/Core/GpuAnimationSystem.hpp"
 #include "Freya/Core/IFrameStage.hpp"
 #include "Freya/Core/RendererUi.hpp"
 #include "Freya/FreyaOptions.hpp"
 
 #include <Skirnir/Skirnir.hpp>
 
+#include <functional>
 #include <memory>
 #include <span>
 
@@ -20,6 +20,17 @@
 
 namespace FREYA_NAMESPACE
 {
+    /**
+     * @brief Per-window renderer façade.
+     *
+     * Canonical frame path:
+     *   BeginFrame() → UpdateCamera / lights / UploadSceneInstances →
+     *   EndFrame() or EndFrame(uiDraw).
+     *
+     * Prefer Scene::Upload and Camera::Apply for app code. Prefer
+     * GpuAnimation() for GPU skinning. Draw / DrawInstanced /
+     * SetInstanceModels are deprecated.
+     */
     class Renderer
     {
       public:
@@ -34,7 +45,19 @@ namespace FREYA_NAMESPACE
         void BeginFrame();
         void EndScene();
         void Present();
+
+        /**
+         * @brief EndScene + Present (no UI pass). Prefer this when not drawing
+         * Dear ImGui into the swapchain.
+         */
         void EndFrame();
+
+        /**
+         * @brief EndScene, run @p uiDraw inside the swapchain UI pass when a
+         * viewport target is active, then Present. Replaces the manual
+         * EndScene + BeginUI + EndUI + Present sequence.
+         */
+        void EndFrame(const std::function<void()>& uiDraw);
 
         void RebuildSwapChain();
 
@@ -74,11 +97,13 @@ namespace FREYA_NAMESPACE
 
         void UploadSceneInstances(std::span<const SceneInstanceUpload> uploads);
 
+        [[deprecated("Use UploadSceneInstances or Scene::Upload")]]
         void Draw(std::uint32_t meshId,
                   std::uint32_t materialId,
                   std::uint32_t entityId    = kPickMissId,
                   bool          castShadows = true);
 
+        [[deprecated("Use UploadSceneInstances or Scene::Upload")]]
         void DrawInstanced(std::uint32_t meshId,
                            std::uint32_t materialId,
                            size_t        instanceCount,
@@ -86,6 +111,7 @@ namespace FREYA_NAMESPACE
                            bool          castShadows   = true,
                            std::uint32_t entityId      = kPickMissId);
 
+        [[deprecated("Use UploadSceneInstances or Scene::Upload")]]
         void SetInstanceModels(const glm::mat4* models, std::size_t count);
 
         void UploadBoneMatrices(std::span<const glm::mat4> bones);
@@ -127,10 +153,7 @@ namespace FREYA_NAMESPACE
          *
          * Only succeeds while an offscreen viewport target is set; otherwise it
          * returns false and the scene presents directly to the swapchain. Pair
-         * with EndUI() and call Present() afterwards. BeginFrame()/EndFrame()
-         * already honours the UI pass; this seam exists for apps that split the
-         * frame (BeginFrame -> ... -> EndScene -> BeginUI -> draw -> EndUI ->
-         * Present).
+         * with EndUI() and call Present() afterwards. Prefer EndFrame(uiDraw).
          */
         [[nodiscard]] bool BeginUI();
 
@@ -196,51 +219,11 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] BillboardDraw& GetBillboardDraw();
 
-        void               SetGpuAnimEnabled(bool enabled);
-        [[nodiscard]] bool IsGpuAnimEnabled() const;
-
-        void RebuildGpuAnimPass();
-
-        void SetGpuAnimCopyPrevBones(bool enabled);
-        void UploadGpuAnimInstances(std::span<const GpuAnimInstance> instances);
-        void CaptureGpuAnimDebugSnapshot(GpuAnimDebugSnapshot& out) const;
-        [[nodiscard]] std::uint32_t FindGpuAnimClipSlot(
-            std::uint64_t key) const;
-        [[nodiscard]] std::uint32_t EnsureGpuAnimClipResident(
-            std::uint64_t key, const BakedClip& clip);
-        [[nodiscard]] std::uint32_t GetGpuAnimResidentClipCount() const;
-        [[nodiscard]] std::uint32_t GetGpuAnimJointsPerClipSlot() const;
-
-        void UploadGpuAnimSkeleton(const GpuSkeletonPack& skeleton);
-        void ResetGpuAnimClipCache();
-        bool UploadGpuAnimClipSlot(std::uint32_t slot, std::uint64_t key,
-                                   const BakedClip& clip);
-        void PinGpuAnimClipSlot(std::uint32_t slot, bool pinned);
-        void UploadGpuAnimBoneMask(std::span<const float> weights);
-        void UploadGpuAnimRestJoints(std::span<const GpuFloatJoint> joints);
-        void UploadGpuAnimRestJoints(std::span<const GpuQuantJoint> joints);
-        void SetGpuAnimRigIndices(
-            std::uint32_t lookJoint, std::uint32_t ikRoot, std::uint32_t ikMid,
-            std::uint32_t ikTip, std::uint32_t rootJoint,
-            glm::vec3 lookLocalForward = { 0.f, 0.f, 1.f },
-            float lookMaxYawRad = 1.2f, float lookMaxPitchRad = 0.8f);
-
-        bool ReadbackGpuAnimBones(std::uint32_t frameIndex,
-                                  std::uint32_t boneOffset,
-                                  std::span<glm::mat4>
-                                      out);
-
-        bool DispatchGpuAnimImmediate(
-            std::span<const GpuAnimInstance> instances,
-            std::uint32_t                    frameIndex);
-
-        void SetGpuAnimJointExtract(
-            std::span<const GpuJointExtractRequest> requests);
-
-        bool PollGpuAnimJointExtract(std::span<GpuJointExtractSample> out,
-                                     std::uint32_t* outCount = nullptr);
-
-        bool PollGpuAnimTiming(GpuAnimTimingSample& out);
+        /**
+         * @brief GPU animation / crowd skinning subsystem.
+         */
+        [[nodiscard]] GpuAnimationSystem&       GpuAnimation();
+        [[nodiscard]] const GpuAnimationSystem& GpuAnimation() const;
 
         /**
          * @brief GPU ms for each frame stage from the previous finished frame.
@@ -255,6 +238,7 @@ namespace FREYA_NAMESPACE
         friend class RendererBuilder;
 
         std::unique_ptr<Impl> mImpl;
+        GpuAnimationSystem    mGpuAnim;
     };
 
 } // namespace FREYA_NAMESPACE
