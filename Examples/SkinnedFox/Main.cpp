@@ -2,6 +2,7 @@
 
 #include <FreyaExamples/AnimClipUtil.hpp>
 #include <FreyaExamples/DebugOverlay.hpp>
+#include <FreyaExamples/ExampleLogging.hpp>
 #include <FreyaExamples/FlyCam.hpp>
 #include <FreyaExamples/GroundMesh.hpp>
 #include <FreyaExamples/QualityCycle.hpp>
@@ -372,8 +373,8 @@ class MainApp final : public fra::AbstractApplication
             gpuInstances.reserve(gpuCrowd ? mFoxes.size() : 1);
         std::vector<fra::FiredAnimationEvent> events;
         events.reserve(8);
-        auto&      debugDraw = mRenderer->GetDebugDraw();
-        const bool drawDebug = mRenderer->IsDebugDrawEnabled();
+        auto&         debugDraw   = mRenderer->GetDebugDraw();
+        const bool    drawDebug   = mRenderer->IsDebugDrawEnabled();
         std::uint32_t foxIndex    = 0;
         std::uint32_t animUpdates = 0;
         std::uint32_t lodHist[4]  = {};
@@ -811,8 +812,7 @@ class MainApp final : public fra::AbstractApplication
     {
         const auto& o = *mFreyaOptions;
         std::cout << "Features  shadow=" << onOff(mEnableShadows)
-                  << " debug="
-                  << onOff(mRenderer->IsDebugDrawEnabled())
+                  << " debug=" << onOff(mRenderer->IsDebugDrawEnabled())
                   << " graph=" << onOff(mEnableAnimGraph)
                   << " mask=" << onOff(mEnableUpperMask) << " add="
                   << onOff(mEnableAdditive) << " look=" << onOff(mEnableLookAt)
@@ -1479,6 +1479,9 @@ int main(int, const char**)
 {
     const auto app =
         skr::ApplicationBuilder()
+            .WithExtension<skr::LoggingExtension>([](skr::LoggingExtension& l) {
+                FreyaExamples::ConfigureLogging(l, "SkinnedFox.log");
+            })
             .WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
                 freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
                     freyaOptions

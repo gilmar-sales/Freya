@@ -76,6 +76,8 @@ Reuse helpers from `FreyaExamples::`:
 - `CycleQuality` / `QualityName` — Low→…→Off quality enums
 - `DebugOverlay` — Dear ImGui panel (quality / SSAO debug views /
   CPU + per-stage GPU ms via Vulkan timestamps)
+- `ConfigureLogging` — console + `*.log` file sink (`FREYA_LOG_FILE`,
+  `FREYA_LOG_CONSOLE=0`)
 
 ## Debug overlay
 

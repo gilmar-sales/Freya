@@ -4,6 +4,8 @@
 #include "Freya/Core/Image.hpp"
 #include "Freya/FreyaOptions.hpp"
 
+#include <Skirnir/Skirnir.hpp>
+
 namespace FREYA_NAMESPACE
 {
     /**
@@ -18,9 +20,10 @@ namespace FREYA_NAMESPACE
     class IBLService
     {
       public:
-        IBLService(const skr::Arc<Device>&               device,
-                   const skr::Arc<skr::ServiceProvider>& serviceProvider,
-                   const skr::Arc<FreyaOptions>&         options);
+        IBLService(const skr::Arc<Device>&                  device,
+                   const skr::Arc<skr::ServiceProvider>&    serviceProvider,
+                   const skr::Arc<FreyaOptions>&            options,
+                   const skr::Arc<skr::Logger<IBLService>>& logger);
 
         ~IBLService();
 
@@ -81,9 +84,10 @@ namespace FREYA_NAMESPACE
                                                int width, int height,
                                                int mipCount) const;
 
-        skr::Arc<Device>               mDevice;
-        skr::Arc<skr::ServiceProvider> mServiceProvider;
-        float                          mIntensity = 1.0f;
+        skr::Arc<Device>                  mDevice;
+        skr::Arc<skr::ServiceProvider>    mServiceProvider;
+        skr::Arc<skr::Logger<IBLService>> mLogger;
+        float                             mIntensity = 1.0f;
 
         skr::Arc<Image> mEnvironment;
         skr::Arc<Image> mIrradiance;

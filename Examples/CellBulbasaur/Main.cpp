@@ -2,6 +2,7 @@
 
 #include <FreyaExamples/AnimClipUtil.hpp>
 #include <FreyaExamples/DebugOverlay.hpp>
+#include <FreyaExamples/ExampleLogging.hpp>
 #include <FreyaExamples/FlyCam.hpp>
 #include <FreyaExamples/GroundMesh.hpp>
 
@@ -813,6 +814,9 @@ int main(int, const char**)
 {
     const auto app =
         skr::ApplicationBuilder()
+            .WithExtension<skr::LoggingExtension>([](skr::LoggingExtension& l) {
+                FreyaExamples::ConfigureLogging(l, "CellBulbasaur.log");
+            })
             .WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
                 freya.WithOptions([](fra::FreyaOptionsBuilder& o) {
                     o.SetTitle("CellBulbasaur")

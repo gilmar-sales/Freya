@@ -107,12 +107,15 @@ namespace FREYA_NAMESPACE
     } // namespace
 
     IBLService::IBLService(
-        const skr::Arc<Device>&               device,
-        const skr::Arc<skr::ServiceProvider>& serviceProvider,
-        const skr::Arc<FreyaOptions>&         options) :
-        mDevice(device), mServiceProvider(serviceProvider),
+        const skr::Arc<Device>&                  device,
+        const skr::Arc<skr::ServiceProvider>&    serviceProvider,
+        const skr::Arc<FreyaOptions>&            options,
+        const skr::Arc<skr::Logger<IBLService>>& logger) :
+        mDevice(device), mServiceProvider(serviceProvider), mLogger(logger),
         mIntensity(options->iblIntensity)
     {
+        mLogger->LogTrace("Building 'fra::IBLService':");
+
         constexpr int kEnvW = 512;
         constexpr int kEnvH = 256;
 
@@ -120,16 +123,31 @@ namespace FREYA_NAMESPACE
         int                width  = kEnvW;
         int                height = kEnvH;
 
-        if (!options->environmentMapPath.empty() &&
-            loadHdrFile(options->environmentMapPath, env, width, height))
+        if (!options->environmentMapPath.empty())
         {
-            // Cap resolution for upload / CPU convolution cost (4k → 1k).
-            downsampleEquirect(env, width, height, 1024);
+            mLogger->LogTrace("\tLoading HDR: {}",
+                              options->environmentMapPath);
+            if (loadHdrFile(options->environmentMapPath, env, width, height))
+            {
+                mLogger->LogTrace("\tLoaded HDR {}x{}", width, height);
+                downsampleEquirect(env, width, height, 1024);
+                mLogger->LogTrace("\tDownsampled equirect to {}x{}", width,
+                                  height);
+            }
+            else
+            {
+                width  = kEnvW;
+                height = kEnvH;
+                mLogger->LogTrace(
+                    "\tHDR load failed; generating procedural sky");
+                generateProceduralSky(env, width, height);
+            }
         }
         else
         {
             width  = kEnvW;
             height = kEnvH;
+            mLogger->LogTrace("\tGenerating procedural sky");
             generateProceduralSky(env, width, height);
         }
 
@@ -601,11 +619,16 @@ namespace FREYA_NAMESPACE
     void IBLService::buildFromEquirect(const std::vector<float>& src, int width,
                                        int height)
     {
+        mLogger->LogTrace("\tBuilding IBL from equirect {}x{}", width, height);
+
         std::vector<float> prefiltered;
         int                envW     = width;
         int                envH     = height;
         int                mipCount = 1;
+        mLogger->LogTrace("\tPrefiltering specular environment");
         prefilterSpecular(src, width, height, prefiltered, envW, envH,
+                          mipCount);
+        mLogger->LogTrace("\tUploading environment {}x{} mips={}", envW, envH,
                           mipCount);
         mEnvironment =
             uploadFloatRgbMipChain(prefiltered, envW, envH, mipCount);
@@ -613,18 +636,24 @@ namespace FREYA_NAMESPACE
         constexpr int      kIrrW = 64;
         constexpr int      kIrrH = 32;
         std::vector<float> irradiance;
+        mLogger->LogTrace("\tConvolving irradiance {}x{}", kIrrW, kIrrH);
         convolveIrradiance(src, width, height, irradiance, kIrrW, kIrrH);
+        mLogger->LogTrace("\tUploading irradiance");
         mIrradiance = uploadFloatRgb(irradiance, kIrrW, kIrrH, false);
 
         constexpr int      kLutSize = 256;
         std::vector<float> lut;
+        mLogger->LogTrace("\tGenerating BRDF LUT {}x{}", kLutSize, kLutSize);
         generateBrdfLut(lut, kLutSize);
+        mLogger->LogTrace("\tUploading BRDF LUT");
         mBrdfLut = uploadFloatRgb(lut, kLutSize, kLutSize, false);
 
         constexpr int      kLtcSize = 64;
         std::vector<float> ltc1;
         std::vector<float> ltc2;
+        mLogger->LogTrace("\tGenerating LTC LUTs {}x{}", kLtcSize, kLtcSize);
         generateLtcLuts(ltc1, ltc2, kLtcSize);
+        mLogger->LogTrace("\tUploading LTC LUTs");
         mLtcMatrix = uploadFloatRgb(ltc1, kLtcSize, kLtcSize, false);
         mLtcAmpl   = uploadFloatRgb(ltc2, kLtcSize, kLtcSize, false);
     }

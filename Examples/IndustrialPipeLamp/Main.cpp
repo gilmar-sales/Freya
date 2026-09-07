@@ -1,6 +1,7 @@
 #include <Freya/Freya.hpp>
 
 #include <FreyaExamples/DebugOverlay.hpp>
+#include <FreyaExamples/ExampleLogging.hpp>
 #include <FreyaExamples/FlyCam.hpp>
 #include <FreyaExamples/GroundMesh.hpp>
 
@@ -650,6 +651,9 @@ int main(int argc, const char** argv)
 {
     const auto app =
         skr::ApplicationBuilder()
+            .WithExtension<skr::LoggingExtension>([](skr::LoggingExtension& l) {
+                FreyaExamples::ConfigureLogging(l, "IndustrialPipeLamp.log");
+            })
             .WithExtension<fra::FreyaExtension>([](fra::FreyaExtension freya) {
                 freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
                     freyaOptions
