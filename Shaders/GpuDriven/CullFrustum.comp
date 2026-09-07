@@ -213,9 +213,7 @@ void includeProjectedPoint(vec4 clip, inout vec2 smin, inout vec2 smax,
     if (clip.w <= 0.0)
         return;
 
-    float z = clip.z / clip.w;
-    if (z < 0.0 || z > 1.0)
-        return;
+    float z = clamp(clip.z / clip.w, 0.0, 1.0);
 
     vec2 uv = (clip.xy / clip.w) * 0.5 + 0.5;
     smin = min(smin, uv);
@@ -282,6 +280,12 @@ bool occludedByHiZ(vec2 smin, vec2 smax, float nearestZ)
 
     vec2 csmin = clamp(smin, vec2(0.0), vec2(1.0));
     vec2 csmax = clamp(smax, vec2(0.0), vec2(1.0));
+    // No on-screen footprint: corner projection missed the viewport
+    // (common for large near geometry). Pixel/mip padding would invent a
+    // thin edge sample and false-occlude — treat as visible instead.
+    if (any(lessThanEqual(csmax, csmin)))
+        return false;
+
     vec2 pixelSize = 1.0 / max(cull.screenSize, vec2(1.0));
     csmin = max(vec2(0.0), csmin - pixelSize * 0.5);
     csmax = min(vec2(1.0), csmax + pixelSize * 0.5);

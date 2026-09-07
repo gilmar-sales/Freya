@@ -324,10 +324,11 @@ TEST_CASE("GPU cull fixtures from JSON", "[gpu-cull]")
     });
 }
 
-TEST_CASE("CellBulbasaur eyes must survive at dump camera (Hi-Z false cull)",
-          "[gpu-cull][cell-eyes]")
+TEST_CASE("Ground plane survives when camera is close (near-frustum / Hi-Z)",
+          "[gpu-cull][near-plane]")
 {
-    // Inputs: cull_dumps/20260907_130957 (eyes entityId 2/5 missing).
-    // Expected: survivors from 20260907_131005 (eyes visible).
-    RunGpuCullFixtures({ { "cell_eyes_false_cull" } });
+    // Bug dump: cull_dumps/20260907_153341 (entityId 1 missing).
+    // Good dump: 20260907_153340 (same viewProj/instances; plane survived).
+    // Correct: ground plane must always appear in this pose.
+    RunGpuCullFixtures({ { "near_camera_ground_plane" } });
 }

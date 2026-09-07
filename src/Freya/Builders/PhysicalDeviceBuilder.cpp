@@ -11,7 +11,10 @@ namespace FREYA_NAMESPACE
                         "Could not build 'fra::PhysicalDevice' with an invalid "
                         "fra::Instance");
 
-        static auto physicalDevices =
+        // Must not be static: VkPhysicalDevice handles are tied to the
+        // VkInstance that enumerated them. Caching across Instance rebuilds
+        // (e.g. sequential FreyaGpuTests) causes commonparent VUIDs / SIGSEGV.
+        const auto physicalDevices =
             mInstance->Get().enumeratePhysicalDevices();
 
         vk::PhysicalDevice physicalDevice;

@@ -1,0 +1,362 @@
+{
+  "expected": {
+    "mustSurviveEntityIds": [
+      1
+    ],
+    "mustDieEntityIds": [],
+    "drawCount": -1
+  },
+  "hiz": {
+    "enabled": true,
+    "file": "hiz.r32f",
+    "height": 986,
+    "mipCount": 11,
+    "ready": true,
+    "width": 1920
+  },
+  "instances": [
+    {
+      "entityId": 1,
+      "flags": 1,
+      "materialId": 0,
+      "meshId": 0,
+      "model": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        -0.20000000298023224,
+        0.0,
+        1.0
+      ],
+      "techniqueId": 0
+    },
+    {
+      "entityId": 2,
+      "flags": 5,
+      "materialId": 1,
+      "meshId": 1,
+      "model": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -1.2000000476837158,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "techniqueId": 1
+    },
+    {
+      "entityId": 3,
+      "flags": 5,
+      "materialId": 2,
+      "meshId": 2,
+      "model": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -1.2000000476837158,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "techniqueId": 1
+    },
+    {
+      "entityId": 4,
+      "flags": 5,
+      "materialId": 3,
+      "meshId": 3,
+      "model": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -1.2000000476837158,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "techniqueId": 1
+    },
+    {
+      "entityId": 5,
+      "flags": 5,
+      "materialId": 4,
+      "meshId": 1,
+      "model": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        1.2000000476837158,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "techniqueId": 0
+    },
+    {
+      "entityId": 6,
+      "flags": 5,
+      "materialId": 5,
+      "meshId": 2,
+      "model": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        1.2000000476837158,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "techniqueId": 0
+    },
+    {
+      "entityId": 7,
+      "flags": 5,
+      "materialId": 6,
+      "meshId": 3,
+      "model": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        1.2000000476837158,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "techniqueId": 0
+    }
+  ],
+  "lods": [
+    {
+      "firstIndex": 0,
+      "indexCount": 6,
+      "vertexOffset": 0
+    },
+    {
+      "firstIndex": 6,
+      "indexCount": 516,
+      "vertexOffset": 4
+    },
+    {
+      "firstIndex": 522,
+      "indexCount": 3456,
+      "vertexOffset": 114
+    },
+    {
+      "firstIndex": 3978,
+      "indexCount": 9042,
+      "vertexOffset": 854
+    }
+  ],
+  "meshes": [
+    {
+      "aabbMax": [
+        8.0,
+        0.0,
+        8.0,
+        0.0
+      ],
+      "aabbMin": [
+        -8.0,
+        0.0,
+        -8.0,
+        0.0
+      ],
+      "lodBase": 0,
+      "lodCount": 1
+    },
+    {
+      "aabbMax": [
+        0.2830556631088257,
+        0.6413528323173523,
+        0.6905052661895752,
+        0.0
+      ],
+      "aabbMin": [
+        -0.28508973121643066,
+        0.07320743799209595,
+        0.12235990166664124,
+        0.0
+      ],
+      "lodBase": 1,
+      "lodCount": 1
+    },
+    {
+      "aabbMax": [
+        0.4826621115207672,
+        1.0183367729187012,
+        0.3552696704864502,
+        0.0
+      ],
+      "aabbMin": [
+        -0.4826408922672272,
+        0.053033798933029175,
+        -0.6100333333015442,
+        0.0
+      ],
+      "lodBase": 2,
+      "lodCount": 1
+    },
+    {
+      "aabbMax": [
+        0.5824350714683533,
+        0.8468928337097168,
+        0.6761462688446045,
+        0.0
+      ],
+      "aabbMin": [
+        -0.5824090838432312,
+        -0.31795135140419006,
+        -0.48869788646698,
+        0.0
+      ],
+      "lodBase": 3,
+      "lodCount": 1
+    }
+  ],
+  "meta": {
+    "example": "CellBulbasaur",
+    "label": "near_camera_ground_plane",
+    "notes": "Camera close to the ground plane (entityId 1, mesh AABB y=0). Dump 20260907_153341 falsely culled the plane while 20260907_153340 (same viewProj/instances, different Hi-Z) kept it. Plane must always survive when it fills the view / straddles the near plane."
+  },
+  "observed": {
+    "drawCount": 6,
+    "survivors": [
+      {
+        "entityId": 5,
+        "meshId": 1,
+        "slot": 0
+      },
+      {
+        "entityId": 6,
+        "meshId": 2,
+        "slot": 1
+      },
+      {
+        "entityId": 7,
+        "meshId": 3,
+        "slot": 2
+      },
+      {
+        "entityId": 2,
+        "meshId": 1,
+        "slot": 0
+      },
+      {
+        "entityId": 3,
+        "meshId": 2,
+        "slot": 1
+      },
+      {
+        "entityId": 4,
+        "meshId": 3,
+        "slot": 2
+      }
+    ]
+  },
+  "pushConstants": {
+    "cameraPos": [
+      0.6218697428703308,
+      1.3861433267593384,
+      1.2989915609359741,
+      0.0
+    ],
+    "cullMode": 0,
+    "hizDepthBias": 9.999999747378752e-05,
+    "hizEnabled": 1,
+    "instanceCount": 7,
+    "lodPixelRef": 256.0,
+    "lodStep": 2.0,
+    "maxDraws": 256,
+    "reverseZ": 1,
+    "screenSize": [
+      1920.0,
+      986.0
+    ],
+    "techniqueFilter": 4294967295,
+    "viewProj": [
+      1.3234025239944458,
+      0.4147662818431854,
+      0.00014430344162974507,
+      -0.14415913820266724,
+      0.0,
+      -1.551828384399414,
+      0.000766810670029372,
+      -0.7660438418388367,
+      -0.3045596480369568,
+      1.8022831678390503,
+      0.0006270414451137185,
+      -0.62641441822052,
+      -0.4273635447025299,
+      -0.4480244517326355,
+      0.9990338087081909,
+      1.9652018547058105
+    ]
+  },
+  "version": 1
+}
