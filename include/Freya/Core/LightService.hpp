@@ -17,12 +17,40 @@ namespace FREYA_NAMESPACE
     struct LightServiceGpu;
 
     /**
-     * @brief Light source data structure for the lighting system.
+     * @brief Opaque light id (slot in LightService). Default is null.
+     */
+    class LightHandle
+    {
+      public:
+        constexpr LightHandle() = default;
+
+        constexpr explicit LightHandle(std::uint32_t index) :
+            mIndex(index), mValid(true)
+        {
+        }
+
+        [[nodiscard]] constexpr std::uint32_t Index() const { return mIndex; }
+
+        [[nodiscard]] constexpr bool IsValid() const { return mValid; }
+
+        constexpr explicit operator bool() const { return IsValid(); }
+
+        constexpr auto operator<=>(const LightHandle&) const = default;
+
+      private:
+        std::uint32_t mIndex = 0;
+        bool          mValid = false;
+    };
+
+    /**
+     * @brief Light source data for the lighting system (host API).
+     *
+     * GPU UBO packing converts @c type to float; apps use LightType.
      */
     struct Light
     {
         glm::vec3 position    = glm::vec3(0.0f);
-        float     type        = 0.0f;
+        LightType type        = LightType::Point;
         glm::vec3 color       = glm::vec3(1.0f);
         float     radius      = 10.0f;
         glm::vec3 direction   = glm::vec3(0.0f, -1.0f, 0.0f);
@@ -41,7 +69,7 @@ namespace FREYA_NAMESPACE
     {
         Light light {};
         light.position  = position;
-        light.type      = static_cast<float>(LightType::Point);
+        light.type      = LightType::Point;
         light.color     = color;
         light.radius    = radius;
         light.intensity = intensity;
@@ -53,7 +81,7 @@ namespace FREYA_NAMESPACE
                                       float            intensity = 1.0f)
     {
         Light light {};
-        light.type      = static_cast<float>(LightType::Directional);
+        light.type      = LightType::Directional;
         light.color     = color;
         light.direction = glm::normalize(direction);
         light.intensity = intensity;
@@ -70,7 +98,7 @@ namespace FREYA_NAMESPACE
     {
         Light light {};
         light.position    = position;
-        light.type        = static_cast<float>(LightType::Spot);
+        light.type        = LightType::Spot;
         light.color       = color;
         light.radius      = radius;
         light.direction   = glm::normalize(direction);
@@ -90,7 +118,7 @@ namespace FREYA_NAMESPACE
     {
         Light light {};
         light.position    = center;
-        light.type        = static_cast<float>(LightType::Area);
+        light.type        = LightType::Area;
         light.color       = color;
         light.direction   = glm::normalize(normal);
         light.intensity   = intensity;
@@ -123,12 +151,15 @@ namespace FREYA_NAMESPACE
         LightService(LightService&&) noexcept;
         LightService& operator=(LightService&&) noexcept;
 
-        std::int32_t AddLight(const Light& light);
-        void         RemoveLight(std::uint32_t index);
-        void         UpdateLightPosition(std::uint32_t    index,
-                                         const glm::vec3& position);
-        void         UpdateLight(std::uint32_t index, const Light& light);
-        const Light* GetLight(std::uint32_t index) const;
+        /**
+         * @brief Adds a light. Returns a null handle when the pool is full.
+         */
+        LightHandle AddLight(const Light& light);
+        void        RemoveLight(LightHandle handle);
+        void        UpdateLightPosition(LightHandle     handle,
+                                        const glm::vec3& position);
+        void        UpdateLight(LightHandle handle, const Light& light);
+        const Light* GetLight(LightHandle handle) const;
         void         ClearLights();
 
         void Update(std::uint32_t    frameIndex,

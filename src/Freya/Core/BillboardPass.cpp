@@ -1,5 +1,6 @@
 #include "Freya/Core/BillboardPass.hpp"
 
+#include "Freya/Core/BillboardGpu.hpp"
 #include "Freya/Core/DebugLabels.hpp"
 
 #include <algorithm>

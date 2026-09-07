@@ -546,7 +546,7 @@ class MainApp final : public fra::AbstractApplication
         mFireLight =
             fra::MakePointLight(firePos + glm::vec3(0.0f, 0.35f, 0.0f),
                                 glm::vec3(1.0f, 0.45f, 0.12f), 6.0f, 7.0f);
-        mFireLightIndex = mLightService->AddLight(mFireLight);
+        mFireLightHandle = mLightService->AddLight(mFireLight);
 
         mFont = fra::FontAtlas::Create(
             *mTexturePool, "./Resources/Fonts/NotoSans-Regular.ttf");
@@ -648,15 +648,13 @@ class MainApp final : public fra::AbstractApplication
         mEmbers.Tick(dt, bb);
         mSmoke.Tick(dt, bb);
 
-        if (mFireLightIndex >= 0)
+        if (mFireLightHandle)
         {
             const float flicker = 0.75f + 0.25f * std::sin(mHpPulse * 11.0f) +
                                   0.12f * std::sin(mHpPulse * 23.0f);
             auto        lit     = mFireLight;
             lit.intensity       = 6.0f * flicker;
-            mLightService->UpdateLight(
-                static_cast<std::uint32_t>(mFireLightIndex),
-                lit);
+            mLightService->UpdateLight(mFireLightHandle, lit);
         }
 
         const float cpuFrameMs  = dt * 1000.f;
@@ -833,8 +831,8 @@ class MainApp final : public fra::AbstractApplication
     fra::ParticleEmitter      mFire;
     fra::ParticleEmitter      mEmbers;
     fra::ParticleEmitter      mSmoke;
-    fra::Light                mFireLight;
-    std::int32_t              mFireLightIndex = -1;
+    fra::Light         mFireLight;
+    fra::LightHandle   mFireLightHandle {};
     fra::FontAtlas            mFont;
     float                     mHpPulse = 0.0f;
     fra::Scene                mScene;

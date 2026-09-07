@@ -3,6 +3,7 @@
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
 #include "Freya/Core/BillboardDraw.hpp"
+#include "Freya/Core/BillboardGpu.hpp"
 #include "Freya/Core/ShaderModule.hpp"
 
 #include <array>

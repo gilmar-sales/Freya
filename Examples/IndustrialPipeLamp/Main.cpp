@@ -158,12 +158,11 @@ class MainApp final : public fra::AbstractApplication
                                                  glm::vec3(1.0f, 0.96f, 0.9f),
                                                  0.35f);
             key.castShadows = false;
-            mDirectionalIndex =
-                static_cast<std::uint32_t>(mLightService->AddLight(key));
+            mDirectionalHandle = mLightService->AddLight(key);
         }
 
         mAnimatedLights.clear();
-        mSpotIndices.clear();
+        mSpotHandles.clear();
 
         {
             AnimatedLight warm {};
@@ -177,9 +176,8 @@ class MainApp final : public fra::AbstractApplication
                 48.0f,
                 8.0f);
             point.castShadows = false;
-            warm.index =
-                static_cast<std::uint32_t>(mLightService->AddLight(point));
-            mWarmPointIndex = warm.index;
+            warm.handle       = mLightService->AddLight(point);
+            mWarmPointHandle  = warm.handle;
             mAnimatedLights.push_back(warm);
         }
 
@@ -195,9 +193,8 @@ class MainApp final : public fra::AbstractApplication
                 48.0f,
                 8.0f);
             point.castShadows = false;
-            cool.index =
-                static_cast<std::uint32_t>(mLightService->AddLight(point));
-            mCoolPointIndex = cool.index;
+            cool.handle       = mLightService->AddLight(point);
+            mCoolPointHandle  = cool.handle;
             mAnimatedLights.push_back(cool);
         }
 
@@ -232,9 +229,8 @@ class MainApp final : public fra::AbstractApplication
                 glm::radians(24.0f),
                 7.0f);
             spot.castShadows = false;
-            spotAnim.index =
-                static_cast<std::uint32_t>(mLightService->AddLight(spot));
-            mSpotIndices.push_back(spotAnim.index);
+            spotAnim.handle  = mLightService->AddLight(spot);
+            mSpotHandles.push_back(spotAnim.handle);
             mAnimatedLights.push_back(spotAnim);
         }
 
@@ -249,7 +245,7 @@ class MainApp final : public fra::AbstractApplication
             1.5f));
 
         // One warm spot per lamp bulb (follow mModelMatrix each frame).
-        mBulbSpotIndices.clear();
+        mBulbSpotHandles.clear();
         for (std::uint32_t i = 0; i < 2; ++i)
         {
             auto spot = fra::MakeSpotLight(
@@ -261,10 +257,11 @@ class MainApp final : public fra::AbstractApplication
                 glm::radians(48.0f),
                 22.0f);
             spot.castShadows = false;
-            mBulbSpotIndices.push_back(
-                static_cast<std::uint32_t>(mLightService->AddLight(spot)));
+            mBulbSpotHandles.push_back(mLightService->AddLight(spot));
         }
         updateBulbSpots();
+
+        rebuildScene(mScene, true);
 
         std::cout
             << "Controls: RMB look | WASD move | Space/Q up | Ctrl/E down | "
@@ -306,11 +303,11 @@ class MainApp final : public fra::AbstractApplication
 
             if (animated.kind == AnimatedLightKind::Point)
             {
-                mLightService->UpdateLightPosition(animated.index, position);
+                mLightService->UpdateLightPosition(animated.handle, position);
                 continue;
             }
 
-            const auto* current = mLightService->GetLight(animated.index);
+            const auto* current = mLightService->GetLight(animated.handle);
             if (current == nullptr)
             {
                 continue;
@@ -323,7 +320,7 @@ class MainApp final : public fra::AbstractApplication
             {
                 spot.direction = glm::normalize(toTarget);
             }
-            mLightService->UpdateLight(animated.index, spot);
+            mLightService->UpdateLight(animated.handle, spot);
         }
 
         // Orbit lamp 0 so TAA object motion can be validated (lamp 1 + ground
@@ -349,7 +346,7 @@ class MainApp final : public fra::AbstractApplication
         }
 
         mMainCam.Apply(*mRenderer);
-        syncScene(mScene, true);
+        syncTransforms(mScene, true);
         mScene.Upload(*mRenderer);
 
         if (mOverlay.ShowCullAabbs())
@@ -367,19 +364,12 @@ class MainApp final : public fra::AbstractApplication
             return;
 
         auto renderer = GetRenderer(*window);
-        auto lights =
-            GetWindowServices(*window)->GetService<fra::LightService>();
-
-        lights->ClearLights();
-        lights->AddLight(fra::MakeDirectionalLight(
-            glm::vec3(-0.2f, -1.0f, -0.15f), glm::vec3(1.0f, 0.96f, 0.9f),
-            2.5f));
 
         mSecondaryCam.Update(window->GetDeltaTime());
 
         renderer->BeginFrame();
         mSecondaryCam.Apply(*renderer);
-        syncScene(mSecondaryScene, false);
+        syncTransforms(mSecondaryScene, false);
         mSecondaryScene.Upload(*renderer);
         renderer->EndFrame();
     }
@@ -419,10 +409,18 @@ class MainApp final : public fra::AbstractApplication
                     toggleSecondaryWindow();
             });
 
+        auto lights =
+            GetWindowServices(*mSecondaryWindow)->GetService<fra::LightService>();
+        lights->ClearLights();
+        lights->AddLight(fra::MakeDirectionalLight(
+            glm::vec3(-0.2f, -1.0f, -0.15f), glm::vec3(1.0f, 0.96f, 0.9f),
+            2.5f));
+        rebuildScene(mSecondaryScene, false);
+
         std::cout << "Secondary window opened (shared meshes; RMB+WASD)\n";
     }
 
-    void syncScene(fra::Scene& scene, const bool bothLamps)
+    void rebuildScene(fra::Scene& scene, const bool bothLamps)
     {
         scene.Clear();
         const std::uint32_t lampCount = bothLamps ? 2u : 1u;
@@ -447,6 +445,19 @@ class MainApp final : public fra::AbstractApplication
         ground.entityId    = 0;
         ground.castShadows = false;
         scene.Add(ground);
+    }
+
+    void syncTransforms(fra::Scene& scene, const bool bothLamps)
+    {
+        // Stable ids 0..n-1 from rebuildScene (Clear then Add in order).
+        const std::uint32_t lampCount = bothLamps ? 2u : 1u;
+        fra::Scene::InstanceId id     = 0;
+        for (std::size_t part = 0; part < mLampModel.size(); ++part)
+        {
+            for (std::uint32_t i = 0; i < lampCount; ++i)
+                scene.SetTransform(id++, mModelMatrix[i]);
+        }
+        scene.SetTransform(id, mModelMatrix[2]);
     }
 
     /**
@@ -484,9 +495,9 @@ class MainApp final : public fra::AbstractApplication
         // Cage opens slightly toward +Z; bias aim down/out of the fixture.
         constexpr glm::vec3 kAimLocal { 0.0f, -0.85f, 0.45f };
 
-        for (std::size_t i = 0; i < mBulbSpotIndices.size() && i < 2; ++i)
+        for (std::size_t i = 0; i < mBulbSpotHandles.size() && i < 2; ++i)
         {
-            const auto* current = mLightService->GetLight(mBulbSpotIndices[i]);
+            const auto* current = mLightService->GetLight(mBulbSpotHandles[i]);
             if (current == nullptr)
                 continue;
 
@@ -496,13 +507,13 @@ class MainApp final : public fra::AbstractApplication
             const glm::vec3 aim = glm::mat3(model) * kAimLocal;
             if (glm::dot(aim, aim) > 1e-8f)
                 spot.direction = glm::normalize(aim);
-            mLightService->UpdateLight(mBulbSpotIndices[i], spot);
+            mLightService->UpdateLight(mBulbSpotHandles[i], spot);
         }
     }
 
-    void setLightCastShadows(std::uint32_t index, bool enabled)
+    void setLightCastShadows(fra::LightHandle handle, bool enabled)
     {
-        const auto* current = mLightService->GetLight(index);
+        const auto* current = mLightService->GetLight(handle);
         if (current == nullptr)
         {
             return;
@@ -510,7 +521,7 @@ class MainApp final : public fra::AbstractApplication
 
         fra::Light light  = *current;
         light.castShadows = enabled;
-        mLightService->UpdateLight(index, light);
+        mLightService->UpdateLight(handle, light);
     }
 
     void setShadowCasterMode(int mode)
@@ -518,17 +529,17 @@ class MainApp final : public fra::AbstractApplication
         mShadowCasterMode = mode;
 
         const bool all = mode == 0;
-        setLightCastShadows(mDirectionalIndex, all || mode == 1);
-        setLightCastShadows(mWarmPointIndex, all || mode == 2);
-        setLightCastShadows(mCoolPointIndex, all || mode == 3);
+        setLightCastShadows(mDirectionalHandle, all || mode == 1);
+        setLightCastShadows(mWarmPointHandle, all || mode == 2);
+        setLightCastShadows(mCoolPointHandle, all || mode == 3);
         // Orbiting spots are diagnostic — only mode 4 (reserve shadow slots
         // for the per-bulb spots in the default "all" mode).
-        for (const auto spotIndex : mSpotIndices)
-            setLightCastShadows(spotIndex, mode == 4);
+        for (const auto spotHandle : mSpotHandles)
+            setLightCastShadows(spotHandle, mode == 4);
         // Bulb spots sit inside the housing; they must not own shadow slots
         // in the default mode or the floor umbra is a huge near-field blob.
-        for (const auto spotIndex : mBulbSpotIndices)
-            setLightCastShadows(spotIndex, false);
+        for (const auto spotHandle : mBulbSpotHandles)
+            setLightCastShadows(spotHandle, false);
 
         static constexpr const char* kNames[] = {
             "all", "directional", "warm point", "cool point", "all spots",
@@ -558,7 +569,8 @@ class MainApp final : public fra::AbstractApplication
         const auto count = mLightService->GetLightCount();
         for (std::uint32_t i = 0; i < count; ++i)
         {
-            const auto* light = mLightService->GetLight(i);
+            const auto* light =
+                mLightService->GetLight(fra::LightHandle { i });
             if (light == nullptr)
             {
                 continue;
@@ -569,9 +581,7 @@ class MainApp final : public fra::AbstractApplication
             glm::vec4 color(light->color / peak,
                             light->castShadows ? 1.0f : 0.4f);
 
-            const auto type = static_cast<fra::LightType>(
-                static_cast<std::uint32_t>(light->type + 0.5f));
-            switch (type)
+            switch (light->type)
             {
                 case fra::LightType::Point:
                     dd.Sphere(light->position, 0.7f, color, 16);
@@ -614,7 +624,7 @@ class MainApp final : public fra::AbstractApplication
 
     struct AnimatedLight
     {
-        std::uint32_t     index        = 0;
+        fra::LightHandle  handle {};
         AnimatedLightKind kind         = AnimatedLightKind::Point;
         float             speed        = 1.0f;
         float             radiusOffset = 0.0f;
@@ -649,13 +659,13 @@ class MainApp final : public fra::AbstractApplication
     float                       mCurrentTime {};
     std::vector<AnimatedLight>  mAnimatedLights;
 
-    std::uint32_t              mDirectionalIndex = 0;
-    std::uint32_t              mWarmPointIndex   = 0;
-    std::uint32_t              mCoolPointIndex   = 0;
-    std::vector<std::uint32_t> mSpotIndices;
-    std::vector<std::uint32_t> mBulbSpotIndices;
-    int                        mShadowCasterMode = 0;
-    bool                       mShowLightGizmos  = true;
+    fra::LightHandle              mDirectionalHandle {};
+    fra::LightHandle              mWarmPointHandle {};
+    fra::LightHandle              mCoolPointHandle {};
+    std::vector<fra::LightHandle> mSpotHandles;
+    std::vector<fra::LightHandle> mBulbSpotHandles;
+    int                           mShadowCasterMode = 0;
+    bool                          mShowLightGizmos  = true;
 };
 
 int main(int, const char**)

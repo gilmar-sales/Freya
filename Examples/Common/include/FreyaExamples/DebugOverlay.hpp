@@ -1,9 +1,14 @@
 #pragma once
 
-#include <Freya/Advanced.hpp>
+#include <Freya/Freya.hpp>
 
 #include <chrono>
 #include <string>
+
+namespace FREYA_NAMESPACE
+{
+    class IPlatform;
+}
 
 namespace FreyaExamples
 {
@@ -11,8 +16,12 @@ namespace FreyaExamples
      * @brief Dear ImGui overlay for Freya examples (options, debug views,
      * CPU/GPU stage timing via Vulkan timestamps).
      *
-     * Requires Renderer::SetViewportTarget so the scene composites to an
-     * offscreen target and BeginUI opens the swapchain UI pass.
+     * Implementation uses Advanced Renderer APIs (viewport target, ImGui
+     * natives, cull dumps). Apps that only include this header through
+     * Freya.hpp keep the app-tier seal; Advanced is pulled in the .cpp.
+     *
+     * Requires SetViewportTarget so the scene composites to an offscreen
+     * target and BeginUI opens the swapchain UI pass.
      */
     class DebugOverlay
     {

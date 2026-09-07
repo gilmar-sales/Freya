@@ -226,8 +226,8 @@ gpu->SetEnabled(true);
 ```
 
 After toggling `quantizeGpuAnimJoints`, call
-`renderer->RebuildGpuAnimPass()` and re-upload skeleton / clips / mask / rest
-/ rig.
+`fra::Advanced(renderer).GpuAnimation().RebuildPass()` and re-upload
+skeleton / clips / mask / rest / rig.
 
 ### `GpuAnimInstance`
 
@@ -381,7 +381,7 @@ running (relative `./Resources/...`).
 | F6 | Additive upper |
 | F7 | Look-at |
 | F8 | Two-bone IK |
-| F9 | Toggle quantize + `RebuildGpuAnimPass` |
+| F9 | Toggle quantize + `fra::Advanced(renderer).GpuAnimation().RebuildPass()` |
 | F10 | Clip events / footsteps (Crowd @ `animLodHz`) |
 | F11 | Cycle `AnimationQuality` |
 | F12 | Cycle GPU anim mode |
@@ -399,9 +399,10 @@ running (relative `./Resources/...`).
 | `SetAnimBakeHz` | Dense bake rate |
 | `SetQuantizeGpuAnimJoints` | 16 B vs 48 B clip joints |
 
-Renderer helpers: `UploadBoneMatrices`, `GetGpuAnimPass`,
-`RebuildGpuAnimPass`, `DispatchGpuAnimImmediate`, `ReadbackGpuAnimBones`,
-`SetGpuAnimJointExtract`, `PollGpuAnimJointExtract`, `PollGpuAnimTiming`.
+Renderer helpers: `UploadBoneMatrices`; GPU anim via
+`fra::Advanced(renderer).GpuAnimation()` (`RebuildPass`,
+`DispatchImmediate`, `ReadbackBones`, `SetJointExtract` /
+`PollJointExtract`, `PollTiming`).
 
 ## Shaders
 

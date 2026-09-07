@@ -70,7 +70,10 @@ namespace FREYA_NAMESPACE
 
     void Scene::Upload(Renderer& renderer) const
     {
-        std::vector<SceneInstanceUpload> uploads;
+        // Reuse scratch across frames to avoid per-frame heap traffic when
+        // apps call Upload every frame on a retained Scene.
+        thread_local std::vector<SceneInstanceUpload> uploads;
+        uploads.clear();
         uploads.reserve(Size());
         for (std::uint32_t i = 0; i < mInstances.size(); ++i)
         {

@@ -36,9 +36,12 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& o) {
 ## Quality presets
 
 Each effect has a `Low` / `Medium` / `High` / `Ultra` / `Off` preset (same
-idea as shadows). Presets write the per-effect knobs in `FreyaOptions`;
-individual setters can override afterward. `Off` clears the matching
-`enable*` flag without wiping resolution / strength knobs.
+idea as shadows). Presets write the per-effect knobs in `FreyaOptions`
+(startup via `FreyaOptionsBuilder`); individual setters can override
+afterward. At runtime prefer `Renderer::Set*Quality` over mutating
+`FreyaOptions` fields directly — resolution / pass rebuilds are handled
+there. `Off` clears the matching `enable*` flag without wiping resolution /
+strength knobs.
 
 | API | Controls |
 |-----|----------|

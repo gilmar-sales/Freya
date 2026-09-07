@@ -133,6 +133,7 @@ namespace FREYA_NAMESPACE
      */
     struct FreyaOptions
     {
+        // --- Presentation / window ---
         std::string   title        = "Freya Window";
         std::uint32_t width        = 800;
         std::uint32_t height       = 600;
@@ -150,6 +151,7 @@ namespace FREYA_NAMESPACE
         glm::vec3 ambientColor     = glm::vec3(1.0f);
         float     ambientIntensity = 0.03f;
 
+        // --- Shadow maps (prefer SetShadowQuality presets) ---
         std::uint32_t shadowCascadeCount  = 4;
         std::uint32_t shadowMapResolution = 2048;
         float         shadowBias          = 0.002f;
@@ -214,7 +216,7 @@ namespace FREYA_NAMESPACE
         /// When true, GPU clip/rest joints use 16 B quantized storage
         /// (`skin_bake_quant`); otherwise full float TRS (`skin_bake`).
         /// Toggle requires rebuilding GpuAnimPass (see
-        /// Renderer::RebuildGpuAnimPass).
+        /// RendererAdvanced::GpuAnimation().RebuildPass()).
         bool quantizeGpuAnimJoints = true;
     };
 

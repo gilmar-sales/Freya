@@ -401,9 +401,8 @@ namespace FREYA_NAMESPACE
         const Light* sun = nullptr;
         for (std::uint32_t i = 0; i < lights.GetLightCount(); ++i)
         {
-            const auto* light = lights.GetLight(i);
-            if (light != nullptr &&
-                light->type == static_cast<float>(LightType::Directional) &&
+            const auto* light = lights.GetLight(LightHandle { i });
+            if (light != nullptr && light->type == LightType::Directional &&
                 light->castShadows)
             {
                 sun = light;
@@ -426,9 +425,8 @@ namespace FREYA_NAMESPACE
              i < lights.GetLightCount() && mActiveSpotCount < mMaxSpotShadows;
              ++i)
         {
-            const auto* light = lights.GetLight(i);
-            if (light == nullptr ||
-                light->type != static_cast<float>(LightType::Spot) ||
+            const auto* light = lights.GetLight(LightHandle { i });
+            if (light == nullptr || light->type != LightType::Spot ||
                 !light->castShadows)
                 continue;
 
@@ -444,9 +442,8 @@ namespace FREYA_NAMESPACE
              i < lights.GetLightCount() && mActivePointCount < mMaxPointShadows;
              ++i)
         {
-            const auto* light = lights.GetLight(i);
-            if (light == nullptr ||
-                light->type != static_cast<float>(LightType::Point) ||
+            const auto* light = lights.GetLight(LightHandle { i });
+            if (light == nullptr || light->type != LightType::Point ||
                 !light->castShadows)
                 continue;
 

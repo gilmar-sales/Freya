@@ -31,27 +31,6 @@ namespace FREYA_NAMESPACE
     constexpr std::uint32_t kBillboardFlagSdf         = 2u;
 
     /**
-     * @brief GPU instance (std430). Keep in sync with billboard.vert.
-     */
-    struct BillboardGpuInstance
-    {
-        glm::vec3     worldPos { 0.f };
-        float         clipMax = 1.f;
-        glm::vec2     size { 1.f };
-        std::uint32_t textureIndex = 0;
-        std::uint32_t flags        = 0;
-        glm::vec4     color { 1.f };
-        glm::vec4     uvRect { 0.f, 0.f, 1.f, 1.f };
-        glm::vec2     localOffset { 0.f };
-        float         outlineWidth = 0.f;
-        float         _pad         = 0.f;
-        glm::vec4     outlineColor { 0.f, 0.f, 0.f, 1.f };
-    };
-
-    static_assert(sizeof(BillboardGpuInstance) == 96,
-                  "BillboardGpuInstance must match GLSL std430");
-
-    /**
      * @brief One camera-facing quad in world space.
      *
      * `textureIndex` is a bindless heap slot (0 = white). Convert TexturePool

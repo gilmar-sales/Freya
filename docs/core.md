@@ -198,21 +198,22 @@ auto lights = serviceProvider->GetService<fra::LightService>();
 lights->AddLight(fra::MakeDirectionalLight(
     glm::vec3(-0.4f, -1.0f, -0.3f), glm::vec3(1.0f), 0.4f));
 
-const auto point =
+const fra::LightHandle point =
     lights->AddLight(fra::MakePointLight(
         glm::vec3(0.0f, 5.0f, 0.0f),
         glm::vec3(1.0f, 0.4f, 0.3f),
         50.0f,
         0.5f));
 
-lights->AddLight(fra::MakeSpotLight(
-    glm::vec3(0.0f, 8.0f, 4.0f),
-    glm::vec3(0.0f, -1.0f, -0.5f),
-    glm::vec3(0.9f, 0.95f, 1.0f),
-    60.0f,
-    glm::radians(12.0f),
-    glm::radians(22.0f),
-    1.0f));
+const fra::LightHandle spot =
+    lights->AddLight(fra::MakeSpotLight(
+        glm::vec3(0.0f, 8.0f, 4.0f),
+        glm::vec3(0.0f, -1.0f, -0.5f),
+        glm::vec3(0.9f, 0.95f, 1.0f),
+        60.0f,
+        glm::radians(12.0f),
+        glm::radians(22.0f),
+        1.0f));
 
 lights->AddLight(fra::MakeAreaLight(
     glm::vec3(0.0f, 6.0f, 0.0f),
@@ -223,18 +224,21 @@ lights->AddLight(fra::MakeAreaLight(
     glm::vec3(1.0f, 0.95f, 0.9f),
     4.0f));
 
-// Per-frame: position-only or full replace
-lights->UpdateLightPosition(static_cast<std::uint32_t>(point),
-                            glm::vec3(2.0f, 5.0f, 0.0f));
+// Per-frame: position-only or full replace (LightHandle, not raw indices)
+lights->UpdateLightPosition(point, glm::vec3(2.0f, 5.0f, 0.0f));
 
-if (const auto* spot = lights->GetLight(2))
+if (const auto* current = lights->GetLight(spot))
 {
-    fra::Light updated = *spot;
+    fra::Light updated = *current;
     updated.position   = glm::vec3(1.0f, 6.0f, 2.0f);
     updated.direction  = glm::normalize(-updated.position);
-    lights->UpdateLight(2, updated);
+    // Light::type is fra::LightType (enum), not float
+    lights->UpdateLight(spot, updated);
 }
 ```
+
+`AddLight` returns a null `LightHandle` when the pool is full (`operator bool` /
+`IsValid()`). `RemoveLight` / `UpdateLight` / `GetLight` take handles.
 
 `Renderer::UpdateCamera` refreshes the light UBO for the current frame when
 the light service is present (also uploads `iblIntensity` for IBL).

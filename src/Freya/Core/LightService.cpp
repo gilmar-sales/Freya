@@ -60,23 +60,26 @@ namespace FREYA_NAMESPACE
     LightService& LightService::operator=(LightService&& other) noexcept =
         default;
 
-    std::int32_t LightService::AddLight(const Light& light)
+    LightHandle LightService::AddLight(const Light& light)
     {
         auto& i = *mImpl;
         if (i.mLightCount >= i.mMaxLights)
         {
-            return -1;
+            return {};
         }
 
         i.mLights.push_back(light);
         i.mLightCount++;
 
-        return static_cast<std::int32_t>(i.mLights.size() - 1);
+        return LightHandle { static_cast<std::uint32_t>(i.mLights.size() - 1) };
     }
 
-    void LightService::RemoveLight(const std::uint32_t index)
+    void LightService::RemoveLight(const LightHandle handle)
     {
-        auto& i = *mImpl;
+        if (!handle)
+            return;
+        auto&              i     = *mImpl;
+        const std::uint32_t index = handle.Index();
         if (index >= i.mLights.size())
         {
             return;
@@ -88,8 +91,9 @@ namespace FREYA_NAMESPACE
         LightUniformBuffer data = {};
         for (std::uint32_t n = 0; n < i.mLightCount; ++n)
         {
-            data.lightPositions[n] =
-                glm::vec4(i.mLights[n].position, i.mLights[n].type);
+            data.lightPositions[n] = glm::vec4(
+                i.mLights[n].position,
+                static_cast<float>(i.mLights[n].type));
             data.lightColorsAndRadius[n] =
                 glm::vec4(i.mLights[n].color, i.mLights[n].radius);
             data.lightDirectionsAndCutoff[n] =
@@ -109,26 +113,35 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void LightService::UpdateLightPosition(std::uint32_t    index,
-                                           const glm::vec3& position)
+    void LightService::UpdateLightPosition(const LightHandle handle,
+                                           const glm::vec3&  position)
     {
-        auto& i = *mImpl;
+        if (!handle)
+            return;
+        auto&               i     = *mImpl;
+        const std::uint32_t index = handle.Index();
         if (index >= i.mLights.size())
             return;
         i.mLights[index].position = position;
     }
 
-    void LightService::UpdateLight(std::uint32_t index, const Light& light)
+    void LightService::UpdateLight(const LightHandle handle, const Light& light)
     {
-        auto& i = *mImpl;
+        if (!handle)
+            return;
+        auto&               i     = *mImpl;
+        const std::uint32_t index = handle.Index();
         if (index >= i.mLights.size())
             return;
         i.mLights[index] = light;
     }
 
-    const Light* LightService::GetLight(const std::uint32_t index) const
+    const Light* LightService::GetLight(const LightHandle handle) const
     {
-        auto& i = *mImpl;
+        if (!handle)
+            return nullptr;
+        auto&               i     = *mImpl;
+        const std::uint32_t index = handle.Index();
         if (index >= i.mLights.size())
             return nullptr;
         return &i.mLights[index];
@@ -163,8 +176,9 @@ namespace FREYA_NAMESPACE
 
         for (std::uint32_t n = 0; n < i.mLightCount; ++n)
         {
-            data.lightPositions[n] =
-                glm::vec4(i.mLights[n].position, i.mLights[n].type);
+            data.lightPositions[n] = glm::vec4(
+                i.mLights[n].position,
+                static_cast<float>(i.mLights[n].type));
             data.lightColorsAndRadius[n] =
                 glm::vec4(i.mLights[n].color, i.mLights[n].radius);
             data.lightDirectionsAndCutoff[n] =

@@ -1,6 +1,8 @@
 #include <FreyaExamples/CullFrameDumpIo.hpp>
 #include <FreyaExamples/DebugOverlay.hpp>
 
+#include <Freya/Advanced.hpp>
+
 #include <vulkan/vulkan.h>
 
 #include <imgui.h>

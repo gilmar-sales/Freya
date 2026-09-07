@@ -332,6 +332,8 @@ class MainApp final : public fra::AbstractApplication
 
         mCam.cameraPos = { 0.f, 28.f, 55.f };
         mCam.pitch     = -28.f;
+
+        rebuildScene();
     }
 
     void Update() override
@@ -601,32 +603,7 @@ class MainApp final : public fra::AbstractApplication
         mCam.Apply(*mRenderer);
 
         const auto tInst0 = Clock::now();
-        mScene.Clear();
-        std::uint32_t entity = 1;
-        for (const auto& fox : mFoxes)
-        {
-            for (const auto& part : mSkinned.submeshes)
-            {
-                fra::Scene::Instance inst {};
-                inst.model       = fox.model;
-                inst.mesh        = part.mesh;
-                inst.material    = part.material;
-                inst.entityId    = entity++;
-                inst.castShadows = mEnableShadows;
-                inst.boneOffset  = fox.boneOffset;
-                inst.boneCount   = jointCount;
-                mScene.Add(inst);
-            }
-        }
-        {
-            fra::Scene::Instance ground {};
-            ground.model       = groundModelMatrix();
-            ground.mesh        = mGroundMesh;
-            ground.material    = mGroundMaterial;
-            ground.entityId    = 100000u;
-            ground.castShadows = false;
-            mScene.Add(ground);
-        }
+        syncSceneInstances(jointCount);
         mScene.Upload(*mRenderer);
         const double msInstances =
             SecondsF(Clock::now() - tInst0).count() * 1000.0;
@@ -1448,6 +1425,75 @@ class MainApp final : public fra::AbstractApplication
     }
 
     /**
+     * @brief Full scene rebuild (Clear+Add). Call from StartUp and when fox
+     * count / submesh layout / castShadows layout identity changes.
+     * entityId stays stable across rebuilds for TAA history.
+     */
+    void rebuildScene()
+    {
+        mScene.Clear();
+        const auto    jointCount = mSkinned.skeleton.JointCount();
+        std::uint32_t entity     = 1;
+        for (const auto& fox : mFoxes)
+        {
+            for (const auto& part : mSkinned.submeshes)
+            {
+                fra::Scene::Instance inst {};
+                inst.model       = fox.model;
+                inst.mesh        = part.mesh;
+                inst.material    = part.material;
+                inst.entityId    = entity++;
+                inst.castShadows = mEnableShadows;
+                inst.boneOffset  = fox.boneOffset;
+                inst.boneCount   = jointCount;
+                mScene.Add(inst);
+            }
+        }
+        {
+            fra::Scene::Instance ground {};
+            ground.model       = groundModelMatrix();
+            ground.mesh        = mGroundMesh;
+            ground.material    = mGroundMaterial;
+            ground.entityId    = 100000u;
+            ground.castShadows = false;
+            mScene.Add(ground);
+        }
+        mSceneFoxCount       = mFoxes.size();
+        mSceneSubmeshCount   = mSkinned.submeshes.size();
+        mSceneCastShadows    = mEnableShadows;
+    }
+
+    void syncSceneInstances(std::uint32_t jointCount)
+    {
+        const bool layoutChanged =
+            mSceneFoxCount != mFoxes.size() ||
+            mSceneSubmeshCount != mSkinned.submeshes.size() ||
+            mSceneCastShadows != mEnableShadows;
+        if (layoutChanged || mScene.Size() == 0)
+        {
+            rebuildScene();
+            return;
+        }
+
+        fra::Scene::InstanceId id = 0;
+        for (const auto& fox : mFoxes)
+        {
+            for (std::size_t p = 0; p < mSkinned.submeshes.size(); ++p)
+            {
+                auto* inst = mScene.Get(id++);
+                if (inst == nullptr)
+                    continue;
+                inst->model       = fox.model;
+                inst->boneOffset  = fox.boneOffset;
+                inst->boneCount   = jointCount;
+                inst->castShadows = mEnableShadows;
+            }
+        }
+        if (auto* ground = mScene.Get(id))
+            ground->model = groundModelMatrix();
+    }
+
+    /**
      * @brief Draws the exact world-space AABB the GPU cull compute shader
      * (Shaders/GpuDriven/CullFrustum.comp) tests each instance against:
      * MeshPool's registered mesh-local aabbMin/aabbMax transformed by the
@@ -1470,8 +1516,7 @@ class MainApp final : public fra::AbstractApplication
             glm::vec4(0.6f, 0.9f, 0.4f, 0.4f));
     }
 
-    /// Ground plane world matrix (kept in sync with the scene-instance
-    /// upload in Update()).
+    /// Ground plane world matrix (kept in sync with retained scene instances).
     [[nodiscard]] static glm::mat4 groundModelMatrix()
     {
         return glm::scale(
@@ -1515,6 +1560,9 @@ class MainApp final : public fra::AbstractApplication
     fra::MeshHandle     mGroundMesh {};
     fra::MaterialHandle mGroundMaterial {};
     fra::Scene          mScene;
+    std::size_t         mSceneFoxCount     = 0;
+    std::size_t         mSceneSubmeshCount = 0;
+    bool                mSceneCastShadows  = true;
 
     FreyaExamples::FlyCam       mCam;
     FreyaExamples::DebugOverlay mOverlay;
