@@ -114,8 +114,29 @@ See [Flexibility](flexibility.md).
 | `ClearProjections()` | Clear all projection matrices |
 | `UpdateProjection(ProjectionUniformBuffer&)` | Update projection data |
 | `GetGpuAnimPass()` | GPU skinning pass (optional) |
+| `GetBillboardDraw()` | CPU billboard queue for the frame |
 
 Apps that do not customize the frame graph can keep calling `EndFrame()`.
+
+## BillboardDraw
+
+Per-frame queue of camera-facing quads (`Renderer::GetBillboardDraw()`).
+Cleared each `BeginFrame`. Use `Quad` for raw instances, or helpers:
+
+| Helper | Notes |
+|--------|-------|
+| `HealthBar(pos, w, h, fill01, bg, fg, align = Cylindrical)` | Background + left-aligned fill; same clip/blend/layer path |
+| `Text(pos, utf8, font, height, color, …, align = Cylindrical)` | SDF glyphs via `FontAtlas` |
+
+`BillboardAlign::Screen` faces the camera fully; `Cylindrical` yaws only
+(same path as `Billboard::align` / `billboard.vert`). Call sites that omit
+`align` keep cylindrical nameplates.
+
+```cpp
+auto& bb = mRenderer->GetBillboardDraw();
+bb.HealthBar(head, 0.85f, 0.08f, hp, bg, fg); // cylindrical
+bb.HealthBar(head, 0.85f, 0.08f, hp, bg, fg, fra::BillboardAlign::Screen);
+```
 
 ## Window
 

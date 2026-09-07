@@ -99,10 +99,14 @@ namespace FREYA_NAMESPACE
         void Quad(const Billboard& billboard);
 
         /**
-         * @brief Cylindrical nameplate: background + left-aligned fill.
+         * @brief Nameplate: background + left-aligned fill.
+         *
+         * Default align is Cylindrical (yaw-only). Pass Screen for full
+         * camera-facing.
          */
         void HealthBar(const glm::vec3& headPos, float width, float height,
-                       float fill01, const glm::vec4& bg, const glm::vec4& fg);
+                       float fill01, const glm::vec4& bg, const glm::vec4& fg,
+                       BillboardAlign align = BillboardAlign::Cylindrical);
 
         /**
          * @brief Latin-1 LTR nameplate: one SDF quad per glyph, centered.

@@ -626,16 +626,19 @@ class MainApp final : public fra::AbstractApplication
         const float pbrHp  = 0.70f + 0.20f * std::sin(mHpPulse * 0.5f + 1.2f);
         bb.HealthBar(glm::vec3(-1.2f, 1.25f, 0.0f), 0.85f, 0.08f, cellHp,
                      glm::vec4(0.08f, 0.08f, 0.08f, 0.85f),
-                     glm::vec4(0.25f, 0.85f, 0.35f, 1.0f));
+                     glm::vec4(0.25f, 0.85f, 0.35f, 1.0f),
+                     BillboardAlign::Screen);
         bb.HealthBar(glm::vec3(1.2f, 1.25f, 0.0f), 0.85f, 0.08f, pbrHp,
                      glm::vec4(0.08f, 0.08f, 0.08f, 0.85f),
-                     glm::vec4(0.85f, 0.35f, 0.25f, 1.0f));
+                     glm::vec4(0.85f, 0.35f, 0.25f, 1.0f),
+                     BillboardAlign::Cylindrical);
         bb.Text(glm::vec3(-1.2f, 1.42f, 0.0f), "Cell", mFont, 0.16f,
                 glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 2.0f,
-                glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+                glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), BillboardAlign::Screen);
         bb.Text(glm::vec3(1.2f, 1.42f, 0.0f), "PBR", mFont, 0.16f,
                 glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), 2.0f,
-                glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+                glm::vec4(0.0f, 0.0f, 0.0f, 1.0f),
+                BillboardAlign::Cylindrical);
         mMagic.Tick(dt, bb);
         mFire.Tick(dt, bb);
         mEmbers.Tick(dt, bb);

@@ -28,13 +28,14 @@ namespace FREYA_NAMESPACE
 
     void BillboardDraw::HealthBar(const glm::vec3& headPos, const float width,
                                   const float height, const float fill01,
-                                  const glm::vec4& bg, const glm::vec4& fg)
+                                  const glm::vec4& bg, const glm::vec4& fg,
+                                  const BillboardAlign align)
     {
         const float fill = std::clamp(fill01, 0.f, 1.f);
         Billboard   plate {};
         plate.worldPos     = headPos;
         plate.size         = { width, height };
-        plate.align        = BillboardAlign::Cylindrical;
+        plate.align        = align;
         plate.blend        = BillboardBlend::Alpha;
         plate.layer        = BillboardLayer::Ui;
         plate.depthTest    = true;

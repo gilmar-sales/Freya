@@ -47,8 +47,10 @@ Location: `Examples/CellBulbasaur/`
 
 Cell + edge post-process, custom G-buffer techniques (cell / triplanar /
 unlit), and toggleable posts (`outline`, `color_grade`, `underwater`,
-`heat_haze`, `glow`). Hotkeys: `F4`–`F11`. Ground uses a tiled albedo for
-triplanar (`F10`). TAA/bloom stay available from options.
+`heat_haze`, `glow`). World-space `HealthBar` / `Text` nameplates demo
+`BillboardAlign::Screen` (Cell) vs `Cylindrical` (PBR). Hotkeys: `F4`–`F11`.
+Ground uses a tiled albedo for triplanar (`F10`). TAA/bloom stay available
+from options.
 
 ```bash
 cd build/Examples/CellBulbasaur
