@@ -3,6 +3,7 @@
 #include <Freya/Freya.hpp>
 
 #include <chrono>
+#include <string>
 
 namespace FreyaExamples
 {
@@ -61,6 +62,12 @@ namespace FreyaExamples
 
         [[nodiscard]] float ElapsedUpdateMs() const;
 
+        /** @brief Optional label written into cull dump meta.example. */
+        void SetCullDumpExampleName(std::string name)
+        {
+            mCullDumpExample = std::move(name);
+        }
+
       private:
         static void onNativeEvent(const void* nativeEvent, void* user);
 
@@ -70,6 +77,7 @@ namespace FreyaExamples
         void ensureViewportTexture(void* sampler, void* imageView);
         bool reinitVulkanBackend(fra::Renderer& renderer);
         void applyPendingSwapchainChanges();
+        void pollCullFrameDump(fra::Renderer& renderer);
 
         bool            mInitialized    = false;
         bool            mEnabled        = true;
@@ -85,5 +93,9 @@ namespace FreyaExamples
         bool mPendingVSyncValue = false;
 
         std::chrono::steady_clock::time_point mUpdateStart {};
+
+        std::string mCullDumpExample = "Example";
+        std::string mLastCullDumpPath;
+        bool        mCullDumpPending = false;
     };
 } // namespace FreyaExamples

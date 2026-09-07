@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 namespace FREYA_NAMESPACE
 {
@@ -550,10 +551,6 @@ namespace FREYA_NAMESPACE
         if (mInstanceCount == 0)
             return;
 
-        refreshCullDescriptorsIfNeeded();
-
-        zeroDrawCount(techniqueFilter);
-
         if (mode == CullMode::Camera && mHiZMotionSerial != mFrameSerial)
         {
             bool viewChanged = !mHasLastCullViewProj;
@@ -589,10 +586,46 @@ namespace FREYA_NAMESPACE
         pc.maxDraws        = currentFrame().capacity;
         pc.hizDepthBias    = 1e-4f;
 
+        if (mode == CullMode::Camera && techniqueFilter == kTechniqueFilterAll)
+            mLastCullPushConstants = pc;
+
+        recordDispatchCull(pc);
+    }
+
+    void IndirectDrawSystem::DispatchCullExact(const CullPushConstants& pc)
+    {
+        if (pc.instanceCount == 0 && mInstanceCount == 0)
+            return;
+
+        CullPushConstants local = pc;
+        if (local.instanceCount == 0)
+            local.instanceCount = mInstanceCount;
+        if (local.maxDraws == 0)
+            local.maxDraws = currentFrame().capacity;
+
+        mLastCullPushConstants = local;
+        mCameraPos =
+            glm::vec3(local.cameraPos.x, local.cameraPos.y, local.cameraPos.z);
+        mScreenSize = vk::Extent2D {
+            static_cast<std::uint32_t>(std::max(local.screenSize.x, 1.0f)),
+            static_cast<std::uint32_t>(std::max(local.screenSize.y, 1.0f))
+        };
+
+        recordDispatchCull(local);
+    }
+
+    void IndirectDrawSystem::recordDispatchCull(const CullPushConstants& pc)
+    {
+        if (mInstanceCount == 0 && pc.instanceCount == 0)
+            return;
+
+        refreshCullDescriptorsIfNeeded();
+        zeroDrawCount(pc.techniqueFilter);
+
         auto&      frame = currentFrame();
-        auto&      list  = drawListFor(frame, techniqueFilter);
+        auto&      list  = drawListFor(frame, pc.techniqueFilter);
         auto&      cb    = mCommandPool->GetCommandBuffer();
-        const auto set   = cullSetFor(techniqueFilter);
+        const auto set   = cullSetFor(pc.techniqueFilter);
 
         const auto toCompute = std::array {
             vk::BufferMemoryBarrier()
@@ -676,7 +709,8 @@ namespace FREYA_NAMESPACE
         cb.pushConstants(mCullPipelineLayout, vk::ShaderStageFlagBits::eCompute,
                          0, sizeof(CullPushConstants), &pc);
 
-        const auto groups = (mInstanceCount + 63u) / 64u;
+        const auto count  = std::max(pc.instanceCount, mInstanceCount);
+        const auto groups = (count + 63u) / 64u;
         cb.dispatch(groups, 1, 1);
 
         const auto toDraw = std::array {
@@ -712,6 +746,223 @@ namespace FREYA_NAMESPACE
                            vk::DependencyFlags {}, 0, nullptr,
                            static_cast<std::uint32_t>(toDraw.size()),
                            toDraw.data(), 0, nullptr);
+    }
+
+    void IndirectDrawSystem::CaptureCullInputs(CullFrameSnapshot& out) const
+    {
+        out.pushConstants = mLastCullPushConstants;
+        out.meshes        = mMeshInfos;
+        out.lods          = mMeshLods;
+        out.instances     = mSceneInstances;
+        out.sources       = mInstanceTransforms;
+        out.hiz.present   = mHiZ && mHiZ->IsValid();
+        out.hiz.ready     = mHiZ && mHiZ->IsReady();
+        out.hiz.enabled   = mLastCullPushConstants.hizEnabled != 0;
+        if (mHiZ && mHiZ->IsValid())
+        {
+            const auto extent = mHiZ->GetExtent();
+            out.hiz.width     = extent.width;
+            out.hiz.height    = extent.height;
+            out.hiz.mipCount  = mHiZ->GetMipLevels();
+            out.hiz.file      = "hiz.r32f";
+        }
+    }
+
+    bool IndirectDrawSystem::ReadbackCullOutputs(
+        const std::uint32_t        frameIndex,
+        const std::uint32_t        techniqueFilter,
+        std::uint32_t&             outDrawCount,
+        std::vector<CullSurvivor>& outSurvivors)
+    {
+        outDrawCount = 0;
+        outSurvivors.clear();
+
+        if (mFrames.empty())
+            return false;
+
+        const auto prevFrame = mFrameIndex;
+        mFrameIndex          = frameIndex % mFrameCount;
+
+        auto& frame = currentFrame();
+        auto& list  = drawListFor(frame, techniqueFilter);
+        if (!list.drawCount || !list.compactTransforms)
+        {
+            mFrameIndex = prevFrame;
+            return false;
+        }
+
+        const auto countBytes = sizeof(std::uint32_t);
+        const auto maxDraws   = frame.capacity;
+        const auto compactBytes =
+            sizeof(InstanceTransform) * static_cast<std::size_t>(maxDraws);
+
+        auto countStaging =
+            BufferBuilder(mDevice)
+                .SetUsage(BufferUsage::Readback)
+                .SetSize(countBytes)
+                .Build();
+        auto compactStaging =
+            BufferBuilder(mDevice)
+                .SetUsage(BufferUsage::Readback)
+                .SetSize(compactBytes)
+                .Build();
+        if (!countStaging || !countStaging->GetMapped() || !compactStaging ||
+            !compactStaging->GetMapped())
+        {
+            mFrameIndex = prevFrame;
+            return false;
+        }
+
+        mDevice->Get().waitIdle();
+
+        auto cb = mCommandPool->CreateCommandBuffer();
+        cb.begin(vk::CommandBufferBeginInfo().setFlags(
+            vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
+
+        const auto barriers = std::array {
+            vk::BufferMemoryBarrier()
+                .setSrcAccessMask(vk::AccessFlagBits::eShaderWrite |
+                                  vk::AccessFlagBits::eIndirectCommandRead)
+                .setDstAccessMask(vk::AccessFlagBits::eTransferRead)
+                .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                .setBuffer(list.drawCount->Get())
+                .setOffset(0)
+                .setSize(VK_WHOLE_SIZE),
+            vk::BufferMemoryBarrier()
+                .setSrcAccessMask(vk::AccessFlagBits::eShaderWrite |
+                                  vk::AccessFlagBits::eVertexAttributeRead)
+                .setDstAccessMask(vk::AccessFlagBits::eTransferRead)
+                .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                .setBuffer(list.compactTransforms->Get())
+                .setOffset(0)
+                .setSize(VK_WHOLE_SIZE),
+        };
+        cb.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader |
+                               vk::PipelineStageFlagBits::eDrawIndirect |
+                               vk::PipelineStageFlagBits::eVertexInput,
+                           vk::PipelineStageFlagBits::eTransfer, {}, 0, nullptr,
+                           static_cast<std::uint32_t>(barriers.size()),
+                           barriers.data(), 0, nullptr);
+
+        cb.copyBuffer(list.drawCount->Get(), countStaging->Get(),
+                      vk::BufferCopy().setSize(countBytes));
+        cb.copyBuffer(list.compactTransforms->Get(), compactStaging->Get(),
+                      vk::BufferCopy().setSize(compactBytes));
+        cb.end();
+
+        const auto submitInfo =
+            vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(&cb);
+        mDevice->GetGraphicsQueue().submit(submitInfo);
+        mDevice->GetGraphicsQueue().waitIdle();
+        mCommandPool->FreeCommandBuffer(cb);
+
+        std::memcpy(&outDrawCount, countStaging->GetMapped(), countBytes);
+        outDrawCount = std::min(outDrawCount, maxDraws);
+
+        const auto* compact =
+            static_cast<const InstanceTransform*>(compactStaging->GetMapped());
+        outSurvivors.resize(outDrawCount);
+        for (std::uint32_t i = 0; i < outDrawCount; ++i)
+        {
+            outSurvivors[i].entityId = compact[i].entityId;
+            outSurvivors[i].slot     = i;
+            outSurvivors[i].meshId   = 0;
+            for (const auto& inst : mSceneInstances)
+            {
+                if (inst.entityId == compact[i].entityId)
+                {
+                    outSurvivors[i].meshId = inst.meshId;
+                    break;
+                }
+            }
+        }
+        mFrameIndex = prevFrame;
+        return true;
+    }
+
+    bool IndirectDrawSystem::ReadbackCullOutputsAggregated(
+        const std::uint32_t         frameIndex,
+        std::uint32_t&              outDrawCount,
+        std::vector<CullSurvivor>&  outSurvivors)
+    {
+        outDrawCount = 0;
+        outSurvivors.clear();
+
+        std::vector<CullSurvivor> merged;
+        merged.reserve(64);
+
+        auto appendUnique = [&](const std::vector<CullSurvivor>& part) {
+            for (const auto& s : part)
+            {
+                bool found = false;
+                for (const auto& e : merged)
+                {
+                    if (e.entityId == s.entityId)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                    merged.push_back(s);
+            }
+        };
+
+        std::uint32_t             count = 0;
+        std::vector<CullSurvivor> part;
+        // Technique lists hold Camera opaque survivors (DeferredGeometry).
+        for (std::uint32_t t = 0; t < kMaxMaterialTechniques; ++t)
+        {
+            if (!ReadbackCullOutputs(frameIndex, t, count, part))
+                return false;
+            appendUnique(part);
+        }
+        // Main list is reused by Translucent / Shadow; still include whatever
+        // remains (typically translucent survivors at end of frame).
+        if (!ReadbackCullOutputs(frameIndex, kTechniqueFilterAll, count, part))
+            return false;
+        appendUnique(part);
+
+        outSurvivors = std::move(merged);
+        outDrawCount = static_cast<std::uint32_t>(outSurvivors.size());
+        return true;
+    }
+
+    bool IndirectDrawSystem::CaptureHiZ(CullHiZDump& out)
+    {
+        out = {};
+        if (!mHiZ || !mHiZ->IsValid())
+            return false;
+
+        const auto extent = mHiZ->GetExtent();
+        out.present       = true;
+        out.ready         = mHiZ->IsReady();
+        out.enabled       = mLastCullPushConstants.hizEnabled != 0;
+        out.width         = extent.width;
+        out.height        = extent.height;
+        out.mipCount      = mHiZ->GetMipLevels();
+        out.file          = "hiz.r32f";
+        if (!out.ready)
+            return true;
+        return mHiZ->ReadbackMips(mCommandPool, out.pixels);
+    }
+
+    bool IndirectDrawSystem::UploadHiZFromDump(const CullHiZDump& dump)
+    {
+        if (!mHiZ || !dump.present || dump.pixels.empty() || dump.width == 0 ||
+            dump.height == 0)
+            return false;
+
+        if (!mHiZ->UploadMips(mCommandPool, dump.width, dump.height,
+                              dump.pixels))
+            return false;
+
+        bumpCullDescVersion();
+        mCullDescRefreshedThisFrame = false;
+        refreshCullDescriptorsIfNeeded();
+        return true;
     }
 
     void IndirectDrawSystem::ExecuteDraws(

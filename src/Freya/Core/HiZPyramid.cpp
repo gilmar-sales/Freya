@@ -1,7 +1,11 @@
 #include "Freya/Core/HiZPyramid.hpp"
 
+#include "Freya/Builders/BufferBuilder.hpp"
+
 #include <algorithm>
 #include <cmath>
+#include <cstring>
+#include <span>
 
 namespace FREYA_NAMESPACE
 {
@@ -363,6 +367,245 @@ namespace FREYA_NAMESPACE
         }
 
         mReady = true;
+    }
+
+    std::uint32_t HiZPyramid::PackedPixelCount(const std::uint32_t width,
+                                               const std::uint32_t height,
+                                               const std::uint32_t mipCount)
+    {
+        std::uint32_t total = 0;
+        for (std::uint32_t mip = 0; mip < mipCount; ++mip)
+        {
+            const auto w = std::max(1u, width >> mip);
+            const auto h = std::max(1u, height >> mip);
+            total += w * h;
+        }
+        return total;
+    }
+
+    bool HiZPyramid::ReadbackMips(const skr::Arc<CommandPool>& commandPool,
+                                  std::vector<float>&          outPixels)
+    {
+        if (!IsValid() || !commandPool)
+            return false;
+
+        const auto total = PackedPixelCount(mWidth, mHeight, mMipLevels);
+        const auto byteCount =
+            static_cast<vk::DeviceSize>(total) * sizeof(float);
+
+        auto staging = BufferBuilder(mDevice)
+                           .SetUsage(BufferUsage::Readback)
+                           .SetSize(byteCount)
+                           .Build();
+        if (!staging || !staging->GetMapped())
+            return false;
+
+        mDevice->Get().waitIdle();
+
+        auto cb = commandPool->CreateCommandBuffer();
+        cb.begin(vk::CommandBufferBeginInfo().setFlags(
+            vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
+
+        const auto oldLayout = mImageLayout == vk::ImageLayout::eUndefined
+                                   ? vk::ImageLayout::eUndefined
+                                   : mImageLayout;
+        {
+            const auto barrier =
+                vk::ImageMemoryBarrier()
+                    .setOldLayout(oldLayout)
+                    .setNewLayout(vk::ImageLayout::eTransferSrcOptimal)
+                    .setSrcAccessMask(vk::AccessFlagBits::eShaderWrite |
+                                      vk::AccessFlagBits::eShaderRead)
+                    .setDstAccessMask(vk::AccessFlagBits::eTransferRead)
+                    .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                    .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                    .setImage(mImage->GetImage())
+                    .setSubresourceRange(
+                        vk::ImageSubresourceRange()
+                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                            .setBaseMipLevel(0)
+                            .setLevelCount(mMipLevels)
+                            .setBaseArrayLayer(0)
+                            .setLayerCount(1));
+            cb.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader,
+                               vk::PipelineStageFlagBits::eTransfer, {}, 0,
+                               nullptr, 0, nullptr, 1, &barrier);
+        }
+
+        vk::DeviceSize dstOffset = 0;
+        for (std::uint32_t mip = 0; mip < mMipLevels; ++mip)
+        {
+            const auto mw = std::max(1u, mWidth >> mip);
+            const auto mh = std::max(1u, mHeight >> mip);
+            const auto region =
+                vk::BufferImageCopy()
+                    .setBufferOffset(dstOffset)
+                    .setBufferRowLength(0)
+                    .setBufferImageHeight(0)
+                    .setImageSubresource(
+                        vk::ImageSubresourceLayers()
+                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                            .setMipLevel(mip)
+                            .setBaseArrayLayer(0)
+                            .setLayerCount(1))
+                    .setImageOffset({ 0, 0, 0 })
+                    .setImageExtent({ mw, mh, 1 });
+            cb.copyImageToBuffer(
+                mImage->GetImage(), vk::ImageLayout::eTransferSrcOptimal,
+                staging->Get(), region);
+            dstOffset += static_cast<vk::DeviceSize>(mw) * mh * sizeof(float);
+        }
+
+        {
+            const auto barrier =
+                vk::ImageMemoryBarrier()
+                    .setOldLayout(vk::ImageLayout::eTransferSrcOptimal)
+                    .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                    .setSrcAccessMask(vk::AccessFlagBits::eTransferRead)
+                    .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                    .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                    .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                    .setImage(mImage->GetImage())
+                    .setSubresourceRange(
+                        vk::ImageSubresourceRange()
+                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                            .setBaseMipLevel(0)
+                            .setLevelCount(mMipLevels)
+                            .setBaseArrayLayer(0)
+                            .setLayerCount(1));
+            cb.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
+                               vk::PipelineStageFlagBits::eComputeShader, {}, 0,
+                               nullptr, 0, nullptr, 1, &barrier);
+        }
+
+        cb.end();
+        const auto submitInfo =
+            vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(&cb);
+        mDevice->GetGraphicsQueue().submit(submitInfo);
+        mDevice->GetGraphicsQueue().waitIdle();
+        commandPool->FreeCommandBuffer(cb);
+
+        mImageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        outPixels.resize(total);
+        std::memcpy(outPixels.data(), staging->GetMapped(),
+                    static_cast<std::size_t>(byteCount));
+        return true;
+    }
+
+    bool HiZPyramid::UploadMips(const skr::Arc<CommandPool>& commandPool,
+                                const std::uint32_t          width,
+                                const std::uint32_t          height,
+                                const std::span<const float>
+                                    pixels)
+    {
+        if (!commandPool || width == 0 || height == 0 || pixels.empty())
+            return false;
+
+        Resize(width, height);
+        if (!IsValid())
+            return false;
+
+        const auto expected = PackedPixelCount(mWidth, mHeight, mMipLevels);
+        if (pixels.size() < expected)
+            return false;
+
+        const auto byteCount =
+            static_cast<vk::DeviceSize>(expected) * sizeof(float);
+        auto staging =
+            BufferBuilder(mDevice)
+                .SetUsage(BufferUsage::Staging)
+                .SetSize(byteCount)
+                .SetData(const_cast<float*>(pixels.data()))
+                .Build();
+        if (!staging)
+            return false;
+
+        mDevice->Get().waitIdle();
+
+        auto cb = commandPool->CreateCommandBuffer();
+        cb.begin(vk::CommandBufferBeginInfo().setFlags(
+            vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
+
+        {
+            const auto barrier =
+                vk::ImageMemoryBarrier()
+                    .setOldLayout(vk::ImageLayout::eUndefined)
+                    .setNewLayout(vk::ImageLayout::eTransferDstOptimal)
+                    .setSrcAccessMask({})
+                    .setDstAccessMask(vk::AccessFlagBits::eTransferWrite)
+                    .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                    .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                    .setImage(mImage->GetImage())
+                    .setSubresourceRange(
+                        vk::ImageSubresourceRange()
+                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                            .setBaseMipLevel(0)
+                            .setLevelCount(mMipLevels)
+                            .setBaseArrayLayer(0)
+                            .setLayerCount(1));
+            cb.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,
+                               vk::PipelineStageFlagBits::eTransfer, {}, 0,
+                               nullptr, 0, nullptr, 1, &barrier);
+        }
+
+        vk::DeviceSize srcOffset = 0;
+        for (std::uint32_t mip = 0; mip < mMipLevels; ++mip)
+        {
+            const auto mw = std::max(1u, mWidth >> mip);
+            const auto mh = std::max(1u, mHeight >> mip);
+            const auto region =
+                vk::BufferImageCopy()
+                    .setBufferOffset(srcOffset)
+                    .setBufferRowLength(0)
+                    .setBufferImageHeight(0)
+                    .setImageSubresource(
+                        vk::ImageSubresourceLayers()
+                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                            .setMipLevel(mip)
+                            .setBaseArrayLayer(0)
+                            .setLayerCount(1))
+                    .setImageOffset({ 0, 0, 0 })
+                    .setImageExtent({ mw, mh, 1 });
+            cb.copyBufferToImage(staging->Get(), mImage->GetImage(),
+                                 vk::ImageLayout::eTransferDstOptimal, region);
+            srcOffset += static_cast<vk::DeviceSize>(mw) * mh * sizeof(float);
+        }
+
+        {
+            const auto barrier =
+                vk::ImageMemoryBarrier()
+                    .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
+                    .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                    .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
+                    .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                    .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                    .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                    .setImage(mImage->GetImage())
+                    .setSubresourceRange(
+                        vk::ImageSubresourceRange()
+                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                            .setBaseMipLevel(0)
+                            .setLevelCount(mMipLevels)
+                            .setBaseArrayLayer(0)
+                            .setLayerCount(1));
+            cb.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
+                               vk::PipelineStageFlagBits::eComputeShader, {}, 0,
+                               nullptr, 0, nullptr, 1, &barrier);
+        }
+
+        cb.end();
+        const auto submitInfo =
+            vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(&cb);
+        mDevice->GetGraphicsQueue().submit(submitInfo);
+        mDevice->GetGraphicsQueue().waitIdle();
+        commandPool->FreeCommandBuffer(cb);
+
+        mImageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        mReady       = true;
+        ++mPyramidGeneration;
+        if (mPyramidGeneration == 0)
+            mPyramidGeneration = 1;
+        return true;
     }
 
 } // namespace FREYA_NAMESPACE

@@ -117,7 +117,8 @@ namespace FREYA_NAMESPACE
             case BufferUsage::Indirect:
                 bufferInfo.setUsage(vk::BufferUsageFlagBits::eIndirectBuffer |
                                     vk::BufferUsageFlagBits::eStorageBuffer |
-                                    vk::BufferUsageFlagBits::eTransferDst);
+                                    vk::BufferUsageFlagBits::eTransferDst |
+                                    vk::BufferUsageFlagBits::eTransferSrc);
                 break;
             default:
                 break;

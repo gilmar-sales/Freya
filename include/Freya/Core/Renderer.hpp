@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Asset/CullFrameDump.hpp"
 #include "Freya/Asset/GpuAnimDebug.hpp"
 #include "Freya/Asset/GpuAnimation.hpp"
 #include "Freya/Asset/GpuScene.hpp"
@@ -91,6 +92,20 @@ namespace FREYA_NAMESPACE
 
         void RequestPick(std::uint32_t x, std::uint32_t y);
         bool TryConsumePickResult(std::uint32_t& outEntityId);
+
+        /**
+         * @brief One-shot: capture cull inputs/outputs after the next EndScene.
+         *
+         * Call TryConsumeCullFrameDump on a later frame (after Present / FiF
+         * wait) to retrieve the snapshot.
+         */
+        void RequestCullFrameDump();
+
+        /**
+         * @brief Pop a pending cull-frame dump filled after GPU work completed.
+         * @return false when no dump is ready.
+         */
+        bool TryConsumeCullFrameDump(CullFrameSnapshot& out);
 
         bool InsertFrameStage(const char* beforeName, FrameStagePtr stage);
         bool ReplaceFrameStage(const char* name, FrameStagePtr stage);

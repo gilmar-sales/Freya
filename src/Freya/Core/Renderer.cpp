@@ -1567,6 +1567,22 @@ namespace FREYA_NAMESPACE
         return true;
     }
 
+    void Renderer::Impl::RequestCullFrameDump()
+    {
+        mCullDumpRequested = true;
+    }
+
+    bool Renderer::Impl::TryConsumeCullFrameDump(CullFrameSnapshot& out)
+    {
+        if (!mCullDumpReady)
+            return false;
+
+        out              = std::move(mCullDumpPending);
+        mCullDumpPending = {};
+        mCullDumpReady   = false;
+        return true;
+    }
+
     void Renderer::Impl::BeginFrame()
     {
         mSwapChain->WaitNextFrame();
@@ -1665,6 +1681,16 @@ namespace FREYA_NAMESPACE
         }
         mLastFrameGpuTiming = sample;
 
+        if (mCullDumpRequested && mIndirectDraw)
+        {
+            mCullDumpPending = {};
+            // Capture Hi-Z before stages rebuild it — this is what CullFrustum
+            // samples this frame.
+            CullHiZDump hiz {};
+            if (mIndirectDraw->CaptureHiZ(hiz))
+                mCullDumpPending.hiz = std::move(hiz);
+        }
+
         mDevice->BeginDebugLabel(commandBuffer, DebugLabel::Frame);
 
         const auto timedStages =
@@ -1703,6 +1729,29 @@ namespace FREYA_NAMESPACE
         }
         mDevice->EndDebugLabel(commandBuffer);
 
+        if (mCullDumpRequested && mIndirectDraw)
+        {
+            auto hizPixels  = std::move(mCullDumpPending.hiz.pixels);
+            auto hizReady   = mCullDumpPending.hiz.ready;
+            auto hizPresent = mCullDumpPending.hiz.present;
+            auto hizW       = mCullDumpPending.hiz.width;
+            auto hizH       = mCullDumpPending.hiz.height;
+            auto hizMips    = mCullDumpPending.hiz.mipCount;
+            mIndirectDraw->CaptureCullInputs(mCullDumpPending);
+            mCullDumpPending.hiz.pixels   = std::move(hizPixels);
+            mCullDumpPending.hiz.present  = hizPresent;
+            mCullDumpPending.hiz.ready    = hizReady;
+            mCullDumpPending.hiz.width    = hizW;
+            mCullDumpPending.hiz.height   = hizH;
+            mCullDumpPending.hiz.mipCount = hizMips;
+            mCullDumpPending.hiz.file     = "hiz.r32f";
+            mCullDumpPending.hiz.enabled =
+                mCullDumpPending.pushConstants.hizEnabled != 0;
+            mCullDumpRequested        = false;
+            mCullDumpAwaitingReadback = true;
+            mCullDumpFrameIndex       = mSwapChain->GetCurrentFrameIndex();
+        }
+
         if (mFrameTimestampPool && timedStages > 0 &&
             frameIndex < mFrameTimingSlotPending.size())
         {
@@ -1736,6 +1785,32 @@ namespace FREYA_NAMESPACE
         else if (presentResult != vk::Result::eSuccess)
         {
             throw std::runtime_error("failed to present swap chain image!");
+        }
+
+        // Read cull outputs before the next frame's UploadSceneInstances
+        // zeroes the FiF drawCount buffer.
+        if (mCullDumpAwaitingReadback && mIndirectDraw)
+        {
+            std::uint32_t             drawCount = 0;
+            std::vector<CullSurvivor> survivors;
+            // Aggregate technique lists + main: Translucent overwrites main
+            // with translucent-only draws, so reading All alone often yields 0.
+            if (mIndirectDraw->ReadbackCullOutputsAggregated(
+                    mCullDumpFrameIndex, drawCount, survivors))
+            {
+                mCullDumpPending.observedDrawCount = drawCount;
+                mCullDumpPending.survivors         = std::move(survivors);
+                mCullDumpPending.expected          = {};
+                mCullDumpPending.expected.drawCount =
+                    static_cast<int>(mCullDumpPending.observedDrawCount);
+                mCullDumpPending.expected.mustSurviveEntityIds.reserve(
+                    mCullDumpPending.survivors.size());
+                for (const auto& s : mCullDumpPending.survivors)
+                    mCullDumpPending.expected.mustSurviveEntityIds.push_back(
+                        s.entityId);
+                mCullDumpReady = true;
+            }
+            mCullDumpAwaitingReadback = false;
         }
     }
 

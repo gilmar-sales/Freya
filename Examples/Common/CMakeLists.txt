@@ -2,6 +2,7 @@ add_library(FreyaExamplesCommon STATIC
     src/FlyCam.cpp
     src/GroundMesh.cpp
     src/DebugOverlay.cpp
+    src/CullFrameDumpIo.cpp
 )
 
 add_library(FreyaExamples::Common ALIAS FreyaExamplesCommon)
@@ -14,6 +15,14 @@ FetchContent_Declare(
     GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(imgui)
+
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.3
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(nlohmann_json)
 
 add_library(imgui_freya STATIC
     "${imgui_SOURCE_DIR}/imgui.cpp"
@@ -29,9 +38,6 @@ target_include_directories(imgui_freya PUBLIC
 )
 target_compile_features(imgui_freya PUBLIC cxx_std_17)
 target_link_libraries(imgui_freya PUBLIC SDL3::SDL3 Vulkan::Vulkan)
-# Do NOT define IMGUI_IMPL_VULKAN_NO_PROTOTYPES (even to 0): #ifdef treats
-# any definition as enabled and then Init requires LoadFunctions().
-# Undefine VK_NO_PROTOTYPES if a dependency injected it.
 target_compile_options(imgui_freya PRIVATE
     $<$<COMPILE_LANGUAGE:CXX>:-UVK_NO_PROTOTYPES>
 )
@@ -47,6 +53,6 @@ target_include_directories(FreyaExamplesCommon
 target_compile_features(FreyaExamplesCommon PUBLIC cxx_std_26)
 
 target_link_libraries(FreyaExamplesCommon
-    PUBLIC Freya::Freya imgui_freya
+    PUBLIC Freya::Freya imgui_freya nlohmann_json::nlohmann_json
     PRIVATE Vulkan::Vulkan SDL3::SDL3
 )

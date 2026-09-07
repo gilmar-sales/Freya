@@ -23,6 +23,7 @@
 #include "Freya/Asset/AnimGraphDebug.hpp"
 #include "Freya/Asset/AnimationClip.hpp"
 #include "Freya/Asset/BakedAnimation.hpp"
+#include "Freya/Asset/CullFrameDump.hpp"
 #include "Freya/Asset/FontAtlas.hpp"
 #include "Freya/Asset/GpuAnimDebug.hpp"
 #include "Freya/Asset/GpuAnimation.hpp"

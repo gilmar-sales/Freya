@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Asset/CullFrameDump.hpp"
 #include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Asset/InstanceTransform.hpp"
 #include "Freya/Asset/MaterialDescriptorResources.hpp"
@@ -69,9 +70,59 @@ namespace FREYA_NAMESPACE
                           bool          reverseZ        = false,
                           std::uint32_t techniqueFilter = kTechniqueFilterAll);
 
+        /**
+         * @brief Replay a frozen CullPushConstants (FreyaGpuTests / dump).
+         *
+         * Uses @p pc as-is (including hizEnabled). Caller must upload Hi-Z
+         * via UploadHiZFromDump when pc.hizEnabled != 0.
+         */
+        void DispatchCullExact(const CullPushConstants& pc);
+
         void ExecuteDraws(bool               bindMaterials,
                           vk::PipelineLayout pipelineLayout,
                           std::uint32_t techniqueFilter = kTechniqueFilterAll);
+
+        /**
+         * @brief Copy CPU-side cull inputs + last Camera push constants.
+         */
+        void CaptureCullInputs(CullFrameSnapshot& out) const;
+
+        /**
+         * @brief GPU→CPU readback of drawCount + compact survivors.
+         *
+         * Waits idle; must be called after the CB that recorded DispatchCull
+         * has completed. @p frameIndex selects the FiF slot that was culled.
+         */
+        bool ReadbackCullOutputs(std::uint32_t              frameIndex,
+                                 std::uint32_t              techniqueFilter,
+                                 std::uint32_t&             outDrawCount,
+                                 std::vector<CullSurvivor>& outSurvivors);
+
+        /**
+         * @brief Merge survivors from main + every technique draw list.
+         *
+         * Needed for frame dumps: Translucent reuses the main list and would
+         * otherwise report drawCount=0 for opaque-only scenes.
+         */
+        bool ReadbackCullOutputsAggregated(
+            std::uint32_t              frameIndex,
+            std::uint32_t&             outDrawCount,
+            std::vector<CullSurvivor>& outSurvivors);
+
+        /**
+         * @brief Readback Hi-Z pyramid into @p out (pixels + meta).
+         */
+        bool CaptureHiZ(CullHiZDump& out);
+
+        /**
+         * @brief Upload fixture Hi-Z and refresh cull descriptors.
+         */
+        bool UploadHiZFromDump(const CullHiZDump& dump);
+
+        [[nodiscard]] const CullPushConstants& GetLastCullPushConstants() const
+        {
+            return mLastCullPushConstants;
+        }
 
         [[nodiscard]] std::uint32_t GetInstanceCount() const
         {
@@ -251,6 +302,7 @@ namespace FREYA_NAMESPACE
         void refreshCullDescriptorsIfNeeded();
         void uploadFrameBuffers();
         void zeroDrawCount(std::uint32_t techniqueFilter);
+        void recordDispatchCull(const CullPushConstants& pc);
 
         [[nodiscard]] FrameResources&    currentFrame();
         [[nodiscard]] DrawListResources& drawListFor(
@@ -267,13 +319,14 @@ namespace FREYA_NAMESPACE
         skr::Arc<MaterialDescriptorResources> mMaterials;
         skr::Arc<MaterialPool>                mMaterialPool;
 
-        std::uint32_t mFrameCount          = 1;
-        std::uint32_t mFrameIndex          = 0;
-        std::uint64_t mFrameSerial         = 0;
-        std::uint64_t mHiZMotionSerial     = ~std::uint64_t(0);
-        bool          mHiZSafeForFrame     = false;
-        bool          mHasLastCullViewProj = false;
-        glm::mat4     mLastCullViewProj { 1.0f };
+        std::uint32_t     mFrameCount          = 1;
+        std::uint32_t     mFrameIndex          = 0;
+        std::uint64_t     mFrameSerial         = 0;
+        std::uint64_t     mHiZMotionSerial     = ~std::uint64_t(0);
+        bool              mHiZSafeForFrame     = false;
+        bool              mHasLastCullViewProj = false;
+        glm::mat4         mLastCullViewProj { 1.0f };
+        CullPushConstants mLastCullPushConstants {};
 
         vk::Pipeline                   mCullPipeline;
         vk::PipelineLayout             mCullPipelineLayout;

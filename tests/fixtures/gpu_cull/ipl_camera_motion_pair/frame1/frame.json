@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "meta": {
+    "example": "IndustrialPipeLamp",
+    "label": "ipl_camera_motion_pair_frame1",
+    "notes": "Consecutive camera poses; ground must remain visible (no flicker). hizEnabled=0 isolates frustum path."
+  },
+  "pushConstants": {
+    "viewProj": [
+      0.0009767198893972052,
+      0.0,
+      0.0010010004979889614,
+      -0.9999994974909725,
+      0.09814683236315506,
+      -1.72323984466555,
+      -1.0109152330939975e-07,
+      0.00010099043178609036,
+      -0.9693219255311089,
+      -0.17448334521395398,
+      9.98404407658973e-07,
+      -0.000997406003251314,
+      -0.019534397787944108,
+      3.4896651506899574,
+      0.09994618108459334,
+      0.15376509649123885
+    ],
+    "cameraPos": [
+      0.05,
+      2.02,
+      0.02,
+      0
+    ],
+    "screenSize": [
+      64,
+      36
+    ],
+    "instanceCount": 1,
+    "cullMode": 0,
+    "reverseZ": 1,
+    "hizEnabled": 0,
+    "lodPixelRef": 256,
+    "lodStep": 2,
+    "techniqueFilter": 4294967295,
+    "maxDraws": 256,
+    "hizDepthBias": 0.0001
+  },
+  "meshes": [
+    {
+      "lodCount": 1,
+      "lodBase": 0,
+      "aabbMin": [
+        -50,
+        0,
+        -50,
+        0
+      ],
+      "aabbMax": [
+        50,
+        0,
+        50,
+        0
+      ]
+    }
+  ],
+  "lods": [
+    {
+      "indexCount": 36,
+      "firstIndex": 0,
+      "vertexOffset": 0
+    }
+  ],
+  "instances": [
+    {
+      "model": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "meshId": 0,
+      "materialId": 0,
+      "entityId": 10,
+      "flags": 1,
+      "techniqueId": 0
+    }
+  ],
+  "hiz": null,
+  "observed": {
+    "drawCount": 1,
+    "survivors": []
+  },
+  "expected": {
+    "mustSurviveEntityIds": [
+      10
+    ],
+    "mustDieEntityIds": [],
+    "drawCount": 1
+  }
+}

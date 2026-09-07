@@ -547,6 +547,7 @@ class MainApp final : public fra::AbstractApplication
         // UI render pass.
         if (mPlatform)
             mOverlay.Init(*mRenderer, *mWindow, *mPlatform);
+        mOverlay.SetCullDumpExampleName("CellBulbasaur");
 
         std::cout
             << "CellBulbasaur — left: cell  right: PBR\n"

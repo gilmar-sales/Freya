@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "meta": {
+    "example": "synthetic",
+    "label": "frustum_visible",
+    "notes": "unit cube at origin must survive"
+  },
+  "pushConstants": {
+    "viewProj": [
+      1.7320508075688774,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      -1.7320508075688774,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.001001001001001001,
+      -1.0,
+      0.0,
+      0.0,
+      0.09509509509509509,
+      5.0
+    ],
+    "cameraPos": [
+      0,
+      0,
+      5,
+      0
+    ],
+    "screenSize": [
+      64,
+      64
+    ],
+    "instanceCount": 1,
+    "cullMode": 0,
+    "reverseZ": 1,
+    "hizEnabled": 0,
+    "lodPixelRef": 256,
+    "lodStep": 2,
+    "techniqueFilter": 4294967295,
+    "maxDraws": 256,
+    "hizDepthBias": 0.0001
+  },
+  "meshes": [
+    {
+      "lodCount": 1,
+      "lodBase": 0,
+      "aabbMin": [
+        -0.5,
+        -0.5,
+        -0.5,
+        0
+      ],
+      "aabbMax": [
+        0.5,
+        0.5,
+        0.5,
+        0
+      ]
+    }
+  ],
+  "lods": [
+    {
+      "indexCount": 36,
+      "firstIndex": 0,
+      "vertexOffset": 0
+    }
+  ],
+  "instances": [
+    {
+      "model": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "meshId": 0,
+      "materialId": 0,
+      "entityId": 1,
+      "flags": 1,
+      "techniqueId": 0
+    }
+  ],
+  "hiz": null,
+  "observed": {
+    "drawCount": 1,
+    "survivors": []
+  },
+  "expected": {
+    "mustSurviveEntityIds": [
+      1
+    ],
+    "mustDieEntityIds": [],
+    "drawCount": 1
+  }
+}

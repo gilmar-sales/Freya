@@ -196,6 +196,16 @@ namespace FREYA_NAMESPACE
         return mImpl->TryConsumePickResult(outEntityId);
     }
 
+    void Renderer::RequestCullFrameDump()
+    {
+        mImpl->RequestCullFrameDump();
+    }
+
+    bool Renderer::TryConsumeCullFrameDump(CullFrameSnapshot& out)
+    {
+        return mImpl->TryConsumeCullFrameDump(out);
+    }
+
     bool Renderer::InsertFrameStage(const char* beforeName, FrameStagePtr stage)
     {
         return mImpl->InsertFrameStage(beforeName, std::move(stage));

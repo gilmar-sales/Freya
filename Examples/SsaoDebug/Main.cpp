@@ -33,6 +33,7 @@ class MainApp final : public fra::AbstractApplication
 
         if (mPlatform)
             mOverlay.Init(*mRenderer, *mWindow, *mPlatform);
+        mOverlay.SetCullDumpExampleName("SsaoDebug");
 
         mRenderer->ClearProjections();
 

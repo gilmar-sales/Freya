@@ -129,6 +129,7 @@ class MainApp final : public fra::AbstractApplication
 
         if (mPlatform)
             mOverlay.Init(*mRenderer, *mWindow, *mPlatform);
+        mOverlay.SetCullDumpExampleName("SkinnedFox");
 
         mEventManager->Subscribe<fra::KeyPressedEvent>(
             [this](const fra::KeyPressedEvent& event) {

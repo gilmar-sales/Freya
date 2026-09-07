@@ -34,6 +34,7 @@ class MainApp final : public fra::AbstractApplication
 
         if (mPlatform)
             mOverlay.Init(*mRenderer, *mWindow, *mPlatform);
+        mOverlay.SetCullDumpExampleName("IndustrialPipeLamp");
 
         mEventManager->Subscribe<fra::KeyReleasedEvent>(
             [this](const fra::KeyReleasedEvent& event) {

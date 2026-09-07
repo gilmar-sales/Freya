@@ -1,3 +1,4 @@
+#include <FreyaExamples/CullFrameDumpIo.hpp>
 #include <FreyaExamples/DebugOverlay.hpp>
 
 #include <vulkan/vulkan.h>
@@ -453,7 +454,47 @@ namespace FreyaExamples
             renderer.SetSsaoIntensity(options.ssaoIntensity);
         }
 
+        if (ImGui::CollapsingHeader("GPU Cull"))
+        {
+            if (ImGui::Button("Dump cull frame"))
+            {
+                renderer.RequestCullFrameDump();
+                mCullDumpPending = true;
+                mLastCullDumpPath.clear();
+            }
+            if (mCullDumpPending)
+                ImGui::TextDisabled("Waiting for GPU readback…");
+            else if (!mLastCullDumpPath.empty())
+                ImGui::TextWrapped("Wrote %s", mLastCullDumpPath.c_str());
+            ImGui::TextWrapped(
+                "Writes frame.json (+ hiz.r32f) under ./cull_dumps/ "
+                "for FreyaGpuTests fixtures.");
+        }
+
         ImGui::End();
+        pollCullFrameDump(renderer);
+    }
+
+    void DebugOverlay::pollCullFrameDump(fra::Renderer& renderer)
+    {
+        if (!mCullDumpPending)
+            return;
+
+        fra::CullFrameSnapshot snap {};
+        if (!renderer.TryConsumeCullFrameDump(snap))
+            return;
+
+        snap.example = mCullDumpExample;
+        if (snap.label.empty())
+            snap.label = "dump";
+
+        const auto dir  = MakeCullDumpDirectory();
+        const auto path = WriteCullFrameDump(snap, dir);
+        if (path.empty())
+            std::fprintf(stderr, "DebugOverlay: cull dump write failed\n");
+        else
+            mLastCullDumpPath = path;
+        mCullDumpPending = false;
     }
 
     void DebugOverlay::EndFrame(fra::Renderer& renderer)

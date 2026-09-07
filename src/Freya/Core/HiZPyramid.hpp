@@ -70,6 +70,27 @@ namespace FREYA_NAMESPACE
             return { mWidth, mHeight };
         }
 
+        [[nodiscard]] std::uint32_t GetMipLevels() const { return mMipLevels; }
+
+        /**
+         * @brief Copy all Hi-Z mips to host floats (row-major, mip0 first).
+         * Requires the pyramid to be valid; waits on the device.
+         */
+        bool ReadbackMips(const skr::Arc<CommandPool>& commandPool,
+                          std::vector<float>&          outPixels);
+
+        /**
+         * @brief Upload a packed mip stack and mark the pyramid ready.
+         * @p pixels must contain every mip (same packing as ReadbackMips).
+         */
+        bool UploadMips(const skr::Arc<CommandPool>& commandPool,
+                        std::uint32_t width, std::uint32_t height,
+                        std::span<const float> pixels);
+
+        /// Total float count for a full pyramid of @p width x @p height.
+        static std::uint32_t PackedPixelCount(
+            std::uint32_t width, std::uint32_t height, std::uint32_t mipCount);
+
       private:
         void destroyMipViews();
         void writeFrameDescriptors(std::uint32_t          frame,

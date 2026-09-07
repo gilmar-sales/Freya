@@ -141,6 +141,9 @@ namespace FREYA_NAMESPACE
         void RequestPick(std::uint32_t x, std::uint32_t y);
         bool TryConsumePickResult(std::uint32_t& outEntityId);
 
+        void RequestCullFrameDump();
+        bool TryConsumeCullFrameDump(CullFrameSnapshot& out);
+
         bool InsertFrameStage(const char* beforeName, FrameStagePtr stage);
         bool ReplaceFrameStage(const char* name, FrameStagePtr stage);
 
@@ -321,6 +324,12 @@ namespace FREYA_NAMESPACE
         std::uint32_t mPickX                = 0;
         std::uint32_t mPickY                = 0;
         bool          mPickAwaitingReadback = false;
+
+        bool              mCullDumpRequested        = false;
+        bool              mCullDumpAwaitingReadback = false;
+        bool              mCullDumpReady            = false;
+        std::uint32_t     mCullDumpFrameIndex       = 0;
+        CullFrameSnapshot mCullDumpPending {};
     };
 
 } // namespace FREYA_NAMESPACE
