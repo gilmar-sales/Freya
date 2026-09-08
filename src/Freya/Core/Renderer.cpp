@@ -274,22 +274,27 @@ namespace FREYA_NAMESPACE
     {
         mDevice->Get().waitIdle();
 
+        // Capture before reset: panel-sized offscreen targets must stay put.
+        // Only fullscreen trackers (extent == prior swapchain, e.g. DebugOverlay)
+        // follow the new drawable size.
+        const vk::Extent2D previousSwapchainExtent =
+            mSwapChain ? mSwapChain->GetExtent() : vk::Extent2D {};
+
         mSwapChain.reset();
         mSwapChain = mServiceProvider->GetService<SwapChainBuilder>()->Build();
 
         createFrameTimestampPool();
 
-        // SetViewportTarget clients (DebugOverlay) must follow the drawable
-        // size. Otherwise getRenderExtent() stays at Init resolution while the
-        // window/swapchain changes — lighting GPU time looks
-        // resolution-invariant.
         if (mViewportTarget)
         {
             const auto extent = mSwapChain->GetExtent();
             const auto cur =
                 mOutputTarget ? mOutputTarget->GetExtent() : vk::Extent2D {};
-            if (!mOutputTarget || cur.width != extent.width ||
-                cur.height != extent.height)
+            const bool wasTrackingSwapchain =
+                cur.width == previousSwapchainExtent.width &&
+                cur.height == previousSwapchainExtent.height;
+            if (wasTrackingSwapchain &&
+                (cur.width != extent.width || cur.height != extent.height))
             {
                 auto target =
                     mServiceProvider->GetService<RenderTargetBuilder>()
