@@ -187,14 +187,16 @@ namespace FREYA_NAMESPACE
                 }
                 break;
             }
-            case SDL_EVENT_WINDOW_RESIZED: {
+            case SDL_EVENT_WINDOW_RESIZED:
+            case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: {
                 if (!window)
                     break;
                 int width  = 0;
                 int height = 0;
                 SDL_GetWindowSizeInPixels(window, &width, &height);
 
-                logger->LogInformation("Window size: {}, {}", width, height);
+                logger->LogInformation("Window pixel size: {}, {}", width,
+                                       height);
 
                 const auto resizeEvent =
                     WindowResizeEvent { .width = width, .height = height };

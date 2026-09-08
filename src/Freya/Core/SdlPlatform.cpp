@@ -143,6 +143,7 @@ namespace FREYA_NAMESPACE
                 case SDL_EVENT_WINDOW_MINIMIZED:
                 case SDL_EVENT_WINDOW_RESTORED:
                 case SDL_EVENT_WINDOW_RESIZED:
+                case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
                     windowId = sdlEvent.window.windowID;
                     break;
                 case SDL_EVENT_KEY_DOWN:

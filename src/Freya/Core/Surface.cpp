@@ -2,6 +2,9 @@
 
 #include "Freya/Internal/WindowNative.hpp"
 
+#include <algorithm>
+#include <limits>
+
 namespace FREYA_NAMESPACE
 {
     /**
@@ -49,29 +52,22 @@ namespace FREYA_NAMESPACE
      */
     vk::Extent2D Surface::QueryExtent() const
     {
-        auto width  = mWindow->GetWidth();
-        auto height = mWindow->GetHeight();
-
         auto capabilities =
             mPhysicalDevice->Get().getSurfaceCapabilitiesKHR(mSurface);
+
         if (capabilities.currentExtent.width !=
             std::numeric_limits<std::uint32_t>::max())
         {
-            return vk::Extent2D()
-                .setWidth(std::min(width, capabilities.currentExtent.width))
-                .setHeight(std::min(height, capabilities.currentExtent.height));
+            return capabilities.currentExtent;
         }
-        else
-        {
-            auto actualExtent =
-                vk::Extent2D()
-                    .setWidth(
-                        std::min(width, capabilities.maxImageExtent.width))
-                    .setHeight(
-                        std::min(height, capabilities.maxImageExtent.height));
 
-            return actualExtent;
-        }
+        const auto width  = mWindow->GetWidth();
+        const auto height = mWindow->GetHeight();
+        return vk::Extent2D()
+            .setWidth(std::clamp(width, capabilities.minImageExtent.width,
+                                 capabilities.maxImageExtent.width))
+            .setHeight(std::clamp(height, capabilities.minImageExtent.height,
+                                  capabilities.maxImageExtent.height));
     }
 
     /**
