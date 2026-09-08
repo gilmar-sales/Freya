@@ -187,6 +187,12 @@ namespace FREYA_NAMESPACE
         mImpl->UploadBoneMatrices(bones);
     }
 
+    void Renderer::UploadBoneMatrices(
+        const std::uint32_t boneOffset, const std::span<const glm::mat4> bones)
+    {
+        mImpl->UploadBoneMatrices(boneOffset, bones);
+    }
+
     void Renderer::RequestPick(const std::uint32_t x, const std::uint32_t y)
     {
         mImpl->RequestPick(x, y);

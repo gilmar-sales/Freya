@@ -191,7 +191,9 @@ renderer->UploadSceneInstances(uploads);
 ```
 
 `BoneMatrixResources` holds current + previous palettes (TAA). Default
-capacity **32768** `mat4`s. Unused slots stay identity on CPU upload.
+capacity **32768** `mat4`s. `UploadBoneMatrices` writes only the provided
+span (optional `boneOffset`); it does not identity-fill the rest of the
+palette. The written span is unmarked from GPU-owned FiF carry ranges.
 
 ## GPU animation path
 
@@ -220,10 +222,17 @@ gpu->UploadBoneMask(upperWeights);
 gpu->UploadRestJoints(...);
 gpu->SetRigIndices(lookJ, ikRoot, ikMid, ikTip, rootJ);
 gpu->SetCopyPrevBones(true); // sparse LOD / FiF continuity
-gpu->UploadInstances(instances);
+gpu->UploadInstances(instances); // marks sticky GPU-owned bone ranges
 gpu->SetEnabled(true);
 // Dispatch runs in the frame graph
 ```
+
+**Mixed CPU + GPU (same frame):** upload CPU skins first, then
+`UploadInstances` for GPU actors, with `SetCopyPrevBones(true)`. Carry /
+copy-to-prev only touch GPU-owned ranges, so hero CPU skins are not wiped.
+Prefer uploading only CPU-owned matrices (not a full palette of identity
+padding for GPU slots). Call `UploadInstances` after the CPU upload so wild
+slots are re-marked the same frame.
 
 After toggling `quantizeGpuAnimJoints`, call
 `fra::Advanced(renderer).GpuAnimation().RebuildPass()` and re-upload
@@ -444,4 +453,6 @@ by hand).
 - Hero / cutscene actors that need stacked layers beyond the dual GPU slot
   should stay on the CPU skin path.
 - Sparse Crowd updates require `SetCopyPrevBones(true)` so FiF slots do not
-  flicker for actors not dispatched this frame.
+  flicker for actors not dispatched this frame. Carry is scoped to sticky
+  GPU-owned bone ranges from `UploadInstances`; CPU `UploadBoneMatrices`
+  spans are excluded so mixed CPU/GPU frames are safe.

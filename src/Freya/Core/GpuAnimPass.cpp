@@ -530,6 +530,17 @@ namespace FREYA_NAMESPACE
         mInstanceBuffer->Copy(instances.data(),
                               static_cast<std::uint32_t>(
                                   mInstanceCount * sizeof(GpuAnimInstance)));
+
+        // Sticky GPU-owned palette spans for FiF carry (sparse LOD). CPU
+        // UploadBoneMatrices unmarks its own span so mixed mode is safe.
+        if (mBoneResources && mJointCount > 0)
+        {
+            for (std::uint32_t i = 0; i < mInstanceCount; ++i)
+            {
+                mBoneResources->MarkGpuOwnedBones(instances[i].boneOffset,
+                                                  mJointCount);
+            }
+        }
     }
 
     void GpuAnimPass::Impl::Dispatch(const skr::Arc<CommandPool>& commandPool,
@@ -556,8 +567,9 @@ namespace FREYA_NAMESPACE
         {
             writeTimestamp(commandBuffer, qBase + 0,
                            vk::PipelineStageFlagBits::eTopOfPipe);
-            // Sparse LOD: seed this FiF slot from last frame so foxes not in
-            // the active list keep a continuous pose (not a stale ring entry).
+            // Sparse LOD: seed GPU-owned spans from the previous FiF slot so
+            // instances omitted this frame keep a continuous pose. CPU Upload
+            // spans stay untouched (see BoneMatrixResources::mGpuOwned).
             mBoneResources->RecordCarryBonesFromPreviousFrame(commandBuffer,
                                                               frameIndex);
             mBoneResources->RecordCopyCurrentToPrev(commandBuffer, frameIndex);

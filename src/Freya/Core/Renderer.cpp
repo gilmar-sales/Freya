@@ -1284,10 +1284,17 @@ namespace FREYA_NAMESPACE
     void Renderer::Impl::UploadBoneMatrices(
         const std::span<const glm::mat4> bones)
     {
+        UploadBoneMatrices(0, bones);
+    }
+
+    void Renderer::Impl::UploadBoneMatrices(
+        const std::uint32_t boneOffset, const std::span<const glm::mat4> bones)
+    {
         if (auto boneResources =
                 mServiceProvider->GetService<BoneMatrixResources>())
         {
-            boneResources->Upload(mSwapChain->GetCurrentFrameIndex(), bones);
+            boneResources->Upload(mSwapChain->GetCurrentFrameIndex(), bones,
+                                  boneOffset);
         }
     }
 

@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <span>
+#include <utility>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -21,6 +22,12 @@ namespace FREYA_NAMESPACE
      * GPU anim path (full or sparse): RecordCarryBonesFromPreviousFrame →
      * RecordCopyCurrentToPrev → compute write into bones[], then a
      * shader-read barrier before vertex skinning.
+     *
+     * Carry / copy-to-prev only touch **GPU-owned** bone ranges (see
+     * MarkGpuOwnedBones). CPU Upload unmarks its span so a mixed frame can
+     * UploadBoneMatrices and SetCopyPrevBones(true) without the FiF carry
+     * wiping hero/NPC skins. UploadInstances should run after CPU upload so
+     * wild slots are re-marked the same frame.
      *
      * Carry is required for sparse instance updates with FiF>1: otherwise
      * non-dispatched foxes keep an old pose from this ring slot and flicker
@@ -83,24 +90,41 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Upload skin matrices for this in-flight frame slot.
          *
-         * `bones.size()` must be ≤ capacity. Unused slots stay identity.
+         * Writes `bones` at `boneOffset` (count clipped to capacity). Unused
+         * slots beyond the span are left untouched on the device. Unmarks the
+         * written span from GPU-owned carry ranges.
          */
-        void Upload(std::uint32_t frameIndex, std::span<const glm::mat4> bones);
+        void Upload(std::uint32_t frameIndex, std::span<const glm::mat4> bones,
+                    std::uint32_t boneOffset = 0);
 
         /**
-         * @brief GPU: copy bones[(fi-1)%N] → bones[fi] (pose continuity).
+         * @brief Sticky range written by GpuAnimPass instances (FiF carry).
          *
-         * No-op when frameCount < 2. Call before RecordCopyCurrentToPrev when
-         * the compute pass may update only a subset of instances.
+         * Merged across frames so sparse LOD can omit an instance while still
+         * carrying its last pose. CPU Upload clears its own span.
+         */
+        void MarkGpuOwnedBones(std::uint32_t boneOffset, std::uint32_t count);
+
+        void UnmarkGpuOwnedBones(std::uint32_t boneOffset, std::uint32_t count);
+
+        void ClearGpuOwnedBones();
+
+        /**
+         * @brief GPU: copy bones[(fi-1)%N] → bones[fi] for GPU-owned ranges.
+         *
+         * No-op when frameCount < 2 or no GPU-owned bones. Call before
+         * RecordCopyCurrentToPrev when the compute pass may update only a
+         * subset of instances.
          */
         void RecordCarryBonesFromPreviousFrame(vk::CommandBuffer commandBuffer,
                                                std::uint32_t frameIndex) const;
 
         /**
-         * @brief GPU: copy bones → prevBones for `frameIndex` (TAA velocity).
+         * @brief GPU: copy bones → prevBones for GPU-owned ranges (TAA).
          *
-         * Call before a compute pass that overwrites bones[]. Inserts
-         * transfer barriers around the copy.
+         * Call before a compute pass that overwrites bones[]. CPU spans keep
+         * the prevBones written by Upload. Inserts transfer barriers around
+         * the copies.
          */
         void RecordCopyCurrentToPrev(vk::CommandBuffer commandBuffer,
                                      std::uint32_t     frameIndex) const;
@@ -112,6 +136,19 @@ namespace FREYA_NAMESPACE
                    sizeof(glm::mat4);
         }
 
+        using Interval = std::pair<std::uint32_t, std::uint32_t>;
+
+        void addOwnedInterval(std::uint32_t begin, std::uint32_t end);
+        void removeOwnedInterval(std::uint32_t begin, std::uint32_t end);
+
+        void recordOwnedCopies(vk::CommandBuffer      commandBuffer,
+                               vk::DeviceSize         srcBase,
+                               vk::DeviceSize         dstBase,
+                               vk::DeviceSize         barrierOffset,
+                               vk::DeviceSize         barrierSize,
+                               vk::PipelineStageFlags dstStages,
+                               vk::AccessFlags        dstAccess) const;
+
         skr::Arc<Device>               mDevice;
         std::uint32_t                  mFrameCount = 1;
         std::uint32_t                  mCapacity   = kDefaultCapacity;
@@ -121,6 +158,8 @@ namespace FREYA_NAMESPACE
         std::vector<vk::DescriptorSet> mSets;
         std::vector<glm::mat4>         mCpuPrev;
         bool                           mHasUploaded = false;
+        /// Sorted non-overlapping [begin, end) bone indices owned by GPU anim.
+        std::vector<Interval> mGpuOwned;
     };
 
 } // namespace FREYA_NAMESPACE
