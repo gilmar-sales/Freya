@@ -168,6 +168,9 @@ namespace FREYA_NAMESPACE
         /// Half-res directional CSM mask before fullscreen lighting.
         bool          enableShadowMask            = true;
         std::uint32_t shadowMaskResolutionDivisor = 2;
+        /// When >1, rebuild directional CSM every N frames if camera/sun
+        /// are stable (1 = every frame).
+        std::uint32_t shadowCascadeUpdatePeriod = 2;
         bool          ReverseZ;
 
         std::string shaderRoot = "./Resources/Shaders";

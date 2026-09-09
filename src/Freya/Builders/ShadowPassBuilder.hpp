@@ -12,12 +12,12 @@ namespace FREYA_NAMESPACE
     /**
      * @brief Builder for ShadowPass objects.
      *
-     * Creates the depth-only shadow render pass, depth pipeline (bone
-     * SSBO set 0, bindless materials set 1, push-constant light VP),
-     * cascade/spot/point depth image arrays with their per-layer/per-face
-     * views and framebuffers, the ring-buffered host-visible
-     * ShadowUniformBuffer, and the hardware comparison sampler used for
-     * shadow sampling.
+     * Creates the depth-only shadow render passes (spot/point + CSM
+     * multiview), depth pipelines (bone SSBO set 0, bindless materials set
+     * 1, shadow UBO set 2), cascade/spot/point depth image arrays, a single
+     * multiview cascade framebuffer plus per-layer spot/point framebuffers,
+     * the ring-buffered host-visible ShadowUniformBuffer with descriptor
+     * sets, and the hardware comparison sampler used for shadow sampling.
      */
     class ShadowPassBuilder
     {
@@ -54,6 +54,9 @@ namespace FREYA_NAMESPACE
         };
 
         vk::RenderPass createRenderPass(vk::Format depthFormat) const;
+
+        vk::RenderPass createMultiviewRenderPass(
+            vk::Format depthFormat, std::uint32_t viewCount) const;
 
         ArrayImage createArrayImage(vk::Format        format,
                                     std::uint32_t     resolution,

@@ -42,8 +42,10 @@ namespace FREYA_NAMESPACE
         }
 
         auto vulkan12Features = vk::PhysicalDeviceVulkan12Features {};
-        auto features2 =
-            vk::PhysicalDeviceFeatures2 {}.setPNext(&vulkan12Features);
+        auto vulkan11Features = vk::PhysicalDeviceVulkan11Features {};
+        auto features2 = vk::PhysicalDeviceFeatures2 {}
+                             .setPNext(&vulkan11Features);
+        vulkan11Features.setPNext(&vulkan12Features);
         mPhysicalDevice->Get().getFeatures2(&features2);
 
         mLogger->Assert(features2.features.imageCubeArray,
@@ -80,6 +82,17 @@ namespace FREYA_NAMESPACE
             "Physical device does not support "
             "descriptorBindingSampledImageUpdateAfterBind "
             "(required for bindless materials)");
+        mLogger->Assert(vulkan11Features.multiview,
+                        "Physical device does not support multiview "
+                        "(required for CSM shadow maps)");
+
+        auto multiviewProps = vk::PhysicalDeviceMultiviewProperties {};
+        auto props2         = vk::PhysicalDeviceProperties2 {};
+        props2.pNext        = &multiviewProps;
+        mPhysicalDevice->Get().getProperties2(&props2);
+        mLogger->Assert(multiviewProps.maxMultiviewViewCount >= 4,
+                        "Physical device maxMultiviewViewCount < 4 "
+                        "(required for CSM shadow maps)");
 
         auto enabled12 =
             vk::PhysicalDeviceVulkan12Features {}
@@ -90,6 +103,10 @@ namespace FREYA_NAMESPACE
                 .setDescriptorBindingPartiallyBound(true)
                 .setDescriptorBindingSampledImageUpdateAfterBind(true)
                 .setDescriptorBindingStorageBufferUpdateAfterBind(true);
+
+        auto enabled11 =
+            vk::PhysicalDeviceVulkan11Features {}.setMultiview(true);
+        enabled11.setPNext(&enabled12);
 
         auto enabledFeatures =
             vk::PhysicalDeviceFeatures()
@@ -103,7 +120,7 @@ namespace FREYA_NAMESPACE
 
         auto features2Enable = vk::PhysicalDeviceFeatures2 {}
                                    .setFeatures(enabledFeatures)
-                                   .setPNext(&enabled12);
+                                   .setPNext(&enabled11);
 
         auto optionalExtensions =
             mPhysicalDevice->FilterSupportedExtensions(OptionalExtensions);
