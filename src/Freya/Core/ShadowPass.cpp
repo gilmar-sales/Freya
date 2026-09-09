@@ -1,6 +1,7 @@
 #include "Freya/Core/ShadowPass.hpp"
 
 #include <glm/gtc/constants.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <algorithm>
 #include <array>
@@ -171,6 +172,7 @@ namespace FREYA_NAMESPACE
         const skr::Arc<BoneMatrixResources>& boneResources,
         const vk::RenderPass                 renderPass,
         const vk::RenderPass                 cascadeRenderPass,
+        const vk::RenderPass                 pointRenderPass,
         const vk::PipelineLayout             pipelineLayout,
         const vk::Pipeline                   pipeline,
         const vk::Pipeline                   cascadePipeline,
@@ -188,7 +190,7 @@ namespace FREYA_NAMESPACE
         const vk::Image                      pointImage,
         const vk::DeviceMemory               pointMemory,
         const vk::ImageView                  pointArrayView,
-        const std::vector<vk::ImageView>&    pointFaceViews,
+        const std::vector<vk::ImageView>&    pointSlotViews,
         const std::vector<vk::Framebuffer>&  pointFramebuffers,
         const skr::Arc<Buffer>&              uniformBuffer,
         const vk::Sampler                    compareSampler,
@@ -201,28 +203,43 @@ namespace FREYA_NAMESPACE
         mDevice(device), mPhysicalDevice(physicalDevice),
         mFreyaOptions(freyaOptions), mBoneResources(boneResources),
         mRenderPass(renderPass), mCascadeRenderPass(cascadeRenderPass),
-        mPipelineLayout(pipelineLayout), mPipeline(pipeline),
-        mCascadePipeline(cascadePipeline), mPointPipeline(pointPipeline),
-        mCascadeImage(cascadeImage), mCascadeMemory(cascadeMemory),
-        mCascadeArrayView(cascadeArrayView),
+        mPointRenderPass(pointRenderPass), mPipelineLayout(pipelineLayout),
+        mPipeline(pipeline), mCascadePipeline(cascadePipeline),
+        mPointPipeline(pointPipeline), mCascadeImage(cascadeImage),
+        mCascadeMemory(cascadeMemory), mCascadeArrayView(cascadeArrayView),
         mCascadeLayerViews(cascadeLayerViews),
-        mCascadeFramebuffer(cascadeFramebuffer),
-        mSpotImage(spotImage), mSpotMemory(spotMemory),
-        mSpotArrayView(spotArrayView), mSpotLayerViews(spotLayerViews),
-        mSpotFramebuffers(spotFramebuffers), mPointImage(pointImage),
-        mPointMemory(pointMemory), mPointArrayView(pointArrayView),
-        mPointFaceViews(pointFaceViews), mPointFramebuffers(pointFramebuffers),
-        mUniformBuffer(uniformBuffer), mCompareSampler(compareSampler),
+        mCascadeFramebuffer(cascadeFramebuffer), mSpotImage(spotImage),
+        mSpotMemory(spotMemory), mSpotArrayView(spotArrayView),
+        mSpotLayerViews(spotLayerViews), mSpotFramebuffers(spotFramebuffers),
+        mPointImage(pointImage), mPointMemory(pointMemory),
+        mPointArrayView(pointArrayView), mPointSlotViews(pointSlotViews),
+        mPointFramebuffers(pointFramebuffers), mUniformBuffer(uniformBuffer),
+        mCompareSampler(compareSampler),
         mShadowUboSetLayout(shadowUboSetLayout),
         mShadowUboPool(shadowUboPool),
         mShadowUboSets(std::move(shadowUboSets)), mCascadeCount(cascadeCount),
         mMaxSpotShadows(maxSpotShadows), mMaxPointShadows(maxPointShadows),
         mResolution(freyaOptions->shadowMapResolution),
         mSpotResolution(
-            maxSpotShadows == 0 ? 1u : freyaOptions->shadowMapResolution),
+            maxSpotShadows == 0
+                ? 1u
+                : ResolveShadowSideResolution(
+                      freyaOptions->shadowMapResolution,
+                      freyaOptions->shadowSpotResolution,
+                      freyaOptions->shadowSpotResolutionDivisor)),
         mPointResolution(
-            maxPointShadows == 0 ? 1u : freyaOptions->shadowMapResolution)
+            maxPointShadows == 0
+                ? 1u
+                : ResolveShadowSideResolution(
+                      freyaOptions->shadowMapResolution,
+                      freyaOptions->shadowPointResolution,
+                      freyaOptions->shadowPointResolutionDivisor))
     {
+        mPointNeedRedraw.fill(true);
+        mPointNeedClear.fill(false);
+        mPointHasContent.fill(false);
+        mPointHasLast.fill(false);
+        mPointUpdateAge.fill(0);
     }
 
     ShadowPass::~ShadowPass()
@@ -255,11 +272,11 @@ namespace FREYA_NAMESPACE
             vkDevice.destroyImageView(view);
         for (auto& view : mSpotLayerViews)
             vkDevice.destroyImageView(view);
-        for (auto& view : mPointFaceViews)
+        for (auto& view : mPointSlotViews)
             vkDevice.destroyImageView(view);
         mCascadeLayerViews.clear();
         mSpotLayerViews.clear();
-        mPointFaceViews.clear();
+        mPointSlotViews.clear();
 
         if (mCascadeArrayView)
             vkDevice.destroyImageView(mCascadeArrayView);
@@ -307,6 +324,8 @@ namespace FREYA_NAMESPACE
             vkDevice.destroyPipelineLayout(mPipelineLayout);
         if (mCascadeRenderPass)
             vkDevice.destroyRenderPass(mCascadeRenderPass);
+        if (mPointRenderPass)
+            vkDevice.destroyRenderPass(mPointRenderPass);
         if (mRenderPass)
             vkDevice.destroyRenderPass(mRenderPass);
         if (mShadowUboPool)
@@ -318,6 +337,7 @@ namespace FREYA_NAMESPACE
         mPointPipeline       = VK_NULL_HANDLE;
         mPipelineLayout      = VK_NULL_HANDLE;
         mCascadeRenderPass   = VK_NULL_HANDLE;
+        mPointRenderPass     = VK_NULL_HANDLE;
         mRenderPass          = VK_NULL_HANDLE;
         mShadowUboPool       = VK_NULL_HANDLE;
         mShadowUboSetLayout  = VK_NULL_HANDLE;
@@ -335,6 +355,7 @@ namespace FREYA_NAMESPACE
 
         mRenderPass          = other.mRenderPass;
         mCascadeRenderPass   = other.mCascadeRenderPass;
+        mPointRenderPass     = other.mPointRenderPass;
         mPipelineLayout      = other.mPipelineLayout;
         mPipeline            = other.mPipeline;
         mCascadePipeline     = other.mCascadePipeline;
@@ -355,7 +376,7 @@ namespace FREYA_NAMESPACE
         mPointImage        = other.mPointImage;
         mPointMemory       = other.mPointMemory;
         mPointArrayView    = other.mPointArrayView;
-        mPointFaceViews    = std::move(other.mPointFaceViews);
+        mPointSlotViews    = std::move(other.mPointSlotViews);
         mPointFramebuffers = std::move(other.mPointFramebuffers);
 
         mUniformBuffer       = std::move(other.mUniformBuffer);
@@ -381,9 +402,15 @@ namespace FREYA_NAMESPACE
         mCascadesNeedRedraw     = true;
         mCascadeUpdateAge       = 0;
         mHasLastCascadeMotion   = false;
+        mPointNeedRedraw.fill(true);
+        mPointNeedClear.fill(false);
+        mPointHasContent.fill(false);
+        mPointHasLast.fill(false);
+        mPointUpdateAge.fill(0);
 
         other.mRenderPass          = VK_NULL_HANDLE;
         other.mCascadeRenderPass   = VK_NULL_HANDLE;
+        other.mPointRenderPass     = VK_NULL_HANDLE;
         other.mPipelineLayout      = VK_NULL_HANDLE;
         other.mPipeline            = VK_NULL_HANDLE;
         other.mCascadePipeline     = VK_NULL_HANDLE;
@@ -516,7 +543,8 @@ namespace FREYA_NAMESPACE
         {
             const auto* light = lights.GetLight(LightHandle { i });
             if (light == nullptr || light->type != LightType::Spot ||
-                !light->castShadows)
+                !light->castShadows || light->intensity <= 1e-4f ||
+                light->radius <= 1e-4f)
                 continue;
 
             const auto slot                  = mActiveSpotCount++;
@@ -533,13 +561,66 @@ namespace FREYA_NAMESPACE
         {
             const auto* light = lights.GetLight(LightHandle { i });
             if (light == nullptr || light->type != LightType::Point ||
-                !light->castShadows)
+                !light->castShadows || light->intensity <= 1e-4f ||
+                light->radius <= 1e-4f)
                 continue;
 
             const auto slot = mActivePointCount++;
             mShadowData.pointLightPosFar[slot] =
                 glm::vec4(light->position, light->radius);
             mShadowData.pointLightIndex[slot] = static_cast<float>(i);
+
+            for (std::uint32_t face = 0; face < 6; ++face)
+            {
+                mShadowData.pointFaceViewProj[slot * 6 + face] =
+                    computePointFaceViewProj(light->position, light->radius,
+                                             face);
+            }
+        }
+
+        const auto pointPeriod =
+            std::max(1u, mFreyaOptions->shadowPointUpdatePeriod);
+        for (std::uint32_t slot = 0; slot < mMaxPointShadows; ++slot)
+        {
+            if (slot < mActivePointCount)
+            {
+                const auto posFar = mShadowData.pointLightPosFar[slot];
+                bool       motion = !mPointHasLast[slot];
+                if (!motion)
+                {
+                    const auto delta = posFar - mLastPointPosFar[slot];
+                    motion = glm::length(glm::vec3(delta)) > 1e-3f ||
+                             std::abs(delta.w) > 1e-3f;
+                }
+                mLastPointPosFar[slot] = posFar;
+                mPointHasLast[slot]    = true;
+                mPointNeedClear[slot]  = false;
+
+                if (motion)
+                {
+                    mPointNeedRedraw[slot] = true;
+                    mPointUpdateAge[slot]  = 0;
+                }
+                else
+                {
+                    ++mPointUpdateAge[slot];
+                    if (mPointUpdateAge[slot] >= pointPeriod)
+                    {
+                        mPointNeedRedraw[slot] = true;
+                        mPointUpdateAge[slot]  = 0;
+                    }
+                    else
+                        mPointNeedRedraw[slot] = false;
+                }
+            }
+            else
+            {
+                if (mPointHasContent[slot])
+                    mPointNeedClear[slot] = true;
+                mPointNeedRedraw[slot] = false;
+                mPointHasLast[slot]    = false;
+                mPointUpdateAge[slot]  = 0;
+            }
         }
 
         mUniformBuffer->Copy(&mShadowData, sizeof(ShadowUniformBuffer),
@@ -690,6 +771,20 @@ namespace FREYA_NAMESPACE
                         : glm::perspective(glm::half_pi<float>(), 1.0f, near,
                                            farClamped);
 
+        return proj * view;
+    }
+
+    glm::mat4 ShadowPass::computePointCullViewProj(const glm::vec3& position,
+                                                   const float far) const
+    {
+        // Axis-aligned cube around the light range — over-includes corners
+        // of the sphere but keeps a single DispatchCull per point slot.
+        const float r    = std::max(far, 0.05f);
+        const auto  view = glm::translate(glm::mat4(1.0f), -position);
+        const auto  proj =
+            mFreyaOptions->ReverseZ
+                ? glm::ortho(-r, r, -r, r, r, -r)
+                : glm::ortho(-r, r, -r, r, -r, r);
         return proj * view;
     }
 
@@ -895,9 +990,7 @@ namespace FREYA_NAMESPACE
         const std::function<void(const glm::mat4&)>& prepareCull,
         const std::function<void()>&                 drawScene) const
     {
-        // Same as spots: clear every cube face so unused point slots are
-        // not left in UNDEFINED when the cube-array is sampled.
-        if (mPointFramebuffers.empty())
+        if (mPointFramebuffers.empty() || !mPointRenderPass)
             return;
 
         auto commandBuffer = commandPool->GetCommandBuffer();
@@ -920,65 +1013,73 @@ namespace FREYA_NAMESPACE
                 mFreyaOptions->ReverseZ ? 0.0f : 1.0f));
 
         const auto pointSlotCount =
-            static_cast<std::uint32_t>(mPointFramebuffers.size() / 6);
+            static_cast<std::uint32_t>(mPointFramebuffers.size());
 
         for (std::uint32_t p = 0; p < pointSlotCount; ++p)
         {
+            const bool active    = p < mActivePointCount;
+            const bool redraw    = active && mPointNeedRedraw[p];
+            const bool clearOnly = mPointNeedClear[p];
+
+            if (!redraw && !clearOnly)
+                continue;
+
             const auto      posFar = mShadowData.pointLightPosFar[p];
             const glm::vec3 position(posFar);
-            const auto      far    = posFar.w;
-            const bool      active = p < mActivePointCount;
+            const auto      far = posFar.w;
 
-            for (std::uint32_t face = 0; face < 6; ++face)
+            char label[64];
+            std::snprintf(label, sizeof(label), "Point Shadow %u%s", p,
+                          redraw ? "" : " (clear)");
+            mDevice->BeginDebugLabel(commandBuffer, label,
+                                     DebugLabel::ShadowColor);
+
+            if (redraw && prepareCull)
+                prepareCull(computePointCullViewProj(position, far));
+
+            commandBuffer.beginRenderPass(
+                vk::RenderPassBeginInfo()
+                    .setRenderPass(mPointRenderPass)
+                    .setFramebuffer(mPointFramebuffers[p])
+                    .setRenderArea(scissor)
+                    .setClearValues(clearValue),
+                vk::SubpassContents::eInline);
+
+            if (redraw)
             {
-                const auto framebufferIndex = p * 6 + face;
+                commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+                                           mPointPipeline);
+                bindBoneDescriptorSet(commandBuffer);
+                bindShadowUboSet(commandBuffer);
+                commandBuffer.setViewport(0, 1, &viewport);
+                commandBuffer.setScissor(0, 1, &scissor);
 
-                char label[64];
-                std::snprintf(label, sizeof(label), "Point Shadow %u Face %u%s",
-                              p, face, active ? "" : " (clear)");
-                mDevice->BeginDebugLabel(
-                    commandBuffer, label, DebugLabel::ShadowColor);
+                ShadowPushConstant pc {};
+                pc.lightVP     = computePointCullViewProj(position, far);
+                pc.lightPosFar = posFar;
+                pc.reverseZAndPad =
+                    glm::vec4(mShadowData.reverseZ.x, static_cast<float>(p),
+                              0.0f, 0.0f);
+                commandBuffer.pushConstants(
+                    mPipelineLayout,
+                    vk::ShaderStageFlagBits::eVertex |
+                        vk::ShaderStageFlagBits::eFragment,
+                    0,
+                    sizeof(ShadowPushConstant),
+                    &pc);
 
-                const auto lightVP =
-                    computePointFaceViewProj(position, far, face);
-                if (active && prepareCull)
-                    prepareCull(lightVP);
-
-                commandBuffer.beginRenderPass(
-                    vk::RenderPassBeginInfo()
-                        .setRenderPass(mRenderPass)
-                        .setFramebuffer(mPointFramebuffers[framebufferIndex])
-                        .setRenderArea(scissor)
-                        .setClearValues(clearValue),
-                    vk::SubpassContents::eInline);
-
-                if (active)
-                {
-                    commandBuffer.bindPipeline(
-                        vk::PipelineBindPoint::eGraphics, mPointPipeline);
-                    bindBoneDescriptorSet(commandBuffer);
-                    bindShadowUboSet(commandBuffer);
-                    commandBuffer.setViewport(0, 1, &viewport);
-                    commandBuffer.setScissor(0, 1, &scissor);
-
-                    ShadowPushConstant pc {};
-                    pc.lightVP        = lightVP;
-                    pc.lightPosFar    = posFar;
-                    pc.reverseZAndPad = mShadowData.reverseZ;
-                    commandBuffer.pushConstants(
-                        mPipelineLayout,
-                        vk::ShaderStageFlagBits::eVertex |
-                            vk::ShaderStageFlagBits::eFragment,
-                        0,
-                        sizeof(ShadowPushConstant),
-                        &pc);
-
-                    drawScene();
-                }
-
-                commandBuffer.endRenderPass();
-                mDevice->EndDebugLabel(commandBuffer);
+                drawScene();
+                mPointHasContent[p] = true;
             }
+            else
+            {
+                mPointHasContent[p] = false;
+            }
+
+            mPointNeedClear[p] = false;
+
+            commandBuffer.endRenderPass();
+            mDevice->EndDebugLabel(commandBuffer);
         }
 
         mDevice->EndDebugLabel(commandBuffer);

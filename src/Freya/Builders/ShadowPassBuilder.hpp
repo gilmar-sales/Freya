@@ -12,12 +12,13 @@ namespace FREYA_NAMESPACE
     /**
      * @brief Builder for ShadowPass objects.
      *
-     * Creates the depth-only shadow render passes (spot/point + CSM
+     * Creates the depth-only shadow render passes (spot + CSM/point
      * multiview), depth pipelines (bone SSBO set 0, bindless materials set
      * 1, shadow UBO set 2), cascade/spot/point depth image arrays, a single
-     * multiview cascade framebuffer plus per-layer spot/point framebuffers,
-     * the ring-buffered host-visible ShadowUniformBuffer with descriptor
-     * sets, and the hardware comparison sampler used for shadow sampling.
+     * multiview cascade framebuffer, per-slot multiview point framebuffers,
+     * per-layer spot framebuffers, the ring-buffered host-visible
+     * ShadowUniformBuffer with descriptor sets, and the hardware comparison
+     * sampler used for shadow sampling.
      */
     class ShadowPassBuilder
     {

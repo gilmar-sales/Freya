@@ -60,6 +60,8 @@ namespace FREYA_NAMESPACE
         glm::vec4 reverseZ {};
         glm::vec4 pcss {};
         glm::vec4 cascadeTexelSize {};
+        /// Per point-slot face VPs (slot * 6 + face); shadow generation only.
+        glm::mat4 pointFaceViewProj[MAX_POINT_SHADOWS * 6] {};
     };
 
     static_assert(offsetof(ShadowUniformBuffer, cascadeViewProj) == 0);
@@ -72,6 +74,7 @@ namespace FREYA_NAMESPACE
     static_assert(offsetof(ShadowUniformBuffer, reverseZ) == 608);
     static_assert(offsetof(ShadowUniformBuffer, pcss) == 624);
     static_assert(offsetof(ShadowUniformBuffer, cascadeTexelSize) == 640);
+    static_assert(offsetof(ShadowUniformBuffer, pointFaceViewProj) == 656);
 
     static_assert(sizeof(ProjectionUniformBuffer) % 256 == 0,
                   "ProjectionUniformBuffer must be 256-byte aligned for UBO "

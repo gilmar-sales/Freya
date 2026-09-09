@@ -209,6 +209,38 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        FreyaOptionsBuilder& SetShadowPointResolution(std::uint32_t resolution)
+        {
+            mFreyaOptions->shadowPointResolution = resolution;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetShadowPointResolutionDivisor(
+            std::uint32_t divisor)
+        {
+            mFreyaOptions->shadowPointResolutionDivisor = divisor;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetShadowSpotResolution(std::uint32_t resolution)
+        {
+            mFreyaOptions->shadowSpotResolution = resolution;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetShadowSpotResolutionDivisor(
+            std::uint32_t divisor)
+        {
+            mFreyaOptions->shadowSpotResolutionDivisor = divisor;
+            return *this;
+        }
+
+        FreyaOptionsBuilder& SetShadowPointUpdatePeriod(std::uint32_t period)
+        {
+            mFreyaOptions->shadowPointUpdatePeriod = period;
+            return *this;
+        }
+
         FreyaOptionsBuilder& SetShadowSampleCount(std::uint32_t count)
         {
             mFreyaOptions->shadowSampleCount = count;

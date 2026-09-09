@@ -9,6 +9,7 @@
 #include "Freya/Core/UniformBuffer.hpp"
 #include "Freya/FreyaOptions.hpp"
 
+#include <array>
 #include <functional>
 #include <vector>
 
@@ -17,8 +18,9 @@ namespace FREYA_NAMESPACE
     /**
      * @brief Depth-only shadow map pass (CSM cascades, spot, and point).
      *
-     * Directional CSM uses VK multiview (one render pass / one draw for all
-     * cascade layers). Spot and point keep per-layer/face passes.
+     * Directional CSM and point cubes use VK multiview (one render pass /
+     * one draw for all cascade layers or cube faces). Spots stay
+     * per-layer.
      */
     class ShadowPass
     {
@@ -30,6 +32,7 @@ namespace FREYA_NAMESPACE
             const skr::Arc<BoneMatrixResources>& boneResources,
             vk::RenderPass                       renderPass,
             vk::RenderPass                       cascadeRenderPass,
+            vk::RenderPass                       pointRenderPass,
             vk::PipelineLayout                   pipelineLayout,
             vk::Pipeline                         pipeline,
             vk::Pipeline                         cascadePipeline,
@@ -47,7 +50,7 @@ namespace FREYA_NAMESPACE
             vk::Image                            pointImage,
             vk::DeviceMemory                     pointMemory,
             vk::ImageView                        pointArrayView,
-            const std::vector<vk::ImageView>&    pointFaceViews,
+            const std::vector<vk::ImageView>&    pointSlotViews,
             const std::vector<vk::Framebuffer>&  pointFramebuffers,
             const skr::Arc<Buffer>&              uniformBuffer,
             vk::Sampler                          compareSampler,
@@ -114,6 +117,9 @@ namespace FREYA_NAMESPACE
         glm::mat4 computePointFaceViewProj(
             const glm::vec3& position, float far, std::uint32_t face) const;
 
+        glm::mat4 computePointCullViewProj(const glm::vec3& position,
+                                           float            far) const;
+
         void renderCascades(
             const skr::Arc<CommandPool>&                 commandPool,
             const std::function<void(const glm::mat4&)>& prepareCull,
@@ -139,12 +145,13 @@ namespace FREYA_NAMESPACE
         skr::Arc<BoneMatrixResources> mBoneResources;
         std::uint32_t                 mFrameIndex = 0;
 
-        vk::RenderPass     mRenderPass;        ///< Spot / point (no multiview)
+        vk::RenderPass     mRenderPass;        ///< Spot (no multiview)
         vk::RenderPass     mCascadeRenderPass; ///< CSM multiview
+        vk::RenderPass     mPointRenderPass;   ///< Point cube multiview
         vk::PipelineLayout mPipelineLayout;
         vk::Pipeline       mPipeline;        ///< Spot (HW depth)
         vk::Pipeline       mCascadePipeline; ///< CSM multiview
-        vk::Pipeline       mPointPipeline;
+        vk::Pipeline       mPointPipeline;   ///< Point cube multiview
 
         vk::Image                    mCascadeImage;
         vk::DeviceMemory             mCascadeMemory;
@@ -161,7 +168,7 @@ namespace FREYA_NAMESPACE
         vk::Image                    mPointImage;
         vk::DeviceMemory             mPointMemory;
         vk::ImageView                mPointArrayView;
-        std::vector<vk::ImageView>   mPointFaceViews;
+        std::vector<vk::ImageView>   mPointSlotViews;
         std::vector<vk::Framebuffer> mPointFramebuffers;
 
         skr::Arc<Buffer> mUniformBuffer;
@@ -191,6 +198,14 @@ namespace FREYA_NAMESPACE
         glm::mat4     mLastCameraProj { 0.0f };
         glm::vec3     mLastSunDir { 0.0f };
         bool          mHasLastCascadeMotion = false;
+
+        /// Temporal point cubes: skip when light pos/range stable.
+        std::array<bool, MAX_POINT_SHADOWS>      mPointNeedRedraw {};
+        mutable std::array<bool, MAX_POINT_SHADOWS> mPointNeedClear {};
+        mutable std::array<bool, MAX_POINT_SHADOWS> mPointHasContent {};
+        std::array<bool, MAX_POINT_SHADOWS>      mPointHasLast {};
+        std::array<glm::vec4, MAX_POINT_SHADOWS>  mLastPointPosFar {};
+        std::array<std::uint32_t, MAX_POINT_SHADOWS> mPointUpdateAge {};
     };
 
 } // namespace FREYA_NAMESPACE

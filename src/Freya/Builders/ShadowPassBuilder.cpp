@@ -48,6 +48,7 @@ namespace FREYA_NAMESPACE
         auto renderPass = createRenderPass(depthFormat);
         auto cascadeRenderPass =
             createMultiviewRenderPass(depthFormat, cascadeCount);
+        auto pointRenderPass = createMultiviewRenderPass(depthFormat, 6);
 
         auto vertShader =
             mServiceProvider->GetService<ShaderModuleBuilder>()
@@ -61,6 +62,13 @@ namespace FREYA_NAMESPACE
                     mFreyaOptions->shaderRoot + "/Shadow/depth_csm.vert.spv")
                 .Build();
 
+        auto pointMvVertShader =
+            mServiceProvider->GetService<ShaderModuleBuilder>()
+                ->SetFilePath(
+                    mFreyaOptions->shaderRoot +
+                    "/Shadow/depth_point_mv.vert.spv")
+                .Build();
+
         auto fragHwShader =
             mServiceProvider->GetService<ShaderModuleBuilder>()
                 ->SetFilePath(
@@ -72,6 +80,7 @@ namespace FREYA_NAMESPACE
                 ->SetFilePath(
                     mFreyaOptions->shaderRoot + "/Shadow/depth.frag.spv")
                 .Build();
+
 
         auto vertexBinding = GetVertexBindingDescription();
         auto vertexAttributes =
@@ -212,8 +221,8 @@ namespace FREYA_NAMESPACE
                     .value;
             };
 
-        // Spot: hardware depth. CSM: multiview HW depth. Point: linear
-        // distance in depth.frag.
+        // Spot: hardware depth. CSM: multiview HW depth. Point: multiview
+        // linear distance in depth.frag.
         auto vertStage = vk::PipelineShaderStageCreateInfo()
                              .setStage(vk::ShaderStageFlagBits::eVertex)
                              .setModule(vertShader->Get())
@@ -222,6 +231,11 @@ namespace FREYA_NAMESPACE
             vk::PipelineShaderStageCreateInfo()
                 .setStage(vk::ShaderStageFlagBits::eVertex)
                 .setModule(csmVertShader->Get())
+                .setPName("main");
+        auto pointMvVertStage =
+            vk::PipelineShaderStageCreateInfo()
+                .setStage(vk::ShaderStageFlagBits::eVertex)
+                .setModule(pointMvVertShader->Get())
                 .setPName("main");
         auto fragHwStage =
             vk::PipelineShaderStageCreateInfo()
@@ -238,11 +252,12 @@ namespace FREYA_NAMESPACE
             makePipeline(std::array { vertStage, fragHwStage }, renderPass);
         auto cascadePipeline = makePipeline(
             std::array { csmVertStage, fragHwStage }, cascadeRenderPass);
-        auto pointPipeline =
-            makePipeline(std::array { vertStage, fragPointStage }, renderPass);
+        auto pointPipeline = makePipeline(
+            std::array { pointMvVertStage, fragPointStage }, pointRenderPass);
 
         mDevice->Get().destroyShaderModule(vertShader->Get());
         mDevice->Get().destroyShaderModule(csmVertShader->Get());
+        mDevice->Get().destroyShaderModule(pointMvVertShader->Get());
         mDevice->Get().destroyShaderModule(fragHwShader->Get());
         mDevice->Get().destroyShaderModule(fragPointShader->Get());
 
@@ -254,10 +269,23 @@ namespace FREYA_NAMESPACE
             vk::ImageViewType::e2DArray);
         transitionToReadOnly(cascade.image, cascadeCount);
 
-        const auto spotLayers      = maxSpot == 0 ? 1u : maxSpot;
-        const auto spotResolution  = maxSpot == 0 ? 1u : resolution;
-        const auto pointLayers     = maxPoint == 0 ? 6u : maxPoint * 6;
-        const auto pointResolution = maxPoint == 0 ? 1u : resolution;
+        const auto spotLayers = maxSpot == 0 ? 1u : maxSpot;
+        const auto spotResolution =
+            maxSpot == 0
+                ? 1u
+                : ResolveShadowSideResolution(
+                      resolution,
+                      mFreyaOptions->shadowSpotResolution,
+                      mFreyaOptions->shadowSpotResolutionDivisor);
+        const auto pointSlotCount  = maxPoint == 0 ? 1u : maxPoint;
+        const auto pointLayers     = pointSlotCount * 6u;
+        const auto pointResolution =
+            maxPoint == 0
+                ? 1u
+                : ResolveShadowSideResolution(
+                      resolution,
+                      mFreyaOptions->shadowPointResolution,
+                      mFreyaOptions->shadowPointResolutionDivisor);
 
         auto spot = createArrayImage(
             depthFormat,
@@ -275,6 +303,28 @@ namespace FREYA_NAMESPACE
             vk::ImageViewType::eCubeArray);
         transitionToReadOnly(point.image, pointLayers);
 
+        // Per-slot 6-layer views for multiview cube framebuffers.
+        auto pointSlotViews = std::vector<vk::ImageView>(pointSlotCount);
+        for (std::uint32_t p = 0; p < pointSlotCount; ++p)
+        {
+            const auto slotViewInfo =
+                vk::ImageViewCreateInfo()
+                    .setImage(point.image)
+                    .setViewType(vk::ImageViewType::e2DArray)
+                    .setFormat(depthFormat)
+                    .setSubresourceRange(
+                        vk::ImageSubresourceRange()
+                            .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                            .setBaseMipLevel(0)
+                            .setLevelCount(1)
+                            .setBaseArrayLayer(p * 6)
+                            .setLayerCount(6));
+            pointSlotViews[p] = mDevice->Get().createImageView(slotViewInfo);
+        }
+        for (auto view : point.layerViews)
+            mDevice->Get().destroyImageView(view);
+        point.layerViews.clear();
+
         const auto cascadeFbInfo =
             vk::FramebufferCreateInfo()
                 .setRenderPass(cascadeRenderPass)
@@ -287,8 +337,20 @@ namespace FREYA_NAMESPACE
 
         auto spotFramebuffers =
             createFramebuffers(renderPass, spot.layerViews, spotResolution);
+
         auto pointFramebuffers =
-            createFramebuffers(renderPass, point.layerViews, pointResolution);
+            std::vector<vk::Framebuffer>(pointSlotCount);
+        for (std::uint32_t p = 0; p < pointSlotCount; ++p)
+        {
+            const auto fbInfo =
+                vk::FramebufferCreateInfo()
+                    .setRenderPass(pointRenderPass)
+                    .setAttachments(pointSlotViews[p])
+                    .setWidth(pointResolution)
+                    .setHeight(pointResolution)
+                    .setLayers(6);
+            pointFramebuffers[p] = mDevice->Get().createFramebuffer(fbInfo);
+        }
 
         auto uniformBuffer =
             BufferBuilder(mDevice)
@@ -363,6 +425,7 @@ namespace FREYA_NAMESPACE
             mBoneResources,
             renderPass,
             cascadeRenderPass,
+            pointRenderPass,
             pipelineLayout,
             pipeline,
             cascadePipeline,
@@ -380,7 +443,7 @@ namespace FREYA_NAMESPACE
             point.image,
             point.memory,
             point.arrayView,
-            point.layerViews,
+            pointSlotViews,
             pointFramebuffers,
             uniformBuffer,
             compareSampler,

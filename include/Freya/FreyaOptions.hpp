@@ -128,6 +128,16 @@ namespace FREYA_NAMESPACE
                           std::max(1u, full.height / divisor) };
     }
 
+    /// Absolute side length wins when >0; otherwise cascadeRes / divisor.
+    inline std::uint32_t ResolveShadowSideResolution(
+        const std::uint32_t cascadeResolution, const std::uint32_t absolute,
+        const std::uint32_t divisor)
+    {
+        if (absolute > 0)
+            return absolute;
+        return std::max(1u, cascadeResolution / std::max(1u, divisor));
+    }
+
     /**
      * @brief Global configuration options for Freya engine.
      */
@@ -171,6 +181,14 @@ namespace FREYA_NAMESPACE
         /// When >1, rebuild directional CSM every N frames if camera/sun
         /// are stable (1 = every frame).
         std::uint32_t shadowCascadeUpdatePeriod = 2;
+        /// Absolute point cube face size; 0 = cascade res / divisor.
+        std::uint32_t shadowPointResolution         = 0;
+        std::uint32_t shadowPointResolutionDivisor  = 2;
+        /// Absolute spot map size; 0 = cascade res / divisor.
+        std::uint32_t shadowSpotResolution          = 0;
+        std::uint32_t shadowSpotResolutionDivisor   = 2;
+        /// When >1, rebuild a stable point cube every N frames.
+        std::uint32_t shadowPointUpdatePeriod = 2;
         bool          ReverseZ;
 
         std::string shaderRoot = "./Resources/Shaders";
@@ -240,36 +258,56 @@ namespace FREYA_NAMESPACE
         switch (quality)
         {
             case ShadowQuality::Low:
-                options.shadowMapResolution = 512;
-                options.shadowCascadeCount  = 2;
-                options.maxSpotShadows      = 2;
-                options.maxPointShadows     = 2;
-                options.shadowSampleCount   = 4;
-                options.shadowCascadeBlend  = 0.0f;
+                options.shadowMapResolution            = 512;
+                options.shadowCascadeCount             = 2;
+                options.maxSpotShadows                 = 2;
+                options.maxPointShadows                = 2;
+                options.shadowSampleCount              = 4;
+                options.shadowCascadeBlend             = 0.0f;
+                options.shadowPointResolution          = 0;
+                options.shadowPointResolutionDivisor   = 2;
+                options.shadowSpotResolution           = 0;
+                options.shadowSpotResolutionDivisor    = 2;
+                options.shadowPointUpdatePeriod        = 2;
                 break;
             case ShadowQuality::Medium:
-                options.shadowMapResolution = 1024;
-                options.shadowCascadeCount  = 3;
-                options.maxSpotShadows      = 4;
-                options.maxPointShadows     = 2;
-                options.shadowSampleCount   = 8;
-                options.shadowCascadeBlend  = 0.0f;
+                options.shadowMapResolution            = 1024;
+                options.shadowCascadeCount             = 3;
+                options.maxSpotShadows                 = 4;
+                options.maxPointShadows                = 2;
+                options.shadowSampleCount              = 8;
+                options.shadowCascadeBlend             = 0.0f;
+                options.shadowPointResolution          = 0;
+                options.shadowPointResolutionDivisor   = 2;
+                options.shadowSpotResolution           = 0;
+                options.shadowSpotResolutionDivisor    = 2;
+                options.shadowPointUpdatePeriod        = 2;
                 break;
             case ShadowQuality::High:
-                options.shadowMapResolution = 2048;
-                options.shadowCascadeCount  = 4;
-                options.maxSpotShadows      = 4;
-                options.maxPointShadows     = 2;
-                options.shadowSampleCount   = 8;
-                options.shadowCascadeBlend  = 0.05f;
+                options.shadowMapResolution            = 2048;
+                options.shadowCascadeCount             = 4;
+                options.maxSpotShadows                 = 4;
+                options.maxPointShadows                = 2;
+                options.shadowSampleCount              = 8;
+                options.shadowCascadeBlend             = 0.05f;
+                options.shadowPointResolution          = 0;
+                options.shadowPointResolutionDivisor   = 2;
+                options.shadowSpotResolution           = 0;
+                options.shadowSpotResolutionDivisor    = 2;
+                options.shadowPointUpdatePeriod        = 2;
                 break;
             case ShadowQuality::Ultra:
-                options.shadowMapResolution = 2048;
-                options.shadowCascadeCount  = 4;
-                options.maxSpotShadows      = 4;
-                options.maxPointShadows     = 2;
-                options.shadowSampleCount   = 8;
-                options.shadowCascadeBlend  = 0.1f;
+                options.shadowMapResolution            = 2048;
+                options.shadowCascadeCount             = 4;
+                options.maxSpotShadows                 = 4;
+                options.maxPointShadows                = 2;
+                options.shadowSampleCount              = 8;
+                options.shadowCascadeBlend             = 0.1f;
+                options.shadowPointResolution          = 0;
+                options.shadowPointResolutionDivisor   = 2;
+                options.shadowSpotResolution           = 0;
+                options.shadowSpotResolutionDivisor    = 2;
+                options.shadowPointUpdatePeriod        = 2;
                 break;
             case ShadowQuality::Off:
                 break;

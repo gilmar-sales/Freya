@@ -309,15 +309,19 @@ Configure with `SetIblIntensity` / `SetEnvironmentMapPath` on
 
 | Target | Technique | Limit |
 |--------|-----------|--------|
-| Directional | Cascaded shadow maps (2D array) | `shadowCascadeCount` (1–4) |
+| Directional | Cascaded shadow maps (2D array, multiview) | `shadowCascadeCount` (1–4) |
 | Spot | Perspective depth map (2D array) | `maxSpotShadows` (0–4) |
-| Point | Cube array (6 faces each) | `maxPointShadows` (0–2) |
+| Point | Cube array (multiview 6 faces) | `maxPointShadows` (0–2) |
 
 Configure via `FreyaOptionsBuilder`: `SetShadowQuality` presets
 (`Low` / `Medium` / `High` / `Ultra`) or individual setters
 (`SetShadowCascadeCount`, `SetShadowMapResolution`, `SetShadowBias`,
-`SetMaxSpotShadows`, `SetMaxPointShadows`, `SetShadowSampleCount`).
+`SetMaxSpotShadows`, `SetMaxPointShadows`, `SetShadowSampleCount`,
+`SetShadowPointResolutionDivisor`, `SetShadowSpotResolutionDivisor`,
+`SetShadowPointUpdatePeriod`).
 
+Spot/point map size defaults to cascade resolution / 2. Point cubes
+rebuild every `shadowPointUpdatePeriod` frames when the light is stable.
 | Preset | Resolution | Cascades | Spot | Point | Soft taps |
 |--------|------------|----------|------|-------|-----------|
 | Low | 512² | 2 | 2 | 2 | 4 |
