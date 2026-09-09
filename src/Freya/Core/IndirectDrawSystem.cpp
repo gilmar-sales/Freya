@@ -108,7 +108,8 @@ namespace FREYA_NAMESPACE
     {
         if (!mHiZ)
             return;
-        mHiZ->Resize(extent.width, extent.height);
+        const auto pyramid = HiZPyramid::PyramidExtent(extent);
+        mHiZ->Resize(pyramid.width, pyramid.height);
         mHiZ->Invalidate();
         bumpCullDescVersion();
         for (std::uint32_t f = 0; f < mFrameCount; ++f)
@@ -126,8 +127,11 @@ namespace FREYA_NAMESPACE
             return;
         const bool wasReady = mHiZ->IsReady();
         if (!mHiZ->IsValid())
-            mHiZ->Resize(std::max(1u, mScreenSize.width),
-                         std::max(1u, mScreenSize.height));
+        {
+            const auto pyramid = HiZPyramid::PyramidExtent(mScreenSize);
+            mHiZ->Resize(std::max(1u, pyramid.width),
+                         std::max(1u, pyramid.height));
+        }
         mHiZ->Build(mCommandPool, depthImage, reverseZ, mFrameIndex);
         if (!wasReady && mHiZ->IsReady())
             bumpCullDescVersion();

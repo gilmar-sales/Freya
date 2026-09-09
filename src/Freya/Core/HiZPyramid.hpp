@@ -4,6 +4,9 @@
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/Image.hpp"
 
+#include <algorithm>
+#include <cstdint>
+#include <span>
 #include <vector>
 
 namespace FREYA_NAMESPACE
@@ -14,13 +17,18 @@ namespace FREYA_NAMESPACE
      * Used for temporal occlusion culling (previous-frame Hi-Z). Reduce
      * stores the farthest depth per texel (min under reverse-Z).
      *
+     * Built at half the framebuffer resolution; mip chain stops around
+     * @ref kMinMipExtent. Reduce writes up to two mips per dispatch.
+     *
      * Descriptor sets are allocated once per frame-in-flight so Build can
      * update them safely after that frame's fence has retired.
      */
     class HiZPyramid
     {
       public:
-        static constexpr std::uint32_t kMaxMipLevels = 16;
+        static constexpr std::uint32_t kMaxMipLevels      = 16;
+        static constexpr std::uint32_t kMinMipExtent      = 8;
+        static constexpr std::uint32_t kResolutionDivisor = 2;
 
         HiZPyramid(const skr::Arc<Device>& device,
                    vk::Pipeline            copyPipeline,
@@ -39,6 +47,15 @@ namespace FREYA_NAMESPACE
         HiZPyramid& operator=(const HiZPyramid&) = delete;
 
         void Resize(std::uint32_t width, std::uint32_t height);
+
+        /**
+         * @brief Half-res pyramid size for a full-screen depth extent.
+         */
+        [[nodiscard]] static vk::Extent2D PyramidExtent(vk::Extent2D full)
+        {
+            return { std::max(1u, full.width / kResolutionDivisor),
+                     std::max(1u, full.height / kResolutionDivisor) };
+        }
 
         /**
          * @brief Rebuild pyramid from a depth image (shader-read layout).
@@ -91,6 +108,15 @@ namespace FREYA_NAMESPACE
         static std::uint32_t PackedPixelCount(
             std::uint32_t width, std::uint32_t height, std::uint32_t mipCount);
 
+        /// Mip count stopping near @ref kMinMipExtent (and @ref kMaxMipLevels).
+        static std::uint32_t ComputeMipLevels(std::uint32_t width,
+                                              std::uint32_t height);
+
+        static std::uint32_t MipExtent(std::uint32_t dim, std::uint32_t mip)
+        {
+            return std::max(1u, dim >> mip);
+        }
+
       private:
         void destroyMipViews();
         void writeFrameDescriptors(std::uint32_t          frame,
@@ -108,7 +134,8 @@ namespace FREYA_NAMESPACE
         std::uint32_t           mFrameCount = 1;
 
         std::vector<vk::DescriptorSet> mCopySets;
-        // [frame * (kMaxMipLevels-1) + (mip-1)]
+        // [frame * (kMaxMipLevels-1) + (mip-1)] — src=mip-1, dst0=mip,
+        // dst1=mip+1
         std::vector<vk::DescriptorSet> mReduceSets;
 
         skr::Arc<Image>            mImage;

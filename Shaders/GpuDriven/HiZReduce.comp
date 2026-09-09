@@ -1,34 +1,72 @@
 #version 450
 
+// Writes mip N from mip N-1, and optionally mip N+1 in the same pass
+// (shared-memory 2x2 of the first reduce). Cuts CS→CS barriers roughly in half.
+
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout(push_constant) uniform PC {
-    uvec2 dstExtent;
+    uvec2 dst0Extent;
     uint  reverseZ;
-    uint  _pad;
+    uint  writeSecond; // 1 = also write dstMip1
 } pc;
 
 layout(binding = 0, r32f) readonly  uniform image2D srcMip;
-layout(binding = 1, r32f) writeonly uniform image2D dstMip;
+layout(binding = 1, r32f) writeonly uniform image2D dstMip0;
+layout(binding = 2, r32f) writeonly uniform image2D dstMip1;
+
+shared float sTile[8][8];
+
+float farthest4(float a, float b, float c, float d)
+{
+    return (pc.reverseZ != 0u) ? min(min(a, b), min(c, d))
+                               : max(max(a, b), max(c, d));
+}
 
 void main()
 {
     uvec2 gid = gl_GlobalInvocationID.xy;
-    if (gid.x >= pc.dstExtent.x || gid.y >= pc.dstExtent.y)
+    uint  lx  = gl_LocalInvocationID.x;
+    uint  ly  = gl_LocalInvocationID.y;
+
+    const float invalid =
+        (pc.reverseZ != 0u) ? 3.402823466e+38 : -3.402823466e+38;
+
+    float f     = invalid;
+    bool  valid = gid.x < pc.dst0Extent.x && gid.y < pc.dst0Extent.y;
+    if (valid)
+    {
+        ivec2 srcBase = ivec2(gid) * 2;
+        ivec2 srcSize = imageSize(srcMip);
+        float d0 = imageLoad(srcMip, min(srcBase + ivec2(0, 0), srcSize - 1)).r;
+        float d1 = imageLoad(srcMip, min(srcBase + ivec2(1, 0), srcSize - 1)).r;
+        float d2 = imageLoad(srcMip, min(srcBase + ivec2(0, 1), srcSize - 1)).r;
+        float d3 = imageLoad(srcMip, min(srcBase + ivec2(1, 1), srcSize - 1)).r;
+        f = farthest4(d0, d1, d2, d3);
+        imageStore(dstMip0, ivec2(gid), vec4(f, 0.0, 0.0, 0.0));
+    }
+
+    sTile[ly][lx] = f;
+    barrier();
+
+    if (pc.writeSecond == 0u)
+        return;
+    if ((lx & 1u) != 0u || (ly & 1u) != 0u)
         return;
 
-    ivec2 srcBase = ivec2(gid) * 2;
-    ivec2 srcSize = imageSize(srcMip);
+    uvec2 child0 = gl_WorkGroupID.xy * 8u + uvec2(lx, ly);
+    if (child0.x >= pc.dst0Extent.x || child0.y >= pc.dst0Extent.y)
+        return;
 
-    float d0 = imageLoad(srcMip, min(srcBase + ivec2(0, 0), srcSize - 1)).r;
-    float d1 = imageLoad(srcMip, min(srcBase + ivec2(1, 0), srcSize - 1)).r;
-    float d2 = imageLoad(srcMip, min(srcBase + ivec2(0, 1), srcSize - 1)).r;
-    float d3 = imageLoad(srcMip, min(srcBase + ivec2(1, 1), srcSize - 1)).r;
+    // Vulkan mip size: max(1, floor(dim / 2)).
+    uvec2 dst1Extent = uvec2(max(pc.dst0Extent.x / 2u, 1u),
+                             max(pc.dst0Extent.y / 2u, 1u));
 
-    // Farthest depth in the 2x2: max for normal-Z, min for reverse-Z.
-    float farthest = (pc.reverseZ != 0u)
-                         ? min(min(d0, d1), min(d2, d3))
-                         : max(max(d0, d1), max(d2, d3));
+    uvec2 outCoord = gl_WorkGroupID.xy * 4u + uvec2(lx, ly) / 2u;
+    if (outCoord.x >= dst1Extent.x || outCoord.y >= dst1Extent.y)
+        return;
 
-    imageStore(dstMip, ivec2(gid), vec4(farthest, 0.0, 0.0, 0.0));
+    float v = farthest4(sTile[ly][lx], sTile[ly][lx + 1u], sTile[ly + 1u][lx],
+                        sTile[ly + 1u][lx + 1u]);
+    imageStore(dstMip1, ivec2(outCoord), vec4(v, 0.0, 0.0, 0.0));
 }

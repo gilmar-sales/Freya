@@ -168,6 +168,11 @@ namespace FREYA_NAMESPACE
                 .setDescriptorType(vk::DescriptorType::eStorageImage)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eCompute),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(2)
+                .setDescriptorType(vk::DescriptorType::eStorageImage)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eCompute),
         };
 
         const auto copySetLayout = mDevice->Get().createDescriptorSetLayout(
@@ -203,7 +208,7 @@ namespace FREYA_NAMESPACE
                 .setType(vk::DescriptorType::eStorageImage)
                 .setDescriptorCount(
                     frameCount +
-                    frameCount * (HiZPyramid::kMaxMipLevels - 1) * 2),
+                    frameCount * (HiZPyramid::kMaxMipLevels - 1) * 3),
         };
         const auto hizPool = mDevice->Get().createDescriptorPool(
             vk::DescriptorPoolCreateInfo()

@@ -3,7 +3,7 @@
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout(push_constant) uniform PC {
-    uvec2 extent;
+    uvec2 extent;   // Hi-Z mip0 size (typically half of depth)
     uint  reverseZ;
     uint  _pad;
 } pc;
@@ -11,13 +11,25 @@ layout(push_constant) uniform PC {
 layout(binding = 0) uniform sampler2D depthTex;
 layout(binding = 1, r32f) writeonly uniform image2D hizMip0;
 
+float farthest4(float a, float b, float c, float d)
+{
+    return (pc.reverseZ != 0u) ? min(min(a, b), min(c, d))
+                               : max(max(a, b), max(c, d));
+}
+
 void main()
 {
     uvec2 gid = gl_GlobalInvocationID.xy;
     if (gid.x >= pc.extent.x || gid.y >= pc.extent.y)
         return;
 
-    vec2 uv = (vec2(gid) + 0.5) / vec2(pc.extent);
-    float d = textureLod(depthTex, uv, 0.0).r;
-    imageStore(hizMip0, ivec2(gid), vec4(d, 0.0, 0.0, 0.0));
+    // 2x2 farthest from full-res depth → half-res mip0.
+    ivec2 depthSize = textureSize(depthTex, 0);
+    ivec2 srcBase   = ivec2(gid) * 2;
+    float d0 = texelFetch(depthTex, min(srcBase + ivec2(0, 0), depthSize - 1), 0).r;
+    float d1 = texelFetch(depthTex, min(srcBase + ivec2(1, 0), depthSize - 1), 0).r;
+    float d2 = texelFetch(depthTex, min(srcBase + ivec2(0, 1), depthSize - 1), 0).r;
+    float d3 = texelFetch(depthTex, min(srcBase + ivec2(1, 1), depthSize - 1), 0).r;
+
+    imageStore(hizMip0, ivec2(gid), vec4(farthest4(d0, d1, d2, d3), 0.0, 0.0, 0.0));
 }

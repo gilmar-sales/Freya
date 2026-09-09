@@ -3,7 +3,6 @@
 #include "Freya/Builders/BufferBuilder.hpp"
 
 #include <algorithm>
-#include <cmath>
 #include <cstring>
 #include <span>
 
@@ -96,11 +95,7 @@ namespace FREYA_NAMESPACE
         mImageLayout = vk::ImageLayout::eUndefined;
         mWidth       = width;
         mHeight      = height;
-        mMipLevels =
-            std::min(kMaxMipLevels,
-                     static_cast<std::uint32_t>(
-                         std::floor(std::log2(std::max(width, height)))) +
-                         1u);
+        mMipLevels   = ComputeMipLevels(width, height);
         ++mPyramidGeneration;
         if (mPyramidGeneration == 0)
             mPyramidGeneration = 1;
@@ -211,9 +206,15 @@ namespace FREYA_NAMESPACE
             const auto srcInfo = vk::DescriptorImageInfo()
                                      .setImageView(mMipViews[mip - 1])
                                      .setImageLayout(vk::ImageLayout::eGeneral);
-            const auto dstInfo = vk::DescriptorImageInfo()
-                                     .setImageView(mMipViews[mip])
-                                     .setImageLayout(vk::ImageLayout::eGeneral);
+            const auto dst0Info =
+                vk::DescriptorImageInfo()
+                    .setImageView(mMipViews[mip])
+                    .setImageLayout(vk::ImageLayout::eGeneral);
+            const auto dst1Mip = (mip + 1u < mMipLevels) ? (mip + 1u) : mip;
+            const auto dst1Info =
+                vk::DescriptorImageInfo()
+                    .setImageView(mMipViews[dst1Mip])
+                    .setImageLayout(vk::ImageLayout::eGeneral);
             const auto reduceWrites = std::array {
                 vk::WriteDescriptorSet()
                     .setDstSet(reduceSet)
@@ -226,7 +227,13 @@ namespace FREYA_NAMESPACE
                     .setDstBinding(1)
                     .setDescriptorType(vk::DescriptorType::eStorageImage)
                     .setDescriptorCount(1)
-                    .setImageInfo(dstInfo),
+                    .setImageInfo(dst0Info),
+                vk::WriteDescriptorSet()
+                    .setDstSet(reduceSet)
+                    .setDstBinding(2)
+                    .setDescriptorType(vk::DescriptorType::eStorageImage)
+                    .setDescriptorCount(1)
+                    .setImageInfo(dst1Info),
             };
             mDevice->Get().updateDescriptorSets(reduceWrites, nullptr);
         }
@@ -298,10 +305,8 @@ namespace FREYA_NAMESPACE
                          sizeof(CopyPC), &copyPc);
         cb.dispatch((mWidth + 7u) / 8u, (mHeight + 7u) / 8u, 1);
 
-        const auto reduceStride = kMaxMipLevels - 1u;
-        for (std::uint32_t mip = 1; mip < mMipLevels; ++mip)
         {
-            const auto srcBarrier =
+            const auto mip0Barrier =
                 vk::ImageMemoryBarrier()
                     .setOldLayout(vk::ImageLayout::eGeneral)
                     .setNewLayout(vk::ImageLayout::eGeneral)
@@ -313,27 +318,31 @@ namespace FREYA_NAMESPACE
                     .setSubresourceRange(
                         vk::ImageSubresourceRange()
                             .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                            .setBaseMipLevel(mip - 1)
+                            .setBaseMipLevel(0)
                             .setLevelCount(1)
                             .setBaseArrayLayer(0)
                             .setLayerCount(1));
             cb.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader,
                                vk::PipelineStageFlagBits::eComputeShader, {}, 0,
-                               nullptr, 0, nullptr, 1, &srcBarrier);
+                               nullptr, 0, nullptr, 1, &mip0Barrier);
+        }
 
+        const auto reduceStride = kMaxMipLevels - 1u;
+        for (std::uint32_t mip = 1; mip < mMipLevels;)
+        {
+            const auto writeSecond = (mip + 1u < mMipLevels) ? 1u : 0u;
             const auto reduceSet =
                 mReduceSets[frame * reduceStride + (mip - 1u)];
 
-            const auto scale = 1u << mip;
-            const auto dstW  = std::max(1u, (mWidth + scale - 1u) / scale);
-            const auto dstH  = std::max(1u, (mHeight + scale - 1u) / scale);
+            const auto dstW = MipExtent(mWidth, mip);
+            const auto dstH = MipExtent(mHeight, mip);
             struct ReducePC
             {
                 std::uint32_t extentX;
                 std::uint32_t extentY;
                 std::uint32_t reverseZ;
-                std::uint32_t pad;
-            } reducePc { dstW, dstH, reverseZ ? 1u : 0u, 0 };
+                std::uint32_t writeSecond;
+            } reducePc { dstW, dstH, reverseZ ? 1u : 0u, writeSecond };
 
             cb.bindPipeline(vk::PipelineBindPoint::eCompute, mReducePipeline);
             cb.bindDescriptorSets(vk::PipelineBindPoint::eCompute,
@@ -341,6 +350,29 @@ namespace FREYA_NAMESPACE
             cb.pushConstants(mReduceLayout, vk::ShaderStageFlagBits::eCompute,
                              0, sizeof(ReducePC), &reducePc);
             cb.dispatch((dstW + 7u) / 8u, (dstH + 7u) / 8u, 1);
+
+            const auto written = writeSecond ? 2u : 1u;
+            const auto dstBarrier =
+                vk::ImageMemoryBarrier()
+                    .setOldLayout(vk::ImageLayout::eGeneral)
+                    .setNewLayout(vk::ImageLayout::eGeneral)
+                    .setSrcAccessMask(vk::AccessFlagBits::eShaderWrite)
+                    .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                    .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                    .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                    .setImage(mImage->GetImage())
+                    .setSubresourceRange(
+                        vk::ImageSubresourceRange()
+                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                            .setBaseMipLevel(mip)
+                            .setLevelCount(written)
+                            .setBaseArrayLayer(0)
+                            .setLayerCount(1));
+            cb.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader,
+                               vk::PipelineStageFlagBits::eComputeShader, {}, 0,
+                               nullptr, 0, nullptr, 1, &dstBarrier);
+
+            mip += written;
         }
 
         {
@@ -369,17 +401,37 @@ namespace FREYA_NAMESPACE
         mReady = true;
     }
 
+    std::uint32_t HiZPyramid::ComputeMipLevels(const std::uint32_t width,
+                                               const std::uint32_t height)
+    {
+        if (width == 0 || height == 0)
+            return 0;
+
+        std::uint32_t levels = 1;
+        std::uint32_t w      = width;
+        std::uint32_t h      = height;
+        while (levels < kMaxMipLevels)
+        {
+            const auto nextW = std::max(1u, w / 2u);
+            const auto nextH = std::max(1u, h / 2u);
+            if (std::max(nextW, nextH) < kMinMipExtent)
+                break;
+            if (nextW == w && nextH == h)
+                break;
+            w = nextW;
+            h = nextH;
+            ++levels;
+        }
+        return levels;
+    }
+
     std::uint32_t HiZPyramid::PackedPixelCount(const std::uint32_t width,
                                                const std::uint32_t height,
                                                const std::uint32_t mipCount)
     {
         std::uint32_t total = 0;
         for (std::uint32_t mip = 0; mip < mipCount; ++mip)
-        {
-            const auto w = std::max(1u, width >> mip);
-            const auto h = std::max(1u, height >> mip);
-            total += w * h;
-        }
+            total += MipExtent(width, mip) * MipExtent(height, mip);
         return total;
     }
 
@@ -435,8 +487,8 @@ namespace FREYA_NAMESPACE
         vk::DeviceSize dstOffset = 0;
         for (std::uint32_t mip = 0; mip < mMipLevels; ++mip)
         {
-            const auto mw = std::max(1u, mWidth >> mip);
-            const auto mh = std::max(1u, mHeight >> mip);
+            const auto mw = MipExtent(mWidth, mip);
+            const auto mh = MipExtent(mHeight, mip);
             const auto region =
                 vk::BufferImageCopy()
                     .setBufferOffset(dstOffset)
@@ -551,8 +603,8 @@ namespace FREYA_NAMESPACE
         vk::DeviceSize srcOffset = 0;
         for (std::uint32_t mip = 0; mip < mMipLevels; ++mip)
         {
-            const auto mw = std::max(1u, mWidth >> mip);
-            const auto mh = std::max(1u, mHeight >> mip);
+            const auto mw = MipExtent(mWidth, mip);
+            const auto mh = MipExtent(mHeight, mip);
             const auto region =
                 vk::BufferImageCopy()
                     .setBufferOffset(srcOffset)
