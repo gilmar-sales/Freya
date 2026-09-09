@@ -56,6 +56,7 @@ layout(set = 0, binding = 13) uniform sampler2DArrayShadow spotShadowMap;
 layout(set = 0, binding = 14) uniform samplerCubeArrayShadow pointShadowMap;
 layout(set = 0, binding = 15) uniform sampler2D inSsao;
 layout(set = 0, binding = 16) uniform sampler2D inVelocity;
+layout(set = 0, binding = 17) uniform sampler2D directionalShadowMask;
 
 layout(push_constant) uniform LightingPush {
     uint debugMode; // DeferredDebugView (0 = lit)
@@ -69,7 +70,10 @@ layout(location = 0) out vec4 outColor;
 const uint kFlagReceiveShadow = 1u;
 const uint kFlagUnlit = 3u;
 
+vec2 gLightingUV;
+
 #define PBR_WITH_SHADOWS
+#define FREYA_DIRECTIONAL_SHADOW_MASK
 #include "Include/shadows.inc"
 #include "Include/ltc.inc"
 #include "Include/pbr_ibl.inc"
@@ -96,6 +100,7 @@ float VisualizeDepth(float depth, bool reverseZ) {
 }
 
 void main() {
+    gLightingUV = inUV;
     float depth = texture(inDepth, inUV).r;
     bool reverseZ = shadows.reverseZ.x > 0.5;
     float ssao = texture(inSsao, inUV).r;

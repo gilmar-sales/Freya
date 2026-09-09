@@ -106,7 +106,8 @@ namespace FREYA_NAMESPACE
     {
         if (!freyaOptions->enableShadows)
             mShadowQuality = ShadowQuality::Off;
-        else if (freyaOptions->shadowMapResolution >= 4096)
+        else if (freyaOptions->shadowMapResolution >= 4096 ||
+                 freyaOptions->shadowCascadeBlend >= 0.09f)
             mShadowQuality = ShadowQuality::Ultra;
         else if (freyaOptions->shadowSampleCount <= 4 &&
                  freyaOptions->shadowMapResolution <= 512)
@@ -362,6 +363,7 @@ namespace FREYA_NAMESPACE
             std::make_shared<ShadowFrameStage>(),
             std::make_shared<DeferredGeometryFrameStage>(),
             std::make_shared<SsaoFrameStage>(),
+            std::make_shared<ShadowMaskFrameStage>(),
             std::make_shared<LightingFrameStage>(),
             std::make_shared<TaaFrameStage>(),
             std::make_shared<TranslucentFrameStage>(),
@@ -423,6 +425,7 @@ namespace FREYA_NAMESPACE
         ctx.projection                 = &mCurrentProjection;
         ctx.deferred                   = &mDeferredPass;
         ctx.ssaoPass                   = &mSsaoPass;
+        ctx.shadowMaskPass             = &mShadowMaskPass;
         ctx.taa                        = &mTaaPass;
         ctx.translucent                = &mTranslucentPass;
         ctx.bloom                      = &mBloomPass;

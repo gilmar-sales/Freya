@@ -299,6 +299,7 @@ namespace FREYA_NAMESPACE
     void DeferredCompressedPass::BeginLighting(
         const skr::Arc<CommandPool>& commandPool,
         const skr::Arc<Image>&       ssaoImage,
+        const skr::Arc<Image>&       shadowMaskImage,
         const std::uint32_t          frameIndex) const
     {
         auto commandBuffer = commandPool->GetCommandBuffer();
@@ -326,6 +327,34 @@ namespace FREYA_NAMESPACE
                     .setImageInfo(ssaoInfo);
             mDevice->Get().updateDescriptorSets(ssaoWrite, nullptr);
             mBoundSsaoViews[frameIndex] = ssaoView;
+        }
+
+        if (shadowMaskImage && frameIndex < mLightingSets.size())
+        {
+            const auto maskView = shadowMaskImage->GetImageView();
+            if (frameIndex >= mBoundShadowMaskViews.size() ||
+                mBoundShadowMaskViews[frameIndex] != maskView)
+            {
+                if (frameIndex >= mBoundShadowMaskViews.size())
+                    mBoundShadowMaskViews.resize(mLightingSets.size());
+
+                const auto maskInfo =
+                    vk::DescriptorImageInfo {}
+                        .setSampler(mGbufferSampler)
+                        .setImageView(maskView)
+                        .setImageLayout(
+                            vk::ImageLayout::eShaderReadOnlyOptimal);
+
+                const auto maskWrite =
+                    vk::WriteDescriptorSet {}
+                        .setDstSet(mLightingSets[frameIndex])
+                        .setDstBinding(17)
+                        .setDescriptorType(
+                            vk::DescriptorType::eCombinedImageSampler)
+                        .setImageInfo(maskInfo);
+                mDevice->Get().updateDescriptorSets(maskWrite, nullptr);
+                mBoundShadowMaskViews[frameIndex] = maskView;
+            }
         }
 
         mDevice->BeginDebugLabel(commandBuffer, DebugLabel::DeferredLighting);

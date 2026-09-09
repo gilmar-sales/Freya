@@ -302,7 +302,7 @@ namespace FREYA_NAMESPACE
             uboBinding(4),  uboBinding(5),  cisBinding(6),  cisBinding(7),
             cisBinding(8),  cisBinding(9),  cisBinding(10), uboBinding(11),
             cisBinding(12), cisBinding(13), cisBinding(14), cisBinding(15),
-            cisBinding(16),
+            cisBinding(16), cisBinding(17),
         };
 
         auto lightingSetLayout = mDevice->Get().createDescriptorSetLayout(
@@ -311,7 +311,7 @@ namespace FREYA_NAMESPACE
         std::array lightingPoolSizes = {
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(14 * mFreyaOptions->frameCount),
+                .setDescriptorCount(15 * mFreyaOptions->frameCount),
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eUniformBuffer)
                 .setDescriptorCount(3 * mFreyaOptions->frameCount),

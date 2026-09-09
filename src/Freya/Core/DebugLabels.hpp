@@ -119,6 +119,8 @@ namespace FREYA_NAMESPACE
                 return { "Deferred Geometry", GeometryColor };
             if (view == "Ssao")
                 return { "SSAO", SsaoColor };
+            if (view == "ShadowMask")
+                return { "Shadow Mask", ShadowColor };
             if (view == "Lighting")
                 return { "Lighting", SsaoColor };
             if (view == "Taa")

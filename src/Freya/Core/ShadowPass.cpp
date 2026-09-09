@@ -386,11 +386,15 @@ namespace FREYA_NAMESPACE
             0.0f,
             // Soft scale magnitude; sign encodes Reverse-Z for shaders.
             mFreyaOptions->ReverseZ ? softScale : -softScale);
+        const float cascadeBlend =
+            std::clamp(mFreyaOptions->shadowCascadeBlend, 0.0f, 0.5f);
+        const bool useMask = mFreyaOptions->enableShadows &&
+                             mFreyaOptions->enableShadowMask;
         mShadowData.reverseZ =
             glm::vec4(mFreyaOptions->ReverseZ ? 1.0f : 0.0f,
                       static_cast<float>(std::max(mResolution, 1u)),
-                      0.0f,
-                      0.0f);
+                      cascadeBlend,
+                      useMask ? 1.0f : 0.0f);
         mShadowData.pcss = glm::vec4(
             std::max(0.0f, mFreyaOptions->shadowLightSize),
             std::max(1.0f, mFreyaOptions->shadowMaxSoftness),

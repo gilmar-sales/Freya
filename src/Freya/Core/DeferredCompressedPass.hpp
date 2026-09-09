@@ -124,6 +124,7 @@ namespace FREYA_NAMESPACE
 
         void BeginLighting(const skr::Arc<CommandPool>& commandPool,
                            const skr::Arc<Image>&       ssaoImage,
+                           const skr::Arc<Image>&       shadowMaskImage,
                            std::uint32_t                frameIndex) const;
 
         void EndLighting(const skr::Arc<CommandPool>& commandPool) const;
@@ -191,6 +192,7 @@ namespace FREYA_NAMESPACE
         mutable bool                       mLightingActive = false;
         mutable std::uint32_t              mCurrentSubpass = DefDepthPrePass;
         mutable std::vector<vk::ImageView> mBoundSsaoViews;
+        mutable std::vector<vk::ImageView> mBoundShadowMaskViews;
 
         static const char* GetSubpassLabel(std::uint32_t subpass);
         static DebugRegion GetSubpassRegion(std::uint32_t subpass);

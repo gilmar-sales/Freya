@@ -9,6 +9,7 @@
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/SsaoPassBuilder.hpp"
+#include "Freya/Builders/ShadowMaskPassBuilder.hpp"
 #include "Freya/Builders/TaaPassBuilder.hpp"
 #include "Freya/Builders/TranslucentPassBuilder.hpp"
 #include "Freya/Core/BloomPass.hpp"
@@ -224,6 +225,43 @@ namespace FREYA_NAMESPACE
                        ctx.options->ssaoIntensity);
     }
 
+    void ShadowMaskFrameStage::Rebuild(StageContext&         stageCtx,
+                                       skr::ServiceProvider& sp)
+    {
+        auto& ctx = AsRenderFrameContext(stageCtx);
+        if (!ctx.shadowMaskPass)
+            return;
+        ctx.shadowMaskPass->reset();
+        if (ctx.options->enableShadows && ctx.options->enableShadowMask)
+        {
+            *ctx.shadowMaskPass =
+                sp.GetService<ShadowMaskPassBuilder>()->Build(ctx.swapChain,
+                                                              ctx.VkExtent());
+        }
+    }
+
+    void ShadowMaskFrameStage::Execute(StageContext& stageCtx)
+    {
+        auto& ctx = AsRenderFrameContext(stageCtx);
+        if (!ctx.shadowMaskPass || !*ctx.shadowMaskPass || !ctx.deferred ||
+            !*ctx.deferred || !ctx.shadow || !*ctx.shadow || !ctx.lights ||
+            !*ctx.lights || !ctx.projection)
+            return;
+        if (!ctx.options->enableShadows || !ctx.options->enableShadowMask)
+            return;
+
+        (*ctx.shadowMaskPass)
+            ->Dispatch(ctx.commandPool,
+                       (*ctx.deferred)->GetDepthImage(),
+                       (*ctx.deferred)->GetNormalImage(),
+                       *ctx.shadow,
+                       **ctx.lights,
+                       ctx.projection->view,
+                       ctx.projection->unjitteredProjection,
+                       ctx.options->ReverseZ,
+                       ctx.frameIndex);
+    }
+
     void LightingFrameStage::Execute(StageContext& stageCtx)
     {
         auto& ctx = AsRenderFrameContext(stageCtx);
@@ -248,8 +286,18 @@ namespace FREYA_NAMESPACE
         if (!ssaoImage)
             return;
 
+        skr::Arc<Image> shadowMaskImage;
+        if (ctx.shadowMaskPass && *ctx.shadowMaskPass)
+            shadowMaskImage = (*ctx.shadowMaskPass)->GetOutputImage();
+        else if (ctx.ssaoFallbackImage && *ctx.ssaoFallbackImage)
+            shadowMaskImage = *ctx.ssaoFallbackImage;
+
+        if (!shadowMaskImage)
+            return;
+
         (*ctx.deferred)
-            ->BeginLighting(ctx.commandPool, ssaoImage, ctx.frameIndex);
+            ->BeginLighting(ctx.commandPool, ssaoImage, shadowMaskImage,
+                            ctx.frameIndex);
         SetFullViewport(ctx.commandPool, ctx.VkExtent());
         (*ctx.deferred)
             ->DrawLighting(ctx.commandPool, ctx.frameIndex, lightingDebug);

@@ -33,7 +33,8 @@ TEST_CASE("ApplyShadowQuality High sets cascade and map size", "[options]")
     REQUIRE(o.enableShadows);
     REQUIRE(o.shadowMapResolution == 2048);
     REQUIRE(o.shadowCascadeCount == 4);
-    REQUIRE(o.shadowSampleCount == 16);
+    REQUIRE(o.shadowSampleCount == 8);
+    REQUIRE(o.shadowCascadeBlend == Catch::Approx(0.05f));
 }
 
 TEST_CASE("AnimLodTick fires at the requested rate", "[options]")

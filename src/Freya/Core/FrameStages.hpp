@@ -37,6 +37,14 @@ namespace FREYA_NAMESPACE
         void Execute(StageContext& ctx) override;
     };
 
+    class ShadowMaskFrameStage : public IFrameStage
+    {
+      public:
+        [[nodiscard]] const char* Name() const override { return "ShadowMask"; }
+        void Rebuild(StageContext& ctx, skr::ServiceProvider& sp) override;
+        void Execute(StageContext& ctx) override;
+    };
+
     class LightingFrameStage : public IFrameStage
     {
       public:

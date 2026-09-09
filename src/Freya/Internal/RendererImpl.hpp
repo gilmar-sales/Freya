@@ -27,6 +27,7 @@
 #include "Freya/Core/RenderTarget.hpp"
 #include "Freya/Core/RendererUi.hpp"
 #include "Freya/Core/ShadowPass.hpp"
+#include "Freya/Core/ShadowMaskPass.hpp"
 #include "Freya/Core/SsaoPass.hpp"
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Core/TaaPass.hpp"
@@ -279,6 +280,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<BloomPass>              mBloomPass;
         skr::Arc<TaaPass>                mTaaPass;
         skr::Arc<SsaoPass>               mSsaoPass;
+        skr::Arc<ShadowMaskPass>         mShadowMaskPass;
         skr::Arc<CompositePass>          mCompositePass;
         skr::Arc<DebugDrawPass>          mDebugDrawPass;
         skr::Arc<BillboardPass>          mBillboardPass;

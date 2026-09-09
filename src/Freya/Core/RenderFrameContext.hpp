@@ -10,6 +10,7 @@
 #include "Freya/Core/GpuAnimPass.hpp"
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/PickPass.hpp"
+#include "Freya/Core/ShadowMaskPass.hpp"
 #include "Freya/Core/ShadowPass.hpp"
 #include "Freya/Core/SsaoPass.hpp"
 #include "Freya/Core/StageContext.hpp"
@@ -49,6 +50,7 @@ namespace FREYA_NAMESPACE
 
         skr::Arc<DeferredCompressedPass>* deferred           = nullptr;
         skr::Arc<SsaoPass>*               ssaoPass           = nullptr;
+        skr::Arc<ShadowMaskPass>*         shadowMaskPass     = nullptr;
         skr::Arc<TaaPass>*                taa                = nullptr;
         skr::Arc<TranslucentPass>*        translucent        = nullptr;
         skr::Arc<BloomPass>*              bloom              = nullptr;

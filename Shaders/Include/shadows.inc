@@ -106,11 +106,13 @@ float SampleCascadeShadow(vec3 worldPos, vec3 N, vec3 L) {
                                   shadows.cascadeViewProj[cascade], biased,
                                   float(cascade), depthBiasAmount, uvRadius);
 
-    if (cascade < cascadeCount - 1) {
+    // reverseZ.z = blend fraction of the split (0 = disabled).
+    float blendFrac = clamp(shadows.reverseZ.z, 0.0, 0.5);
+    if (blendFrac > 1e-4 && cascade < cascadeCount - 1) {
         float splitNear =
             (cascade == 0) ? 0.0 : shadows.cascadeSplits[cascade - 1];
         float splitFar = shadows.cascadeSplits[cascade];
-        float blendStart = mix(splitNear, splitFar, 0.9);
+        float blendStart = mix(splitNear, splitFar, 1.0 - blendFrac);
         if (viewDepth > blendStart) {
             int nextCascade = cascade + 1;
             float tsNext = max(shadows.cascadeTexelSize[nextCascade], 1e-6);
@@ -247,12 +249,22 @@ float GetShadowFactor(int i, float lightType, vec3 worldPos, vec3 N,
     if (!receiveShadow || lights.lightOuterCutoffAndIntensity[i].w < 0.5)
         return 1.0;
     float shadow = 1.0;
-    if (lightType >= 0.5 && lightType < 1.5)
-        shadow = SampleCascadeShadow(worldPos, N, L);
-    else if (lightType >= 1.5 && lightType < 2.5)
+    if (lightType >= 0.5 && lightType < 1.5) {
+#ifdef FREYA_DIRECTIONAL_SHADOW_MASK
+        if (shadows.reverseZ.w > 0.5)
+            shadow = textureLod(directionalShadowMask, gLightingUV, 0.0).r;
+        else
+#endif
+            shadow = SampleCascadeShadow(worldPos, N, L);
+    } else if (lightType >= 1.5 && lightType < 2.5) {
+        if (max(dot(N, normalize(L)), 0.0) <= 0.0)
+            return 1.0;
         shadow = SampleSpotShadow(i, worldPos, N, L);
-    else if (lightType < 0.5)
+    } else if (lightType < 0.5) {
+        if (max(dot(N, normalize(L)), 0.0) <= 0.0)
+            return 1.0;
         shadow = SamplePointShadow(i, worldPos, N);
+    }
     return mix(shadows.pcss.z, 1.0, shadow);
 }
 

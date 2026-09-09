@@ -163,6 +163,11 @@ namespace FREYA_NAMESPACE
         std::uint32_t maxSpotShadows      = 4;
         std::uint32_t maxPointShadows     = 2;
         std::uint32_t shadowSampleCount   = 16;
+        /// Fraction of cascade split used for blend into next (0 = off).
+        float shadowCascadeBlend = 0.0f;
+        /// Half-res directional CSM mask before fullscreen lighting.
+        bool          enableShadowMask            = true;
+        std::uint32_t shadowMaskResolutionDivisor = 2;
         bool          ReverseZ;
 
         std::string shaderRoot = "./Resources/Shaders";
@@ -237,6 +242,7 @@ namespace FREYA_NAMESPACE
                 options.maxSpotShadows      = 2;
                 options.maxPointShadows     = 2;
                 options.shadowSampleCount   = 4;
+                options.shadowCascadeBlend  = 0.0f;
                 break;
             case ShadowQuality::Medium:
                 options.shadowMapResolution = 1024;
@@ -244,20 +250,23 @@ namespace FREYA_NAMESPACE
                 options.maxSpotShadows      = 4;
                 options.maxPointShadows     = 2;
                 options.shadowSampleCount   = 8;
+                options.shadowCascadeBlend  = 0.0f;
                 break;
             case ShadowQuality::High:
                 options.shadowMapResolution = 2048;
                 options.shadowCascadeCount  = 4;
                 options.maxSpotShadows      = 4;
                 options.maxPointShadows     = 2;
-                options.shadowSampleCount   = 16;
+                options.shadowSampleCount   = 8;
+                options.shadowCascadeBlend  = 0.05f;
                 break;
             case ShadowQuality::Ultra:
-                options.shadowMapResolution = 4096;
+                options.shadowMapResolution = 2048;
                 options.shadowCascadeCount  = 4;
                 options.maxSpotShadows      = 4;
                 options.maxPointShadows     = 2;
-                options.shadowSampleCount   = 16;
+                options.shadowSampleCount   = 8;
+                options.shadowCascadeBlend  = 0.1f;
                 break;
             case ShadowQuality::Off:
                 break;
