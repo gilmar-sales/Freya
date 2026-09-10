@@ -1070,18 +1070,21 @@ namespace FREYA_NAMESPACE
         out.meshes        = mMeshInfos;
         out.lods          = mMeshLods;
         out.instances     = mSceneInstances;
-        out.sources       = mInstanceTransforms;
-        for (std::uint32_t i = 0;
-             i < out.instances.size() && i < mSceneTransforms.size();
-             ++i)
+        out.sources.resize(mSceneInstances.size());
+        for (std::uint32_t i = 0; i < out.instances.size(); ++i)
         {
-            const auto M           = mSceneTransforms[i].ToMatrix();
+            const auto M =
+                i < mSceneTransforms.size() ? mSceneTransforms[i].ToMatrix()
+                                            : glm::mat4(1.0f);
             out.instances[i].model = M;
-            if (i < out.sources.size())
-            {
-                out.sources[i].model     = M;
-                out.sources[i].prevModel = M;
-            }
+            out.sources[i]         = InstanceTransform {
+                        .model      = M,
+                        .prevModel  = M,
+                        .materialId = mSceneInstances[i].materialId,
+                        .entityId   = mSceneInstances[i].entityId,
+                        .flags      = mSceneInstances[i].flags,
+                        .boneOffset = mSceneInstances[i].boneOffset,
+            };
         }
         out.hiz.present = mHiZ && mHiZ->IsValid();
         out.hiz.ready   = mHiZ && mHiZ->IsReady();
