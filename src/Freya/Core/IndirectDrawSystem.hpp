@@ -209,11 +209,10 @@ namespace FREYA_NAMESPACE
         std::uint32_t               mPrevInstanceCount = 0;
         std::vector<FrameResources> mFrames;
 
-        std::vector<MeshInfo>          mMeshInfos;
-        std::vector<MeshLodInfo>       mMeshLods;
-        std::vector<SceneInstance>     mSceneInstances;
-        std::vector<InstanceTransform> mInstanceTransforms;
-        std::vector<SceneTransform>    mSceneTransforms;
+        std::vector<MeshInfo>       mMeshInfos;
+        std::vector<MeshLodInfo>    mMeshLods;
+        std::vector<SceneInstance>  mSceneInstances;
+        std::vector<SceneTransform> mSceneTransforms;
 
         std::vector<SceneInstanceUpload> mStaging;
         std::atomic<std::uint32_t>       mStagingCount { 0 };

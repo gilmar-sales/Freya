@@ -16,7 +16,7 @@ struct SceneInstance {
     uint entityId;
     uint flags;
     uint techniqueId;
-    uint _pad0;
+    uint boneOffset;
     uint _pad1;
     uint _pad2;
 };
@@ -97,15 +97,23 @@ void main()
     if (id >= pc.instanceCount)
         return;
 
+    SceneInstance inst = instances[id];
     mat4 M = trsToMat4(trs[id]);
     mat4 prev = M;
     if (id < pc.prevCount &&
-        prevSources[id].entityId == sources[id].entityId)
+        prevSources[id].entityId == inst.entityId)
     {
         prev = prevSources[id].model;
     }
 
     instances[id].model = M;
-    sources[id].model = M;
-    sources[id].prevModel = prev;
+
+    InstanceTransform src;
+    src.model = M;
+    src.prevModel = prev;
+    src.materialId = inst.materialId;
+    src.entityId = inst.entityId;
+    src.flags = inst.flags;
+    src.boneOffset = inst.boneOffset;
+    sources[id] = src;
 }

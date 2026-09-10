@@ -2,6 +2,7 @@
 
 #include "Freya/Asset/InstanceTransform.hpp"
 #include "Freya/Config.hpp"
+#include "Freya/Core/Limits.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -86,9 +87,10 @@ namespace FREYA_NAMESPACE
         std::uint32_t entityId    = 0;
         std::uint32_t flags       = kSceneInstanceFlagCastShadows;
         std::uint32_t techniqueId = 0;
-        std::uint32_t _pad0       = 0;
-        std::uint32_t _pad1       = 0;
-        std::uint32_t _pad2       = 0;
+        /// Rigid = `kNoSkin`; skinned = palette offset (was _pad0).
+        std::uint32_t boneOffset = kNoSkin;
+        std::uint32_t _pad1      = 0;
+        std::uint32_t _pad2      = 0;
     };
 
     static_assert(sizeof(SceneInstance) == 96,

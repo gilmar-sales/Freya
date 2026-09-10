@@ -177,7 +177,6 @@ namespace FREYA_NAMESPACE
     {
         ensureCapacityForFrame(mFrameIndex, instanceCount);
         mSceneInstances.reserve(instanceCount);
-        mInstanceTransforms.reserve(instanceCount);
         mSceneTransforms.reserve(instanceCount);
     }
 
@@ -267,13 +266,16 @@ namespace FREYA_NAMESPACE
         const auto capacity =
             std::max(instanceCount,
                      std::max(mPrevCapacity * 2, kInitialInstanceCapacity));
-        mDevice->Get().waitIdle();
+        // Prefer growing only when idle path already ran; avoid an extra
+        // waitIdle here — Buffer::~Buffer syncs if an in-flight slot held the
+        // old allocation. Call ReserveSceneInstances with the high-water mark.
         mPrevSourceTransforms =
             BufferBuilder(mDevice)
                 .SetUsage(BufferUsage::Storage)
                 .SetSize(sizeof(InstanceTransform) * capacity)
                 .Build();
         mPrevCapacity = capacity;
+        mPrevInstanceCount = 0;
         for (std::uint32_t f = 0; f < mFrameCount; ++f)
             updateExpandDescriptors(f);
     }
@@ -533,18 +535,15 @@ namespace FREYA_NAMESPACE
         auto& frame = currentFrame();
         if (mInstanceCount == 0 || !frame.sceneInstances)
         {
-            zeroDrawCount(kTechniqueFilterAll);
             return;
         }
 
+        // ExpandTransforms fills InstanceTransform (model/prevModel + meta).
+        // Host only uploads scene meta + packed TRS.
         frame.sceneInstances->Copy(mSceneInstances.data(),
                                    sizeof(SceneInstance) * mInstanceCount);
-        frame.sourceTransforms->Copy(
-            mInstanceTransforms.data(),
-            sizeof(InstanceTransform) * mInstanceCount);
         frame.sourceTransformsTRS->Copy(
             mSceneTransforms.data(), sizeof(SceneTransform) * mInstanceCount);
-        zeroDrawCount(kTechniqueFilterAll);
         mExpandedThisFrame = false;
     }
 
@@ -602,9 +601,18 @@ namespace FREYA_NAMESPACE
 
     void IndirectDrawSystem::ReserveSceneInstances(const std::uint32_t count)
     {
-        std::unique_lock lock(mStagingMutex);
-        if (mStaging.size() < count)
-            mStaging.resize(count);
+        {
+            std::unique_lock lock(mStagingMutex);
+            if (mStaging.size() < count)
+                mStaging.resize(count);
+        }
+
+        // Grow GPU FiF slots up-front so End never hits Buffer::~ waitIdle.
+        for (std::uint32_t f = 0; f < mFrameCount; ++f)
+            ensureCapacityForFrame(f, count);
+        ensurePrevCapacity(count);
+        mSceneInstances.reserve(count);
+        mSceneTransforms.reserve(count);
     }
 
     void IndirectDrawSystem::UploadSceneInstances(
@@ -648,7 +656,6 @@ namespace FREYA_NAMESPACE
         {
             mInstanceCount = 0;
             mSceneInstances.clear();
-            mInstanceTransforms.clear();
             mSceneTransforms.clear();
             return;
         }
@@ -679,8 +686,8 @@ namespace FREYA_NAMESPACE
 
         mInstanceCount = count;
         mSceneInstances.resize(mInstanceCount);
-        mInstanceTransforms.resize(mInstanceCount);
         mSceneTransforms.resize(mInstanceCount);
+        // InstanceTransform is filled on GPU by ExpandTransforms.
 
         for (std::uint32_t dst = 0; dst < mInstanceCount; ++dst)
         {
@@ -704,15 +711,7 @@ namespace FREYA_NAMESPACE
                 .entityId    = src.entityId,
                 .flags       = flags,
                 .techniqueId = techniqueId,
-            };
-
-            mInstanceTransforms[dst] = InstanceTransform {
-                .model      = glm::mat4(1.0f),
-                .prevModel  = glm::mat4(1.0f),
-                .materialId = src.material.Id(),
-                .entityId   = src.entityId,
-                .flags      = flags,
-                .boneOffset = src.boneOffset,
+                .boneOffset  = src.boneOffset,
             };
         }
     }
