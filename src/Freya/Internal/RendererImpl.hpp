@@ -140,8 +140,8 @@ namespace FREYA_NAMESPACE
 
         void SetInstanceModels(const glm::mat4* models, std::size_t count);
         void UploadBoneMatrices(std::span<const glm::mat4> bones);
-        void UploadBoneMatrices(
-            std::uint32_t boneOffset, std::span<const glm::mat4> bones);
+        void UploadBoneMatrices(std::uint32_t              boneOffset,
+                                std::span<const glm::mat4> bones);
 
         void ClearDrawCommands();
         void ExecuteDrawCommands(

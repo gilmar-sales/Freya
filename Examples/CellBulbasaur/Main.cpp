@@ -694,12 +694,12 @@ class MainApp final : public fra::AbstractApplication
             fra::Scene::Instance ground {};
             ground.transform = fra::SceneTransform::FromMatrix(
                 glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.2f, 0.0f)));
-            ground.mesh        = mGroundMesh;
-            ground.material    = mGroundMaterial;
-            ground.entityId    = nextEntity++;
-            ground.castShadows = true;
-            ground.mobility    = fra::Mobility::Static;
-            const auto id      = mScene.Add(ground);
+            ground.mesh     = mGroundMesh;
+            ground.material = mGroundMaterial;
+            ground.entityId = nextEntity++;
+            ground.flags    = fra::kSceneInstanceFlagCastShadows;
+            ground.mobility = fra::Mobility::Static;
+            const auto id   = mScene.Add(ground);
             ensureIsEye(id, false);
         }
 
@@ -711,10 +711,16 @@ class MainApp final : public fra::AbstractApplication
             for (std::size_t i = 0; i < mSkinned.submeshes.size(); ++i)
             {
                 fra::Scene::Instance inst {};
-                inst.transform  = fra::SceneTransform::FromMatrix(model);
-                inst.mesh       = mSkinned.submeshes[i].mesh;
-                inst.material   = materialForMesh(i, cellShaded);
-                inst.entityId   = nextEntity++;
+                inst.transform = fra::SceneTransform::FromMatrix(model);
+                inst.mesh      = mSkinned.submeshes[i].mesh;
+                inst.material  = materialForMesh(i, cellShaded);
+                inst.entityId  = nextEntity++;
+                inst.techniqueId =
+                    cellShaded
+                        ? mCellTechnique
+                        : fra::MaterialTechniqueRegistry::kDefaultTechnique;
+                inst.flags = fra::kSceneInstanceFlagCastShadows |
+                             (joints > 0 ? fra::kSceneInstanceFlagSkinned : 0u);
                 inst.boneOffset = joints > 0 ? 0u : fra::kNoSkin;
                 inst.boneCount  = joints;
                 inst.mobility   = fra::Mobility::Dynamic;

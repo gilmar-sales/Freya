@@ -94,8 +94,8 @@ namespace FREYA_NAMESPACE
         void                SetDrawDistance(float drawDistance);
 
         void UploadBoneMatrices(std::span<const glm::mat4> bones);
-        void UploadBoneMatrices(
-            std::uint32_t boneOffset, std::span<const glm::mat4> bones);
+        void UploadBoneMatrices(std::uint32_t              boneOffset,
+                                std::span<const glm::mat4> bones);
 
         void RequestPick(std::uint32_t x, std::uint32_t y);
         bool TryConsumePickResult(std::uint32_t& outEntityId);

@@ -1,5 +1,6 @@
 #include "Freya/Scene/Scene.hpp"
 
+#include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Asset/SceneInstanceUpload.hpp"
 #include "Freya/Core/Renderer.hpp"
 
@@ -114,7 +115,8 @@ namespace FREYA_NAMESPACE
                 .mesh        = inst.mesh,
                 .material    = inst.material,
                 .entityId    = inst.entityId,
-                .castShadows = inst.castShadows,
+                .techniqueId = inst.techniqueId,
+                .flags       = inst.flags,
                 .boneOffset  = inst.boneOffset,
                 .boneCount   = inst.boneCount,
             });

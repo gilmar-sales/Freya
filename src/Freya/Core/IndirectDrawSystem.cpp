@@ -32,14 +32,13 @@ namespace FREYA_NAMESPACE
         const skr::Arc<CommandPool>&                 commandPool,
         const skr::Arc<MeshPool>&                    meshPool,
         const skr::Arc<MaterialDescriptorResources>& materials,
-        const skr::Arc<MaterialPool>&                materialPool,
         const std::uint32_t                          frameCount,
         const vk::Pipeline                           cullPipeline,
         const vk::PipelineLayout                     cullPipelineLayout,
         const vk::DescriptorSetLayout                cullSetLayout,
         const vk::DescriptorPool                     cullDescriptorPool,
         std::vector<vk::DescriptorSet>
-                                      cullDescriptorSets,
+            cullDescriptorSets,
         const vk::Pipeline            expandPipeline,
         const vk::PipelineLayout      expandPipelineLayout,
         const vk::DescriptorSetLayout expandSetLayout,
@@ -51,10 +50,9 @@ namespace FREYA_NAMESPACE
         skr::Arc<Image>
             hizFallbackImage) :
         mDevice(device), mCommandPool(commandPool), mMeshPool(meshPool),
-        mMaterials(materials), mMaterialPool(materialPool),
-        mFrameCount(std::max(1u, frameCount)), mCullPipeline(cullPipeline),
-        mCullPipelineLayout(cullPipelineLayout), mCullSetLayout(cullSetLayout),
-        mCullDescriptorPool(cullDescriptorPool),
+        mMaterials(materials), mFrameCount(std::max(1u, frameCount)),
+        mCullPipeline(cullPipeline), mCullPipelineLayout(cullPipelineLayout),
+        mCullSetLayout(cullSetLayout), mCullDescriptorPool(cullDescriptorPool),
         mCullDescriptorSets(std::move(cullDescriptorSets)),
         mExpandPipeline(expandPipeline),
         mExpandPipelineLayout(expandPipelineLayout),
@@ -686,18 +684,12 @@ namespace FREYA_NAMESPACE
 
         for (std::uint32_t dst = 0; dst < mInstanceCount; ++dst)
         {
-            const auto& src = mStaging[sortKeys[dst].uploadIndex];
-            auto flags = src.castShadows ? kSceneInstanceFlagCastShadows : 0u;
-            std::uint32_t techniqueId = 0;
-            if (mMaterialPool && mMaterialPool->Contains(src.material))
-            {
-                const auto draw = mMaterialPool->GetDrawInfo(src.material);
-                techniqueId     = draw.techniqueId;
-                if (techniqueId >= kMaxMaterialTechniques)
-                    techniqueId = 0;
-                if (draw.alphaMode == AlphaMode::Blend)
-                    flags |= kSceneInstanceFlagTranslucent;
-            }
+            const auto&   src         = mStaging[sortKeys[dst].uploadIndex];
+            std::uint32_t techniqueId = src.techniqueId;
+            if (techniqueId >= kMaxMaterialTechniques)
+                techniqueId = 0;
+
+            auto flags = src.flags;
             if (src.boneOffset != kNoSkin)
                 flags |= kSceneInstanceFlagSkinned;
 

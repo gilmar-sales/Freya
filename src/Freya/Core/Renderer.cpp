@@ -1550,7 +1550,9 @@ namespace FREYA_NAMESPACE
                 upload.mesh        = MeshHandle { cmd.meshId };
                 upload.material    = MaterialHandle { cmd.materialId };
                 upload.entityId    = cmd.entityId;
-                upload.castShadows = cmd.castShadows;
+                upload.techniqueId = 0;
+                upload.flags =
+                    MakeSceneInstanceFlags(cmd.castShadows, false, false);
                 if (instanceIndex < mLegacyModels.size())
                     upload.transform = SceneTransform::FromMatrix(
                         mLegacyModels[instanceIndex]);

@@ -22,7 +22,7 @@ namespace FREYA_NAMESPACE
         glm::vec3 scale { 1.f, 1.f, 1.f };
         glm::quat rotation { 1.f, 0.f, 0.f, 0.f };
 
-        [[nodiscard]] glm::mat4 ToMatrix() const;
+        [[nodiscard]] glm::mat4             ToMatrix() const;
         [[nodiscard]] static SceneTransform FromMatrix(const glm::mat4& m);
     };
 
@@ -33,7 +33,8 @@ namespace FREYA_NAMESPACE
     static_assert(offsetof(SceneTransform, rotation) == 24,
                   "SceneTransform::rotation offset");
 
-    /// Alias for the GPU TRS SSBO (scalar layout, same bytes as SceneTransform).
+    /// Alias for the GPU TRS SSBO (scalar layout, same bytes as
+    /// SceneTransform).
     using GpuSceneTransform = SceneTransform;
 
 } // namespace FREYA_NAMESPACE

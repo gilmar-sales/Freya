@@ -121,8 +121,8 @@ namespace
                                                         : meshRemap.front();
             u.material = materialId;
             u.entityId = inst.entityId;
-            u.castShadows =
-                (inst.flags & fra::kSceneInstanceFlagCastShadows) != 0;
+            u.techniqueId = inst.techniqueId;
+            u.flags       = inst.flags;
             if (inst.flags & fra::kSceneInstanceFlagSkinned)
             {
                 // Non-kNoSkin so CullFrustum skips Hi-Z (matches live dump).

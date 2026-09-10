@@ -118,12 +118,12 @@ class MainApp final : public fra::AbstractApplication
             [&](fra::MeshHandle mesh, fra::MaterialHandle material,
                 const glm::mat4& model, fra::Mobility mobility) {
                 fra::Scene::Instance inst {};
-                inst.mesh        = mesh;
-                inst.material    = material;
-                inst.transform   = fra::SceneTransform::FromMatrix(model);
-                inst.entityId    = nextEntity++;
-                inst.castShadows = false;
-                inst.mobility    = mobility;
+                inst.mesh      = mesh;
+                inst.material  = material;
+                inst.transform = fra::SceneTransform::FromMatrix(model);
+                inst.entityId  = nextEntity++;
+                inst.flags     = 0;
+                inst.mobility  = mobility;
                 mScene.Add(inst);
             };
 

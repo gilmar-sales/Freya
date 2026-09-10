@@ -10,6 +10,8 @@
 
 #include <glm/glm.hpp>
 
+#include "Freya/Asset/GpuScene.hpp"
+
 namespace FREYA_NAMESPACE
 {
     class Renderer;
@@ -43,10 +45,12 @@ namespace FREYA_NAMESPACE
             MaterialHandle material;
             SceneTransform transform {};
             std::uint32_t  entityId    = 0;
-            bool           castShadows = true;
-            std::uint32_t  boneOffset  = kNoSkin;
-            std::uint32_t  boneCount   = 0;
-            Mobility       mobility    = Mobility::Dynamic;
+            std::uint32_t  techniqueId = 0;
+            /// `kSceneInstanceFlag*` (CastShadows / Translucent / Skinned).
+            std::uint32_t flags      = kSceneInstanceFlagCastShadows;
+            std::uint32_t boneOffset = kNoSkin;
+            std::uint32_t boneCount  = 0;
+            Mobility      mobility   = Mobility::Dynamic;
         };
 
         using InstanceId = std::uint32_t;

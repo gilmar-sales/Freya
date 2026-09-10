@@ -1467,14 +1467,17 @@ class MainApp final : public fra::AbstractApplication
             for (const auto& part : mSkinned.submeshes)
             {
                 fra::Scene::Instance inst {};
-                inst.transform   = fra::SceneTransform::FromMatrix(fox.model);
-                inst.mesh        = part.mesh;
-                inst.material    = part.material;
-                inst.entityId    = entity++;
-                inst.castShadows = mEnableShadows;
-                inst.boneOffset  = fox.boneOffset;
-                inst.boneCount   = jointCount;
-                inst.mobility    = fra::Mobility::Dynamic;
+                inst.transform  = fra::SceneTransform::FromMatrix(fox.model);
+                inst.mesh       = part.mesh;
+                inst.material   = part.material;
+                inst.entityId   = entity++;
+                inst.flags      = mEnableShadows
+                                      ? fra::kSceneInstanceFlagCastShadows |
+                                            fra::kSceneInstanceFlagSkinned
+                                      : fra::kSceneInstanceFlagSkinned;
+                inst.boneOffset = fox.boneOffset;
+                inst.boneCount  = jointCount;
+                inst.mobility   = fra::Mobility::Dynamic;
                 mScene.Add(inst);
             }
         }
@@ -1482,11 +1485,11 @@ class MainApp final : public fra::AbstractApplication
             fra::Scene::Instance ground {};
             ground.transform =
                 fra::SceneTransform::FromMatrix(groundModelMatrix());
-            ground.mesh        = mGroundMesh;
-            ground.material    = mGroundMaterial;
-            ground.entityId    = 100000u;
-            ground.castShadows = false;
-            ground.mobility    = fra::Mobility::Static;
+            ground.mesh     = mGroundMesh;
+            ground.material = mGroundMaterial;
+            ground.entityId = 100000u;
+            ground.flags    = 0;
+            ground.mobility = fra::Mobility::Static;
             mScene.Add(ground);
         }
         mSceneFoxCount     = mFoxes.size();
@@ -1514,10 +1517,13 @@ class MainApp final : public fra::AbstractApplication
                 auto* inst = mScene.Get(id++);
                 if (inst == nullptr)
                     continue;
-                inst->transform   = fra::SceneTransform::FromMatrix(fox.model);
-                inst->boneOffset  = fox.boneOffset;
-                inst->boneCount   = jointCount;
-                inst->castShadows = mEnableShadows;
+                inst->transform  = fra::SceneTransform::FromMatrix(fox.model);
+                inst->boneOffset = fox.boneOffset;
+                inst->boneCount  = jointCount;
+                inst->flags      = mEnableShadows
+                                       ? fra::kSceneInstanceFlagCastShadows |
+                                             fra::kSceneInstanceFlagSkinned
+                                       : fra::kSceneInstanceFlagSkinned;
             }
         }
         // Ground is Mobility::Static — leave transform alone after rebuild.

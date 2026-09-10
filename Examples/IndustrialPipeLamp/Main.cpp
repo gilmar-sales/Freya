@@ -432,21 +432,21 @@ class MainApp final : public fra::AbstractApplication
                 fra::Scene::Instance inst {};
                 inst.transform =
                     fra::SceneTransform::FromMatrix(mModelMatrix[i]);
-                inst.mesh        = part.mesh;
-                inst.material    = isBulb ? mBulbMaterial : mSofaMaterial;
-                inst.entityId    = i + 1;
-                inst.castShadows = !isBulb;
-                inst.mobility    = fra::Mobility::Dynamic;
+                inst.mesh     = part.mesh;
+                inst.material = isBulb ? mBulbMaterial : mSofaMaterial;
+                inst.entityId = i + 1;
+                inst.flags = !isBulb ? fra::kSceneInstanceFlagCastShadows : 0u;
+                inst.mobility = fra::Mobility::Dynamic;
                 scene.Add(inst);
             }
         }
         fra::Scene::Instance ground {};
-        ground.transform   = fra::SceneTransform::FromMatrix(mModelMatrix[2]);
-        ground.mesh        = mGroundMesh;
-        ground.material    = mGroundMaterial;
-        ground.entityId    = 0;
-        ground.castShadows = false;
-        ground.mobility    = fra::Mobility::Static;
+        ground.transform = fra::SceneTransform::FromMatrix(mModelMatrix[2]);
+        ground.mesh      = mGroundMesh;
+        ground.material  = mGroundMaterial;
+        ground.entityId  = 0;
+        ground.flags     = 0;
+        ground.mobility  = fra::Mobility::Static;
         scene.Add(ground);
     }
 
