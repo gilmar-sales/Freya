@@ -1578,6 +1578,8 @@ namespace FREYA_NAMESPACE
         const auto cameraPos =
             glm::vec3(glm::inverse(mCurrentProjection.view)[3]);
         mIndirectDraw->SetCullView(cameraPos, getRenderExtent());
+        mIndirectDraw->SetMeshLodCull(mFreyaOptions->meshLodPixelRef,
+                                      mFreyaOptions->meshLodStep);
         mIndirectDraw->DispatchCull(
             viewProj, mode, mFreyaOptions->ReverseZ, techniqueFilter);
     }

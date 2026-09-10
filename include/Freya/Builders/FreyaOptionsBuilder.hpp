@@ -437,6 +437,20 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        /// Lower = pick coarser mesh LODs sooner (screen diameter in px).
+        FreyaOptionsBuilder& SetMeshLodPixelRef(float pixels)
+        {
+            mFreyaOptions->meshLodPixelRef = std::max(1.0f, pixels);
+            return *this;
+        }
+
+        /// Diameter shrink per LOD step (> 1). Lower = denser LOD ladder.
+        FreyaOptionsBuilder& SetMeshLodStep(float step)
+        {
+            mFreyaOptions->meshLodStep = std::max(1.01f, step);
+            return *this;
+        }
+
         /**
          * @brief Builds and returns the FreyaOptions object.
          * @return Shared pointer to configured FreyaOptions

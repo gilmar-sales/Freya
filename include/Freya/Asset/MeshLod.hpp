@@ -24,10 +24,10 @@ namespace FREYA_NAMESPACE
 
         /// Index-count targets relative to LOD0, for LOD1..LOD3.
         /// Clamped to `kMaxLodsPerMesh - 1` entries; values must be in (0, 1).
-        std::array<float, kMaxLodsPerMesh - 1> ratios { 0.35f, 0.15f, 0.05f };
+        std::array<float, kMaxLodsPerMesh - 1> ratios { 0.22f, 0.08f, 0.03f };
 
         /// meshopt target error (relative). Higher = more aggressive.
-        float targetError = 0.02f;
+        float targetError = 0.04f;
 
         /// Skip auto LODs when LOD0 has fewer indices than this.
         std::uint32_t minSourceIndices = 768;

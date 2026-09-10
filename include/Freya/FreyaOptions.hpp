@@ -198,6 +198,12 @@ namespace FREYA_NAMESPACE
         bool enableTaa     = true;
         bool enableBloom   = true;
 
+        /// Screen-space diameter (px) at which cull keeps LOD0. Lower =
+        /// switch to coarser LODs sooner.
+        float meshLodPixelRef = 128.0f;
+        /// Diameter shrink factor per LOD step (must be > 1).
+        float meshLodStep = 1.75f;
+
         /// 1 = full, 2 = half, 4 = quarter of render extent.
         std::uint32_t ssaoResolutionDivisor = 2;
         /// Hemisphere radius in view-space meters (LearnOpenGL SSAO).

@@ -135,8 +135,8 @@ namespace FREYA_NAMESPACE
         std::uint32_t cullMode      = 0;
         std::uint32_t reverseZ      = 0;
         std::uint32_t hizEnabled    = 0;
-        float         lodPixelRef   = 256.0f; ///< ~pixels of diameter for LOD0
-        float         lodStep       = 2.0f;   ///< diameter shrink per LOD
+        float         lodPixelRef   = 128.0f; ///< ~pixels of diameter for LOD0
+        float         lodStep       = 1.75f;  ///< diameter shrink per LOD
         /// `kTechniqueFilterAll` or a concrete technique id.
         std::uint32_t techniqueFilter = kTechniqueFilterAll;
         std::uint32_t _padTech        = 0;

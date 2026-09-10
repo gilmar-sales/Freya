@@ -70,6 +70,9 @@ namespace FREYA_NAMESPACE
 
         void SetCullView(const glm::vec3& cameraPos, vk::Extent2D screenSize);
 
+        /// Cull LOD selection: screen diameter (px) for LOD0 and shrink/step.
+        void SetMeshLodCull(float pixelRef, float step);
+
         void ResizeHiZ(vk::Extent2D extent);
 
         void BuildHiZ(const skr::Arc<Image>& depthImage, bool reverseZ);
@@ -235,6 +238,8 @@ namespace FREYA_NAMESPACE
 
         glm::vec3    mCameraPos { 0.0f };
         vk::Extent2D mScreenSize { 1, 1 };
+        float        mLodPixelRef = 128.0f;
+        float        mLodStep     = 1.75f;
     };
 
 } // namespace FREYA_NAMESPACE

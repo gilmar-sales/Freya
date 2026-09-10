@@ -118,6 +118,13 @@ namespace FREYA_NAMESPACE
         mScreenSize = screenSize;
     }
 
+    void IndirectDrawSystem::SetMeshLodCull(const float pixelRef,
+                                            const float step)
+    {
+        mLodPixelRef = std::max(1.0f, pixelRef);
+        mLodStep     = std::max(1.01f, step);
+    }
+
     void IndirectDrawSystem::ResizeHiZ(const vk::Extent2D extent)
     {
         if (!mHiZ)
@@ -774,8 +781,8 @@ namespace FREYA_NAMESPACE
                          mHiZ->IsReady())
                             ? 1u
                             : 0u;
-        pc.lodPixelRef     = 256.0f;
-        pc.lodStep         = 2.0f;
+        pc.lodPixelRef     = mLodPixelRef;
+        pc.lodStep         = mLodStep;
         pc.techniqueFilter = techniqueFilter;
         pc.maxDraws        = currentFrame().capacity;
         pc.hizDepthBias    = 1e-4f;
