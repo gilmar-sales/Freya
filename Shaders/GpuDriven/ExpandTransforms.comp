@@ -1,0 +1,111 @@
+#version 450
+#extension GL_EXT_scalar_block_layout : require
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+struct SceneTransform {
+    vec3 position;
+    vec3 scale;
+    vec4 rotation; // quat xyzw
+};
+
+struct SceneInstance {
+    mat4 model;
+    uint meshId;
+    uint materialId;
+    uint entityId;
+    uint flags;
+    uint techniqueId;
+    uint _pad0;
+    uint _pad1;
+    uint _pad2;
+};
+
+struct InstanceTransform {
+    mat4 model;
+    mat4 prevModel;
+    uint materialId;
+    uint entityId;
+    uint flags;
+    uint boneOffset;
+};
+
+layout(push_constant) uniform ExpandPC {
+    uint instanceCount;
+    uint prevCount;
+    uint _pad0;
+    uint _pad1;
+} pc;
+
+layout(scalar, binding = 0) readonly buffer TrsBuffer {
+    SceneTransform trs[];
+};
+
+layout(std430, binding = 1) buffer SceneInstanceBuffer {
+    SceneInstance instances[];
+};
+
+layout(std430, binding = 2) buffer SourceTransformBuffer {
+    InstanceTransform sources[];
+};
+
+layout(std430, binding = 3) readonly buffer PrevTransformBuffer {
+    InstanceTransform prevSources[];
+};
+
+mat4 trsToMat4(SceneTransform t)
+{
+    float x = t.rotation.x;
+    float y = t.rotation.y;
+    float z = t.rotation.z;
+    float w = t.rotation.w;
+
+    float x2 = x + x;
+    float y2 = y + y;
+    float z2 = z + z;
+    float xx = x * x2;
+    float xy = x * y2;
+    float xz = x * z2;
+    float yy = y * y2;
+    float yz = y * z2;
+    float zz = z * z2;
+    float wx = w * x2;
+    float wy = w * y2;
+    float wz = w * z2;
+
+    mat3 r = mat3(
+        1.0 - (yy + zz), xy + wz,         xz - wy,
+        xy - wz,         1.0 - (xx + zz), yz + wx,
+        xz + wy,         yz - wx,         1.0 - (xx + yy));
+
+    mat3 s = mat3(
+        t.scale.x, 0.0, 0.0,
+        0.0, t.scale.y, 0.0,
+        0.0, 0.0, t.scale.z);
+
+    mat3 rs = r * s;
+    return mat4(
+        vec4(rs[0], 0.0),
+        vec4(rs[1], 0.0),
+        vec4(rs[2], 0.0),
+        vec4(t.position, 1.0));
+}
+
+void main()
+{
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= pc.instanceCount)
+        return;
+
+    mat4 M = trsToMat4(trs[id]);
+    mat4 prev = M;
+    if (id < pc.prevCount &&
+        prevSources[id].entityId == sources[id].entityId)
+    {
+        prev = prevSources[id].model;
+    }
+
+    instances[id].model = M;
+    sources[id].model = M;
+    sources[id].prevModel = prev;
+}

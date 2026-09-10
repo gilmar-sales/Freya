@@ -90,10 +90,10 @@ namespace FREYA_NAMESPACE
                 .setPName("main");
         const auto pipeline =
             mDevice->Get()
-                .createComputePipeline(nullptr,
-                                       vk::ComputePipelineCreateInfo()
-                                           .setStage(stage)
-                                           .setLayout(pipelineLayout))
+                .createComputePipeline(
+                    nullptr,
+                    vk::ComputePipelineCreateInfo().setStage(stage).setLayout(
+                        pipelineLayout))
                 .value;
 
         const auto poolSizes = std::array {
@@ -108,9 +108,8 @@ namespace FREYA_NAMESPACE
                 .setDescriptorCount(1),
         };
         const auto pool = mDevice->Get().createDescriptorPool(
-            vk::DescriptorPoolCreateInfo()
-                .setPoolSizes(poolSizes)
-                .setMaxSets(1));
+            vk::DescriptorPoolCreateInfo().setPoolSizes(poolSizes).setMaxSets(
+                1));
 
         auto sets = mDevice->Get().allocateDescriptorSets(
             vk::DescriptorSetAllocateInfo()

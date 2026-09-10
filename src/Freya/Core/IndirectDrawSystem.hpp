@@ -7,6 +7,7 @@
 #include "Freya/Asset/MaterialPool.hpp"
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Asset/SceneInstanceUpload.hpp"
+#include "Freya/Asset/SceneTransform.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
@@ -14,7 +15,9 @@
 #include "Freya/Core/Image.hpp"
 
 #include <array>
-#include <limits>
+#include <atomic>
+#include <cstdint>
+#include <shared_mutex>
 #include <span>
 #include <vector>
 
@@ -23,10 +26,11 @@
 namespace FREYA_NAMESPACE
 {
     /**
-     * @brief GPU-driven scene: Approach B MDI + frustum/Hi-Z cull + LOD.
+     * @brief GPU-driven scene: TRS expand + Approach B MDI + frustum/Hi-Z +
+     * LOD.
      *
-     * Compute compacta uma DrawIndexedIndirectCommand por instância visível
-     * (LOD selecionado) e a CPU emite um único drawIndexedIndirectCount.
+     * Frame upload: BeginSceneInstances → Reserve → Upload (any thread) →
+     * EndSceneInstances. ExpandTransforms fills model/prevModel before cull.
      */
     class IndirectDrawSystem
     {
@@ -43,7 +47,13 @@ namespace FREYA_NAMESPACE
             vk::DescriptorSetLayout                      cullSetLayout,
             vk::DescriptorPool                           cullDescriptorPool,
             std::vector<vk::DescriptorSet>
-                cullDescriptorSets,
+                                    cullDescriptorSets,
+            vk::Pipeline            expandPipeline,
+            vk::PipelineLayout      expandPipelineLayout,
+            vk::DescriptorSetLayout expandSetLayout,
+            vk::DescriptorPool      expandDescriptorPool,
+            std::vector<vk::DescriptorSet>
+                expandDescriptorSets,
             skr::Arc<HiZPyramid>
                 hiz,
             skr::Arc<Image>
@@ -51,22 +61,11 @@ namespace FREYA_NAMESPACE
 
         ~IndirectDrawSystem();
 
-        void UploadSceneInstances(std::span<const SceneInstanceUpload> uploads,
-                                  std::uint32_t frameIndex);
+        void BeginSceneInstances();
+        void ReserveSceneInstances(std::uint32_t count);
+        void UploadSceneInstances(std::span<const SceneInstanceUpload> uploads);
+        void EndSceneInstances(std::uint32_t frameIndex);
 
-        /**
-         * @brief Transform/bones/flags patch when topology is unchanged.
-         *
-         * Falls back to UploadSceneInstances when count or identity fields
-         * diverge from the retained GPU table.
-         */
-        void PatchSceneInstances(std::span<const SceneInstanceUpload> uploads,
-                                 std::uint32_t frameIndex);
-
-        /**
-         * @brief Ensure the current FiF GPU slot matches the host scene
-         * version (Copy only when the slot is stale).
-         */
         void CommitSceneFrame(std::uint32_t frameIndex);
 
         void SyncMeshInfo();
@@ -77,62 +76,30 @@ namespace FREYA_NAMESPACE
 
         void BuildHiZ(const skr::Arc<Image>& depthImage, bool reverseZ);
 
-        /**
-         * @brief Reset drawCount, dispatch cull+compact+LOD.
-         *
-         * Must be called outside of a render pass.
-         */
         void DispatchCull(const glm::mat4& viewProj, CullMode mode,
                           bool          reverseZ        = false,
                           std::uint32_t techniqueFilter = kTechniqueFilterAll);
 
-        /**
-         * @brief Replay a frozen CullPushConstants (FreyaGpuTests / dump).
-         *
-         * Uses @p pc as-is (including hizEnabled). Caller must upload Hi-Z
-         * via UploadHiZFromDump when pc.hizEnabled != 0.
-         */
         void DispatchCullExact(const CullPushConstants& pc);
 
         void ExecuteDraws(bool               bindMaterials,
                           vk::PipelineLayout pipelineLayout,
                           std::uint32_t techniqueFilter = kTechniqueFilterAll);
 
-        /**
-         * @brief Copy CPU-side cull inputs + last Camera push constants.
-         */
         void CaptureCullInputs(CullFrameSnapshot& out) const;
 
-        /**
-         * @brief GPU→CPU readback of drawCount + compact survivors.
-         *
-         * Waits idle; must be called after the CB that recorded DispatchCull
-         * has completed. @p frameIndex selects the FiF slot that was culled.
-         */
         bool ReadbackCullOutputs(std::uint32_t              frameIndex,
                                  std::uint32_t              techniqueFilter,
                                  std::uint32_t&             outDrawCount,
                                  std::vector<CullSurvivor>& outSurvivors);
 
-        /**
-         * @brief Merge survivors from main + every technique draw list.
-         *
-         * Needed for frame dumps: Translucent reuses the main list and would
-         * otherwise report drawCount=0 for opaque-only scenes.
-         */
         bool ReadbackCullOutputsAggregated(
             std::uint32_t              frameIndex,
             std::uint32_t&             outDrawCount,
             std::vector<CullSurvivor>& outSurvivors);
 
-        /**
-         * @brief Readback Hi-Z pyramid into @p out (pixels + meta).
-         */
         bool CaptureHiZ(CullHiZDump& out);
 
-        /**
-         * @brief Upload fixture Hi-Z and refresh cull descriptors.
-         */
         bool UploadHiZFromDump(const CullHiZDump& dump);
 
         [[nodiscard]] const CullPushConstants& GetLastCullPushConstants() const
@@ -152,146 +119,18 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] bool HasScene() const { return mInstanceCount > 0; }
 
-        /// Bit i set ⇒ at least one opaque instance uses technique i.
         [[nodiscard]] std::uint32_t UsedTechniqueMask() const
         {
             return mUsedTechniqueMask;
         }
 
       private:
-        class EntityModelMap
+        struct ExpandPushConstants
         {
-          public:
-            static constexpr std::uint32_t kEmpty =
-                std::numeric_limits<std::uint32_t>::max();
-
-            void clear()
-            {
-                ++mGeneration;
-                mCount = 0;
-                if (mGeneration == 0)
-                {
-                    mGeneration = 1;
-                    for (auto& slot : mSlots)
-                    {
-                        slot.entityId   = kEmpty;
-                        slot.generation = 0;
-                    }
-                }
-            }
-
-            void reserve(const std::size_t n)
-            {
-                std::size_t need = 16;
-                while (need < n * 2)
-                    need *= 2;
-                if (need > mSlots.size())
-                    rehash(need);
-            }
-
-            void insert(const std::uint32_t entityId, const glm::mat4& model)
-            {
-                if (entityId == kEmpty)
-                    return;
-
-                if (mSlots.empty() || mCount * 2 >= mSlots.size())
-                    reserve(std::max<std::size_t>(mCount + 1, 16));
-
-                const auto mask = mSlots.size() - 1;
-                auto       i    = hash(entityId) & mask;
-                for (;;)
-                {
-                    auto& slot = mSlots[i];
-                    if (slot.entityId == kEmpty ||
-                        slot.generation != mGeneration)
-                    {
-                        slot.entityId   = entityId;
-                        slot.generation = mGeneration;
-                        slot.model      = model;
-                        ++mCount;
-                        return;
-                    }
-                    if (slot.entityId == entityId)
-                    {
-                        slot.model = model;
-                        return;
-                    }
-                    i = (i + 1) & mask;
-                }
-            }
-
-            [[nodiscard]] const glm::mat4* find(
-                const std::uint32_t entityId) const
-            {
-                if (mSlots.empty() || entityId == kEmpty)
-                    return nullptr;
-
-                const auto mask = mSlots.size() - 1;
-                auto       i    = hash(entityId) & mask;
-                for (;;)
-                {
-                    const auto& slot = mSlots[i];
-                    if (slot.entityId == kEmpty ||
-                        slot.generation != mGeneration)
-                        return nullptr;
-                    if (slot.entityId == entityId)
-                        return &slot.model;
-                    i = (i + 1) & mask;
-                }
-            }
-
-          private:
-            struct Slot
-            {
-                std::uint32_t entityId   = kEmpty;
-                std::uint32_t generation = 0;
-                glm::mat4     model { 1.0f };
-            };
-
-            static std::uint32_t hash(std::uint32_t x)
-            {
-                x ^= x >> 16;
-                x *= 0x7feb352du;
-                x ^= x >> 15;
-                x *= 0x846ca68bu;
-                x ^= x >> 16;
-                return x;
-            }
-
-            void rehash(const std::size_t newCap)
-            {
-                std::vector<Slot> old = std::move(mSlots);
-                mSlots.assign(newCap, Slot {});
-                const auto  mask = newCap - 1;
-                std::size_t live = 0;
-
-                for (const auto& slot : old)
-                {
-                    if (slot.entityId == kEmpty ||
-                        slot.generation != mGeneration)
-                        continue;
-
-                    auto i = hash(slot.entityId) & mask;
-                    for (;;)
-                    {
-                        auto& dst = mSlots[i];
-                        if (dst.entityId == kEmpty ||
-                            dst.generation != mGeneration)
-                        {
-                            dst = slot;
-                            ++live;
-                            break;
-                        }
-                        i = (i + 1) & mask;
-                    }
-                }
-
-                mCount = live;
-            }
-
-            std::vector<Slot> mSlots;
-            std::uint32_t     mGeneration = 1;
-            std::size_t       mCount      = 0;
+            std::uint32_t instanceCount = 0;
+            std::uint32_t prevCount     = 0;
+            std::uint32_t _pad0         = 0;
+            std::uint32_t _pad1         = 0;
         };
 
         struct DrawListResources
@@ -305,6 +144,7 @@ namespace FREYA_NAMESPACE
         {
             skr::Arc<Buffer>  sceneInstances;
             skr::Arc<Buffer>  sourceTransforms;
+            skr::Arc<Buffer>  sourceTransformsTRS;
             DrawListResources main;
             std::array<DrawListResources, kMaxMaterialTechniques> techniques {};
             std::uint32_t                                         capacity = 0;
@@ -313,14 +153,18 @@ namespace FREYA_NAMESPACE
         void ensureCapacity(std::uint32_t instanceCount);
         void ensureCapacityForFrame(std::uint32_t frameIndex,
                                     std::uint32_t instanceCount);
+        void ensurePrevCapacity(std::uint32_t instanceCount);
         void updateCullDescriptors(std::uint32_t frameIndex);
+        void updateExpandDescriptors(std::uint32_t frameIndex);
         void bumpCullDescVersion();
         void refreshCullDescriptorsIfNeeded();
         void uploadFrameBuffers();
         void zeroDrawCount(std::uint32_t techniqueFilter);
         void recordDispatchCull(const CullPushConstants& pc);
+        void ensureExpandedThisFrame();
         void beginFrameUpload(std::uint32_t frameIndex);
         void stampSceneVersion();
+        void finalizeStagingToHost();
 
         [[nodiscard]] FrameResources&    currentFrame();
         [[nodiscard]] DrawListResources& drawListFor(
@@ -352,31 +196,43 @@ namespace FREYA_NAMESPACE
         vk::DescriptorPool             mCullDescriptorPool;
         std::vector<vk::DescriptorSet> mCullDescriptorSets;
 
+        vk::Pipeline                   mExpandPipeline;
+        vk::PipelineLayout             mExpandPipelineLayout;
+        vk::DescriptorSetLayout        mExpandSetLayout;
+        vk::DescriptorPool             mExpandDescriptorPool;
+        std::vector<vk::DescriptorSet> mExpandDescriptorSets;
+
         skr::Arc<HiZPyramid> mHiZ;
         skr::Arc<Image>      mHizFallbackImage;
 
         skr::Arc<Buffer>            mMeshInfoBuffer;
         skr::Arc<Buffer>            mMeshLodBuffer;
+        skr::Arc<Buffer>            mPrevSourceTransforms;
+        std::uint32_t               mPrevCapacity      = 0;
+        std::uint32_t               mPrevInstanceCount = 0;
         std::vector<FrameResources> mFrames;
 
         std::vector<MeshInfo>          mMeshInfos;
         std::vector<MeshLodInfo>       mMeshLods;
         std::vector<SceneInstance>     mSceneInstances;
         std::vector<InstanceTransform> mInstanceTransforms;
-        std::vector<InstanceTransform> mPrevTransforms;
-        EntityModelMap                 mPrevModelByEntity;
+        std::vector<SceneTransform>    mSceneTransforms;
+
+        std::vector<SceneInstanceUpload> mStaging;
+        std::atomic<std::uint32_t>       mStagingCount { 0 };
+        std::shared_mutex                mStagingMutex;
+        bool                             mStagingOpen = false;
 
         std::uint32_t mInstanceCount     = 0;
         std::uint32_t mMeshInfoCapacity  = 0;
         std::uint32_t mMeshLodCapacity   = 0;
         bool          mMeshInfoDirty     = true;
-        std::uint32_t mUsedTechniqueMask = 1u; // technique 0 always considered
+        std::uint32_t mUsedTechniqueMask = 1u;
+        bool          mExpandedThisFrame = false;
 
         std::uint64_t              mSceneVersion = 0;
         std::vector<std::uint64_t> mFrameSceneVersion;
 
-        // Cull descriptor updates are unsafe once the set is bound this frame.
-        // bumpCullDescVersion must not clear mCullDescRefreshedThisFrame.
         std::uint32_t              mCullDescVersion = 1;
         std::vector<std::uint32_t> mFrameCullDescVersion;
         bool                       mCullDescRefreshedThisFrame = false;

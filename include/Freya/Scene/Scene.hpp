@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Asset/SceneTransform.hpp"
 #include "Freya/Config.hpp"
 #include "Freya/Core/Limits.hpp"
 #include "Freya/Scene/AssetHandle.hpp"
@@ -30,8 +31,8 @@ namespace FREYA_NAMESPACE
      * @brief Retained instance list synced to the GPU via Scene::Upload.
      *
      * Upload is dirty-aware: unchanged scenes only refresh the current
-     * frames-in-flight GPU slot when needed; transform-only edits patch
-     * without re-sorting or material lookups.
+     * frames-in-flight GPU slot when needed. Uses Renderer Begin/Reserve/
+     * Upload/End (cumulative staging) under the hood.
      */
     class Scene
     {
@@ -40,7 +41,7 @@ namespace FREYA_NAMESPACE
         {
             MeshHandle     mesh;
             MaterialHandle material;
-            glm::mat4      model       = glm::mat4(1.0f);
+            SceneTransform transform {};
             std::uint32_t  entityId    = 0;
             bool           castShadows = true;
             std::uint32_t  boneOffset  = kNoSkin;
@@ -54,6 +55,7 @@ namespace FREYA_NAMESPACE
 
         void Remove(InstanceId id);
 
+        void SetTransform(InstanceId id, const SceneTransform& transform);
         void SetTransform(InstanceId id, const glm::mat4& model);
 
         /**

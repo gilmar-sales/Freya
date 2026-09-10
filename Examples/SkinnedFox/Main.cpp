@@ -1467,7 +1467,7 @@ class MainApp final : public fra::AbstractApplication
             for (const auto& part : mSkinned.submeshes)
             {
                 fra::Scene::Instance inst {};
-                inst.model       = fox.model;
+                inst.transform   = fra::SceneTransform::FromMatrix(fox.model);
                 inst.mesh        = part.mesh;
                 inst.material    = part.material;
                 inst.entityId    = entity++;
@@ -1480,7 +1480,8 @@ class MainApp final : public fra::AbstractApplication
         }
         {
             fra::Scene::Instance ground {};
-            ground.model       = groundModelMatrix();
+            ground.transform =
+                fra::SceneTransform::FromMatrix(groundModelMatrix());
             ground.mesh        = mGroundMesh;
             ground.material    = mGroundMaterial;
             ground.entityId    = 100000u;
@@ -1513,7 +1514,7 @@ class MainApp final : public fra::AbstractApplication
                 auto* inst = mScene.Get(id++);
                 if (inst == nullptr)
                     continue;
-                inst->model       = fox.model;
+                inst->transform   = fra::SceneTransform::FromMatrix(fox.model);
                 inst->boneOffset  = fox.boneOffset;
                 inst->boneCount   = jointCount;
                 inst->castShadows = mEnableShadows;

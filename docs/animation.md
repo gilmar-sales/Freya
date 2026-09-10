@@ -180,14 +180,16 @@ auto skin = fra::PoseToSkinMatrices(skel, local);
 renderer->UploadBoneMatrices(skin);
 
 uploads.push_back({
-    .model = model,
-    .meshId = fox.submeshes[0].meshId,
-    .materialId = fox.submeshes[0].materialId,
+    .transform = fra::SceneTransform::FromMatrix(model),
+    .mesh = fox.submeshes[0].mesh,
+    .material = fox.submeshes[0].material,
     .entityId = 1,
     .boneOffset = 0,
     .boneCount = fox.skeleton.JointCount(),
 });
+renderer->BeginSceneInstances();
 renderer->UploadSceneInstances(uploads);
+renderer->EndSceneInstances();
 ```
 
 `BoneMatrixResources` holds current + previous palettes (TAA). Default

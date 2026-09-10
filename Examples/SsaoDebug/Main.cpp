@@ -120,7 +120,7 @@ class MainApp final : public fra::AbstractApplication
                 fra::Scene::Instance inst {};
                 inst.mesh        = mesh;
                 inst.material    = material;
-                inst.model       = model;
+                inst.transform   = fra::SceneTransform::FromMatrix(model);
                 inst.entityId    = nextEntity++;
                 inst.castShadows = false;
                 inst.mobility    = mobility;
@@ -156,11 +156,12 @@ class MainApp final : public fra::AbstractApplication
     void drawCullAabbs()
     {
         auto& dd = mRenderer->GetDebugDraw();
-        mScene.ForEach([&](fra::Scene::InstanceId,
-                           const fra::Scene::Instance& inst) {
-            FreyaExamples::DrawCullAabb(dd, *mMeshPool, inst.mesh, inst.model,
-                                        glm::vec4(0.2f, 0.9f, 1.0f, 0.6f));
-        });
+        mScene.ForEach(
+            [&](fra::Scene::InstanceId, const fra::Scene::Instance& inst) {
+                FreyaExamples::DrawCullAabb(
+                    dd, *mMeshPool, inst.mesh, inst.transform.ToMatrix(),
+                    glm::vec4(0.2f, 0.9f, 1.0f, 0.6f));
+            });
     }
 
     fra::Ref<fra::MeshPool>     mMeshPool;

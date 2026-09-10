@@ -41,9 +41,8 @@ namespace FREYA_NAMESPACE
 
         const auto boneLayout     = mBoneResources->GetLayout();
         const auto bindlessLayout = mMaterials->GetBindlessLayout();
-        auto       setLayouts     = std::array {
-            boneLayout, bindlessLayout, shadowUboSetLayout
-        };
+        auto       setLayouts =
+            std::array { boneLayout, bindlessLayout, shadowUboSetLayout };
 
         auto renderPass = createRenderPass(depthFormat);
         auto cascadeRenderPass =
@@ -64,9 +63,8 @@ namespace FREYA_NAMESPACE
 
         auto pointMvVertShader =
             mServiceProvider->GetService<ShaderModuleBuilder>()
-                ->SetFilePath(
-                    mFreyaOptions->shaderRoot +
-                    "/Shadow/depth_point_mv.vert.spv")
+                ->SetFilePath(mFreyaOptions->shaderRoot +
+                              "/Shadow/depth_point_mv.vert.spv")
                 .Build();
 
         auto fragHwShader =
@@ -80,7 +78,6 @@ namespace FREYA_NAMESPACE
                 ->SetFilePath(
                     mFreyaOptions->shaderRoot + "/Shadow/depth.frag.spv")
                 .Build();
-
 
         auto vertexBinding = GetVertexBindingDescription();
         auto vertexAttributes =
@@ -200,7 +197,7 @@ namespace FREYA_NAMESPACE
 
         auto makePipeline =
             [&](const vk::ArrayProxy<const vk::PipelineShaderStageCreateInfo>
-                    pipelineStages,
+                                     pipelineStages,
                 const vk::RenderPass pass) {
                 auto info =
                     vk::GraphicsPipelineCreateInfo()
@@ -250,10 +247,12 @@ namespace FREYA_NAMESPACE
 
         auto pipeline =
             makePipeline(std::array { vertStage, fragHwStage }, renderPass);
-        auto cascadePipeline = makePipeline(
-            std::array { csmVertStage, fragHwStage }, cascadeRenderPass);
-        auto pointPipeline = makePipeline(
-            std::array { pointMvVertStage, fragPointStage }, pointRenderPass);
+        auto cascadePipeline =
+            makePipeline(std::array { csmVertStage, fragHwStage },
+                         cascadeRenderPass);
+        auto pointPipeline =
+            makePipeline(std::array { pointMvVertStage, fragPointStage },
+                         pointRenderPass);
 
         mDevice->Get().destroyShaderModule(vertShader->Get());
         mDevice->Get().destroyShaderModule(csmVertShader->Get());
@@ -277,8 +276,8 @@ namespace FREYA_NAMESPACE
                       resolution,
                       mFreyaOptions->shadowSpotResolution,
                       mFreyaOptions->shadowSpotResolutionDivisor);
-        const auto pointSlotCount  = maxPoint == 0 ? 1u : maxPoint;
-        const auto pointLayers     = pointSlotCount * 6u;
+        const auto pointSlotCount = maxPoint == 0 ? 1u : maxPoint;
+        const auto pointLayers    = pointSlotCount * 6u;
         const auto pointResolution =
             maxPoint == 0
                 ? 1u
@@ -338,8 +337,7 @@ namespace FREYA_NAMESPACE
         auto spotFramebuffers =
             createFramebuffers(renderPass, spot.layerViews, spotResolution);
 
-        auto pointFramebuffers =
-            std::vector<vk::Framebuffer>(pointSlotCount);
+        auto pointFramebuffers = std::vector<vk::Framebuffer>(pointSlotCount);
         for (std::uint32_t p = 0; p < pointSlotCount; ++p)
         {
             const auto fbInfo =
@@ -369,8 +367,9 @@ namespace FREYA_NAMESPACE
                 .setMaxSets(mFreyaOptions->frameCount)
                 .setPoolSizes(shadowUboPoolSizes));
 
-        auto shadowUboLayouts = std::vector<vk::DescriptorSetLayout>(
-            mFreyaOptions->frameCount, shadowUboSetLayout);
+        auto shadowUboLayouts =
+            std::vector<vk::DescriptorSetLayout>(mFreyaOptions->frameCount,
+                                                 shadowUboSetLayout);
         auto shadowUboSets = mDevice->Get().allocateDescriptorSets(
             vk::DescriptorSetAllocateInfo()
                 .setDescriptorPool(shadowUboPool)
@@ -378,11 +377,10 @@ namespace FREYA_NAMESPACE
 
         for (std::uint32_t i = 0; i < mFreyaOptions->frameCount; ++i)
         {
-            auto bufInfo =
-                vk::DescriptorBufferInfo()
-                    .setBuffer(uniformBuffer->Get())
-                    .setOffset(sizeof(ShadowUniformBuffer) * i)
-                    .setRange(sizeof(ShadowUniformBuffer));
+            auto bufInfo = vk::DescriptorBufferInfo()
+                               .setBuffer(uniformBuffer->Get())
+                               .setOffset(sizeof(ShadowUniformBuffer) * i)
+                               .setRange(sizeof(ShadowUniformBuffer));
             auto writer =
                 vk::WriteDescriptorSet()
                     .setDstSet(shadowUboSets[i])
@@ -552,13 +550,12 @@ namespace FREYA_NAMESPACE
                 .setDependencyFlags(vk::DependencyFlagBits::eByRegion),
         };
 
-        const auto viewMask = (1u << viewCount) - 1u;
+        const auto viewMask  = (1u << viewCount) - 1u;
         const auto viewMasks = std::array { viewMask };
 
-        auto multiviewInfo =
-            vk::RenderPassMultiviewCreateInfo()
-                .setViewMasks(viewMasks)
-                .setCorrelationMasks(viewMasks);
+        auto multiviewInfo = vk::RenderPassMultiviewCreateInfo()
+                                 .setViewMasks(viewMasks)
+                                 .setCorrelationMasks(viewMasks);
 
         auto renderPassInfo =
             vk::RenderPassCreateInfo()

@@ -73,7 +73,7 @@ namespace FREYA_NAMESPACE
         mutable vk::ImageView mBoundDepthView   = {};
         mutable vk::ImageView mBoundNormalView  = {};
         mutable vk::ImageView mBoundCascadeView = {};
-        mutable bool          mStaticBound     = false;
-        mutable std::uint32_t mBoundFrame      = ~0u;
+        mutable bool          mStaticBound      = false;
+        mutable std::uint32_t mBoundFrame       = ~0u;
     };
 } // namespace FREYA_NAMESPACE

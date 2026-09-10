@@ -430,7 +430,8 @@ class MainApp final : public fra::AbstractApplication
             for (std::uint32_t i = 0; i < lampCount; ++i)
             {
                 fra::Scene::Instance inst {};
-                inst.model       = mModelMatrix[i];
+                inst.transform =
+                    fra::SceneTransform::FromMatrix(mModelMatrix[i]);
                 inst.mesh        = part.mesh;
                 inst.material    = isBulb ? mBulbMaterial : mSofaMaterial;
                 inst.entityId    = i + 1;
@@ -440,7 +441,7 @@ class MainApp final : public fra::AbstractApplication
             }
         }
         fra::Scene::Instance ground {};
-        ground.model       = mModelMatrix[2];
+        ground.transform   = fra::SceneTransform::FromMatrix(mModelMatrix[2]);
         ground.mesh        = mGroundMesh;
         ground.material    = mGroundMaterial;
         ground.entityId    = 0;

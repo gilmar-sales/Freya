@@ -116,7 +116,7 @@ namespace
         for (const auto& inst : snap.instances)
         {
             fra::SceneInstanceUpload u {};
-            u.model    = inst.model;
+            u.transform = fra::SceneTransform::FromMatrix(inst.model);
             u.mesh     = inst.meshId < meshRemap.size() ? meshRemap[inst.meshId]
                                                         : meshRemap.front();
             u.material = materialId;
@@ -151,7 +151,11 @@ namespace
         cb.begin(vk::CommandBufferBeginInfo().setFlags(
             vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
 
-        indirect.UploadSceneInstances(uploads, kFrame);
+        indirect.BeginSceneInstances();
+        indirect.ReserveSceneInstances(
+            static_cast<std::uint32_t>(uploads.size()));
+        indirect.UploadSceneInstances(uploads);
+        indirect.EndSceneInstances(kFrame);
 
         indirect.SetCullView(
             glm::vec3(snap.pushConstants.cameraPos),

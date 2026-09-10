@@ -57,8 +57,8 @@ namespace FREYA_NAMESPACE
         const auto cascadeView = shadowPass->GetCascadeView();
 
         if (mStaticBound && mBoundDepthView == depthView &&
-            mBoundNormalView == normalView && mBoundCascadeView == cascadeView &&
-            mBoundFrame == frameIndex)
+            mBoundNormalView == normalView &&
+            mBoundCascadeView == cascadeView && mBoundFrame == frameIndex)
             return;
 
         constexpr auto shadowMapLayout =
@@ -99,10 +99,9 @@ namespace FREYA_NAMESPACE
                 .setSampler(shadowPass->GetCompareSampler())
                 .setImageView(shadowPass->GetPointView())
                 .setImageLayout(shadowMapLayout);
-        const auto maskInfo =
-            vk::DescriptorImageInfo()
-                .setImageView(mMaskImage->GetImageView())
-                .setImageLayout(vk::ImageLayout::eGeneral);
+        const auto maskInfo = vk::DescriptorImageInfo()
+                                  .setImageView(mMaskImage->GetImageView())
+                                  .setImageLayout(vk::ImageLayout::eGeneral);
 
         const auto writes = std::array {
             vk::WriteDescriptorSet()
@@ -159,8 +158,8 @@ namespace FREYA_NAMESPACE
         mBoundDepthView   = depthView;
         mBoundNormalView  = normalView;
         mBoundCascadeView = cascadeView;
-        mBoundFrame      = frameIndex;
-        mStaticBound     = true;
+        mBoundFrame       = frameIndex;
+        mStaticBound      = true;
     }
 
     void ShadowMaskPass::Dispatch(

@@ -20,7 +20,7 @@ namespace FreyaExamples
      * @param debugDraw Renderer's debug line queue (`Renderer::GetDebugDraw`),
      *                  gated behind `Renderer::SetDebugDrawEnabled`.
      * @param model     Instance world matrix (same one uploaded via
-     *                  `SceneInstanceUpload::model`).
+     *                  `SceneInstanceUpload::transform`).
      * @param aabbMin   Mesh-local AABB min, as stored in `MeshPool`/`Mesh`.
      * @param aabbMax   Mesh-local AABB max, as stored in `MeshPool`/`Mesh`.
      * @param color     Line color (RGBA).

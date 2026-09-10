@@ -3,6 +3,7 @@
 #include "Freya/Internal/VulkanCompat.hpp"
 
 #include "Freya/Asset/BoneMatrixResources.hpp"
+#include "Freya/Asset/SceneTransform.hpp"
 #include "Freya/Builders/BloomPassBuilder.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/CompositePassBuilder.hpp"
@@ -276,8 +277,8 @@ namespace FREYA_NAMESPACE
         mDevice->Get().waitIdle();
 
         // Capture before reset: panel-sized offscreen targets must stay put.
-        // Only fullscreen trackers (extent == prior swapchain, e.g. DebugOverlay)
-        // follow the new drawable size.
+        // Only fullscreen trackers (extent == prior swapchain, e.g.
+        // DebugOverlay) follow the new drawable size.
         const vk::Extent2D previousSwapchainExtent =
             mSwapChain ? mSwapChain->GetExtent() : vk::Extent2D {};
 
@@ -1249,25 +1250,35 @@ namespace FREYA_NAMESPACE
             &model);
     }
 
+    void Renderer::Impl::BeginSceneInstances()
+    {
+        mUsedUploadApi = true;
+        if (mIndirectDraw)
+            mIndirectDraw->BeginSceneInstances();
+    }
+
+    void Renderer::Impl::ReserveSceneInstances(const std::uint32_t count)
+    {
+        mUsedUploadApi = true;
+        if (mIndirectDraw)
+            mIndirectDraw->ReserveSceneInstances(count);
+    }
+
     void Renderer::Impl::UploadSceneInstances(
         const std::span<const SceneInstanceUpload> uploads)
     {
         mUsedUploadApi = true;
         if (mIndirectDraw)
-        {
-            mIndirectDraw->UploadSceneInstances(
-                uploads, mSwapChain->GetCurrentFrameIndex());
-        }
+            mIndirectDraw->UploadSceneInstances(uploads);
     }
 
-    void Renderer::Impl::PatchSceneInstances(
-        const std::span<const SceneInstanceUpload> uploads)
+    void Renderer::Impl::EndSceneInstances()
     {
         mUsedUploadApi = true;
         if (mIndirectDraw)
         {
-            mIndirectDraw->PatchSceneInstances(
-                uploads, mSwapChain->GetCurrentFrameIndex());
+            mIndirectDraw->EndSceneInstances(
+                mSwapChain->GetCurrentFrameIndex());
         }
     }
 
@@ -1541,13 +1552,17 @@ namespace FREYA_NAMESPACE
                 upload.entityId    = cmd.entityId;
                 upload.castShadows = cmd.castShadows;
                 if (instanceIndex < mLegacyModels.size())
-                    upload.model = mLegacyModels[instanceIndex];
+                    upload.transform = SceneTransform::FromMatrix(
+                        mLegacyModels[instanceIndex]);
                 mLegacyUploads.push_back(upload);
             }
         }
 
-        mIndirectDraw->UploadSceneInstances(
-            mLegacyUploads, mSwapChain->GetCurrentFrameIndex());
+        mIndirectDraw->BeginSceneInstances();
+        mIndirectDraw->ReserveSceneInstances(
+            static_cast<std::uint32_t>(mLegacyUploads.size()));
+        mIndirectDraw->UploadSceneInstances(mLegacyUploads);
+        mIndirectDraw->EndSceneInstances(mSwapChain->GetCurrentFrameIndex());
     }
 
     void Renderer::Impl::DispatchCull(const glm::mat4&    viewProj,

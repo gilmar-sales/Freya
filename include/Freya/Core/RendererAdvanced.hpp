@@ -29,13 +29,22 @@ namespace FREYA_NAMESPACE
 
         void UploadSceneInstances(std::span<const SceneInstanceUpload> uploads);
 
-        [[deprecated("Use Scene::Upload or UploadSceneInstances")]]
+        /**
+         * @brief Append while BeginSceneInstances…EndSceneInstances is open.
+         *
+         * Prefer Renderer::BeginSceneInstances / Reserve / Upload / End.
+         */
+        void BeginSceneInstances();
+        void ReserveSceneInstances(std::uint32_t count);
+        void EndSceneInstances();
+
+        [[deprecated("Use Scene::Upload or Begin/Upload/EndSceneInstances")]]
         void Draw(std::uint32_t meshId,
                   std::uint32_t materialId,
                   std::uint32_t entityId    = kPickMissId,
                   bool          castShadows = true);
 
-        [[deprecated("Use Scene::Upload or UploadSceneInstances")]]
+        [[deprecated("Use Scene::Upload or Begin/Upload/EndSceneInstances")]]
         void DrawInstanced(std::uint32_t meshId,
                            std::uint32_t materialId,
                            size_t        instanceCount,
@@ -43,7 +52,7 @@ namespace FREYA_NAMESPACE
                            bool          castShadows   = true,
                            std::uint32_t entityId      = kPickMissId);
 
-        [[deprecated("Use Scene::Upload or UploadSceneInstances")]]
+        [[deprecated("Use Scene::Upload or Begin/Upload/EndSceneInstances")]]
         void SetInstanceModels(const glm::mat4* models, std::size_t count);
 
         void RequestCullFrameDump();

@@ -56,10 +56,11 @@ namespace FREYA_NAMESPACE
             vk::Sampler                          compareSampler,
             vk::DescriptorSetLayout              shadowUboSetLayout,
             vk::DescriptorPool                   shadowUboPool,
-            std::vector<vk::DescriptorSet>       shadowUboSets,
-            std::uint32_t                        cascadeCount,
-            std::uint32_t                        maxSpotShadows,
-            std::uint32_t                        maxPointShadows);
+            std::vector<vk::DescriptorSet>
+                          shadowUboSets,
+            std::uint32_t cascadeCount,
+            std::uint32_t maxSpotShadows,
+            std::uint32_t maxPointShadows);
 
         ~ShadowPass();
 
@@ -153,11 +154,11 @@ namespace FREYA_NAMESPACE
         vk::Pipeline       mCascadePipeline; ///< CSM multiview
         vk::Pipeline       mPointPipeline;   ///< Point cube multiview
 
-        vk::Image                    mCascadeImage;
-        vk::DeviceMemory             mCascadeMemory;
-        vk::ImageView                mCascadeArrayView;
-        std::vector<vk::ImageView>   mCascadeLayerViews;
-        vk::Framebuffer              mCascadeFramebuffer = {};
+        vk::Image                  mCascadeImage;
+        vk::DeviceMemory           mCascadeMemory;
+        vk::ImageView              mCascadeArrayView;
+        std::vector<vk::ImageView> mCascadeLayerViews;
+        vk::Framebuffer            mCascadeFramebuffer = {};
 
         vk::Image                    mSpotImage;
         vk::DeviceMemory             mSpotMemory;
@@ -200,11 +201,11 @@ namespace FREYA_NAMESPACE
         bool          mHasLastCascadeMotion = false;
 
         /// Temporal point cubes: skip when light pos/range stable.
-        std::array<bool, MAX_POINT_SHADOWS>      mPointNeedRedraw {};
-        mutable std::array<bool, MAX_POINT_SHADOWS> mPointNeedClear {};
-        mutable std::array<bool, MAX_POINT_SHADOWS> mPointHasContent {};
-        std::array<bool, MAX_POINT_SHADOWS>      mPointHasLast {};
-        std::array<glm::vec4, MAX_POINT_SHADOWS>  mLastPointPosFar {};
+        std::array<bool, MAX_POINT_SHADOWS>          mPointNeedRedraw {};
+        mutable std::array<bool, MAX_POINT_SHADOWS>  mPointNeedClear {};
+        mutable std::array<bool, MAX_POINT_SHADOWS>  mPointHasContent {};
+        std::array<bool, MAX_POINT_SHADOWS>          mPointHasLast {};
+        std::array<glm::vec4, MAX_POINT_SHADOWS>     mLastPointPosFar {};
         std::array<std::uint32_t, MAX_POINT_SHADOWS> mPointUpdateAge {};
     };
 

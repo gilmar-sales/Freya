@@ -196,10 +196,11 @@ namespace FREYA_NAMESPACE
         const vk::Sampler                    compareSampler,
         const vk::DescriptorSetLayout        shadowUboSetLayout,
         const vk::DescriptorPool             shadowUboPool,
-        std::vector<vk::DescriptorSet>       shadowUboSets,
-        const std::uint32_t                  cascadeCount,
-        const std::uint32_t                  maxSpotShadows,
-        const std::uint32_t                  maxPointShadows) :
+        std::vector<vk::DescriptorSet>
+                            shadowUboSets,
+        const std::uint32_t cascadeCount,
+        const std::uint32_t maxSpotShadows,
+        const std::uint32_t maxPointShadows) :
         mDevice(device), mPhysicalDevice(physicalDevice),
         mFreyaOptions(freyaOptions), mBoneResources(boneResources),
         mRenderPass(renderPass), mCascadeRenderPass(cascadeRenderPass),
@@ -215,25 +216,22 @@ namespace FREYA_NAMESPACE
         mPointArrayView(pointArrayView), mPointSlotViews(pointSlotViews),
         mPointFramebuffers(pointFramebuffers), mUniformBuffer(uniformBuffer),
         mCompareSampler(compareSampler),
-        mShadowUboSetLayout(shadowUboSetLayout),
-        mShadowUboPool(shadowUboPool),
+        mShadowUboSetLayout(shadowUboSetLayout), mShadowUboPool(shadowUboPool),
         mShadowUboSets(std::move(shadowUboSets)), mCascadeCount(cascadeCount),
         mMaxSpotShadows(maxSpotShadows), mMaxPointShadows(maxPointShadows),
         mResolution(freyaOptions->shadowMapResolution),
-        mSpotResolution(
-            maxSpotShadows == 0
-                ? 1u
-                : ResolveShadowSideResolution(
-                      freyaOptions->shadowMapResolution,
-                      freyaOptions->shadowSpotResolution,
-                      freyaOptions->shadowSpotResolutionDivisor)),
-        mPointResolution(
-            maxPointShadows == 0
-                ? 1u
-                : ResolveShadowSideResolution(
-                      freyaOptions->shadowMapResolution,
-                      freyaOptions->shadowPointResolution,
-                      freyaOptions->shadowPointResolutionDivisor))
+        mSpotResolution(maxSpotShadows == 0
+                            ? 1u
+                            : ResolveShadowSideResolution(
+                                  freyaOptions->shadowMapResolution,
+                                  freyaOptions->shadowSpotResolution,
+                                  freyaOptions->shadowSpotResolutionDivisor)),
+        mPointResolution(maxPointShadows == 0
+                             ? 1u
+                             : ResolveShadowSideResolution(
+                                   freyaOptions->shadowMapResolution,
+                                   freyaOptions->shadowPointResolution,
+                                   freyaOptions->shadowPointResolutionDivisor))
     {
         mPointNeedRedraw.fill(true);
         mPointNeedClear.fill(false);
@@ -332,15 +330,15 @@ namespace FREYA_NAMESPACE
             vkDevice.destroyDescriptorPool(mShadowUboPool);
         if (mShadowUboSetLayout)
             vkDevice.destroyDescriptorSetLayout(mShadowUboSetLayout);
-        mPipeline            = VK_NULL_HANDLE;
-        mCascadePipeline     = VK_NULL_HANDLE;
-        mPointPipeline       = VK_NULL_HANDLE;
-        mPipelineLayout      = VK_NULL_HANDLE;
-        mCascadeRenderPass   = VK_NULL_HANDLE;
-        mPointRenderPass     = VK_NULL_HANDLE;
-        mRenderPass          = VK_NULL_HANDLE;
-        mShadowUboPool       = VK_NULL_HANDLE;
-        mShadowUboSetLayout  = VK_NULL_HANDLE;
+        mPipeline           = VK_NULL_HANDLE;
+        mCascadePipeline    = VK_NULL_HANDLE;
+        mPointPipeline      = VK_NULL_HANDLE;
+        mPipelineLayout     = VK_NULL_HANDLE;
+        mCascadeRenderPass  = VK_NULL_HANDLE;
+        mPointRenderPass    = VK_NULL_HANDLE;
+        mRenderPass         = VK_NULL_HANDLE;
+        mShadowUboPool      = VK_NULL_HANDLE;
+        mShadowUboSetLayout = VK_NULL_HANDLE;
         mShadowUboSets.clear();
 
         mUniformBuffer.reset();
@@ -353,19 +351,19 @@ namespace FREYA_NAMESPACE
 
         destroyGpuResources();
 
-        mRenderPass          = other.mRenderPass;
-        mCascadeRenderPass   = other.mCascadeRenderPass;
-        mPointRenderPass     = other.mPointRenderPass;
-        mPipelineLayout      = other.mPipelineLayout;
-        mPipeline            = other.mPipeline;
-        mCascadePipeline     = other.mCascadePipeline;
-        mPointPipeline       = other.mPointPipeline;
+        mRenderPass        = other.mRenderPass;
+        mCascadeRenderPass = other.mCascadeRenderPass;
+        mPointRenderPass   = other.mPointRenderPass;
+        mPipelineLayout    = other.mPipelineLayout;
+        mPipeline          = other.mPipeline;
+        mCascadePipeline   = other.mCascadePipeline;
+        mPointPipeline     = other.mPointPipeline;
 
-        mCascadeImage         = other.mCascadeImage;
-        mCascadeMemory        = other.mCascadeMemory;
-        mCascadeArrayView     = other.mCascadeArrayView;
-        mCascadeLayerViews    = std::move(other.mCascadeLayerViews);
-        mCascadeFramebuffer   = other.mCascadeFramebuffer;
+        mCascadeImage       = other.mCascadeImage;
+        mCascadeMemory      = other.mCascadeMemory;
+        mCascadeArrayView   = other.mCascadeArrayView;
+        mCascadeLayerViews  = std::move(other.mCascadeLayerViews);
+        mCascadeFramebuffer = other.mCascadeFramebuffer;
 
         mSpotImage        = other.mSpotImage;
         mSpotMemory       = other.mSpotMemory;
@@ -379,12 +377,12 @@ namespace FREYA_NAMESPACE
         mPointSlotViews    = std::move(other.mPointSlotViews);
         mPointFramebuffers = std::move(other.mPointFramebuffers);
 
-        mUniformBuffer       = std::move(other.mUniformBuffer);
-        mCompareSampler      = other.mCompareSampler;
-        mBoneResources       = other.mBoneResources;
-        mShadowUboSetLayout  = other.mShadowUboSetLayout;
-        mShadowUboPool       = other.mShadowUboPool;
-        mShadowUboSets       = std::move(other.mShadowUboSets);
+        mUniformBuffer      = std::move(other.mUniformBuffer);
+        mCompareSampler     = other.mCompareSampler;
+        mBoneResources      = other.mBoneResources;
+        mShadowUboSetLayout = other.mShadowUboSetLayout;
+        mShadowUboPool      = other.mShadowUboPool;
+        mShadowUboSets      = std::move(other.mShadowUboSets);
 
         mCascadeCount    = other.mCascadeCount;
         mMaxSpotShadows  = other.mMaxSpotShadows;
@@ -394,40 +392,40 @@ namespace FREYA_NAMESPACE
         mPointResolution = other.mPointResolution;
         mFrameIndex      = other.mFrameIndex;
 
-        mShadowData             = {};
-        mCascadeCullViewProj    = glm::mat4(1.0f);
-        mHasDirectionalShadow   = false;
-        mActiveSpotCount        = 0;
-        mActivePointCount       = 0;
-        mCascadesNeedRedraw     = true;
-        mCascadeUpdateAge       = 0;
-        mHasLastCascadeMotion   = false;
+        mShadowData           = {};
+        mCascadeCullViewProj  = glm::mat4(1.0f);
+        mHasDirectionalShadow = false;
+        mActiveSpotCount      = 0;
+        mActivePointCount     = 0;
+        mCascadesNeedRedraw   = true;
+        mCascadeUpdateAge     = 0;
+        mHasLastCascadeMotion = false;
         mPointNeedRedraw.fill(true);
         mPointNeedClear.fill(false);
         mPointHasContent.fill(false);
         mPointHasLast.fill(false);
         mPointUpdateAge.fill(0);
 
-        other.mRenderPass          = VK_NULL_HANDLE;
-        other.mCascadeRenderPass   = VK_NULL_HANDLE;
-        other.mPointRenderPass     = VK_NULL_HANDLE;
-        other.mPipelineLayout      = VK_NULL_HANDLE;
-        other.mPipeline            = VK_NULL_HANDLE;
-        other.mCascadePipeline     = VK_NULL_HANDLE;
-        other.mPointPipeline       = VK_NULL_HANDLE;
-        other.mCascadeImage        = VK_NULL_HANDLE;
-        other.mCascadeMemory       = VK_NULL_HANDLE;
-        other.mCascadeArrayView    = VK_NULL_HANDLE;
-        other.mCascadeFramebuffer  = VK_NULL_HANDLE;
-        other.mSpotImage           = VK_NULL_HANDLE;
-        other.mSpotMemory          = VK_NULL_HANDLE;
-        other.mSpotArrayView       = VK_NULL_HANDLE;
-        other.mPointImage          = VK_NULL_HANDLE;
-        other.mPointMemory         = VK_NULL_HANDLE;
-        other.mPointArrayView      = VK_NULL_HANDLE;
-        other.mCompareSampler      = VK_NULL_HANDLE;
-        other.mShadowUboSetLayout  = VK_NULL_HANDLE;
-        other.mShadowUboPool       = VK_NULL_HANDLE;
+        other.mRenderPass         = VK_NULL_HANDLE;
+        other.mCascadeRenderPass  = VK_NULL_HANDLE;
+        other.mPointRenderPass    = VK_NULL_HANDLE;
+        other.mPipelineLayout     = VK_NULL_HANDLE;
+        other.mPipeline           = VK_NULL_HANDLE;
+        other.mCascadePipeline    = VK_NULL_HANDLE;
+        other.mPointPipeline      = VK_NULL_HANDLE;
+        other.mCascadeImage       = VK_NULL_HANDLE;
+        other.mCascadeMemory      = VK_NULL_HANDLE;
+        other.mCascadeArrayView   = VK_NULL_HANDLE;
+        other.mCascadeFramebuffer = VK_NULL_HANDLE;
+        other.mSpotImage          = VK_NULL_HANDLE;
+        other.mSpotMemory         = VK_NULL_HANDLE;
+        other.mSpotArrayView      = VK_NULL_HANDLE;
+        other.mPointImage         = VK_NULL_HANDLE;
+        other.mPointMemory        = VK_NULL_HANDLE;
+        other.mPointArrayView     = VK_NULL_HANDLE;
+        other.mCompareSampler     = VK_NULL_HANDLE;
+        other.mShadowUboSetLayout = VK_NULL_HANDLE;
+        other.mShadowUboPool      = VK_NULL_HANDLE;
         other.mShadowUboSets.clear();
         other.mUniformBuffer.reset();
     }
@@ -456,8 +454,8 @@ namespace FREYA_NAMESPACE
             mFreyaOptions->ReverseZ ? softScale : -softScale);
         const float cascadeBlend =
             std::clamp(mFreyaOptions->shadowCascadeBlend, 0.0f, 0.5f);
-        const bool useMask = mFreyaOptions->enableShadows &&
-                             mFreyaOptions->enableShadowMask;
+        const bool useMask =
+            mFreyaOptions->enableShadows && mFreyaOptions->enableShadowMask;
         mShadowData.reverseZ =
             glm::vec4(mFreyaOptions->ReverseZ ? 1.0f : 0.0f,
                       static_cast<float>(std::max(mResolution, 1u)),
@@ -500,10 +498,10 @@ namespace FREYA_NAMESPACE
                 motion |= glm::length(sunDir - mLastSunDir) > 1e-4f;
             }
 
-            mLastCameraView         = cameraView;
-            mLastCameraProj         = cameraProj;
-            mLastSunDir             = sunDir;
-            mHasLastCascadeMotion   = true;
+            mLastCameraView       = cameraView;
+            mLastCameraProj       = cameraProj;
+            mLastSunDir           = sunDir;
+            mHasLastCascadeMotion = true;
 
             const auto period =
                 std::max(1u, mFreyaOptions->shadowCascadeUpdatePeriod);
@@ -573,8 +571,8 @@ namespace FREYA_NAMESPACE
             for (std::uint32_t face = 0; face < 6; ++face)
             {
                 mShadowData.pointFaceViewProj[slot * 6 + face] =
-                    computePointFaceViewProj(light->position, light->radius,
-                                             face);
+                    computePointFaceViewProj(
+                        light->position, light->radius, face);
             }
         }
 
@@ -589,8 +587,8 @@ namespace FREYA_NAMESPACE
                 if (!motion)
                 {
                     const auto delta = posFar - mLastPointPosFar[slot];
-                    motion = glm::length(glm::vec3(delta)) > 1e-3f ||
-                             std::abs(delta.w) > 1e-3f;
+                    motion           = glm::length(glm::vec3(delta)) > 1e-3f ||
+                                       std::abs(delta.w) > 1e-3f;
                 }
                 mLastPointPosFar[slot] = posFar;
                 mPointHasLast[slot]    = true;
@@ -710,8 +708,7 @@ namespace FREYA_NAMESPACE
             maxB.y += extentY * kCascadeXyPadFrac;
             minB.z -= kCascadeZPad;
             maxB.z += kCascadeZPad;
-            const LightOrthoBounds unionBounds { minB, maxB, extentX,
-                                                 extentY };
+            const LightOrthoBounds unionBounds { minB, maxB, extentX, extentY };
             mCascadeCullViewProj =
                 lightOrthoFromBounds(unionBounds, mFreyaOptions->ReverseZ) *
                 lightView;
@@ -775,16 +772,15 @@ namespace FREYA_NAMESPACE
     }
 
     glm::mat4 ShadowPass::computePointCullViewProj(const glm::vec3& position,
-                                                   const float far) const
+                                                   const float      far) const
     {
         // Axis-aligned cube around the light range — over-includes corners
         // of the sphere but keeps a single DispatchCull per point slot.
         const float r    = std::max(far, 0.05f);
         const auto  view = glm::translate(glm::mat4(1.0f), -position);
-        const auto  proj =
-            mFreyaOptions->ReverseZ
-                ? glm::ortho(-r, r, -r, r, r, -r)
-                : glm::ortho(-r, r, -r, r, -r, r);
+        const auto  proj = mFreyaOptions->ReverseZ
+                               ? glm::ortho(-r, r, -r, r, r, -r)
+                               : glm::ortho(-r, r, -r, r, -r, r);
         return proj * view;
     }
 
@@ -820,8 +816,8 @@ namespace FREYA_NAMESPACE
             nullptr);
     }
 
-    void ShadowPass::bindShadowUboSet(const vk::CommandBuffer commandBuffer)
-        const
+    void ShadowPass::bindShadowUboSet(
+        const vk::CommandBuffer commandBuffer) const
     {
         if (mShadowUboSets.empty() || mFrameIndex >= mShadowUboSets.size())
             return;
@@ -887,11 +883,10 @@ namespace FREYA_NAMESPACE
             pc.lightPosFar = glm::vec4(0.0f);
             pc.reverseZAndPad =
                 glm::vec4(mShadowData.reverseZ.x, 0.0f, 0.0f, 0.0f);
-            commandBuffer.pushConstants(
-                mPipelineLayout,
-                vk::ShaderStageFlagBits::eVertex |
-                    vk::ShaderStageFlagBits::eFragment,
-                0, sizeof(ShadowPushConstant), &pc);
+            commandBuffer.pushConstants(mPipelineLayout,
+                                        vk::ShaderStageFlagBits::eVertex |
+                                            vk::ShaderStageFlagBits::eFragment,
+                                        0, sizeof(ShadowPushConstant), &pc);
 
             drawScene();
         }
@@ -1031,8 +1026,8 @@ namespace FREYA_NAMESPACE
             char label[64];
             std::snprintf(label, sizeof(label), "Point Shadow %u%s", p,
                           redraw ? "" : " (clear)");
-            mDevice->BeginDebugLabel(commandBuffer, label,
-                                     DebugLabel::ShadowColor);
+            mDevice->BeginDebugLabel(
+                commandBuffer, label, DebugLabel::ShadowColor);
 
             if (redraw && prepareCull)
                 prepareCull(computePointCullViewProj(position, far));
@@ -1055,11 +1050,10 @@ namespace FREYA_NAMESPACE
                 commandBuffer.setScissor(0, 1, &scissor);
 
                 ShadowPushConstant pc {};
-                pc.lightVP     = computePointCullViewProj(position, far);
-                pc.lightPosFar = posFar;
-                pc.reverseZAndPad =
-                    glm::vec4(mShadowData.reverseZ.x, static_cast<float>(p),
-                              0.0f, 0.0f);
+                pc.lightVP        = computePointCullViewProj(position, far);
+                pc.lightPosFar    = posFar;
+                pc.reverseZAndPad = glm::vec4(
+                    mShadowData.reverseZ.x, static_cast<float>(p), 0.0f, 0.0f);
                 commandBuffer.pushConstants(
                     mPipelineLayout,
                     vk::ShaderStageFlagBits::eVertex |

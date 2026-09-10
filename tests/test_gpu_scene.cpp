@@ -1,6 +1,7 @@
 #include <Freya/Asset/GpuScene.hpp>
 #include <Freya/Asset/InstanceTransform.hpp>
 #include <Freya/Asset/SceneInstanceUpload.hpp>
+#include <Freya/Asset/SceneTransform.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -13,6 +14,7 @@ TEST_CASE("GPU scene records keep GLSL std430 sizes", "[gpu-scene]")
     STATIC_REQUIRE(sizeof(fra::SceneInstance) == 96);
     STATIC_REQUIRE(sizeof(fra::CullPushConstants) == 128);
     STATIC_REQUIRE(sizeof(fra::MaterialGPU) == 96);
+    STATIC_REQUIRE(sizeof(fra::SceneTransform) == 40);
     STATIC_REQUIRE(fra::kPickMissId == 0xFFFFFFFFu);
     STATIC_REQUIRE(fra::kNoSkin == std::numeric_limits<std::uint32_t>::max());
 }
@@ -24,4 +26,10 @@ TEST_CASE("material and instance flags are distinct bits", "[gpu-scene]")
              fra::kSceneInstanceFlagTranslucent) == 0u);
     REQUIRE((fra::kSceneInstanceFlagTranslucent &
              fra::kSceneInstanceFlagSkinned) == 0u);
+}
+
+TEST_CASE("SceneTransform packed layout", "[gpu-scene]")
+{
+    STATIC_REQUIRE(offsetof(fra::SceneTransform, scale) == 12);
+    STATIC_REQUIRE(offsetof(fra::SceneTransform, rotation) == 24);
 }

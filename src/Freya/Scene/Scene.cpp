@@ -3,21 +3,8 @@
 #include "Freya/Asset/SceneInstanceUpload.hpp"
 #include "Freya/Core/Renderer.hpp"
 
-#include <algorithm>
-
 namespace FREYA_NAMESPACE
 {
-    namespace
-    {
-        bool UploadEntityLess(const SceneInstanceUpload& a,
-                              const SceneInstanceUpload& b)
-        {
-            if (a.entityId != b.entityId)
-                return a.entityId < b.entityId;
-            return a.mesh.Id() < b.mesh.Id();
-        }
-    } // namespace
-
     void Scene::markTopologyDirty()
     {
         mTopologyDirty = true;
@@ -56,12 +43,18 @@ namespace FREYA_NAMESPACE
         markTopologyDirty();
     }
 
-    void Scene::SetTransform(const InstanceId id, const glm::mat4& model)
+    void Scene::SetTransform(const InstanceId      id,
+                             const SceneTransform& transform)
     {
         if (id >= mAlive.size() || !mAlive[id])
             return;
-        mInstances[id].model = model;
+        mInstances[id].transform = transform;
         markContentDirty();
+    }
+
+    void Scene::SetTransform(const InstanceId id, const glm::mat4& model)
+    {
+        SetTransform(id, SceneTransform::FromMatrix(model));
     }
 
     Scene::Instance* Scene::Get(const InstanceId id)
@@ -105,6 +98,9 @@ namespace FREYA_NAMESPACE
             return;
         }
 
+        renderer.BeginSceneInstances();
+        renderer.ReserveSceneInstances(static_cast<std::uint32_t>(Size()));
+
         thread_local std::vector<SceneInstanceUpload> uploads;
         uploads.clear();
         uploads.reserve(Size());
@@ -114,7 +110,7 @@ namespace FREYA_NAMESPACE
                 continue;
             const auto& inst = mInstances[i];
             uploads.push_back(SceneInstanceUpload {
-                .model       = inst.model,
+                .transform   = inst.transform,
                 .mesh        = inst.mesh,
                 .material    = inst.material,
                 .entityId    = inst.entityId,
@@ -124,14 +120,10 @@ namespace FREYA_NAMESPACE
             });
         }
 
-        // Match IndirectDrawSystem full-upload order so transform patches
-        // align with the retained GPU instance table.
-        std::stable_sort(uploads.begin(), uploads.end(), UploadEntityLess);
-
-        if (mTopologyDirty)
+        if (!uploads.empty())
             renderer.UploadSceneInstances(uploads);
-        else
-            renderer.PatchSceneInstances(uploads);
+
+        renderer.EndSceneInstances();
 
         mTopologyDirty = false;
         mContentDirty  = false;

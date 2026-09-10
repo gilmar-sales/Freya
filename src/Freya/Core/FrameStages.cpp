@@ -8,8 +8,8 @@
 #include "Freya/Builders/DebugDrawPassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
-#include "Freya/Builders/SsaoPassBuilder.hpp"
 #include "Freya/Builders/ShadowMaskPassBuilder.hpp"
+#include "Freya/Builders/SsaoPassBuilder.hpp"
 #include "Freya/Builders/TaaPassBuilder.hpp"
 #include "Freya/Builders/TranslucentPassBuilder.hpp"
 #include "Freya/Core/BloomPass.hpp"
@@ -234,9 +234,9 @@ namespace FREYA_NAMESPACE
         ctx.shadowMaskPass->reset();
         if (ctx.options->enableShadows && ctx.options->enableShadowMask)
         {
-            *ctx.shadowMaskPass =
-                sp.GetService<ShadowMaskPassBuilder>()->Build(ctx.swapChain,
-                                                              ctx.VkExtent());
+            *ctx.shadowMaskPass = sp.GetService<ShadowMaskPassBuilder>()->Build(
+                ctx.swapChain,
+                ctx.VkExtent());
         }
     }
 

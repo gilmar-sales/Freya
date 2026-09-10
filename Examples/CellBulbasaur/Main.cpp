@@ -692,8 +692,8 @@ class MainApp final : public fra::AbstractApplication
 
         {
             fra::Scene::Instance ground {};
-            ground.model =
-                glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.2f, 0.0f));
+            ground.transform = fra::SceneTransform::FromMatrix(
+                glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.2f, 0.0f)));
             ground.mesh        = mGroundMesh;
             ground.material    = mGroundMaterial;
             ground.entityId    = nextEntity++;
@@ -711,7 +711,7 @@ class MainApp final : public fra::AbstractApplication
             for (std::size_t i = 0; i < mSkinned.submeshes.size(); ++i)
             {
                 fra::Scene::Instance inst {};
-                inst.model      = model;
+                inst.transform  = fra::SceneTransform::FromMatrix(model);
                 inst.mesh       = mSkinned.submeshes[i].mesh;
                 inst.material   = materialForMesh(i, cellShaded);
                 inst.entityId   = nextEntity++;
@@ -753,7 +753,7 @@ class MainApp final : public fra::AbstractApplication
             const glm::vec4 color = isEye ? glm::vec4(1.0f, 0.15f, 0.85f, 1.0f)
                                           : glm::vec4(0.2f, 0.9f, 1.0f, 0.6f);
             FreyaExamples::DrawCullAabb(
-                dd, *mMeshPool, inst.mesh, inst.model, color);
+                dd, *mMeshPool, inst.mesh, inst.transform.ToMatrix(), color);
         });
     }
 

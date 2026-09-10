@@ -82,7 +82,9 @@ mRenderer->EndFrame(); // EndScene + Present
 ## Scene (retained GPU proxy)
 
 `fra::Scene` is the app-facing retained instance list. Prefer it over raw
-`UploadSceneInstances` (Advanced / tooling).
+Begin/Upload/End (Advanced / ECS). Instances store packed world-space
+`SceneTransform` (position, scale, rotation); the GPU expands TRS→`mat4`
+before cull.
 
 ```cpp
 fra::Scene::Instance ground {};
@@ -98,22 +100,29 @@ actor.mobility = fra::Mobility::Dynamic; // default
 auto id = scene.Add(actor);
 
 // Per frame: mutate dynamics, then Upload (dirty-aware).
-scene.SetTransform(id, model);
+scene.SetTransform(id, model); // mat4 or SceneTransform
 scene.Upload(*renderer);
 ```
 
 | State | What `Upload` does |
 |-------|--------------------|
 | Unchanged | FiF slot commit only (skip rebuild / skip Copy if slot current) |
-| Transforms / bones / flags | Patch host GPU tables (no re-sort, no material create-info walk) |
+| Transforms / bones / flags | Begin/Reserve/Upload/End with packed TRS |
 | Add / Remove / Clear | Full rebuild + sort by `entityId` |
 
-Draw submission remains GPU-driven (compute cull → multi-draw indirect).
+Draw submission remains GPU-driven (ExpandTransforms → compute cull → MDI).
 `Mobility` is a contract hint: static props should stay off the per-frame
 `SetTransform`/`Get` path so the scene can stay clean.
 
-For tooling without a retained list, use
-`RendererAdvanced::UploadSceneInstances`.
+For ECS parallel packing without a retained list:
+
+```cpp
+renderer->BeginSceneInstances();
+renderer->ReserveSceneInstances(expectedCount);
+// any threads:
+renderer->UploadSceneInstances(chunkSpan); // cumulative, thread-safe
+renderer->EndSceneInstances();
+```
 
 ## Frame path
 ### Frame stages
@@ -144,7 +153,7 @@ See [Flexibility](flexibility.md).
 | `SetSamples(uint32_t)` | Set MSAA sample count |
 | `SetDrawDistance(float)` | Set render distance |
 | `SetInstanceModels(const mat4*, size_t)` | Legacy instance matrices (with DrawInstanced) |
-| `UploadSceneInstances(span)` | Advanced/tooling full upload (prefer `Scene::Upload`) |
+| `Begin/Reserve/Upload/EndSceneInstances` | Cumulative TRS upload (prefer `Scene::Upload`) |
 | `GetCurrentFrameIndex()` | Get current frame index |
 | `GetFrameCount()` | Get total frame count |
 | `CalculateProjectionMatrix(float near, float far)` | Calculate projection matrix |

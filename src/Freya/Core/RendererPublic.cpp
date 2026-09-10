@@ -165,16 +165,25 @@ namespace FREYA_NAMESPACE
         mImpl->SetDrawDistance(drawDistance);
     }
 
+    void Renderer::BeginSceneInstances()
+    {
+        mImpl->BeginSceneInstances();
+    }
+
+    void Renderer::ReserveSceneInstances(const std::uint32_t count)
+    {
+        mImpl->ReserveSceneInstances(count);
+    }
+
     void Renderer::UploadSceneInstances(
         const std::span<const SceneInstanceUpload> uploads)
     {
         mImpl->UploadSceneInstances(uploads);
     }
 
-    void Renderer::PatchSceneInstances(
-        const std::span<const SceneInstanceUpload> uploads)
+    void Renderer::EndSceneInstances()
     {
-        mImpl->PatchSceneInstances(uploads);
+        mImpl->EndSceneInstances();
     }
 
     void Renderer::CommitSceneFrame()
@@ -277,10 +286,25 @@ namespace FREYA_NAMESPACE
 
     // --- RendererAdvanced ---
 
+    void RendererAdvanced::BeginSceneInstances()
+    {
+        mRenderer.BeginSceneInstances();
+    }
+
+    void RendererAdvanced::ReserveSceneInstances(const std::uint32_t count)
+    {
+        mRenderer.ReserveSceneInstances(count);
+    }
+
     void RendererAdvanced::UploadSceneInstances(
         const std::span<const SceneInstanceUpload> uploads)
     {
         mRenderer.UploadSceneInstances(uploads);
+    }
+
+    void RendererAdvanced::EndSceneInstances()
+    {
+        mRenderer.EndSceneInstances();
     }
 
     void RendererAdvanced::Draw(const std::uint32_t meshId,

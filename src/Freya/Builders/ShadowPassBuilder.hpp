@@ -56,8 +56,8 @@ namespace FREYA_NAMESPACE
 
         vk::RenderPass createRenderPass(vk::Format depthFormat) const;
 
-        vk::RenderPass createMultiviewRenderPass(
-            vk::Format depthFormat, std::uint32_t viewCount) const;
+        vk::RenderPass createMultiviewRenderPass(vk::Format    depthFormat,
+                                                 std::uint32_t viewCount) const;
 
         ArrayImage createArrayImage(vk::Format        format,
                                     std::uint32_t     resolution,

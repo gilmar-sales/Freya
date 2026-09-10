@@ -53,6 +53,10 @@ namespace FREYA_NAMESPACE
         auto cullShader =
             shaderBuilder->SetFilePath(root + "/GpuDriven/CullFrustum.comp.spv")
                 .Build();
+        auto expandShader =
+            shaderBuilder
+                ->SetFilePath(root + "/GpuDriven/ExpandTransforms.comp.spv")
+                .Build();
         auto hizCopyShader =
             shaderBuilder
                 ->SetFilePath(root + "/GpuDriven/HiZCopyDepth.comp.spv")
@@ -104,8 +108,34 @@ namespace FREYA_NAMESPACE
                 .setStageFlags(vk::ShaderStageFlagBits::eCompute),
         };
 
+        const auto expandBindings = std::array {
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(0)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eCompute),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(1)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eCompute),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(2)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eCompute),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(3)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eCompute),
+        };
+
         const auto cullSetLayout = mDevice->Get().createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo().setBindings(cullBindings));
+
+        const auto expandSetLayout = mDevice->Get().createDescriptorSetLayout(
+            vk::DescriptorSetLayoutCreateInfo().setBindings(expandBindings));
 
         const auto cullPush =
             vk::PushConstantRange()
@@ -113,13 +143,26 @@ namespace FREYA_NAMESPACE
                 .setOffset(0)
                 .setSize(sizeof(CullPushConstants));
 
+        const auto expandPush =
+            vk::PushConstantRange()
+                .setStageFlags(vk::ShaderStageFlagBits::eCompute)
+                .setOffset(0)
+                .setSize(sizeof(std::uint32_t) * 4);
+
         const auto cullPipelineLayout = mDevice->Get().createPipelineLayout(
             vk::PipelineLayoutCreateInfo()
                 .setSetLayouts(cullSetLayout)
                 .setPushConstantRanges(cullPush));
 
+        const auto expandPipelineLayout = mDevice->Get().createPipelineLayout(
+            vk::PipelineLayoutCreateInfo()
+                .setSetLayouts(expandSetLayout)
+                .setPushConstantRanges(expandPush));
+
         const auto cullPipeline = createComputePipeline(
             mDevice, cullPipelineLayout, cullShader->Get());
+        const auto expandPipeline = createComputePipeline(
+            mDevice, expandPipelineLayout, expandShader->Get());
 
         const auto frameCount = std::max(1u, mFreyaOptions->frameCount);
 
@@ -144,6 +187,23 @@ namespace FREYA_NAMESPACE
             vk::DescriptorSetAllocateInfo()
                 .setDescriptorPool(cullDescriptorPool)
                 .setSetLayouts(cullLayouts));
+
+        const auto expandPoolSizes = std::array {
+            vk::DescriptorPoolSize()
+                .setType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(4 * frameCount),
+        };
+        const auto expandDescriptorPool = mDevice->Get().createDescriptorPool(
+            vk::DescriptorPoolCreateInfo()
+                .setPoolSizes(expandPoolSizes)
+                .setMaxSets(frameCount));
+
+        std::vector<vk::DescriptorSetLayout> expandLayouts(frameCount,
+                                                           expandSetLayout);
+        auto expandDescriptorSets = mDevice->Get().allocateDescriptorSets(
+            vk::DescriptorSetAllocateInfo()
+                .setDescriptorPool(expandDescriptorPool)
+                .setSetLayouts(expandLayouts));
 
         const auto copyBindings = std::array {
             vk::DescriptorSetLayoutBinding()
@@ -308,7 +368,9 @@ namespace FREYA_NAMESPACE
             mDevice, mCommandPool, mMeshPool, mMaterials,
             mServiceProvider->GetService<MaterialPool>(), frameCount,
             cullPipeline, cullPipelineLayout, cullSetLayout, cullDescriptorPool,
-            std::move(cullDescriptorSets), std::move(hiz),
+            std::move(cullDescriptorSets), expandPipeline, expandPipelineLayout,
+            expandSetLayout, expandDescriptorPool,
+            std::move(expandDescriptorSets), std::move(hiz),
             std::move(fallbackImageArc));
     }
 } // namespace FREYA_NAMESPACE

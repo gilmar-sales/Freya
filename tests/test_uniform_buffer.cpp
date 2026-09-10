@@ -19,5 +19,6 @@ TEST_CASE("shadow UBO member offsets match GLSL std140", "[ubo]")
     STATIC_REQUIRE(offsetof(fra::ShadowUniformBuffer, spotViewProj) == 288);
     STATIC_REQUIRE(offsetof(fra::ShadowUniformBuffer, spotLightIndex) == 544);
     STATIC_REQUIRE(offsetof(fra::ShadowUniformBuffer, pointLightPosFar) == 560);
-    STATIC_REQUIRE(offsetof(fra::ShadowUniformBuffer, pointFaceViewProj) == 656);
+    STATIC_REQUIRE(
+        offsetof(fra::ShadowUniformBuffer, pointFaceViewProj) == 656);
 }

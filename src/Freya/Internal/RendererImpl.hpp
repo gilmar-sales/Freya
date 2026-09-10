@@ -26,8 +26,8 @@
 #include "Freya/Core/RenderFrameContext.hpp"
 #include "Freya/Core/RenderTarget.hpp"
 #include "Freya/Core/RendererUi.hpp"
-#include "Freya/Core/ShadowPass.hpp"
 #include "Freya/Core/ShadowMaskPass.hpp"
+#include "Freya/Core/ShadowPass.hpp"
 #include "Freya/Core/SsaoPass.hpp"
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Core/TaaPass.hpp"
@@ -120,8 +120,10 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] bool SetViewportTarget(std::uint32_t width,
                                              std::uint32_t height);
 
+        void BeginSceneInstances();
+        void ReserveSceneInstances(std::uint32_t count);
         void UploadSceneInstances(std::span<const SceneInstanceUpload> uploads);
-        void PatchSceneInstances(std::span<const SceneInstanceUpload> uploads);
+        void EndSceneInstances();
         void CommitSceneFrame();
 
         void Draw(std::uint32_t meshId,

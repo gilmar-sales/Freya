@@ -1,27 +1,26 @@
 #pragma once
 
+#include "Freya/Asset/SceneTransform.hpp"
 #include "Freya/Config.hpp"
 #include "Freya/Core/Limits.hpp"
 #include "Freya/Scene/AssetHandle.hpp"
 
 #include <cstdint>
 
-#include <glm/glm.hpp>
-
 namespace FREYA_NAMESPACE
 {
     /**
-     * @brief Host upload record (prevModel filled by Renderer).
+     * @brief Host upload record (model mats filled on GPU by ExpandTransforms).
      *
-     * Prefer Scene::Upload for application code. This type is for Advanced /
-     * tooling paths that build draws without a retained Scene.
+     * Prefer Scene::Upload or Renderer Begin/Reserve/Upload/End for app code.
+     * This type is for packing ECS chunks / Advanced tooling.
      *
-     * Contract: prefer sorting by `entityId` before upload so Freya keeps TAA
-     * history stable (`prevModel` is looked up by `entityId`).
+     * Contract: prefer sorting by `entityId` before End so Freya keeps TAA
+     * history stable (`prevModel` is matched by entityId on the GPU).
      */
     struct SceneInstanceUpload
     {
-        glm::mat4      model = glm::mat4(1.0f);
+        SceneTransform transform {};
         MeshHandle     mesh {};
         MaterialHandle material {};
         std::uint32_t  entityId    = 0;

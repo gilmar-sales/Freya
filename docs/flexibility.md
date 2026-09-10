@@ -70,7 +70,8 @@ Disabling bloom clears the bloom tap so composite stays dark for that input.
 
 TAA motion vectors use G-buffer velocity (current unjittered VP vs
 `prevViewProjection`, plus per-instance previous model matrices). Prefer
-`Renderer::UploadSceneInstances` so Freya maintains that history; drawing
+`Renderer::BeginSceneInstances` / `UploadSceneInstances` /
+`EndSceneInstances` so Freya maintains that history; drawing
 without the scene-upload API will not supply correct object motion alone.
 
 ## DI configure hooks

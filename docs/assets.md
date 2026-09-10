@@ -44,8 +44,9 @@ Static meshes leave `Vertex::joints/weights` at defaults and
 second/prev bone palette for TAA velocity. Full animation docs:
 [Animation](animation.md).
 
-Draw submission goes through `Renderer::UploadSceneInstances` (preferred) or
-the legacy `Draw` / `DrawInstanced` helpers.
+Draw submission goes through `Scene::Upload` or
+`Begin`/`Upload`/`EndSceneInstances` (preferred) or the legacy `Draw` /
+`DrawInstanced` helpers.
 
 ## TexturePool
 
@@ -156,23 +157,29 @@ struct Vertex
 ## Instancing (GPU-driven MDI)
 
 Prefer `Scene::Upload` for application code (dirty-aware retained list).
-`RendererAdvanced::UploadSceneInstances` remains for tooling / tests that
-build a span without a `Scene`.
-Frustum cull (compute) atomic-compacts visible instances into multi-draw
-indirect commands.
+ECS / tooling can pack packed `SceneTransform` (40 B: position, scale,
+rotation) via `BeginSceneInstances` → `ReserveSceneInstances` →
+`UploadSceneInstances` (thread-safe append) → `EndSceneInstances`.
+`ExpandTransforms` (scalar block layout) builds `mat4` on the GPU; then
+frustum cull atomic-compacts visible instances into multi-draw indirect
+commands.
 
 **Contract:** prefer ascending `entityId` (Freya sorts when needed). TAA
-`prevModel` is resolved by `entityId` (first frame / new ids: `prev ==
-model`).
+`prevModel` is matched by `entityId` on the GPU (first frame / new ids:
+`prev == model`).
 
 ```cpp
 #include <Freya/Advanced.hpp>
 
 std::vector<fra::SceneInstanceUpload> instances;
-instances.push_back({ .model = M, .mesh = mesh, .material = mat,
+instances.push_back({ .transform = trs, .mesh = mesh, .material = mat,
                       .entityId = id, .castShadows = true });
-fra::Advanced(*renderer).UploadSceneInstances(instances);
+auto adv = fra::Advanced(*renderer);
+adv.BeginSceneInstances();
+adv.ReserveSceneInstances(static_cast<std::uint32_t>(instances.size()));
+adv.UploadSceneInstances(instances);
+adv.EndSceneInstances();
 ```
 
 Legacy path: `SetInstanceModels` + `Draw` / `DrawInstanced` still works and is
-expanded into `UploadSceneInstances` internally.
+expanded into Begin/Upload/End internally.

@@ -134,13 +134,23 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] std::uint32_t GetCurrentFrameIndex() const;
         [[nodiscard]] std::uint32_t GetFrameCount() const;
 
+        /**
+         * @brief Per-frame cumulative scene upload (thread-safe Upload).
+         *
+         * Begin → optional Reserve → Upload(span)* from any threads → End.
+         * Prefer Scene::Upload for retained lists; use this trio from ECS
+         * parallel chunk packing.
+         */
+        void BeginSceneInstances();
+        void ReserveSceneInstances(std::uint32_t count);
+        void UploadSceneInstances(std::span<const SceneInstanceUpload> uploads);
+        void EndSceneInstances();
+
       private:
         friend class RendererBuilder;
         friend class RendererAdvanced;
         friend class Scene;
 
-        void UploadSceneInstances(std::span<const SceneInstanceUpload> uploads);
-        void PatchSceneInstances(std::span<const SceneInstanceUpload> uploads);
         void CommitSceneFrame();
 
         [[nodiscard]] Impl*       ImplPtr() { return mImpl.get(); }

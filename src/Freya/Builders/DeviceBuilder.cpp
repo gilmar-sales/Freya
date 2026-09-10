@@ -43,8 +43,8 @@ namespace FREYA_NAMESPACE
 
         auto vulkan12Features = vk::PhysicalDeviceVulkan12Features {};
         auto vulkan11Features = vk::PhysicalDeviceVulkan11Features {};
-        auto features2 = vk::PhysicalDeviceFeatures2 {}
-                             .setPNext(&vulkan11Features);
+        auto features2 =
+            vk::PhysicalDeviceFeatures2 {}.setPNext(&vulkan11Features);
         vulkan11Features.setPNext(&vulkan12Features);
         mPhysicalDevice->Get().getFeatures2(&features2);
 
@@ -61,6 +61,9 @@ namespace FREYA_NAMESPACE
         mLogger->Assert(vulkan12Features.drawIndirectCount,
                         "Physical device does not support drawIndirectCount "
                         "(required for GPU-driven draws)");
+        mLogger->Assert(vulkan12Features.scalarBlockLayout,
+                        "Physical device does not support scalarBlockLayout "
+                        "(required for packed scene TRS upload)");
         mLogger->Assert(vulkan12Features.descriptorIndexing,
                         "Physical device does not support descriptorIndexing "
                         "(required for bindless materials)");
@@ -97,6 +100,7 @@ namespace FREYA_NAMESPACE
         auto enabled12 =
             vk::PhysicalDeviceVulkan12Features {}
                 .setDrawIndirectCount(true)
+                .setScalarBlockLayout(true)
                 .setDescriptorIndexing(true)
                 .setRuntimeDescriptorArray(true)
                 .setShaderSampledImageArrayNonUniformIndexing(true)
