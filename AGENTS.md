@@ -14,6 +14,7 @@
   | assimp         | `v6.0.5`         |
   | skirnir        | `v0.23.0`        |
   | stb_image.h    | `v2.30` (vendored in `src/Freya/Vendor/`) |
+  | meshoptimizer  | `v0.25`          |
   | Dear ImGui     | `v1.91.8` (examples `Examples/Common/` only) |
 - Static lib only (`BUILD_SHARED_LIBS OFF`).
 - `build/` is the active build directory (Ninja, used by CI). `.gitignore` patterns `cmake-build-*/` and `build/` (but `build/` is committed — do not delete it).

@@ -1,6 +1,7 @@
 #include "Freya/Asset/MeshPool.hpp"
 
 #include "Freya/Asset/MaterialPool.hpp"
+#include "Freya/Asset/MeshLod.hpp"
 #include "Freya/Asset/MeshPoolGpu.hpp"
 #include "Freya/Asset/TexturePool.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
@@ -169,16 +170,28 @@ namespace FREYA_NAMESPACE
             buffer = std::move(newBuffer);
         }
 
-        std::uint32_t createMesh(const std::vector<Vertex>&        vertices,
-                                 const std::vector<std::uint32_t>& indicesIn,
+        std::uint32_t createMesh(const std::vector<Vertex>& vertices,
+                                 std::span<const std::vector<std::uint32_t>>
+                                            lodIndexSetsIn,
                                  const bool inflateAabb = false)
         {
-            const std::vector<std::vector<std::uint32_t>> lodIndexSets = {
-                indicesIn
-            };
+            std::vector<std::vector<std::uint32_t>> lodIndexSets;
+            lodIndexSets.reserve(kMaxLodsPerMesh);
+            for (const auto& lod : lodIndexSetsIn)
+            {
+                if (lod.empty())
+                    continue;
+                lodIndexSets.push_back(lod);
+                if (lodIndexSets.size() >= kMaxLodsPerMesh)
+                    break;
+            }
+            if (lodIndexSets.empty())
+                lodIndexSets.emplace_back();
 
-            logger->LogTrace("Creating mesh with {} vertices, {} indices.",
-                             vertices.size(), indicesIn.size());
+            logger->LogTrace(
+                "Creating mesh with {} vertices, {} LOD(s), LOD0 indices={}.",
+                vertices.size(), lodIndexSets.size(),
+                lodIndexSets.front().size());
 
             const auto vertexMemorySize =
                 static_cast<std::uint32_t>(vertices.size() * sizeof(Vertex));
@@ -318,9 +331,20 @@ namespace FREYA_NAMESPACE
             return mesh.id;
         }
 
+        std::uint32_t createMesh(const std::vector<Vertex>&        vertices,
+                                 const std::vector<std::uint32_t>& indicesIn,
+                                 const MeshLodBuildOptions&        lodOptions,
+                                 const bool inflateAabb = false)
+        {
+            const auto lods =
+                BuildMeshLodIndexSets(vertices, indicesIn, lodOptions);
+            return createMesh(vertices, lods, inflateAabb);
+        }
+
         std::uint32_t processMesh(const aiMesh*  mesh,
                                   const aiScene* scene,
-                                  bool           bakeMaterialDiffuse = false)
+                                  bool           bakeMaterialDiffuse,
+                                  const MeshLodBuildOptions& lodOptions)
         {
             std::vector<Vertex>        vertices;
             std::vector<std::uint32_t> indices;
@@ -365,7 +389,7 @@ namespace FREYA_NAMESPACE
                     indices.push_back(face.mIndices[j]);
             }
 
-            return createMesh(vertices, indices);
+            return createMesh(vertices, indices, lodOptions);
         }
 
         static std::string parentDirectory(const std::string& path)
@@ -699,7 +723,8 @@ namespace FREYA_NAMESPACE
             walk(walk, scene->mRootNode);
         }
 
-        std::vector<ModelSubmesh> createModelFromFile(const std::string& path)
+        std::vector<ModelSubmesh> createModelFromFile(
+            const std::string& path, const MeshLodBuildOptions& lodOptions)
         {
             logger->LogTrace("Creating model from file: {}", path);
             auto             submeshes = std::vector<ModelSubmesh>();
@@ -723,8 +748,8 @@ namespace FREYA_NAMESPACE
             walkSceneSubmeshes(
                 scene, materials,
                 [&](const aiMesh* mesh, const MaterialHandle material) {
-                    const auto meshId =
-                        processMesh(mesh, scene, /*bakeMaterialDiffuse*/ false);
+                    const auto meshId = processMesh(
+                        mesh, scene, /*bakeMaterialDiffuse*/ false, lodOptions);
                     submeshes.push_back(
                         ModelSubmesh { MeshHandle { meshId }, material });
                 });
@@ -883,7 +908,8 @@ namespace FREYA_NAMESPACE
 
         std::uint32_t processSkinnedMesh(
             const aiMesh* mesh, const aiScene* scene,
-            const std::unordered_map<std::string, std::uint32_t>& nameToIndex)
+            const std::unordered_map<std::string, std::uint32_t>& nameToIndex,
+            const MeshLodBuildOptions& lodOptions)
         {
             std::vector<Vertex>        vertices(mesh->mNumVertices);
             std::vector<std::uint32_t> indices;
@@ -956,20 +982,22 @@ namespace FREYA_NAMESPACE
                     indices.push_back(face.mIndices[j]);
             }
 
-            return createMesh(vertices, indices, true);
+            return createMesh(vertices, indices, lodOptions,
+                              /*inflateAabb=*/true);
         }
 
         void processSkinnedNode(
             std::vector<ModelSubmesh>& submeshes, const aiNode* node,
             const aiScene*                                        scene,
             const std::unordered_map<std::string, std::uint32_t>& nameToIndex,
-            const std::vector<MaterialHandle>&                    materials)
+            const std::vector<MaterialHandle>&                    materials,
+            const MeshLodBuildOptions&                            lodOptions)
         {
             for (unsigned int i = 0; i < node->mNumMeshes; ++i)
             {
                 const aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
                 const auto    meshId =
-                    processSkinnedMesh(mesh, scene, nameToIndex);
+                    processSkinnedMesh(mesh, scene, nameToIndex, lodOptions);
                 const auto matIndex = mesh->mMaterialIndex;
                 const auto material =
                     matIndex < materials.size() ? materials[matIndex]
@@ -979,7 +1007,7 @@ namespace FREYA_NAMESPACE
             }
             for (unsigned int i = 0; i < node->mNumChildren; ++i)
                 processSkinnedNode(submeshes, node->mChildren[i], scene,
-                                   nameToIndex, materials);
+                                   nameToIndex, materials, lodOptions);
         }
 
         static AnimationClip convertAnimation(
@@ -1037,7 +1065,8 @@ namespace FREYA_NAMESPACE
             return clip;
         }
 
-        SkinnedModel createSkinnedModelFromFile(const std::string& path)
+        SkinnedModel createSkinnedModelFromFile(
+            const std::string& path, const MeshLodBuildOptions& lodOptions)
         {
             SkinnedModel out;
             logger->LogTrace("Creating skinned model from file: {}", path);
@@ -1071,7 +1100,7 @@ namespace FREYA_NAMESPACE
             const auto directory = normalizeSlashes(parentDirectory(path));
             const auto materials = importAllMaterials(scene, directory);
             processSkinnedNode(out.submeshes, scene->mRootNode, scene,
-                               nameToIndex, materials);
+                               nameToIndex, materials, lodOptions);
 
             for (unsigned a = 0; a < scene->mNumAnimations; ++a)
                 out.clips.push_back(
@@ -1134,20 +1163,29 @@ namespace FREYA_NAMESPACE
     MeshPool& MeshPool::operator=(MeshPool&&) noexcept = default;
 
     MeshHandle MeshPool::CreateMesh(const std::vector<Vertex>&        vertices,
-                                    const std::vector<std::uint32_t>& indices)
+                                    const std::vector<std::uint32_t>& indices,
+                                    const MeshLodBuildOptions& lodOptions)
     {
-        return MeshHandle { mImpl->createMesh(vertices, indices) };
+        return MeshHandle { mImpl->createMesh(vertices, indices, lodOptions) };
+    }
+
+    MeshHandle MeshPool::CreateMesh(const std::vector<Vertex>& vertices,
+                                    std::span<const std::vector<std::uint32_t>>
+                                        lodIndexSets)
+    {
+        return MeshHandle { mImpl->createMesh(vertices, lodIndexSets) };
     }
 
     std::vector<ModelSubmesh> MeshPool::CreateModelFromFile(
-        const std::string& path)
+        const std::string& path, const MeshLodBuildOptions& lodOptions)
     {
-        return mImpl->createModelFromFile(path);
+        return mImpl->createModelFromFile(path, lodOptions);
     }
 
-    SkinnedModel MeshPool::CreateSkinnedModelFromFile(const std::string& path)
+    SkinnedModel MeshPool::CreateSkinnedModelFromFile(
+        const std::string& path, const MeshLodBuildOptions& lodOptions)
     {
-        return mImpl->createSkinnedModelFromFile(path);
+        return mImpl->createSkinnedModelFromFile(path, lodOptions);
     }
 
     bool MeshPool::Contains(const MeshHandle mesh) const

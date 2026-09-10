@@ -14,9 +14,9 @@ deferred stack without forking the renderer.
 | Custom post shaders | `PostProcessBuilder` + `BindMaterial` (G-buffer albedo.a IDs) |
 | Custom G-buffer shaders | `MaterialTechniqueRegistry` + `MaterialCreateInfo::techniqueId` |
 | Textures from memory | `TexturePool::CreateTextureFromMemory` |
-| Meshes from memory | `MeshPool::CreateMesh(vertices, indices)` |
+| Meshes from memory | `MeshPool::CreateMesh` (optional auto / explicit LODs) |
 | Materials | `MaterialCreateInfo` (AO map, packed MR, unlit, double-sided) |
-| Model import | `MeshPool::CreateModelFromFile` (Assimp PBR + textures) |
+| Model import | `MeshPool::CreateModelFromFile` (Assimp PBR + auto mesh LODs) |
 
 ## Feature flags
 

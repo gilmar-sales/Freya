@@ -31,18 +31,31 @@ for (const auto& part : fox.submeshes)
                           .boneOffset = 0, .boneCount = fox.skeleton.JointCount() });
 }
 
-// Full stack (AnimGraph, bake, CPU/GPU skin, LOD, look/IK): see Animation.
+// From memory (already CPU-side Freya vertices + uint32 indices).
+// Default MeshLodBuildOptions builds up to 4 GPU LODs (shared verts / UVs).
+std::uint32_t meshId = meshPool->CreateMesh(vertices, indices);
+
+// Opt out of auto LOD, or pass explicit index sets:
+meshPool->CreateMesh(vertices, indices, { .enabled = false });
+meshPool->CreateMesh(vertices, lodIndexSets);
+```
+
+Static `CreateModelFromFile` also auto-builds mesh LODs (meshoptimizer,
+UV-aware). Cull picks LOD from screen diameter (`lodPixelRef` / `lodStep`).
+Skinned imports stay LOD0-only unless you pass
+`MeshLodBuildOptions{ .enabled = true }` to `CreateSkinnedModelFromFile`.
+
+Full stack (AnimGraph, bake, CPU/GPU skin, anim LOD, look/IK): see
+[Animation](animation.md). Example:
+
+```cpp
 renderer->UploadBoneMatrices(fra::EvaluateSkeletonPose(
     fox.skeleton, fox.clips[0], timeSec));
-
-// From memory (already CPU-side Freya vertices + uint32 indices)
-std::uint32_t meshId = meshPool->CreateMesh(vertices, indices);
 ```
 
 Static meshes leave `Vertex::joints/weights` at defaults and
 `SceneInstanceUpload::boneOffset = fra::kNoSkin`. Skinned draws use a
-second/prev bone palette for TAA velocity. Full animation docs:
-[Animation](animation.md).
+second/prev bone palette for TAA velocity.
 
 Draw submission goes through `Scene::Upload` or
 `Begin`/`Upload`/`EndSceneInstances` (preferred) or the legacy `Draw` /

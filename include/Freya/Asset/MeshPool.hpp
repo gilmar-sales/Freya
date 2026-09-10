@@ -2,6 +2,7 @@
 
 #include "Freya/Asset/Material.hpp"
 #include "Freya/Asset/Mesh.hpp"
+#include "Freya/Asset/MeshLod.hpp"
 #include "Freya/Asset/SkinnedModel.hpp"
 #include "Freya/Asset/Vertex.hpp"
 #include "Freya/Scene/AssetHandle.hpp"
@@ -33,12 +34,30 @@ namespace FREYA_NAMESPACE
         MeshPool(MeshPool&&) noexcept;
         MeshPool& operator=(MeshPool&&) noexcept;
 
+        /// Upload geometry; auto-builds mesh LODs unless `lodOptions.enabled`
+        /// is false. Material / UVs are unchanged — only index ranges differ.
         MeshHandle CreateMesh(const std::vector<Vertex>&        vertices,
-                              const std::vector<std::uint32_t>& indices);
+                              const std::vector<std::uint32_t>& indices,
+                              const MeshLodBuildOptions& lodOptions = {});
 
-        std::vector<ModelSubmesh> CreateModelFromFile(const std::string& path);
+        /// Explicit LOD index sets (LOD0 first). Empty sets are skipped.
+        /// Clamped to `kMaxLodsPerMesh`. Shares one vertex buffer.
+        MeshHandle CreateMesh(const std::vector<Vertex>& vertices,
+                              std::span<const std::vector<std::uint32_t>>
+                                  lodIndexSets);
 
-        SkinnedModel CreateSkinnedModelFromFile(const std::string& path);
+        /// Static model import; builds GPU mesh LODs via meshoptimizer.
+        std::vector<ModelSubmesh> CreateModelFromFile(
+            const std::string&         path,
+            const MeshLodBuildOptions& lodOptions = {});
+
+        /// Skinned import. Mesh LODs are off by default (opt in via
+        /// `lodOptions`); same shared VB / materials as static LODs.
+        SkinnedModel CreateSkinnedModelFromFile(
+            const std::string&         path,
+            const MeshLodBuildOptions& lodOptions = {
+                .enabled = false,
+            });
 
         [[nodiscard]] bool Contains(MeshHandle mesh) const;
 

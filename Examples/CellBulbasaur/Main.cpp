@@ -469,8 +469,10 @@ class MainApp final : public fra::AbstractApplication
             mMuGlowEffect->BindMaterial(mBodyAMaterial.Id());
         }
 
+        // Opt-in mesh LODs (shared verts/UVs); cull picks LOD by screen size.
         mSkinned = mMeshPool->CreateSkinnedModelFromFile(
-            "./Resources/Models/bulbasaur.glb");
+            "./Resources/Models/bulbasaur.glb",
+            fra::MeshLodBuildOptions { .enabled = true });
         if (mSkinned.submeshes.empty() || mSkinned.skeleton.JointCount() == 0)
         {
             std::cerr << "Failed to load bulbasaur.glb as a skinned model\n";
@@ -480,6 +482,13 @@ class MainApp final : public fra::AbstractApplication
             std::cout << "bulbasaur submeshes: " << mSkinned.submeshes.size()
                       << " joints: " << mSkinned.skeleton.JointCount()
                       << " clips: " << mSkinned.clips.size() << '\n';
+            for (std::size_t i = 0; i < mSkinned.submeshes.size(); ++i)
+            {
+                const auto& mesh =
+                    mMeshPool->GetMesh(mSkinned.submeshes[i].mesh);
+                std::cout << "  submesh " << i << " lods=" << mesh.lodCount
+                          << " lod0Indices=" << mesh.indexCount << '\n';
+            }
             for (const auto& clip : mSkinned.clips)
                 std::cout << "  clip: " << clip.name << " (" << clip.duration
                           << "s)\n";
