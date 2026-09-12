@@ -4,6 +4,15 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(Freya LANGUAGES CXX VERSION 0.49.1)
 
+# GCC 16.1 MinGW + C++26 constexpr exceptions emits a strong
+# std::runtime_error copy ctor (should be weak). That clashes with
+# cow-stdexcept.o from static libstdc++ (assimp pulls -static-libstdc++
+# on MinGW). Workaround until GCC PR125151 / msys2#29279 is fixed.
+if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        add_compile_options(
+                $<$<COMPILE_LANGUAGE:CXX>:-D__cpp_lib_constexpr_exceptions=0>)
+endif()
+
 find_package(Vulkan REQUIRED)
 
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "Disable assimp tests build")
