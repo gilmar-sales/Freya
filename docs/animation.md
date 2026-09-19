@@ -227,31 +227,48 @@ blends loco/layers, optional look/IK, FK, then writes skin matrices into
 
 ### Setup and frame loop
 
+Prefer **pre-resident clips** at load (main thread) + `FindClipSlot` on the
+hot path. `EnsureClipResident` is thread-safe (SpinLock); while instance
+staging is open it only fills **free** slots (no LRU evict). Prefetch /
+pin still avoids host `Copy` on the critical path.
+
 ```cpp
-auto* gpu = renderer->GetGpuAnimPass();
-gpu->UploadSkeleton(fra::PackSkeleton(skel));
-gpu->EnsureClipResident(fra::GpuClipKey("Walk"), bakeWalk); // LRU cache
-gpu->UploadBoneMask(upperWeights);
-gpu->UploadRestJoints(...);
-gpu->SetRigIndices(lookJ, ikRoot, ikMid, ikTip, rootJ);
-gpu->SetCopyPrevBones(true); // sparse LOD / FiF continuity
-gpu->UploadInstances(instances); // marks sticky GPU-owned bone ranges
-gpu->SetEnabled(true);
+auto& gpu = fra::Advanced(*renderer).GpuAnimation();
+gpu.UploadSkeleton(fra::PackSkeleton(skel));
+// Load / between frames — pin every bake the parallel path will sample:
+gpu.UploadClipSlot(0, fra::GpuClipKey(clipIdle->name), bakeIdle);
+gpu.PinClipSlot(0, true);
+gpu.UploadClipSlot(1, fra::GpuClipKey(clipWalk->name), bakeWalk);
+gpu.PinClipSlot(1, true);
+// ... or EnsureClipResident(key, bake) + PinClipSlot for streaming fills
+gpu.UploadBoneMask(upperWeights);
+gpu.UploadRestJoints(...);
+gpu.SetRigIndices(lookJ, ikRoot, ikMid, ikTip, rootJ);
+gpu.SetCopyPrevBones(true); // sparse LOD / FiF continuity
+gpu.SetEnabled(true);
+```
+
+Hot path (same `EachAsync` / workers as CPU bone packing):
+
+```cpp
+gpu.BeginGpuAnimInstanceUploads();
+gpu.ReserveGpuAnimInstanceUploads(expectedCount);
+// any threads:
+auto slot = gpu.FindClipSlot(fra::GpuClipKey(clip->name));
+if (slot == 0xffffffffu)
+    slot = gpu.EnsureClipResident(key, bake); // free slots only
+if (slot == 0xffffffffu) { /* miss: skip / CPU fallback / Ensure on main
+                               between frames (LRU allowed) */ }
+inst.clipA = slot;
+gpu.UploadGpuAnimInstanceUploads(chunkSpan);
+gpu.EndGpuAnimInstanceUploads();
 // Dispatch runs in the frame graph
 ```
 
 `UploadInstances` wraps `BeginGpuAnimInstanceUploads` →
-`UploadGpuAnimInstanceUploads` → `EndGpuAnimInstanceUploads`. Parallel
-packing:
-
-```cpp
-auto& gpu = fra::Advanced(*renderer).GpuAnimation();
-gpu.BeginGpuAnimInstanceUploads();
-gpu.ReserveGpuAnimInstanceUploads(expectedCount);
-// any threads:
-gpu.UploadGpuAnimInstanceUploads(chunkSpan);
-gpu.EndGpuAnimInstanceUploads();
-```
+`UploadGpuAnimInstanceUploads` → `EndGpuAnimInstanceUploads`.
+`Evict` / `ResetClipCache` / `UploadClipSlot` / `UploadSkeleton` /
+`UploadBakes` are rejected while instance staging is open.
 
 **Mixed CPU + GPU (same frame):** upload CPU skins first, then
 `UploadInstances` / `EndGpuAnimInstanceUploads` for GPU actors, with
@@ -259,6 +276,11 @@ gpu.EndGpuAnimInstanceUploads();
 so hero CPU skins are not wiped. Prefer uploading only CPU-owned matrices
 (not a full palette of identity padding for GPU slots). Call GPU instance
 `End` after the CPU bone `End` so wild slots are re-marked the same frame.
+
+**One skeleton per Dispatch.** Multi-rig GPU in the same frame needs
+serialized `UploadSkeleton` + Dispatch (or `DispatchImmediate`) on the
+main thread, or keep extra rigs on the CPU path — not inside the parallel
+EachAsync cohort.
 
 After toggling `quantizeGpuAnimJoints`, call
 `fra::Advanced(renderer).GpuAnimation().RebuildPass()` and re-upload
@@ -278,9 +300,16 @@ smallest-three quat + half floats) via `quantizeGpuAnimJoints`.
 
 ### Clip streaming
 
-Cache of 24 slots. `EnsureClipResident` may evict **unpinned** LRU entries.
-`PinClipSlot` / `TouchClipSlot` / `EvictClipSlot` / `ResetClipCache`.
-Bulk `UploadBakes` fills slots 0..n−1 pinned.
+Cache of 24 slots. `EnsureClipResident` is thread-safe. With staging
+**closed**, it may evict **unpinned** LRU entries. With staging **open**,
+it only fills free slots (no concurrent evict). `PinClipSlot` /
+`TouchClipSlot` / `EvictClipSlot` / `ResetClipCache`. Bulk `UploadBakes`
+fills slots 0..n−1 pinned.
+
+Prefer pre-pin at load and `FindClipSlot` in workers. Worker
+`EnsureClipResident` is valid for miss/stream fill into free slots;
+SkinnedFox key `T` remains a main-thread streaming demo (LRU between
+frames).
 
 ### Joint extract and timing (N+1)
 

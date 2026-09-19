@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstring>
 #include <string>
 
@@ -213,6 +214,11 @@ namespace FREYA_NAMESPACE
 
     void GpuAnimPass::Impl::UploadSkeleton(const GpuSkeletonPack& skeleton)
     {
+        assert(!mInstanceStagingOpen &&
+               "UploadSkeleton during instance staging");
+        if (mInstanceStagingOpen)
+            return;
+
         mJointCount = std::min(skeleton.jointCount, GpuAnimPass::kMaxJoints);
         if (mJointCount == 0)
             return;
@@ -239,7 +245,8 @@ namespace FREYA_NAMESPACE
 
     std::uint32_t GpuAnimPass::Impl::ResidentClipCount() const
     {
-        std::uint32_t n = 0;
+        const SpinLockGuard guard(mClipCacheLock);
+        std::uint32_t       n = 0;
         for (const auto& s : mClipSlots)
             if (s.resident)
                 ++n;
@@ -249,6 +256,7 @@ namespace FREYA_NAMESPACE
     void GpuAnimPass::Impl::CaptureDebugSnapshot(
         GpuAnimDebugSnapshot& out) const
     {
+        const SpinLockGuard guard(mClipCacheLock);
         out                         = {};
         out.enabled                 = mEnabled;
         out.quantizedJoints         = mQuantizedJoints;
@@ -258,7 +266,11 @@ namespace FREYA_NAMESPACE
         out.maxClips                = GpuAnimPass::kMaxClips;
         out.maxBakedJoints          = MaxBakedJoints();
         out.jointsPerClipSlot       = JointsPerClipSlot();
-        out.residentClips           = ResidentClipCount();
+        std::uint32_t resident      = 0;
+        for (const auto& s : mClipSlots)
+            if (s.resident)
+                ++resident;
+        out.residentClips = resident;
         out.extractRequests =
             static_cast<std::uint32_t>(mExtractRequests.size());
         out.slots.resize(GpuAnimPass::kMaxClips);
@@ -270,7 +282,7 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    void GpuAnimPass::Impl::ResetClipCache()
+    void GpuAnimPass::Impl::ResetClipCacheUnlocked()
     {
         mClipSlots.fill({});
         mClipTouchClock = 1;
@@ -282,22 +294,40 @@ namespace FREYA_NAMESPACE
             static_cast<std::uint32_t>(empty.size() * sizeof(GpuClipHeader)));
     }
 
-    void GpuAnimPass::Impl::TouchClipSlot(const std::uint32_t slot)
+    void GpuAnimPass::Impl::ResetClipCache()
+    {
+        const SpinLockGuard guard(mClipCacheLock);
+        assert(!mInstanceStagingOpen &&
+               "ResetClipCache during instance staging");
+        if (mInstanceStagingOpen)
+            return;
+        ResetClipCacheUnlocked();
+    }
+
+    void GpuAnimPass::Impl::TouchClipSlotUnlocked(const std::uint32_t slot)
     {
         if (slot >= GpuAnimPass::kMaxClips || !mClipSlots[slot].resident)
             return;
         mClipSlots[slot].lastTouch = ++mClipTouchClock;
     }
 
+    void GpuAnimPass::Impl::TouchClipSlot(const std::uint32_t slot)
+    {
+        const SpinLockGuard guard(mClipCacheLock);
+        TouchClipSlotUnlocked(slot);
+    }
+
     void GpuAnimPass::Impl::PinClipSlot(const std::uint32_t slot,
                                         const bool          pinned)
     {
+        const SpinLockGuard guard(mClipCacheLock);
         if (slot >= GpuAnimPass::kMaxClips || !mClipSlots[slot].resident)
             return;
         mClipSlots[slot].pinned = pinned;
     }
 
-    std::uint32_t GpuAnimPass::Impl::FindClipSlot(const std::uint64_t key) const
+    std::uint32_t GpuAnimPass::Impl::FindClipSlotUnlocked(
+        const std::uint64_t key) const
     {
         if (key == 0)
             return 0xffffffffu;
@@ -309,7 +339,13 @@ namespace FREYA_NAMESPACE
         return 0xffffffffu;
     }
 
-    void GpuAnimPass::Impl::EvictClipSlot(const std::uint32_t slot)
+    std::uint32_t GpuAnimPass::Impl::FindClipSlot(const std::uint64_t key) const
+    {
+        const SpinLockGuard guard(mClipCacheLock);
+        return FindClipSlotUnlocked(key);
+    }
+
+    void GpuAnimPass::Impl::EvictClipSlotUnlocked(const std::uint32_t slot)
     {
         if (slot >= GpuAnimPass::kMaxClips)
             return;
@@ -322,9 +358,19 @@ namespace FREYA_NAMESPACE
             static_cast<std::uint64_t>(slot) * sizeof(GpuClipHeader));
     }
 
-    bool GpuAnimPass::Impl::UploadClipSlot(const std::uint32_t slot,
-                                           const std::uint64_t key,
-                                           const BakedClip&    clip)
+    void GpuAnimPass::Impl::EvictClipSlot(const std::uint32_t slot)
+    {
+        const SpinLockGuard guard(mClipCacheLock);
+        assert(!mInstanceStagingOpen &&
+               "EvictClipSlot during instance staging");
+        if (mInstanceStagingOpen)
+            return;
+        EvictClipSlotUnlocked(slot);
+    }
+
+    bool GpuAnimPass::Impl::UploadClipSlotUnlocked(const std::uint32_t slot,
+                                                   const std::uint64_t key,
+                                                   const BakedClip&    clip)
     {
         if (slot >= GpuAnimPass::kMaxClips || key == 0 ||
             clip.frameCount == 0 || clip.jointCount == 0 ||
@@ -375,13 +421,29 @@ namespace FREYA_NAMESPACE
         return true;
     }
 
+    bool GpuAnimPass::Impl::UploadClipSlot(const std::uint32_t slot,
+                                           const std::uint64_t key,
+                                           const BakedClip&    clip)
+    {
+        const SpinLockGuard guard(mClipCacheLock);
+        // Direct slot writes stay main-only during packing; workers use
+        // EnsureClipResident (free-slot fills under the same lock).
+        assert(!mInstanceStagingOpen &&
+               "UploadClipSlot during instance staging");
+        if (mInstanceStagingOpen)
+            return false;
+        return UploadClipSlotUnlocked(slot, key, clip);
+    }
+
     std::uint32_t GpuAnimPass::Impl::EnsureClipResident(const std::uint64_t key,
                                                         const BakedClip& clip)
     {
-        const auto existing = FindClipSlot(key);
+        const SpinLockGuard guard(mClipCacheLock);
+
+        const auto existing = FindClipSlotUnlocked(key);
         if (existing != 0xffffffffu)
         {
-            TouchClipSlot(existing);
+            TouchClipSlotUnlocked(existing);
             return existing;
         }
 
@@ -397,6 +459,11 @@ namespace FREYA_NAMESPACE
 
         if (freeSlot == 0xffffffffu)
         {
+            // Concurrent packing: never LRU-evict — another worker may already
+            // hold a slot index. Main (staging closed) may evict unpinned.
+            if (mInstanceStagingOpen)
+                return 0xffffffffu;
+
             std::uint64_t oldest = ~0ull;
             for (std::uint32_t i = 0; i < GpuAnimPass::kMaxClips; ++i)
             {
@@ -411,20 +478,24 @@ namespace FREYA_NAMESPACE
             }
             if (freeSlot == 0xffffffffu)
                 return 0xffffffffu;
-            EvictClipSlot(freeSlot);
+            EvictClipSlotUnlocked(freeSlot);
         }
 
-        if (!UploadClipSlot(freeSlot, key, clip))
+        if (!UploadClipSlotUnlocked(freeSlot, key, clip))
             return 0xffffffffu;
         return freeSlot;
     }
 
     void GpuAnimPass::Impl::UploadBakes(const GpuBakePack& pack)
     {
+        assert(!mInstanceStagingOpen && "UploadBakes during instance staging");
+        if (mInstanceStagingOpen)
+            return;
         if (pack.quantized != mQuantizedJoints)
             return;
 
-        ResetClipCache();
+        const SpinLockGuard guard(mClipCacheLock);
+        ResetClipCacheUnlocked();
 
         // Rebuild contiguous pack into per-slot slabs (slots 0..n pinned).
         // Prefer EnsureClipResident with source BakedClips when streaming;
@@ -575,12 +646,15 @@ namespace FREYA_NAMESPACE
 
         // Sticky GPU-owned palette spans for FiF carry (sparse LOD). CPU
         // UploadBoneMatrices unmarks its own span so mixed mode is safe.
-        if (mBoneResources && mJointCount > 0)
+        if (mBoneResources)
         {
             for (std::uint32_t i = 0; i < mInstanceCount; ++i)
             {
-                mBoneResources->MarkGpuOwnedBones(
-                    mInstanceStaging[i].boneOffset, mJointCount);
+                const auto& inst = mInstanceStaging[i];
+                const auto  jc   = std::min(inst.jointCount, mJointCount);
+                if (jc == 0)
+                    continue;
+                mBoneResources->MarkGpuOwnedBones(inst.boneOffset, jc);
             }
         }
     }

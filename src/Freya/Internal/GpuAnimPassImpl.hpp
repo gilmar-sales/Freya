@@ -126,6 +126,14 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] std::uint32_t JointsPerClipSlot() const;
         [[nodiscard]] std::uint32_t ResidentClipCount() const;
         void CaptureDebugSnapshot(GpuAnimDebugSnapshot& out) const;
+
+        [[nodiscard]] std::uint32_t FindClipSlotUnlocked(
+            std::uint64_t key) const;
+        void TouchClipSlotUnlocked(std::uint32_t slot);
+        void EvictClipSlotUnlocked(std::uint32_t slot);
+        void ResetClipCacheUnlocked();
+        bool UploadClipSlotUnlocked(std::uint32_t slot, std::uint64_t key,
+                                    const BakedClip& clip);
         void UploadBoneMask(std::span<const float> weights);
         void UploadRestJoints(std::span<const GpuFloatJoint> joints);
         void UploadRestJoints(std::span<const GpuQuantJoint> joints);
@@ -237,6 +245,7 @@ namespace FREYA_NAMESPACE
 
         std::array<ClipSlotMeta, GpuAnimPass::kMaxClips> mClipSlots {};
         std::uint64_t                                    mClipTouchClock = 1;
+        mutable SpinLock                                 mClipCacheLock;
 
         std::vector<GpuJointExtractRequest> mExtractRequests;
         mutable std::vector<std::vector<GpuJointExtractRequest>> mExtractMeta;

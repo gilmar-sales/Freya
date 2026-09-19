@@ -150,7 +150,7 @@ namespace FREYA_NAMESPACE
         bool          vSync        = true;
         bool          fullscreen   = true;
         std::uint32_t sampleCount  = 1;
-        std::uint32_t frameCount   = 4;
+        std::uint32_t frameCount   = 3;
         glm::vec4     clearColor   = { 0.0f, 0.0f, 0.0f, 0.0f };
         float         drawDistance = 1000.0f;
         std::uint32_t maxLights    = 64;

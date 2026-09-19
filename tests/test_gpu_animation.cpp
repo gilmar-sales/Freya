@@ -7,6 +7,13 @@
 
 #include <glm/gtc/quaternion.hpp>
 
+// Parallel GPU packing contract (no Vulkan device in these tests):
+// - Prefer pre-resident clips on main: UploadClipSlot+Pin or Ensure+Pin.
+// - Workers: FindClipSlot and/or EnsureClipResident (SpinLock; free-slot
+//   fills only while instance staging is open — no LRU evict).
+// - Evict / Reset / UploadClipSlot / UploadSkeleton / UploadBakes rejected
+//   while instance staging is open.
+
 TEST_CASE("GpuClipKey is stable FNV-1a and never zero", "[gpu-anim]")
 {
     REQUIRE(fra::GpuClipKey("Idle") == fra::GpuClipKey("Idle"));

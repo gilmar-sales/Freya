@@ -71,16 +71,29 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] bool HasTimestampQueries() const;
 
+        /**
+         * @brief Main-thread only. Forbidden while instance staging is open
+         * (between BeginInstanceUploads and EndInstanceUploads).
+         */
         void UploadSkeleton(const GpuSkeletonPack& skeleton);
         void UploadBakes(const GpuBakePack& pack);
         void ResetClipCache();
         bool UploadClipSlot(std::uint32_t slot, std::uint64_t key,
                             const BakedClip& clip);
+        /**
+         * @brief Thread-safe make-resident (SpinLock). Touches LRU on hit.
+         * Miss fills a free slot; LRU evict of unpinned only when staging
+         * is closed. With staging open, full cache → 0xffffffffu.
+         */
         [[nodiscard]] std::uint32_t EnsureClipResident(std::uint64_t    key,
                                                        const BakedClip& clip);
         void PinClipSlot(std::uint32_t slot, bool pinned);
         void TouchClipSlot(std::uint32_t slot);
         void EvictClipSlot(std::uint32_t slot);
+        /**
+         * @brief Thread-safe clip-slot lookup (SpinLock).
+         * @return Slot index, or 0xffffffffu on miss.
+         */
         [[nodiscard]] std::uint32_t FindClipSlot(std::uint64_t key) const;
         [[nodiscard]] std::uint32_t JointsPerClipSlot() const;
         [[nodiscard]] std::uint32_t ResidentClipCount() const;
@@ -96,6 +109,8 @@ namespace FREYA_NAMESPACE
          *
          * Begin → optional Reserve → Upload (any thread) → End.
          * UploadInstances wraps Begin/Upload/End for single-thread callers.
+         * Evict / Reset / UploadClipSlot / UploadSkeleton / UploadBakes are
+         * rejected while staging is open; Ensure may fill free slots.
          */
         void BeginInstanceUploads();
         void ReserveInstanceUploads(std::uint32_t count);

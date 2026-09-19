@@ -1009,22 +1009,24 @@ class MainApp final : public fra::AbstractApplication
         fra::Advanced(*mRenderer).GpuAnimation().ResetClipCache();
 
         const auto uploadPinned = [&](const std::uint32_t   slot,
-                                      const char*           name,
+                                      const fra::AnimationClip* clip,
                                       const fra::BakedClip& bake) {
-            const auto key = fra::GpuClipKey(name);
+            if (!clip)
+                return;
+            const auto key = fra::GpuClipKey(clip->name);
             if (!fra::Advanced(*mRenderer)
                      .GpuAnimation()
                      .UploadClipSlot(slot, key, bake))
             {
-                std::cout << "GPU clip slot " << slot << " (" << name
+                std::cout << "GPU clip slot " << slot << " (" << clip->name
                           << ") upload failed\n";
                 return;
             }
             fra::Advanced(*mRenderer).GpuAnimation().PinClipSlot(slot, true);
         };
-        uploadPinned(0, "Idle", mBakeIdle);
-        uploadPinned(1, "Walk", mBakeWalk);
-        uploadPinned(2, "Run", mBakeRun);
+        uploadPinned(0, mClipIdle, mBakeIdle);
+        uploadPinned(1, mClipWalk, mBakeWalk);
+        uploadPinned(2, mClipRun, mBakeRun);
 
         const auto jc = mSkinned.skeleton.JointCount();
         fra::Advanced(*mRenderer)
@@ -1565,11 +1567,12 @@ class MainApp final : public fra::AbstractApplication
     [[nodiscard]] std::uint32_t gpuClipIndex(
         const fra::AnimationClip* clip) const
     {
-        if (clip == mClipWalk)
-            return 1u;
-        if (clip == mClipRun)
-            return 2u;
-        return 0u;
+        if (!clip)
+            return 0xffffffffu;
+        // Pre-resident keys from uploadGpuAnimAssets; hot-path Find only.
+        return fra::Advanced(*mRenderer)
+            .GpuAnimation()
+            .FindClipSlot(fra::GpuClipKey(clip->name));
     }
 
     float               mProfReportTimer  = 0.f;
