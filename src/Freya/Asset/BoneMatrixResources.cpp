@@ -170,6 +170,7 @@ namespace FREYA_NAMESPACE
     {
         if (count == 0 || boneOffset >= mCapacity)
             return;
+        SpinLockGuard lock(mLock);
         addOwnedInterval(boneOffset,
                          boneOffset + std::min(count, mCapacity - boneOffset));
     }
@@ -179,19 +180,20 @@ namespace FREYA_NAMESPACE
     {
         if (count == 0 || boneOffset >= mCapacity)
             return;
+        SpinLockGuard lock(mLock);
         removeOwnedInterval(
             boneOffset, boneOffset + std::min(count, mCapacity - boneOffset));
     }
 
     void BoneMatrixResources::ClearGpuOwnedBones()
     {
+        SpinLockGuard lock(mLock);
         mGpuOwned.clear();
     }
 
-    void BoneMatrixResources::Upload(const std::uint32_t frameIndex,
-                                     const std::span<const glm::mat4>
-                                                         bones,
-                                     const std::uint32_t boneOffset)
+    void BoneMatrixResources::uploadUnlocked(
+        const std::uint32_t frameIndex, const std::span<const glm::mat4> bones,
+        const std::uint32_t boneOffset)
     {
         if (bones.empty() || boneOffset >= mCapacity)
             return;
@@ -202,7 +204,7 @@ namespace FREYA_NAMESPACE
             return;
 
         // CPU claims this span: FiF carry must not overwrite it.
-        UnmarkGpuOwnedBones(boneOffset, count);
+        removeOwnedInterval(boneOffset, boneOffset + count);
 
         const auto fi       = frameIndex % mFrameCount;
         const auto base     = static_cast<std::uint64_t>(BonesByteOffset(fi));
@@ -224,6 +226,90 @@ namespace FREYA_NAMESPACE
 
         std::memcpy(mCpuPrev.data() + boneOffset, bones.data(),
                     static_cast<std::size_t>(byteCount));
+    }
+
+    void BoneMatrixResources::Upload(const std::uint32_t frameIndex,
+                                     const std::span<const glm::mat4>
+                                                         bones,
+                                     const std::uint32_t boneOffset)
+    {
+        SpinLockGuard lock(mLock);
+        uploadUnlocked(frameIndex, bones, boneOffset);
+    }
+
+    void BoneMatrixResources::BeginBoneUploads()
+    {
+        mStagingOpen = true;
+        mStagingJobCount.store(0, std::memory_order_relaxed);
+        mStagingMatCount.store(0, std::memory_order_relaxed);
+    }
+
+    void BoneMatrixResources::ReserveBoneUploads(
+        const std::uint32_t uploadCount, const std::uint32_t totalMatrices)
+    {
+        SpinLockGuard lock(mLock);
+        if (mStagingJobs.size() < uploadCount)
+            mStagingJobs.resize(uploadCount);
+        if (mStagingMats.size() < totalMatrices)
+            mStagingMats.resize(totalMatrices);
+    }
+
+    void BoneMatrixResources::UploadBoneUploads(
+        const std::uint32_t boneOffset, const std::span<const glm::mat4> bones)
+    {
+        const auto n = static_cast<std::uint32_t>(bones.size());
+        if (n == 0)
+            return;
+
+        const auto matBase =
+            mStagingMatCount.fetch_add(n, std::memory_order_relaxed);
+        const auto jobBase =
+            mStagingJobCount.fetch_add(1, std::memory_order_relaxed);
+
+        SpinLockGuard lock(mLock);
+        if (matBase + n > mStagingMats.size())
+        {
+            const auto grown = std::max(
+                matBase + n,
+                std::max<std::uint32_t>(
+                    1u, static_cast<std::uint32_t>(mStagingMats.size()) * 2u));
+            mStagingMats.resize(grown);
+        }
+        if (jobBase + 1 > mStagingJobs.size())
+        {
+            const auto grown = std::max(
+                jobBase + 1,
+                std::max<std::uint32_t>(
+                    1u, static_cast<std::uint32_t>(mStagingJobs.size()) * 2u));
+            mStagingJobs.resize(grown);
+        }
+        std::copy(bones.begin(), bones.end(),
+                  mStagingMats.begin() + static_cast<std::ptrdiff_t>(matBase));
+        mStagingJobs[jobBase] = StagingJob { boneOffset, n, matBase };
+    }
+
+    void BoneMatrixResources::EndBoneUploads(const std::uint32_t frameIndex)
+    {
+        mStagingOpen = false;
+
+        SpinLockGuard lock(mLock);
+        const auto jobCount = mStagingJobCount.load(std::memory_order_relaxed);
+        const auto n =
+            std::min(jobCount, static_cast<std::uint32_t>(mStagingJobs.size()));
+        for (std::uint32_t i = 0; i < n; ++i)
+        {
+            const auto& job = mStagingJobs[i];
+            if (job.boneCount == 0 ||
+                job.matBase + job.boneCount > mStagingMats.size())
+                continue;
+            uploadUnlocked(
+                frameIndex,
+                std::span<const glm::mat4>(mStagingMats.data() + job.matBase,
+                                           job.boneCount),
+                job.boneOffset);
+        }
+        mStagingJobCount.store(0, std::memory_order_relaxed);
+        mStagingMatCount.store(0, std::memory_order_relaxed);
     }
 
     void BoneMatrixResources::recordOwnedCopies(
@@ -285,6 +371,7 @@ namespace FREYA_NAMESPACE
         const vk::CommandBuffer commandBuffer,
         const std::uint32_t     frameIndex) const
     {
+        SpinLockGuard lock(mLock);
         if (mFrameCount < 2 || mGpuOwned.empty())
             return;
 
@@ -310,6 +397,7 @@ namespace FREYA_NAMESPACE
         const vk::CommandBuffer commandBuffer,
         const std::uint32_t     frameIndex) const
     {
+        SpinLockGuard lock(mLock);
         if (mGpuOwned.empty())
             return;
 

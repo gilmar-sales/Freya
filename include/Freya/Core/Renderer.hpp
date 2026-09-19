@@ -94,8 +94,22 @@ namespace FREYA_NAMESPACE
         void                SetDrawDistance(float drawDistance);
 
         void UploadBoneMatrices(std::span<const glm::mat4> bones);
-        void UploadBoneMatrices(std::uint32_t              boneOffset,
-                                std::span<const glm::mat4> bones);
+        void UploadBoneMatrices(
+            std::uint32_t boneOffset, std::span<const glm::mat4> bones);
+
+        /**
+         * @brief Per-frame cumulative bone uploads (thread-safe Upload).
+         *
+         * Begin → optional Reserve → UploadBoneMatrixUploads* → End.
+         * Prefer this from ECS parallel packing; UploadBoneMatrices wraps
+         * Begin/Upload/End for single-thread callers.
+         */
+        void BeginBoneMatrixUploads();
+        void ReserveBoneMatrixUploads(std::uint32_t uploadCount,
+                                      std::uint32_t totalMatrices);
+        void UploadBoneMatrixUploads(
+            std::uint32_t boneOffset, std::span<const glm::mat4> bones);
+        void EndBoneMatrixUploads();
 
         void RequestPick(std::uint32_t x, std::uint32_t y);
         bool TryConsumePickResult(std::uint32_t& outEntityId);

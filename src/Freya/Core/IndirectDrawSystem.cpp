@@ -38,7 +38,7 @@ namespace FREYA_NAMESPACE
         const vk::DescriptorSetLayout                cullSetLayout,
         const vk::DescriptorPool                     cullDescriptorPool,
         std::vector<vk::DescriptorSet>
-            cullDescriptorSets,
+                                      cullDescriptorSets,
         const vk::Pipeline            expandPipeline,
         const vk::PipelineLayout      expandPipelineLayout,
         const vk::DescriptorSetLayout expandSetLayout,
@@ -281,7 +281,7 @@ namespace FREYA_NAMESPACE
                 .SetUsage(BufferUsage::Storage)
                 .SetSize(sizeof(InstanceTransform) * capacity)
                 .Build();
-        mPrevCapacity = capacity;
+        mPrevCapacity      = capacity;
         mPrevInstanceCount = 0;
         for (std::uint32_t f = 0; f < mFrameCount; ++f)
             updateExpandDescriptors(f);
@@ -609,7 +609,7 @@ namespace FREYA_NAMESPACE
     void IndirectDrawSystem::ReserveSceneInstances(const std::uint32_t count)
     {
         {
-            std::unique_lock lock(mStagingMutex);
+            SpinLockGuard lock(mStagingLock);
             if (mStaging.size() < count)
                 mStaging.resize(count);
         }
@@ -631,17 +631,7 @@ namespace FREYA_NAMESPACE
 
         const auto base = mStagingCount.fetch_add(n, std::memory_order_relaxed);
 
-        {
-            std::shared_lock readLock(mStagingMutex);
-            if (base + n <= mStaging.size())
-            {
-                std::copy(uploads.begin(), uploads.end(),
-                          mStaging.begin() + static_cast<std::ptrdiff_t>(base));
-                return;
-            }
-        }
-
-        std::unique_lock writeLock(mStagingMutex);
+        SpinLockGuard lock(mStagingLock);
         if (base + n > mStaging.size())
         {
             const auto grown = std::max(
@@ -1080,17 +1070,17 @@ namespace FREYA_NAMESPACE
         out.sources.resize(mSceneInstances.size());
         for (std::uint32_t i = 0; i < out.instances.size(); ++i)
         {
-            const auto M =
-                i < mSceneTransforms.size() ? mSceneTransforms[i].ToMatrix()
-                                            : glm::mat4(1.0f);
+            const auto M           = i < mSceneTransforms.size()
+                                         ? mSceneTransforms[i].ToMatrix()
+                                         : glm::mat4(1.0f);
             out.instances[i].model = M;
             out.sources[i]         = InstanceTransform {
-                        .model      = M,
-                        .prevModel  = M,
-                        .materialId = mSceneInstances[i].materialId,
-                        .entityId   = mSceneInstances[i].entityId,
-                        .flags      = mSceneInstances[i].flags,
-                        .boneOffset = mSceneInstances[i].boneOffset,
+                .model      = M,
+                .prevModel  = M,
+                .materialId = mSceneInstances[i].materialId,
+                .entityId   = mSceneInstances[i].entityId,
+                .flags      = mSceneInstances[i].flags,
+                .boneOffset = mSceneInstances[i].boneOffset,
             };
         }
         out.hiz.present = mHiZ && mHiZ->IsValid();

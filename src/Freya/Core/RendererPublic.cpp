@@ -196,10 +196,32 @@ namespace FREYA_NAMESPACE
         mImpl->UploadBoneMatrices(bones);
     }
 
-    void Renderer::UploadBoneMatrices(const std::uint32_t boneOffset,
-                                      const std::span<const glm::mat4> bones)
+    void Renderer::UploadBoneMatrices(
+        const std::uint32_t boneOffset, const std::span<const glm::mat4> bones)
     {
         mImpl->UploadBoneMatrices(boneOffset, bones);
+    }
+
+    void Renderer::BeginBoneMatrixUploads()
+    {
+        mImpl->BeginBoneMatrixUploads();
+    }
+
+    void Renderer::ReserveBoneMatrixUploads(const std::uint32_t uploadCount,
+                                            const std::uint32_t totalMatrices)
+    {
+        mImpl->ReserveBoneMatrixUploads(uploadCount, totalMatrices);
+    }
+
+    void Renderer::UploadBoneMatrixUploads(
+        const std::uint32_t boneOffset, const std::span<const glm::mat4> bones)
+    {
+        mImpl->UploadBoneMatrixUploads(boneOffset, bones);
+    }
+
+    void Renderer::EndBoneMatrixUploads()
+    {
+        mImpl->EndBoneMatrixUploads();
     }
 
     void Renderer::RequestPick(const std::uint32_t x, const std::uint32_t y)
@@ -431,6 +453,30 @@ namespace FREYA_NAMESPACE
     void GpuAnimationSystem::SetCopyPrevBones(const bool enabled)
     {
         static_cast<Renderer::Impl*>(mImpl)->SetGpuAnimCopyPrevBones(enabled);
+    }
+
+    void GpuAnimationSystem::BeginGpuAnimInstanceUploads()
+    {
+        static_cast<Renderer::Impl*>(mImpl)->BeginGpuAnimInstanceUploads();
+    }
+
+    void GpuAnimationSystem::ReserveGpuAnimInstanceUploads(
+        const std::uint32_t count)
+    {
+        static_cast<Renderer::Impl*>(mImpl)->ReserveGpuAnimInstanceUploads(
+            count);
+    }
+
+    void GpuAnimationSystem::UploadGpuAnimInstanceUploads(
+        const std::span<const GpuAnimInstance> instances)
+    {
+        static_cast<Renderer::Impl*>(mImpl)->UploadGpuAnimInstanceUploads(
+            instances);
+    }
+
+    void GpuAnimationSystem::EndGpuAnimInstanceUploads()
+    {
+        static_cast<Renderer::Impl*>(mImpl)->EndGpuAnimInstanceUploads();
     }
 
     void GpuAnimationSystem::UploadInstances(

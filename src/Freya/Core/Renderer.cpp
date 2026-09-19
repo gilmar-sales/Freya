@@ -1309,11 +1309,47 @@ namespace FREYA_NAMESPACE
     void Renderer::Impl::UploadBoneMatrices(
         const std::uint32_t boneOffset, const std::span<const glm::mat4> bones)
     {
+        BeginBoneMatrixUploads();
+        ReserveBoneMatrixUploads(1, static_cast<std::uint32_t>(bones.size()));
+        UploadBoneMatrixUploads(boneOffset, bones);
+        EndBoneMatrixUploads();
+    }
+
+    void Renderer::Impl::BeginBoneMatrixUploads()
+    {
         if (auto boneResources =
                 mServiceProvider->GetService<BoneMatrixResources>())
         {
-            boneResources->Upload(mSwapChain->GetCurrentFrameIndex(), bones,
-                                  boneOffset);
+            boneResources->BeginBoneUploads();
+        }
+    }
+
+    void Renderer::Impl::ReserveBoneMatrixUploads(
+        const std::uint32_t uploadCount, const std::uint32_t totalMatrices)
+    {
+        if (auto boneResources =
+                mServiceProvider->GetService<BoneMatrixResources>())
+        {
+            boneResources->ReserveBoneUploads(uploadCount, totalMatrices);
+        }
+    }
+
+    void Renderer::Impl::UploadBoneMatrixUploads(
+        const std::uint32_t boneOffset, const std::span<const glm::mat4> bones)
+    {
+        if (auto boneResources =
+                mServiceProvider->GetService<BoneMatrixResources>())
+        {
+            boneResources->UploadBoneUploads(boneOffset, bones);
+        }
+    }
+
+    void Renderer::Impl::EndBoneMatrixUploads()
+    {
+        if (auto boneResources =
+                mServiceProvider->GetService<BoneMatrixResources>())
+        {
+            boneResources->EndBoneUploads(mSwapChain->GetCurrentFrameIndex());
         }
     }
 
@@ -1384,6 +1420,32 @@ namespace FREYA_NAMESPACE
     {
         if (mGpuAnimPass)
             mGpuAnimPass->SetCopyPrevBones(enabled);
+    }
+
+    void Renderer::Impl::BeginGpuAnimInstanceUploads()
+    {
+        if (mGpuAnimPass)
+            mGpuAnimPass->BeginInstanceUploads();
+    }
+
+    void Renderer::Impl::ReserveGpuAnimInstanceUploads(
+        const std::uint32_t count)
+    {
+        if (mGpuAnimPass)
+            mGpuAnimPass->ReserveInstanceUploads(count);
+    }
+
+    void Renderer::Impl::UploadGpuAnimInstanceUploads(
+        const std::span<const GpuAnimInstance> instances)
+    {
+        if (mGpuAnimPass)
+            mGpuAnimPass->UploadInstanceUploads(instances);
+    }
+
+    void Renderer::Impl::EndGpuAnimInstanceUploads()
+    {
+        if (mGpuAnimPass)
+            mGpuAnimPass->EndInstanceUploads();
     }
 
     void Renderer::Impl::UploadGpuAnimInstances(

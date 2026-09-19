@@ -13,10 +13,11 @@
 #include "Freya/Core/HiZPyramid.hpp"
 #include "Freya/Core/Image.hpp"
 
+#include "Freya/Core/SpinLock.hpp"
+
 #include <array>
 #include <atomic>
 #include <cstdint>
-#include <shared_mutex>
 #include <span>
 #include <vector>
 
@@ -219,7 +220,7 @@ namespace FREYA_NAMESPACE
 
         std::vector<SceneInstanceUpload> mStaging;
         std::atomic<std::uint32_t>       mStagingCount { 0 };
-        std::shared_mutex                mStagingMutex;
+        SpinLock                         mStagingLock;
         bool                             mStagingOpen = false;
 
         std::uint32_t mInstanceCount     = 0;

@@ -909,7 +909,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t processSkinnedMesh(
             const aiMesh* mesh, const aiScene* scene,
             const std::unordered_map<std::string, std::uint32_t>& nameToIndex,
-            const MeshLodBuildOptions& lodOptions)
+            const MeshLodBuildOptions&                            lodOptions)
         {
             std::vector<Vertex>        vertices(mesh->mNumVertices);
             std::vector<std::uint32_t> indices;

@@ -1,13 +1,16 @@
 #pragma once
 
 #include "Freya/Core/Limits.hpp"
+#include "Freya/Core/SpinLock.hpp"
 
 #include <Skirnir/Skirnir.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -60,6 +63,18 @@ namespace FREYA_NAMESPACE
         glm::vec3 tangent     = glm::vec3(1.0f, 0.0f, 0.0f);
         float     halfHeight  = 0.0f;
         bool      castShadows = true;
+    };
+
+    /**
+     * @brief Host staging record for concurrent light updates.
+     *
+     * BeginLightUploads → Reserve → UploadLightUploads (any thread) →
+     * EndLightUploads. Valid @c handle applies as UpdateLight at End.
+     */
+    struct LightUpload
+    {
+        LightHandle handle {};
+        Light       light {};
     };
 
     inline Light MakePointLight(const glm::vec3& position,
@@ -165,6 +180,17 @@ namespace FREYA_NAMESPACE
         const Light* GetLight(LightHandle handle) const;
         void         ClearLights();
 
+        /**
+         * @brief Per-frame cumulative light updates (thread-safe Upload).
+         *
+         * Begin → optional Reserve → Upload(span)* from any threads → End.
+         * End applies to the host pool; GPU pack remains in Update().
+         */
+        void BeginLightUploads();
+        void ReserveLightUploads(std::uint32_t count);
+        void UploadLightUploads(std::span<const LightUpload> uploads);
+        void EndLightUploads();
+
         void Update(std::uint32_t    frameIndex,
                     const glm::vec3& viewPosition,
                     const glm::vec3& cameraForward);
@@ -182,6 +208,9 @@ namespace FREYA_NAMESPACE
 
       private:
         friend struct LightServiceGpu;
+
+        void applyLightUpdate(LightHandle handle, const Light& light);
+        void enqueueOrApplyUpdate(LightHandle handle, const Light& light);
 
         std::unique_ptr<Impl> mImpl;
     };

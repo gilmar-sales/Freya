@@ -1,11 +1,11 @@
 #pragma once
 
+#include "Freya/Asset/Mesh.hpp"
+#include "Freya/Core/SpinLock.hpp"
+
 #include <algorithm>
 #include <iterator>
-#include <mutex>
 #include <vector>
-
-#include "Freya/Asset/Mesh.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -41,7 +41,7 @@ namespace FREYA_NAMESPACE
         {
             if (contains(n))
                 return;
-            std::lock_guard<std::mutex> lock { m_lock };
+            SpinLockGuard lock { m_lock };
 
             sparse[n] = dense.size();
             dense.push_back(n);
@@ -56,7 +56,7 @@ namespace FREYA_NAMESPACE
         {
             if (!contains(n))
                 return;
-            std::lock_guard<std::mutex> lock { m_lock };
+            SpinLockGuard lock { m_lock };
 
             dense[sparse[n]]                = dense[dense.size() - 1];
             sparse[dense[dense.size() - 1]] = sparse[n];
@@ -97,7 +97,7 @@ namespace FREYA_NAMESPACE
         {
             if (sorted)
                 return;
-            std::lock_guard lock { m_lock };
+            SpinLockGuard lock { m_lock };
             denseSort();
 
             sparseReorder();
@@ -144,7 +144,7 @@ namespace FREYA_NAMESPACE
         }
 
       private:
-        std::mutex          m_lock; ///< Mutex for thread safety
+        SpinLock            m_lock; ///< SpinLock for thread safety
         std::vector<Mesh>   dense;  ///< Dense array of meshes
         std::vector<size_t> sparse; ///< Sparse array for O(1) lookup
         bool                sorted; ///< Whether dense array is sorted

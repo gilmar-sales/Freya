@@ -39,3 +39,10 @@ TEST_CASE("light factories pack LightType into type field", "[lights]")
     REQUIRE(glm::dot(area.direction, area.tangent) ==
             Catch::Approx(0.f).margin(1e-5f));
 }
+
+TEST_CASE("LightUpload defaults to null handle", "[lights]")
+{
+    const fra::LightUpload upload {};
+    REQUIRE_FALSE(upload.handle.IsValid());
+    REQUIRE(upload.light.type == fra::LightType::Point);
+}

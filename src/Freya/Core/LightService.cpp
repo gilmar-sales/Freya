@@ -92,9 +92,34 @@ namespace FREYA_NAMESPACE
         }
     } // namespace
 
-    LightHandle LightService::AddLight(const Light& light)
+    void LightService::applyLightUpdate(const LightHandle handle,
+                                        const Light&      light)
+    {
+        auto&               i     = *mImpl;
+        const std::uint32_t index = handle.Index();
+        if (index >= i.mAlive.size() || !i.mAlive[index])
+            return;
+        i.mLights[index] = light;
+    }
+
+    void LightService::enqueueOrApplyUpdate(const LightHandle handle,
+                                            const Light&      light)
     {
         auto& i = *mImpl;
+        if (i.mStagingOpen)
+        {
+            const LightUpload upload { handle, light };
+            UploadLightUploads(std::span<const LightUpload>(&upload, 1));
+            return;
+        }
+        SpinLockGuard lock(i.mLock);
+        applyLightUpdate(handle, light);
+    }
+
+    LightHandle LightService::AddLight(const Light& light)
+    {
+        SpinLockGuard lock(mImpl->mLock);
+        auto&         i = *mImpl;
         if (i.mLightCount >= i.mMaxLights)
         {
             return {};
@@ -121,6 +146,7 @@ namespace FREYA_NAMESPACE
     {
         if (!handle)
             return;
+        SpinLockGuard       lock(mImpl->mLock);
         auto&               i     = *mImpl;
         const std::uint32_t index = handle.Index();
         if (index >= i.mAlive.size() || !i.mAlive[index])
@@ -146,7 +172,23 @@ namespace FREYA_NAMESPACE
     {
         if (!handle)
             return;
-        auto&               i     = *mImpl;
+        auto& i = *mImpl;
+        if (i.mStagingOpen)
+        {
+            Light light {};
+            {
+                SpinLockGuard       lock(i.mLock);
+                const std::uint32_t index = handle.Index();
+                if (index >= i.mAlive.size() || !i.mAlive[index])
+                    return;
+                light          = i.mLights[index];
+                light.position = position;
+            }
+            enqueueOrApplyUpdate(handle, light);
+            return;
+        }
+
+        SpinLockGuard       lock(i.mLock);
         const std::uint32_t index = handle.Index();
         if (index >= i.mAlive.size() || !i.mAlive[index])
             return;
@@ -157,19 +199,17 @@ namespace FREYA_NAMESPACE
     {
         if (!handle)
             return;
-        auto&               i     = *mImpl;
-        const std::uint32_t index = handle.Index();
-        if (index >= i.mAlive.size() || !i.mAlive[index])
-            return;
-        i.mLights[index] = light;
+        enqueueOrApplyUpdate(handle, light);
     }
 
     const Light* LightService::GetLight(const LightHandle handle) const
     {
         if (!handle)
             return nullptr;
+        // Pointer valid until Remove/Clear; callers must not race those.
         auto&               i     = *mImpl;
         const std::uint32_t index = handle.Index();
+        SpinLockGuard       lock(i.mLock);
         if (index >= i.mAlive.size() || !i.mAlive[index])
             return nullptr;
         return &i.mLights[index];
@@ -177,7 +217,8 @@ namespace FREYA_NAMESPACE
 
     void LightService::ClearLights()
     {
-        auto& i = *mImpl;
+        SpinLockGuard lock(mImpl->mLock);
+        auto&         i = *mImpl;
         i.mLights.clear();
         i.mAlive.clear();
         i.mLightCount = 0;
@@ -192,10 +233,68 @@ namespace FREYA_NAMESPACE
         }
     }
 
+    void LightService::BeginLightUploads()
+    {
+        auto& i        = *mImpl;
+        i.mStagingOpen = true;
+        i.mStagingCount.store(0, std::memory_order_relaxed);
+    }
+
+    void LightService::ReserveLightUploads(const std::uint32_t count)
+    {
+        SpinLockGuard lock(mImpl->mLock);
+        if (mImpl->mStaging.size() < count)
+            mImpl->mStaging.resize(count);
+    }
+
+    void LightService::UploadLightUploads(
+        const std::span<const LightUpload> uploads)
+    {
+        const auto n = static_cast<std::uint32_t>(uploads.size());
+        if (n == 0)
+            return;
+
+        auto&      i = *mImpl;
+        const auto base =
+            i.mStagingCount.fetch_add(n, std::memory_order_relaxed);
+
+        SpinLockGuard lock(i.mLock);
+        if (base + n > i.mStaging.size())
+        {
+            const auto grown = std::max(
+                base + n,
+                std::max<std::uint32_t>(
+                    1u, static_cast<std::uint32_t>(i.mStaging.size()) * 2u));
+            i.mStaging.resize(grown);
+        }
+        std::copy(uploads.begin(), uploads.end(),
+                  i.mStaging.begin() + static_cast<std::ptrdiff_t>(base));
+    }
+
+    void LightService::EndLightUploads()
+    {
+        auto& i        = *mImpl;
+        i.mStagingOpen = false;
+
+        SpinLockGuard lock(i.mLock);
+        const auto    count = i.mStagingCount.load(std::memory_order_relaxed);
+        const auto    n =
+            std::min(count, static_cast<std::uint32_t>(i.mStaging.size()));
+        for (std::uint32_t u = 0; u < n; ++u)
+        {
+            const auto& upload = i.mStaging[u];
+            if (!upload.handle)
+                continue;
+            applyLightUpdate(upload.handle, upload.light);
+        }
+        i.mStagingCount.store(0, std::memory_order_relaxed);
+    }
+
     void LightService::Update(std::uint32_t    frameIndex,
                               const glm::vec3& viewPosition,
                               const glm::vec3& cameraForward)
     {
+        SpinLockGuard      lock(mImpl->mLock);
         auto&              i    = *mImpl;
         LightUniformBuffer data = {};
 
@@ -211,6 +310,7 @@ namespace FREYA_NAMESPACE
 
     std::uint32_t LightService::GetLightCount() const
     {
+        SpinLockGuard lock(mImpl->mLock);
         return mImpl->mLightCount;
     }
 
@@ -221,36 +321,43 @@ namespace FREYA_NAMESPACE
 
     bool LightService::HasLights() const
     {
+        SpinLockGuard lock(mImpl->mLock);
         return mImpl->mLightCount > 0;
     }
 
     void LightService::SetIblIntensity(const float intensity)
     {
+        SpinLockGuard lock(mImpl->mLock);
         mImpl->mIblIntensity = intensity;
     }
 
     float LightService::GetIblIntensity() const
     {
+        SpinLockGuard lock(mImpl->mLock);
         return mImpl->mIblIntensity;
     }
 
     void LightService::SetExposure(const float exposure)
     {
+        SpinLockGuard lock(mImpl->mLock);
         mImpl->mExposure = exposure;
     }
 
     float LightService::GetExposure() const
     {
+        SpinLockGuard lock(mImpl->mLock);
         return mImpl->mExposure;
     }
 
     void LightService::SetShadowsEnabled(const bool enabled)
     {
+        SpinLockGuard lock(mImpl->mLock);
         mImpl->mShadowsEnabled = enabled;
     }
 
     bool LightService::GetShadowsEnabled() const
     {
+        SpinLockGuard lock(mImpl->mLock);
         return mImpl->mShadowsEnabled;
     }
 

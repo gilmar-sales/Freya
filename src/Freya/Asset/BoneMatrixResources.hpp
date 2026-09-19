@@ -2,7 +2,9 @@
 
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/SpinLock.hpp"
 
+#include <atomic>
 #include <cstdint>
 #include <span>
 #include <utility>
@@ -28,6 +30,9 @@ namespace FREYA_NAMESPACE
      * UploadBoneMatrices and SetCopyPrevBones(true) without the FiF carry
      * wiping hero/NPC skins. UploadInstances should run after CPU upload so
      * wild slots are re-marked the same frame.
+     *
+     * Host staging: BeginBoneUploads → Reserve → UploadBoneUploads (any
+     * thread) → EndBoneUploads(frameIndex).
      *
      * Carry is required for sparse instance updates with FiF>1: otherwise
      * non-dispatched foxes keep an old pose from this ring slot and flicker
@@ -98,6 +103,18 @@ namespace FREYA_NAMESPACE
                     std::uint32_t boneOffset = 0);
 
         /**
+         * @brief Cumulative host staging (thread-safe UploadBoneUploads).
+         *
+         * Begin → optional Reserve → Upload (any thread) → End(frameIndex).
+         */
+        void BeginBoneUploads();
+        void ReserveBoneUploads(std::uint32_t uploadCount,
+                                std::uint32_t totalMatrices);
+        void UploadBoneUploads(
+            std::uint32_t boneOffset, std::span<const glm::mat4> bones);
+        void EndBoneUploads(std::uint32_t frameIndex);
+
+        /**
          * @brief Sticky range written by GpuAnimPass instances (FiF carry).
          *
          * Merged across frames so sparse LOD can omit an instance while still
@@ -141,6 +158,11 @@ namespace FREYA_NAMESPACE
         void addOwnedInterval(std::uint32_t begin, std::uint32_t end);
         void removeOwnedInterval(std::uint32_t begin, std::uint32_t end);
 
+        void uploadUnlocked(std::uint32_t frameIndex,
+                            std::span<const glm::mat4>
+                                          bones,
+                            std::uint32_t boneOffset);
+
         void recordOwnedCopies(vk::CommandBuffer      commandBuffer,
                                vk::DeviceSize         srcBase,
                                vk::DeviceSize         dstBase,
@@ -148,6 +170,13 @@ namespace FREYA_NAMESPACE
                                vk::DeviceSize         barrierSize,
                                vk::PipelineStageFlags dstStages,
                                vk::AccessFlags        dstAccess) const;
+
+        struct StagingJob
+        {
+            std::uint32_t boneOffset = 0;
+            std::uint32_t boneCount  = 0;
+            std::uint32_t matBase    = 0;
+        };
 
         skr::Arc<Device>               mDevice;
         std::uint32_t                  mFrameCount = 1;
@@ -160,6 +189,13 @@ namespace FREYA_NAMESPACE
         bool                           mHasUploaded = false;
         /// Sorted non-overlapping [begin, end) bone indices owned by GPU anim.
         std::vector<Interval> mGpuOwned;
+        mutable SpinLock      mLock;
+
+        std::vector<StagingJob>    mStagingJobs;
+        std::vector<glm::mat4>     mStagingMats;
+        std::atomic<std::uint32_t> mStagingJobCount { 0 };
+        std::atomic<std::uint32_t> mStagingMatCount { 0 };
+        bool                       mStagingOpen = false;
     };
 
 } // namespace FREYA_NAMESPACE

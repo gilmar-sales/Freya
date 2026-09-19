@@ -154,6 +154,7 @@ See [Flexibility](flexibility.md).
 | `SetDrawDistance(float)` | Set render distance |
 | `SetInstanceModels(const mat4*, size_t)` | Legacy instance matrices (with DrawInstanced) |
 | `Begin/Reserve/Upload/EndSceneInstances` | Cumulative TRS upload (prefer `Scene::Upload`) |
+| `Begin/Reserve/Upload/EndBoneMatrixUploads` | Cumulative CPU bone palette upload |
 | `GetCurrentFrameIndex()` | Get current frame index |
 | `GetFrameCount()` | Get total frame count |
 | `CalculateProjectionMatrix(float near, float far)` | Calculate projection matrix |
@@ -283,8 +284,24 @@ if (const auto* current = lights->GetLight(spot))
 }
 ```
 
+For ECS parallel light updates (same staging contract as scene instances):
+
+```cpp
+lights->BeginLightUploads();
+lights->ReserveLightUploads(expectedCount);
+// any threads:
+lights->UploadLightUploads(chunkSpan); // LightUpload{handle, light}
+lights->EndLightUploads(); // applies to host pool
+// Renderer::UpdateCamera still packs the UBO
+```
+
+`UpdateLight` / `UpdateLightPosition` remain valid single-thread helpers; when
+a staging window is open they enqueue into the same staging buffer.
+
 `AddLight` returns a null `LightHandle` when the pool is full (`operator bool` /
 `IsValid()`). `RemoveLight` / `UpdateLight` / `GetLight` take handles.
+Do not call `AddLight` / `RemoveLight` / `ClearLights` concurrently with
+`UploadLightUploads` without external sync.
 
 `Renderer::UpdateCamera` refreshes the light UBO for the current frame when
 the light service is present (also uploads `iblIntensity` for IBL).

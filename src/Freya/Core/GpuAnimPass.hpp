@@ -90,6 +90,18 @@ namespace FREYA_NAMESPACE
         void UploadBoneMask(std::span<const float> weights);
         void UploadRestJoints(std::span<const GpuFloatJoint> joints);
         void UploadRestJoints(std::span<const GpuQuantJoint> joints);
+
+        /**
+         * @brief Cumulative GPU anim instance upload (thread-safe Upload).
+         *
+         * Begin → optional Reserve → Upload (any thread) → End.
+         * UploadInstances wraps Begin/Upload/End for single-thread callers.
+         */
+        void BeginInstanceUploads();
+        void ReserveInstanceUploads(std::uint32_t count);
+        void UploadInstanceUploads(std::span<const GpuAnimInstance> instances);
+        void EndInstanceUploads();
+
         void UploadInstances(std::span<const GpuAnimInstance> instances);
 
         [[nodiscard]] std::uint32_t GetInstanceCount() const;

@@ -173,6 +173,10 @@ Prefer `Scene::Upload` for application code (dirty-aware retained list).
 ECS / tooling can pack packed `SceneTransform` (40 B: position, scale,
 rotation) via `BeginSceneInstances` → `ReserveSceneInstances` →
 `UploadSceneInstances` (thread-safe append) → `EndSceneInstances`.
+The same Begin/Reserve/Upload/End staging pattern (SpinLock + atomic
+slot claim) applies to lights (`LightService::BeginLightUploads`), CPU
+bones (`Renderer::BeginBoneMatrixUploads`), and GPU anim instances
+(`GpuAnimationSystem::BeginGpuAnimInstanceUploads`).
 `ExpandTransforms` (scalar block layout) builds `mat4` on the GPU; then
 frustum cull atomic-compacts visible instances into multi-draw indirect
 commands.

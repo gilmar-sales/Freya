@@ -520,14 +520,56 @@ namespace FREYA_NAMESPACE
             static_cast<std::uint32_t>(n * sizeof(GpuQuantJoint)));
     }
 
-    void GpuAnimPass::Impl::UploadInstances(
+    void GpuAnimPass::Impl::BeginInstanceUploads()
+    {
+        mInstanceStagingOpen = true;
+        mInstanceStagingCount.store(0, std::memory_order_relaxed);
+    }
+
+    void GpuAnimPass::Impl::ReserveInstanceUploads(const std::uint32_t count)
+    {
+        SpinLockGuard lock(mInstanceStagingLock);
+        if (mInstanceStaging.size() < count)
+            mInstanceStaging.resize(count);
+    }
+
+    void GpuAnimPass::Impl::UploadInstanceUploads(
         const std::span<const GpuAnimInstance> instances)
     {
-        mInstanceCount = std::min(static_cast<std::uint32_t>(instances.size()),
-                                  GpuAnimPass::kMaxInstances);
+        const auto n = static_cast<std::uint32_t>(instances.size());
+        if (n == 0)
+            return;
+
+        const auto base =
+            mInstanceStagingCount.fetch_add(n, std::memory_order_relaxed);
+
+        SpinLockGuard lock(mInstanceStagingLock);
+        if (base + n > mInstanceStaging.size())
+        {
+            const auto grown = std::max(
+                base + n,
+                std::max<std::uint32_t>(
+                    1u,
+                    static_cast<std::uint32_t>(mInstanceStaging.size()) * 2u));
+            mInstanceStaging.resize(grown);
+        }
+        std::copy(instances.begin(), instances.end(),
+                  mInstanceStaging.begin() + static_cast<std::ptrdiff_t>(base));
+    }
+
+    void GpuAnimPass::Impl::EndInstanceUploads()
+    {
+        mInstanceStagingOpen = false;
+
+        const auto count =
+            mInstanceStagingCount.load(std::memory_order_relaxed);
+        mInstanceCount = std::min(
+            count, static_cast<std::uint32_t>(mInstanceStaging.size()));
+        mInstanceCount = std::min(mInstanceCount, GpuAnimPass::kMaxInstances);
         if (mInstanceCount == 0)
             return;
-        mInstanceBuffer->Copy(instances.data(),
+
+        mInstanceBuffer->Copy(mInstanceStaging.data(),
                               static_cast<std::uint32_t>(
                                   mInstanceCount * sizeof(GpuAnimInstance)));
 
@@ -537,10 +579,19 @@ namespace FREYA_NAMESPACE
         {
             for (std::uint32_t i = 0; i < mInstanceCount; ++i)
             {
-                mBoneResources->MarkGpuOwnedBones(instances[i].boneOffset,
-                                                  mJointCount);
+                mBoneResources->MarkGpuOwnedBones(
+                    mInstanceStaging[i].boneOffset, mJointCount);
             }
         }
+    }
+
+    void GpuAnimPass::Impl::UploadInstances(
+        const std::span<const GpuAnimInstance> instances)
+    {
+        BeginInstanceUploads();
+        ReserveInstanceUploads(static_cast<std::uint32_t>(instances.size()));
+        UploadInstanceUploads(instances);
+        EndInstanceUploads();
     }
 
     void GpuAnimPass::Impl::Dispatch(const skr::Arc<CommandPool>& commandPool,

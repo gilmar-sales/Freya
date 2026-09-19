@@ -1,10 +1,10 @@
 #pragma once
 
 #include "Freya/Config.hpp"
+#include "Freya/Core/SpinLock.hpp"
 
 #include <algorithm>
 #include <concepts>
-#include <mutex>
 #include <vector>
 
 namespace FREYA_NAMESPACE
@@ -21,7 +21,7 @@ namespace FREYA_NAMESPACE
      * @brief Thread-safe sparse set container for ID-based storage.
      *
      * Implements a sparse set data structure with dense/sparse arrays.
-     * Thread-safe via mutex. Supports O(1) contains, insert, remove,
+     * Thread-safe via SpinLock. Supports O(1) contains, insert, remove,
      * and sort operations.
      *
      * @tparam T Type convertible to size_t (provides id())
@@ -63,14 +63,14 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Inserts element if not already present.
          * @param n Element to insert
-         * @note Thread-safe with mutex lock
+         * @note Thread-safe with SpinLock
          */
         void insert(const T& n)
         {
             if (contains(n))
                 return;
 
-            std::lock_guard lock { m_lock };
+            SpinLockGuard lock { m_lock };
 
             sparse[n] = dense.size();
             dense.push_back(n);
@@ -80,14 +80,14 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Removes element if present.
          * @param n Element to remove
-         * @note Thread-safe with mutex lock
+         * @note Thread-safe with SpinLock
          */
         void remove(const T& n)
         {
             if (!contains(n))
                 return;
 
-            std::lock_guard<std::mutex> lock { m_lock };
+            SpinLockGuard lock { m_lock };
 
             dense[sparse[n]]                = dense[dense.size() - 1];
             sparse[dense[dense.size() - 1]] = sparse[n];
@@ -142,13 +142,13 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief Sorts dense array and updates sparse indices.
-         * @note Thread-safe with mutex lock
+         * @note Thread-safe with SpinLock
          */
         void sort()
         {
             if (sorted)
                 return;
-            std::lock_guard lock { m_lock };
+            SpinLockGuard lock { m_lock };
             denseSort();
 
             sparseReorder();
@@ -222,7 +222,7 @@ namespace FREYA_NAMESPACE
         }
 
       private:
-        std::mutex          m_lock; ///< Mutex for thread safety
+        SpinLock            m_lock; ///< SpinLock for thread safety
         std::vector<T>      dense;  ///< Dense array of elements
         std::vector<size_t> sparse; ///< Sparse array for O(1) lookup
         bool                sorted; ///< Whether dense array is sorted

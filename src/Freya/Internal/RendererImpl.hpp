@@ -140,8 +140,14 @@ namespace FREYA_NAMESPACE
 
         void SetInstanceModels(const glm::mat4* models, std::size_t count);
         void UploadBoneMatrices(std::span<const glm::mat4> bones);
-        void UploadBoneMatrices(std::uint32_t              boneOffset,
-                                std::span<const glm::mat4> bones);
+        void UploadBoneMatrices(
+            std::uint32_t boneOffset, std::span<const glm::mat4> bones);
+        void BeginBoneMatrixUploads();
+        void ReserveBoneMatrixUploads(std::uint32_t uploadCount,
+                                      std::uint32_t totalMatrices);
+        void UploadBoneMatrixUploads(
+            std::uint32_t boneOffset, std::span<const glm::mat4> bones);
+        void EndBoneMatrixUploads();
 
         void ClearDrawCommands();
         void ExecuteDrawCommands(
@@ -203,6 +209,11 @@ namespace FREYA_NAMESPACE
         bool PollFrameGpuTiming(FrameGpuTimingSample& out);
 
         void SetGpuAnimCopyPrevBones(bool enabled);
+        void BeginGpuAnimInstanceUploads();
+        void ReserveGpuAnimInstanceUploads(std::uint32_t count);
+        void UploadGpuAnimInstanceUploads(
+            std::span<const GpuAnimInstance> instances);
+        void EndGpuAnimInstanceUploads();
         void UploadGpuAnimInstances(std::span<const GpuAnimInstance> instances);
         void CaptureGpuAnimDebugSnapshot(GpuAnimDebugSnapshot& out) const;
         [[nodiscard]] std::uint32_t FindGpuAnimClipSlot(

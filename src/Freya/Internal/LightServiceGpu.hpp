@@ -3,6 +3,10 @@
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/LightService.hpp"
+#include "Freya/Core/SpinLock.hpp"
+
+#include <atomic>
+#include <vector>
 
 #include <vulkan/vulkan.hpp>
 
@@ -27,6 +31,11 @@ namespace FREYA_NAMESPACE
         vk::DescriptorSetLayout        mLayout;
         vk::DescriptorPool             mPool;
         std::vector<vk::DescriptorSet> mSets;
+
+        std::vector<LightUpload>   mStaging;
+        std::atomic<std::uint32_t> mStagingCount { 0 };
+        mutable SpinLock           mLock;
+        bool                       mStagingOpen = false;
     };
 
     struct LightServiceGpu

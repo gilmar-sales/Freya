@@ -184,6 +184,27 @@ namespace FREYA_NAMESPACE
         mImpl->UploadRestJoints(joints);
     }
 
+    void GpuAnimPass::BeginInstanceUploads()
+    {
+        mImpl->BeginInstanceUploads();
+    }
+
+    void GpuAnimPass::ReserveInstanceUploads(const std::uint32_t count)
+    {
+        mImpl->ReserveInstanceUploads(count);
+    }
+
+    void GpuAnimPass::UploadInstanceUploads(
+        const std::span<const GpuAnimInstance> instances)
+    {
+        mImpl->UploadInstanceUploads(instances);
+    }
+
+    void GpuAnimPass::EndInstanceUploads()
+    {
+        mImpl->EndInstanceUploads();
+    }
+
     void GpuAnimPass::UploadInstances(
         const std::span<const GpuAnimInstance> instances)
     {

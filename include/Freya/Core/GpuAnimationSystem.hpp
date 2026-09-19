@@ -31,6 +31,11 @@ namespace FREYA_NAMESPACE
         void RebuildPass();
 
         void SetCopyPrevBones(bool enabled);
+        void BeginGpuAnimInstanceUploads();
+        void ReserveGpuAnimInstanceUploads(std::uint32_t count);
+        void UploadGpuAnimInstanceUploads(
+            std::span<const GpuAnimInstance> instances);
+        void EndGpuAnimInstanceUploads();
         void UploadInstances(std::span<const GpuAnimInstance> instances);
         void CaptureDebugSnapshot(GpuAnimDebugSnapshot& out) const;
 

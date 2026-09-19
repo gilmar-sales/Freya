@@ -6,8 +6,10 @@
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/SpinLock.hpp"
 
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -127,6 +129,10 @@ namespace FREYA_NAMESPACE
         void UploadBoneMask(std::span<const float> weights);
         void UploadRestJoints(std::span<const GpuFloatJoint> joints);
         void UploadRestJoints(std::span<const GpuQuantJoint> joints);
+        void BeginInstanceUploads();
+        void ReserveInstanceUploads(std::uint32_t count);
+        void UploadInstanceUploads(std::span<const GpuAnimInstance> instances);
+        void EndInstanceUploads();
         void UploadInstances(std::span<const GpuAnimInstance> instances);
         [[nodiscard]] std::uint32_t GetInstanceCount() const
         {
@@ -213,6 +219,11 @@ namespace FREYA_NAMESPACE
         glm::vec3     mLookLocalForward = { 0.f, 0.f, 1.f };
         float         mLookMaxYawRad    = 1.2f;
         float         mLookMaxPitchRad  = 0.8f;
+
+        std::vector<GpuAnimInstance> mInstanceStaging;
+        std::atomic<std::uint32_t>   mInstanceStagingCount { 0 };
+        SpinLock                     mInstanceStagingLock;
+        bool                         mInstanceStagingOpen = false;
 
         struct ClipSlotMeta
         {

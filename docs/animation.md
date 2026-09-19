@@ -192,6 +192,17 @@ renderer->UploadSceneInstances(uploads);
 renderer->EndSceneInstances();
 ```
 
+`UploadBoneMatrices` wraps `BeginBoneMatrixUploads` →
+`UploadBoneMatrixUploads` → `EndBoneMatrixUploads`. For parallel ECS packing:
+
+```cpp
+renderer->BeginBoneMatrixUploads();
+renderer->ReserveBoneMatrixUploads(actorCount, totalMats);
+// any threads:
+renderer->UploadBoneMatrixUploads(boneOffset, matSpan);
+renderer->EndBoneMatrixUploads();
+```
+
 `BoneMatrixResources` holds current + previous palettes (TAA). Default
 capacity **32768** `mat4`s. `UploadBoneMatrices` writes only the provided
 span (optional `boneOffset`); it does not identity-fill the rest of the
@@ -229,12 +240,25 @@ gpu->SetEnabled(true);
 // Dispatch runs in the frame graph
 ```
 
+`UploadInstances` wraps `BeginGpuAnimInstanceUploads` →
+`UploadGpuAnimInstanceUploads` → `EndGpuAnimInstanceUploads`. Parallel
+packing:
+
+```cpp
+auto& gpu = fra::Advanced(*renderer).GpuAnimation();
+gpu.BeginGpuAnimInstanceUploads();
+gpu.ReserveGpuAnimInstanceUploads(expectedCount);
+// any threads:
+gpu.UploadGpuAnimInstanceUploads(chunkSpan);
+gpu.EndGpuAnimInstanceUploads();
+```
+
 **Mixed CPU + GPU (same frame):** upload CPU skins first, then
-`UploadInstances` for GPU actors, with `SetCopyPrevBones(true)`. Carry /
-copy-to-prev only touch GPU-owned ranges, so hero CPU skins are not wiped.
-Prefer uploading only CPU-owned matrices (not a full palette of identity
-padding for GPU slots). Call `UploadInstances` after the CPU upload so wild
-slots are re-marked the same frame.
+`UploadInstances` / `EndGpuAnimInstanceUploads` for GPU actors, with
+`SetCopyPrevBones(true)`. Carry / copy-to-prev only touch GPU-owned ranges,
+so hero CPU skins are not wiped. Prefer uploading only CPU-owned matrices
+(not a full palette of identity padding for GPU slots). Call GPU instance
+`End` after the CPU bone `End` so wild slots are re-marked the same frame.
 
 After toggling `quantizeGpuAnimJoints`, call
 `fra::Advanced(renderer).GpuAnimation().RebuildPass()` and re-upload
