@@ -373,24 +373,32 @@ void main()
     if (aabbOutsideFrustum(clipCorners))
         return;
 
+    // Shadow draws only need the frustum test. projectAabb exists for Hi-Z /
+    // camera LOD; requiring it here false-culls AABBs that straddle the
+    // cascade light near plane. As the CSM volume tracks the camera, skinned
+    // body submeshes pop in/out of the shadow map (e.g. only the bulb casts).
     vec2 projMin, projMax;
     float projNearestZ;
-    if (!projectAabb(clipCorners, projMin, projMax, projNearestZ))
-        return;
+    float screenDiameter = 0.0;
+    if (cull.cullMode != kCullModeShadow)
+    {
+        if (!projectAabb(clipCorners, projMin, projMax, projNearestZ))
+            return;
 
-    // Skinned AABBs are rest-pose inflated approximations; Hi-Z would false-
-    // cull posed silhouette. Match translucent: frustum-only.
-    if (cull.cullMode != kCullModeShadow &&
-        cull.cullMode != kCullModeTranslucent &&
-        (inst.flags & kFlagSkinned) == 0u &&
-        occludedByHiZ(projMin, projMax, projNearestZ))
-        return;
+        // Skinned AABBs are rest-pose inflated approximations; Hi-Z would
+        // false-cull posed silhouette. Match translucent: frustum-only.
+        if (cull.cullMode != kCullModeTranslucent &&
+            (inst.flags & kFlagSkinned) == 0u &&
+            occludedByHiZ(projMin, projMax, projNearestZ))
+            return;
 
-    // Clamp to the viewport before measuring screen size, so an AABB that
-    // extends past the screen edges doesn't inflate the LOD selection.
-    vec2 clampedMin = clamp(projMin, vec2(0.0), vec2(1.0));
-    vec2 clampedMax = clamp(projMax, vec2(0.0), vec2(1.0));
-    float screenDiameter = length((clampedMax - clampedMin) * cull.screenSize);
+        // Clamp to the viewport before measuring screen size, so an AABB
+        // that extends past the screen edges doesn't inflate LOD selection.
+        vec2 clampedMin = clamp(projMin, vec2(0.0), vec2(1.0));
+        vec2 clampedMax = clamp(projMax, vec2(0.0), vec2(1.0));
+        screenDiameter =
+            length((clampedMax - clampedMin) * cull.screenSize);
+    }
 
     uint lod = selectLod(screenDiameter, mesh.lodCount);
     MeshLodInfo range = lods[mesh.lodBase + lod];

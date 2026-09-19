@@ -354,7 +354,8 @@ class MainApp final : public fra::AbstractApplication
 
         const float cpuFrameMs  = mWindow->GetDeltaTime() * 1000.f;
         const float cpuUpdateMs = mOverlay.ElapsedUpdateMs();
-        mOverlay.Draw(*mRenderer, *mFreyaOptions, cpuFrameMs, cpuUpdateMs);
+        mOverlay.Draw(*mRenderer, *mFreyaOptions, cpuFrameMs, cpuUpdateMs,
+                      mLightService.get());
         mOverlay.EndFrame(*mRenderer);
     }
 

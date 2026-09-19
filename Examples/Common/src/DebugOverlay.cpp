@@ -335,7 +335,8 @@ namespace FreyaExamples
     void DebugOverlay::Draw(fra::Renderer&     renderer,
                             fra::FreyaOptions& options,
                             const float        cpuFrameMs,
-                            const float        cpuUpdateMs)
+                            const float        cpuUpdateMs,
+                            fra::LightService* lights)
     {
         if (!mInitialized || !mEnabled)
             return;
@@ -356,7 +357,7 @@ namespace FreyaExamples
         }
 
         ImGui::SetNextWindowPos(ImVec2(12.f, 12.f), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(360.f, 480.f), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(360.f, 520.f), ImGuiCond_FirstUseEver);
         if (!ImGui::Begin("Freya Debug"))
         {
             ImGui::End();
@@ -426,6 +427,24 @@ namespace FreyaExamples
             }
 
             (void) QualityLabel;
+        }
+
+        if (lights != nullptr &&
+            ImGui::CollapsingHeader("Lights", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            auto typeToggle = [lights](const char*     label,
+                                       fra::LightType type) {
+                bool on = lights->IsLightTypeEnabled(type);
+                if (ImGui::Checkbox(label, &on))
+                    lights->SetLightTypeEnabled(type, on);
+            };
+            typeToggle("Directional", fra::LightType::Directional);
+            typeToggle("Point", fra::LightType::Point);
+            typeToggle("Spot", fra::LightType::Spot);
+            typeToggle("Area", fra::LightType::Area);
+            ImGui::TextWrapped(
+                "Mutes lighting and shadow casting for the type; "
+                "host light data is unchanged.");
         }
 
         if (ImGui::CollapsingHeader("Debug views",

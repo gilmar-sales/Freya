@@ -238,6 +238,13 @@ namespace FREYA_NAMESPACE
                 ctx.swapChain,
                 ctx.VkExtent());
         }
+        else if (ctx.createSsaoFallback && ctx.ssaoFallbackImage &&
+                 !*ctx.ssaoFallbackImage)
+        {
+            // Lighting still binds a mask descriptor; keep a white 1×1 when
+            // the mask pass is off (SSAO may already own a real output).
+            *ctx.ssaoFallbackImage = ctx.createSsaoFallback();
+        }
     }
 
     void ShadowMaskFrameStage::Execute(StageContext& stageCtx)
@@ -287,10 +294,22 @@ namespace FREYA_NAMESPACE
             return;
 
         skr::Arc<Image> shadowMaskImage;
-        if (ctx.shadowMaskPass && *ctx.shadowMaskPass)
+        if (ctx.options->enableShadowMask && ctx.shadowMaskPass &&
+            *ctx.shadowMaskPass)
+        {
             shadowMaskImage = (*ctx.shadowMaskPass)->GetOutputImage();
-        else if (ctx.ssaoFallbackImage && *ctx.ssaoFallbackImage)
-            shadowMaskImage = *ctx.ssaoFallbackImage;
+        }
+        if (!shadowMaskImage)
+        {
+            // Binding 17 is always present; white stub when mask pass is off.
+            if ((!ctx.ssaoFallbackImage || !*ctx.ssaoFallbackImage) &&
+                ctx.createSsaoFallback && ctx.ssaoFallbackImage)
+            {
+                *ctx.ssaoFallbackImage = ctx.createSsaoFallback();
+            }
+            if (ctx.ssaoFallbackImage && *ctx.ssaoFallbackImage)
+                shadowMaskImage = *ctx.ssaoFallbackImage;
+        }
 
         if (!shadowMaskImage)
             return;

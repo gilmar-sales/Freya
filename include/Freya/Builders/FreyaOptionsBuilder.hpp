@@ -179,6 +179,16 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        /**
+         * @brief Max view-space range of directional CSM (meters).
+         * Independent of draw distance; keep modest for contact quality.
+         */
+        FreyaOptionsBuilder& SetShadowCascadeDistance(float distance)
+        {
+            mFreyaOptions->shadowCascadeDistance = std::max(1.0f, distance);
+            return *this;
+        }
+
         FreyaOptionsBuilder& SetShadowLightSize(float lightSize)
         {
             mFreyaOptions->shadowLightSize = lightSize;

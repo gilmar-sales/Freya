@@ -73,13 +73,43 @@ float SoftShadow2DUV(sampler2DArrayShadow map, mat4 lightVP, vec3 biased,
     return result / float(tapCount);
 }
 
+float SampleCascadeLayer(int cascade, vec3 worldPos, vec3 N, vec3 lightDir,
+                         float slope) {
+    float ts = max(shadows.cascadeTexelSize[cascade], 1e-6);
+    // Match spot/point contact scale — clamp so far cascades stay sharp.
+    float worldBias = min(ts * (1.5 + 2.0 * slope) * max(shadows.params.y, 1.0),
+                          max(0.015, ts * 3.0));
+    vec3 biased =
+        worldPos + N * (worldBias * 0.9) + lightDir * (worldBias * 0.35);
+
+    vec4 clip = shadows.cascadeViewProj[cascade] * vec4(biased, 1.0);
+    vec3 ndc = clip.xyz / clip.w;
+    if (abs(ndc.x) > 1.0 || abs(ndc.y) > 1.0)
+        return -1.0;
+
+    vec4 clipUnbiased = shadows.cascadeViewProj[cascade] * vec4(worldPos, 1.0);
+    float ndcBias =
+        abs(ndc.z - clipUnbiased.z / max(abs(clipUnbiased.w), 1e-6));
+    float depthBiasAmount =
+        max(shadows.params.x * (2.0 + 3.0 * slope), ndcBias * 1.1);
+
+    float cascadeRes = CascadeMapResolution();
+    // Cap soft kernel like a tight local light (was up to 8 texels → mushy).
+    float uvRadius = max(
+        SoftUvRadius(ts, min(shadows.pcss.y, 2.0), cascadeRes),
+        1.0 / cascadeRes);
+
+    return SoftShadow2DUV(cascadeShadowMap, shadows.cascadeViewProj[cascade],
+                          biased, float(cascade), depthBiasAmount, uvRadius);
+}
+
 float SampleCascadeShadow(vec3 worldPos, vec3 N, vec3 L) {
     int cascadeCount = int(shadows.params.z);
     if (cascadeCount < 1)
         return 1.0;
 
-    float viewDepth = dot(worldPos - lights.viewPosition.xyz,
-                          lights.cameraForward.xyz);
+    float viewDepth = abs(dot(worldPos - lights.viewPosition.xyz,
+                              lights.cameraForward.xyz));
 
     int cascade = cascadeCount - 1;
     for (int i = 0; i < cascadeCount; ++i) {
@@ -93,31 +123,21 @@ float SampleCascadeShadow(vec3 worldPos, vec3 N, vec3 L) {
     float slope = sqrt(max(1.0 - nDotL * nDotL, 0.0));
     vec3 lightDir = normalize(L);
 
-    float ts = max(shadows.cascadeTexelSize[cascade], 1e-6);
-    float worldBias = ts * (3.0 + 5.0 * slope) * max(shadows.params.y, 1.0);
-    vec3 biased =
-        worldPos + N * (worldBias * 0.9) + lightDir * (worldBias * 0.35);
-
-    vec4 clip = shadows.cascadeViewProj[cascade] * vec4(biased, 1.0);
-    vec3 ndc = clip.xyz / clip.w;
-    if (abs(ndc.x) > 1.0 || abs(ndc.y) > 1.0)
+    float shadow = SampleCascadeLayer(cascade, worldPos, N, lightDir, slope);
+    // Receiver outside the chosen cascade XY: try neighbors (camera pitch
+    // often leaves the body in another layer's map).
+    if (shadow < 0.0) {
+        for (int c = 0; c < cascadeCount; ++c) {
+            if (c == cascade)
+                continue;
+            shadow = SampleCascadeLayer(c, worldPos, N, lightDir, slope);
+            if (shadow >= 0.0)
+                break;
+        }
+    }
+    if (shadow < 0.0)
         return 1.0;
 
-    vec4 clipUnbiased = shadows.cascadeViewProj[cascade] * vec4(worldPos, 1.0);
-    float ndcBias =
-        abs(ndc.z - clipUnbiased.z / max(abs(clipUnbiased.w), 1e-6));
-    float depthBiasAmount =
-        max(shadows.params.x * (3.0 + 4.5 * slope), ndcBias * 1.15);
-
-    float cascadeRes = CascadeMapResolution();
-    float uvRadius =
-        max(SoftUvRadius(ts, shadows.pcss.y, cascadeRes), 1.0 / cascadeRes);
-
-    float shadow = SoftShadow2DUV(cascadeShadowMap,
-                                  shadows.cascadeViewProj[cascade], biased,
-                                  float(cascade), depthBiasAmount, uvRadius);
-
-    // reverseZ.z = blend fraction of the split (0 = disabled).
     float blendFrac = clamp(shadows.reverseZ.z, 0.0, 0.5);
     if (blendFrac > 1e-4 && cascade < cascadeCount - 1) {
         float splitNear =
@@ -125,29 +145,12 @@ float SampleCascadeShadow(vec3 worldPos, vec3 N, vec3 L) {
         float splitFar = shadows.cascadeSplits[cascade];
         float blendStart = mix(splitNear, splitFar, 1.0 - blendFrac);
         if (viewDepth > blendStart) {
-            int nextCascade = cascade + 1;
-            float tsNext = max(shadows.cascadeTexelSize[nextCascade], 1e-6);
-            float worldBiasNext =
-                tsNext * (3.0 + 5.0 * slope) * max(shadows.params.y, 1.0);
-            vec3 biasedNext = worldPos + N * (worldBiasNext * 0.9) +
-                              lightDir * (worldBiasNext * 0.35);
-
-            vec4 clipNext =
-                shadows.cascadeViewProj[nextCascade] * vec4(biasedNext, 1.0);
-            vec3 ndcNext = clipNext.xyz / clipNext.w;
-            vec4 clipUnbiasedNext =
-                shadows.cascadeViewProj[nextCascade] * vec4(worldPos, 1.0);
-            float ndcBiasNext = abs(
-                ndcNext.z -
-                clipUnbiasedNext.z / max(abs(clipUnbiasedNext.w), 1e-6));
-            float depthBiasNext =
-                max(shadows.params.x * (3.0 + 4.5 * slope), ndcBiasNext * 1.15);
-
-            float next = SoftShadow2DUV(
-                cascadeShadowMap, shadows.cascadeViewProj[nextCascade],
-                biasedNext, float(nextCascade), depthBiasNext, uvRadius);
-            float t = smoothstep(blendStart, splitFar, viewDepth);
-            shadow = mix(shadow, next, t);
+            float next = SampleCascadeLayer(cascade + 1, worldPos, N, lightDir,
+                                            slope);
+            if (next >= 0.0) {
+                float t = smoothstep(blendStart, splitFar, viewDepth);
+                shadow = mix(shadow, next, t);
+            }
         }
     }
     return shadow;
@@ -265,12 +268,10 @@ float GetShadowFactor(int i, float lightType, vec3 worldPos, vec3 N,
         return 1.0;
     float shadow = 1.0;
     if (lightType >= 0.5 && lightType < 1.5) {
-#ifdef FREYA_DIRECTIONAL_SHADOW_MASK
-        if (shadows.reverseZ.w > 0.5)
-            shadow = textureLod(directionalShadowMask, gLightingUV, 0.0).r;
-        else
-#endif
-            shadow = SampleCascadeShadow(worldPos, N, L);
+        // Always sample the cascade atlas directly (same PCF path as
+        // spot). The half-res directional mask looked softer / lower-res
+        // and lagged when the camera moved.
+        shadow = SampleCascadeShadow(worldPos, N, L);
     } else if (lightType >= 1.5 && lightType < 2.5) {
         if (max(dot(N, normalize(L)), 0.0) <= 0.0)
             return 1.0;

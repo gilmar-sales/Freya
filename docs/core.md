@@ -348,12 +348,15 @@ Configure via `FreyaOptionsBuilder`: `SetShadowQuality` presets
 
 Spot/point map size defaults to cascade resolution / 2. Point cubes
 rebuild every `shadowPointUpdatePeriod` frames when the light is stable.
-| Preset | Resolution | Cascades | Spot | Point | Soft taps |
-|--------|------------|----------|------|-------|-----------|
-| Low | 512² | 2 | 2 | 2 | 4 |
-| Medium | 1024² | 3 | 4 | 2 | 8 |
-| High | 2048² | 4 | 4 | 2 | 16 |
-| Ultra | 4096² | 4 | 4 | 2 | 16 |
+Directional CSM range is `shadowCascadeDistance` (default 80, Ultra 120),
+independent of `drawDistance` — stretching it too far enlarges near-cascade
+texels and world bias until contact shadows vanish.
+| Preset | Resolution | Cascades | Spot | Point | Soft taps | CSM range |
+|--------|------------|----------|------|-------|-----------|-----------|
+| Low | 512² | 2 | 2 | 2 | 4 | 40 |
+| Medium | 1024² | 3 | 4 | 2 | 8 | 60 |
+| High | 2048² | 4 | 4 | 2 | 16 | 80 |
+| Ultra | 4096² | 4 | 4 | 2 | 16 | 120 |
 
 `Ultra` also rebuilds stable cascades / point cubes every frame and uses a
 full-res directional shadow mask (High keeps a 2-frame update period and

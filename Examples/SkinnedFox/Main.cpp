@@ -619,7 +619,8 @@ class MainApp final : public fra::AbstractApplication
         const auto  gpuFrameIdx = mRenderer->GetCurrentFrameIndex();
         const float cpuFrameMs  = dt * 1000.f;
         const float cpuUpdateMs = mOverlay.ElapsedUpdateMs();
-        mOverlay.Draw(*mRenderer, *mFreyaOptions, cpuFrameMs, cpuUpdateMs);
+        mOverlay.Draw(*mRenderer, *mFreyaOptions, cpuFrameMs, cpuUpdateMs,
+                      mLightService.get());
         mOverlay.EndFrame(*mRenderer);
         const double msEndFrame =
             SecondsF(Clock::now() - tEnd0).count() * 1000.0;

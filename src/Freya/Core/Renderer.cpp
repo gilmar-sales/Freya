@@ -162,7 +162,7 @@ namespace FREYA_NAMESPACE
                 .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
                 .setAddressModeW(vk::SamplerAddressMode::eClampToEdge));
 
-        if (!mFreyaOptions->enableSsao)
+        if (!mFreyaOptions->enableSsao || !mFreyaOptions->enableShadowMask)
             mSsaoFallbackImage = createSsaoFallbackImage();
 
         registerDefaultFrameStages();
@@ -346,8 +346,11 @@ namespace FREYA_NAMESPACE
         for (auto& stage : mFrameStages)
             stage->Rebuild(ctx, *mServiceProvider);
 
-        if (!mFreyaOptions->enableSsao)
-            mSsaoFallbackImage = createSsaoFallbackImage();
+        if (!mFreyaOptions->enableSsao || !mFreyaOptions->enableShadowMask)
+        {
+            if (!mSsaoFallbackImage)
+                mSsaoFallbackImage = createSsaoFallbackImage();
+        }
         else
             mSsaoFallbackImage.reset();
 

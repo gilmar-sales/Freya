@@ -175,12 +175,18 @@ namespace FREYA_NAMESPACE
         std::uint32_t shadowSampleCount   = 16;
         /// Fraction of cascade split used for blend into next (0 = off).
         float shadowCascadeBlend = 0.0f;
+        /// Max view-space distance covered by directional CSM (not draw
+        /// distance). Larger values enlarge near cascades and inflate
+        /// world-space bias until contact shadows disappear.
+        float shadowCascadeDistance = 80.0f;
         /// Half-res directional CSM mask before fullscreen lighting.
-        bool          enableShadowMask            = true;
+        /// Off by default: lighting samples cascades directly (same PCF as
+        /// spot/point). The mask looked softer and could lag with camera motion.
+        bool          enableShadowMask            = false;
         std::uint32_t shadowMaskResolutionDivisor = 2;
-        /// When >1, rebuild directional CSM every N frames if camera/sun
-        /// are stable (1 = every frame).
-        std::uint32_t shadowCascadeUpdatePeriod = 2;
+        /// Kept for API compat; directional CSM always redraws each frame
+        /// (VPs are camera-dependent — skipping desyncs depth vs matrices).
+        std::uint32_t shadowCascadeUpdatePeriod = 1;
         /// Absolute point cube face size; 0 = cascade res / divisor.
         std::uint32_t shadowPointResolution        = 0;
         std::uint32_t shadowPointResolutionDivisor = 2;
@@ -270,13 +276,15 @@ namespace FREYA_NAMESPACE
                 options.maxPointShadows               = 2;
                 options.shadowSampleCount             = 4;
                 options.shadowCascadeBlend            = 0.0f;
+                options.shadowCascadeDistance         = 40.0f;
                 options.shadowPointResolution         = 0;
                 options.shadowPointResolutionDivisor  = 2;
                 options.shadowSpotResolution          = 0;
                 options.shadowSpotResolutionDivisor   = 2;
                 options.shadowPointUpdatePeriod       = 2;
-                options.shadowCascadeUpdatePeriod     = 2;
+                options.shadowCascadeUpdatePeriod     = 1;
                 options.shadowMaskResolutionDivisor   = 2;
+                options.enableShadowMask              = false;
                 break;
             case ShadowQuality::Medium:
                 options.shadowMapResolution           = 1024;
@@ -285,13 +293,15 @@ namespace FREYA_NAMESPACE
                 options.maxPointShadows               = 2;
                 options.shadowSampleCount             = 8;
                 options.shadowCascadeBlend            = 0.0f;
+                options.shadowCascadeDistance         = 60.0f;
                 options.shadowPointResolution         = 0;
                 options.shadowPointResolutionDivisor  = 2;
                 options.shadowSpotResolution          = 0;
                 options.shadowSpotResolutionDivisor   = 2;
                 options.shadowPointUpdatePeriod       = 2;
-                options.shadowCascadeUpdatePeriod     = 2;
+                options.shadowCascadeUpdatePeriod     = 1;
                 options.shadowMaskResolutionDivisor   = 2;
+                options.enableShadowMask              = false;
                 break;
             case ShadowQuality::High:
                 options.shadowMapResolution           = 2048;
@@ -300,13 +310,15 @@ namespace FREYA_NAMESPACE
                 options.maxPointShadows               = 2;
                 options.shadowSampleCount             = 16;
                 options.shadowCascadeBlend            = 0.05f;
+                options.shadowCascadeDistance         = 80.0f;
                 options.shadowPointResolution         = 0;
                 options.shadowPointResolutionDivisor  = 1;
                 options.shadowSpotResolution          = 0;
                 options.shadowSpotResolutionDivisor   = 1;
                 options.shadowPointUpdatePeriod       = 2;
-                options.shadowCascadeUpdatePeriod     = 2;
-                options.shadowMaskResolutionDivisor   = 2;
+                options.shadowCascadeUpdatePeriod     = 1;
+                options.shadowMaskResolutionDivisor   = 1;
+                options.enableShadowMask              = false;
                 break;
             case ShadowQuality::Ultra:
                 options.shadowMapResolution           = 4096;
@@ -315,6 +327,7 @@ namespace FREYA_NAMESPACE
                 options.maxPointShadows               = 2;
                 options.shadowSampleCount             = 16;
                 options.shadowCascadeBlend            = 0.1f;
+                options.shadowCascadeDistance         = 120.0f;
                 options.shadowPointResolution         = 0;
                 options.shadowPointResolutionDivisor  = 1;
                 options.shadowSpotResolution          = 0;
@@ -322,6 +335,7 @@ namespace FREYA_NAMESPACE
                 options.shadowPointUpdatePeriod       = 1;
                 options.shadowCascadeUpdatePeriod     = 1;
                 options.shadowMaskResolutionDivisor   = 1;
+                options.enableShadowMask              = false;
                 break;
             case ShadowQuality::Off:
                 break;

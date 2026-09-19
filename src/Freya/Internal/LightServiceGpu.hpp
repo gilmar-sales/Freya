@@ -23,6 +23,8 @@ namespace FREYA_NAMESPACE
         float            mIblIntensity   = 0.7f;
         float            mExposure       = 0.7f;
         bool             mShadowsEnabled = true;
+        /// Indexed by LightType (Point/Directional/Spot/Area).
+        bool mTypeEnabled[4] = { true, true, true, true };
 
         std::vector<Light>        mLights;
         std::vector<std::uint8_t> mAlive;

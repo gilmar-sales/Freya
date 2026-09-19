@@ -52,7 +52,8 @@ namespace FreyaExamples
         void Draw(fra::Renderer&     renderer,
                   fra::FreyaOptions& options,
                   float              cpuFrameMs,
-                  float              cpuUpdateMs);
+                  float              cpuUpdateMs,
+                  fra::LightService* lights = nullptr);
 
         /**
          * @brief EndScene + ImGui into UI pass + Present via

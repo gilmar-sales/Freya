@@ -35,10 +35,12 @@ TEST_CASE("ApplyShadowQuality High sets cascade and map size", "[options]")
     REQUIRE(o.shadowCascadeCount == 4);
     REQUIRE(o.shadowSampleCount == 16);
     REQUIRE(o.shadowCascadeBlend == Catch::Approx(0.05f));
+    REQUIRE(o.shadowCascadeDistance == Catch::Approx(80.0f));
     REQUIRE(o.shadowPointResolutionDivisor == 1);
     REQUIRE(o.shadowSpotResolutionDivisor == 1);
-    REQUIRE(o.shadowMaskResolutionDivisor == 2);
-    REQUIRE(o.shadowCascadeUpdatePeriod == 2);
+    REQUIRE(o.shadowMaskResolutionDivisor == 1);
+    REQUIRE(o.shadowCascadeUpdatePeriod == 1);
+    REQUIRE_FALSE(o.enableShadowMask);
     REQUIRE(fra::ResolveShadowSideResolution(
                 o.shadowMapResolution,
                 o.shadowPointResolution,
@@ -55,11 +57,13 @@ TEST_CASE("ApplyShadowQuality Ultra exceeds High resolution and fidelity",
     REQUIRE(o.shadowCascadeCount == 4);
     REQUIRE(o.shadowSampleCount == 16);
     REQUIRE(o.shadowCascadeBlend == Catch::Approx(0.1f));
+    REQUIRE(o.shadowCascadeDistance == Catch::Approx(120.0f));
     REQUIRE(o.shadowPointResolutionDivisor == 1);
     REQUIRE(o.shadowSpotResolutionDivisor == 1);
     REQUIRE(o.shadowMaskResolutionDivisor == 1);
     REQUIRE(o.shadowCascadeUpdatePeriod == 1);
     REQUIRE(o.shadowPointUpdatePeriod == 1);
+    REQUIRE_FALSE(o.enableShadowMask);
     REQUIRE(fra::ResolveShadowSideResolution(
                 o.shadowMapResolution,
                 o.shadowPointResolution,

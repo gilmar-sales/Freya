@@ -206,6 +206,14 @@ namespace FREYA_NAMESPACE
         void               SetShadowsEnabled(bool enabled);
         [[nodiscard]] bool GetShadowsEnabled() const;
 
+        /**
+         * @brief Mute/unmute all lights of @p type at GPU pack / shadow
+         * gather time. Host Light records are unchanged (apps can still
+         * UpdateLight while muted).
+         */
+        void SetLightTypeEnabled(LightType type, bool enabled);
+        [[nodiscard]] bool IsLightTypeEnabled(LightType type) const;
+
       private:
         friend struct LightServiceGpu;
 

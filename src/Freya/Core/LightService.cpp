@@ -66,6 +66,7 @@ namespace FREYA_NAMESPACE
                         const std::vector<std::uint8_t>& alive,
                         const std::uint32_t              maxPacked,
                         const bool                       shadowsEnabled,
+                        const bool                       typeEnabled[4],
                         LightUniformBuffer&              data)
         {
             std::uint32_t packed = 0;
@@ -74,6 +75,12 @@ namespace FREYA_NAMESPACE
             {
                 if (n >= alive.size() || !alive[n])
                     continue;
+                const auto typeIndex =
+                    static_cast<std::uint32_t>(lights[n].type);
+                const bool typeOn =
+                    typeIndex < 4u && typeEnabled[typeIndex];
+                const float intensity =
+                    typeOn ? lights[n].intensity : 0.0f;
                 data.lightPositions[packed] = glm::vec4(
                     lights[n].position, static_cast<float>(lights[n].type));
                 data.lightColorsAndRadius[packed] =
@@ -81,9 +88,10 @@ namespace FREYA_NAMESPACE
                 data.lightDirectionsAndCutoff[packed] =
                     glm::vec4(lights[n].direction, lights[n].innerCutoff);
                 data.lightOuterCutoffAndIntensity[packed] = glm::vec4(
-                    lights[n].outerCutoff, lights[n].intensity,
-                    lights[n].halfHeight,
-                    (shadowsEnabled && lights[n].castShadows) ? 1.0f : 0.0f);
+                    lights[n].outerCutoff, intensity, lights[n].halfHeight,
+                    (typeOn && shadowsEnabled && lights[n].castShadows)
+                        ? 1.0f
+                        : 0.0f);
                 data.lightAreaTangents[packed] =
                     glm::vec4(lights[n].tangent, 0.0f);
                 ++packed;
@@ -158,7 +166,8 @@ namespace FREYA_NAMESPACE
         LightUniformBuffer data = {};
         data.iblIntensity       = i.mIblIntensity;
         data.exposure           = i.mExposure;
-        PackLights(i.mLights, i.mAlive, i.mMaxLights, i.mShadowsEnabled, data);
+        PackLights(i.mLights, i.mAlive, i.mMaxLights, i.mShadowsEnabled,
+                   i.mTypeEnabled, data);
 
         for (std::uint32_t f = 0; f < i.mFrameCount; ++f)
         {
@@ -302,7 +311,8 @@ namespace FREYA_NAMESPACE
         data.exposure      = i.mExposure;
         data.viewPosition  = glm::vec4(viewPosition, 1.0f);
         data.cameraForward = glm::vec4(cameraForward, 0.0f);
-        PackLights(i.mLights, i.mAlive, i.mMaxLights, i.mShadowsEnabled, data);
+        PackLights(i.mLights, i.mAlive, i.mMaxLights, i.mShadowsEnabled,
+                   i.mTypeEnabled, data);
 
         const auto offset = frameIndex * sizeof(LightUniformBuffer);
         i.mBuffer->Copy(&data, sizeof(LightUniformBuffer), offset);
@@ -359,6 +369,25 @@ namespace FREYA_NAMESPACE
     {
         SpinLockGuard lock(mImpl->mLock);
         return mImpl->mShadowsEnabled;
+    }
+
+    void LightService::SetLightTypeEnabled(const LightType type,
+                                           const bool      enabled)
+    {
+        const auto index = static_cast<std::uint32_t>(type);
+        if (index >= 4u)
+            return;
+        SpinLockGuard lock(mImpl->mLock);
+        mImpl->mTypeEnabled[index] = enabled;
+    }
+
+    bool LightService::IsLightTypeEnabled(const LightType type) const
+    {
+        const auto index = static_cast<std::uint32_t>(type);
+        if (index >= 4u)
+            return false;
+        SpinLockGuard lock(mImpl->mLock);
+        return mImpl->mTypeEnabled[index];
     }
 
     void LightService::Impl::createDescriptorResources()
