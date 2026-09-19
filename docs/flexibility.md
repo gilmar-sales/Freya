@@ -45,7 +45,7 @@ strength knobs.
 
 | API | Controls |
 |-----|----------|
-| `SetShadowQuality` | map res, cascades, spot/point slots, soft taps; `Off` skips maps |
+| `SetShadowQuality` | map res, cascades, spot/point slots, soft taps, mask / update period; `Off` skips maps |
 | `SetSsaoQuality` | resolution divisor (1/2/4), radius, bias, power, intensity |
 | `SetTaaQuality` | current-frame blend weight, Halton period |
 | `SetBloomQuality` | resolution divisor, threshold, extract scale, composite strength |

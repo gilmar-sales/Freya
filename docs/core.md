@@ -355,6 +355,10 @@ rebuild every `shadowPointUpdatePeriod` frames when the light is stable.
 | High | 2048² | 4 | 4 | 2 | 16 |
 | Ultra | 4096² | 4 | 4 | 2 | 16 |
 
+`Ultra` also uses full-res spot/point maps and shadow mask, and rebuilds
+stable cascades / point cubes every frame (High keeps half-res locals,
+half-res mask, and a 2-frame update period).
+
 Defaults without a preset: 4 cascades, 2048², bias `0.002`, 4 spot /
 2 point slots, 16 soft-shadow taps. Spot/point budgets of `0` keep a 1×1
 descriptor stub instead of a full-resolution atlas.

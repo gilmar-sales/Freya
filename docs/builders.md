@@ -47,7 +47,8 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 ```
 
 `SetShadowQuality` applies Low / Medium / High / Ultra budgets for shadow map
-resolution, cascade count, spot/point slots, and soft-shadow tap count.
+resolution, cascade count, spot/point slots, soft-shadow tap count, and
+(for Ultra) full-res locals/mask with every-frame updates.
 Individual setters can still override fields after the preset.
 
 ## PostProcessBuilder

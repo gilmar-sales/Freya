@@ -33,14 +33,37 @@ TEST_CASE("ApplyShadowQuality High sets cascade and map size", "[options]")
     REQUIRE(o.enableShadows);
     REQUIRE(o.shadowMapResolution == 2048);
     REQUIRE(o.shadowCascadeCount == 4);
-    REQUIRE(o.shadowSampleCount == 8);
+    REQUIRE(o.shadowSampleCount == 16);
     REQUIRE(o.shadowCascadeBlend == Catch::Approx(0.05f));
     REQUIRE(o.shadowPointResolutionDivisor == 2);
     REQUIRE(o.shadowSpotResolutionDivisor == 2);
+    REQUIRE(o.shadowMaskResolutionDivisor == 2);
+    REQUIRE(o.shadowCascadeUpdatePeriod == 2);
     REQUIRE(fra::ResolveShadowSideResolution(
                 o.shadowMapResolution,
                 o.shadowPointResolution,
                 o.shadowPointResolutionDivisor) == 1024);
+}
+
+TEST_CASE("ApplyShadowQuality Ultra exceeds High resolution and fidelity",
+          "[options]")
+{
+    fra::FreyaOptions o;
+    fra::ApplyShadowQuality(o, fra::ShadowQuality::Ultra);
+    REQUIRE(o.enableShadows);
+    REQUIRE(o.shadowMapResolution == 4096);
+    REQUIRE(o.shadowCascadeCount == 4);
+    REQUIRE(o.shadowSampleCount == 16);
+    REQUIRE(o.shadowCascadeBlend == Catch::Approx(0.1f));
+    REQUIRE(o.shadowPointResolutionDivisor == 1);
+    REQUIRE(o.shadowSpotResolutionDivisor == 1);
+    REQUIRE(o.shadowMaskResolutionDivisor == 1);
+    REQUIRE(o.shadowCascadeUpdatePeriod == 1);
+    REQUIRE(o.shadowPointUpdatePeriod == 1);
+    REQUIRE(fra::ResolveShadowSideResolution(
+                o.shadowMapResolution,
+                o.shadowPointResolution,
+                o.shadowPointResolutionDivisor) == 4096);
 }
 
 TEST_CASE("AnimLodTick fires at the requested rate", "[options]")
