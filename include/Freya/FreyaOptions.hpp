@@ -301,9 +301,9 @@ namespace FREYA_NAMESPACE
                 options.shadowSampleCount             = 16;
                 options.shadowCascadeBlend            = 0.05f;
                 options.shadowPointResolution         = 0;
-                options.shadowPointResolutionDivisor  = 2;
+                options.shadowPointResolutionDivisor  = 1;
                 options.shadowSpotResolution          = 0;
-                options.shadowSpotResolutionDivisor   = 2;
+                options.shadowSpotResolutionDivisor   = 1;
                 options.shadowPointUpdatePeriod       = 2;
                 options.shadowCascadeUpdatePeriod     = 2;
                 options.shadowMaskResolutionDivisor   = 2;

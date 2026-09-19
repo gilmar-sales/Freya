@@ -46,7 +46,7 @@ layout(set = 0, binding = 11) uniform ShadowBuffer {
     vec4 spotLightIndex;
     vec4 pointLightPosFar[2];
     vec4 pointLightIndex;
-    vec4 reverseZ; // x=Reverse-Z, y=shadow map resolution
+    vec4 reverseZ; // x=Reverse-Z y=cascadeRes z=cascadeBlend w=useMask
     vec4 pcss; // x=lightSize(world) y=maxSoft(texels) z=minVis w=tapCount
     vec4 cascadeTexelSize; // world-space texel size per cascade
 } shadows;

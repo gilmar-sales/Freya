@@ -35,14 +35,14 @@ TEST_CASE("ApplyShadowQuality High sets cascade and map size", "[options]")
     REQUIRE(o.shadowCascadeCount == 4);
     REQUIRE(o.shadowSampleCount == 16);
     REQUIRE(o.shadowCascadeBlend == Catch::Approx(0.05f));
-    REQUIRE(o.shadowPointResolutionDivisor == 2);
-    REQUIRE(o.shadowSpotResolutionDivisor == 2);
+    REQUIRE(o.shadowPointResolutionDivisor == 1);
+    REQUIRE(o.shadowSpotResolutionDivisor == 1);
     REQUIRE(o.shadowMaskResolutionDivisor == 2);
     REQUIRE(o.shadowCascadeUpdatePeriod == 2);
     REQUIRE(fra::ResolveShadowSideResolution(
                 o.shadowMapResolution,
                 o.shadowPointResolution,
-                o.shadowPointResolutionDivisor) == 1024);
+                o.shadowPointResolutionDivisor) == 2048);
 }
 
 TEST_CASE("ApplyShadowQuality Ultra exceeds High resolution and fidelity",

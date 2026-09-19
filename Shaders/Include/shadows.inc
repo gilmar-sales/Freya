@@ -18,15 +18,25 @@ int SoftShadowTapCount() {
     return clamp(int(shadows.pcss.w + 0.5), 1, 16);
 }
 
-float ShadowMapResolution() {
-    return max(shadows.reverseZ.y, 1.0);
+// Prefer the bound atlas size so spot/point soft radii match their maps
+// (reverseZ.y is cascade-only and drifts when locals use a divisor).
+float CascadeMapResolution() {
+    return max(float(textureSize(cascadeShadowMap, 0).x), 1.0);
 }
 
-float SoftUvRadius(float texelWorld, float maxTexels) {
+float SpotMapResolution() {
+    return max(float(textureSize(spotShadowMap, 0).x), 1.0);
+}
+
+float PointMapResolution() {
+    return max(float(textureSize(pointShadowMap, 0).x), 1.0);
+}
+
+float SoftUvRadius(float texelWorld, float maxTexels, float mapRes) {
     float ts = max(texelWorld, 1e-6);
     float softTexels =
         clamp(shadows.pcss.x / ts, 1.0, min(shadows.pcss.y, maxTexels));
-    return softTexels / ShadowMapResolution();
+    return softTexels / max(mapRes, 1.0);
 }
 
 void ShadowTangentBasis(vec3 axis, out vec3 T, out vec3 B) {
@@ -99,8 +109,9 @@ float SampleCascadeShadow(vec3 worldPos, vec3 N, vec3 L) {
     float depthBiasAmount =
         max(shadows.params.x * (3.0 + 4.5 * slope), ndcBias * 1.15);
 
+    float cascadeRes = CascadeMapResolution();
     float uvRadius =
-        max(SoftUvRadius(ts, shadows.pcss.y), 1.0 / ShadowMapResolution());
+        max(SoftUvRadius(ts, shadows.pcss.y, cascadeRes), 1.0 / cascadeRes);
 
     float shadow = SoftShadow2DUV(cascadeShadowMap,
                                   shadows.cascadeViewProj[cascade], biased,
@@ -175,7 +186,8 @@ float SampleSpotShadow(int lightIndex, vec3 worldPos, vec3 N, vec3 L) {
 
     float nDotL = max(dot(N, normalize(L)), 0.0);
     float slope = sqrt(max(1.0 - nDotL * nDotL, 0.0));
-    float texelWorld = (2.0 * distHint) / ShadowMapResolution();
+    float spotRes = SpotMapResolution();
+    float texelWorld = (2.0 * distHint) / spotRes;
     float normalScale = texelWorld * shadows.params.y * (0.5 + 1.5 * slope);
     float lightPush = texelWorld * (1.0 + slope);
     vec3 biased = worldPos + N * normalScale + normalize(L) * lightPush;
@@ -184,7 +196,7 @@ float SampleSpotShadow(int lightIndex, vec3 worldPos, vec3 N, vec3 L) {
     return mix(1.0,
                SoftShadow2DUV(spotShadowMap, shadows.spotViewProj[slot],
                               biased, float(slot), depthBiasAmount,
-                              SoftUvRadius(texelWorld, shadows.pcss.y)),
+                              SoftUvRadius(texelWorld, shadows.pcss.y, spotRes)),
                fade);
 }
 
@@ -211,7 +223,8 @@ float SamplePointShadow(int lightIndex, vec3 worldPos, vec3 N) {
     float nDotL = max(dot(N, L), 0.0);
     float slope = sqrt(max(1.0 - nDotL * nDotL, 0.0));
     bool reverseZ = shadows.reverseZ.x > 0.5;
-    float texelWorld = (2.0 * distToLight) / ShadowMapResolution();
+    float pointRes = PointMapResolution();
+    float texelWorld = (2.0 * distToLight) / pointRes;
     float normalScale = texelWorld * shadows.params.y * (0.5 + 1.5 * slope);
     float lightPush = texelWorld * (1.0 + slope);
     vec3 biased = worldPos + N * normalScale + L * lightPush;
@@ -228,8 +241,10 @@ float SamplePointShadow(int lightIndex, vec3 worldPos, vec3 N) {
     vec3 Ndir = normalize(dir);
     vec3 T, B;
     ShadowTangentBasis(Ndir, T, B);
+    // Same world-space penumbra budget as spot/cascade (UV radius ≈ angle
+    // for a face-sized projection at this distance).
     float softAngle =
-        clamp(shadows.pcss.x / max(dist, 0.1), 0.002, 0.015);
+        max(SoftUvRadius(texelWorld, shadows.pcss.y, pointRes), 1.0 / pointRes);
     int tapCount = SoftShadowTapCount();
     float result = 0.0;
     for (int i = 0; i < 16; ++i) {
