@@ -223,7 +223,7 @@ namespace FREYA_NAMESPACE
         DeferredDebugView deferredDebugView = DeferredDebugView::None;
 
         /// Blend weight toward current frame (0–1). Higher = less ghosting.
-        float taaCurrentWeight = 0.1f;
+        float taaCurrentWeight = 0.12f;
         /// Halton jitter sequence length used with TAA.
         std::uint32_t taaHaltonPeriod = 16;
         /// Shader feature tier: 0=Low … 3=Ultra (set by ApplyTaaQuality).
@@ -233,7 +233,7 @@ namespace FREYA_NAMESPACE
         /// YCoCg variance AABB scale for chroma (Co/Cg); High/Ultra only.
         float taaVarianceGammaC = 1.5f;
         /// Soft-reject history when |currDepth - histDepth| exceeds this.
-        float taaDepthRejectThreshold = 0.04f;
+        float taaDepthRejectThreshold = 0.03f;
         /// Post-resolve sharpen strength (0 = off). High+ only.
         float taaSharpen = 0.15f;
 
@@ -419,20 +419,20 @@ namespace FREYA_NAMESPACE
                 break;
             case TaaQuality::High:
                 options.taaQualityLevel         = 2;
-                options.taaCurrentWeight        = 0.1f;
+                options.taaCurrentWeight        = 0.12f;
                 options.taaHaltonPeriod         = 16;
                 options.taaVarianceGammaY       = 1.35f;
                 options.taaVarianceGammaC       = 1.5f;
-                options.taaDepthRejectThreshold = 0.04f;
+                options.taaDepthRejectThreshold = 0.03f;
                 options.taaSharpen              = 0.15f;
                 break;
             case TaaQuality::Ultra:
                 options.taaQualityLevel         = 3;
-                options.taaCurrentWeight        = 0.08f;
+                options.taaCurrentWeight        = 0.10f;
                 options.taaHaltonPeriod         = 32;
                 options.taaVarianceGammaY       = 1.25f;
                 options.taaVarianceGammaC       = 1.4f;
-                options.taaDepthRejectThreshold = 0.035f;
+                options.taaDepthRejectThreshold = 0.03f;
                 options.taaSharpen              = 0.25f;
                 break;
             case TaaQuality::Off:

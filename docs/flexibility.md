@@ -73,6 +73,10 @@ TAA motion vectors use G-buffer velocity (current unjittered VP vs
 `Renderer::BeginSceneInstances` / `UploadSceneInstances` /
 `EndSceneInstances` so Freya maintains that history; drawing
 without the scene-upload API will not supply correct object motion alone.
+The resolve uses Uncharted/Karis anti-ghosting: dilated neighborhood
+motion drives history weight, always-on soft depth disocclusion,
+motion-tightened YCoCg variance clip (Karis HDR tonemap on High/Ultra),
+and a soft current blend when dumping history.
 
 ## DI configure hooks
 

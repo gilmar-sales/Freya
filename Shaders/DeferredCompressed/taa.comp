@@ -46,15 +46,32 @@ float Luma(vec3 c) {
     return dot(c, vec3(0.2126, 0.7152, 0.0722));
 }
 
+// Karis: compress HDR before neighborhood stats so bright specular
+// trails do not inflate the AABB.
+vec3 Tonemap(vec3 c) {
+    return c / (1.0 + Luma(c));
+}
+
+vec3 TonemapInvert(vec3 c) {
+    return c / max(1.0 - Luma(c), 1e-4);
+}
+
 bool IsCloser(float candidate, float reference) {
     return pc.reverseZ > 0.5 ? (candidate > reference)
                              : (candidate < reference);
 }
 
-// Closest-depth velocity in 3×3 for silhouette stability.
-vec2 DilateVelocity(ivec2 pixel, out float closestDepth) {
-    closestDepth = texelFetch(currentDepth, pixel, 0).r;
-    vec2 bestVel = texelFetch(velocityBuffer, pixel, 0).xy;
+float VelocitySpeedPx(vec2 vel) {
+    return length(vel / max(pc.invResolution, vec2(1e-6)));
+}
+
+// Closest-depth velocity in 3×3 for silhouette stability, plus max
+// neighborhood speed so trailing-edge background pixels dump history.
+vec2 DilateVelocity(ivec2 pixel, out float closestDepth,
+                    out float dilatedSpeedPx) {
+    closestDepth   = texelFetch(currentDepth, pixel, 0).r;
+    vec2 bestVel   = texelFetch(velocityBuffer, pixel, 0).xy;
+    dilatedSpeedPx = VelocitySpeedPx(bestVel);
 
     for (int y = -1; y <= 1; ++y) {
         for (int x = -1; x <= 1; ++x) {
@@ -62,17 +79,20 @@ vec2 DilateVelocity(ivec2 pixel, out float closestDepth) {
                 continue;
             ivec2 p = pixel + ivec2(x, y);
             float d = texelFetch(currentDepth, p, 0).r;
+            vec2  v = texelFetch(velocityBuffer, p, 0).xy;
+            dilatedSpeedPx = max(dilatedSpeedPx, VelocitySpeedPx(v));
             if (IsCloser(d, closestDepth)) {
                 closestDepth = d;
-                bestVel      = texelFetch(velocityBuffer, p, 0).xy;
+                bestVel      = v;
             }
         }
     }
     return bestVel;
 }
 
-// Wider AABB on depth edges / motion so jitter AA is not clipped away.
-float GammaBoost(ivec2 pixel, vec2 velocity) {
+// Widen AABB only on static depth edges so Halton AA survives; motion
+// tightens elsewhere (anti-ghosting).
+float GammaBoost(ivec2 pixel, float dilatedSpeedPx) {
     float dMin = 1e10;
     float dMax = -1e10;
     for (int y = -1; y <= 1; ++y) {
@@ -83,10 +103,8 @@ float GammaBoost(ivec2 pixel, vec2 velocity) {
         }
     }
     float depthEdge = clamp((dMax - dMin) * 25.0, 0.0, 1.0);
-    float speedPx =
-        length(velocity / max(pc.invResolution, vec2(1e-6)));
-    float motion = clamp(speedPx * 0.03, 0.0, 1.0);
-    return 1.0 + 2.0 * depthEdge + 1.0 * motion;
+    float still     = 1.0 - smoothstep(0.35, 2.0, dilatedSpeedPx);
+    return 1.0 + 2.0 * depthEdge * still;
 }
 
 void NeighborhoodBoxMinMaxRGB(ivec2 pixel, out vec3 nMin, out vec3 nMax) {
@@ -202,7 +220,7 @@ void NeighborhoodCrossMinMaxRGB(ivec2 pixel, out vec3 nMin, out vec3 nMax) {
 }
 
 void NeighborhoodVarianceBox(ivec2 pixel, bool ycocg, bool gaussian,
-                             out vec3 mu, out vec3 sigma) {
+                             bool karis, out vec3 mu, out vec3 sigma) {
     vec3  m1   = vec3(0.0);
     vec3  m2   = vec3(0.0);
     float wSum = 0.0;
@@ -212,6 +230,8 @@ void NeighborhoodVarianceBox(ivec2 pixel, bool ycocg, bool gaussian,
             if (gaussian)
                 w = float(2 - abs(x)) * float(2 - abs(y));
             vec3 c = texelFetch(currentColor, pixel + ivec2(x, y), 0).rgb;
+            if (karis)
+                c = Tonemap(c);
             if (ycocg)
                 c = RGBToYCoCg(c);
             m1   += c * w;
@@ -273,7 +293,8 @@ void main() {
     }
 
     float closestDepth;
-    vec2  velocity  = DilateVelocity(pixel, closestDepth);
+    float dilatedSpeedPx;
+    vec2  velocity  = DilateVelocity(pixel, closestDepth, dilatedSpeedPx);
     vec2  historyUV = uv - velocity;
 
     bool offscreen = any(lessThan(historyUV, vec2(0.0))) ||
@@ -290,10 +311,8 @@ void main() {
 
     float weight    = pc.currentWeight;
     float histTrust = 1.0; // 1 = full history allowed
-    float speedPx =
-        length(velocity / max(pc.invResolution, vec2(1e-6)));
+    float speedPx   = VelocitySpeedPx(velocity);
 
-    // Dilated velocity can reproject moving silhouettes onto uncovered bg.
     float lumaGhost =
         abs(Luma(current) - Luma(history)) /
         max(max(Luma(current), Luma(history)), 1e-3);
@@ -302,30 +321,41 @@ void main() {
         weight    = 1.0;
         histTrust = 0.0;
     } else if (q == Q_LOW) {
-        float dump = clamp(speedPx * 0.12, 0.0, 1.0);
+        // Use dilated speed so trailing-edge bg pixels dump too.
+        float dump = clamp(dilatedSpeedPx * 0.12, 0.0, 1.0);
         weight     = mix(pc.currentWeight, 1.0, dump);
         histTrust  = 1.0 - dump;
     } else {
-        // Depth reject only under motion — still frames jitter on silhouettes.
+        // Always-on soft disocclusion (Uncharted/Karis): compare
+        // closest dilated depth vs reprojected history depth.
         float histDepth = textureLod(historyDepth, clampedUV, 0.0).r;
-        float depthDiff = abs(currDepth - histDepth);
-        float depthRef  = max(max(currDepth, histDepth), 1e-3);
+        float depthDiff = abs(closestDepth - histDepth);
+        float depthRef  = max(max(closestDepth, histDepth), 1e-3);
         float depthRel  = depthDiff / depthRef;
         float absUntrust =
             smoothstep(pc.depthReject * 0.75, pc.depthReject * 2.0, depthDiff);
         float relUntrust = smoothstep(0.04, 0.15, depthRel);
-        float depthUntrust = min(absUntrust, relUntrust);
-        float motionGate   = smoothstep(0.35, 1.75, speedPx);
-        float depthTrust   = 1.0 - depthUntrust * motionGate;
+        float depthUntrust = max(absUntrust, relUntrust);
+        float depthTrust   = 1.0 - depthUntrust;
         histTrust          = depthTrust;
         weight = mix(1.0, pc.currentWeight, depthTrust);
 
-        // Soft dump when history is a different surface (High+ variance trails).
+        // Motion-adaptive alpha from dilated neighborhood speed
+        // (trailing edges behind movers have ~0 own velocity).
+        float v0 = (q >= Q_HIGH) ? 0.5 : 0.75;
+        float v1 = (q >= Q_ULTRA) ? 6.0 : (q >= Q_HIGH) ? 8.0 : 10.0;
+        float motionDump = smoothstep(v0, v1, dilatedSpeedPx);
+        if (q >= Q_ULTRA)
+            motionDump = max(motionDump, smoothstep(0.35, 5.0, speedPx) * 0.85);
+        weight    = mix(weight, 1.0, motionDump);
+        histTrust *= (1.0 - motionDump);
+
+        // Soft dump when history is a different surface (High+).
         float rejectCap = 0.55;
         if (q >= Q_HIGH) {
             float ghostLikely =
                 smoothstep(0.06, 0.28, lumaGhost) *
-                smoothstep(0.2, 1.25, speedPx);
+                smoothstep(0.15, 1.0, max(dilatedSpeedPx, speedPx));
             rejectCap = mix(0.55, 0.98, ghostLikely);
             weight    = mix(weight, 1.0, ghostLikely * 0.85);
             histTrust *= (1.0 - ghostLikely * 0.85);
@@ -335,47 +365,51 @@ void main() {
     }
 
     if (weight < 0.999) {
-        float boost = GammaBoost(pixel, velocity);
+        float boost = GammaBoost(pixel, dilatedSpeedPx);
+        // Tighten variance AABB under motion (anti-ghost).
+        float tighten =
+            1.0 - 0.45 * smoothstep(0.5, 8.0, dilatedSpeedPx);
         if (q >= Q_HIGH)
-            boost = mix(boost, 1.0 + 1.25 * (boost - 1.0), 0.65);
+            tighten *= mix(1.0, 0.75, smoothstep(0.35, 6.0, dilatedSpeedPx));
 
         if (q == Q_LOW) {
             vec3 nMin, nMax;
             NeighborhoodCrossMinMaxRGB(pixel, nMin, nMax);
             vec3 mid = 0.5 * (nMin + nMax);
-            vec3 ext = 0.5 * (nMax - nMin) * boost;
+            vec3 ext = 0.5 * (nMax - nMin) * boost * tighten;
             history  = clamp(history, mid - ext, mid + ext);
         } else if (q == Q_MEDIUM) {
             vec3 nMin, nMax;
             NeighborhoodBoxMinMaxRGB(pixel, nMin, nMax);
             vec3 mid = 0.5 * (nMin + nMax);
-            vec3 ext = 0.5 * (nMax - nMin) * max(boost, pc.varianceGammaY);
+            vec3 ext = 0.5 * (nMax - nMin) *
+                       max(boost, pc.varianceGammaY) * tighten;
             history  = clamp(history, mid - ext, mid + ext);
         } else if (q == Q_HIGH) {
             vec3 mu, sigma;
-            NeighborhoodVarianceBox(pixel, true, false, mu, sigma);
-            // Floor sigma so flat neighborhoods keep jitter-AA headroom.
+            NeighborhoodVarianceBox(pixel, true, false, true, mu, sigma);
             sigma = max(sigma, vec3(0.002, 0.001, 0.001));
             vec3 gamma = vec3(pc.varianceGammaY, pc.varianceGammaC,
                               pc.varianceGammaC) *
-                         boost;
-            history =
-                YCoCgToRGB(clamp(RGBToYCoCg(history), mu - gamma * sigma,
-                                 mu + gamma * sigma));
+                         boost * tighten;
+            vec3 hT = Tonemap(history);
+            hT = YCoCgToRGB(clamp(RGBToYCoCg(hT), mu - gamma * sigma,
+                                  mu + gamma * sigma));
+            history = TonemapInvert(hT);
         } else {
             vec3 mu, sigma;
-            NeighborhoodVarianceBox(pixel, true, true, mu, sigma);
+            NeighborhoodVarianceBox(pixel, true, true, true, mu, sigma);
             sigma = max(sigma, vec3(0.002, 0.001, 0.001));
             vec3 gamma = vec3(pc.varianceGammaY, pc.varianceGammaC,
                               pc.varianceGammaC) *
-                         boost;
-            // Hard-clamp Y then ClipAABB chroma (ClipAABB alone keeps trails).
-            vec3 hYCoCg = RGBToYCoCg(history);
+                         boost * tighten;
+            // Hard-clamp Y then ClipAABB chroma in tonemapped YCoCg.
+            vec3 hYCoCg = RGBToYCoCg(Tonemap(history));
             vec3 lo     = mu - gamma * sigma;
             vec3 hi     = mu + gamma * sigma;
             hYCoCg.x    = clamp(hYCoCg.x, lo.x, hi.x);
             hYCoCg      = ClipAABB(hYCoCg, lo, hi);
-            history     = YCoCgToRGB(hYCoCg);
+            history     = TonemapInvert(YCoCgToRGB(hYCoCg));
         }
     }
 
@@ -384,10 +418,19 @@ void main() {
             abs(Luma(current) - Luma(history)) /
             max(max(Luma(current), Luma(history)), 1e-3);
         float kill = smoothstep(0.04, 0.20, postGhost) *
-                     mix(0.2, 1.0, smoothstep(0.15, 1.0, speedPx));
+                     mix(0.2, 1.0,
+                         smoothstep(0.15, 1.0, max(dilatedSpeedPx, speedPx)));
         weight    = mix(weight, 1.0, kill * 0.9);
         histTrust *= (1.0 - kill * 0.9);
     }
+
+    // Uncharted: soften newly revealed / dumped pixels so they do not
+    // look sharper than temporally accumulated neighbors.
+    float dump = clamp((weight - pc.currentWeight) /
+                           max(1.0 - pc.currentWeight, 1e-3),
+                       0.0, 1.0);
+    if (dump > 1e-3)
+        current = mix(current, SoftCurrent(pixel), dump);
 
     vec3 result = mix(history, current, weight);
 
