@@ -39,7 +39,7 @@ TEST_CASE("ApplyShadowQuality High sets cascade and map size", "[options]")
     REQUIRE(o.shadowPointResolutionDivisor == 1);
     REQUIRE(o.shadowSpotResolutionDivisor == 1);
     REQUIRE(o.shadowMaskResolutionDivisor == 1);
-    REQUIRE(o.shadowCascadeUpdatePeriod == 1);
+    REQUIRE(o.shadowCascadeUpdatePeriod == 2);
     REQUIRE_FALSE(o.enableShadowMask);
     REQUIRE(fra::ResolveShadowSideResolution(
                 o.shadowMapResolution,

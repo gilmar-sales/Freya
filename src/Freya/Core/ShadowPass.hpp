@@ -193,12 +193,19 @@ namespace FREYA_NAMESPACE
         std::uint32_t       mActivePointCount     = 0;
 
         /// Temporal CSM: skip redraw when camera/sun stable.
+        /// When skipping, lighting must keep the committed VPs that match
+        /// the depth maps (never recompute VPs alone).
         bool          mCascadesNeedRedraw = true;
         std::uint32_t mCascadeUpdateAge   = 0;
         glm::mat4     mLastCameraView { 0.0f };
         glm::mat4     mLastCameraProj { 0.0f };
         glm::vec3     mLastSunDir { 0.0f };
         bool          mHasLastCascadeMotion = false;
+        bool          mCommittedCascadesValid = false;
+        glm::mat4     mCommittedCascadeViewProj[MAX_SHADOW_CASCADES] {};
+        glm::vec4     mCommittedCascadeSplits {};
+        glm::vec4     mCommittedCascadeTexelSize {};
+        glm::mat4     mCommittedCascadeCullViewProj { 1.0f };
 
         /// Temporal point cubes: skip when light pos/range stable.
         std::array<bool, MAX_POINT_SHADOWS>          mPointNeedRedraw {};

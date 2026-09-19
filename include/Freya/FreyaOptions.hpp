@@ -184,9 +184,10 @@ namespace FREYA_NAMESPACE
         /// spot/point). The mask looked softer and could lag with camera motion.
         bool          enableShadowMask            = false;
         std::uint32_t shadowMaskResolutionDivisor = 2;
-        /// Kept for API compat; directional CSM always redraws each frame
-        /// (VPs are camera-dependent — skipping desyncs depth vs matrices).
-        std::uint32_t shadowCascadeUpdatePeriod = 1;
+        /// Kept for API compat; directional CSM may skip redraw when the
+        /// camera/sun are stable, but only while reusing the committed VPs
+        /// that match the depth maps (1 = every frame).
+        std::uint32_t shadowCascadeUpdatePeriod = 2;
         /// Absolute point cube face size; 0 = cascade res / divisor.
         std::uint32_t shadowPointResolution        = 0;
         std::uint32_t shadowPointResolutionDivisor = 2;
@@ -282,7 +283,7 @@ namespace FREYA_NAMESPACE
                 options.shadowSpotResolution          = 0;
                 options.shadowSpotResolutionDivisor   = 2;
                 options.shadowPointUpdatePeriod       = 2;
-                options.shadowCascadeUpdatePeriod     = 1;
+                options.shadowCascadeUpdatePeriod     = 2;
                 options.shadowMaskResolutionDivisor   = 2;
                 options.enableShadowMask              = false;
                 break;
@@ -299,7 +300,7 @@ namespace FREYA_NAMESPACE
                 options.shadowSpotResolution          = 0;
                 options.shadowSpotResolutionDivisor   = 2;
                 options.shadowPointUpdatePeriod       = 2;
-                options.shadowCascadeUpdatePeriod     = 1;
+                options.shadowCascadeUpdatePeriod     = 2;
                 options.shadowMaskResolutionDivisor   = 2;
                 options.enableShadowMask              = false;
                 break;
@@ -316,7 +317,7 @@ namespace FREYA_NAMESPACE
                 options.shadowSpotResolution          = 0;
                 options.shadowSpotResolutionDivisor   = 1;
                 options.shadowPointUpdatePeriod       = 2;
-                options.shadowCascadeUpdatePeriod     = 1;
+                options.shadowCascadeUpdatePeriod     = 2;
                 options.shadowMaskResolutionDivisor   = 1;
                 options.enableShadowMask              = false;
                 break;

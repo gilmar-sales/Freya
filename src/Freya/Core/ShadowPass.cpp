@@ -389,9 +389,10 @@ namespace FREYA_NAMESPACE
         mHasDirectionalShadow = false;
         mActiveSpotCount      = 0;
         mActivePointCount     = 0;
-        mCascadesNeedRedraw   = true;
-        mCascadeUpdateAge     = 0;
-        mHasLastCascadeMotion = false;
+        mCascadesNeedRedraw     = true;
+        mCascadeUpdateAge       = 0;
+        mHasLastCascadeMotion   = false;
+        mCommittedCascadesValid = false;
         mPointNeedRedraw.fill(true);
         mPointNeedClear.fill(false);
         mPointHasContent.fill(false);
@@ -477,26 +478,76 @@ namespace FREYA_NAMESPACE
         if (mHasDirectionalShadow)
         {
             const auto sunDir = glm::normalize(sun->direction);
+            bool       motion = !mHasLastCascadeMotion;
+            if (!motion)
+            {
+                for (int c = 0; c < 4 && !motion; ++c)
+                    for (int r = 0; r < 4; ++r)
+                    {
+                        motion |= std::abs(cameraView[c][r] -
+                                           mLastCameraView[c][r]) > 1e-5f;
+                        motion |= std::abs(cameraProj[c][r] -
+                                           mLastCameraProj[c][r]) > 1e-5f;
+                    }
+                motion |= glm::length(sunDir - mLastSunDir) > 1e-4f;
+            }
+
             mLastCameraView       = cameraView;
             mLastCameraProj       = cameraProj;
             mLastSunDir           = sunDir;
             mHasLastCascadeMotion = true;
 
-            // CSM VPs are camera-dependent. Skipping the depth redraw while
-            // still recomputing VPs (or zeroing mShadowData) makes lighting
-            // sample stale maps with new matrices — shadows pop in while the
-            // camera moves (redraw) and vanish when it stops (skip).
-            // Always rebuild depth + VPs together.
-            mCascadesNeedRedraw  = true;
-            mCascadeUpdateAge    = 0;
+            const auto period =
+                std::max(1u, mFreyaOptions->shadowCascadeUpdatePeriod);
+            if (motion)
+            {
+                mCascadesNeedRedraw = true;
+                mCascadeUpdateAge   = 0;
+            }
+            else
+            {
+                ++mCascadeUpdateAge;
+                if (mCascadeUpdateAge >= period)
+                {
+                    mCascadesNeedRedraw = true;
+                    mCascadeUpdateAge   = 0;
+                }
+                else
+                    mCascadesNeedRedraw = false;
+            }
+
             mShadowData.params.z = static_cast<float>(mCascadeCount);
-            computeCascades(*sun, cameraView, cameraProj, nearPlane,
-                            drawDistance);
+
+            // Depth maps and VPs must stay paired. On skip, reuse the last
+            // committed cascade block instead of recomputing VPs.
+            if (mCascadesNeedRedraw || !mCommittedCascadesValid)
+            {
+                computeCascades(*sun, cameraView, cameraProj, nearPlane,
+                                drawDistance);
+                for (std::uint32_t i = 0; i < MAX_SHADOW_CASCADES; ++i)
+                    mCommittedCascadeViewProj[i] =
+                        mShadowData.cascadeViewProj[i];
+                mCommittedCascadeSplits        = mShadowData.cascadeSplits;
+                mCommittedCascadeTexelSize     = mShadowData.cascadeTexelSize;
+                mCommittedCascadeCullViewProj  = mCascadeCullViewProj;
+                mCommittedCascadesValid        = true;
+                mCascadesNeedRedraw            = true;
+            }
+            else
+            {
+                for (std::uint32_t i = 0; i < MAX_SHADOW_CASCADES; ++i)
+                    mShadowData.cascadeViewProj[i] =
+                        mCommittedCascadeViewProj[i];
+                mShadowData.cascadeSplits    = mCommittedCascadeSplits;
+                mShadowData.cascadeTexelSize = mCommittedCascadeTexelSize;
+                mCascadeCullViewProj         = mCommittedCascadeCullViewProj;
+            }
         }
         else
         {
-            mCascadesNeedRedraw   = true;
-            mHasLastCascadeMotion = false;
+            mCascadesNeedRedraw     = true;
+            mHasLastCascadeMotion   = false;
+            mCommittedCascadesValid = false;
         }
 
         mActiveSpotCount           = 0;
