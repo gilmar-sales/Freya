@@ -121,6 +121,15 @@ namespace FREYA_NAMESPACE
                       bool selected, glm::vec2 size = { 64.f, 64.f });
         void IconBadge(std::string_view text, const UiRect& slot);
 
+        /**
+         * @brief Ability / skill slot with hotkey badge and radial cooldown.
+         * @param cooldownRemaining01 1 = just triggered, 0 = ready.
+         * @return true when activated (click) while ready.
+         */
+        bool AbilitySlot(std::string_view id, TextureHandle icon,
+                         std::string_view hotkey, float cooldownRemaining01,
+                         glm::vec2 size = { 64.f, 64.f });
+
         bool BeginTooltip(std::string_view id, float delay = 0.35f);
         void EndTooltip();
 

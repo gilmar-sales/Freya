@@ -61,12 +61,11 @@ cd build/Examples/CellBulbasaur
 
 Location: `Examples/GameUiDemo/`
 
-Native Freya screen UI (not ImGui): HUD plus three recipes toggled with
-keys **1** (inventory: grid, drag-drop, tooltip, RMB menu), **2**
-(dialogue: portrait + choices), **3** (chat: scroll log + text input).
-**Esc** closes the active panel. FlyCam respects `WantCaptureMouse`.
-Solid-color textures are generated at startup; font is Noto Sans under
-`Resources/Fonts/`.
+Native Freya screen UI (not ImGui): HUD with an ability bar (**1–6**,
+radial cooldown + tooltip), plus recipes toggled with **F1** (inventory),
+**F2** (dialogue), **F3** (chat). **Esc** closes the active panel.
+FlyCam respects `WantCaptureMouse`. Solid-color textures are generated at
+startup; font is Noto Sans under `Resources/Fonts/`.
 
 ```bash
 cd build/Examples/GameUiDemo

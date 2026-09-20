@@ -352,4 +352,26 @@ namespace FREYA_NAMESPACE
         pushUnlocked(plate);
     }
 
+    void UiDraw::CooldownRadial(const UiRect& rect, const float remaining01,
+                                const glm::vec4& color, const float rounding)
+    {
+        if (rect.w <= 0.f || rect.h <= 0.f)
+            return;
+        const float rem = std::clamp(remaining01, 0.f, 1.f);
+        if (rem <= 1e-4f)
+            return;
+
+        UiQuad q = MakeBase(rect, color, 0);
+        q.flags |= kUiFlagClipRadial;
+        q.clipMax = rem;
+        if (rounding > 0.f)
+        {
+            q.rounding = rounding;
+            q.flags |= kUiFlagSdfRounded;
+        }
+
+        SpinLockGuard lock(mLock);
+        pushUnlocked(q);
+    }
+
 } // namespace FREYA_NAMESPACE

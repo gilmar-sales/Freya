@@ -16,6 +16,8 @@ namespace FREYA_NAMESPACE
     constexpr std::uint32_t kUiFlagSdfGlyph   = 1u;
     constexpr std::uint32_t kUiFlagSdfRounded = 2u;
     constexpr std::uint32_t kUiFlagClipU      = 4u;
+    /** Radial wipe: `clipMax` = remaining fraction (1=full, 0=none). */
+    constexpr std::uint32_t kUiFlagClipRadial = 8u;
 
     /**
      * @brief One screen-space UI quad.
@@ -102,6 +104,14 @@ namespace FREYA_NAMESPACE
          */
         void ProgressBar(const UiRect& rect, float fill01, const glm::vec4& bg,
                          const glm::vec4& fg, float rounding = 0.f);
+
+        /**
+         * @brief Square/rounded cooldown sweep over @p rect (clockwise from
+         * top). @p remaining01: 1 = fully covered, 0 = invisible.
+         */
+        void CooldownRadial(const UiRect& rect, float remaining01,
+                            const glm::vec4& color = { 0.f, 0.f, 0.f, 0.65f },
+                            float            rounding = 0.f);
 
         /**
          * @brief Screen-space LTR SDF text from @p rect top-left.

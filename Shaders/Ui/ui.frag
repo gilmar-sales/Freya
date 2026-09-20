@@ -21,6 +21,7 @@ layout(location = 0) out vec4 outColor;
 const uint kSdfGlyph   = 1u;
 const uint kSdfRounded = 2u;
 const uint kClipU      = 4u;
+const uint kClipRadial = 8u;
 
 float sdRoundedBox(vec2 p, vec2 b, float r)
 {
@@ -32,6 +33,19 @@ void main()
 {
     if ((vFlags & kClipU) != 0u && vClipU > vClipMax)
         discard;
+
+    if ((vFlags & kClipRadial) != 0u)
+    {
+        // Full-rect pie wipe (clockwise from top). No circular mask so the
+        // sweep covers the entire slot square / rounded rect.
+        vec2  p   = vUv01 - vec2(0.5);
+        float ang = atan(p.x, -p.y); // [-PI, PI], 0 at top
+        float t   = ang * (0.5 / 3.14159265);
+        if (t < 0.0)
+            t += 1.0;
+        if (t > vClipMax)
+            discard;
+    }
 
     vec4 color;
 

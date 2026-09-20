@@ -88,7 +88,8 @@ namespace FREYA_NAMESPACE
         mCloseTopModal = false;
         mInTooltip     = false;
         mOverlayDepth  = 0;
-        mTextSubmit    = false;
+        // mTextSubmit is set by PumpEvents (Return) before Begin; consume
+        // in TextInput and clear in End.
         // Mouse/wheel edges are filled by PumpEvents before Begin; consume
         // them during widgets and clear in End().
 
@@ -143,7 +144,8 @@ namespace FREYA_NAMESPACE
             c = false;
         for (auto& c : mMouseReleased)
             c = false;
-        mWheel = 0.f;
+        mWheel      = 0.f;
+        mTextSubmit = false;
     }
 
     void UiContext::BindEvents(EventManager& events)
@@ -976,6 +978,79 @@ namespace FREYA_NAMESPACE
                     mStyle.Color(UiCol::TextOutline));
     }
 
+    bool UiContext::AbilitySlot(std::string_view id, TextureHandle icon,
+                                std::string_view hotkey,
+                                float cooldownRemaining01, glm::vec2 size)
+    {
+        const UiId   sid = HashId(id);
+        const UiRect r   = Place(size);
+        mLastRect        = r;
+        mLastId          = sid;
+        RegisterFocusable(sid, r);
+        const bool hovered = Hit(r);
+        mLastHovered       = hovered;
+        const float rem    = std::clamp(cooldownRemaining01, 0.f, 1.f);
+        const bool ready   = rem <= 1e-3f;
+        if (hovered)
+        {
+            mWantMouse = true;
+            if (ready)
+                mMouseCursor = UiMouseCursor::Hand;
+            State(sid).hoverTime += mDt;
+        }
+        else
+            State(sid).hoverTime = 0.f;
+
+        if (hovered && ready &&
+            mMouseClicked[static_cast<int>(MouseButton::Left)])
+            mActiveId = sid;
+        const bool clicked =
+            ready && hovered && mActiveId == sid &&
+            mMouseReleased[static_cast<int>(MouseButton::Left)];
+        mLastClicked = clicked;
+        mLastActive  = mActiveId == sid;
+        if (clicked)
+            mActiveId = 0;
+        if (mMouseReleased[static_cast<int>(MouseButton::Left)] &&
+            mActiveId == sid)
+            mActiveId = 0;
+
+        if (mDraw)
+        {
+            glm::vec4 bg = mStyle.Color(UiCol::FrameBg);
+            if (hovered && ready)
+                bg = mStyle.Color(UiCol::ListSelected);
+            mDraw->Rect(r, bg, 6.f, 1.f, mStyle.Color(UiCol::Border));
+            if (icon.IsValid())
+            {
+                const float pad = 4.f;
+                UiImageOpts opts {};
+                if (!ready)
+                    opts.tint = { 0.55f, 0.55f, 0.55f, 1.f };
+                mDraw->Image({ r.x + pad, r.y + pad, r.w - pad * 2.f,
+                               r.h - pad * 2.f },
+                             icon, opts);
+            }
+            if (rem > 1e-3f)
+                mDraw->CooldownRadial(r, rem, { 0.02f, 0.03f, 0.05f, 0.72f },
+                                     6.f);
+            if (!hotkey.empty() && mStyle.font)
+            {
+                const float fs = 13.f;
+                mDraw->Rect({ r.x + 3.f, r.y + r.h - fs - 6.f, fs + 6.f,
+                              fs + 4.f },
+                            { 0.05f, 0.05f, 0.06f, 0.85f }, 3.f);
+                mDraw->Text({ r.x + 5.f, r.y + r.h - fs - 4.f, 24.f, fs },
+                            hotkey, *mStyle.font, fs,
+                            mStyle.Color(UiCol::Text), 0.f, 1.f,
+                            mStyle.Color(UiCol::TextOutline));
+            }
+            if (mFocusId == sid)
+                DrawFocusRing(r);
+        }
+        return clicked;
+    }
+
     bool UiContext::BeginTooltip(std::string_view id, float delay)
     {
         (void) id;
@@ -985,8 +1060,26 @@ namespace FREYA_NAMESPACE
         ++mOverlayDepth;
         if (mDraw)
             mDraw->BeginOverlay();
-        const UiRect tip { mMouseLogicalX + 12.f, mMouseLogicalY + 12.f, 220.f,
-                           80.f };
+
+        constexpr float kW   = 240.f;
+        constexpr float kH   = 110.f;
+        constexpr float kPad = 12.f;
+        const float     minX = mSafeArea.x;
+        const float     minY = mSafeArea.y;
+        const float     maxX = mLogicalSize.x - mSafeArea.w - kW;
+        const float     maxY = mLogicalSize.y - mSafeArea.h - kH;
+
+        // Prefer below-right; flip above / left when near screen edges.
+        float x = mMouseLogicalX + kPad;
+        float y = mMouseLogicalY + kPad;
+        if (y + kH > mLogicalSize.y - mSafeArea.h)
+            y = mMouseLogicalY - kPad - kH;
+        if (x + kW > mLogicalSize.x - mSafeArea.w)
+            x = mMouseLogicalX - kPad - kW;
+        x = std::clamp(x, minX, std::max(minX, maxX));
+        y = std::clamp(y, minY, std::max(minY, maxY));
+
+        const UiRect tip { x, y, kW, kH };
         if (mDraw)
             mDraw->Rect(tip, mStyle.Color(UiCol::PanelBg), 4.f, 1.f,
                         mStyle.Color(UiCol::Border));
@@ -1016,10 +1109,24 @@ namespace FREYA_NAMESPACE
         {
             if (mPopupId != 0 && mPopupId != pid)
                 State(mPopupId).open = false;
-            mPopupOpen   = true;
-            mPopupId     = pid;
-            st.open      = true;
-            st.popupPos  = { mLastRect.x + mLastRect.w + 4.f, mLastRect.y };
+            mPopupOpen  = true;
+            mPopupId    = pid;
+            st.open     = true;
+            constexpr float kW = 160.f;
+            constexpr float kH = 120.f;
+            float x = mLastRect.x + mLastRect.w + 4.f;
+            float y = mLastRect.y;
+            if (x + kW > mLogicalSize.x - mSafeArea.w)
+                x = mLastRect.x - kW - 4.f;
+            if (y + kH > mLogicalSize.y - mSafeArea.h)
+                y = mLogicalSize.y - mSafeArea.h - kH;
+            x = std::clamp(x, mSafeArea.x,
+                           std::max(mSafeArea.x,
+                                    mLogicalSize.x - mSafeArea.w - kW));
+            y = std::clamp(y, mSafeArea.y,
+                           std::max(mSafeArea.y,
+                                    mLogicalSize.y - mSafeArea.h - kH));
+            st.popupPos = { x, y };
         }
         if (!st.open)
             return false;

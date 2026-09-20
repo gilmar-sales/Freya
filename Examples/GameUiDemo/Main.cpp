@@ -29,9 +29,20 @@ namespace
 
     struct InvItem
     {
-        std::string       name;
+        std::string        name;
         fra::TextureHandle icon {};
-        int               stack = 1;
+        int                stack = 1;
+    };
+
+    struct Ability
+    {
+        const char*        name        = "";
+        const char*        description = "";
+        const char*        hotkey      = "";
+        fra::KeyCode       key         = fra::KeyCode::Unknown;
+        fra::TextureHandle icon {};
+        float              duration = 4.f; ///< cooldown length in seconds
+        float              remaining = 0.f; ///< seconds left; 0 = ready
     };
 
     fra::TextureHandle MakeSolidTexture(fra::TexturePool& pool, std::uint8_t r,
@@ -92,29 +103,37 @@ class MainApp final : public fra::AbstractApplication
                         return;
                     }
                 }
-                if (event.key == fra::KeyCode::Num1 ||
-                    event.key == fra::KeyCode::Kp1)
+                if (event.key == fra::KeyCode::F1)
                 {
                     mScreen = mScreen == UiScreen::Inventory ? UiScreen::None
                                                             : UiScreen::Inventory;
                     return;
                 }
-                if (event.key == fra::KeyCode::Num2 ||
-                    event.key == fra::KeyCode::Kp2)
+                if (event.key == fra::KeyCode::F2)
                 {
                     mScreen = mScreen == UiScreen::Dialogue ? UiScreen::None
                                                            : UiScreen::Dialogue;
                     return;
                 }
-                if (event.key == fra::KeyCode::Num3 ||
-                    event.key == fra::KeyCode::Kp3)
+                if (event.key == fra::KeyCode::F3)
                 {
                     const bool open = mScreen != UiScreen::Chat;
-                    mScreen =
-                        open ? UiScreen::Chat : UiScreen::None;
+                    mScreen         = open ? UiScreen::Chat : UiScreen::None;
                     if (open)
                         mChatFocusPending = true;
                     return;
+                }
+                // Ability hotkeys 1–6 (skip while a modal/panel steals focus).
+                if (mScreen == UiScreen::None)
+                {
+                    for (std::size_t i = 0; i < mAbilities.size(); ++i)
+                    {
+                        if (event.key == mAbilities[i].key)
+                        {
+                            tryActivateAbility(i);
+                            return;
+                        }
+                    }
                 }
             });
 
@@ -123,10 +142,31 @@ class MainApp final : public fra::AbstractApplication
         if (!mFont.Valid())
             std::cerr << "Failed to load NotoSans-Regular.ttf\n";
 
-        mIconSword = MakeSolidTexture(*mTexturePool, 180, 80, 40);
+        mIconSword  = MakeSolidTexture(*mTexturePool, 180, 80, 40);
         mIconPotion = MakeSolidTexture(*mTexturePool, 40, 160, 90);
         mIconGem    = MakeSolidTexture(*mTexturePool, 60, 100, 200);
         mPortrait   = MakeSolidTexture(*mTexturePool, 90, 70, 55, 128);
+        mIconFire   = MakeSolidTexture(*mTexturePool, 220, 70, 30);
+        mIconIce    = MakeSolidTexture(*mTexturePool, 80, 160, 230);
+        mIconHeal   = MakeSolidTexture(*mTexturePool, 80, 200, 120);
+        mIconShield = MakeSolidTexture(*mTexturePool, 180, 160, 60);
+        mIconDash   = MakeSolidTexture(*mTexturePool, 140, 100, 220);
+        mIconStun   = MakeSolidTexture(*mTexturePool, 200, 120, 40);
+
+        mAbilities = {{
+            { "Firebolt", "Hurl a searing bolt. 4s cooldown.", "1",
+              fra::KeyCode::Num1, mIconFire, 4.f },
+            { "Frost Nova", "Freeze nearby foes. 6s cooldown.", "2",
+              fra::KeyCode::Num2, mIconIce, 6.f },
+            { "Mend", "Restore a pulse of health. 5s cooldown.", "3",
+              fra::KeyCode::Num3, mIconHeal, 5.f },
+            { "Bulwark", "Raise a brief barrier. 8s cooldown.", "4",
+              fra::KeyCode::Num4, mIconShield, 8.f },
+            { "Dash", "Blink forward a short distance. 3s cooldown.", "5",
+              fra::KeyCode::Num5, mIconDash, 3.f },
+            { "Shockwave", "Stun in a cone ahead. 7s cooldown.", "6",
+              fra::KeyCode::Num6, mIconStun, 7.f },
+        }};
 
         mSlots.fill(std::nullopt);
         mSlots[0] = InvItem { "Iron Sword", mIconSword, 1 };
@@ -137,7 +177,7 @@ class MainApp final : public fra::AbstractApplication
 
         mChatLog = {
             "[System] Welcome to GameUiDemo.",
-            "[Hint] Press 1 inventorio, 2 dialogo, 3 chat.",
+            "[Hint] Keys 1-6 cast abilities. F1 inventorio, F2 dialogo, F3 chat.",
             "[Hint] RMB+WASD to look/move; Esc closes UI.",
         };
         mChatInput.clear();
@@ -154,7 +194,7 @@ class MainApp final : public fra::AbstractApplication
 
         std::cout
             << "GameUiDemo — native Freya UI (not ImGui)\n"
-            << "  1 Inventory | 2 Dialogue | 3 Chat | Esc close\n"
+            << "  1-6 Abilities | F1 Inventory | F2 Dialogue | F3 Chat | Esc\n"
             << "  RMB look | WASD move | ImGui debug panel still available\n";
     }
 
@@ -165,6 +205,15 @@ class MainApp final : public fra::AbstractApplication
 
         const float dt = mWindow->GetDeltaTime();
         mTime += dt;
+        for (auto& a : mAbilities)
+        {
+            if (a.remaining > 0.f)
+            {
+                a.remaining -= dt;
+                if (a.remaining < 0.f)
+                    a.remaining = 0.f;
+            }
+        }
         mMainCam.Update(dt);
         mHpPulse = 0.55f + 0.45f * std::sin(mTime * 0.8f);
 
@@ -204,6 +253,7 @@ class MainApp final : public fra::AbstractApplication
         ui.Begin(dt, { w, h });
 
         drawHud(ui);
+        drawAbilityBar(ui);
 
         if (mConfirmTimer > 0.f)
         {
@@ -236,6 +286,21 @@ class MainApp final : public fra::AbstractApplication
         ui.End();
     }
 
+    void tryActivateAbility(std::size_t index)
+    {
+        if (index >= mAbilities.size())
+            return;
+        auto& a = mAbilities[index];
+        if (a.remaining > 0.f)
+            return;
+        a.remaining = a.duration;
+        mConfirmMsg =
+            std::string("Cast ") + a.name + " — cooldown " +
+            std::to_string(static_cast<int>(a.duration + 0.5f)) + "s";
+        mConfirmTimer = 1.6f;
+        std::cout << "Ability: " << a.name << '\n';
+    }
+
     void drawHud(fra::UiContext& ui)
     {
         ui.BeginAnchor(fra::UiAnchor::TopLeft, { 24.f, 24.f });
@@ -243,9 +308,45 @@ class MainApp final : public fra::AbstractApplication
         ui.ProgressBar(mHpPulse, { 220.f, 18.f });
         ui.EndAnchor();
 
-        ui.BeginAnchor(fra::UiAnchor::TopRight, { -360.f, 24.f });
-        ui.Label("1 Inv  |  2 Dialog  |  3 Chat",
+        ui.BeginAnchor(fra::UiAnchor::TopRight, { -420.f, 24.f });
+        ui.Label("1-6 Skills  |  F1 Inv  |  F2 Dialog  |  F3 Chat",
                  ui.Style().Var(fra::UiVar::FontSizeSmall));
+        ui.EndAnchor();
+    }
+
+    void drawAbilityBar(fra::UiContext& ui)
+    {
+        constexpr float kCell = 68.f;
+        constexpr float kGap  = 8.f;
+        constexpr int   kCount = 6;
+        const float     barW =
+            kCount * kCell + (kCount - 1) * kGap + 24.f;
+        ui.BeginAnchor(fra::UiAnchor::Bottom, { -barW * 0.5f, -110.f });
+        if (!ui.BeginPanel("ability_bar", { barW, kCell + 28.f }))
+        {
+            ui.EndAnchor();
+            return;
+        }
+
+        ui.BeginGrid("ability_grid", kCount, { kCell, kCell }, kGap);
+        for (std::size_t i = 0; i < mAbilities.size(); ++i)
+        {
+            auto&       a   = mAbilities[i];
+            const float rem =
+                a.duration > 0.f ? a.remaining / a.duration : 0.f;
+            const auto id = std::string("ability_") + std::to_string(i);
+            if (ui.AbilitySlot(id, a.icon, a.hotkey, rem, { kCell, kCell }))
+                tryActivateAbility(i);
+
+            if (ui.IsItemHovered() && ui.BeginTooltip("ability_tip", 0.2f))
+            {
+                ui.Label(a.name, ui.Style().Var(fra::UiVar::FontSize));
+                ui.TextWrapped(a.description, 200.f);
+                ui.EndTooltip();
+            }
+        }
+        ui.EndGrid();
+        ui.EndPanel();
         ui.EndAnchor();
     }
 
@@ -443,11 +544,18 @@ class MainApp final : public fra::AbstractApplication
     fra::TextureHandle mIconPotion {};
     fra::TextureHandle mIconGem {};
     fra::TextureHandle mPortrait {};
+    fra::TextureHandle mIconFire {};
+    fra::TextureHandle mIconIce {};
+    fra::TextureHandle mIconHeal {};
+    fra::TextureHandle mIconShield {};
+    fra::TextureHandle mIconDash {};
+    fra::TextureHandle mIconStun {};
 
-    UiScreen                             mScreen = UiScreen::None;
+    UiScreen                               mScreen = UiScreen::None;
     std::array<std::optional<InvItem>, 20> mSlots {};
-    float                                mHpPulse = 1.f;
-    float                                mTime    = 0.f;
+    std::array<Ability, 6>                 mAbilities {};
+    float                                  mHpPulse = 1.f;
+    float                                  mTime    = 0.f;
 
     int                      mDialogueLine   = 0;
     int                      mDialogueChoice = 0;
@@ -463,7 +571,8 @@ int main(int, const char**)
 {
     return fra::RunApp<MainApp>(
         [](fra::FreyaOptionsBuilder& freyaOptions) {
-            freyaOptions.SetTitle("GameUiDemo — Freya UI [1/2/3 | RMB+WASD]")
+            freyaOptions.SetTitle(
+                    "GameUiDemo — Freya UI [1-6 skills | F1/F2/F3 | RMB+WASD]")
                 .SetWidth(1920)
                 .SetHeight(1080)
                 .SetVSync(false)

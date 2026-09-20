@@ -25,9 +25,10 @@ if (ui.BeginModal("pause", { 480, 320 })) {
 ui.End();
 ```
 
-**Thread-safety:** `UiDraw::Rect` / `Image` / `Text` / `ProgressBar` may run
-from workers between `BeginFrame` and `EndScene`. Interactive widgets on
-`UiContext` are main-thread only. `WantCaptureMouse` / `WantTextInput`
-gate camera / IME.
+**Thread-safety:** `UiDraw::Rect` / `Image` / `Text` / `ProgressBar` /
+`CooldownRadial` may run from workers between `BeginFrame` and `EndScene`.
+Interactive widgets on `UiContext` are main-thread only.
+`WantCaptureMouse` / `WantTextInput` gate camera / IME.
 
-See the **GameUiDemo** example for inventory, dialogue, and chat recipes.
+See the **GameUiDemo** example for inventory, dialogue, chat, and ability
+bar (radial cooldown) recipes.
