@@ -30,7 +30,8 @@ Treat as **app-stable**:
 - `Renderer::GetBillboardDraw` + `BillboardDraw` (`Quad`, `Quads`,
   `HealthBar`, `Text`, `Snapshot`; thread-safe concurrent submits via
   `SpinLock`) and `BillboardAlign` (`Screen` / `Cylindrical`)
-- `ParticleEmitter` (`Tick`; thread-safe per instance via `SpinLock`)
+- `ParticleEmitter` (`Tick`; one thread per emitter — draw queue is
+  thread-safe)
 - `Renderer::NativeCommandBuffer` / `NativeDevice` (opaque `void*` =
   `VkCommandBuffer` / `VkDevice`)
 - `Renderer::BeginUI` / `EndUI`, `GetImGuiNativeHandles`, `GetViewportImage`,

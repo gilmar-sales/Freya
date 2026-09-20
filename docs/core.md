@@ -197,12 +197,8 @@ bb.HealthBar(head, 0.85f, 0.08f, hp, bg, fg, fra::BillboardAlign::Screen);
 ## ParticleEmitter
 
 CPU emitter that simulates live particles and pushes Vfx billboards via
-`BillboardDraw::Quads`.
-
-**Thread-safety:** `Tick` serializes per emitter (`SpinLock`) and is safe
-across different emitters sharing one `BillboardDraw`. Do not mutate public
-fields (`origin`, `spawnRate`, …) concurrently with `Tick` on the same
-instance.
+`BillboardDraw::Quads`. Call `Tick` from one thread per emitter; different
+emitters may Tick concurrently against a shared `BillboardDraw`.
 
 ```cpp
 mFire.Tick(dt, mRenderer->GetBillboardDraw());
