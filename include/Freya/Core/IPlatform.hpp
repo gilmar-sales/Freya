@@ -28,6 +28,14 @@ namespace FREYA_NAMESPACE
      */
     using NativeEventObserver = void (*)(const void* nativeEvent, void* user);
 
+    enum class SystemCursor : std::uint8_t
+    {
+        Arrow = 0,
+        Hand,
+        Move,
+        NotAllowed,
+    };
+
     /**
      * @brief Platform abstraction for window lifetime and input pumping.
      *
@@ -78,6 +86,21 @@ namespace FREYA_NAMESPACE
          * owning Window by native window id. Call once per app frame.
          */
         virtual void PumpEvents() = 0;
+
+        /**
+         * @brief Enable OS text input (IME) for @p nativeWindow.
+         */
+        virtual void StartTextInput(void* nativeWindow) = 0;
+
+        /**
+         * @brief Disable OS text input for @p nativeWindow.
+         */
+        virtual void StopTextInput(void* nativeWindow) = 0;
+
+        /**
+         * @brief Set the OS mouse cursor shape for the process.
+         */
+        virtual void SetSystemCursor(SystemCursor cursor) = 0;
 
         /**
          * @brief Content scale for the display that hosts @p nativeWindow.

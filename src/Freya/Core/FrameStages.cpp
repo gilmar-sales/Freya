@@ -3,6 +3,8 @@
 #include "Freya/Internal/VulkanCompat.hpp"
 
 #include "Freya/Builders/BillboardPassBuilder.hpp"
+#include "Freya/Builders/DebugDrawPassBuilder.hpp"
+#include "Freya/Builders/UiPassBuilder.hpp"
 #include "Freya/Builders/BloomPassBuilder.hpp"
 #include "Freya/Builders/CompositePassBuilder.hpp"
 #include "Freya/Builders/DebugDrawPassBuilder.hpp"
@@ -693,6 +695,38 @@ namespace FREYA_NAMESPACE
         auto& ctx = AsRenderFrameContext(stageCtx);
         if (ctx.drawDebugOverlay)
             ctx.drawDebugOverlay();
+    }
+
+    void ScreenUiFrameStage::Rebuild(StageContext&         stageCtx,
+                                     skr::ServiceProvider& sp)
+    {
+        auto& ctx = AsRenderFrameContext(stageCtx);
+        if (!ctx.uiPass)
+            return;
+        ctx.uiPass->reset();
+        *ctx.uiPass = sp.GetService<UiPassBuilder>()->Build(ctx.swapChain);
+        if (!*ctx.uiPass)
+            return;
+        if (ctx.outputTarget && *ctx.outputTarget)
+        {
+            (*ctx.uiPass)
+                ->UpdateOffscreen((*ctx.outputTarget)->GetColorImage(),
+                                  ctx.VkExtent());
+        }
+    }
+
+    void ScreenUiFrameStage::Execute(StageContext& stageCtx)
+    {
+        auto& ctx = AsRenderFrameContext(stageCtx);
+        if (!ctx.uiPass || !*ctx.uiPass || !ctx.uiDraw || ctx.uiDraw->Empty())
+            return;
+        const float scale =
+            ctx.uiLogicalScale && *ctx.uiLogicalScale > 0.f
+                ? *ctx.uiLogicalScale
+                : 1.f;
+        (*ctx.uiPass)
+            ->Draw(ctx.commandPool, ctx.swapChain, *ctx.uiDraw, ctx.VkExtent(),
+                   scale);
     }
 
     void GpuAnimFrameStage::Execute(StageContext& stageCtx)

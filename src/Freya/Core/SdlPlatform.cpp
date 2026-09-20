@@ -20,6 +20,14 @@ namespace FREYA_NAMESPACE
     SdlPlatform::~SdlPlatform()
     {
         mWindowsById.clear();
+        for (auto*& c : mCursors)
+        {
+            if (c)
+            {
+                SDL_DestroyCursor(c);
+                c = nullptr;
+            }
+        }
         SDL_Vulkan_UnloadLibrary();
         SDL_Quit();
     }
@@ -157,6 +165,15 @@ namespace FREYA_NAMESPACE
                 case SDL_EVENT_MOUSE_BUTTON_UP:
                     windowId = sdlEvent.button.windowID;
                     break;
+                case SDL_EVENT_MOUSE_WHEEL:
+                    windowId = sdlEvent.wheel.windowID;
+                    break;
+                case SDL_EVENT_TEXT_INPUT:
+                    windowId = sdlEvent.text.windowID;
+                    break;
+                case SDL_EVENT_TEXT_EDITING:
+                    windowId = sdlEvent.edit.windowID;
+                    break;
                 case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
                 case SDL_EVENT_GAMEPAD_BUTTON_UP:
                 case SDL_EVENT_GAMEPAD_ADDED:
@@ -180,6 +197,57 @@ namespace FREYA_NAMESPACE
 
             Window::Impl::DispatchEvent(
                 static_cast<Window::Impl*>(it->second), sdlEvent);
+        }
+    }
+
+    void SdlPlatform::StartTextInput(void* nativeWindow)
+    {
+        if (auto* window = static_cast<SDL_Window*>(nativeWindow))
+            SDL_StartTextInput(window);
+    }
+
+    void SdlPlatform::StopTextInput(void* nativeWindow)
+    {
+        if (auto* window = static_cast<SDL_Window*>(nativeWindow))
+            SDL_StopTextInput(window);
+    }
+
+    SDL_Cursor* SdlPlatform::ensureCursor(SystemCursor cursor)
+    {
+        const auto i = static_cast<std::uint8_t>(cursor);
+        if (i >= 4)
+            return nullptr;
+        if (mCursors[i])
+            return mCursors[i];
+        SDL_SystemCursor sys = SDL_SYSTEM_CURSOR_DEFAULT;
+        switch (cursor)
+        {
+            case SystemCursor::Hand:
+                sys = SDL_SYSTEM_CURSOR_POINTER;
+                break;
+            case SystemCursor::Move:
+                sys = SDL_SYSTEM_CURSOR_MOVE;
+                break;
+            case SystemCursor::NotAllowed:
+                sys = SDL_SYSTEM_CURSOR_NOT_ALLOWED;
+                break;
+            case SystemCursor::Arrow:
+            default:
+                sys = SDL_SYSTEM_CURSOR_DEFAULT;
+                break;
+        }
+        mCursors[i] = SDL_CreateSystemCursor(sys);
+        return mCursors[i];
+    }
+
+    void SdlPlatform::SetSystemCursor(SystemCursor cursor)
+    {
+        if (cursor == mCurrentCursor)
+            return;
+        if (auto* c = ensureCursor(cursor))
+        {
+            SDL_SetCursor(c);
+            mCurrentCursor = cursor;
         }
     }
 

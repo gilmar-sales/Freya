@@ -2,6 +2,7 @@
 
 - [Home](index.md)
 - [Core](core.md)
+- [Screen UI](ui.md)
 - [Builders](builders.md)
 - [Assets](assets.md)
 - [Animation](animation.md)

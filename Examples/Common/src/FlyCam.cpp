@@ -34,6 +34,8 @@ namespace FreyaExamples
         // focused). Only requireLookToMove can gate movement.
         if (requireLookToMove && !lookHeld)
             return;
+        if (blockKeyboard && blockKeyboard())
+            return;
 
         const glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
         const glm::vec3 look = Forward();

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.29)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(Freya LANGUAGES CXX VERSION 0.52.2)
+project(Freya LANGUAGES CXX VERSION 0.53.0)
 
 # GCC 16.1 MinGW + C++26 constexpr exceptions emits a strong
 # std::runtime_error copy ctor (should be weak). That clashes with
@@ -77,7 +77,7 @@ else()
 endif()
 
 
-file(GLOB_RECURSE Freya_SRCS src/**.cpp)
+file(GLOB_RECURSE Freya_SRCS CONFIGURE_DEPENDS src/**.cpp)
 
 add_library(Freya ${Freya_SRCS})
 

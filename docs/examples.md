@@ -57,6 +57,22 @@ cd build/Examples/CellBulbasaur
 ./CellBulbasaur
 ```
 
+## GameUiDemo
+
+Location: `Examples/GameUiDemo/`
+
+Native Freya screen UI (not ImGui): HUD plus three recipes toggled with
+keys **1** (inventory: grid, drag-drop, tooltip, RMB menu), **2**
+(dialogue: portrait + choices), **3** (chat: scroll log + text input).
+**Esc** closes the active panel. FlyCam respects `WantCaptureMouse`.
+Solid-color textures are generated at startup; font is Noto Sans under
+`Resources/Fonts/`.
+
+```bash
+cd build/Examples/GameUiDemo
+./GameUiDemo
+```
+
 ## Creating a new example
 
 1. Add `Examples/<Name>/Main.cpp` and `Resources/` as needed.
@@ -83,7 +99,7 @@ Reuse helpers from `FreyaExamples::`:
 
 ## Debug overlay
 
-All four examples enable `FreyaExamples::DebugOverlay` on startup. The panel
+All five examples enable `FreyaExamples::DebugOverlay` on startup. The panel
 shows:
 
 - **Timing** — CPU frame/update ms, render resolution, and GPU ms per

@@ -22,10 +22,12 @@
 #include "Freya/Core/DebugLabels.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/FrameStages.hpp"
+#include "Freya/Core/IPlatform.hpp"
 #include "Freya/Core/Image.hpp"
 #include "Freya/Core/IndirectDrawSystem.hpp"
 #include "Freya/Core/PickPass.hpp"
 #include "Freya/Core/ShadowPass.hpp"
+#include "Freya/Core/Surface.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 
 #include <algorithm>
@@ -138,6 +140,7 @@ namespace FREYA_NAMESPACE
                     mResizeEvent = event;
                 }
             });
+        mUiContext.BindEvents(*mEventManager);
 
         const auto extent = getRenderExtent();
         mBloomResultImages.resize(mFreyaOptions->frameCount);
@@ -262,6 +265,7 @@ namespace FREYA_NAMESPACE
         mSsaoPass.reset();
         mTranslucentPass.reset();
         mBillboardPass.reset();
+        mUiPass.reset();
         mBloomPass.reset();
         mCompositePass.reset();
         mSwapChain.reset();
@@ -375,6 +379,7 @@ namespace FREYA_NAMESPACE
             std::make_shared<BloomFrameStage>(),
             std::make_shared<CompositeFrameStage>(),
             std::make_shared<BillboardUiFrameStage>(),
+            std::make_shared<ScreenUiFrameStage>(),
             std::make_shared<DebugDrawFrameStage>(),
         };
     }
@@ -437,6 +442,9 @@ namespace FREYA_NAMESPACE
         ctx.debugDrawPass              = &mDebugDrawPass;
         ctx.billboardPass              = &mBillboardPass;
         ctx.billboardDraw              = &mBillboardDraw;
+        ctx.uiPass                     = &mUiPass;
+        ctx.uiDraw                     = &mUiDraw;
+        ctx.uiLogicalScale             = &mUiLogicalScale;
         ctx.gpuAnim                    = &mGpuAnimPass;
         ctx.shadow                     = &mShadowPass;
         ctx.pick                       = &mPickPass;
@@ -1712,6 +1720,7 @@ namespace FREYA_NAMESPACE
         mDrawCommands.clear();
         mDebugDraw.Clear();
         mBillboardDraw.Clear();
+        mUiDraw.Clear();
 
         if (mResizeEvent.has_value())
         {
@@ -1743,6 +1752,48 @@ namespace FREYA_NAMESPACE
 
     void Renderer::Impl::EndScene()
     {
+        // After UiContext::End — enable/disable OS IME for next PumpEvents.
+        if (mSurface)
+        {
+            if (auto platform = mServiceProvider->GetService<IPlatform>())
+            {
+                const bool want = mUiContext.WantTextInput();
+                if (want != mTextInputActive)
+                {
+                    if (want)
+                        platform->StartTextInput(mSurface->NativeWindow());
+                    else
+                        platform->StopTextInput(mSurface->NativeWindow());
+                    mTextInputActive = want;
+                }
+
+                SystemCursor cursor = SystemCursor::Arrow;
+                switch (mUiContext.MouseCursor())
+                {
+                    case UiMouseCursor::Hand:
+                        cursor = SystemCursor::Hand;
+                        break;
+                    case UiMouseCursor::Move:
+                        cursor = SystemCursor::Move;
+                        break;
+                    case UiMouseCursor::NotAllowed:
+                        cursor = SystemCursor::NotAllowed;
+                        break;
+                    case UiMouseCursor::Arrow:
+                    default:
+                        cursor = SystemCursor::Arrow;
+                        break;
+                }
+                const auto uiCursor = mUiContext.MouseCursor();
+                if (uiCursor != mSystemCursor)
+                {
+                    platform->SetSystemCursor(cursor);
+                    mSystemCursor = uiCursor;
+                }
+            }
+        }
+
+        mUiLogicalScale = mUiContext.Scale();
         auto       ctx           = makeFrameContext();
         const auto commandBuffer = mCommandPool->GetCommandBuffer();
         const auto frameIndex    = mSwapChain->GetCurrentFrameIndex();

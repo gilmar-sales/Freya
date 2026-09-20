@@ -162,6 +162,7 @@ See [Flexibility](flexibility.md).
 | `UpdateProjection(ProjectionUniformBuffer&)` | Update projection data |
 | `GetGpuAnimPass()` | GPU skinning pass (optional) |
 | `GetBillboardDraw()` | CPU billboard queue for the frame |
+| `GetUiDraw()` / `GetUiContext()` | Screen-space game UI ([ui.md](ui.md)) |
 
 Apps that do not customize the frame graph can keep calling `EndFrame()`.
 
@@ -193,6 +194,11 @@ auto& bb = mRenderer->GetBillboardDraw();
 bb.HealthBar(head, 0.85f, 0.08f, hp, bg, fg); // cylindrical
 bb.HealthBar(head, 0.85f, 0.08f, hp, bg, fg, fra::BillboardAlign::Screen);
 ```
+
+## Screen UI
+
+World-space nameplates stay on `BillboardDraw`. For HUD / menus, use
+[`GetUiContext()` / `GetUiDraw()`](ui.md) (screen-space, after tonemap).
 
 ## ParticleEmitter
 

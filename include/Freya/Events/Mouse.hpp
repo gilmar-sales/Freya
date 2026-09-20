@@ -51,4 +51,13 @@ namespace FREYA_NAMESPACE
     {
         MouseButton button;
     };
+
+    /**
+     * @brief Vertical mouse wheel delta (positive = away from user).
+     */
+    struct MouseWheelEvent : Event
+    {
+        float x = 0.f;
+        float y = 0.f;
+    };
 } // namespace FREYA_NAMESPACE

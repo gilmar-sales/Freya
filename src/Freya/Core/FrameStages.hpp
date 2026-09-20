@@ -109,6 +109,14 @@ namespace FREYA_NAMESPACE
         void Execute(StageContext& ctx) override;
     };
 
+    class ScreenUiFrameStage : public IFrameStage
+    {
+      public:
+        [[nodiscard]] const char* Name() const override { return "ScreenUi"; }
+        void Rebuild(StageContext& ctx, skr::ServiceProvider& sp) override;
+        void Execute(StageContext& ctx) override;
+    };
+
     class DebugDrawFrameStage : public IFrameStage
     {
       public:

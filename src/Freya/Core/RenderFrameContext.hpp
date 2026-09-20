@@ -17,6 +17,7 @@
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Core/TaaPass.hpp"
 #include "Freya/Core/TranslucentPass.hpp"
+#include "Freya/Core/UiPass.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 #include "Freya/FreyaOptions.hpp"
 #include "Freya/Internal/VulkanCompat.hpp"
@@ -66,6 +67,9 @@ namespace FREYA_NAMESPACE
         skr::Arc<DebugDrawPass>* debugDrawPass = nullptr;
         skr::Arc<BillboardPass>* billboardPass = nullptr;
         BillboardDraw*           billboardDraw = nullptr;
+        skr::Arc<UiPass>*        uiPass        = nullptr;
+        UiDraw*                  uiDraw        = nullptr;
+        float*                   uiLogicalScale = nullptr;
         skr::Arc<GpuAnimPass>*   gpuAnim       = nullptr;
 
         bool*          pickRequested        = nullptr;

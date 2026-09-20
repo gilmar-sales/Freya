@@ -41,6 +41,10 @@
 #include "Freya/Core/FrameGpuTiming.hpp"
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/ParticleEmitter.hpp"
+#include "Freya/Core/UiContext.hpp"
+#include "Freya/Core/UiDraw.hpp"
+#include "Freya/Core/UiStyle.hpp"
+#include "Freya/Core/UiTypes.hpp"
 
 #include "Freya/Scene/AssetHandle.hpp"
 #include "Freya/Scene/Camera.hpp"

@@ -131,6 +131,8 @@ namespace FREYA_NAMESPACE
                 return { "Billboard VFX", BillboardColor };
             if (view == "BillboardUi")
                 return { "Billboard UI", BillboardColor };
+            if (view == "ScreenUi")
+                return { "Screen UI", CompositeColor };
             if (view == "Bloom")
                 return { "Bloom", BloomColor };
             if (view == "Composite")

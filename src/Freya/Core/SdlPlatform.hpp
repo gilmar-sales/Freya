@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <unordered_map>
 
+struct SDL_Cursor;
 struct SDL_Window;
 
 namespace FREYA_NAMESPACE
@@ -36,6 +37,10 @@ namespace FREYA_NAMESPACE
 
         void PumpEvents() override;
 
+        void StartTextInput(void* nativeWindow) override;
+        void StopTextInput(void* nativeWindow) override;
+        void SetSystemCursor(SystemCursor cursor) override;
+
         void SetNativeEventObserver(NativeEventObserver observer,
                                     void*               user) override;
 
@@ -43,10 +48,14 @@ namespace FREYA_NAMESPACE
             void* nativeWindow) const override;
 
       private:
+        SDL_Cursor* ensureCursor(SystemCursor cursor);
+
         skr::Arc<skr::Logger<SdlPlatform>>       mLogger;
         std::unordered_map<std::uint32_t, void*> mWindowsById;
         NativeEventObserver                      mEventObserver = nullptr;
         void*                                    mEventUser     = nullptr;
+        SDL_Cursor* mCursors[4] {};
+        SystemCursor mCurrentCursor = SystemCursor::Arrow;
     };
 
 } // namespace FREYA_NAMESPACE

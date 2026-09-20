@@ -291,6 +291,16 @@ namespace FREYA_NAMESPACE
         return mImpl->mBillboardDraw;
     }
 
+    UiDraw& Renderer::GetUiDraw()
+    {
+        return mImpl->mUiDraw;
+    }
+
+    UiContext& Renderer::GetUiContext()
+    {
+        return mImpl->mUiContext;
+    }
+
     bool Renderer::PollFrameGpuTiming(FrameGpuTimingSample& out)
     {
         return mImpl->PollFrameGpuTiming(out);

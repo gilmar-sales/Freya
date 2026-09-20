@@ -241,6 +241,31 @@ namespace FREYA_NAMESPACE
                 eventManager->Send(mouseEvent);
                 break;
             }
+            case SDL_EVENT_MOUSE_WHEEL: {
+                const auto wheelEvent =
+                    MouseWheelEvent { .x = sdlEvent.wheel.x,
+                                      .y = sdlEvent.wheel.y };
+                eventManager->Send(wheelEvent);
+                break;
+            }
+            case SDL_EVENT_TEXT_INPUT: {
+                if (sdlEvent.text.text)
+                {
+                    eventManager->Send(
+                        TextInputEvent { .text = sdlEvent.text.text });
+                }
+                break;
+            }
+            case SDL_EVENT_TEXT_EDITING: {
+                if (sdlEvent.edit.text)
+                {
+                    eventManager->Send(TextEditingEvent {
+                        .text   = sdlEvent.edit.text,
+                        .start  = sdlEvent.edit.start,
+                        .length = sdlEvent.edit.length });
+                }
+                break;
+            }
             case SDL_EVENT_GAMEPAD_BUTTON_DOWN: {
                 const auto gamePadEvent = GamepadButtonPressedEvent {
                     .button =

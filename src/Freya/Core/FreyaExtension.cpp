@@ -9,6 +9,7 @@
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/DeviceBuilder.hpp"
 #include "Freya/Builders/GpuAnimPassBuilder.hpp"
+#include "Freya/Builders/UiPassBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/IndirectDrawSystemBuilder.hpp"
 #include "Freya/Builders/InstanceBuilder.hpp"
@@ -98,6 +99,7 @@ namespace FREYA_NAMESPACE
         services.AddTransient<PostProcessBuilder>();
         services.AddTransient<DebugDrawPassBuilder>();
         services.AddTransient<BillboardPassBuilder>();
+        services.AddTransient<UiPassBuilder>();
         services.AddTransient<GpuAnimPassBuilder>();
         services.AddTransient<TranslucentPassBuilder>();
         services.AddTransient<ShadowPassBuilder>();

@@ -32,6 +32,9 @@
 #include "Freya/Core/SwapChain.hpp"
 #include "Freya/Core/TaaPass.hpp"
 #include "Freya/Core/TranslucentPass.hpp"
+#include "Freya/Core/UiContext.hpp"
+#include "Freya/Core/UiDraw.hpp"
+#include "Freya/Core/UiPass.hpp"
 #include "Freya/Events/EventManager.hpp"
 
 #include <memory>
@@ -297,11 +300,17 @@ namespace FREYA_NAMESPACE
         skr::Arc<CompositePass>          mCompositePass;
         skr::Arc<DebugDrawPass>          mDebugDrawPass;
         skr::Arc<BillboardPass>          mBillboardPass;
+        skr::Arc<UiPass>                 mUiPass;
         skr::Arc<GpuAnimPass>            mGpuAnimPass;
         GpuAnimationSystem               mGpuAnimSystem { nullptr };
         DebugDraw                        mDebugDraw;
         BillboardDraw                    mBillboardDraw;
+        UiDraw                           mUiDraw;
+        UiContext                        mUiContext { &mUiDraw };
+        float                            mUiLogicalScale = 1.f;
         bool                             mDebugDrawEnabled = false;
+        bool                             mTextInputActive  = false;
+        UiMouseCursor                    mSystemCursor = UiMouseCursor::Arrow;
         skr::Arc<CommandPool>            mCommandPool;
         skr::Arc<LightService>           mLightService;
         skr::Arc<ShadowPass>             mShadowPass;

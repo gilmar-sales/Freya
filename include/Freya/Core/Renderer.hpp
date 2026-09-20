@@ -4,6 +4,8 @@
 #include "Freya/Core/DebugDraw.hpp"
 #include "Freya/Core/FrameGpuTiming.hpp"
 #include "Freya/Core/Limits.hpp"
+#include "Freya/Core/UiContext.hpp"
+#include "Freya/Core/UiDraw.hpp"
 #include "Freya/FreyaOptions.hpp"
 
 #include <Skirnir/Skirnir.hpp>
@@ -138,6 +140,9 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] DebugDraw& GetDebugDraw();
 
         [[nodiscard]] BillboardDraw& GetBillboardDraw();
+
+        [[nodiscard]] UiDraw&    GetUiDraw();
+        [[nodiscard]] UiContext& GetUiContext();
 
         /**
          * @brief GPU ms for each frame stage from the previous finished frame.

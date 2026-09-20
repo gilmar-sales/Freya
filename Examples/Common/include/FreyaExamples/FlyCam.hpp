@@ -44,6 +44,12 @@ namespace FreyaExamples
          */
         std::function<bool()> blockMouse;
 
+        /**
+         * @brief When set and returns true, WASD / vertical keys are ignored
+         * (e.g. Freya UiContext WantTextInput).
+         */
+        std::function<bool()> blockKeyboard;
+
       private:
         void setLookHeld(bool held);
     };
