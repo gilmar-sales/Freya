@@ -46,9 +46,9 @@ Orbit (`UiModelPreviewOrbit`): drag button, sensitivity, yaw/pitch
 clamps, distance, optional `autoRotate`. `FeedMouse*` / `SetOrbit` are
 UI-thread; `Record` is render-thread only.
 
-**Cost:** each preview owns a mini deferred/shadow/composite stack.
-Prefer one paper-doll; N stacks scale linearly. SSAO/TAA/Bloom are not
-enabled on the preview path.
+**Cost:** each preview owns a mini deferred/shadow/composite stack
+(plus SSAO / shadow-mask / TAA / Bloom when those FreyaOptions flags are
+on). Prefer one paper-doll; N stacks scale linearly.
 
 ### Thread-safety contract
 

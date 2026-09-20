@@ -57,6 +57,9 @@ namespace FREYA_NAMESPACE
      * UiDraw::Image. CaptureSnapshot copies LDR pixels into a static
      * TexturePool-owned handle (HUD portrait, etc.).
      *
+     * Post-process follows FreyaOptions: enableSsao / enableShadowMask /
+     * enableTaa / enableBloom (same stack as the main window path).
+     *
      * Threading: Record only from the frame stage (render thread). Orbit
      * FeedMouse / SetOrbit from the UI thread. CaptureSnapshot from
      * main/render thread after at least one Record.

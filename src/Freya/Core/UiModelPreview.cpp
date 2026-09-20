@@ -6,13 +6,18 @@
 #include "Freya/Asset/MeshPool.hpp"
 #include "Freya/Asset/SceneInstanceUpload.hpp"
 #include "Freya/Asset/TexturePool.hpp"
+#include "Freya/Builders/BloomPassBuilder.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/CompositePassBuilder.hpp"
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/IndirectDrawSystemBuilder.hpp"
 #include "Freya/Builders/RenderTargetBuilder.hpp"
+#include "Freya/Builders/ShadowMaskPassBuilder.hpp"
 #include "Freya/Builders/ShadowPassBuilder.hpp"
+#include "Freya/Builders/SsaoPassBuilder.hpp"
+#include "Freya/Builders/TaaPassBuilder.hpp"
+#include "Freya/Core/BloomPass.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/CompositePass.hpp"
 #include "Freya/Core/DeferredCompressedPass.hpp"
@@ -22,9 +27,12 @@
 #include "Freya/Core/IndirectDrawSystem.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
 #include "Freya/Core/RenderTarget.hpp"
+#include "Freya/Core/ShadowMaskPass.hpp"
 #include "Freya/Core/ShadowPass.hpp"
+#include "Freya/Core/SsaoPass.hpp"
 #include "Freya/Core/Surface.hpp"
 #include "Freya/Core/SwapChain.hpp"
+#include "Freya/Core/TaaPass.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 #include "Freya/FreyaOptions.hpp"
 #include "Freya/Internal/VulkanCompat.hpp"
@@ -79,6 +87,36 @@ namespace FREYA_NAMESPACE
             projection[1][1] *= -1.f;
             return projection;
         }
+
+        float Halton(std::uint32_t index, const std::uint32_t base)
+        {
+            float f      = 1.0f;
+            float result = 0.0f;
+            while (index > 0)
+            {
+                f /= static_cast<float>(base);
+                result += f * static_cast<float>(index % base);
+                index /= base;
+            }
+            return result;
+        }
+
+        void ApplyHaltonJitter(glm::mat4& projection,
+                               const std::uint32_t frameIndex,
+                               const vk::Extent2D  extent,
+                               const std::uint32_t haltonPeriod)
+        {
+            if (extent.width == 0 || extent.height == 0)
+                return;
+            const auto  period = std::max(1u, haltonPeriod);
+            const auto  sample = (frameIndex % period) + 1;
+            const float jx     = (Halton(sample, 2) - 0.5f) * 2.0f /
+                             static_cast<float>(extent.width);
+            const float jy     = -(Halton(sample, 3) - 0.5f) * 2.0f /
+                             static_cast<float>(extent.height);
+            projection[2][0] += jx;
+            projection[2][1] += jy;
+        }
     } // namespace
 
     struct UiModelPreview::Impl
@@ -99,8 +137,13 @@ namespace FREYA_NAMESPACE
         skr::Arc<DeferredCompressedPass> deferred;
         skr::Arc<CompositePass>          composite;
         skr::Arc<IndirectDrawSystem>     indirect;
+        skr::Arc<SsaoPass>               ssao;
+        skr::Arc<ShadowMaskPass>         shadowMask;
+        skr::Arc<TaaPass>                taa;
+        skr::Arc<BloomPass>              bloom;
         skr::Arc<Image>                  ssaoFallback;
         skr::Arc<Image>                  bloomStub;
+        std::vector<skr::Arc<Image>>     bloomResults;
         vk::Sampler                      bloomSampler {};
 
         Scene               scene;
@@ -115,7 +158,9 @@ namespace FREYA_NAMESPACE
         bool               dragging = false;
 
         ProjectionUniformBuffer projection {};
-        float                   cameraNear = 0.1f;
+        glm::mat4               prevViewProjection { 1.f };
+        std::uint32_t           taaFrameIndex = 0;
+        float                   cameraNear    = 0.1f;
 
         void unregisterLive()
         {
@@ -191,8 +236,15 @@ namespace FREYA_NAMESPACE
             shadow.reset();
             composite.reset();
             indirect.reset();
+            ssao.reset();
+            shadowMask.reset();
+            taa.reset();
+            bloom.reset();
+            bloomResults.clear();
             ssaoFallback.reset();
             bloomStub.reset();
+            taaFrameIndex      = 0;
+            prevViewProjection = glm::mat4(1.f);
         }
 
         void destroyGpu()
@@ -241,6 +293,7 @@ namespace FREYA_NAMESPACE
             if (deferred && composite && shadow && indirect)
             {
                 swapChain = sc;
+                ensurePostPasses();
                 return;
             }
 
@@ -283,10 +336,83 @@ namespace FREYA_NAMESPACE
                 vk::SamplerCreateInfo()
                     .setMagFilter(vk::Filter::eLinear)
                     .setMinFilter(vk::Filter::eLinear)
-                    .setMipmapMode(vk::SamplerMipmapMode::eNearest)
+                    .setMipmapMode(vk::SamplerMipmapMode::eLinear)
                     .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
                     .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
                     .setAddressModeW(vk::SamplerAddressMode::eClampToEdge));
+
+            ensurePostPasses();
+        }
+
+        void ensurePostPasses()
+        {
+            if (!swapChain || !deferred || !options)
+                return;
+
+            const vk::Extent2D vkExtent { extent.x, extent.y };
+
+            if (options->enableSsao)
+            {
+                if (!ssao)
+                    ssao = serviceProvider->GetService<SsaoPassBuilder>()->Build(
+                        swapChain, vkExtent);
+            }
+            else
+                ssao.reset();
+
+            if (options->enableShadows && options->enableShadowMask)
+            {
+                if (!shadowMask)
+                    shadowMask =
+                        serviceProvider->GetService<ShadowMaskPassBuilder>()
+                            ->Build(swapChain, vkExtent);
+            }
+            else
+                shadowMask.reset();
+
+            if (options->enableTaa)
+            {
+                if (!taa)
+                {
+                    taa = serviceProvider->GetService<TaaPassBuilder>()->Build(
+                        swapChain, vkExtent);
+                    if (taa)
+                        taa->ResetHistory();
+                    taaFrameIndex      = 0;
+                    prevViewProjection = glm::mat4(1.f);
+                }
+            }
+            else
+                taa.reset();
+
+            if (options->enableBloom)
+            {
+                if (!bloom)
+                {
+                    bloom = serviceProvider->GetService<BloomPassBuilder>()
+                                ->Build(swapChain,
+                                        deferred->GetSceneColorImage(),
+                                        vkExtent);
+                    bloomResults.clear();
+                    bloomResults.resize(options->frameCount);
+                    for (std::uint32_t i = 0; i < options->frameCount; ++i)
+                    {
+                        bloomResults[i] =
+                            serviceProvider->GetService<ImageBuilder>()
+                                ->SetUsage(ImageUsage::Color)
+                                .SetFormat(vk::Format::eR16G16B16A16Sfloat)
+                                .SetWidth(extent.x)
+                                .SetHeight(extent.y)
+                                .SetSamples(vk::SampleCountFlagBits::e1)
+                                .Build();
+                    }
+                }
+            }
+            else
+            {
+                bloom.reset();
+                bloomResults.clear();
+            }
         }
 
         void updateOrbit(const float dt)
@@ -329,14 +455,117 @@ namespace FREYA_NAMESPACE
                                       orbit.nearPlane, orbit.farPlane,
                                       options->ReverseZ);
             projection.unjitteredProjection = projection.projection;
+            projection.prevViewProjection   = prevViewProjection;
+            if (options->enableTaa && taa)
+            {
+                ApplyHaltonJitter(projection.projection, taaFrameIndex,
+                                  vk::Extent2D { extent.x, extent.y },
+                                  options->taaHaltonPeriod);
+            }
             projection.invViewProjection =
                 glm::inverse(projection.projection * projection.view);
-            projection.prevViewProjection =
-                projection.projection * projection.view;
             cameraNear = orbit.nearPlane;
 
             const auto forward = glm::normalize(orbit.target - eye);
             lights->Update(0, eye, forward);
+        }
+
+        void blitBloomToFullRes(const skr::Arc<CommandPool>& cmdPool,
+                                const std::uint32_t          frameIndex)
+        {
+            if (!bloom || frameIndex >= bloomResults.size() ||
+                !bloomResults[frameIndex])
+                return;
+
+            auto bloomUp = bloom->GetBloomUpImage(frameIndex);
+            auto bloomResult = bloomResults[frameIndex];
+            if (!bloomUp || !bloomResult)
+                return;
+
+            auto commandBuffer = cmdPool->GetCommandBuffer();
+            const auto vkExtent = vk::Extent2D { extent.x, extent.y };
+            const auto bloomExtent =
+                ScaledExtent(vkExtent, options->bloomResolutionDivisor);
+            const auto srcW = static_cast<std::int32_t>(bloomExtent.width);
+            const auto srcH = static_cast<std::int32_t>(bloomExtent.height);
+
+            const auto range =
+                vk::ImageSubresourceRange()
+                    .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                    .setBaseMipLevel(0)
+                    .setLevelCount(1)
+                    .setBaseArrayLayer(0)
+                    .setLayerCount(1);
+
+            auto srcBarrier =
+                vk::ImageMemoryBarrier()
+                    .setImage(bloomUp->GetImage())
+                    .setSrcAccessMask(vk::AccessFlagBits::eShaderRead)
+                    .setDstAccessMask(vk::AccessFlagBits::eTransferRead)
+                    .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                    .setNewLayout(vk::ImageLayout::eTransferSrcOptimal)
+                    .setSubresourceRange(range);
+            commandBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eFragmentShader,
+                vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr,
+                srcBarrier);
+
+            auto dstBarrier =
+                vk::ImageMemoryBarrier()
+                    .setImage(bloomResult->GetImage())
+                    .setSrcAccessMask({})
+                    .setDstAccessMask(vk::AccessFlagBits::eTransferWrite)
+                    .setOldLayout(vk::ImageLayout::eUndefined)
+                    .setNewLayout(vk::ImageLayout::eTransferDstOptimal)
+                    .setSubresourceRange(range);
+            commandBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eTopOfPipe,
+                vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr,
+                dstBarrier);
+
+            auto blit =
+                vk::ImageBlit {}
+                    .setSrcSubresource(
+                        vk::ImageSubresourceLayers {}
+                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                            .setMipLevel(0)
+                            .setBaseArrayLayer(0)
+                            .setLayerCount(1))
+                    .setDstSubresource(
+                        vk::ImageSubresourceLayers {}
+                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                            .setMipLevel(0)
+                            .setBaseArrayLayer(0)
+                            .setLayerCount(1));
+            blit.setSrcOffsets(
+                { vk::Offset3D { 0, 0, 0 }, vk::Offset3D { srcW, srcH, 1 } });
+            blit.setDstOffsets(
+                { vk::Offset3D { 0, 0, 0 },
+                  vk::Offset3D { static_cast<std::int32_t>(extent.x),
+                                 static_cast<std::int32_t>(extent.y), 1 } });
+
+            commandBuffer.blitImage(
+                bloomUp->GetImage(), vk::ImageLayout::eTransferSrcOptimal,
+                bloomResult->GetImage(), vk::ImageLayout::eTransferDstOptimal,
+                1, &blit, vk::Filter::eLinear);
+
+            srcBarrier.setOldLayout(vk::ImageLayout::eTransferSrcOptimal)
+                .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setSrcAccessMask(vk::AccessFlagBits::eTransferRead)
+                .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
+            commandBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eTransfer,
+                vk::PipelineStageFlagBits::eFragmentShader, {}, nullptr,
+                nullptr, srcBarrier);
+
+            dstBarrier.setOldLayout(vk::ImageLayout::eTransferDstOptimal)
+                .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
+            commandBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eTransfer,
+                vk::PipelineStageFlagBits::eFragmentShader, {}, nullptr,
+                nullptr, dstBarrier);
         }
 
         void uploadScene(const std::uint32_t frameIndex)
@@ -471,14 +700,86 @@ namespace FREYA_NAMESPACE
 
             indirect->BuildHiZ(deferred->GetDepthImage(), options->ReverseZ);
 
-            deferred->BeginLighting(cmdPool, ssaoFallback, ssaoFallback,
-                                    frameIndex);
+            if (ssao)
+            {
+                ssao->Dispatch(cmdPool, deferred->GetDepthImage(),
+                               deferred->GetNormalImage(), projection.view,
+                               projection.unjitteredProjection,
+                               options->ReverseZ, options->ssaoRadius,
+                               options->ssaoBias, options->ssaoPower,
+                               options->ssaoIntensity);
+            }
+
+            if (shadowMask && options->enableShadows &&
+                options->enableShadowMask)
+            {
+                shadowMask->Dispatch(cmdPool, deferred->GetDepthImage(),
+                                     deferred->GetNormalImage(), shadow,
+                                     *lights, projection.view,
+                                     projection.unjitteredProjection,
+                                     options->ReverseZ, frameIndex);
+            }
+
+            auto ssaoImage =
+                ssao ? ssao->GetOutputImage() : ssaoFallback;
+            auto maskImage =
+                shadowMask ? shadowMask->GetOutputImage() : ssaoFallback;
+            if (!ssaoImage)
+                ssaoImage = ssaoFallback;
+            if (!maskImage)
+                maskImage = ssaoFallback;
+
+            deferred->BeginLighting(cmdPool, ssaoImage, maskImage, frameIndex);
             SetFullViewport(cmdPool, vkExtent);
             deferred->DrawLighting(cmdPool, frameIndex, 0);
             deferred->EndLighting(cmdPool);
 
-            const auto sceneColor = deferred->GetSceneColorImage();
-            composite->UpdateDescriptorSet(frameIndex, sceneColor, bloomStub,
+            if (taa)
+            {
+                taa->Dispatch(cmdPool, deferred->GetSceneColorImage(),
+                              deferred->GetVelocityImage(),
+                              deferred->GetDepthImage());
+            }
+
+            if (bloom)
+            {
+                // Bloom samples pre-TAA scene color (same as main path).
+                const auto bloomExtent =
+                    ScaledExtent(vkExtent, options->bloomResolutionDivisor);
+                auto commandBuffer = cmdPool->GetCommandBuffer();
+                auto bloomViewport =
+                    vk::Viewport()
+                        .setX(0)
+                        .setY(0)
+                        .setWidth(static_cast<float>(bloomExtent.width))
+                        .setHeight(static_cast<float>(bloomExtent.height))
+                        .setMinDepth(0.0f)
+                        .setMaxDepth(1.0f);
+                auto bloomScissor =
+                    vk::Rect2D().setOffset({ 0, 0 }).setExtent(bloomExtent);
+                commandBuffer.setViewport(0, 1, &bloomViewport);
+                commandBuffer.setScissor(0, 1, &bloomScissor);
+
+                bloom->Begin(cmdPool, frameIndex);
+                bloom->DrawFullscreenTriangle(cmdPool);
+                bloom->AdvanceSubpass(BloomDownsampleSubpass, cmdPool,
+                                      frameIndex);
+                bloom->DrawFullscreenTriangle(cmdPool);
+                bloom->AdvanceSubpass(BloomUpsampleSubpass, cmdPool,
+                                      frameIndex);
+                bloom->DrawFullscreenTriangle(cmdPool);
+                bloom->End(cmdPool);
+                blitBloomToFullRes(cmdPool, frameIndex);
+            }
+
+            skr::Arc<Image> sceneColor =
+                taa ? taa->GetOutputImage() : deferred->GetSceneColorImage();
+            skr::Arc<Image> bloomColor = bloomStub;
+            if (bloom && frameIndex < bloomResults.size() &&
+                bloomResults[frameIndex])
+                bloomColor = bloomResults[frameIndex];
+
+            composite->UpdateDescriptorSet(frameIndex, sceneColor, bloomColor,
                                            bloomSampler);
             SetFullViewport(cmdPool, vkExtent);
             composite->Begin(renderTarget->GetRenderPass(),
@@ -488,6 +789,11 @@ namespace FREYA_NAMESPACE
             composite->BindPipeline(cmdPool, frameIndex);
             composite->DrawFullscreenTriangle(cmdPool, 1.0f);
             composite->End(cmdPool);
+
+            prevViewProjection =
+                projection.projection * projection.view;
+            if (options->enableTaa && taa)
+                ++taaFrameIndex;
         }
     };
 

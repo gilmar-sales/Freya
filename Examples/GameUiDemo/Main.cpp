@@ -877,9 +877,9 @@ int main(int, const char**)
                 .SetSampleCount(4)
                 .WithReverseZ()
                 .SetFullscreen(false)
-                .SetEnableSsao(false)
-                .SetEnableTaa(false)
-                .SetEnableBloom(false);
+                .SetEnableSsao(true)
+                .SetEnableTaa(true)
+                .SetEnableBloom(true);
         },
         [](skr::LoggingExtension& l) {
             FreyaExamples::ConfigureLogging(l, "GameUiDemo.log");
