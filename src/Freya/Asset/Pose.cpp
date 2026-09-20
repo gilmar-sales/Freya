@@ -153,24 +153,39 @@ namespace FREYA_NAMESPACE
 
     LocalPose RestLocalPose(const Skeleton& skeleton)
     {
-        LocalPose  pose;
+        LocalPose pose;
+        RestLocalPoseInto(skeleton, pose);
+        return pose;
+    }
+
+    void RestLocalPoseInto(const Skeleton& skeleton, LocalPose& out)
+    {
         const auto n = skeleton.JointCount();
-        pose.Resize(n);
+        out.Resize(n);
         for (std::uint32_t i = 0; i < n; ++i)
         {
             if (i < skeleton.restLocal.size())
-                pose.joints[i] = decomposeMatrix(skeleton.restLocal[i]);
+                out.joints[i] = decomposeMatrix(skeleton.restLocal[i]);
+            else
+                out.joints[i] = JointTRS {};
         }
-        return pose;
     }
 
     LocalPose SampleClip(const Skeleton& skeleton, const AnimationClip& clip,
                          const float timeSec, const bool loop)
     {
-        LocalPose  pose       = RestLocalPose(skeleton);
+        LocalPose pose;
+        SampleClipInto(skeleton, clip, timeSec, pose, loop);
+        return pose;
+    }
+
+    void SampleClipInto(const Skeleton& skeleton, const AnimationClip& clip,
+                        const float timeSec, LocalPose& out, const bool loop)
+    {
+        RestLocalPoseInto(skeleton, out);
         const auto jointCount = skeleton.JointCount();
         if (jointCount == 0)
-            return pose;
+            return;
 
         const float time = wrapTime(timeSec, clip.duration, loop);
 
@@ -179,7 +194,7 @@ namespace FREYA_NAMESPACE
             if (ch.jointIndex >= jointCount)
                 continue;
 
-            JointTRS& j = pose.joints[ch.jointIndex];
+            JointTRS& j = out.joints[ch.jointIndex];
             if (!ch.translations.empty())
                 j.translation =
                     sampleKeys(ch.translations, time, j.translation, lerpVec);
@@ -189,7 +204,6 @@ namespace FREYA_NAMESPACE
             if (!ch.scales.empty())
                 j.scale = sampleKeys(ch.scales, time, j.scale, lerpVec);
         }
-        return pose;
     }
 
     LocalPose BlendLocalPoses(const LocalPose& a, const LocalPose& b,
@@ -695,12 +709,21 @@ namespace FREYA_NAMESPACE
     std::vector<glm::mat4> LocalToGlobal(const Skeleton&  skeleton,
                                          const LocalPose& local)
     {
-        const auto             n = skeleton.JointCount();
-        std::vector<glm::mat4> global(n, glm::mat4(1.f));
+        std::vector<glm::mat4> global;
+        LocalToGlobalInto(skeleton, local, global);
+        return global;
+    }
+
+    void LocalToGlobalInto(const Skeleton& skeleton, const LocalPose& local,
+                           std::vector<glm::mat4>& out)
+    {
+        const auto n = skeleton.JointCount();
+        out.assign(n, glm::mat4(1.f));
         // Joint indices follow mesh/anim discovery order, not hierarchy —
         // parents may have a higher index than children (Bulbasaur Head=0
         // parent Spine2=7). Compute parents before children explicitly.
-        std::vector<std::uint8_t>          done(n, 0);
+        thread_local std::vector<std::uint8_t> done;
+        done.assign(n, 0);
         std::function<void(std::uint32_t)> compute = [&](std::uint32_t i) {
             if (done[i])
                 return;
@@ -715,31 +738,37 @@ namespace FREYA_NAMESPACE
             if (parent >= 0 && static_cast<std::uint32_t>(parent) < n)
             {
                 compute(static_cast<std::uint32_t>(parent));
-                global[i] = global[static_cast<std::uint32_t>(parent)] *
-                            bridge * localM;
+                out[i] = out[static_cast<std::uint32_t>(parent)] * bridge *
+                         localM;
             }
             else
-                global[i] = bridge * localM;
+                out[i] = bridge * localM;
             done[i] = 1;
         };
         for (std::uint32_t i = 0; i < n; ++i)
             compute(i);
-        return global;
     }
 
     std::vector<glm::mat4> PoseToSkinMatrices(const Skeleton&  skeleton,
                                               const LocalPose& local)
     {
-        auto       global = LocalToGlobal(skeleton, local);
-        const auto n      = skeleton.JointCount();
+        std::vector<glm::mat4> skin;
+        PoseToSkinMatricesInto(skeleton, local, skin);
+        return skin;
+    }
+
+    void PoseToSkinMatricesInto(const Skeleton& skeleton, const LocalPose& local,
+                                std::vector<glm::mat4>& out)
+    {
+        LocalToGlobalInto(skeleton, local, out);
+        const auto n = skeleton.JointCount();
         for (std::uint32_t i = 0; i < n; ++i)
         {
             const glm::mat4 ib = i < skeleton.inverseBind.size()
                                      ? skeleton.inverseBind[i]
                                      : glm::mat4(1.f);
-            global[i]          = global[i] * ib;
+            out[i] = out[i] * ib;
         }
-        return global;
     }
 
     RootMotionDelta ExtractRootDelta(const Skeleton&      skeleton,

@@ -132,6 +132,7 @@ namespace FREYA_NAMESPACE
 
     /** Rest pose from skeleton.restLocal (decomposed). */
     LocalPose RestLocalPose(const Skeleton& skeleton);
+    void      RestLocalPoseInto(const Skeleton& skeleton, LocalPose& out);
 
     /**
      * @brief Sample clip into local TRS (looping when loop=true).
@@ -140,6 +141,8 @@ namespace FREYA_NAMESPACE
      */
     LocalPose SampleClip(const Skeleton& skeleton, const AnimationClip& clip,
                          float timeSec, bool loop = true);
+    void SampleClipInto(const Skeleton& skeleton, const AnimationClip& clip,
+                        float timeSec, LocalPose& out, bool loop = true);
 
     /** Nlerp / slerp blend of two local poses (t in [0,1]). */
     LocalPose BlendLocalPoses(const LocalPose& a, const LocalPose& b, float t);
@@ -227,10 +230,14 @@ namespace FREYA_NAMESPACE
     /** Local → global joint matrices. */
     std::vector<glm::mat4> LocalToGlobal(const Skeleton&  skeleton,
                                          const LocalPose& local);
+    void LocalToGlobalInto(const Skeleton& skeleton, const LocalPose& local,
+                           std::vector<glm::mat4>& out);
 
     /** Local → GPU skin matrices (global * inverseBind). */
     std::vector<glm::mat4> PoseToSkinMatrices(const Skeleton&  skeleton,
                                               const LocalPose& local);
+    void PoseToSkinMatricesInto(const Skeleton& skeleton, const LocalPose& local,
+                                std::vector<glm::mat4>& out);
 
     /**
      * @brief Delta of the first root joint (parent < 0) between t0 and t1.
