@@ -70,7 +70,7 @@ namespace FREYA_NAMESPACE
             fbExtent.y > 0 ? static_cast<float>(fbExtent.y) / mRefSize.y : 1.f;
         mScale         = std::min(sx, sy);
         mLogicalSize   = glm::vec2 { static_cast<float>(fbExtent.x) / mScale,
-                                     static_cast<float>(fbExtent.y) / mScale };
+                                   static_cast<float>(fbExtent.y) / mScale };
         mMouseLogicalX = mMouseX / mScale;
         mMouseLogicalY = mMouseY / mScale;
 
@@ -315,10 +315,21 @@ namespace FREYA_NAMESPACE
             mStyle.Var(UiVar::FocusRingWidth), mStyle.Color(UiCol::FocusRing));
     }
 
-    void UiContext::FeedMouseMove(float x, float y)
+    void UiContext::SetPointerFramebuffer(float x, float y)
     {
         mMouseX = x;
         mMouseY = y;
+
+        if (mScale > 0.f)
+        {
+            mMouseLogicalX = x / mScale;
+            mMouseLogicalY = y / mScale;
+        }
+    }
+
+    void UiContext::FeedMouseMove(float x, float y)
+    {
+        SetPointerFramebuffer(x, y);
     }
 
     void UiContext::FeedMouseButton(MouseButton button, bool down)

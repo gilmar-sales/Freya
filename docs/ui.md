@@ -7,9 +7,15 @@ debug tools). Use `Renderer::GetUiContext()` (main-thread widgets) and
 Drawn by the `ScreenUi` frame stage after `BillboardUi`, into the LDR
 swapchain / viewport.
 
+Pointer hit-tests use framebuffer pixel space (same as `Begin`'s
+`fbExtent`). When the host draws into an offscreen RT shown inside another
+UI (editor viewport), remap the cursor and call
+`SetPointerFramebuffer(fbX, fbY)` after `PumpEvents` / before `Begin`.
+
 ```cpp
 auto& ui = mRenderer->GetUiContext();
 ui.Style().font = &font; // FontAtlas from TexturePool
+// Optional: ui.SetPointerFramebuffer(fbX, fbY);
 ui.Begin(dt, { width, height });
 
 ui.BeginAnchor(fra::UiAnchor::TopLeft, { 24, 24 });

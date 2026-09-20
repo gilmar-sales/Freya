@@ -117,6 +117,61 @@ TEST_CASE("UiContext Button click via EventManager", "[ui]")
     ui.UnbindEvents(events);
 }
 
+TEST_CASE("UiContext SetPointerFramebuffer overrides window mouse", "[ui]")
+{
+    fra::UiDraw       draw;
+    fra::UiContext    ui(&draw);
+    fra::EventManager events;
+    ui.BindEvents(events);
+
+    ui.Begin(0.016f, { 1920, 1080 });
+    REQUIRE_FALSE(ui.Button("HitMe", { 120, 40 }));
+    const auto r = ui.LastItemRect();
+    ui.End();
+
+    // Window-space event lands far from the button (editor chrome).
+    MoveMouse(events, 10.f, 10.f);
+    events.Send(
+        fra::MouseButtonPressedEvent { .button = fra::MouseButton::Left });
+
+    // Host remaps into offscreen RT pixels before Begin.
+    ui.SetPointerFramebuffer(r.x + r.w * 0.5f, r.y + r.h * 0.5f);
+
+    ui.Begin(0.016f, { 1920, 1080 });
+    REQUIRE_FALSE(ui.Button("HitMe", { 120, 40 }));
+    ui.End();
+
+    events.Send(
+        fra::MouseButtonReleasedEvent { .button = fra::MouseButton::Left });
+
+    ui.SetPointerFramebuffer(r.x + r.w * 0.5f, r.y + r.h * 0.5f);
+    ui.Begin(0.016f, { 1920, 1080 });
+    REQUIRE(ui.Button("HitMe", { 120, 40 }));
+    ui.End();
+
+    ui.UnbindEvents(events);
+}
+
+TEST_CASE("UiContext SetPointerFramebuffer scales with framebuffer", "[ui]")
+{
+    fra::UiDraw    draw;
+    fra::UiContext ui(&draw);
+    ui.SetReferenceSize({ 1920.f, 1080.f });
+
+    // Half-res RT: logical button at (0,0)-(120,40) → FB (0,0)-(60,20).
+    ui.SetPointerFramebuffer(30.f, 10.f);
+    ui.Begin(0.016f, { 960, 540 });
+    REQUIRE_FALSE(ui.Button("Scaled", { 120, 40 }));
+    REQUIRE(ui.IsItemHovered());
+    ui.End();
+
+    ui.SetPointerFramebuffer(200.f, 200.f);
+    ui.Begin(0.016f, { 960, 540 });
+    REQUIRE_FALSE(ui.Button("Scaled", { 120, 40 }));
+    REQUIRE_FALSE(ui.IsItemHovered());
+    ui.End();
+}
+
 TEST_CASE("UiContext tooltip and popup do not steal grid cells", "[ui]")
 {
     fra::UiDraw       draw;

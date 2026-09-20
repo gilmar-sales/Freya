@@ -63,6 +63,15 @@ namespace FREYA_NAMESPACE
         void BindEvents(EventManager& events);
         void UnbindEvents(EventManager& events);
 
+        /**
+         * @brief Set the UI pointer in active framebuffer pixel space.
+         *
+         * Call after PumpEvents / before Begin when the host remaps window
+         * coords into an offscreen RT (e.g. editor gameplay viewport).
+         * Overrides the last MouseMoveEvent fed via BindEvents.
+         */
+        void SetPointerFramebuffer(float x, float y);
+
         // --- Layout ---
         void BeginAnchor(UiAnchor anchor, glm::vec2 offset = { 0.f, 0.f });
         void EndAnchor();
