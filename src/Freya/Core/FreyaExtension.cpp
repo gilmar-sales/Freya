@@ -67,7 +67,7 @@ namespace FREYA_NAMESPACE
                     serviceProvider.GetService<WindowConfigContext>();
                 if (!ctx->options)
                 {
-                    serviceProvider.GetService<skr::Logger<FreyaExtension>>()
+                    serviceProvider.GetService<skr::Logger<FreyaOptions>>()
                         ->LogFatal(
                             "WindowConfigContext must be seeded with "
                             "FreyaOptions before resolving FreyaOptions.");
