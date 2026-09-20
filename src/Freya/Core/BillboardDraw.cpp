@@ -42,6 +42,13 @@ namespace FREYA_NAMESPACE
         pushUnlocked(billboard);
     }
 
+    void BillboardDraw::Quads(const std::span<const Billboard> billboards)
+    {
+        SpinLockGuard lock(mLock);
+        for (const auto& b : billboards)
+            pushUnlocked(b);
+    }
+
     void BillboardDraw::HealthBar(const glm::vec3& headPos, const float width,
                                   const float height, const float fill01,
                                   const glm::vec4& bg, const glm::vec4& fg,

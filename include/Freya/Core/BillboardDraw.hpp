@@ -3,6 +3,7 @@
 #include "Freya/Core/SpinLock.hpp"
 
 #include <cstdint>
+#include <span>
 #include <string_view>
 #include <vector>
 
@@ -58,8 +59,8 @@ namespace FREYA_NAMESPACE
     /**
      * @brief Per-frame CPU billboard queue (cleared each BeginFrame).
      *
-     * Concurrent Quad/HealthBar/Text submits are safe (SpinLock). Readers
-     * must use Snapshot — never iterate the live queue.
+     * Concurrent Quad/Quads/HealthBar/Text submits are safe (SpinLock).
+     * Readers must use Snapshot — never iterate the live queue.
      */
     class BillboardDraw
     {
@@ -80,6 +81,11 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] std::uint32_t MaxQuads() const { return mMaxQuads; }
 
         void Quad(const Billboard& billboard);
+
+        /**
+         * @brief Append many quads under one lock (soft-capped at MaxQuads).
+         */
+        void Quads(std::span<const Billboard> billboards);
 
         /**
          * @brief Nameplate: background + left-aligned fill.

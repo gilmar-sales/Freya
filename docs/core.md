@@ -168,19 +168,21 @@ Apps that do not customize the frame graph can keep calling `EndFrame()`.
 ## BillboardDraw
 
 Per-frame queue of camera-facing quads (`Renderer::GetBillboardDraw()`).
-Cleared each `BeginFrame`. Use `Quad` for raw instances, or helpers:
+Cleared each `BeginFrame`. Use `Quad` / `Quads` for raw instances, or
+helpers:
 
 | Helper | Notes |
 |--------|-------|
+| `Quads(span)` | Batch append under one lock (used by `ParticleEmitter`) |
 | `HealthBar(pos, w, h, fill01, bg, fg, align = Cylindrical)` | Background + left-aligned fill; same clip/blend/layer path |
 | `Text(pos, utf8, font, height, color, …, align = Cylindrical)` | SDF glyphs via `FontAtlas` |
 
-**Thread-safety:** concurrent `Quad` / `HealthBar` / `Text` from worker
-threads is safe (`SpinLock`). `HealthBar` and `Text` hold one lock for the
-whole multi-quad submit so a snapshot never sees a half nameplate.
-Readers must use `Snapshot(out)` (copy under lock) — the Vfx/Ui frame
-stages do this before packing GPU instances. Do not iterate a live span
-across threads. Soft-capped at `MaxQuads()` (default `1 << 14`).
+**Thread-safety:** concurrent `Quad` / `Quads` / `HealthBar` / `Text` from
+worker threads is safe (`SpinLock`). `HealthBar`, `Text`, and `Quads` hold
+one lock for the whole multi-quad submit so a snapshot never sees a half
+nameplate or a partial particle batch. Readers must use `Snapshot(out)`
+(copy under lock) — the Vfx/Ui frame stages do this before packing GPU
+instances. Soft-capped at `MaxQuads()` (default `1 << 14`).
 
 `BillboardAlign::Screen` faces the camera fully; `Cylindrical` yaws only
 (same path as `Billboard::align` / `billboard.vert`). Call sites that omit
@@ -190,6 +192,20 @@ across threads. Soft-capped at `MaxQuads()` (default `1 << 14`).
 auto& bb = mRenderer->GetBillboardDraw();
 bb.HealthBar(head, 0.85f, 0.08f, hp, bg, fg); // cylindrical
 bb.HealthBar(head, 0.85f, 0.08f, hp, bg, fg, fra::BillboardAlign::Screen);
+```
+
+## ParticleEmitter
+
+CPU emitter that simulates live particles and pushes Vfx billboards via
+`BillboardDraw::Quads`.
+
+**Thread-safety:** `Tick` serializes per emitter (`SpinLock`) and is safe
+across different emitters sharing one `BillboardDraw`. Do not mutate public
+fields (`origin`, `spawnRate`, …) concurrently with `Tick` on the same
+instance.
+
+```cpp
+mFire.Tick(dt, mRenderer->GetBillboardDraw());
 ```
 
 ## Window

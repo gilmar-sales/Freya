@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Freya/Core/BillboardDraw.hpp"
+#include "Freya/Core/SpinLock.hpp"
 
 #include <cstdint>
 #include <random>
@@ -24,6 +25,10 @@ namespace FREYA_NAMESPACE
 
     /**
      * @brief CPU particle emitter that pushes additive/alpha billboards.
+     *
+     * `Tick` is thread-safe on the same instance (SpinLock) and across
+     * emitters sharing one BillboardDraw. Do not mutate public fields
+     * concurrently with Tick on the same emitter.
      */
     class ParticleEmitter
     {
@@ -47,6 +52,7 @@ namespace FREYA_NAMESPACE
         float                     mAccum = 0.f;
         std::vector<ParticleDesc> mLive;
         std::mt19937              mRng { 0xC0FFEEu };
+        mutable SpinLock          mLock;
     };
 
 } // namespace FREYA_NAMESPACE
