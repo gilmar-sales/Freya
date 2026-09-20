@@ -22,7 +22,6 @@ namespace FREYA_NAMESPACE
         glm::vec4 color1 { 1.f, 1.f, 1.f, 0.f };
     };
 
-    inline thread_local std::mt19937 ParticlesRandomEngine { 0xC0FFEEu };
     /**
      * @brief CPU particle emitter that pushes additive/alpha billboards.
      *

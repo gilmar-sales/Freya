@@ -5,6 +5,8 @@
 
 namespace FREYA_NAMESPACE
 {
+    thread_local std::mt19937 ParticlesRandomEngine { 0xC0FFEEu };
+
     void ParticleEmitter::Tick(const float dt, BillboardDraw& draw)
     {
         if (dt <= 0.f)
@@ -22,9 +24,10 @@ namespace FREYA_NAMESPACE
                 break;
             ParticleDesc p {};
             p.pos = origin;
-            p.vel =
-                velocity + glm::vec3(jitter(ParticlesRandomEngine), jitter(ParticlesRandomEngine), jitter(ParticlesRandomEngine)) *
-                               velocityJitter;
+            p.vel = velocity + glm::vec3(jitter(ParticlesRandomEngine),
+                                         jitter(ParticlesRandomEngine),
+                                         jitter(ParticlesRandomEngine)) *
+                                   velocityJitter;
             p.lifetime = lifetime;
             p.size0    = size0;
             p.size1    = size1;
