@@ -16,6 +16,7 @@
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Containers/SparseSet.hpp" // src/Freya/Containers (internal)
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/SpinLock.hpp"
 #include "Freya/Core/TransferCommandPool.hpp"
 
 #include <vulkan/vulkan.hpp>
@@ -33,6 +34,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<MaterialDescriptorResources> materialsRes;
         std::vector<skr::Arc<Buffer>>         stagingBuffers;
         SparseSet<Texture>                    textures { 4096 };
+        mutable SpinLock                      lock;
 
         skr::Arc<Buffer> queryStagingBuffer(std::uint32_t size);
         skr::Arc<Buffer> createStagingBuffer(std::uint32_t size);
@@ -93,7 +95,8 @@ namespace FREYA_NAMESPACE
         const void* pixels, std::uint32_t width, std::uint32_t height,
         std::uint32_t channels, std::uint32_t mipLevelCount)
     {
-        auto& i = *mImpl;
+        SpinLockGuard guard(mImpl->lock);
+        auto&         i = *mImpl;
         i.logger->LogTrace("TexturePool::CreateTextureFromMemory:");
         i.logger->LogTrace("\tSize: {}x{} channels={}", width, height,
                            channels);
@@ -137,11 +140,13 @@ namespace FREYA_NAMESPACE
         const auto sampler = i.device->Get().createSampler(samplerCreateInfo);
 
         const auto texture = Texture {
-            .image   = image,
-            .sampler = sampler,
-            .width   = width,
-            .height  = height,
-            .id      = static_cast<std::uint32_t>(i.textures.size()),
+            .image        = image,
+            .sampler      = sampler,
+            .width        = width,
+            .height       = height,
+            .id           = static_cast<std::uint32_t>(i.textures.size()),
+            .external     = false,
+            .externalView = {},
         };
 
         i.textures.insert(texture);
@@ -151,6 +156,68 @@ namespace FREYA_NAMESPACE
             texture.image->GetImageView(), texture.sampler);
 
         return TextureHandle { texture.id };
+    }
+
+    TextureHandle TexturePool::RegisterExternalImage(void*         imageView,
+                                                     void*         sampler,
+                                                     std::uint32_t width,
+                                                     std::uint32_t height)
+    {
+        SpinLockGuard guard(mImpl->lock);
+        auto&         i = *mImpl;
+        i.logger->Assert(imageView != nullptr && sampler != nullptr,
+                         "RegisterExternalImage null view/sampler");
+        i.logger->Assert(width > 0 && height > 0, "Invalid dimensions");
+
+        const auto view = static_cast<vk::ImageView>(
+            reinterpret_cast<VkImageView>(imageView));
+        const auto samp =
+            static_cast<vk::Sampler>(reinterpret_cast<VkSampler>(sampler));
+
+        const auto texture = Texture {
+            .image        = {},
+            .sampler      = samp,
+            .width        = width,
+            .height       = height,
+            .id           = static_cast<std::uint32_t>(i.textures.size()),
+            .external     = true,
+            .externalView = view,
+        };
+
+        i.textures.insert(texture);
+        i.materialsRes->WriteBindlessTexture(
+            MaterialDescriptorResources::TextureHeapIndex(texture.id), view,
+            samp);
+        i.logger->LogTrace("TexturePool::RegisterExternalImage id={} {}x{}",
+                           texture.id, width, height);
+        return TextureHandle { texture.id };
+    }
+
+    void TexturePool::UnregisterExternal(const TextureHandle id)
+    {
+        SpinLockGuard guard(mImpl->lock);
+        auto&         i = *mImpl;
+        if (!id.IsValid() || !i.textures.contains(id.Id()))
+            return;
+        auto& texture = i.textures[id.Id()];
+        if (!texture.external)
+            return;
+
+        i.materialsRes->WriteBindlessTexture(
+            MaterialDescriptorResources::TextureHeapIndex(id.Id()),
+            i.materialsRes->GetFallbackImageView(),
+            i.materialsRes->GetFallbackSampler());
+
+        i.textures.remove(Texture {
+            .image        = {},
+            .sampler      = {},
+            .width        = 0,
+            .height       = 0,
+            .id           = id.Id(),
+            .external     = true,
+            .externalView = {},
+        });
+        i.logger->LogTrace("TexturePool::UnregisterExternal id={}", id.Id());
     }
 
     skr::Arc<Buffer> TexturePool::Impl::queryStagingBuffer(std::uint32_t size)
@@ -180,35 +247,52 @@ namespace FREYA_NAMESPACE
 
     bool TexturePool::Contains(const TextureHandle id) const
     {
+        SpinLockGuard guard(mImpl->lock);
         return id.IsValid() && mImpl->textures.contains(id.Id());
     }
 
     void TexturePool::Destroy(const TextureHandle id)
     {
-        auto& i = *mImpl;
+        SpinLockGuard guard(mImpl->lock);
+        auto&         i = *mImpl;
         if (!id.IsValid() || !i.textures.contains(id.Id()))
             return;
 
         auto& texture = i.textures[id.Id()];
 
-        // Rewrite the bindless heap entry to the fallback texture first so any
-        // in-flight command buffer no longer references the view/sampler we are
-        // about to destroy, then wait for the GPU before freeing them.
         i.materialsRes->WriteBindlessTexture(
             MaterialDescriptorResources::TextureHeapIndex(id.Id()),
             i.materialsRes->GetFallbackImageView(),
             i.materialsRes->GetFallbackSampler());
+
+        if (texture.external)
+        {
+            i.textures.remove(Texture {
+                .image        = {},
+                .sampler      = {},
+                .width        = 0,
+                .height       = 0,
+                .id           = id.Id(),
+                .external     = true,
+                .externalView = {},
+            });
+            i.logger->LogTrace("TexturePool::Destroy external id={}", id.Id());
+            return;
+        }
+
         i.device->Get().waitIdle();
 
         texture.image.reset();
         i.device->Get().destroySampler(texture.sampler);
 
         i.textures.remove(Texture {
-            .image   = {},
-            .sampler = {},
-            .width   = 0,
-            .height  = 0,
-            .id      = id.Id(),
+            .image        = {},
+            .sampler      = {},
+            .width        = 0,
+            .height       = 0,
+            .id           = id.Id(),
+            .external     = false,
+            .externalView = {},
         });
         i.logger->LogTrace("TexturePool::Destroy id={}", id.Id());
     }

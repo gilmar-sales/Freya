@@ -35,16 +35,14 @@ namespace FREYA_NAMESPACE
         void FitContainCover(UiRect& dest, glm::vec4& uv, const UiRect& r,
                              const UiImageOpts& opts, const bool cover)
         {
-            dest = r;
-            uv   = opts.uvRect;
-            float srcW =
-                opts.sourceSize.x > 0.f
-                    ? opts.sourceSize.x
-                    : std::max(1e-5f, opts.uvRect.z - opts.uvRect.x);
-            float srcH =
-                opts.sourceSize.y > 0.f
-                    ? opts.sourceSize.y
-                    : std::max(1e-5f, opts.uvRect.w - opts.uvRect.y);
+            dest       = r;
+            uv         = opts.uvRect;
+            float srcW = opts.sourceSize.x > 0.f
+                             ? opts.sourceSize.x
+                             : std::max(1e-5f, opts.uvRect.z - opts.uvRect.x);
+            float srcH = opts.sourceSize.y > 0.f
+                             ? opts.sourceSize.y
+                             : std::max(1e-5f, opts.uvRect.w - opts.uvRect.y);
             const float srcAspect = srcW / srcH;
             const float dstAspect = r.w / std::max(r.h, 1e-5f);
 
@@ -97,14 +95,10 @@ namespace FREYA_NAMESPACE
             const float uS = u1 - u0;
             const float vS = v1 - v0;
 
-            const float mlPx =
-                std::clamp(opts.sliceMargins.x, 0.f, r.w * 0.5f);
-            const float mrPx =
-                std::clamp(opts.sliceMargins.y, 0.f, r.w * 0.5f);
-            const float mtPx =
-                std::clamp(opts.sliceMargins.z, 0.f, r.h * 0.5f);
-            const float mbPx =
-                std::clamp(opts.sliceMargins.w, 0.f, r.h * 0.5f);
+            const float mlPx = std::clamp(opts.sliceMargins.x, 0.f, r.w * 0.5f);
+            const float mrPx = std::clamp(opts.sliceMargins.y, 0.f, r.w * 0.5f);
+            const float mtPx = std::clamp(opts.sliceMargins.z, 0.f, r.h * 0.5f);
+            const float mbPx = std::clamp(opts.sliceMargins.w, 0.f, r.h * 0.5f);
 
             float uMl = 0.f;
             float uMr = 0.f;
@@ -164,13 +158,13 @@ namespace FREYA_NAMESPACE
                 const float h = std::min(tileH, r.y + r.h - y);
                 for (float x = r.x; x < r.x + r.w - 1e-4f; x += tileW)
                 {
-                    const float w  = std::min(tileW, r.x + r.w - x);
-                    const float u1 = opts.uvRect.x +
-                                     (opts.uvRect.z - opts.uvRect.x) *
-                                         (w / tileW);
-                    const float v1 = opts.uvRect.y +
-                                     (opts.uvRect.w - opts.uvRect.y) *
-                                         (h / tileH);
+                    const float w = std::min(tileW, r.x + r.w - x);
+                    const float u1 =
+                        opts.uvRect.x +
+                        (opts.uvRect.z - opts.uvRect.x) * (w / tileW);
+                    const float v1 =
+                        opts.uvRect.y +
+                        (opts.uvRect.w - opts.uvRect.y) * (h / tileH);
                     UiQuad q =
                         MakeBase({ x, y, w, h }, opts.tint, textureIndex);
                     q.uvRect = { opts.uvRect.x, opts.uvRect.y, u1, v1 };
@@ -267,9 +261,9 @@ namespace FREYA_NAMESPACE
         pushUnlocked(q);
     }
 
-    void UiDraw::pushImageUnlocked(const UiRect&        rect,
-                                   const std::uint32_t  textureIndex,
-                                   const UiImageOpts&   opts)
+    void UiDraw::pushImageUnlocked(const UiRect&       rect,
+                                   const std::uint32_t textureIndex,
+                                   const UiImageOpts&  opts)
     {
         if (rect.w <= 0.f || rect.h <= 0.f)
             return;
@@ -278,8 +272,7 @@ namespace FREYA_NAMESPACE
 
         switch (opts.fit)
         {
-            case UiImageFit::Contain:
-            {
+            case UiImageFit::Contain: {
                 UiRect    dest {};
                 glm::vec4 uv {};
                 FitContainCover(dest, uv, rect, opts, false);
@@ -289,8 +282,7 @@ namespace FREYA_NAMESPACE
                 EmitStretch(dest, textureIndex, local, push);
                 break;
             }
-            case UiImageFit::Cover:
-            {
+            case UiImageFit::Cover: {
                 UiRect    dest {};
                 glm::vec4 uv {};
                 FitContainCover(dest, uv, rect, opts, true);
@@ -333,7 +325,7 @@ namespace FREYA_NAMESPACE
         if (rect.w <= 0.f || rect.h <= 0.f)
             return;
 
-        const float fill = std::clamp(fill01, 0.f, 1.f);
+        const float fill  = std::clamp(fill01, 0.f, 1.f);
         UiQuad      plate = MakeBase(rect, bg, 0);
         if (rounding > 0.f)
         {

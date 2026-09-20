@@ -34,10 +34,12 @@
 #include "Freya/Core/TranslucentPass.hpp"
 #include "Freya/Core/UiContext.hpp"
 #include "Freya/Core/UiDraw.hpp"
+#include "Freya/Core/UiModelPreview.hpp"
 #include "Freya/Core/UiPass.hpp"
 #include "Freya/Events/EventManager.hpp"
 
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <string>
@@ -46,6 +48,7 @@
 namespace FREYA_NAMESPACE
 {
     class Buffer;
+    class UiModelPreview;
 
     struct DrawCommand
     {
@@ -190,6 +193,9 @@ namespace FREYA_NAMESPACE
 
         void SetAmbient(const glm::vec3& color, float intensity);
 
+        void AddModelPreview(UiModelPreview* preview);
+        void RemoveModelPreview(UiModelPreview* preview);
+
         void RebuildGpuAnimPass();
 
         bool ReadbackGpuAnimBones(std::uint32_t frameIndex,
@@ -307,7 +313,7 @@ namespace FREYA_NAMESPACE
         BillboardDraw                    mBillboardDraw;
         UiDraw                           mUiDraw;
         UiContext                        mUiContext { &mUiDraw };
-        float                            mUiLogicalScale = 1.f;
+        float                            mUiLogicalScale   = 1.f;
         bool                             mDebugDrawEnabled = false;
         bool                             mTextInputActive  = false;
         UiMouseCursor                    mSystemCursor = UiMouseCursor::Arrow;
@@ -348,6 +354,9 @@ namespace FREYA_NAMESPACE
         bool                             mUsedUploadApi = false;
 
         std::vector<FrameStagePtr> mFrameStages;
+
+        std::mutex                   mModelPreviewMutex;
+        std::vector<UiModelPreview*> mModelPreviews;
 
         vk::QueryPool              mFrameTimestampPool     = nullptr;
         float                      mFrameTimestampPeriodNs = 0.f;

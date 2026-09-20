@@ -25,10 +25,49 @@ if (ui.BeginModal("pause", { 480, 320 })) {
 ui.End();
 ```
 
-**Thread-safety:** `UiDraw::Rect` / `Image` / `Text` / `ProgressBar` /
-`CooldownRadial` may run from workers between `BeginFrame` and `EndScene`.
-Interactive widgets on `UiContext` are main-thread only.
-`WantCaptureMouse` / `WantTextInput` gate camera / IME.
+## 3D model preview (`UiModelPreview`)
 
-See the **GameUiDemo** example for inventory, dialogue, chat, and ability
-bar (radial cooldown) recipes.
+Embed a deferred + shadows (+ skinned) panel without
+`SetViewportTarget` (that path redirects the whole scene for ImGui).
+
+1. Create `fra::UiModelPreview(windowServices, *texturePool, {512,512})`.
+2. Fill `PreviewScene()` (skinned instances use `boneOffset` /
+   `UploadBoneMatrices` on the shared `BoneMatrixResources`).
+3. `renderer->AddModelPreview(preview)` — `ModelPreviewFrameStage` runs
+   **before** `ScreenUi`.
+4. Live sample: `ui.ModelPreview(id, preview->Texture(), size, preview)`.
+5. Static HUD photo: `preview->CaptureSnapshot(*pool, {96,96})` →
+   owned `TextureHandle` (survives after removing the preview).
+
+Generic static textures still use `CreateTextureFromFile` /
+`CreateTextureFromMemory`.
+
+Orbit (`UiModelPreviewOrbit`): drag button, sensitivity, yaw/pitch
+clamps, distance, optional `autoRotate`. `FeedMouse*` / `SetOrbit` are
+UI-thread; `Record` is render-thread only.
+
+**Cost:** each preview owns a mini deferred/shadow/composite stack.
+Prefer one paper-doll; N stacks scale linearly. SSAO/TAA/Bloom are not
+enabled on the preview path.
+
+### Thread-safety contract
+
+| Surface | Rule |
+|---------|------|
+| `UiDraw::Image` (live or snapshot handle) | SpinLock; workers OK between `BeginFrame` and `EndScene` |
+| `TexturePool::RegisterExternal` / `Unregister` / snapshot create | Same pool lock as `CreateTextureFromMemory`; do not race `Destroy` on the same id |
+| `UiModelPreview::Record` | Frame stage / render thread only |
+| Orbit / `FeedMouse*` / `SetOrbit` | Main (UI) thread; yaw/pitch read atomically in `Record` |
+| `UiContext::ModelPreview` | Main-thread only |
+| `CaptureSnapshot` | Main/render thread after ≥1 `Record`; GPU copy finishes before the handle is used (or use next frame) |
+| `AddModelPreview` / `Remove` | Mutate outside `Execute` (e.g. startup / shutdown) |
+
+## Thread-safety (widgets)
+
+`UiDraw::Rect` / `Image` / `Text` / `ProgressBar` / `CooldownRadial` may
+run from workers between `BeginFrame` and `EndScene`. Interactive
+widgets on `UiContext` are main-thread only. `WantCaptureMouse` /
+`WantTextInput` gate camera / IME.
+
+See **GameUiDemo** for inventory paper-doll, HUD portrait snapshot,
+dialogue, chat, and ability bar (radial cooldown) recipes.

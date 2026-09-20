@@ -113,18 +113,18 @@ namespace FREYA_NAMESPACE
 
     struct UiImageOpts
     {
-        glm::vec4   uvRect { 0.f, 0.f, 1.f, 1.f };
-        glm::vec4   tint { 1.f };
-        UiImageFit  fit = UiImageFit::Stretch;
-        float       rounding = 0.f;
-        glm::vec4   sliceMargins { 8.f, 8.f, 8.f, 8.f }; // L R T B px
-        glm::vec2   sourceSize { 0.f }; // for Contain/Cover; 0 = use uv
+        glm::vec4  uvRect { 0.f, 0.f, 1.f, 1.f };
+        glm::vec4  tint { 1.f };
+        UiImageFit fit      = UiImageFit::Stretch;
+        float      rounding = 0.f;
+        glm::vec4  sliceMargins { 8.f, 8.f, 8.f, 8.f }; // L R T B px
+        glm::vec2  sourceSize { 0.f }; // for Contain/Cover; 0 = use uv
     };
 
     struct UiPanelOpts
     {
         TextureHandle bg {};
-        UiImageFit    fit  = UiImageFit::Slice;
+        UiImageFit    fit = UiImageFit::Slice;
         glm::vec4     tint { 1.f };
         bool          modalDim = false;
     };

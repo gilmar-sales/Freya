@@ -301,6 +301,16 @@ namespace FREYA_NAMESPACE
         return mImpl->mUiContext;
     }
 
+    void Renderer::AddModelPreview(UiModelPreview* preview)
+    {
+        mImpl->AddModelPreview(preview);
+    }
+
+    void Renderer::RemoveModelPreview(UiModelPreview* preview)
+    {
+        mImpl->RemoveModelPreview(preview);
+    }
+
     bool Renderer::PollFrameGpuTiming(FrameGpuTimingSample& out)
     {
         return mImpl->PollFrameGpuTiming(out);

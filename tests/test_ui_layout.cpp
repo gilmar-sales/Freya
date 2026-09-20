@@ -19,22 +19,24 @@ namespace
 {
     void MoveMouse(fra::EventManager& events, float x, float y)
     {
-        events.Send(fra::MouseMoveEvent {
-            .x = x, .y = y, .deltaX = 0.f, .deltaY = 0.f });
+        events.Send(fra::MouseMoveEvent { .x      = x,
+                                          .y      = y,
+                                          .deltaX = 0.f,
+                                          .deltaY = 0.f });
     }
 
     void ClickLeft(fra::EventManager& events)
     {
-        events.Send(fra::MouseButtonPressedEvent {
-            .button = fra::MouseButton::Left });
-        events.Send(fra::MouseButtonReleasedEvent {
-            .button = fra::MouseButton::Left });
+        events.Send(
+            fra::MouseButtonPressedEvent { .button = fra::MouseButton::Left });
+        events.Send(
+            fra::MouseButtonReleasedEvent { .button = fra::MouseButton::Left });
     }
 
     void ClickRight(fra::EventManager& events)
     {
-        events.Send(fra::MouseButtonPressedEvent {
-            .button = fra::MouseButton::Right });
+        events.Send(
+            fra::MouseButtonPressedEvent { .button = fra::MouseButton::Right });
         events.Send(fra::MouseButtonReleasedEvent {
             .button = fra::MouseButton::Right });
     }
@@ -97,7 +99,8 @@ TEST_CASE("UiContext Button click via EventManager", "[ui]")
     ui.End();
 
     MoveMouse(events, r.x + r.w * 0.5f, r.y + r.h * 0.5f);
-    events.Send(fra::MouseButtonPressedEvent { .button = fra::MouseButton::Left });
+    events.Send(
+        fra::MouseButtonPressedEvent { .button = fra::MouseButton::Left });
 
     ui.Begin(0.016f, { 1920, 1080 });
     REQUIRE_FALSE(ui.Button("HitMe", { 120, 40 })); // press arms active
@@ -204,7 +207,8 @@ TEST_CASE("UiContext TextInput focus submit and WantTextInput", "[ui]")
     REQUIRE_FALSE(ui.WantTextInput());
 
     MoveMouse(events, r.Center().x, r.Center().y);
-    events.Send(fra::MouseButtonPressedEvent { .button = fra::MouseButton::Left });
+    events.Send(
+        fra::MouseButtonPressedEvent { .button = fra::MouseButton::Left });
 
     ui.Begin(0.016f, { 1920, 1080 });
     REQUIRE_FALSE(ui.TextInput("chat", buffer, 64, { 200, 32 }));
@@ -244,7 +248,7 @@ TEST_CASE("UiContext checkbox and slider mutate values", "[ui]")
     fra::EventManager events;
     ui.BindEvents(events);
 
-    bool  flag = false;
+    bool  flag  = false;
     float value = 0.25f;
 
     ui.Begin(0.016f, { 1920, 1080 });
@@ -264,7 +268,8 @@ TEST_CASE("UiContext checkbox and slider mutate values", "[ui]")
 
     // Drag slider grab toward the right edge.
     MoveMouse(events, sliderR.x + sliderR.w * 0.9f, sliderR.Center().y);
-    events.Send(fra::MouseButtonPressedEvent { .button = fra::MouseButton::Left });
+    events.Send(
+        fra::MouseButtonPressedEvent { .button = fra::MouseButton::Left });
     ui.Begin(0.016f, { 1920, 1080 });
     ui.Checkbox("Toggle", &flag);
     ui.SliderFloat("Amt", &value, 0.f, 1.f, { 200, 24 });
@@ -276,7 +281,8 @@ TEST_CASE("UiContext checkbox and slider mutate values", "[ui]")
     ui.UnbindEvents(events);
 }
 
-TEST_CASE("UiContext workers can fill UiDraw while context draws", "[ui][thread]")
+TEST_CASE("UiContext workers can fill UiDraw while context draws",
+          "[ui][thread]")
 {
     // Contract: UiDraw is the thread-safe queue; UiContext is main-thread.
     // Workers may push Rect/Image concurrently with main-thread widgets.
@@ -284,16 +290,14 @@ TEST_CASE("UiContext workers can fill UiDraw while context draws", "[ui][thread]
     fra::UiContext ui(&draw);
 
     std::atomic<bool> stop { false };
-    std::thread worker(
-        [&]
+    std::thread       worker([&] {
+        int i = 0;
+        while (!stop.load(std::memory_order_relaxed))
         {
-            int i = 0;
-            while (!stop.load(std::memory_order_relaxed))
-            {
-                draw.Rect({ static_cast<float>(i++ % 50), 200.f, 4.f, 4.f },
-                          { 0.4f, 0.6f, 0.9f, 1.f });
-            }
-        });
+            draw.Rect({ static_cast<float>(i++ % 50), 200.f, 4.f, 4.f },
+                      { 0.4f, 0.6f, 0.9f, 1.f });
+        }
+    });
 
     for (int frame = 0; frame < 40; ++frame)
     {

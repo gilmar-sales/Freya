@@ -4,8 +4,8 @@
 #include "Freya/Core/UiStyle.hpp"
 #include "Freya/Core/UiTypes.hpp"
 #include "Freya/Events/EventManager.hpp"
-#include "Freya/Events/Keyboard.hpp"
 #include "Freya/Events/KeyCode.hpp"
+#include "Freya/Events/Keyboard.hpp"
 #include "Freya/Events/Mouse.hpp"
 
 #include <cstdint>
@@ -18,6 +18,8 @@
 
 namespace FREYA_NAMESPACE
 {
+    class UiModelPreview;
+
     /**
      * @brief Immediate-mode game UI (main-thread). Draws into an owned or
      * shared UiDraw queue; interaction state is retained by UiId.
@@ -27,7 +29,7 @@ namespace FREYA_NAMESPACE
       public:
         explicit UiContext(UiDraw* draw = nullptr);
 
-        void SetDraw(UiDraw* draw) { mDraw = draw; }
+        void                  SetDraw(UiDraw* draw) { mDraw = draw; }
         [[nodiscard]] UiDraw* GetDraw() const { return mDraw; }
 
         UiStyle&       Style() { return mStyle; }
@@ -49,7 +51,7 @@ namespace FREYA_NAMESPACE
         void SetReferenceSize(glm::vec2 logical) { mRefSize = logical; }
         void SetSafeArea(UiRect insets) { mSafeArea = insets; }
 
-        [[nodiscard]] float Scale() const { return mScale; }
+        [[nodiscard]] float     Scale() const { return mScale; }
         [[nodiscard]] glm::vec2 LogicalSize() const { return mLogicalSize; }
 
         [[nodiscard]] bool WantCaptureMouse() const { return mWantMouse; }
@@ -68,13 +70,23 @@ namespace FREYA_NAMESPACE
         void PopParent();
         [[nodiscard]] UiRect CurrentParent() const;
 
-        void Background(TextureHandle texture,
-                        UiImageFit    fit = UiImageFit::Cover,
+        void Background(TextureHandle    texture,
+                        UiImageFit       fit  = UiImageFit::Cover,
                         const glm::vec4& tint = { 1.f, 1.f, 1.f, 1.f });
         void Image(TextureHandle texture, glm::vec2 size,
                    const UiImageOpts& opts = {});
         void Image(TextureHandle texture, const UiRect& rect,
                    const UiImageOpts& opts = {});
+
+        /**
+         * @brief Draw a live/static model preview texture with optional orbit.
+         *
+         * When @p orbitTarget is non-null and Orbit().enabled, drag on the
+         * widget drives FeedMouse*; SetFrameDelta(mDt) is applied each call.
+         */
+        void ModelPreview(std::string_view id, TextureHandle texture,
+                          glm::vec2       size,
+                          UiModelPreview* orbitTarget = nullptr);
 
         bool BeginPanel(std::string_view id, glm::vec2 size,
                         const UiPanelOpts& opts = {});
@@ -152,9 +164,9 @@ namespace FREYA_NAMESPACE
         void NextColumn();
         void EndColumns();
 
-        [[nodiscard]] bool IsItemHovered() const { return mLastHovered; }
-        [[nodiscard]] bool IsItemActive() const { return mLastActive; }
-        [[nodiscard]] bool IsItemClicked() const { return mLastClicked; }
+        [[nodiscard]] bool   IsItemHovered() const { return mLastHovered; }
+        [[nodiscard]] bool   IsItemActive() const { return mLastActive; }
+        [[nodiscard]] bool   IsItemClicked() const { return mLastClicked; }
         [[nodiscard]] UiRect LastItemRect() const { return mLastRect; }
 
       private:
@@ -194,43 +206,43 @@ namespace FREYA_NAMESPACE
         };
         struct DragPayload
         {
-            std::string    type;
-            std::uint64_t  value   = 0;
-            bool           active  = false;
-            TextureHandle  preview {};
+            std::string   type;
+            std::uint64_t value  = 0;
+            bool          active = false;
+            TextureHandle preview {};
         };
 
-        [[nodiscard]] UiId HashId(std::string_view id) const;
-        [[nodiscard]] UiId HashId(std::string_view id, int index) const;
-        WidgetState&       State(UiId id);
-        void               AdvanceCursor(glm::vec2 size);
+        [[nodiscard]] UiId   HashId(std::string_view id) const;
+        [[nodiscard]] UiId   HashId(std::string_view id, int index) const;
+        WidgetState&         State(UiId id);
+        void                 AdvanceCursor(glm::vec2 size);
         [[nodiscard]] UiRect Place(glm::vec2 size);
-        void DrawFocusRing(const UiRect& r);
-        bool Hit(const UiRect& r) const;
-        void RegisterFocusable(UiId id, const UiRect& r);
-        void FeedMouseMove(float x, float y);
-        void FeedMouseButton(MouseButton button, bool down);
-        void FeedKey(KeyCode key, bool down);
-        void FeedText(std::string_view text);
-        void FeedScroll(float dy);
-        void ProcessNav();
+        void                 DrawFocusRing(const UiRect& r);
+        bool                 Hit(const UiRect& r) const;
+        void                 RegisterFocusable(UiId id, const UiRect& r);
+        void                 FeedMouseMove(float x, float y);
+        void                 FeedMouseButton(MouseButton button, bool down);
+        void                 FeedKey(KeyCode key, bool down);
+        void                 FeedText(std::string_view text);
+        void                 FeedScroll(float dy);
+        void                 ProcessNav();
 
-        UiDraw* mDraw = nullptr;
+        UiDraw* mDraw  = nullptr;
         UiStyle mStyle = UiStyle::Default();
 
         std::vector<StyleColorMod> mColorStack;
         std::vector<StyleVarMod>   mVarStack;
         std::vector<ParentFrame>   mParents;
 
-        glm::vec2 mRefSize { 1920.f, 1080.f };
-        glm::vec2 mLogicalSize { 1920.f, 1080.f };
+        glm::vec2  mRefSize { 1920.f, 1080.f };
+        glm::vec2  mLogicalSize { 1920.f, 1080.f };
         glm::uvec2 mFbExtent { 1, 1 };
-        float     mScale    = 1.f;
-        float     mDt       = 0.f;
-        UiRect    mSafeArea {};
+        float      mScale = 1.f;
+        float      mDt    = 0.f;
+        UiRect     mSafeArea {};
 
-        float mMouseX = 0.f;
-        float mMouseY = 0.f;
+        float mMouseX        = 0.f;
+        float mMouseY        = 0.f;
         float mMouseLogicalX = 0.f;
         float mMouseLogicalY = 0.f;
         bool  mMouseDown[8] {};
@@ -238,26 +250,26 @@ namespace FREYA_NAMESPACE
         bool  mMouseReleased[8] {};
         float mWheel = 0.f;
 
-        bool mWantMouse     = false;
-        bool mWantKeyboard  = false;
-        bool mWantGamepad   = false;
-        bool mWantTextInput = false;
-        UiMouseCursor mMouseCursor = UiMouseCursor::Arrow;
+        bool          mWantMouse     = false;
+        bool          mWantKeyboard  = false;
+        bool          mWantGamepad   = false;
+        bool          mWantTextInput = false;
+        UiMouseCursor mMouseCursor   = UiMouseCursor::Arrow;
 
         bool   mLastHovered = false;
         bool   mLastActive  = false;
         bool   mLastClicked = false;
         UiRect mLastRect {};
-        UiId   mLastId = 0;
-        UiId   mHotId  = 0;
-        UiId   mActiveId = 0;
-        UiId   mFocusId  = 0;
-        UiId   mTextInputId = 0;
-        bool   mTextSubmit  = false;
+        UiId   mLastId             = 0;
+        UiId   mHotId              = 0;
+        UiId   mActiveId           = 0;
+        UiId   mFocusId            = 0;
+        UiId   mTextInputId        = 0;
+        bool   mTextSubmit         = false;
         UiId   mPendingTextFocusId = 0;
         bool   mPendingTextFocus   = false;
 
-        int  mModalLayer = 0;
+        int  mModalLayer    = 0;
         bool mCloseTopModal = false;
 
         std::unordered_map<UiId, WidgetState> mStates;
@@ -271,7 +283,7 @@ namespace FREYA_NAMESPACE
         {
             int       cols = 1;
             glm::vec2 cell { 64.f };
-            float     gap  = 4.f;
+            float     gap   = 4.f;
             int       index = 0;
             UiRect    area {};
         };
@@ -279,10 +291,10 @@ namespace FREYA_NAMESPACE
 
         struct ListCtx
         {
-            int   firstVisible = 0;
-            int   visibleCount = 0;
-            float itemHeight   = 28.f;
-            int   itemCount    = 0;
+            int    firstVisible = 0;
+            int    visibleCount = 0;
+            float  itemHeight   = 28.f;
+            int    itemCount    = 0;
             UiRect area {};
         };
         std::vector<ListCtx> mLists;
@@ -297,9 +309,9 @@ namespace FREYA_NAMESPACE
 
         struct ColCtx
         {
-            int   count = 1;
-            int   index = 0;
-            float widths[8] {};
+            int    count = 1;
+            int    index = 0;
+            float  widths[8] {};
             UiRect area {};
             float  startY = 0.f;
         };
@@ -313,10 +325,10 @@ namespace FREYA_NAMESPACE
         };
         std::vector<ScrollCtx> mScrolls;
 
-        bool mInTooltip    = false;
-        bool mPopupOpen    = false;
-        UiId mPopupId      = 0;
-        int  mOverlayDepth = 0;
+        bool mInTooltip     = false;
+        bool mPopupOpen     = false;
+        UiId mPopupId       = 0;
+        int  mOverlayDepth  = 0;
         bool mTextInputSeen = false;
     };
 

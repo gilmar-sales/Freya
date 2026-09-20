@@ -77,10 +77,8 @@ namespace FREYA_NAMESPACE
                     continue;
                 const auto typeIndex =
                     static_cast<std::uint32_t>(lights[n].type);
-                const bool typeOn =
-                    typeIndex < 4u && typeEnabled[typeIndex];
-                const float intensity =
-                    typeOn ? lights[n].intensity : 0.0f;
+                const bool  typeOn = typeIndex < 4u && typeEnabled[typeIndex];
+                const float intensity = typeOn ? lights[n].intensity : 0.0f;
                 data.lightPositions[packed] = glm::vec4(
                     lights[n].position, static_cast<float>(lights[n].type));
                 data.lightColorsAndRadius[packed] =
@@ -89,9 +87,8 @@ namespace FREYA_NAMESPACE
                     glm::vec4(lights[n].direction, lights[n].innerCutoff);
                 data.lightOuterCutoffAndIntensity[packed] = glm::vec4(
                     lights[n].outerCutoff, intensity, lights[n].halfHeight,
-                    (typeOn && shadowsEnabled && lights[n].castShadows)
-                        ? 1.0f
-                        : 0.0f);
+                    (typeOn && shadowsEnabled && lights[n].castShadows) ? 1.0f
+                                                                        : 0.0f);
                 data.lightAreaTangents[packed] =
                     glm::vec4(lights[n].tangent, 0.0f);
                 ++packed;

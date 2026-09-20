@@ -91,8 +91,7 @@ namespace FREYA_NAMESPACE
                 continue;
 
             const float adv = g->advance * heightPx;
-            if (wrapW > 0.f && penX > 0.f && penX + adv > wrapW &&
-                !IsSpace(cp))
+            if (wrapW > 0.f && penX > 0.f && penX + adv > wrapW && !IsSpace(cp))
             {
                 penX = 0.f;
                 penY += lineHeight;

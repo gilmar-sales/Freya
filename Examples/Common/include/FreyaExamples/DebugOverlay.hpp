@@ -96,6 +96,7 @@ namespace FreyaExamples
         void releaseViewportTexture();
         void ensureViewportTexture(void* sampler, void* imageView);
         bool reinitVulkanBackend(fra::Renderer& renderer);
+        void rebindImGuiIfSwapchainChanged();
         void applyPendingSwapchainChanges();
         void pollCullFrameDump(fra::Renderer& renderer);
 
@@ -108,6 +109,8 @@ namespace FreyaExamples
         void*           mDevice         = nullptr; ///< VkDevice (for shutdown)
         void*           mViewportSet    = nullptr; ///< VkDescriptorSet
         void*           mViewportView   = nullptr; ///< VkImageView cached key
+        void*           mBoundRenderPass = nullptr; ///< VkRenderPass ImGui uses
+        std::uint32_t   mBoundImageCount = 0;
 
         bool mPendingVSync      = false;
         bool mPendingVSyncValue = false;

@@ -200,7 +200,7 @@ namespace FREYA_NAMESPACE
         glm::mat4     mLastCameraView { 0.0f };
         glm::mat4     mLastCameraProj { 0.0f };
         glm::vec3     mLastSunDir { 0.0f };
-        bool          mHasLastCascadeMotion = false;
+        bool          mHasLastCascadeMotion   = false;
         bool          mCommittedCascadesValid = false;
         glm::mat4     mCommittedCascadeViewProj[MAX_SHADOW_CASCADES] {};
         glm::vec4     mCommittedCascadeSplits {};

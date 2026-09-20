@@ -36,11 +36,13 @@ namespace FREYA_NAMESPACE
                vk::DescriptorSetLayout                      setLayout,
                vk::DescriptorPool                           descriptorPool,
                const std::vector<vk::DescriptorSet>&        instanceSets,
-               std::vector<skr::Arc<Buffer>>                instanceBuffers,
-               vk::Pipeline                                 swapchainPipeline,
-               vk::Pipeline                                 offscreenPipeline,
-               std::vector<vk::Framebuffer>                 framebuffers,
-               std::uint32_t                                maxQuads);
+               std::vector<skr::Arc<Buffer>>
+                            instanceBuffers,
+               vk::Pipeline swapchainPipeline,
+               vk::Pipeline offscreenPipeline,
+               std::vector<vk::Framebuffer>
+                             framebuffers,
+               std::uint32_t maxQuads);
 
         ~UiPass();
 
@@ -59,7 +61,7 @@ namespace FREYA_NAMESPACE
          *               scaled by the caller).
          */
         void Draw(const skr::Arc<CommandPool>& commandPool,
-                  const skr::Arc<SwapChain>&   swapChain, UiDraw& source,
+                  const skr::Arc<SwapChain>& swapChain, UiDraw& source,
                   vk::Extent2D extent, float logicalScale = 1.f) const;
 
       private:

@@ -1,5 +1,7 @@
 #include "DeferredCompressedPass.hpp"
 
+#include <algorithm>
+
 #include <glm/gtc/matrix_inverse.hpp>
 
 namespace FREYA_NAMESPACE
@@ -131,11 +133,19 @@ namespace FREYA_NAMESPACE
 
         const auto imageIndex = swapChain->GetCurrentImageIndex();
         const auto frameIndex = swapChain->GetCurrentFrameIndex();
+        // Offscreen / stale preview passes may have fewer framebuffers than
+        // the current swapchain image count after a resize.
+        const auto fbIndex =
+            !mFramebuffers.empty()
+                ? std::min(imageIndex,
+                           static_cast<std::uint32_t>(mFramebuffers.size() -
+                                                      1u))
+                : 0u;
 
         commandBuffer.beginRenderPass(
             vk::RenderPassBeginInfo()
                 .setRenderPass(mRenderPass)
-                .setFramebuffer(mFramebuffers[imageIndex])
+                .setFramebuffer(mFramebuffers[fbIndex])
                 .setRenderArea(
                     vk::Rect2D().setOffset({ 0, 0 }).setExtent(mExtent))
                 .setClearValues(clearValues),

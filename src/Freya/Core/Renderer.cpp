@@ -280,26 +280,21 @@ namespace FREYA_NAMESPACE
     {
         mDevice->Get().waitIdle();
 
-        // Capture before reset: panel-sized offscreen targets must stay put.
-        // Only fullscreen trackers (extent == prior swapchain, e.g.
-        // DebugOverlay) follow the new drawable size.
-        const vk::Extent2D previousSwapchainExtent =
-            mSwapChain ? mSwapChain->GetExtent() : vk::Extent2D {};
-
         mSwapChain.reset();
         mSwapChain = mServiceProvider->GetService<SwapChainBuilder>()->Build();
 
         createFrameTimestampPool();
 
+        // DebugOverlay / ImGui path uses SetViewportTarget as the fullscreen
+        // output. Always match the new drawable size — the previous
+        // "was tracking swapchain" heuristic could leave the RT stuck at
+        // the old extent so the world and ScreenUi never resized.
         if (mViewportTarget)
         {
             const auto extent = mSwapChain->GetExtent();
             const auto cur =
                 mOutputTarget ? mOutputTarget->GetExtent() : vk::Extent2D {};
-            const bool wasTrackingSwapchain =
-                cur.width == previousSwapchainExtent.width &&
-                cur.height == previousSwapchainExtent.height;
-            if (wasTrackingSwapchain &&
+            if (extent.width > 0 && extent.height > 0 &&
                 (cur.width != extent.width || cur.height != extent.height))
             {
                 auto target =
@@ -379,6 +374,7 @@ namespace FREYA_NAMESPACE
             std::make_shared<BloomFrameStage>(),
             std::make_shared<CompositeFrameStage>(),
             std::make_shared<BillboardUiFrameStage>(),
+            std::make_shared<ModelPreviewFrameStage>(),
             std::make_shared<ScreenUiFrameStage>(),
             std::make_shared<DebugDrawFrameStage>(),
         };
@@ -534,6 +530,20 @@ namespace FREYA_NAMESPACE
                                        mCurrentProjection.view;
             mDebugDrawPass->Draw(mSwapChain, mCommandPool,
                                  mDebugDraw.Vertices(), viewProj);
+        };
+        ctx.recordModelPreviews = [this]() {
+            std::vector<UiModelPreview*> copy;
+            {
+                std::lock_guard lock(mModelPreviewMutex);
+                copy = mModelPreviews;
+            }
+            for (UiModelPreview* preview : copy)
+            {
+                if (!preview)
+                    continue;
+                preview->Record(mCommandPool, mSwapChain,
+                                mSwapChain->GetCurrentFrameIndex());
+            }
         };
         return ctx;
     }
@@ -1118,6 +1128,27 @@ namespace FREYA_NAMESPACE
             mDeferredPass->UpdateProjection(
                 prepareDeferredProjection(mCurrentProjection), frameIndex);
         }
+    }
+
+    void Renderer::Impl::AddModelPreview(UiModelPreview* preview)
+    {
+        if (!preview)
+            return;
+        std::lock_guard lock(mModelPreviewMutex);
+        if (std::find(mModelPreviews.begin(), mModelPreviews.end(), preview) !=
+            mModelPreviews.end())
+            return;
+        mModelPreviews.push_back(preview);
+    }
+
+    void Renderer::Impl::RemoveModelPreview(UiModelPreview* preview)
+    {
+        if (!preview)
+            return;
+        std::lock_guard lock(mModelPreviewMutex);
+        mModelPreviews.erase(
+            std::remove(mModelPreviews.begin(), mModelPreviews.end(), preview),
+            mModelPreviews.end());
     }
 
     void Renderer::Impl::blitBloomToFullRes(
@@ -1724,10 +1755,18 @@ namespace FREYA_NAMESPACE
 
         if (mResizeEvent.has_value())
         {
-            mFreyaOptions->width  = mResizeEvent->width;
-            mFreyaOptions->height = mResizeEvent->height;
-            RebuildSwapChain();
+            const auto newW = mResizeEvent->width;
+            const auto newH = mResizeEvent->height;
+            mFreyaOptions->width  = newW;
+            mFreyaOptions->height = newH;
             mResizeEvent.reset();
+
+            // SDL often emits a same-size resize on the first frame; rebuilding
+            // every pass (shader reload + full-res images) stalls for seconds.
+            const auto cur = mSwapChain ? mSwapChain->GetExtent()
+                                        : vk::Extent2D {};
+            if (cur.width != newW || cur.height != newH)
+                RebuildSwapChain();
         }
 
         auto swapChainFrame = mSwapChain->GetNextFrame();
@@ -1793,7 +1832,7 @@ namespace FREYA_NAMESPACE
             }
         }
 
-        mUiLogicalScale = mUiContext.Scale();
+        mUiLogicalScale          = mUiContext.Scale();
         auto       ctx           = makeFrameContext();
         const auto commandBuffer = mCommandPool->GetCommandBuffer();
         const auto frameIndex    = mSwapChain->GetCurrentFrameIndex();

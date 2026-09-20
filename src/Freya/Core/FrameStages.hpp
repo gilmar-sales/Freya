@@ -117,6 +117,19 @@ namespace FREYA_NAMESPACE
         void Execute(StageContext& ctx) override;
     };
 
+    /**
+     * @brief Records registered UiModelPreview stacks before ScreenUi.
+     */
+    class ModelPreviewFrameStage : public IFrameStage
+    {
+      public:
+        [[nodiscard]] const char* Name() const override
+        {
+            return "ModelPreview";
+        }
+        void Execute(StageContext& ctx) override;
+    };
+
     class DebugDrawFrameStage : public IFrameStage
     {
       public:

@@ -49,8 +49,7 @@ namespace
         {
             const auto p =
                 static_cast<float>(i) / static_cast<float>(cascadeCount);
-            const auto logSplit =
-                nearSafe * std::pow(farSafe / nearSafe, p);
+            const auto logSplit = nearSafe * std::pow(farSafe / nearSafe, p);
             const auto uniformSplit = nearSafe + (farSafe - nearSafe) * p;
             splits[i - 1] = kCascadeSplitLambda * logSplit +
                             (1.0f - kCascadeSplitLambda) * uniformSplit;
@@ -106,9 +105,8 @@ namespace
         const float texelSize =
             (2.0f * std::max(halfExtent, 1e-3f)) / resolution;
 
-        auto lightView =
-            glm::lookAt(center - lightDir * pullBack, center, up);
-        auto centerLS = glm::vec3(lightView * glm::vec4(center, 1.0f));
+        auto lightView = glm::lookAt(center - lightDir * pullBack, center, up);
+        auto centerLS  = glm::vec3(lightView * glm::vec4(center, 1.0f));
         if (texelSize > 1e-6f)
         {
             centerLS.x = std::floor(centerLS.x / texelSize) * texelSize;
@@ -135,8 +133,7 @@ namespace
     {
         const float he = std::max(halfExtent, 1e-3f);
         // Center sits at z = -pullBack in light view; sphere ± he.
-        const float minZ =
-            -pullBack - he - kCascadeZPad; // away from light
+        const float minZ = -pullBack - he - kCascadeZPad; // away from light
         const float maxZ =
             -pullBack + he + kCascadeCasterZPad; // toward / past light
         return { glm::vec3(-he, -he, minZ), glm::vec3(he, he, maxZ), 2.0f * he,
@@ -384,11 +381,11 @@ namespace FREYA_NAMESPACE
         mPointResolution = other.mPointResolution;
         mFrameIndex      = other.mFrameIndex;
 
-        mShadowData           = {};
-        mCascadeCullViewProj  = glm::mat4(1.0f);
-        mHasDirectionalShadow = false;
-        mActiveSpotCount      = 0;
-        mActivePointCount     = 0;
+        mShadowData             = {};
+        mCascadeCullViewProj    = glm::mat4(1.0f);
+        mHasDirectionalShadow   = false;
+        mActiveSpotCount        = 0;
+        mActivePointCount       = 0;
         mCascadesNeedRedraw     = true;
         mCascadeUpdateAge       = 0;
         mHasLastCascadeMotion   = false;
@@ -527,11 +524,11 @@ namespace FREYA_NAMESPACE
                 for (std::uint32_t i = 0; i < MAX_SHADOW_CASCADES; ++i)
                     mCommittedCascadeViewProj[i] =
                         mShadowData.cascadeViewProj[i];
-                mCommittedCascadeSplits        = mShadowData.cascadeSplits;
-                mCommittedCascadeTexelSize     = mShadowData.cascadeTexelSize;
-                mCommittedCascadeCullViewProj  = mCascadeCullViewProj;
-                mCommittedCascadesValid        = true;
-                mCascadesNeedRedraw            = true;
+                mCommittedCascadeSplits       = mShadowData.cascadeSplits;
+                mCommittedCascadeTexelSize    = mShadowData.cascadeTexelSize;
+                mCommittedCascadeCullViewProj = mCascadeCullViewProj;
+                mCommittedCascadesValid       = true;
+                mCascadesNeedRedraw           = true;
             }
             else
             {
@@ -658,13 +655,12 @@ namespace FREYA_NAMESPACE
             computePracticalSplits(mCascadeCount, nearPlane, cascadeFar);
         const auto frustum = frustumParamsFromProjection(cameraProj);
 
-        const auto invView  = glm::inverse(cameraView);
-        const auto lightDir = glm::normalize(sun.direction);
-        const auto up       = std::abs(lightDir.y) < 0.99f
-                                  ? glm::vec3(0.0f, 1.0f, 0.0f)
-                                  : glm::vec3(1.0f, 0.0f, 0.0f);
-        const auto resolution =
-            static_cast<float>(std::max(mResolution, 1u));
+        const auto invView    = glm::inverse(cameraView);
+        const auto lightDir   = glm::normalize(sun.direction);
+        const auto up         = std::abs(lightDir.y) < 0.99f
+                                    ? glm::vec3(0.0f, 1.0f, 0.0f)
+                                    : glm::vec3(1.0f, 0.0f, 0.0f);
+        const auto resolution = static_cast<float>(std::max(mResolution, 1u));
 
         float     maxHalfExtent   = 0.0f;
         glm::vec3 unionCenterView = glm::vec3(0.0f);
@@ -675,9 +671,9 @@ namespace FREYA_NAMESPACE
             const auto splitFar  = splits[i];
 
             glm::vec3   centerView {};
-            const float radius = viewSpaceSliceSphere(
-                frustum.tanHalfFovY, frustum.aspect, splitNear, splitFar,
-                centerView);
+            const float radius =
+                viewSpaceSliceSphere(frustum.tanHalfFovY, frustum.aspect,
+                                     splitNear, splitFar, centerView);
             const glm::vec3 center =
                 glm::vec3(invView * glm::vec4(centerView, 1.0f));
             const float halfExtent = radius * (1.0f + kCascadeXyPadFrac);
@@ -708,16 +704,16 @@ namespace FREYA_NAMESPACE
             float cullRadius = maxHalfExtent;
             for (std::uint32_t i = 0; i < mCascadeCount; ++i)
             {
-                const auto splitNear = (i == 0) ? nearPlane : splits[i - 1];
-                glm::vec3  cv {};
-                const float r = viewSpaceSliceSphere(
-                    frustum.tanHalfFovY, frustum.aspect, splitNear, splits[i],
-                    cv);
-                cullRadius = std::max(
-                    cullRadius, glm::length(cv - unionCenterView) +
-                                    r * (1.0f + kCascadeXyPadFrac));
+                const auto  splitNear = (i == 0) ? nearPlane : splits[i - 1];
+                glm::vec3   cv {};
+                const float r =
+                    viewSpaceSliceSphere(frustum.tanHalfFovY, frustum.aspect,
+                                         splitNear, splits[i], cv);
+                cullRadius =
+                    std::max(cullRadius, glm::length(cv - unionCenterView) +
+                                             r * (1.0f + kCascadeXyPadFrac));
             }
-            cullRadius           = std::ceil(cullRadius * 2.0f) / 2.0f;
+            cullRadius             = std::ceil(cullRadius * 2.0f) / 2.0f;
             const float halfExtent = std::max(cullRadius, maxHalfExtent);
             const float pullBack =
                 halfExtent + kCascadeCasterZPad + kCascadePullEps;

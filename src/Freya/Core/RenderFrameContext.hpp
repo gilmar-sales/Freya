@@ -64,13 +64,13 @@ namespace FREYA_NAMESPACE
         vk::Sampler*                      bloomResultSampler = nullptr;
         skr::Arc<RenderTarget>*           outputTarget       = nullptr;
 
-        skr::Arc<DebugDrawPass>* debugDrawPass = nullptr;
-        skr::Arc<BillboardPass>* billboardPass = nullptr;
-        BillboardDraw*           billboardDraw = nullptr;
-        skr::Arc<UiPass>*        uiPass        = nullptr;
-        UiDraw*                  uiDraw        = nullptr;
+        skr::Arc<DebugDrawPass>* debugDrawPass  = nullptr;
+        skr::Arc<BillboardPass>* billboardPass  = nullptr;
+        BillboardDraw*           billboardDraw  = nullptr;
+        skr::Arc<UiPass>*        uiPass         = nullptr;
+        UiDraw*                  uiDraw         = nullptr;
         float*                   uiLogicalScale = nullptr;
-        skr::Arc<GpuAnimPass>*   gpuAnim       = nullptr;
+        skr::Arc<GpuAnimPass>*   gpuAnim        = nullptr;
 
         bool*          pickRequested        = nullptr;
         std::uint32_t* pickX                = nullptr;
@@ -91,6 +91,7 @@ namespace FREYA_NAMESPACE
         std::function<void(vk::Extent2D)> resizePickPass;
         std::function<skr::Arc<Image>()>  createSsaoFallback;
         std::function<void()>             drawDebugOverlay;
+        std::function<void()>             recordModelPreviews;
     };
 
     inline RenderFrameContext& AsRenderFrameContext(StageContext& ctx)

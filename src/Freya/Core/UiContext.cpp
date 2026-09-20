@@ -1,5 +1,6 @@
 #include "Freya/Core/UiContext.hpp"
 
+#include "Freya/Core/UiModelPreview.hpp"
 #include "Freya/Events/Gamepad.hpp"
 
 #include <algorithm>
@@ -23,7 +24,9 @@ namespace FREYA_NAMESPACE
         }
     } // namespace
 
-    UiContext::UiContext(UiDraw* draw) : mDraw(draw) {}
+    UiContext::UiContext(UiDraw* draw) : mDraw(draw)
+    {
+    }
 
     void UiContext::PushStyleColor(UiCol col, const glm::vec4& color)
     {
@@ -65,16 +68,16 @@ namespace FREYA_NAMESPACE
             fbExtent.x > 0 ? static_cast<float>(fbExtent.x) / mRefSize.x : 1.f;
         const float sy =
             fbExtent.y > 0 ? static_cast<float>(fbExtent.y) / mRefSize.y : 1.f;
-        mScale       = std::min(sx, sy);
-        mLogicalSize = glm::vec2 { static_cast<float>(fbExtent.x) / mScale,
-                                   static_cast<float>(fbExtent.y) / mScale };
+        mScale         = std::min(sx, sy);
+        mLogicalSize   = glm::vec2 { static_cast<float>(fbExtent.x) / mScale,
+                                     static_cast<float>(fbExtent.y) / mScale };
         mMouseLogicalX = mMouseX / mScale;
         mMouseLogicalY = mMouseY / mScale;
 
         mWantMouse = mWantKeyboard = mWantGamepad = false;
-        mWantTextInput = false;
-        mTextInputSeen = false;
-        mMouseCursor   = UiMouseCursor::Arrow;
+        mWantTextInput                            = false;
+        mTextInputSeen                            = false;
+        mMouseCursor                              = UiMouseCursor::Arrow;
         mFocusables.clear();
         mParents.clear();
         mGrids.clear();
@@ -83,11 +86,11 @@ namespace FREYA_NAMESPACE
         mColumns.clear();
         mScrolls.clear();
         mLastHovered = mLastActive = mLastClicked = false;
-        mLastRect    = {};
-        mLastId      = 0;
-        mCloseTopModal = false;
-        mInTooltip     = false;
-        mOverlayDepth  = 0;
+        mLastRect                                 = {};
+        mLastId                                   = 0;
+        mCloseTopModal                            = false;
+        mInTooltip                                = false;
+        mOverlayDepth                             = 0;
         // mTextSubmit is set by PumpEvents (Return) before Begin; consume
         // in TextInput and clear in End.
         // Mouse/wheel edges are filled by PumpEvents before Begin; consume
@@ -112,10 +115,10 @@ namespace FREYA_NAMESPACE
                 UiImageOpts     opts {};
                 opts.tint     = { 1.f, 1.f, 1.f, 0.88f };
                 opts.rounding = 6.f;
-                mDraw->Rect({ mMouseLogicalX + 10.f, mMouseLogicalY + 10.f, kS,
-                              kS },
-                            { 0.08f, 0.09f, 0.10f, 0.75f }, 6.f, 1.f,
-                            mStyle.Color(UiCol::Border));
+                mDraw->Rect(
+                    { mMouseLogicalX + 10.f, mMouseLogicalY + 10.f, kS, kS },
+                    { 0.08f, 0.09f, 0.10f, 0.75f }, 6.f, 1.f,
+                    mStyle.Color(UiCol::Border));
                 mDraw->Image({ mMouseLogicalX + 14.f, mMouseLogicalY + 14.f,
                                kS - 8.f, kS - 8.f },
                              mDrag.preview, opts);
@@ -201,7 +204,8 @@ namespace FREYA_NAMESPACE
                             idx = (idx - 1 +
                                    static_cast<int>(mFocusables.size())) %
                                   static_cast<int>(mFocusables.size());
-                        mFocusId = mFocusables[static_cast<std::size_t>(idx)].id;
+                        mFocusId =
+                            mFocusables[static_cast<std::size_t>(idx)].id;
                     }
                 }
             }));
@@ -215,7 +219,10 @@ namespace FREYA_NAMESPACE
         mSubs.clear();
     }
 
-    UiId UiContext::HashId(std::string_view id) const { return Fnv1a(id); }
+    UiId UiContext::HashId(std::string_view id) const
+    {
+        return Fnv1a(id);
+    }
 
     UiId UiContext::HashId(std::string_view id, int index) const
     {
@@ -249,8 +256,8 @@ namespace FREYA_NAMESPACE
     {
         if (mParents.empty())
             return;
-        auto& p  = mParents.back();
-        p.lineH  = std::max(p.lineH, size.y);
+        auto& p = mParents.back();
+        p.lineH = std::max(p.lineH, size.y);
         p.cursorY += size.y + mStyle.Var(UiVar::ItemSpacing);
         p.cursorX = p.rect.x;
         p.lineH   = 0.f;
@@ -262,7 +269,7 @@ namespace FREYA_NAMESPACE
         // slots while laying out overlay content.
         if (mOverlayDepth == 0 && !mGrids.empty())
         {
-            auto& g   = mGrids.back();
+            auto&     g   = mGrids.back();
             const int col = g.index % g.cols;
             const int row = g.index / g.cols;
             ++g.index;
@@ -271,14 +278,14 @@ namespace FREYA_NAMESPACE
         }
         if (mOverlayDepth == 0 && !mColumns.empty())
         {
-            auto& c   = mColumns.back();
-            float x   = c.area.x;
+            auto& c = mColumns.back();
+            float x = c.area.x;
             for (int i = 0; i < c.index && i < c.count; ++i)
                 x += c.widths[i];
             float w = (c.index < c.count) ? c.widths[c.index] : size.x;
             if (size.x <= 0.f)
                 size.x = w;
-            auto& p = mParents.back();
+            auto&  p = mParents.back();
             UiRect r { x, p.cursorY, size.x, size.y };
             p.cursorY += size.y + mStyle.Var(UiVar::ItemSpacing);
             return r;
@@ -303,10 +310,9 @@ namespace FREYA_NAMESPACE
     {
         if (!mDraw || mFocusId == 0)
             return;
-        mDraw->Rect(r.Expand(2.f), { 0.f, 0.f, 0.f, 0.f },
-                    mStyle.Var(UiVar::Rounding),
-                    mStyle.Var(UiVar::FocusRingWidth),
-                    mStyle.Color(UiCol::FocusRing));
+        mDraw->Rect(
+            r.Expand(2.f), { 0.f, 0.f, 0.f, 0.f }, mStyle.Var(UiVar::Rounding),
+            mStyle.Var(UiVar::FocusRingWidth), mStyle.Color(UiCol::FocusRing));
     }
 
     void UiContext::FeedMouseMove(float x, float y)
@@ -349,8 +355,8 @@ namespace FREYA_NAMESPACE
                     break;
                 }
             }
-            idx      = (idx + 1) % static_cast<int>(mFocusables.size());
-            mFocusId = mFocusables[static_cast<std::size_t>(idx)].id;
+            idx           = (idx + 1) % static_cast<int>(mFocusables.size());
+            mFocusId      = mFocusables[static_cast<std::size_t>(idx)].id;
             mWantKeyboard = true;
         }
         if (mTextInputId != 0 && key == KeyCode::Backspace &&
@@ -358,8 +364,8 @@ namespace FREYA_NAMESPACE
         {
             mTextEditBuffer.pop_back();
             while (!mTextEditBuffer.empty() &&
-                   (static_cast<unsigned char>(mTextEditBuffer.back()) & 0xC0) ==
-                       0x80)
+                   (static_cast<unsigned char>(mTextEditBuffer.back()) &
+                    0xC0) == 0x80)
                 mTextEditBuffer.pop_back();
         }
         if (mTextInputId != 0 && key == KeyCode::Return)
@@ -373,7 +379,10 @@ namespace FREYA_NAMESPACE
         mTextEditBuffer.append(text);
     }
 
-    void UiContext::FeedScroll(float dy) { mWheel += dy; }
+    void UiContext::FeedScroll(float dy)
+    {
+        mWheel += dy;
+    }
 
     void UiContext::ProcessNav()
     {
@@ -422,7 +431,10 @@ namespace FREYA_NAMESPACE
         PushParent({ pos.x, pos.y, p.x + p.w - pos.x, p.y + p.h - pos.y });
     }
 
-    void UiContext::EndAnchor() { PopParent(); }
+    void UiContext::EndAnchor()
+    {
+        PopParent();
+    }
 
     void UiContext::Background(TextureHandle texture, UiImageFit fit,
                                const glm::vec4& tint)
@@ -433,8 +445,8 @@ namespace FREYA_NAMESPACE
         if (texture.IsValid())
         {
             UiImageOpts o {};
-            o.fit  = fit;
-            o.tint = tint;
+            o.fit          = fit;
+            o.tint         = tint;
             o.sliceMargins = mStyle.sliceMargins;
             mDraw->Image(r, texture, o);
         }
@@ -462,6 +474,83 @@ namespace FREYA_NAMESPACE
             (o.sliceMargins.x == 8.f && o.sliceMargins.y == 8.f))
             o.sliceMargins = mStyle.sliceMargins;
         mDraw->Image(rect, texture, o);
+    }
+
+    void UiContext::ModelPreview(std::string_view id, TextureHandle texture,
+                                 glm::vec2 size, UiModelPreview* orbitTarget)
+    {
+        const UiId   sid   = HashId(id);
+        const UiRect r     = Place(size);
+        mLastId            = sid;
+        mLastRect          = r;
+        const bool hovered = Hit(r);
+        mLastHovered       = hovered;
+
+        if (orbitTarget)
+        {
+            orbitTarget->SetFrameDelta(mDt);
+            auto& orbit = orbitTarget->Orbit();
+            if (orbit.enabled)
+            {
+                const int btn = static_cast<int>(orbit.dragButton);
+                if (hovered && mMouseClicked[btn])
+                {
+                    mActiveId = sid;
+                    orbitTarget->FeedMouseButton(orbit.dragButton, true);
+                    mWantMouse = true;
+                }
+                if (mActiveId == sid)
+                {
+                    mWantMouse   = true;
+                    mMouseCursor = UiMouseCursor::Hand;
+                    // Absolute mouse moves: approximate deltas from logical pos
+                    // via previous frame storage on WidgetState.
+                    auto& st = State(sid);
+                    if (st.dragging || mMouseDown[btn])
+                    {
+                        if (!st.dragging)
+                        {
+                            st.dragging = true;
+                            st.popupPos = { mMouseLogicalX, mMouseLogicalY };
+                        }
+                        const float dx = mMouseLogicalX - st.popupPos.x;
+                        const float dy = mMouseLogicalY - st.popupPos.y;
+                        if (dx != 0.f || dy != 0.f)
+                            orbitTarget->FeedMouseMove(dx, dy);
+                        st.popupPos = { mMouseLogicalX, mMouseLogicalY };
+                    }
+                    if (mMouseReleased[btn])
+                    {
+                        orbitTarget->FeedMouseButton(orbit.dragButton, false);
+                        st.dragging = false;
+                        mActiveId   = 0;
+                    }
+                }
+            }
+        }
+
+        if (mDraw)
+        {
+            mDraw->Rect(
+                r, mStyle.Color(UiCol::FrameBg), mStyle.Var(UiVar::Rounding),
+                mStyle.Var(UiVar::BorderWidth), mStyle.Color(UiCol::Border));
+            if (texture.IsValid())
+            {
+                const float pad = 2.f;
+                UiImageOpts opts {};
+                opts.rounding = mStyle.Var(UiVar::Rounding);
+                mDraw->Image(
+                    { r.x + pad, r.y + pad, r.w - pad * 2.f, r.h - pad * 2.f },
+                    texture, opts);
+            }
+            if (mFocusId == sid)
+                DrawFocusRing(r);
+        }
+
+        mLastActive = mActiveId == sid;
+        mLastClicked =
+            hovered && mMouseClicked[static_cast<int>(MouseButton::Left)];
+        RegisterFocusable(sid, r);
     }
 
     bool UiContext::BeginPanel(std::string_view id, glm::vec2 size,
@@ -493,7 +582,10 @@ namespace FREYA_NAMESPACE
         return true;
     }
 
-    void UiContext::EndPanel() { PopParent(); }
+    void UiContext::EndPanel()
+    {
+        PopParent();
+    }
 
     bool UiContext::BeginModal(std::string_view id, glm::vec2 size,
                                const UiPanelOpts& opts)
@@ -505,14 +597,13 @@ namespace FREYA_NAMESPACE
             mDraw->Rect({ 0, 0, mLogicalSize.x, mLogicalSize.y },
                         mStyle.Color(UiCol::ModalDim));
         }
-        const UiRect centered {
-            (mLogicalSize.x - size.x) * 0.5f,
-            (mLogicalSize.y - size.y) * 0.5f, size.x, size.y
-        };
+        const UiRect centered { (mLogicalSize.x - size.x) * 0.5f,
+                                (mLogicalSize.y - size.y) * 0.5f, size.x,
+                                size.y };
         // Temporarily place without advancing root cursor
         if (mParents.empty())
             PushParent({ 0, 0, mLogicalSize.x, mLogicalSize.y });
-        auto& p       = mParents.back();
+        auto&       p  = mParents.back();
         const float cx = p.cursorX;
         const float cy = p.cursorY;
         p.cursorX      = centered.x;
@@ -548,8 +639,7 @@ namespace FREYA_NAMESPACE
         mLastRect      = r;
         if (!mDraw || !mStyle.font)
             return;
-        const auto& c =
-            color ? *color : mStyle.Color(UiCol::Text);
+        const auto& c = color ? *color : mStyle.Color(UiCol::Text);
         mDraw->Text({ r.x, r.y, r.w, r.h }, text, *mStyle.font, fs, c, 0.f,
                     1.5f, mStyle.Color(UiCol::TextOutline));
     }
@@ -562,11 +652,12 @@ namespace FREYA_NAMESPACE
         // Approximate height: one line; wrap handled in UiDraw::Text
         const float lines =
             maxWidth > 0.f
-                ? std::max(1.f, std::ceil(static_cast<float>(text.size()) *
-                                          fs * 0.5f / maxWidth))
+                ? std::max(1.f, std::ceil(static_cast<float>(text.size()) * fs *
+                                          0.5f / maxWidth))
                 : 1.f;
-        const UiRect r = Place({ maxWidth > 0.f ? maxWidth : 400.f, fs * lines });
-        mLastRect      = r;
+        const UiRect r =
+            Place({ maxWidth > 0.f ? maxWidth : 400.f, fs * lines });
+        mLastRect = r;
         if (!mDraw || !mStyle.font)
             return;
         mDraw->Text(r, text, *mStyle.font, fs, mStyle.Color(UiCol::Text),
@@ -656,9 +747,9 @@ namespace FREYA_NAMESPACE
     {
         if (!value)
             return false;
-        const float box = 22.f;
-        const UiId  id  = HashId(label);
-        const UiRect r  = Place({ 200.f, box });
+        const float  box = 22.f;
+        const UiId   id  = HashId(label);
+        const UiRect r   = Place({ 200.f, box });
         const UiRect boxR { r.x, r.y, box, box };
         mLastRect = r;
         RegisterFocusable(id, boxR);
@@ -687,8 +778,8 @@ namespace FREYA_NAMESPACE
         return changed;
     }
 
-    bool UiContext::SliderFloat(std::string_view label, float* value, float vMin,
-                                float vMax, glm::vec2 size)
+    bool UiContext::SliderFloat(std::string_view label, float* value,
+                                float vMin, float vMax, glm::vec2 size)
     {
         if (!value)
             return false;
@@ -704,10 +795,9 @@ namespace FREYA_NAMESPACE
         if ((hovered || mActiveId == id) &&
             mMouseDown[static_cast<int>(MouseButton::Left)])
         {
-            mActiveId = id;
-            const float t =
-                std::clamp((mMouseLogicalX - r.x) / std::max(r.w, 1.f), 0.f,
-                           1.f);
+            mActiveId     = id;
+            const float t = std::clamp(
+                (mMouseLogicalX - r.x) / std::max(r.w, 1.f), 0.f, 1.f);
             const float nv = vMin + t * (vMax - vMin);
             if (nv != *value)
             {
@@ -722,9 +812,8 @@ namespace FREYA_NAMESPACE
         {
             mDraw->Rect(r, mStyle.Color(UiCol::FrameBg),
                         mStyle.Var(UiVar::Rounding));
-            const float t =
-                std::clamp((*value - vMin) / std::max(vMax - vMin, 1e-5f), 0.f,
-                           1.f);
+            const float t = std::clamp(
+                (*value - vMin) / std::max(vMax - vMin, 1e-5f), 0.f, 1.f);
             mDraw->Rect({ r.x + t * r.w - 6.f, r.y - 2.f, 12.f, r.h + 4.f },
                         mStyle.Color(UiCol::SliderGrab), 4.f);
         }
@@ -791,26 +880,24 @@ namespace FREYA_NAMESPACE
     {
         if (mScrolls.empty())
             return;
-        auto&       sc = mScrolls.back();
-        auto&       st = State(sc.id);
-        const float maxScroll =
-            std::max(0.f, sc.contentH - sc.view.h);
-        st.scrollY = std::clamp(ratio, 0.f, 1.f) * maxScroll;
+        auto&       sc        = mScrolls.back();
+        auto&       st        = State(sc.id);
+        const float maxScroll = std::max(0.f, sc.contentH - sc.view.h);
+        st.scrollY            = std::clamp(ratio, 0.f, 1.f) * maxScroll;
     }
 
-    bool UiContext::BeginList(std::string_view id, glm::vec2 size, int itemCount,
-                              float itemHeight, int* scrollIndex)
+    bool UiContext::BeginList(std::string_view id, glm::vec2 size,
+                              int itemCount, float itemHeight, int* scrollIndex)
     {
         const UiId sid = HashId(id);
         BeginScrollView(id, size, itemCount * itemHeight);
-        auto& st = State(sid);
+        auto&   st = State(sid);
         ListCtx ctx {};
         ctx.itemHeight   = itemHeight;
         ctx.itemCount    = itemCount;
         ctx.area         = mScrolls.back().view;
         ctx.firstVisible = static_cast<int>(st.scrollY / itemHeight);
-        ctx.visibleCount =
-            static_cast<int>(std::ceil(size.y / itemHeight)) + 1;
+        ctx.visibleCount = static_cast<int>(std::ceil(size.y / itemHeight)) + 1;
         if (scrollIndex)
             *scrollIndex = ctx.firstVisible;
         mLists.push_back(ctx);
@@ -839,8 +926,7 @@ namespace FREYA_NAMESPACE
                               float gap)
     {
         (void) id;
-        const float w =
-            cols * cellSize.x + std::max(0, cols - 1) * gap;
+        const float w = cols * cellSize.x + std::max(0, cols - 1) * gap;
         // height grows with content — use parent remaining
         const UiRect area = Place({ w, CurrentParent().h });
         // rewind cursor for grid cells
@@ -857,13 +943,11 @@ namespace FREYA_NAMESPACE
     {
         if (mGrids.empty())
             return;
-        auto& g = mGrids.back();
-        const int rows =
-            (g.index + g.cols - 1) / std::max(1, g.cols);
+        auto&     g    = mGrids.back();
+        const int rows = (g.index + g.cols - 1) / std::max(1, g.cols);
         if (!mParents.empty())
         {
-            mParents.back().cursorY =
-                g.area.y + rows * (g.cell.y + g.gap);
+            mParents.back().cursorY = g.area.y + rows * (g.cell.y + g.gap);
             mParents.back().cursorX = g.area.x;
         }
         mGrids.pop_back();
@@ -880,13 +964,13 @@ namespace FREYA_NAMESPACE
     {
         if (mTabs.empty())
             return false;
-        auto&     tab = mTabs.back();
-        const int i   = tab.drawn++;
+        auto&      tab      = mTabs.back();
+        const int  i        = tab.drawn++;
         const bool selected = (i == tab.index);
         if (Button(label, { 100.f, 32.f }))
         {
-            tab.index                 = i;
-            State(tab.id).activeTab   = i;
+            tab.index               = i;
+            State(tab.id).activeTab = i;
         }
         return selected || State(tab.id).activeTab == i;
     }
@@ -909,7 +993,7 @@ namespace FREYA_NAMESPACE
         mLastHovered       = hovered;
         if (hovered)
         {
-            mWantMouse   = true;
+            mWantMouse = true;
             if (!mDrag.active)
                 mMouseCursor = UiMouseCursor::Hand;
             State(sid).hoverTime += mDt;
@@ -936,8 +1020,7 @@ namespace FREYA_NAMESPACE
         }
         mLastClicked = clicked;
 
-        const bool isDragSource =
-            mDrag.active && State(sid).dragging;
+        const bool isDragSource = mDrag.active && State(sid).dragging;
         if (mDrag.active && hovered)
             mMouseCursor = UiMouseCursor::Move;
 
@@ -955,9 +1038,9 @@ namespace FREYA_NAMESPACE
                 UiImageOpts opts {};
                 if (isDragSource)
                     opts.tint = { 1.f, 1.f, 1.f, 0.35f };
-                mDraw->Image({ r.x + pad, r.y + pad, r.w - pad * 2,
-                               r.h - pad * 2 },
-                             icon, opts);
+                mDraw->Image(
+                    { r.x + pad, r.y + pad, r.w - pad * 2, r.h - pad * 2 },
+                    icon, opts);
             }
             if (stackCount > 1)
                 IconBadge(std::to_string(stackCount), r);
@@ -972,10 +1055,10 @@ namespace FREYA_NAMESPACE
         if (!mDraw || !mStyle.font)
             return;
         const float fs = 14.f;
-        mDraw->Text({ slot.x + slot.w - 18.f, slot.y + slot.h - fs - 2.f, 20.f,
-                      fs },
-                    text, *mStyle.font, fs, mStyle.Color(UiCol::Text), 0.f, 1.f,
-                    mStyle.Color(UiCol::TextOutline));
+        mDraw->Text(
+            { slot.x + slot.w - 18.f, slot.y + slot.h - fs - 2.f, 20.f, fs },
+            text, *mStyle.font, fs, mStyle.Color(UiCol::Text), 0.f, 1.f,
+            mStyle.Color(UiCol::TextOutline));
     }
 
     bool UiContext::AbilitySlot(std::string_view id, TextureHandle icon,
@@ -990,7 +1073,7 @@ namespace FREYA_NAMESPACE
         const bool hovered = Hit(r);
         mLastHovered       = hovered;
         const float rem    = std::clamp(cooldownRemaining01, 0.f, 1.f);
-        const bool ready   = rem <= 1e-3f;
+        const bool  ready  = rem <= 1e-3f;
         if (hovered)
         {
             mWantMouse = true;
@@ -1027,23 +1110,22 @@ namespace FREYA_NAMESPACE
                 UiImageOpts opts {};
                 if (!ready)
                     opts.tint = { 0.55f, 0.55f, 0.55f, 1.f };
-                mDraw->Image({ r.x + pad, r.y + pad, r.w - pad * 2.f,
-                               r.h - pad * 2.f },
-                             icon, opts);
+                mDraw->Image(
+                    { r.x + pad, r.y + pad, r.w - pad * 2.f, r.h - pad * 2.f },
+                    icon, opts);
             }
             if (rem > 1e-3f)
                 mDraw->CooldownRadial(r, rem, { 0.02f, 0.03f, 0.05f, 0.72f },
-                                     6.f);
+                                      6.f);
             if (!hotkey.empty() && mStyle.font)
             {
                 const float fs = 13.f;
-                mDraw->Rect({ r.x + 3.f, r.y + r.h - fs - 6.f, fs + 6.f,
-                              fs + 4.f },
-                            { 0.05f, 0.05f, 0.06f, 0.85f }, 3.f);
+                mDraw->Rect(
+                    { r.x + 3.f, r.y + r.h - fs - 6.f, fs + 6.f, fs + 4.f },
+                    { 0.05f, 0.05f, 0.06f, 0.85f }, 3.f);
                 mDraw->Text({ r.x + 5.f, r.y + r.h - fs - 4.f, 24.f, fs },
-                            hotkey, *mStyle.font, fs,
-                            mStyle.Color(UiCol::Text), 0.f, 1.f,
-                            mStyle.Color(UiCol::TextOutline));
+                            hotkey, *mStyle.font, fs, mStyle.Color(UiCol::Text),
+                            0.f, 1.f, mStyle.Color(UiCol::TextOutline));
             }
             if (mFocusId == sid)
                 DrawFocusRing(r);
@@ -1104,28 +1186,27 @@ namespace FREYA_NAMESPACE
     {
         const UiId pid = HashId(id);
         auto&      st  = State(pid);
-        if (mLastHovered &&
-            mMouseClicked[static_cast<int>(MouseButton::Right)])
+        if (mLastHovered && mMouseClicked[static_cast<int>(MouseButton::Right)])
         {
             if (mPopupId != 0 && mPopupId != pid)
                 State(mPopupId).open = false;
-            mPopupOpen  = true;
-            mPopupId    = pid;
-            st.open     = true;
+            mPopupOpen         = true;
+            mPopupId           = pid;
+            st.open            = true;
             constexpr float kW = 160.f;
             constexpr float kH = 120.f;
-            float x = mLastRect.x + mLastRect.w + 4.f;
-            float y = mLastRect.y;
+            float           x  = mLastRect.x + mLastRect.w + 4.f;
+            float           y  = mLastRect.y;
             if (x + kW > mLogicalSize.x - mSafeArea.w)
                 x = mLastRect.x - kW - 4.f;
             if (y + kH > mLogicalSize.y - mSafeArea.h)
                 y = mLogicalSize.y - mSafeArea.h - kH;
-            x = std::clamp(x, mSafeArea.x,
-                           std::max(mSafeArea.x,
-                                    mLogicalSize.x - mSafeArea.w - kW));
-            y = std::clamp(y, mSafeArea.y,
-                           std::max(mSafeArea.y,
-                                    mLogicalSize.y - mSafeArea.h - kH));
+            x = std::clamp(
+                x, mSafeArea.x,
+                std::max(mSafeArea.x, mLogicalSize.x - mSafeArea.w - kW));
+            y = std::clamp(
+                y, mSafeArea.y,
+                std::max(mSafeArea.y, mLogicalSize.y - mSafeArea.h - kH));
             st.popupPos = { x, y };
         }
         if (!st.open)
@@ -1137,7 +1218,7 @@ namespace FREYA_NAMESPACE
             mDraw->BeginOverlay();
         constexpr float kW = 160.f;
         constexpr float kH = 120.f;
-        const UiRect tip { st.popupPos.x, st.popupPos.y, kW, kH };
+        const UiRect    tip { st.popupPos.x, st.popupPos.y, kW, kH };
         st.popupRect = tip;
         if (mDraw)
             mDraw->Rect(tip, mStyle.Color(UiCol::PanelBg), 4.f, 1.f,
@@ -1157,7 +1238,7 @@ namespace FREYA_NAMESPACE
             mDraw->EndOverlay();
         if (mPopupId == 0)
             return;
-        auto& st = State(mPopupId);
+        auto&      st = State(mPopupId);
         const bool clickOutside =
             mMouseClicked[static_cast<int>(MouseButton::Left)] &&
             !Hit(st.popupRect);
@@ -1169,9 +1250,8 @@ namespace FREYA_NAMESPACE
         }
     }
 
-    bool UiContext::BeginDragDropSource(std::string_view type,
-                                        std::uint64_t    payload,
-                                        TextureHandle    preview)
+    bool UiContext::BeginDragDropSource(
+        std::string_view type, std::uint64_t payload, TextureHandle preview)
     {
         if (mLastId == 0)
             return false;
@@ -1222,9 +1302,9 @@ namespace FREYA_NAMESPACE
         mTextInputSeen = true;
         if (mPendingTextFocus && mPendingTextFocusId == tid)
         {
-            mTextInputId      = tid;
-            mFocusId          = tid;
-            mTextEditBuffer   = buffer.empty() ? mTextEditBuffer : buffer;
+            mTextInputId    = tid;
+            mFocusId        = tid;
+            mTextEditBuffer = buffer.empty() ? mTextEditBuffer : buffer;
             if (!mTextEditBuffer.empty())
                 buffer = mTextEditBuffer;
             mPendingTextFocus = false;
@@ -1282,11 +1362,10 @@ namespace FREYA_NAMESPACE
         (void) id;
         count = std::clamp(count, 1, 8);
         ColCtx c {};
-        c.count = count;
-        c.index = 0;
-        c.area  = CurrentParent();
-        c.startY =
-            mParents.empty() ? 0.f : mParents.back().cursorY;
+        c.count  = count;
+        c.index  = 0;
+        c.area   = CurrentParent();
+        c.startY = mParents.empty() ? 0.f : mParents.back().cursorY;
         for (int i = 0; i < count; ++i)
             c.widths[i] = widths ? widths[i] : c.area.w / count;
         mColumns.push_back(c);

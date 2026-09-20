@@ -86,12 +86,12 @@ namespace FREYA_NAMESPACE
          * @brief Solid / rounded / bordered rectangle (white texture).
          */
         void Rect(const UiRect& rect, const glm::vec4& color,
-                  float            rounding    = 0.f,
-                  float            borderWidth = 0.f,
+                  float rounding = 0.f, float borderWidth = 0.f,
                   const glm::vec4& borderColor = { 0.f, 0.f, 0.f, 1.f });
 
         /**
-         * @brief Textured rect with fit mode (Stretch/Contain/Cover/Slice/Tile).
+         * @brief Textured rect with fit mode
+         * (Stretch/Contain/Cover/Slice/Tile).
          */
         void Image(const UiRect& rect, std::uint32_t textureIndex,
                    const UiImageOpts& opts = {});

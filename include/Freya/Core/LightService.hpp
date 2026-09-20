@@ -211,7 +211,7 @@ namespace FREYA_NAMESPACE
          * gather time. Host Light records are unchanged (apps can still
          * UpdateLight while muted).
          */
-        void SetLightTypeEnabled(LightType type, bool enabled);
+        void               SetLightTypeEnabled(LightType type, bool enabled);
         [[nodiscard]] bool IsLightTypeEnabled(LightType type) const;
 
       private:

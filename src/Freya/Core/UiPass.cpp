@@ -27,11 +27,13 @@ namespace FREYA_NAMESPACE
         const vk::DescriptorSetLayout                setLayout,
         const vk::DescriptorPool                     descriptorPool,
         const std::vector<vk::DescriptorSet>&        instanceSets,
-        std::vector<skr::Arc<Buffer>>                instanceBuffers,
-        const vk::Pipeline                           swapchainPipeline,
-        const vk::Pipeline                           offscreenPipeline,
-        std::vector<vk::Framebuffer>                 framebuffers,
-        const std::uint32_t                          maxQuads) :
+        std::vector<skr::Arc<Buffer>>
+                           instanceBuffers,
+        const vk::Pipeline swapchainPipeline,
+        const vk::Pipeline offscreenPipeline,
+        std::vector<vk::Framebuffer>
+                            framebuffers,
+        const std::uint32_t maxQuads) :
         mDevice(device), mFreyaOptions(freyaOptions), mMaterials(materials),
         mSwapchainRenderPass(swapchainRenderPass),
         mOffscreenRenderPass(offscreenRenderPass),
@@ -126,7 +128,7 @@ namespace FREYA_NAMESPACE
     }
 
     void UiPass::Draw(const skr::Arc<CommandPool>& commandPool,
-                      const skr::Arc<SwapChain>&   swapChain, UiDraw& source,
+                      const skr::Arc<SwapChain>& swapChain, UiDraw& source,
                       const vk::Extent2D extent, const float logicalScale) const
     {
         if (!commandPool || !swapChain)
@@ -157,8 +159,8 @@ namespace FREYA_NAMESPACE
         if (drawExtent.width == 0 || drawExtent.height == 0)
             return;
 
-        const auto count = std::min(static_cast<std::uint32_t>(quads.size()),
-                                    mMaxQuads);
+        const auto count =
+            std::min(static_cast<std::uint32_t>(quads.size()), mMaxQuads);
         if (count == 0)
             return;
 
@@ -203,9 +205,9 @@ namespace FREYA_NAMESPACE
         cmd.setScissor(0, vk::Rect2D({ 0, 0 }, drawExtent));
 
         auto bindless = mMaterials->GetBindlessSet();
-        cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                               mPipelineLayout, 0, 1,
-                               &mInstanceSets[frameIndex], 0, nullptr);
+        cmd.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics, mPipelineLayout, 0, 1,
+            &mInstanceSets[frameIndex], 0, nullptr);
         cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
                                mPipelineLayout, 1, 1, &bindless, 0, nullptr);
 

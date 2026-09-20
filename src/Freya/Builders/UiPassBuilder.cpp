@@ -171,9 +171,9 @@ namespace FREYA_NAMESPACE
 
         const auto frameCount = mFreyaOptions->frameCount;
         auto       poolSize   = vk::DescriptorPoolSize()
-                              .setType(vk::DescriptorType::eStorageBuffer)
-                              .setDescriptorCount(frameCount);
-        auto pool = mDevice->Get().createDescriptorPool(
+                                    .setType(vk::DescriptorType::eStorageBuffer)
+                                    .setDescriptorCount(frameCount);
+        auto       pool       = mDevice->Get().createDescriptorPool(
             vk::DescriptorPoolCreateInfo().setPoolSizes(poolSize).setMaxSets(
                 frameCount));
 

@@ -43,6 +43,7 @@
 #include "Freya/Core/ParticleEmitter.hpp"
 #include "Freya/Core/UiContext.hpp"
 #include "Freya/Core/UiDraw.hpp"
+#include "Freya/Core/UiModelPreview.hpp"
 #include "Freya/Core/UiStyle.hpp"
 #include "Freya/Core/UiTypes.hpp"
 

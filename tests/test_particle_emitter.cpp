@@ -22,23 +22,20 @@ TEST_CASE("ParticleEmitter concurrent Tick on shared BillboardDraw",
         e.lifetime     = 0.4f;
     }
 
-    std::atomic<int> ready { 0 };
+    std::atomic<int>         ready { 0 };
     std::vector<std::thread> threads;
     threads.reserve(static_cast<std::size_t>(kEmitters));
 
     for (int t = 0; t < kEmitters; ++t)
     {
-        threads.emplace_back(
-            [&, t]
+        threads.emplace_back([&, t] {
+            ready.fetch_add(1, std::memory_order_relaxed);
+            while (ready.load(std::memory_order_relaxed) < kEmitters)
             {
-                ready.fetch_add(1, std::memory_order_relaxed);
-                while (ready.load(std::memory_order_relaxed) < kEmitters)
-                {
-                }
-                for (int i = 0; i < kIters; ++i)
-                    emitters[static_cast<std::size_t>(t)].Tick(1.f / 60.f,
-                                                               draw);
-            });
+            }
+            for (int i = 0; i < kIters; ++i)
+                emitters[static_cast<std::size_t>(t)].Tick(1.f / 60.f, draw);
+        });
     }
 
     for (auto& th : threads)

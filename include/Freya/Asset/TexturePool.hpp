@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Core/SpinLock.hpp"
 #include "Freya/Scene/AssetHandle.hpp"
 
 #include <Skirnir/Skirnir.hpp>
@@ -28,6 +29,26 @@ namespace FREYA_NAMESPACE
                                               std::uint32_t height,
                                               std::uint32_t channels  = 4,
                                               std::uint32_t mipLevels = 0);
+
+        /**
+         * @brief Bind an existing sampled image into the bindless heap.
+         *
+         * Does not own @p imageView / @p sampler (e.g. RenderTarget color).
+         * Thread-safe vs other TexturePool mutations.
+         *
+         * @param imageView Opaque vk::ImageView / VkImageView
+         * @param sampler   Opaque vk::Sampler / VkSampler
+         */
+        TextureHandle RegisterExternalImage(void*         imageView,
+                                            void*         sampler,
+                                            std::uint32_t width,
+                                            std::uint32_t height);
+
+        /**
+         * @brief Remove an external registration (does not destroy GPU
+         * objects).
+         */
+        void UnregisterExternal(TextureHandle id);
 
         [[nodiscard]] bool Contains(TextureHandle id) const;
 

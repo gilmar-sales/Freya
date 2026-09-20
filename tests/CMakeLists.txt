@@ -15,7 +15,8 @@ add_executable(FreyaTests test_billboard_draw.cpp test_event_manager.cpp test_fr
         ${CMAKE_SOURCE_DIR}/src/Freya/Core/UiDrawText.cpp
         ${CMAKE_SOURCE_DIR}/src/Freya/Core/UiStyle.cpp
         ${CMAKE_SOURCE_DIR}/src/Freya/Core/UiContext.cpp
-        font_atlas_stub.cpp)
+        font_atlas_stub.cpp
+        ui_model_preview_stub.cpp)
 
 target_compile_features(FreyaTests PRIVATE cxx_std_26)
 

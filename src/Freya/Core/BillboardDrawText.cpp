@@ -77,7 +77,7 @@ namespace FREYA_NAMESPACE
         if (placed.empty())
             return;
 
-        const float origin = -0.5f * width;
+        const float   origin = -0.5f * width;
         SpinLockGuard lock(mLock);
         for (const auto& p : placed)
         {

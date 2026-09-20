@@ -9,7 +9,6 @@
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/DeviceBuilder.hpp"
 #include "Freya/Builders/GpuAnimPassBuilder.hpp"
-#include "Freya/Builders/UiPassBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
 #include "Freya/Builders/IndirectDrawSystemBuilder.hpp"
 #include "Freya/Builders/InstanceBuilder.hpp"
@@ -27,6 +26,7 @@
 #include "Freya/Builders/SwapChainBuilder.hpp"
 #include "Freya/Builders/TaaPassBuilder.hpp"
 #include "Freya/Builders/TranslucentPassBuilder.hpp"
+#include "Freya/Builders/UiPassBuilder.hpp"
 #include "Freya/Builders/WindowBuilder.hpp"
 
 #include "Freya/Asset/BoneMatrixResources.hpp"

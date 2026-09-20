@@ -12,7 +12,9 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <span>
+#include <vector>
 
 #include <glm/glm.hpp>
 
@@ -21,6 +23,7 @@ namespace FREYA_NAMESPACE
     struct SceneInstanceUpload;
     class RendererAdvanced;
     class Scene;
+    class UiModelPreview;
 
     /**
      * @brief Per-window renderer façade (application tier).
@@ -143,6 +146,13 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] UiDraw&    GetUiDraw();
         [[nodiscard]] UiContext& GetUiContext();
+
+        /**
+         * @brief Register a preview for ModelPreviewFrameStage (non-owning).
+         * Mutate only outside of EndScene Execute (e.g. begin of frame).
+         */
+        void AddModelPreview(UiModelPreview* preview);
+        void RemoveModelPreview(UiModelPreview* preview);
 
         /**
          * @brief GPU ms for each frame stage from the previous finished frame.

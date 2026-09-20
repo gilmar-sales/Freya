@@ -324,13 +324,15 @@ namespace FREYA_NAMESPACE
             mDevice->Get().destroyImageView(view);
         point.layerViews.clear();
 
+        // Multiview render passes require framebuffer layers == 1
+        // (VUID-VkFramebufferCreateInfo-renderPass-02531).
         const auto cascadeFbInfo =
             vk::FramebufferCreateInfo()
                 .setRenderPass(cascadeRenderPass)
                 .setAttachments(cascade.arrayView)
                 .setWidth(resolution)
                 .setHeight(resolution)
-                .setLayers(cascadeCount);
+                .setLayers(1);
         auto cascadeFramebuffer =
             mDevice->Get().createFramebuffer(cascadeFbInfo);
 
@@ -346,7 +348,7 @@ namespace FREYA_NAMESPACE
                     .setAttachments(pointSlotViews[p])
                     .setWidth(pointResolution)
                     .setHeight(pointResolution)
-                    .setLayers(6);
+                    .setLayers(1);
             pointFramebuffers[p] = mDevice->Get().createFramebuffer(fbInfo);
         }
 

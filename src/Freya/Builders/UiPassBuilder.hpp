@@ -13,13 +13,12 @@ namespace FREYA_NAMESPACE
     class UiPassBuilder
     {
       public:
-        UiPassBuilder(
-            const skr::Arc<Device>&                      device,
-            const skr::Arc<PhysicalDevice>&              physicalDevice,
-            const skr::Arc<Surface>&                     surface,
-            const skr::Arc<FreyaOptions>&                freyaOptions,
-            const skr::Arc<MaterialDescriptorResources>& materials,
-            const skr::Arc<skr::ServiceProvider>&        serviceProvider);
+        UiPassBuilder(const skr::Arc<Device>&         device,
+                      const skr::Arc<PhysicalDevice>& physicalDevice,
+                      const skr::Arc<Surface>&        surface,
+                      const skr::Arc<FreyaOptions>&   freyaOptions,
+                      const skr::Arc<MaterialDescriptorResources>& materials,
+                      const skr::Arc<skr::ServiceProvider>& serviceProvider);
 
         skr::Arc<UiPass> Build(const skr::Arc<SwapChain>& swapChain);
 

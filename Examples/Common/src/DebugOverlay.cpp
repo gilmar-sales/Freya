@@ -13,6 +13,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
 
 namespace FreyaExamples
 {
@@ -188,31 +189,65 @@ namespace FreyaExamples
             std::fprintf(stderr, "DebugOverlay: Vulkan ImGui init failed\n");
             return false;
         }
+        mBoundRenderPass = handles.renderPass;
+        mBoundImageCount = initInfo.ImageCount;
         return true;
     }
 
-    void DebugOverlay::applyPendingSwapchainChanges()
+    void DebugOverlay::rebindImGuiIfSwapchainChanged()
     {
-        if (!mPendingVSync || !mRenderer)
+        if (!mInitialized || !mRenderer || !mDevice)
             return;
 
-        mPendingVSync = false;
-        if (mRenderer->GetVSync() == mPendingVSyncValue)
+        auto handles = fra::Advanced(*mRenderer).GetImGuiNativeHandles();
+        if (!handles.renderPass)
             return;
 
-        // Between frames: no open command buffer. Rebuild then rebind ImGui
-        // to the new CompositePass UI render pass / image count.
-        mRenderer->SetVSync(mPendingVSyncValue);
+        const auto imageCount = std::max(2u, handles.minImageCount);
+        if (handles.renderPass == mBoundRenderPass &&
+            imageCount == mBoundImageCount)
+            return;
 
-        if (mDevice)
-            vkDeviceWaitIdle(static_cast<VkDevice>(mDevice));
+        // CompositePass / swapchain UI RP was rebuilt (resize, samples,
+        // etc.). ImGui must be rebound or RenderDrawData hits a destroyed
+        // render pass and the frame stalls with no validation noise.
+        vkDeviceWaitIdle(static_cast<VkDevice>(mDevice));
         releaseViewportTexture();
         ImGui_ImplVulkan_Shutdown();
         if (!reinitVulkanBackend(*mRenderer))
         {
             std::fprintf(stderr,
-                         "DebugOverlay: failed to rebind ImGui after VSync\n");
-            mEnabled = false;
+                         "DebugOverlay: failed to rebind ImGui after "
+                         "swapchain/pass rebuild\n");
+            mEnabled         = false;
+            mBoundRenderPass = nullptr;
+            mBoundImageCount = 0;
+        }
+    }
+
+    void DebugOverlay::applyPendingSwapchainChanges()
+    {
+        if (mPendingVSync && mRenderer)
+        {
+            mPendingVSync = false;
+            if (mRenderer->GetVSync() != mPendingVSyncValue)
+            {
+                // Between frames: no open command buffer. Rebuild then rebind
+                // ImGui to the new CompositePass UI render pass / image count.
+                mRenderer->SetVSync(mPendingVSyncValue);
+
+                if (mDevice)
+                    vkDeviceWaitIdle(static_cast<VkDevice>(mDevice));
+                releaseViewportTexture();
+                ImGui_ImplVulkan_Shutdown();
+                if (!reinitVulkanBackend(*mRenderer))
+                {
+                    std::fprintf(
+                        stderr,
+                        "DebugOverlay: failed to rebind ImGui after VSync\n");
+                    mEnabled = false;
+                }
+            }
         }
     }
 
@@ -341,6 +376,10 @@ namespace FreyaExamples
         if (!mInitialized || !mEnabled)
             return;
 
+        // Renderer::BeginFrame may have rebuilt CompositePass on resize;
+        // rebind before any ImGui work that depends on the UI render pass.
+        rebindImGuiIfSwapchainChanged();
+
         auto viewport = fra::Advanced(renderer).GetViewportImage();
         if (viewport.valid && viewport.imageView && viewport.sampler)
         {
@@ -432,8 +471,7 @@ namespace FreyaExamples
         if (lights != nullptr &&
             ImGui::CollapsingHeader("Lights", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            auto typeToggle = [lights](const char*     label,
-                                       fra::LightType type) {
+            auto typeToggle = [lights](const char* label, fra::LightType type) {
                 bool on = lights->IsLightTypeEnabled(type);
                 if (ImGui::Checkbox(label, &on))
                     lights->SetLightTypeEnabled(type, on);
@@ -541,6 +579,7 @@ namespace FreyaExamples
 
         if (mEnabled)
         {
+            rebindImGuiIfSwapchainChanged();
             ImGui::Render();
             renderer.EndFrame([&] {
                 ImGui_ImplVulkan_RenderDrawData(

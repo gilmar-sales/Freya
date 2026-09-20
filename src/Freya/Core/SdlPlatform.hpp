@@ -54,7 +54,7 @@ namespace FREYA_NAMESPACE
         std::unordered_map<std::uint32_t, void*> mWindowsById;
         NativeEventObserver                      mEventObserver = nullptr;
         void*                                    mEventUser     = nullptr;
-        SDL_Cursor* mCursors[4] {};
+        SDL_Cursor*                              mCursors[4] {};
         SystemCursor mCurrentCursor = SystemCursor::Arrow;
     };
 

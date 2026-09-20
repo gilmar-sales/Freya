@@ -23,11 +23,11 @@ namespace FREYA_NAMESPACE
             if (mLive.size() >= maxParticles)
                 break;
             ParticleDesc p {};
-            p.pos = origin;
-            p.vel = velocity + glm::vec3(jitter(ParticlesRandomEngine),
-                                         jitter(ParticlesRandomEngine),
-                                         jitter(ParticlesRandomEngine)) *
-                                   velocityJitter;
+            p.pos      = origin;
+            p.vel      = velocity + glm::vec3(jitter(ParticlesRandomEngine),
+                                              jitter(ParticlesRandomEngine),
+                                              jitter(ParticlesRandomEngine)) *
+                                        velocityJitter;
             p.lifetime = lifetime;
             p.size0    = size0;
             p.size1    = size1;

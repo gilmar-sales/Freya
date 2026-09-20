@@ -3,8 +3,6 @@
 #include "Freya/Internal/VulkanCompat.hpp"
 
 #include "Freya/Builders/BillboardPassBuilder.hpp"
-#include "Freya/Builders/DebugDrawPassBuilder.hpp"
-#include "Freya/Builders/UiPassBuilder.hpp"
 #include "Freya/Builders/BloomPassBuilder.hpp"
 #include "Freya/Builders/CompositePassBuilder.hpp"
 #include "Freya/Builders/DebugDrawPassBuilder.hpp"
@@ -14,6 +12,7 @@
 #include "Freya/Builders/SsaoPassBuilder.hpp"
 #include "Freya/Builders/TaaPassBuilder.hpp"
 #include "Freya/Builders/TranslucentPassBuilder.hpp"
+#include "Freya/Builders/UiPassBuilder.hpp"
 #include "Freya/Core/BloomPass.hpp"
 #include "Freya/Core/DebugLabels.hpp"
 #include "Freya/Core/Device.hpp"
@@ -720,13 +719,19 @@ namespace FREYA_NAMESPACE
         auto& ctx = AsRenderFrameContext(stageCtx);
         if (!ctx.uiPass || !*ctx.uiPass || !ctx.uiDraw || ctx.uiDraw->Empty())
             return;
-        const float scale =
-            ctx.uiLogicalScale && *ctx.uiLogicalScale > 0.f
-                ? *ctx.uiLogicalScale
-                : 1.f;
+        const float scale = ctx.uiLogicalScale && *ctx.uiLogicalScale > 0.f
+                                ? *ctx.uiLogicalScale
+                                : 1.f;
         (*ctx.uiPass)
             ->Draw(ctx.commandPool, ctx.swapChain, *ctx.uiDraw, ctx.VkExtent(),
                    scale);
+    }
+
+    void ModelPreviewFrameStage::Execute(StageContext& stageCtx)
+    {
+        auto& ctx = AsRenderFrameContext(stageCtx);
+        if (ctx.recordModelPreviews)
+            ctx.recordModelPreviews();
     }
 
     void GpuAnimFrameStage::Execute(StageContext& stageCtx)

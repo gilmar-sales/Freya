@@ -181,7 +181,8 @@ namespace FREYA_NAMESPACE
         float shadowCascadeDistance = 80.0f;
         /// Half-res directional CSM mask before fullscreen lighting.
         /// Off by default: lighting samples cascades directly (same PCF as
-        /// spot/point). The mask looked softer and could lag with camera motion.
+        /// spot/point). The mask looked softer and could lag with camera
+        /// motion.
         bool          enableShadowMask            = false;
         std::uint32_t shadowMaskResolutionDivisor = 2;
         /// Kept for API compat; directional CSM may skip redraw when the
@@ -271,72 +272,72 @@ namespace FREYA_NAMESPACE
         switch (quality)
         {
             case ShadowQuality::Low:
-                options.shadowMapResolution           = 512;
-                options.shadowCascadeCount            = 2;
-                options.maxSpotShadows                = 2;
-                options.maxPointShadows               = 2;
-                options.shadowSampleCount             = 4;
-                options.shadowCascadeBlend            = 0.0f;
-                options.shadowCascadeDistance         = 40.0f;
-                options.shadowPointResolution         = 0;
-                options.shadowPointResolutionDivisor  = 2;
-                options.shadowSpotResolution          = 0;
-                options.shadowSpotResolutionDivisor   = 2;
-                options.shadowPointUpdatePeriod       = 2;
-                options.shadowCascadeUpdatePeriod     = 2;
-                options.shadowMaskResolutionDivisor   = 2;
-                options.enableShadowMask              = false;
+                options.shadowMapResolution          = 512;
+                options.shadowCascadeCount           = 2;
+                options.maxSpotShadows               = 2;
+                options.maxPointShadows              = 2;
+                options.shadowSampleCount            = 4;
+                options.shadowCascadeBlend           = 0.0f;
+                options.shadowCascadeDistance        = 40.0f;
+                options.shadowPointResolution        = 0;
+                options.shadowPointResolutionDivisor = 2;
+                options.shadowSpotResolution         = 0;
+                options.shadowSpotResolutionDivisor  = 2;
+                options.shadowPointUpdatePeriod      = 2;
+                options.shadowCascadeUpdatePeriod    = 2;
+                options.shadowMaskResolutionDivisor  = 2;
+                options.enableShadowMask             = false;
                 break;
             case ShadowQuality::Medium:
-                options.shadowMapResolution           = 1024;
-                options.shadowCascadeCount            = 3;
-                options.maxSpotShadows                = 4;
-                options.maxPointShadows               = 2;
-                options.shadowSampleCount             = 8;
-                options.shadowCascadeBlend            = 0.0f;
-                options.shadowCascadeDistance         = 60.0f;
-                options.shadowPointResolution         = 0;
-                options.shadowPointResolutionDivisor  = 2;
-                options.shadowSpotResolution          = 0;
-                options.shadowSpotResolutionDivisor   = 2;
-                options.shadowPointUpdatePeriod       = 2;
-                options.shadowCascadeUpdatePeriod     = 2;
-                options.shadowMaskResolutionDivisor   = 2;
-                options.enableShadowMask              = false;
+                options.shadowMapResolution          = 1024;
+                options.shadowCascadeCount           = 3;
+                options.maxSpotShadows               = 4;
+                options.maxPointShadows              = 2;
+                options.shadowSampleCount            = 8;
+                options.shadowCascadeBlend           = 0.0f;
+                options.shadowCascadeDistance        = 60.0f;
+                options.shadowPointResolution        = 0;
+                options.shadowPointResolutionDivisor = 2;
+                options.shadowSpotResolution         = 0;
+                options.shadowSpotResolutionDivisor  = 2;
+                options.shadowPointUpdatePeriod      = 2;
+                options.shadowCascadeUpdatePeriod    = 2;
+                options.shadowMaskResolutionDivisor  = 2;
+                options.enableShadowMask             = false;
                 break;
             case ShadowQuality::High:
-                options.shadowMapResolution           = 2048;
-                options.shadowCascadeCount            = 4;
-                options.maxSpotShadows                = 4;
-                options.maxPointShadows               = 2;
-                options.shadowSampleCount             = 16;
-                options.shadowCascadeBlend            = 0.05f;
-                options.shadowCascadeDistance         = 80.0f;
-                options.shadowPointResolution         = 0;
-                options.shadowPointResolutionDivisor  = 1;
-                options.shadowSpotResolution          = 0;
-                options.shadowSpotResolutionDivisor   = 1;
-                options.shadowPointUpdatePeriod       = 2;
-                options.shadowCascadeUpdatePeriod     = 2;
-                options.shadowMaskResolutionDivisor   = 1;
-                options.enableShadowMask              = false;
+                options.shadowMapResolution          = 2048;
+                options.shadowCascadeCount           = 4;
+                options.maxSpotShadows               = 4;
+                options.maxPointShadows              = 2;
+                options.shadowSampleCount            = 16;
+                options.shadowCascadeBlend           = 0.05f;
+                options.shadowCascadeDistance        = 80.0f;
+                options.shadowPointResolution        = 0;
+                options.shadowPointResolutionDivisor = 1;
+                options.shadowSpotResolution         = 0;
+                options.shadowSpotResolutionDivisor  = 1;
+                options.shadowPointUpdatePeriod      = 2;
+                options.shadowCascadeUpdatePeriod    = 2;
+                options.shadowMaskResolutionDivisor  = 1;
+                options.enableShadowMask             = false;
                 break;
             case ShadowQuality::Ultra:
-                options.shadowMapResolution           = 4096;
-                options.shadowCascadeCount            = 4;
-                options.maxSpotShadows                = 4;
-                options.maxPointShadows               = 2;
-                options.shadowSampleCount             = 16;
-                options.shadowCascadeBlend            = 0.1f;
-                options.shadowCascadeDistance         = 120.0f;
-                options.shadowPointResolution         = 0;
-                options.shadowPointResolutionDivisor  = 1;
-                options.shadowSpotResolution          = 0;
-                options.shadowSpotResolutionDivisor   = 1;
-                options.shadowPointUpdatePeriod       = 1;
-                options.shadowCascadeUpdatePeriod     = 1;
-                options.shadowMaskResolutionDivisor   = 1;
-                options.enableShadowMask              = false;
+                options.shadowMapResolution          = 4096;
+                options.shadowCascadeCount           = 4;
+                options.maxSpotShadows               = 4;
+                options.maxPointShadows              = 2;
+                options.shadowSampleCount            = 16;
+                options.shadowCascadeBlend           = 0.1f;
+                options.shadowCascadeDistance        = 120.0f;
+                options.shadowPointResolution        = 0;
+                options.shadowPointResolutionDivisor = 1;
+                options.shadowSpotResolution         = 0;
+                options.shadowSpotResolutionDivisor  = 1;
+                options.shadowPointUpdatePeriod      = 1;
+                options.shadowCascadeUpdatePeriod    = 1;
+                options.shadowMaskResolutionDivisor  = 1;
+                options.enableShadowMask             = false;
                 break;
             case ShadowQuality::Off:
                 break;

@@ -1008,9 +1008,9 @@ class MainApp final : public fra::AbstractApplication
             .UploadSkeleton(fra::PackSkeleton(mSkinned.skeleton));
         fra::Advanced(*mRenderer).GpuAnimation().ResetClipCache();
 
-        const auto uploadPinned = [&](const std::uint32_t   slot,
+        const auto uploadPinned = [&](const std::uint32_t       slot,
                                       const fra::AnimationClip* clip,
-                                      const fra::BakedClip& bake) {
+                                      const fra::BakedClip&     bake) {
             if (!clip)
                 return;
             const auto key = fra::GpuClipKey(clip->name);
