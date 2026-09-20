@@ -109,6 +109,29 @@ namespace FREYA_NAMESPACE
         mImpl->UploadSkeleton(skeleton);
     }
 
+    std::uint32_t GpuAnimPass::FindSkeletonSlot(const std::uint64_t key) const
+    {
+        return mImpl->FindSkeletonSlot(key);
+    }
+
+    std::uint32_t GpuAnimPass::EnsureSkeletonResident(
+        const std::uint64_t key, const GpuSkeletonPack& skeleton,
+        const std::uint32_t rootJoint)
+    {
+        return mImpl->EnsureSkeletonResident(key, skeleton, rootJoint);
+    }
+
+    void GpuAnimPass::PinSkeletonSlot(const std::uint32_t slot,
+                                      const bool          pinned)
+    {
+        mImpl->PinSkeletonSlot(slot, pinned);
+    }
+
+    std::uint32_t GpuAnimPass::ResidentSkeletonCount() const
+    {
+        return mImpl->ResidentSkeletonCount();
+    }
+
     void GpuAnimPass::UploadBakes(const GpuBakePack& pack)
     {
         mImpl->UploadBakes(pack);
@@ -182,6 +205,20 @@ namespace FREYA_NAMESPACE
         const std::span<const GpuQuantJoint> joints)
     {
         mImpl->UploadRestJoints(joints);
+    }
+
+    void GpuAnimPass::UploadRestJoints(
+        const std::uint32_t                     skeletonSlot,
+        const std::span<const GpuFloatJoint> joints)
+    {
+        mImpl->UploadRestJoints(skeletonSlot, joints);
+    }
+
+    void GpuAnimPass::UploadRestJoints(
+        const std::uint32_t                     skeletonSlot,
+        const std::span<const GpuQuantJoint> joints)
+    {
+        mImpl->UploadRestJoints(skeletonSlot, joints);
     }
 
     void GpuAnimPass::BeginInstanceUploads()

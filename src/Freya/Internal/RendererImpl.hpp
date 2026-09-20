@@ -232,6 +232,14 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] std::uint32_t GetGpuAnimResidentClipCount() const;
         [[nodiscard]] std::uint32_t GetGpuAnimJointsPerClipSlot() const;
 
+        [[nodiscard]] std::uint32_t FindGpuAnimSkeletonSlot(
+            std::uint64_t key) const;
+        [[nodiscard]] std::uint32_t EnsureGpuAnimSkeletonResident(
+            std::uint64_t key, const GpuSkeletonPack& skeleton,
+            std::uint32_t rootJoint = 0xffffffffu);
+        [[nodiscard]] std::uint32_t GetGpuAnimResidentSkeletonCount() const;
+        void PinGpuAnimSkeletonSlot(std::uint32_t slot, bool pinned);
+
         void UploadGpuAnimSkeleton(const GpuSkeletonPack& skeleton);
         void ResetGpuAnimClipCache();
         bool UploadGpuAnimClipSlot(std::uint32_t slot, std::uint64_t key,
@@ -240,6 +248,10 @@ namespace FREYA_NAMESPACE
         void UploadGpuAnimBoneMask(std::span<const float> weights);
         void UploadGpuAnimRestJoints(std::span<const GpuFloatJoint> joints);
         void UploadGpuAnimRestJoints(std::span<const GpuQuantJoint> joints);
+        void UploadGpuAnimRestJoints(std::uint32_t skeletonSlot,
+                                     std::span<const GpuFloatJoint> joints);
+        void UploadGpuAnimRestJoints(std::uint32_t skeletonSlot,
+                                     std::span<const GpuQuantJoint> joints);
         void SetGpuAnimRigIndices(std::uint32_t lookJoint, std::uint32_t ikRoot,
                                   std::uint32_t ikMid, std::uint32_t ikTip,
                                   std::uint32_t rootJoint,

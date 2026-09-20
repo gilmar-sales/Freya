@@ -219,22 +219,43 @@ blends loco/layers, optional look/IK, FK, then writes skin matrices into
 | Constant | Value |
 |----------|------:|
 | `kMaxJoints` | 128 |
+| `kMaxSkeletons` | 8 (atlas slabs; mid-tier multi-rig) |
 | `kMaxInstances` | 2048 |
 | `kMaxClips` | 24 |
 | `kMaxBakedJointsFloat` | 65536 (48 B/joint) |
 | `kMaxBakedJointsQuant` | 196608 (16 B; same VRAM as float pool) |
+| `kMaxMaskFloats` | 1024 (`kMaxJoints * kMaxSkeletons`) |
 | `kMaxExtractJoints` | 64 |
+
+### Quality tiers (AAA scaling)
+
+Freya’s compute bake path is the **mid** tier. Crowds at city scale use a
+different pipeline (BAT/VAT + instancing) — out of scope here.
+
+| Tier | Technique | Typical count |
+|------|-----------|---------------|
+| Hero | CPU or full GPU graph (look/IK) | ~1–20 |
+| Mid | `GpuAnimPass` compute bake + skeleton atlas | ~20–200 |
+| Far | BAT / VAT + instancing (follow-up) | 10³–10⁴ |
 
 ### Setup and frame loop
 
-Prefer **pre-resident clips** at load (main thread) + `FindClipSlot` on the
-hot path. `EnsureClipResident` is thread-safe (SpinLock); while instance
-staging is open it only fills **free** slots (no LRU evict). Prefetch /
-pin still avoids host `Copy` on the critical path.
+Prefer **pre-resident clips and skeletons** at load (main thread) +
+`FindClipSlot` / `FindSkeletonSlot` on the hot path. `EnsureClipResident` /
+`EnsureSkeletonResident` are thread-safe (SpinLock); while instance staging
+is open they only fill **free** slots (no LRU evict). Prefetch / pin still
+avoids host `Copy` on the critical path. Same skeleton key → same slot
+(dedup).
 
 ```cpp
 auto& gpu = fra::Advanced(*renderer).GpuAnimation();
+// Single-rig back-compat (writes / pins atlas slot 0):
 gpu.UploadSkeleton(fra::PackSkeleton(skel));
+// Multi-rig mid-tier:
+// auto s0 = gpu.EnsureSkeletonResident(fra::GpuSkeletonKey("Fox"), packFox);
+// gpu.PinSkeletonSlot(s0, true);
+// auto s1 = gpu.EnsureSkeletonResident(fra::GpuSkeletonKey("Human"), packHuman);
+// gpu.PinSkeletonSlot(s1, true);
 // Load / between frames — pin every bake the parallel path will sample:
 gpu.UploadClipSlot(0, fra::GpuClipKey(clipIdle->name), bakeIdle);
 gpu.PinClipSlot(0, true);
@@ -242,8 +263,8 @@ gpu.UploadClipSlot(1, fra::GpuClipKey(clipWalk->name), bakeWalk);
 gpu.PinClipSlot(1, true);
 // ... or EnsureClipResident(key, bake) + PinClipSlot for streaming fills
 gpu.UploadBoneMask(upperWeights);
-gpu.UploadRestJoints(...);
-gpu.SetRigIndices(lookJ, ikRoot, ikMid, ikTip, rootJ);
+gpu.UploadRestJoints(...); // atlas slot 0; or UploadRestJoints(slot, ...)
+gpu.SetRigIndices(lookJ, ikRoot, ikMid, ikTip, rootJ); // patches slot 0 header
 gpu.SetCopyPrevBones(true); // sparse LOD / FiF continuity
 gpu.SetEnabled(true);
 ```
@@ -254,12 +275,16 @@ Hot path (same `EachAsync` / workers as CPU bone packing):
 gpu.BeginGpuAnimInstanceUploads();
 gpu.ReserveGpuAnimInstanceUploads(expectedCount);
 // any threads:
-auto slot = gpu.FindClipSlot(fra::GpuClipKey(clip->name));
-if (slot == 0xffffffffu)
-    slot = gpu.EnsureClipResident(key, bake); // free slots only
-if (slot == 0xffffffffu) { /* miss: skip / CPU fallback / Ensure on main
-                               between frames (LRU allowed) */ }
-inst.clipA = slot;
+auto clipSlot = gpu.FindClipSlot(fra::GpuClipKey(clip->name));
+if (clipSlot == 0xffffffffu)
+    clipSlot = gpu.EnsureClipResident(key, bake); // free slots only
+auto skelSlot = gpu.FindSkeletonSlot(fra::GpuSkeletonKey("Fox"));
+if (skelSlot == 0xffffffffu)
+    skelSlot = gpu.EnsureSkeletonResident(key, pack); // free slots only
+if (clipSlot == 0xffffffffu || skelSlot == 0xffffffffu) {
+    /* miss: skip / CPU fallback / Ensure on main between frames */ }
+inst.clipA = clipSlot;
+inst.skeletonSlot = skelSlot;
 gpu.UploadGpuAnimInstanceUploads(chunkSpan);
 gpu.EndGpuAnimInstanceUploads();
 // Dispatch runs in the frame graph
@@ -268,7 +293,8 @@ gpu.EndGpuAnimInstanceUploads();
 `UploadInstances` wraps `BeginGpuAnimInstanceUploads` →
 `UploadGpuAnimInstanceUploads` → `EndGpuAnimInstanceUploads`.
 `Evict` / `ResetClipCache` / `UploadClipSlot` / `UploadSkeleton` /
-`UploadBakes` are rejected while instance staging is open.
+`UploadBakes` are rejected while instance staging is open; Ensure
+(clip/skeleton) may fill free slots.
 
 **Mixed CPU + GPU (same frame):** upload CPU skins first, then
 `UploadInstances` / `EndGpuAnimInstanceUploads` for GPU actors, with
@@ -277,10 +303,10 @@ so hero CPU skins are not wiped. Prefer uploading only CPU-owned matrices
 (not a full palette of identity padding for GPU slots). Call GPU instance
 `End` after the CPU bone `End` so wild slots are re-marked the same frame.
 
-**One skeleton per Dispatch.** Multi-rig GPU in the same frame needs
-serialized `UploadSkeleton` + Dispatch (or `DispatchImmediate`) on the
-main thread, or keep extra rigs on the CPU path — not inside the parallel
-EachAsync cohort.
+**Multi-rig mid-tier:** up to `kMaxSkeletons` atlased slabs of parents /
+inverseBind / rest; each `GpuAnimInstance` carries `skeletonSlot`. One
+Dispatch processes mixed fox + humanoid (etc.) in the same EachAsync cohort.
+Far-tier crowds (BAT/VAT) remain a separate follow-up.
 
 After toggling `quantizeGpuAnimJoints`, call
 `fra::Advanced(renderer).GpuAnimation().RebuildPass()` and re-upload
@@ -290,14 +316,21 @@ skeleton / clips / mask / rest / rig.
 
 Per-actor job: loco `clipA/B/C`, `time*`, `wA/B/C`; flags
 (`GpuAnimFlags::Loop`, `MaskedOverlay`, `Additive`, `CancelRootXZ`); mask /
-additive slots; `modelWorld`; look (`lookTarget`, `lookWeight`, `lookJoint`,
-`lookLocalForward`, `lookMaxYaw` / `lookMaxPitch`); IK (`ikRoot` / `Mid` /
-`Tip`, `ikTarget`, `ikPole`, `ikWeight`). Disabled joint index:
-`0xffffffffu`.
+additive slots; `skeletonSlot` (atlas index); `modelWorld`; look
+(`lookTarget`, `lookWeight`, `lookJoint`, `lookLocalForward`, `lookMaxYaw` /
+`lookMaxPitch`); IK (`ikRoot` / `Mid` / `Tip`, `ikTarget`, `ikPole`,
+`ikWeight`). Disabled joint index: `0xffffffffu`.
 
 Joint storage: `GpuFloatJoint` (48 B) or `GpuQuantJoint` (16 B,
 smallest-three quat + half floats) via `quantizeGpuAnimJoints`.
 
+### Skeleton atlas
+
+Cache of 8 slabs (`kMaxJoints` each). `EnsureSkeletonResident` mirrors
+clip Ensure (free-slot only while staging open; LRU unpinned when closed).
+`UploadSkeleton` writes / pins slot 0. `GpuSkeletonHeader` holds
+`jointCount` + `rootJoint` (CancelRootXZ) per slot. `SetRigIndices`
+patches slot 0’s `rootJoint` when resident.
 ### Clip streaming
 
 Cache of 24 slots. `EnsureClipResident` is thread-safe. With staging

@@ -23,11 +23,13 @@ namespace FREYA_NAMESPACE
      * Obtain via RendererAdvanced::GpuAnimation().
      *
      * Parallel packing (ECS EachAsync / workers): prefer pre-resident + pin
-     * at load, then `FindClipSlot` + `UploadGpuAnimInstanceUploads`. Workers
-     * may also call `EnsureClipResident` (SpinLock; free-slot fills only
-     * while instance staging is open — no LRU evict). Do not call Evict /
-     * Reset / UploadClipSlot / UploadSkeleton / UploadBakes during staging.
-     * One skeleton per Dispatch (multi-rig is main-thread serial or CPU).
+     * at load (clips and skeletons), then `FindClipSlot` /
+     * `FindSkeletonSlot` + `UploadGpuAnimInstanceUploads`. Workers may also
+     * call `EnsureClipResident` / `EnsureSkeletonResident` (SpinLock;
+     * free-slot fills only while instance staging is open — no LRU evict).
+     * Do not call Evict / Reset / UploadClipSlot / UploadSkeleton /
+     * UploadBakes during staging. Multi-rig mid-tier: up to
+     * `kMaxSkeletons` atlased slabs; set `GpuAnimInstance::skeletonSlot`.
      */
 
     class GpuAnimationSystem
@@ -96,7 +98,30 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] std::uint32_t GetJointsPerClipSlot() const;
 
-        /** @brief Main-thread only; not during instance staging. */
+        /**
+         * @brief Thread-safe skeleton-slot lookup (internal SpinLock).
+         * @return Slot index, or 0xffffffffu on miss.
+         */
+        [[nodiscard]] std::uint32_t FindSkeletonSlot(std::uint64_t key) const;
+
+        /**
+         * @brief Thread-safe make-resident skeleton atlas slab.
+         *
+         * Same staging rules as EnsureClipResident (free-slot only while
+         * staging open). Dedupes by key. Writes parents / IBM / header.
+         */
+        [[nodiscard]] std::uint32_t EnsureSkeletonResident(
+            std::uint64_t key, const GpuSkeletonPack& skeleton,
+            std::uint32_t rootJoint = 0xffffffffu);
+
+        [[nodiscard]] std::uint32_t GetResidentSkeletonCount() const;
+
+        void PinSkeletonSlot(std::uint32_t slot, bool pinned);
+
+        /**
+         * @brief Main-thread only; not during instance staging.
+         * Writes / pins atlas slot 0 (single-rig back-compat).
+         */
 
         void UploadSkeleton(const GpuSkeletonPack& skeleton);
 
@@ -116,9 +141,17 @@ namespace FREYA_NAMESPACE
 
         void UploadBoneMask(std::span<const float> weights);
 
+        /** @brief Rest joints for skeleton atlas slot 0 (back-compat). */
         void UploadRestJoints(std::span<const GpuFloatJoint> joints);
 
         void UploadRestJoints(std::span<const GpuQuantJoint> joints);
+
+        /** @brief Rest joints for a specific skeleton atlas slot. */
+        void UploadRestJoints(std::uint32_t                     skeletonSlot,
+                              std::span<const GpuFloatJoint> joints);
+
+        void UploadRestJoints(std::uint32_t                     skeletonSlot,
+                              std::span<const GpuQuantJoint> joints);
 
         void SetRigIndices(
 

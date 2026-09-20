@@ -22,11 +22,15 @@ namespace FREYA_NAMESPACE
         class Impl;
 
         static constexpr std::uint32_t kMaxJoints               = 128;
+        static constexpr std::uint32_t kMaxSkeletons            = 8;
         static constexpr std::uint32_t kMaxInstances            = 2048;
         static constexpr std::uint32_t kMaxClips                = 24;
         static constexpr std::uint32_t kMaxBakedJointsFloat     = 65536;
         static constexpr std::uint32_t kMaxBakedJointsQuant     = 196608;
-        static constexpr std::uint32_t kMaxMaskFloats           = kMaxJoints;
+        static constexpr std::uint32_t kMaxMaskFloats =
+            kMaxJoints * kMaxSkeletons;
+        static constexpr std::uint32_t kMaxAtlasJoints =
+            kMaxJoints * kMaxSkeletons;
         static constexpr std::uint32_t kMaxExtractJoints        = 64;
         static constexpr std::uint32_t kTimestampQueriesPerSlot = 4;
 
@@ -72,10 +76,17 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] bool HasTimestampQueries() const;
 
         /**
-         * @brief Main-thread only. Forbidden while instance staging is open
-         * (between BeginInstanceUploads and EndInstanceUploads).
+         * @brief Main-thread only. Forbidden while instance staging is open.
+         * Writes / pins atlas slot 0 (single-rig back-compat).
          */
         void UploadSkeleton(const GpuSkeletonPack& skeleton);
+        [[nodiscard]] std::uint32_t FindSkeletonSlot(std::uint64_t key) const;
+        [[nodiscard]] std::uint32_t EnsureSkeletonResident(
+            std::uint64_t key, const GpuSkeletonPack& skeleton,
+            std::uint32_t rootJoint = 0xffffffffu);
+        void PinSkeletonSlot(std::uint32_t slot, bool pinned);
+        [[nodiscard]] std::uint32_t ResidentSkeletonCount() const;
+
         void UploadBakes(const GpuBakePack& pack);
         void ResetClipCache();
         bool UploadClipSlot(std::uint32_t slot, std::uint64_t key,
@@ -103,6 +114,10 @@ namespace FREYA_NAMESPACE
         void UploadBoneMask(std::span<const float> weights);
         void UploadRestJoints(std::span<const GpuFloatJoint> joints);
         void UploadRestJoints(std::span<const GpuQuantJoint> joints);
+        void UploadRestJoints(std::uint32_t                     skeletonSlot,
+                              std::span<const GpuFloatJoint> joints);
+        void UploadRestJoints(std::uint32_t                     skeletonSlot,
+                              std::span<const GpuQuantJoint> joints);
 
         /**
          * @brief Cumulative GPU anim instance upload (thread-safe Upload).
@@ -110,7 +125,8 @@ namespace FREYA_NAMESPACE
          * Begin → optional Reserve → Upload (any thread) → End.
          * UploadInstances wraps Begin/Upload/End for single-thread callers.
          * Evict / Reset / UploadClipSlot / UploadSkeleton / UploadBakes are
-         * rejected while staging is open; Ensure may fill free slots.
+         * rejected while staging is open; Ensure (clip/skeleton) may fill
+         * free slots.
          */
         void BeginInstanceUploads();
         void ReserveInstanceUploads(std::uint32_t count);

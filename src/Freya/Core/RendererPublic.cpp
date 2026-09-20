@@ -536,6 +536,34 @@ namespace FREYA_NAMESPACE
             ->GetGpuAnimJointsPerClipSlot();
     }
 
+    std::uint32_t GpuAnimationSystem::FindSkeletonSlot(
+        const std::uint64_t key) const
+    {
+        return static_cast<Renderer::Impl*>(mImpl)->FindGpuAnimSkeletonSlot(
+            key);
+    }
+
+    std::uint32_t GpuAnimationSystem::EnsureSkeletonResident(
+        const std::uint64_t key, const GpuSkeletonPack& skeleton,
+        const std::uint32_t rootJoint)
+    {
+        return static_cast<Renderer::Impl*>(mImpl)
+            ->EnsureGpuAnimSkeletonResident(key, skeleton, rootJoint);
+    }
+
+    std::uint32_t GpuAnimationSystem::GetResidentSkeletonCount() const
+    {
+        return static_cast<Renderer::Impl*>(mImpl)
+            ->GetGpuAnimResidentSkeletonCount();
+    }
+
+    void GpuAnimationSystem::PinSkeletonSlot(const std::uint32_t slot,
+                                             const bool          pinned)
+    {
+        static_cast<Renderer::Impl*>(mImpl)->PinGpuAnimSkeletonSlot(slot,
+                                                                    pinned);
+    }
+
     void GpuAnimationSystem::UploadSkeleton(const GpuSkeletonPack& skeleton)
     {
         static_cast<Renderer::Impl*>(mImpl)->UploadGpuAnimSkeleton(skeleton);
@@ -576,6 +604,22 @@ namespace FREYA_NAMESPACE
         const std::span<const GpuQuantJoint> joints)
     {
         static_cast<Renderer::Impl*>(mImpl)->UploadGpuAnimRestJoints(joints);
+    }
+
+    void GpuAnimationSystem::UploadRestJoints(
+        const std::uint32_t                     skeletonSlot,
+        const std::span<const GpuFloatJoint> joints)
+    {
+        static_cast<Renderer::Impl*>(mImpl)->UploadGpuAnimRestJoints(
+            skeletonSlot, joints);
+    }
+
+    void GpuAnimationSystem::UploadRestJoints(
+        const std::uint32_t                     skeletonSlot,
+        const std::span<const GpuQuantJoint> joints)
+    {
+        static_cast<Renderer::Impl*>(mImpl)->UploadGpuAnimRestJoints(
+            skeletonSlot, joints);
     }
 
     void GpuAnimationSystem::SetRigIndices(

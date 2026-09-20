@@ -85,7 +85,7 @@ struct AnimInstance
     float timeMask;
     float weightMask;
     uint  clipAdd;
-    uint  _padLayer;
+    uint  skeletonSlot;
     float timeAdd;
     float weightAdd;
     mat4  modelWorld;
@@ -132,11 +132,24 @@ layout(set = 1, binding = 8) buffer GlobalScratch
     mat4 globalPose[];
 };
 
+struct SkeletonHeader
+{
+    uint jointCount;
+    uint rootJoint;
+    uint _pad0;
+    uint _pad1;
+};
+
+layout(set = 1, binding = 9) readonly buffer SkeletonHeaders
+{
+    SkeletonHeader skeletonHeaders[];
+};
+
 layout(push_constant) uniform Push
 {
     uint instanceCount;
-    uint jointCount;
-    uint rootJoint;
+    uint jointCount; ///< unused (legacy); use inst.jointCount
+    uint rootJoint;  ///< unused; use skeletonHeaders[slot].rootJoint
     uint _pad0;
 } pc;
 
@@ -145,6 +158,7 @@ const uint kFlagMasked = 2u;
 const uint kFlagAdd    = 4u;
 const uint kFlagRootXZ = 8u;
 const uint kMaxJoints  = 128u;
+const uint kMaxSkeletons = 8u;
 const float kPi        = 3.14159265359;
 
 vec4 quatSlerp(vec4 a, vec4 b, float t)
@@ -437,7 +451,7 @@ BakedJoint sampleJoint(ClipHeader h, float timeSec, bool loop, uint joint)
     return lerpJoint(fetchJoint(h, f0, joint), fetchJoint(h, f1, joint), a);
 }
 
-void buildFk(uint base, uint jc)
+void buildFk(uint base, uint jc, uint skelBase)
 {
     // Parents may have a higher joint index than children. Propagate one
     // hierarchy level per pass (same rule as CPU LocalToGlobal).
@@ -447,7 +461,7 @@ void buildFk(uint base, uint jc)
         {
             BakedJoint lj     = localPose[base + j];
             mat4       localM = trsMat(lj.t, lj.q, lj.s);
-            int        p      = parents[j];
+            int        p      = parents[skelBase + j];
             if (p >= 0 && uint(p) < jc)
                 globalPose[base + j] = globalPose[base + uint(p)] * localM;
             else
@@ -463,9 +477,14 @@ void main()
         return;
 
     AnimInstance inst = instances[id];
-    uint         jc   = min(min(inst.jointCount, pc.jointCount), kMaxJoints);
+    uint         jc   = min(inst.jointCount, kMaxJoints);
     if (jc == 0u)
         return;
+
+    uint skelSlot = min(inst.skeletonSlot, kMaxSkeletons - 1u);
+    uint skelBase = skelSlot * kMaxJoints;
+    uint rootJoint =
+        skeletonHeaders[skelSlot].rootJoint;
 
     uint       base   = id * kMaxJoints;
     bool       loop   = (inst.flags & kFlagLoop) != 0u;
@@ -525,15 +544,16 @@ void main()
             {
                 BakedJoint overlay = sampleJoint(hAdd, inst.timeAdd, loop, j);
 #if FREYA_JOINT_QUANT
-                jl = applyAdditiveJoint(jl, overlay, decodeJoint(restJoints[j]),
-                                        u);
+                jl = applyAdditiveJoint(
+                    jl, overlay, decodeJoint(restJoints[skelBase + j]), u);
 #else
-                jl = applyAdditiveJoint(jl, overlay, restJoints[j], u);
+                jl = applyAdditiveJoint(jl, overlay, restJoints[skelBase + j],
+                                        u);
 #endif
             }
         }
 
-        if (rootXZ && pc.rootJoint != 0xffffffffu && j == pc.rootJoint)
+        if (rootXZ && rootJoint != 0xffffffffu && j == rootJoint)
         {
             jl.t.x = 0.0;
             jl.t.z = 0.0;
@@ -541,13 +561,13 @@ void main()
         localPose[base + j] = jl;
     }
 
-    buildFk(base, jc);
+    buildFk(base, jc, skelBase);
 
     float lookW = inst.lookWeight;
     if (lookW > 0.0 && inst.lookJoint < jc)
     {
         uint joint   = inst.lookJoint;
-        int  pp      = parents[joint];
+        int  pp      = parents[skelBase + joint];
         mat4 pw      = (pp < 0 || uint(pp) >= jc)
                            ? inst.modelWorld
                            : (inst.modelWorld * globalPose[base + uint(pp)]);
@@ -576,7 +596,7 @@ void main()
             lj.q          = normalize(
                 quatSlerp(lj.q, desiredLocal, clamp(lookW, 0.0, 1.0)));
             localPose[base + joint] = lj;
-            buildFk(base, jc);
+            buildFk(base, jc, skelBase);
         }
     }
 
@@ -628,7 +648,7 @@ void main()
                 mat4 jw     = inst.modelWorld * globalPose[base + root];
                 // Match CPU setLocalRotation: ortho quat_cast on TRS mats.
                 vec4 wr = normalize(quatMul(dQ, quatFromMatOrtho(jw)));
-                int  pp = parents[root];
+                int  pp = parents[skelBase + root];
                 mat4 pw = (pp < 0 || uint(pp) >= jc)
                               ? inst.modelWorld
                               : (inst.modelWorld *
@@ -639,7 +659,7 @@ void main()
                 BakedJoint lj = localPose[base + root];
                 lj.q = normalize(quatSlerp(lj.q, desiredLocal, w));
                 localPose[base + root] = lj;
-                buildFk(base, jc);
+                buildFk(base, jc, skelBase);
             }
 
             {
@@ -650,7 +670,7 @@ void main()
                 vec4 dQ     = quatFromTo(curDir, desDir);
                 mat4 jw     = inst.modelWorld * globalPose[base + mid];
                 vec4 wr     = normalize(quatMul(dQ, quatFromMatOrtho(jw)));
-                int  pp     = parents[mid];
+                int  pp     = parents[skelBase + mid];
                 mat4 pw     = (pp < 0 || uint(pp) >= jc)
                                   ? inst.modelWorld
                                   : (inst.modelWorld *
@@ -661,12 +681,12 @@ void main()
                 BakedJoint lj = localPose[base + mid];
                 lj.q = normalize(quatSlerp(lj.q, desiredLocal, w));
                 localPose[base + mid] = lj;
-                buildFk(base, jc);
+                buildFk(base, jc, skelBase);
             }
         }
     }
 
     for (uint j = 0u; j < jc; ++j)
         bones[inst.boneOffset + j] =
-            globalPose[base + j] * inverseBind[j];
+            globalPose[base + j] * inverseBind[skelBase + j];
 }

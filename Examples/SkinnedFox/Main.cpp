@@ -1361,9 +1361,10 @@ class MainApp final : public fra::AbstractApplication
         const GoldenFeatures& feat) const
     {
         fra::GpuAnimInstance inst {};
-        inst.boneOffset = fox.boneOffset;
-        inst.jointCount = jointCount;
-        inst.flags      = fra::GpuAnimFlags::Loop;
+        inst.boneOffset    = fox.boneOffset;
+        inst.jointCount    = jointCount;
+        inst.skeletonSlot  = 0;
+        inst.flags         = fra::GpuAnimFlags::Loop;
         fra::AnimLocoGpuSample loco {};
         if (fox.graph.TryGetLocoGpuSample(loco) && loco.clipA)
         {

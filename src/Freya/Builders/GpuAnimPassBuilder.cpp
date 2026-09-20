@@ -30,9 +30,11 @@ namespace FREYA_NAMESPACE
                                             : GpuAnimPass::kMaxBakedJointsFloat;
 
         const auto parentsBytes = static_cast<std::uint32_t>(
-            GpuAnimPass::kMaxJoints * sizeof(std::int32_t));
+            GpuAnimPass::kMaxAtlasJoints * sizeof(std::int32_t));
         const auto invBindBytes = static_cast<std::uint32_t>(
-            GpuAnimPass::kMaxJoints * sizeof(glm::mat4));
+            GpuAnimPass::kMaxAtlasJoints * sizeof(glm::mat4));
+        const auto skelHdrBytes = static_cast<std::uint32_t>(
+            GpuAnimPass::kMaxSkeletons * sizeof(GpuSkeletonHeader));
         const auto clipHdrBytes = static_cast<std::uint32_t>(
             GpuAnimPass::kMaxClips * sizeof(GpuClipHeader));
         const auto jointsBytes =
@@ -41,8 +43,8 @@ namespace FREYA_NAMESPACE
             GpuAnimPass::kMaxInstances * sizeof(GpuAnimInstance));
         const auto maskBytes = static_cast<std::uint32_t>(
             GpuAnimPass::kMaxMaskFloats * sizeof(float));
-        const auto restBytes =
-            static_cast<std::uint32_t>(GpuAnimPass::kMaxJoints * jointStride);
+        const auto restBytes = static_cast<std::uint32_t>(
+            GpuAnimPass::kMaxAtlasJoints * jointStride);
         const auto scratchCount =
             GpuAnimPass::kMaxInstances * GpuAnimPass::kMaxJoints;
         const auto localScratchBytes =
@@ -66,6 +68,11 @@ namespace FREYA_NAMESPACE
             BufferBuilder(mDevice)
                 .SetUsage(BufferUsage::Storage)
                 .SetSize(invBindBytes)
+                .Build();
+        auto skelHdrBuf =
+            BufferBuilder(mDevice)
+                .SetUsage(BufferUsage::Storage)
+                .SetSize(std::max(skelHdrBytes, 256u))
                 .Build();
         auto clipHdrBuf =
             BufferBuilder(mDevice)
@@ -156,6 +163,11 @@ namespace FREYA_NAMESPACE
                 .setDescriptorType(vk::DescriptorType::eStorageBuffer)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eCompute),
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(9)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eCompute),
         };
         auto animSetLayout = mDevice->Get().createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo().setBindings(animBindings));
@@ -163,7 +175,7 @@ namespace FREYA_NAMESPACE
         const auto poolSizes = std::array {
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eStorageBuffer)
-                .setDescriptorCount(9),
+                .setDescriptorCount(10),
         };
         auto animPool = mDevice->Get().createDescriptorPool(
             vk::DescriptorPoolCreateInfo().setMaxSets(1).setPoolSizes(
@@ -190,6 +202,7 @@ namespace FREYA_NAMESPACE
                     .setBufferInfo(info);
             mDevice->Get().updateDescriptorSets(write, {});
         };
+        // Binding order matches skin_bake_body.inc (0..8) + skeleton headers@9.
         writeSsbo(0, parentsBuf, parentsBytes);
         writeSsbo(1, invBindBuf, invBindBytes);
         writeSsbo(2, clipHdrBuf, std::max(clipHdrBytes, 256u));
@@ -199,6 +212,7 @@ namespace FREYA_NAMESPACE
         writeSsbo(6, restBuf, restBytes);
         writeSsbo(7, localScratchBuf, localScratchBytes);
         writeSsbo(8, globalScratchBuf, globalScratchBytes);
+        writeSsbo(9, skelHdrBuf, std::max(skelHdrBytes, 256u));
 
         const auto pushRange =
             vk::PushConstantRange()
@@ -235,9 +249,10 @@ namespace FREYA_NAMESPACE
 
         return skr::MakeArc<GpuAnimPass>(std::make_unique<GpuAnimPass::Impl>(
             mDevice, mBoneResources, pipelineLayout, pipeline, animSetLayout,
-            animPool, animSet, parentsBuf, invBindBuf, clipHdrBuf, jointsBuf,
-            instanceBuf, maskBuf, restBuf, localScratchBuf, globalScratchBuf,
-            readbackBuf, extractRingBuf, frameCount, quantize));
+            animPool, animSet, parentsBuf, invBindBuf, skelHdrBuf, clipHdrBuf,
+            jointsBuf, instanceBuf, maskBuf, restBuf, localScratchBuf,
+            globalScratchBuf, readbackBuf, extractRingBuf, frameCount,
+            quantize));
     }
 
 } // namespace FREYA_NAMESPACE

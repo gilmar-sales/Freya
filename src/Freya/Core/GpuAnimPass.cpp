@@ -18,6 +18,7 @@ namespace FREYA_NAMESPACE
         const vk::DescriptorSet              animSet,
         const skr::Arc<Buffer>&              parentsBuffer,
         const skr::Arc<Buffer>&              invBindBuffer,
+        const skr::Arc<Buffer>&              skeletonHeaderBuffer,
         const skr::Arc<Buffer>&              clipHeaderBuffer,
         const skr::Arc<Buffer>&              jointsBuffer,
         const skr::Arc<Buffer>&              instanceBuffer,
@@ -33,6 +34,7 @@ namespace FREYA_NAMESPACE
         mPipelineLayout(pipelineLayout), mPipeline(pipeline),
         mAnimSetLayout(animSetLayout), mAnimPool(animPool), mAnimSet(animSet),
         mParentsBuffer(parentsBuffer), mInvBindBuffer(invBindBuffer),
+        mSkeletonHeaderBuffer(skeletonHeaderBuffer),
         mClipHeaderBuffer(clipHeaderBuffer), mJointsBuffer(jointsBuffer),
         mInstanceBuffer(instanceBuffer), mBoneMaskBuffer(boneMaskBuffer),
         mRestJointsBuffer(restJointsBuffer),
@@ -212,6 +214,44 @@ namespace FREYA_NAMESPACE
         return true;
     }
 
+    void GpuAnimPass::Impl::SetRigIndices(
+        const std::uint32_t lookJoint, const std::uint32_t ikRoot,
+        const std::uint32_t ikMid, const std::uint32_t ikTip,
+        const std::uint32_t rootJoint, const glm::vec3 lookLocalForward,
+        const float lookMaxYawRad, const float lookMaxPitchRad)
+    {
+        mLookJoint        = lookJoint;
+        mIkRoot           = ikRoot;
+        mIkMid            = ikMid;
+        mIkTip            = ikTip;
+        mRootJoint        = rootJoint;
+        mLookLocalForward = lookLocalForward;
+        mLookMaxYawRad    = lookMaxYawRad;
+        mLookMaxPitchRad  = lookMaxPitchRad;
+
+        // Back-compat: CancelRootXZ for single-rig slot 0.
+        const SpinLockGuard guard(mSkeletonCacheLock);
+        if (mSkeletonSlots[0].resident)
+        {
+            mSkeletonSlots[0].rootJoint = rootJoint;
+            WriteSkeletonHeaderUnlocked(0, mSkeletonSlots[0].joints, rootJoint);
+        }
+    }
+
+    void GpuAnimPass::Impl::WriteSkeletonHeaderUnlocked(
+        const std::uint32_t slot, const std::uint32_t jointCount,
+        const std::uint32_t rootJoint)
+    {
+        if (!mSkeletonHeaderBuffer || slot >= GpuAnimPass::kMaxSkeletons)
+            return;
+        GpuSkeletonHeader h {};
+        h.jointCount = jointCount;
+        h.rootJoint  = rootJoint;
+        mSkeletonHeaderBuffer->Copy(
+            &h, sizeof(GpuSkeletonHeader),
+            static_cast<std::uint64_t>(slot) * sizeof(GpuSkeletonHeader));
+    }
+
     void GpuAnimPass::Impl::UploadSkeleton(const GpuSkeletonPack& skeleton)
     {
         assert(!mInstanceStagingOpen &&
@@ -219,23 +259,215 @@ namespace FREYA_NAMESPACE
         if (mInstanceStagingOpen)
             return;
 
-        mJointCount = std::min(skeleton.jointCount, GpuAnimPass::kMaxJoints);
-        if (mJointCount == 0)
+        const SpinLockGuard guard(mSkeletonCacheLock);
+        // Slot 0 pinned anonymous key — single-rig UploadSkeleton path.
+        constexpr std::uint64_t kSlot0Key = 1ull;
+        if (!UploadSkeletonSlotUnlocked(0, kSlot0Key, skeleton, mRootJoint))
             return;
+        mSkeletonSlots[0].pinned = true;
+        mJointCount              = mSkeletonSlots[0].joints;
+    }
+
+    void GpuAnimPass::Impl::TouchSkeletonSlotUnlocked(const std::uint32_t slot)
+    {
+        if (slot >= GpuAnimPass::kMaxSkeletons || !mSkeletonSlots[slot].resident)
+            return;
+        mSkeletonSlots[slot].lastTouch = ++mSkeletonTouchClock;
+    }
+
+    void GpuAnimPass::Impl::EvictSkeletonSlotUnlocked(const std::uint32_t slot)
+    {
+        if (slot >= GpuAnimPass::kMaxSkeletons)
+            return;
+        mSkeletonSlots[slot] = {};
+        WriteSkeletonHeaderUnlocked(slot, 0, 0xffffffffu);
+        if (slot == 0)
+            mJointCount = 0;
+    }
+
+    bool GpuAnimPass::Impl::UploadSkeletonSlotUnlocked(
+        const std::uint32_t slot, const std::uint64_t key,
+        const GpuSkeletonPack& skeleton, const std::uint32_t rootJoint)
+    {
+        if (slot >= GpuAnimPass::kMaxSkeletons || key == 0 || !mParentsBuffer ||
+            !mInvBindBuffer)
+            return false;
+
+        const auto jc =
+            std::min(skeleton.jointCount, GpuAnimPass::kMaxJoints);
+        if (jc == 0)
+            return false;
+
+        const auto skelBase = slot * GpuAnimPass::kMaxJoints;
+        const auto resolvedRoot =
+            rootJoint != 0xffffffffu ? rootJoint : mRootJoint;
 
         std::vector<std::int32_t> parents(GpuAnimPass::kMaxJoints, -1);
-        for (std::uint32_t i = 0; i < mJointCount; ++i)
-            parents[i] = skeleton.parents[i];
+        for (std::uint32_t i = 0; i < jc; ++i)
+        {
+            if (i < skeleton.parents.size())
+                parents[i] = skeleton.parents[i];
+        }
         mParentsBuffer->Copy(
             parents.data(),
-            static_cast<std::uint32_t>(parents.size() * sizeof(std::int32_t)));
+            static_cast<std::uint32_t>(parents.size() * sizeof(std::int32_t)),
+            static_cast<std::uint64_t>(skelBase) * sizeof(std::int32_t));
 
         std::vector<glm::mat4> inv(GpuAnimPass::kMaxJoints, glm::mat4(1.f));
-        for (std::uint32_t i = 0; i < mJointCount; ++i)
-            inv[i] = skeleton.inverseBind[i];
+        for (std::uint32_t i = 0; i < jc; ++i)
+        {
+            if (i < skeleton.inverseBind.size())
+                inv[i] = skeleton.inverseBind[i];
+        }
         mInvBindBuffer->Copy(
             inv.data(),
-            static_cast<std::uint32_t>(inv.size() * sizeof(glm::mat4)));
+            static_cast<std::uint32_t>(inv.size() * sizeof(glm::mat4)),
+            static_cast<std::uint64_t>(skelBase) * sizeof(glm::mat4));
+
+        WriteSkeletonHeaderUnlocked(slot, jc, resolvedRoot);
+
+        auto& meta     = mSkeletonSlots[slot];
+        meta.key       = key;
+        meta.resident  = true;
+        meta.pinned    = false;
+        meta.joints    = jc;
+        meta.rootJoint = resolvedRoot;
+        meta.lastTouch = ++mSkeletonTouchClock;
+        return true;
+    }
+
+    std::uint32_t GpuAnimPass::Impl::FindSkeletonSlotUnlocked(
+        const std::uint64_t key) const
+    {
+        if (key == 0)
+            return 0xffffffffu;
+        for (std::uint32_t i = 0; i < GpuAnimPass::kMaxSkeletons; ++i)
+        {
+            if (mSkeletonSlots[i].resident && mSkeletonSlots[i].key == key)
+                return i;
+        }
+        return 0xffffffffu;
+    }
+
+    std::uint32_t GpuAnimPass::Impl::FindSkeletonSlot(
+        const std::uint64_t key) const
+    {
+        const SpinLockGuard guard(mSkeletonCacheLock);
+        return FindSkeletonSlotUnlocked(key);
+    }
+
+    std::uint32_t GpuAnimPass::Impl::EnsureSkeletonResident(
+        const std::uint64_t key, const GpuSkeletonPack& skeleton,
+        const std::uint32_t rootJoint)
+    {
+        const SpinLockGuard guard(mSkeletonCacheLock);
+        const auto          hit = FindSkeletonSlotUnlocked(key);
+        if (hit != 0xffffffffu)
+        {
+            TouchSkeletonSlotUnlocked(hit);
+            return hit;
+        }
+
+        std::uint32_t freeSlot = 0xffffffffu;
+        for (std::uint32_t i = 0; i < GpuAnimPass::kMaxSkeletons; ++i)
+        {
+            if (!mSkeletonSlots[i].resident)
+            {
+                freeSlot = i;
+                break;
+            }
+        }
+
+        if (freeSlot == 0xffffffffu)
+        {
+            if (mInstanceStagingOpen)
+                return 0xffffffffu;
+
+            std::uint64_t oldest = ~0ull;
+            for (std::uint32_t i = 0; i < GpuAnimPass::kMaxSkeletons; ++i)
+            {
+                const auto& s = mSkeletonSlots[i];
+                if (!s.resident || s.pinned)
+                    continue;
+                if (s.lastTouch < oldest)
+                {
+                    oldest   = s.lastTouch;
+                    freeSlot = i;
+                }
+            }
+            if (freeSlot == 0xffffffffu)
+                return 0xffffffffu;
+            EvictSkeletonSlotUnlocked(freeSlot);
+        }
+
+        if (!UploadSkeletonSlotUnlocked(freeSlot, key, skeleton, rootJoint))
+            return 0xffffffffu;
+        if (freeSlot == 0)
+            mJointCount = mSkeletonSlots[0].joints;
+        return freeSlot;
+    }
+
+    void GpuAnimPass::Impl::PinSkeletonSlot(const std::uint32_t slot,
+                                            const bool          pinned)
+    {
+        const SpinLockGuard guard(mSkeletonCacheLock);
+        if (slot >= GpuAnimPass::kMaxSkeletons ||
+            !mSkeletonSlots[slot].resident)
+            return;
+        mSkeletonSlots[slot].pinned = pinned;
+    }
+
+    std::uint32_t GpuAnimPass::Impl::ResidentSkeletonCount() const
+    {
+        const SpinLockGuard guard(mSkeletonCacheLock);
+        std::uint32_t       n = 0;
+        for (const auto& s : mSkeletonSlots)
+            if (s.resident)
+                ++n;
+        return n;
+    }
+
+    void GpuAnimPass::Impl::CaptureDebugSnapshot(
+        GpuAnimDebugSnapshot& out) const
+    {
+        const SpinLockGuard clipGuard(mClipCacheLock);
+        const SpinLockGuard skelGuard(mSkeletonCacheLock);
+        out                         = {};
+        out.enabled                 = mEnabled;
+        out.quantizedJoints         = mQuantizedJoints;
+        out.timestampQueriesEnabled = HasTimestampQueries();
+        out.instanceCount           = mInstanceCount;
+        out.skeletonJoints          = mJointCount;
+        out.maxClips                = GpuAnimPass::kMaxClips;
+        out.maxSkeletons            = GpuAnimPass::kMaxSkeletons;
+        out.maxBakedJoints          = MaxBakedJoints();
+        out.jointsPerClipSlot       = JointsPerClipSlot();
+        std::uint32_t resident      = 0;
+        for (const auto& s : mClipSlots)
+            if (s.resident)
+                ++resident;
+        out.residentClips = resident;
+        std::uint32_t skelResident = 0;
+        for (const auto& s : mSkeletonSlots)
+            if (s.resident)
+                ++skelResident;
+        out.residentSkeletons = skelResident;
+        out.extractRequests =
+            static_cast<std::uint32_t>(mExtractRequests.size());
+        out.slots.resize(GpuAnimPass::kMaxClips);
+        for (std::uint32_t i = 0; i < GpuAnimPass::kMaxClips; ++i)
+        {
+            const auto& s = mClipSlots[i];
+            out.slots[i]  = { i,           s.key,    s.resident, s.pinned,
+                              s.lastTouch, s.frames, s.joints };
+        }
+        out.skeletons.resize(GpuAnimPass::kMaxSkeletons);
+        for (std::uint32_t i = 0; i < GpuAnimPass::kMaxSkeletons; ++i)
+        {
+            const auto& s = mSkeletonSlots[i];
+            out.skeletons[i] = { i,        s.key,    s.resident,  s.pinned,
+                                 s.lastTouch, s.joints, s.rootJoint };
+        }
     }
 
     std::uint32_t GpuAnimPass::Impl::JointsPerClipSlot() const
@@ -251,35 +483,6 @@ namespace FREYA_NAMESPACE
             if (s.resident)
                 ++n;
         return n;
-    }
-
-    void GpuAnimPass::Impl::CaptureDebugSnapshot(
-        GpuAnimDebugSnapshot& out) const
-    {
-        const SpinLockGuard guard(mClipCacheLock);
-        out                         = {};
-        out.enabled                 = mEnabled;
-        out.quantizedJoints         = mQuantizedJoints;
-        out.timestampQueriesEnabled = HasTimestampQueries();
-        out.instanceCount           = mInstanceCount;
-        out.skeletonJoints          = mJointCount;
-        out.maxClips                = GpuAnimPass::kMaxClips;
-        out.maxBakedJoints          = MaxBakedJoints();
-        out.jointsPerClipSlot       = JointsPerClipSlot();
-        std::uint32_t resident      = 0;
-        for (const auto& s : mClipSlots)
-            if (s.resident)
-                ++resident;
-        out.residentClips = resident;
-        out.extractRequests =
-            static_cast<std::uint32_t>(mExtractRequests.size());
-        out.slots.resize(GpuAnimPass::kMaxClips);
-        for (std::uint32_t i = 0; i < GpuAnimPass::kMaxClips; ++i)
-        {
-            const auto& s = mClipSlots[i];
-            out.slots[i]  = { i,           s.key,    s.resident, s.pinned,
-                              s.lastTouch, s.frames, s.joints };
-        }
     }
 
     void GpuAnimPass::Impl::ResetClipCacheUnlocked()
@@ -570,25 +773,45 @@ namespace FREYA_NAMESPACE
     void GpuAnimPass::Impl::UploadRestJoints(
         const std::span<const GpuFloatJoint> joints)
     {
-        if (mQuantizedJoints || !mRestJointsBuffer || joints.empty())
-            return;
-        const auto n = std::min(
-            static_cast<std::uint32_t>(joints.size()), GpuAnimPass::kMaxJoints);
-        mRestJointsBuffer->Copy(
-            joints.data(),
-            static_cast<std::uint32_t>(n * sizeof(GpuFloatJoint)));
+        UploadRestJoints(0, joints);
     }
 
     void GpuAnimPass::Impl::UploadRestJoints(
         const std::span<const GpuQuantJoint> joints)
     {
-        if (!mQuantizedJoints || !mRestJointsBuffer || joints.empty())
+        UploadRestJoints(0, joints);
+    }
+
+    void GpuAnimPass::Impl::UploadRestJoints(
+        const std::uint32_t                     skeletonSlot,
+        const std::span<const GpuFloatJoint> joints)
+    {
+        if (mQuantizedJoints || !mRestJointsBuffer || joints.empty() ||
+            skeletonSlot >= GpuAnimPass::kMaxSkeletons)
             return;
         const auto n = std::min(
             static_cast<std::uint32_t>(joints.size()), GpuAnimPass::kMaxJoints);
+        const auto skelBase = skeletonSlot * GpuAnimPass::kMaxJoints;
         mRestJointsBuffer->Copy(
             joints.data(),
-            static_cast<std::uint32_t>(n * sizeof(GpuQuantJoint)));
+            static_cast<std::uint32_t>(n * sizeof(GpuFloatJoint)),
+            static_cast<std::uint64_t>(skelBase) * sizeof(GpuFloatJoint));
+    }
+
+    void GpuAnimPass::Impl::UploadRestJoints(
+        const std::uint32_t                     skeletonSlot,
+        const std::span<const GpuQuantJoint> joints)
+    {
+        if (!mQuantizedJoints || !mRestJointsBuffer || joints.empty() ||
+            skeletonSlot >= GpuAnimPass::kMaxSkeletons)
+            return;
+        const auto n = std::min(
+            static_cast<std::uint32_t>(joints.size()), GpuAnimPass::kMaxJoints);
+        const auto skelBase = skeletonSlot * GpuAnimPass::kMaxJoints;
+        mRestJointsBuffer->Copy(
+            joints.data(),
+            static_cast<std::uint32_t>(n * sizeof(GpuQuantJoint)),
+            static_cast<std::uint64_t>(skelBase) * sizeof(GpuQuantJoint));
     }
 
     void GpuAnimPass::Impl::BeginInstanceUploads()
@@ -651,7 +874,8 @@ namespace FREYA_NAMESPACE
             for (std::uint32_t i = 0; i < mInstanceCount; ++i)
             {
                 const auto& inst = mInstanceStaging[i];
-                const auto  jc   = std::min(inst.jointCount, mJointCount);
+                const auto  jc =
+                    std::min(inst.jointCount, GpuAnimPass::kMaxJoints);
                 if (jc == 0)
                     continue;
                 mBoneResources->MarkGpuOwnedBones(inst.boneOffset, jc);

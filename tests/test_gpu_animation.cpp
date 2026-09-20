@@ -5,20 +5,39 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <cstddef>
+
 #include <glm/gtc/quaternion.hpp>
 
 // Parallel GPU packing contract (no Vulkan device in these tests):
-// - Prefer pre-resident clips on main: UploadClipSlot+Pin or Ensure+Pin.
-// - Workers: FindClipSlot and/or EnsureClipResident (SpinLock; free-slot
-//   fills only while instance staging is open — no LRU evict).
+// - Prefer pre-resident clips/skeletons on main: Upload+Pin or Ensure+Pin.
+// - Workers: FindClipSlot / FindSkeletonSlot and/or Ensure* (SpinLock;
+//   free-slot fills only while instance staging is open — no LRU evict).
 // - Evict / Reset / UploadClipSlot / UploadSkeleton / UploadBakes rejected
 //   while instance staging is open.
+// - Multi-rig mid-tier: GpuAnimInstance::skeletonSlot indexes atlas slabs.
 
 TEST_CASE("GpuClipKey is stable FNV-1a and never zero", "[gpu-anim]")
 {
     REQUIRE(fra::GpuClipKey("Idle") == fra::GpuClipKey("Idle"));
     REQUIRE(fra::GpuClipKey("Idle") != fra::GpuClipKey("Walk"));
     REQUIRE(fra::GpuClipKey("") != 0ull);
+}
+
+TEST_CASE("GpuSkeletonKey matches GpuClipKey FNV", "[gpu-anim]")
+{
+    REQUIRE(fra::GpuSkeletonKey("Fox") == fra::GpuClipKey("Fox"));
+    REQUIRE(fra::GpuSkeletonKey("Fox") != fra::GpuSkeletonKey("Human"));
+}
+
+TEST_CASE("GpuAnimInstance skeletonSlot layout and header size", "[gpu-anim]")
+{
+    STATIC_REQUIRE(sizeof(fra::GpuSkeletonHeader) == 16);
+    STATIC_REQUIRE(offsetof(fra::GpuAnimInstance, skeletonSlot) ==
+                   offsetof(fra::GpuAnimInstance, clipAdd) +
+                       sizeof(std::uint32_t));
+    fra::GpuAnimInstance inst {};
+    REQUIRE(inst.skeletonSlot == 0u);
 }
 
 TEST_CASE("identity quaternion omits W in smallest-three pack", "[gpu-anim]")

@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include <span>
+#include <string_view>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -107,10 +108,10 @@ namespace FREYA_NAMESPACE
         float         timeMask   = 0.f;
         float         weightMask = 0.f;
         /// Slot: Additive (idle breathe / recoil, …)
-        std::uint32_t clipAdd   = 0;
-        std::uint32_t _padLayer = 0;
-        float         timeAdd   = 0.f;
-        float         weightAdd = 0.f;
+        std::uint32_t clipAdd       = 0;
+        std::uint32_t skeletonSlot  = 0; ///< index into skeleton atlas (0..7)
+        float         timeAdd       = 0.f;
+        float         weightAdd     = 0.f;
         glm::mat4     modelWorld { 1.f };
         glm::vec3     lookTarget { 0.f };
         float         lookWeight = 0.f;
@@ -318,12 +319,30 @@ namespace FREYA_NAMESPACE
         return pack;
     }
 
+    /**
+     * @brief Per-skeleton atlas meta (std430), one entry per skeleton slot.
+     */
+    struct GpuSkeletonHeader
+    {
+        std::uint32_t jointCount = 0;
+        std::uint32_t rootJoint  = 0xffffffffu; ///< CancelRootXZ; disabled = ~0
+        std::uint32_t _pad0      = 0;
+        std::uint32_t _pad1      = 0;
+    };
+
+    static_assert(sizeof(GpuSkeletonHeader) == 16);
+
     struct GpuSkeletonPack
     {
         std::uint32_t             jointCount = 0;
         std::vector<std::int32_t> parents;
         std::vector<glm::mat4>    inverseBind;
     };
+
+    [[nodiscard]] inline std::uint64_t GpuSkeletonKey(std::string_view name)
+    {
+        return GpuClipKey(name);
+    }
 
     [[nodiscard]] inline GpuSkeletonPack PackSkeleton(const Skeleton& sk)
     {

@@ -30,6 +30,7 @@ namespace FREYA_NAMESPACE
              vk::DescriptorSet                    animSet,
              const skr::Arc<Buffer>&              parentsBuffer,
              const skr::Arc<Buffer>&              invBindBuffer,
+             const skr::Arc<Buffer>&              skeletonHeaderBuffer,
              const skr::Arc<Buffer>&              clipHeaderBuffer,
              const skr::Arc<Buffer>&              jointsBuffer,
              const skr::Arc<Buffer>&              instanceBuffer,
@@ -62,17 +63,7 @@ namespace FREYA_NAMESPACE
             const std::uint32_t lookJoint, const std::uint32_t ikRoot,
             const std::uint32_t ikMid, const std::uint32_t ikTip,
             const std::uint32_t rootJoint, const glm::vec3 lookLocalForward,
-            const float lookMaxYawRad, const float lookMaxPitchRad)
-        {
-            mLookJoint        = lookJoint;
-            mIkRoot           = ikRoot;
-            mIkMid            = ikMid;
-            mIkTip            = ikTip;
-            mRootJoint        = rootJoint;
-            mLookLocalForward = lookLocalForward;
-            mLookMaxYawRad    = lookMaxYawRad;
-            mLookMaxPitchRad  = lookMaxPitchRad;
-        }
+            const float lookMaxYawRad, const float lookMaxPitchRad);
 
         void SetLookClamp(const float maxYawRad, const float maxPitchRad)
         {
@@ -113,6 +104,13 @@ namespace FREYA_NAMESPACE
         }
 
         void UploadSkeleton(const GpuSkeletonPack& skeleton);
+        [[nodiscard]] std::uint32_t FindSkeletonSlot(std::uint64_t key) const;
+        [[nodiscard]] std::uint32_t EnsureSkeletonResident(
+            std::uint64_t key, const GpuSkeletonPack& skeleton,
+            std::uint32_t rootJoint);
+        void PinSkeletonSlot(std::uint32_t slot, bool pinned);
+        [[nodiscard]] std::uint32_t ResidentSkeletonCount() const;
+
         void UploadBakes(const GpuBakePack& pack);
         void ResetClipCache();
         bool UploadClipSlot(std::uint32_t slot, std::uint64_t key,
@@ -134,9 +132,26 @@ namespace FREYA_NAMESPACE
         void ResetClipCacheUnlocked();
         bool UploadClipSlotUnlocked(std::uint32_t slot, std::uint64_t key,
                                     const BakedClip& clip);
+
+        [[nodiscard]] std::uint32_t FindSkeletonSlotUnlocked(
+            std::uint64_t key) const;
+        void TouchSkeletonSlotUnlocked(std::uint32_t slot);
+        void EvictSkeletonSlotUnlocked(std::uint32_t slot);
+        bool UploadSkeletonSlotUnlocked(std::uint32_t          slot,
+                                        std::uint64_t          key,
+                                        const GpuSkeletonPack& skeleton,
+                                        std::uint32_t          rootJoint);
+        void WriteSkeletonHeaderUnlocked(std::uint32_t slot,
+                                         std::uint32_t jointCount,
+                                         std::uint32_t rootJoint);
+
         void UploadBoneMask(std::span<const float> weights);
         void UploadRestJoints(std::span<const GpuFloatJoint> joints);
         void UploadRestJoints(std::span<const GpuQuantJoint> joints);
+        void UploadRestJoints(std::uint32_t                     skeletonSlot,
+                              std::span<const GpuFloatJoint> joints);
+        void UploadRestJoints(std::uint32_t                     skeletonSlot,
+                              std::span<const GpuQuantJoint> joints);
         void BeginInstanceUploads();
         void ReserveInstanceUploads(std::uint32_t count);
         void UploadInstanceUploads(std::span<const GpuAnimInstance> instances);
@@ -188,8 +203,8 @@ namespace FREYA_NAMESPACE
         struct PushConstants
         {
             std::uint32_t instanceCount = 0;
-            std::uint32_t jointCount    = 0;
-            std::uint32_t rootJoint     = 0xffffffffu;
+            std::uint32_t jointCount    = 0; ///< unused (legacy PC size)
+            std::uint32_t rootJoint     = 0xffffffffu; ///< unused
             std::uint32_t _pad0         = 0;
         };
 
@@ -203,6 +218,7 @@ namespace FREYA_NAMESPACE
 
         skr::Arc<Buffer> mParentsBuffer;
         skr::Arc<Buffer> mInvBindBuffer;
+        skr::Arc<Buffer> mSkeletonHeaderBuffer;
         skr::Arc<Buffer> mClipHeaderBuffer;
         skr::Arc<Buffer> mJointsBuffer;
         skr::Arc<Buffer> mInstanceBuffer;
@@ -217,7 +233,7 @@ namespace FREYA_NAMESPACE
         bool          mCopyPrevBones    = true;
         bool          mQuantizedJoints  = true;
         std::uint32_t mInstanceCount    = 0;
-        std::uint32_t mJointCount       = 0;
+        std::uint32_t mJointCount       = 0; ///< slot 0 joints (debug/readback)
         std::uint32_t mFrameCount       = 1;
         std::uint32_t mLookJoint        = 0xffffffffu;
         std::uint32_t mIkRoot           = 0;
@@ -243,9 +259,24 @@ namespace FREYA_NAMESPACE
             std::uint32_t joints    = 0;
         };
 
+        struct SkeletonSlotMeta
+        {
+            std::uint64_t key       = 0;
+            bool          resident  = false;
+            bool          pinned    = false;
+            std::uint64_t lastTouch = 0;
+            std::uint32_t joints    = 0;
+            std::uint32_t rootJoint = 0xffffffffu;
+        };
+
         std::array<ClipSlotMeta, GpuAnimPass::kMaxClips> mClipSlots {};
         std::uint64_t                                    mClipTouchClock = 1;
         mutable SpinLock                                 mClipCacheLock;
+
+        std::array<SkeletonSlotMeta, GpuAnimPass::kMaxSkeletons>
+                     mSkeletonSlots {};
+        std::uint64_t mSkeletonTouchClock = 1;
+        mutable SpinLock mSkeletonCacheLock;
 
         std::vector<GpuJointExtractRequest> mExtractRequests;
         mutable std::vector<std::vector<GpuJointExtractRequest>> mExtractMeta;
