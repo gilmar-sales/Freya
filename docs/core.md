@@ -175,6 +175,13 @@ Cleared each `BeginFrame`. Use `Quad` for raw instances, or helpers:
 | `HealthBar(pos, w, h, fill01, bg, fg, align = Cylindrical)` | Background + left-aligned fill; same clip/blend/layer path |
 | `Text(pos, utf8, font, height, color, …, align = Cylindrical)` | SDF glyphs via `FontAtlas` |
 
+**Thread-safety:** concurrent `Quad` / `HealthBar` / `Text` from worker
+threads is safe (`SpinLock`). `HealthBar` and `Text` hold one lock for the
+whole multi-quad submit so a snapshot never sees a half nameplate.
+Readers must use `Snapshot(out)` (copy under lock) — the Vfx/Ui frame
+stages do this before packing GPU instances. Do not iterate a live span
+across threads. Soft-capped at `MaxQuads()` (default `1 << 14`).
+
 `BillboardAlign::Screen` faces the camera fully; `Cylindrical` yaws only
 (same path as `Billboard::align` / `billboard.vert`). Call sites that omit
 `align` keep cylindrical nameplates.

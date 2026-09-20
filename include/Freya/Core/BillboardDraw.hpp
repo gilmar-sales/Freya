@@ -1,7 +1,8 @@
 #pragma once
 
+#include "Freya/Core/SpinLock.hpp"
+
 #include <cstdint>
-#include <span>
 #include <string_view>
 #include <vector>
 
@@ -55,7 +56,10 @@ namespace FREYA_NAMESPACE
     };
 
     /**
-     * @brief CPU billboard queue. Cleared each BeginFrame.
+     * @brief Per-frame CPU billboard queue (cleared each BeginFrame).
+     *
+     * Concurrent Quad/HealthBar/Text submits are safe (SpinLock). Readers
+     * must use Snapshot — never iterate the live queue.
      */
     class BillboardDraw
     {
@@ -66,12 +70,12 @@ namespace FREYA_NAMESPACE
 
         void Clear();
 
-        [[nodiscard]] bool Empty() const { return mQuads.empty(); }
+        [[nodiscard]] bool Empty() const;
 
-        [[nodiscard]] std::span<const Billboard> Quads() const
-        {
-            return mQuads;
-        }
+        /**
+         * @brief Copy the current queue under lock into @p out.
+         */
+        void Snapshot(std::vector<Billboard>& out) const;
 
         [[nodiscard]] std::uint32_t MaxQuads() const { return mMaxQuads; }
 
@@ -101,8 +105,11 @@ namespace FREYA_NAMESPACE
                   BillboardLayer   layer        = BillboardLayer::Ui);
 
       private:
+        void pushUnlocked(const Billboard& billboard);
+
         std::uint32_t          mMaxQuads = kDefaultMaxQuads;
         std::vector<Billboard> mQuads;
+        mutable SpinLock       mLock;
     };
 
 } // namespace FREYA_NAMESPACE

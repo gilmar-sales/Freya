@@ -28,7 +28,8 @@ Treat as **app-stable**:
 - `IPlatform` (process-wide window/event backend; default `SdlPlatform`)
 - `Renderer` frame loop, quality knobs, pick, debug draw, GPU anim methods
 - `Renderer::GetBillboardDraw` + `BillboardDraw` (`Quad`, `HealthBar`,
-  `Text`) and `BillboardAlign` (`Screen` / `Cylindrical`)
+  `Text`, `Snapshot`; thread-safe concurrent submits via `SpinLock`)
+  and `BillboardAlign` (`Screen` / `Cylindrical`)
 - `Renderer::NativeCommandBuffer` / `NativeDevice` (opaque `void*` =
   `VkCommandBuffer` / `VkDevice`)
 - `Renderer::BeginUI` / `EndUI`, `GetImGuiNativeHandles`, `GetViewportImage`,

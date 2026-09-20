@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <vector>
 
 namespace FREYA_NAMESPACE
 {
@@ -231,7 +232,12 @@ namespace FREYA_NAMESPACE
         const BillboardLayer layer, const BillboardDraw& source,
         const glm::mat4& view, const glm::mat4& proj) const
     {
-        if (source.Empty() || !commandPool || !swapChain)
+        if (!commandPool || !swapChain)
+            return;
+
+        std::vector<Billboard> quads;
+        source.Snapshot(quads);
+        if (quads.empty())
             return;
 
         const auto frameIndex = swapChain->GetCurrentFrameIndex();
@@ -279,7 +285,7 @@ namespace FREYA_NAMESPACE
         };
 
         std::uint32_t total = 0;
-        for (const auto& q : source.Quads())
+        for (const auto& q : quads)
         {
             if (q.layer != layer)
                 continue;
