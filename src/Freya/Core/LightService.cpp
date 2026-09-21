@@ -77,8 +77,9 @@ namespace FREYA_NAMESPACE
                     continue;
                 const auto typeIndex =
                     static_cast<std::uint32_t>(lights[n].type);
-                const bool  typeOn = typeIndex < 4u && typeEnabled[typeIndex];
-                const float intensity = typeOn ? lights[n].intensity : 0.0f;
+                const bool typeOn = typeIndex < 4u && typeEnabled[typeIndex];
+                const bool on     = typeOn && lights[n].enabled;
+                const float intensity = on ? lights[n].intensity : 0.0f;
                 data.lightPositions[packed] = glm::vec4(
                     lights[n].position, static_cast<float>(lights[n].type));
                 data.lightColorsAndRadius[packed] =
@@ -87,8 +88,8 @@ namespace FREYA_NAMESPACE
                     glm::vec4(lights[n].direction, lights[n].innerCutoff);
                 data.lightOuterCutoffAndIntensity[packed] = glm::vec4(
                     lights[n].outerCutoff, intensity, lights[n].halfHeight,
-                    (typeOn && shadowsEnabled && lights[n].castShadows) ? 1.0f
-                                                                        : 0.0f);
+                    (on && shadowsEnabled && lights[n].castShadows) ? 1.0f
+                                                                    : 0.0f);
                 data.lightAreaTangents[packed] =
                     glm::vec4(lights[n].tangent, 0.0f);
                 ++packed;
@@ -119,6 +120,34 @@ namespace FREYA_NAMESPACE
         }
         SpinLockGuard lock(i.mLock);
         applyLightUpdate(handle, light);
+    }
+
+    void LightService::mutateLight(const LightHandle handle,
+                                   const std::function<void(Light&)>& mutate)
+    {
+        if (!handle)
+            return;
+        auto& i = *mImpl;
+        if (i.mStagingOpen)
+        {
+            Light light {};
+            {
+                SpinLockGuard       lock(i.mLock);
+                const std::uint32_t index = handle.Index();
+                if (index >= i.mAlive.size() || !i.mAlive[index])
+                    return;
+                light = i.mLights[index];
+                mutate(light);
+            }
+            enqueueOrApplyUpdate(handle, light);
+            return;
+        }
+
+        SpinLockGuard       lock(i.mLock);
+        const std::uint32_t index = handle.Index();
+        if (index >= i.mAlive.size() || !i.mAlive[index])
+            return;
+        mutate(i.mLights[index]);
     }
 
     LightHandle LightService::AddLight(const Light& light)
@@ -176,29 +205,44 @@ namespace FREYA_NAMESPACE
     void LightService::UpdateLightPosition(const LightHandle handle,
                                            const glm::vec3&  position)
     {
-        if (!handle)
-            return;
-        auto& i = *mImpl;
-        if (i.mStagingOpen)
-        {
-            Light light {};
-            {
-                SpinLockGuard       lock(i.mLock);
-                const std::uint32_t index = handle.Index();
-                if (index >= i.mAlive.size() || !i.mAlive[index])
-                    return;
-                light          = i.mLights[index];
-                light.position = position;
-            }
-            enqueueOrApplyUpdate(handle, light);
-            return;
-        }
+        mutateLight(handle,
+                    [&](Light& light) { light.position = position; });
+    }
 
-        SpinLockGuard       lock(i.mLock);
-        const std::uint32_t index = handle.Index();
-        if (index >= i.mAlive.size() || !i.mAlive[index])
-            return;
-        i.mLights[index].position = position;
+    void LightService::SetLightColor(const LightHandle handle,
+                                     const glm::vec3&  color)
+    {
+        mutateLight(handle, [&](Light& light) { light.color = color; });
+    }
+
+    void LightService::SetLightIntensity(const LightHandle handle,
+                                         const float       intensity)
+    {
+        mutateLight(handle,
+                    [&](Light& light) { light.intensity = intensity; });
+    }
+
+    void LightService::SetLightDirection(const LightHandle handle,
+                                         const glm::vec3&  direction)
+    {
+        mutateLight(handle, [&](Light& light) {
+            const auto len2 = glm::dot(direction, direction);
+            if (len2 > 1e-12f)
+                light.direction = direction * glm::inversesqrt(len2);
+        });
+    }
+
+    void LightService::SetLightRadius(const LightHandle handle,
+                                      const float       radius)
+    {
+        mutateLight(handle, [&](Light& light) { light.radius = radius; });
+    }
+
+    void LightService::SetLightCastShadows(const LightHandle handle,
+                                           const bool        castShadows)
+    {
+        mutateLight(handle,
+                    [&](Light& light) { light.castShadows = castShadows; });
     }
 
     void LightService::UpdateLight(const LightHandle handle, const Light& light)
@@ -385,6 +429,24 @@ namespace FREYA_NAMESPACE
             return false;
         SpinLockGuard lock(mImpl->mLock);
         return mImpl->mTypeEnabled[index];
+    }
+
+    void LightService::SetLightEnabled(const LightHandle handle,
+                                       const bool        enabled)
+    {
+        mutateLight(handle, [&](Light& light) { light.enabled = enabled; });
+    }
+
+    bool LightService::IsLightEnabled(const LightHandle handle) const
+    {
+        if (!handle)
+            return false;
+        SpinLockGuard       lock(mImpl->mLock);
+        auto&               i     = *mImpl;
+        const std::uint32_t index = handle.Index();
+        if (index >= i.mAlive.size() || !i.mAlive[index])
+            return false;
+        return i.mLights[index].enabled;
     }
 
     void LightService::Impl::createDescriptorResources()

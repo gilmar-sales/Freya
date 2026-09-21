@@ -9,6 +9,7 @@
 #include <atomic>
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <span>
 #include <vector>
@@ -63,6 +64,8 @@ namespace FREYA_NAMESPACE
         glm::vec3 tangent     = glm::vec3(1.0f, 0.0f, 0.0f);
         float     halfHeight  = 0.0f;
         bool      castShadows = true;
+        /// When false, GPU pack mutes intensity and shadows skip the light.
+        bool enabled = true;
     };
 
     /**
@@ -178,7 +181,19 @@ namespace FREYA_NAMESPACE
         void UpdateLightPosition(LightHandle handle, const glm::vec3& position);
         void UpdateLight(LightHandle handle, const Light& light);
         const Light* GetLight(LightHandle handle) const;
-        void         ClearLights();
+
+        /**
+         * @brief Partial field updates by handle. No-op for null / dead
+         * handles. When a staging window is open, patches enqueue like
+         * UpdateLightPosition.
+         */
+        void SetLightColor(LightHandle handle, const glm::vec3& color);
+        void SetLightIntensity(LightHandle handle, float intensity);
+        void SetLightDirection(LightHandle handle, const glm::vec3& direction);
+        void SetLightRadius(LightHandle handle, float radius);
+        void SetLightCastShadows(LightHandle handle, bool castShadows);
+
+        void ClearLights();
 
         /**
          * @brief Per-frame cumulative light updates (thread-safe Upload).
@@ -214,11 +229,21 @@ namespace FREYA_NAMESPACE
         void               SetLightTypeEnabled(LightType type, bool enabled);
         [[nodiscard]] bool IsLightTypeEnabled(LightType type) const;
 
+        /**
+         * @brief Enable/disable a single light by handle. Disabled lights
+         * stay in the pool (handles remain valid); GPU pack zeros intensity
+         * and ShadowPass skips them. No-op for null / dead handles.
+         */
+        void SetLightEnabled(LightHandle handle, bool enabled);
+        [[nodiscard]] bool IsLightEnabled(LightHandle handle) const;
+
       private:
         friend struct LightServiceGpu;
 
         void applyLightUpdate(LightHandle handle, const Light& light);
         void enqueueOrApplyUpdate(LightHandle handle, const Light& light);
+        void mutateLight(LightHandle                            handle,
+                         const std::function<void(Light&)>& mutate);
 
         std::unique_ptr<Impl> mImpl;
     };

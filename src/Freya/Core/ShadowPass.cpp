@@ -461,10 +461,11 @@ namespace FREYA_NAMESPACE
         const Light* sun = nullptr;
         for (std::uint32_t i = 0; i < lights.GetLightCount(); ++i)
         {
-            const auto* light = lights.GetLight(LightHandle { i });
+            const auto  handle = LightHandle { i };
+            const auto* light  = lights.GetLight(handle);
             if (light != nullptr && light->type == LightType::Directional &&
                 lights.IsLightTypeEnabled(LightType::Directional) &&
-                light->castShadows)
+                lights.IsLightEnabled(handle) && light->castShadows)
             {
                 sun = light;
                 break;
@@ -554,11 +555,12 @@ namespace FREYA_NAMESPACE
              i < lights.GetLightCount() && mActiveSpotCount < mMaxSpotShadows;
              ++i)
         {
-            const auto* light = lights.GetLight(LightHandle { i });
+            const auto  handle = LightHandle { i };
+            const auto* light  = lights.GetLight(handle);
             if (light == nullptr || light->type != LightType::Spot ||
                 !lights.IsLightTypeEnabled(LightType::Spot) ||
-                !light->castShadows || light->intensity <= 1e-4f ||
-                light->radius <= 1e-4f)
+                !lights.IsLightEnabled(handle) || !light->castShadows ||
+                light->intensity <= 1e-4f || light->radius <= 1e-4f)
                 continue;
 
             const auto slot                  = mActiveSpotCount++;
@@ -573,11 +575,12 @@ namespace FREYA_NAMESPACE
              i < lights.GetLightCount() && mActivePointCount < mMaxPointShadows;
              ++i)
         {
-            const auto* light = lights.GetLight(LightHandle { i });
+            const auto  handle = LightHandle { i };
+            const auto* light  = lights.GetLight(handle);
             if (light == nullptr || light->type != LightType::Point ||
                 !lights.IsLightTypeEnabled(LightType::Point) ||
-                !light->castShadows || light->intensity <= 1e-4f ||
-                light->radius <= 1e-4f)
+                !lights.IsLightEnabled(handle) || !light->castShadows ||
+                light->intensity <= 1e-4f || light->radius <= 1e-4f)
                 continue;
 
             const auto slot = mActivePointCount++;

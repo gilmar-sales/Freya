@@ -46,3 +46,14 @@ TEST_CASE("LightUpload defaults to null handle", "[lights]")
     REQUIRE_FALSE(upload.handle.IsValid());
     REQUIRE(upload.light.type == fra::LightType::Point);
 }
+
+TEST_CASE("Light defaults to enabled", "[lights]")
+{
+    const fra::Light light {};
+    REQUIRE(light.enabled);
+    REQUIRE(light.castShadows);
+
+    auto muted = fra::MakePointLight({ 0.f, 1.f, 0.f }, { 1.f, 1.f, 1.f }, 5.f);
+    muted.enabled = false;
+    REQUIRE_FALSE(muted.enabled);
+}

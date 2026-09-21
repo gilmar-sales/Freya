@@ -517,15 +517,7 @@ class MainApp final : public fra::AbstractApplication
 
     void setLightCastShadows(fra::LightHandle handle, bool enabled)
     {
-        const auto* current = mLightService->GetLight(handle);
-        if (current == nullptr)
-        {
-            return;
-        }
-
-        fra::Light light  = *current;
-        light.castShadows = enabled;
-        mLightService->UpdateLight(handle, light);
+        mLightService->SetLightCastShadows(handle, enabled);
     }
 
     void setShadowCasterMode(int mode)
