@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.29)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(Freya LANGUAGES CXX VERSION 0.58.0)
+project(Freya LANGUAGES CXX VERSION 0.58.1)
 
 # GCC 16.1 MinGW + C++26 constexpr exceptions emits a strong
 # std::runtime_error copy ctor (should be weak). That clashes with
