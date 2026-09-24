@@ -149,3 +149,9 @@ if(FREYA_BUILD_TESTS)
         enable_testing()
         add_subdirectory(tests)
 endif()
+
+option(FREYA_BUILD_BENCHMARKS "Build Freya benchmarks" OFF)
+
+if(FREYA_BUILD_BENCHMARKS)
+        add_subdirectory(benchmarks)
+endif()
