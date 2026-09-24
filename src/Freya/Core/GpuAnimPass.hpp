@@ -24,7 +24,7 @@ namespace FREYA_NAMESPACE
         static constexpr std::uint32_t kMaxJoints               = 128;
         static constexpr std::uint32_t kMaxSkeletons            = 8;
         static constexpr std::uint32_t kMaxInstances            = 2048;
-        static constexpr std::uint32_t kMaxClips                = 24;
+        static constexpr std::uint32_t kMaxClips                = 32;
         static constexpr std::uint32_t kMaxBakedJointsFloat     = 65536;
         static constexpr std::uint32_t kMaxBakedJointsQuant     = 196608;
         static constexpr std::uint32_t kMaxMaskFloats =

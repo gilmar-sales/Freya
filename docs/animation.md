@@ -221,7 +221,7 @@ blends loco/layers, optional look/IK, FK, then writes skin matrices into
 | `kMaxJoints` | 128 |
 | `kMaxSkeletons` | 8 (atlas slabs; mid-tier multi-rig) |
 | `kMaxInstances` | 2048 |
-| `kMaxClips` | 24 |
+| `kMaxClips` | 32 |
 | `kMaxBakedJointsFloat` | 65536 (48 B/joint) |
 | `kMaxBakedJointsQuant` | 196608 (16 B; same VRAM as float pool) |
 | `kMaxMaskFloats` | 1024 (`kMaxJoints * kMaxSkeletons`) |
