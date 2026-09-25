@@ -234,7 +234,7 @@ namespace FREYA_NAMESPACE
          * stay in the pool (handles remain valid); GPU pack zeros intensity
          * and ShadowPass skips them. No-op for null / dead handles.
          */
-        void SetLightEnabled(LightHandle handle, bool enabled);
+        void               SetLightEnabled(LightHandle handle, bool enabled);
         [[nodiscard]] bool IsLightEnabled(LightHandle handle) const;
 
       private:
@@ -242,7 +242,7 @@ namespace FREYA_NAMESPACE
 
         void applyLightUpdate(LightHandle handle, const Light& light);
         void enqueueOrApplyUpdate(LightHandle handle, const Light& light);
-        void mutateLight(LightHandle                            handle,
+        void mutateLight(LightHandle                        handle,
                          const std::function<void(Light&)>& mutate);
 
         std::unique_ptr<Impl> mImpl;

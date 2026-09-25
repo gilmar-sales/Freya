@@ -70,7 +70,7 @@ namespace FREYA_NAMESPACE
             fbExtent.y > 0 ? static_cast<float>(fbExtent.y) / mRefSize.y : 1.f;
         mScale         = std::min(sx, sy);
         mLogicalSize   = glm::vec2 { static_cast<float>(fbExtent.x) / mScale,
-                                   static_cast<float>(fbExtent.y) / mScale };
+                                     static_cast<float>(fbExtent.y) / mScale };
         mMouseLogicalX = mMouseX / mScale;
         mMouseLogicalY = mMouseY / mScale;
 

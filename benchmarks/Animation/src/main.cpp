@@ -36,28 +36,30 @@ namespace
         for (std::uint32_t i = 1; i < jointCount; ++i)
         {
             sk.names.push_back("joint_" + std::to_string(i));
-            const std::int32_t parent = (i % 4 == 0)
-                ? static_cast<std::int32_t>(i / 4 - 1)
-                : static_cast<std::int32_t>(i - 1);
+            const std::int32_t parent =
+                (i % 4 == 0) ? static_cast<std::int32_t>(i / 4 - 1)
+                             : static_cast<std::int32_t>(i - 1);
             sk.parents.push_back(parent < 0 ? 0 : parent);
 
             glm::mat4 local(1.f);
-            local[3][1] = 0.1f * static_cast<float>(i);
+            local[3][1]     = 0.1f * static_cast<float>(i);
             sk.restLocal[i] = local;
         }
         return sk;
     }
 
-    fra::AnimationClip MakeClip(const fra::Skeleton& sk, std::uint32_t keysPerChannel)
+    fra::AnimationClip MakeClip(const fra::Skeleton& sk,
+                                std::uint32_t        keysPerChannel)
     {
         fra::AnimationClip clip;
         clip.name           = "BenchClip";
         clip.duration       = kDuration;
         clip.ticksPerSecond = 25.f;
 
-        const float dt = keysPerChannel > 1
-            ? kDuration / static_cast<float>(keysPerChannel - 1)
-            : 0.f;
+        const float dt =
+            keysPerChannel > 1
+                ? kDuration / static_cast<float>(keysPerChannel - 1)
+                : 0.f;
 
         clip.channels.reserve(sk.JointCount());
         for (std::uint32_t j = 0; j < sk.JointCount(); ++j)
@@ -71,10 +73,12 @@ namespace
             {
                 const float t   = static_cast<float>(k) * dt;
                 const float ang = t * std::numbers::pi_v<float>;
-                ch.translations.push_back({t, {0.f, std::sin(ang) * 0.05f, 0.f}});
+                ch.translations.push_back(
+                    { t, { 0.f, std::sin(ang) * 0.05f, 0.f } });
                 ch.rotations.push_back(
-                    {t, glm::angleAxis(ang * 0.1f, glm::vec3(0.f, 1.f, 0.f))});
-                ch.scales.push_back({t, {1.f, 1.f, 1.f}});
+                    { t,
+                      glm::angleAxis(ang * 0.1f, glm::vec3(0.f, 1.f, 0.f)) });
+                ch.scales.push_back({ t, { 1.f, 1.f, 1.f } });
             }
             clip.channels.push_back(std::move(ch));
         }
@@ -102,12 +106,12 @@ static void BM_BakeClip(benchmark::State& state)
     state.SetItemsProcessed(state.iterations() * jointCount);
 }
 BENCHMARK(BM_BakeClip)
-    ->ArgNames({"joints", "hz"})
-    ->Args({24, 30})
-    ->Args({64, 30})
-    ->Args({128, 30})
-    ->Args({64, 60})
-    ->Args({128, 60})
+    ->ArgNames({ "joints", "hz" })
+    ->Args({ 24, 30 })
+    ->Args({ 64, 30 })
+    ->Args({ 128, 30 })
+    ->Args({ 64, 60 })
+    ->Args({ 128, 60 })
     ->Unit(benchmark::kMicrosecond);
 
 // ---------------------------------------------------------------------------
@@ -136,12 +140,12 @@ static void BM_SampleClip(benchmark::State& state)
     state.SetItemsProcessed(state.iterations() * jointCount);
 }
 BENCHMARK(BM_SampleClip)
-    ->ArgNames({"joints", "keys"})
-    ->Args({24, 10})
-    ->Args({64, 10})
-    ->Args({128, 10})
-    ->Args({64, 30})
-    ->Args({128, 30})
+    ->ArgNames({ "joints", "keys" })
+    ->Args({ 24, 10 })
+    ->Args({ 64, 10 })
+    ->Args({ 128, 10 })
+    ->Args({ 64, 30 })
+    ->Args({ 128, 30 })
     ->Unit(benchmark::kMicrosecond);
 
 // ---------------------------------------------------------------------------
@@ -169,12 +173,12 @@ static void BM_SampleBaked(benchmark::State& state)
     state.SetItemsProcessed(state.iterations() * jointCount);
 }
 BENCHMARK(BM_SampleBaked)
-    ->ArgNames({"joints", "hz"})
-    ->Args({24, 30})
-    ->Args({64, 30})
-    ->Args({128, 30})
-    ->Args({64, 60})
-    ->Args({128, 60})
+    ->ArgNames({ "joints", "hz" })
+    ->Args({ 24, 30 })
+    ->Args({ 64, 30 })
+    ->Args({ 128, 30 })
+    ->Args({ 64, 60 })
+    ->Args({ 128, 60 })
     ->Unit(benchmark::kMicrosecond);
 
 // ---------------------------------------------------------------------------
@@ -215,12 +219,12 @@ static void BM_BlendMasked(benchmark::State& state)
 {
     const auto jointCount = static_cast<std::uint32_t>(state.range(0));
 
-    const auto sk      = MakeSkeleton(jointCount);
-    const auto clip    = MakeClip(sk, 10);
-    const auto baked   = fra::BakeClip(sk, clip);
+    const auto sk          = MakeSkeleton(jointCount);
+    const auto clip        = MakeClip(sk, 10);
+    const auto baked       = fra::BakeClip(sk, clip);
     const auto poseBase    = fra::SampleBaked(sk, baked, 0.2f);
     const auto poseOverlay = fra::SampleBaked(sk, baked, 1.0f);
-    const auto mask    = fra::BoneMask::Filled(jointCount, 0.5f);
+    const auto mask        = fra::BoneMask::Filled(jointCount, 0.5f);
 
     for (auto _ : state)
     {
@@ -351,8 +355,8 @@ static void BM_EvaluateBlend1D(benchmark::State& state)
     float param = 0.f;
     for (auto _ : state)
     {
-        auto result =
-            fra::EvaluateBlend1D(sk, std::span{samples}, std::span{times}, param);
+        auto result = fra::EvaluateBlend1D(
+            sk, std::span { samples }, std::span { times }, param);
         benchmark::DoNotOptimize(result);
         param += 0.05f;
         if (param > static_cast<float>(sampleCount - 1))
@@ -361,11 +365,11 @@ static void BM_EvaluateBlend1D(benchmark::State& state)
     state.SetItemsProcessed(state.iterations() * jointCount);
 }
 BENCHMARK(BM_EvaluateBlend1D)
-    ->ArgNames({"joints", "samples"})
-    ->Args({64, 3})
-    ->Args({64, 5})
-    ->Args({128, 3})
-    ->Args({128, 5})
+    ->ArgNames({ "joints", "samples" })
+    ->Args({ 64, 3 })
+    ->Args({ 64, 5 })
+    ->Args({ 128, 3 })
+    ->Args({ 128, 5 })
     ->Unit(benchmark::kMicrosecond);
 
 // ---------------------------------------------------------------------------
@@ -396,17 +400,17 @@ static void BM_EvaluateBlend2D(benchmark::State& state)
     {
         const float x    = static_cast<float>(i % side) / sideFrac * 2.f - 1.f;
         const float y    = static_cast<float>(i / side) / sideFrac * 2.f - 1.f;
-        samples[i].pos   = {x, y};
+        samples[i].pos   = { x, y };
         samples[i].clip  = &clips[i];
         samples[i].baked = &bakes[i];
     }
     std::vector<float> times(sampleCount, 0.f);
 
-    glm::vec2 param{0.f};
+    glm::vec2 param { 0.f };
     for (auto _ : state)
     {
-        auto result =
-            fra::EvaluateBlend2D(sk, std::span{samples}, std::span{times}, param);
+        auto result = fra::EvaluateBlend2D(
+            sk, std::span { samples }, std::span { times }, param);
         benchmark::DoNotOptimize(result);
         param.x += 0.05f;
         if (param.x > 1.f)
@@ -415,11 +419,11 @@ static void BM_EvaluateBlend2D(benchmark::State& state)
     state.SetItemsProcessed(state.iterations() * jointCount);
 }
 BENCHMARK(BM_EvaluateBlend2D)
-    ->ArgNames({"joints", "samples"})
-    ->Args({64, 4})
-    ->Args({64, 9})
-    ->Args({128, 4})
-    ->Args({128, 9})
+    ->ArgNames({ "joints", "samples" })
+    ->Args({ 64, 4 })
+    ->Args({ 64, 9 })
+    ->Args({ 128, 4 })
+    ->Args({ 128, 9 })
     ->Unit(benchmark::kMicrosecond);
 
 // ---------------------------------------------------------------------------
@@ -462,11 +466,11 @@ static void BM_AnimGraph_Evaluate(benchmark::State& state)
     state.SetItemsProcessed(state.iterations() * jointCount);
 }
 BENCHMARK(BM_AnimGraph_Evaluate)
-    ->ArgNames({"joints", "samples"})
-    ->Args({64, 3})
-    ->Args({64, 5})
-    ->Args({128, 3})
-    ->Args({128, 5})
+    ->ArgNames({ "joints", "samples" })
+    ->Args({ 64, 3 })
+    ->Args({ 64, 5 })
+    ->Args({ 128, 3 })
+    ->Args({ 128, 5 })
     ->Unit(benchmark::kMicrosecond);
 
 // ---------------------------------------------------------------------------

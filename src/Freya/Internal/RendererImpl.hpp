@@ -146,13 +146,13 @@ namespace FREYA_NAMESPACE
 
         void SetInstanceModels(const glm::mat4* models, std::size_t count);
         void UploadBoneMatrices(std::span<const glm::mat4> bones);
-        void UploadBoneMatrices(
-            std::uint32_t boneOffset, std::span<const glm::mat4> bones);
+        void UploadBoneMatrices(std::uint32_t              boneOffset,
+                                std::span<const glm::mat4> bones);
         void BeginBoneMatrixUploads();
         void ReserveBoneMatrixUploads(std::uint32_t uploadCount,
                                       std::uint32_t totalMatrices);
-        void UploadBoneMatrixUploads(
-            std::uint32_t boneOffset, std::span<const glm::mat4> bones);
+        void UploadBoneMatrixUploads(std::uint32_t              boneOffset,
+                                     std::span<const glm::mat4> bones);
         void EndBoneMatrixUploads();
 
         void ClearDrawCommands();
@@ -248,10 +248,10 @@ namespace FREYA_NAMESPACE
         void UploadGpuAnimBoneMask(std::span<const float> weights);
         void UploadGpuAnimRestJoints(std::span<const GpuFloatJoint> joints);
         void UploadGpuAnimRestJoints(std::span<const GpuQuantJoint> joints);
-        void UploadGpuAnimRestJoints(std::uint32_t skeletonSlot,
-                                     std::span<const GpuFloatJoint> joints);
-        void UploadGpuAnimRestJoints(std::uint32_t skeletonSlot,
-                                     std::span<const GpuQuantJoint> joints);
+        void UploadGpuAnimRestJoints(
+            std::uint32_t skeletonSlot, std::span<const GpuFloatJoint> joints);
+        void UploadGpuAnimRestJoints(
+            std::uint32_t skeletonSlot, std::span<const GpuQuantJoint> joints);
         void SetGpuAnimRigIndices(std::uint32_t lookJoint, std::uint32_t ikRoot,
                                   std::uint32_t ikMid, std::uint32_t ikTip,
                                   std::uint32_t rootJoint,

@@ -270,7 +270,8 @@ namespace FREYA_NAMESPACE
 
     void GpuAnimPass::Impl::TouchSkeletonSlotUnlocked(const std::uint32_t slot)
     {
-        if (slot >= GpuAnimPass::kMaxSkeletons || !mSkeletonSlots[slot].resident)
+        if (slot >= GpuAnimPass::kMaxSkeletons ||
+            !mSkeletonSlots[slot].resident)
             return;
         mSkeletonSlots[slot].lastTouch = ++mSkeletonTouchClock;
     }
@@ -293,8 +294,7 @@ namespace FREYA_NAMESPACE
             !mInvBindBuffer)
             return false;
 
-        const auto jc =
-            std::min(skeleton.jointCount, GpuAnimPass::kMaxJoints);
+        const auto jc = std::min(skeleton.jointCount, GpuAnimPass::kMaxJoints);
         if (jc == 0)
             return false;
 
@@ -446,7 +446,7 @@ namespace FREYA_NAMESPACE
         for (const auto& s : mClipSlots)
             if (s.resident)
                 ++resident;
-        out.residentClips = resident;
+        out.residentClips          = resident;
         std::uint32_t skelResident = 0;
         for (const auto& s : mSkeletonSlots)
             if (s.resident)
@@ -464,8 +464,8 @@ namespace FREYA_NAMESPACE
         out.skeletons.resize(GpuAnimPass::kMaxSkeletons);
         for (std::uint32_t i = 0; i < GpuAnimPass::kMaxSkeletons; ++i)
         {
-            const auto& s = mSkeletonSlots[i];
-            out.skeletons[i] = { i,        s.key,    s.resident,  s.pinned,
+            const auto& s    = mSkeletonSlots[i];
+            out.skeletons[i] = { i,           s.key,    s.resident, s.pinned,
                                  s.lastTouch, s.joints, s.rootJoint };
         }
     }
@@ -783,8 +783,9 @@ namespace FREYA_NAMESPACE
     }
 
     void GpuAnimPass::Impl::UploadRestJoints(
-        const std::uint32_t                     skeletonSlot,
-        const std::span<const GpuFloatJoint> joints)
+        const std::uint32_t skeletonSlot,
+        const std::span<const GpuFloatJoint>
+            joints)
     {
         if (mQuantizedJoints || !mRestJointsBuffer || joints.empty() ||
             skeletonSlot >= GpuAnimPass::kMaxSkeletons)
@@ -799,8 +800,9 @@ namespace FREYA_NAMESPACE
     }
 
     void GpuAnimPass::Impl::UploadRestJoints(
-        const std::uint32_t                     skeletonSlot,
-        const std::span<const GpuQuantJoint> joints)
+        const std::uint32_t skeletonSlot,
+        const std::span<const GpuQuantJoint>
+            joints)
     {
         if (!mQuantizedJoints || !mRestJointsBuffer || joints.empty() ||
             skeletonSlot >= GpuAnimPass::kMaxSkeletons)

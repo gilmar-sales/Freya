@@ -77,9 +77,9 @@ namespace FREYA_NAMESPACE
                     continue;
                 const auto typeIndex =
                     static_cast<std::uint32_t>(lights[n].type);
-                const bool typeOn = typeIndex < 4u && typeEnabled[typeIndex];
-                const bool on     = typeOn && lights[n].enabled;
-                const float intensity = on ? lights[n].intensity : 0.0f;
+                const bool  typeOn = typeIndex < 4u && typeEnabled[typeIndex];
+                const bool  on     = typeOn && lights[n].enabled;
+                const float intensity       = on ? lights[n].intensity : 0.0f;
                 data.lightPositions[packed] = glm::vec4(
                     lights[n].position, static_cast<float>(lights[n].type));
                 data.lightColorsAndRadius[packed] =
@@ -122,7 +122,7 @@ namespace FREYA_NAMESPACE
         applyLightUpdate(handle, light);
     }
 
-    void LightService::mutateLight(const LightHandle handle,
+    void LightService::mutateLight(const LightHandle                  handle,
                                    const std::function<void(Light&)>& mutate)
     {
         if (!handle)
@@ -205,8 +205,7 @@ namespace FREYA_NAMESPACE
     void LightService::UpdateLightPosition(const LightHandle handle,
                                            const glm::vec3&  position)
     {
-        mutateLight(handle,
-                    [&](Light& light) { light.position = position; });
+        mutateLight(handle, [&](Light& light) { light.position = position; });
     }
 
     void LightService::SetLightColor(const LightHandle handle,
@@ -218,8 +217,7 @@ namespace FREYA_NAMESPACE
     void LightService::SetLightIntensity(const LightHandle handle,
                                          const float       intensity)
     {
-        mutateLight(handle,
-                    [&](Light& light) { light.intensity = intensity; });
+        mutateLight(handle, [&](Light& light) { light.intensity = intensity; });
     }
 
     void LightService::SetLightDirection(const LightHandle handle,

@@ -41,6 +41,7 @@
 #include "Freya/Core/FrameGpuTiming.hpp"
 #include "Freya/Core/LightService.hpp"
 #include "Freya/Core/ParticleEmitter.hpp"
+#include "Freya/Core/RibbonEmitter.hpp"
 #include "Freya/Core/UiContext.hpp"
 #include "Freya/Core/UiDraw.hpp"
 #include "Freya/Core/UiModelPreview.hpp"

@@ -68,7 +68,7 @@ namespace FREYA_NAMESPACE
     {
       public:
         UiModelPreview(const skr::Arc<skr::ServiceProvider>& serviceProvider,
-                       TexturePool&                         texturePool,
+                       TexturePool&                          texturePool,
                        glm::uvec2 extent = { 512, 512 });
 
         ~UiModelPreview();
@@ -81,7 +81,7 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] TextureHandle Texture() const;
         [[nodiscard]] glm::uvec2    Extent() const;
 
-        UiModelPreviewOrbit&       Orbit();
+        UiModelPreviewOrbit&                     Orbit();
         [[nodiscard]] const UiModelPreviewOrbit& Orbit() const;
         void SetOrbit(const UiModelPreviewOrbit& orbit);
 
@@ -115,8 +115,7 @@ namespace FREYA_NAMESPACE
          * @brief GPU readback of the LDR RT into a static TextureHandle.
          * @param size Optional downscale (0 = full RT extent).
          */
-        TextureHandle CaptureSnapshot(TexturePool& pool,
-                                      glm::uvec2   size = {});
+        TextureHandle CaptureSnapshot(TexturePool& pool, glm::uvec2 size = {});
 
       private:
         struct Impl;

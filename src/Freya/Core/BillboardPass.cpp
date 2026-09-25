@@ -18,24 +18,6 @@ namespace FREYA_NAMESPACE
             glm::mat4 proj { 1.f };
         };
 
-        BillboardGpuInstance ToGpu(const Billboard& b)
-        {
-            BillboardGpuInstance g {};
-            g.worldPos     = b.worldPos;
-            g.clipMax      = b.clipMax;
-            g.size         = b.size;
-            g.textureIndex = b.textureIndex;
-            g.flags        = (b.align == BillboardAlign::Cylindrical
-                                  ? kBillboardFlagCylindrical
-                                  : 0u) |
-                             (b.sdf ? kBillboardFlagSdf : 0u);
-            g.color        = b.color;
-            g.uvRect       = b.uvRect;
-            g.localOffset  = b.localOffset;
-            g.outlineWidth = b.outlineWidth;
-            g.outlineColor = b.outlineColor;
-            return g;
-        }
     } // namespace
 
     BillboardPass::BillboardPass(
@@ -291,7 +273,7 @@ namespace FREYA_NAMESPACE
                 continue;
             const int bi = (q.blend == BillboardBlend::Additive ? 2 : 0) +
                            (q.depthTest ? 0 : 1);
-            batches[bi].gpu.push_back(ToGpu(q));
+            batches[bi].gpu.push_back(ToBillboardGpu(q));
             ++total;
         }
         if (total == 0)

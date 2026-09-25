@@ -137,9 +137,9 @@ namespace FREYA_NAMESPACE
         // the current swapchain image count after a resize.
         const auto fbIndex =
             !mFramebuffers.empty()
-                ? std::min(imageIndex,
-                           static_cast<std::uint32_t>(mFramebuffers.size() -
-                                                      1u))
+                ? std::min(
+                      imageIndex,
+                      static_cast<std::uint32_t>(mFramebuffers.size() - 1u))
                 : 0u;
 
         commandBuffer.beginRenderPass(

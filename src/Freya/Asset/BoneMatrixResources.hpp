@@ -110,8 +110,8 @@ namespace FREYA_NAMESPACE
         void BeginBoneUploads();
         void ReserveBoneUploads(std::uint32_t uploadCount,
                                 std::uint32_t totalMatrices);
-        void UploadBoneUploads(
-            std::uint32_t boneOffset, std::span<const glm::mat4> bones);
+        void UploadBoneUploads(std::uint32_t              boneOffset,
+                               std::span<const glm::mat4> bones);
         void EndBoneUploads(std::uint32_t frameIndex);
 
         /**

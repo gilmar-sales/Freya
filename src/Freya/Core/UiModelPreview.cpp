@@ -62,8 +62,7 @@ namespace FREYA_NAMESPACE
                     .setHeight(static_cast<float>(extent.height))
                     .setMinDepth(0.0f)
                     .setMaxDepth(1.0f);
-            auto scissor =
-                vk::Rect2D().setOffset({ 0, 0 }).setExtent(extent);
+            auto scissor = vk::Rect2D().setOffset({ 0, 0 }).setExtent(extent);
             commandBuffer.setViewport(0, 1, &viewport);
             commandBuffer.setScissor(0, 1, &scissor);
         }
@@ -101,7 +100,7 @@ namespace FREYA_NAMESPACE
             return result;
         }
 
-        void ApplyHaltonJitter(glm::mat4& projection,
+        void ApplyHaltonJitter(glm::mat4&          projection,
                                const std::uint32_t frameIndex,
                                const vk::Extent2D  extent,
                                const std::uint32_t haltonPeriod)
@@ -111,9 +110,9 @@ namespace FREYA_NAMESPACE
             const auto  period = std::max(1u, haltonPeriod);
             const auto  sample = (frameIndex % period) + 1;
             const float jx     = (Halton(sample, 2) - 0.5f) * 2.0f /
-                             static_cast<float>(extent.width);
+                                 static_cast<float>(extent.width);
             const float jy     = -(Halton(sample, 3) - 0.5f) * 2.0f /
-                             static_cast<float>(extent.height);
+                                 static_cast<float>(extent.height);
             projection[2][0] += jx;
             projection[2][1] += jy;
         }
@@ -302,8 +301,7 @@ namespace FREYA_NAMESPACE
             destroyPasses();
             swapChain = sc;
 
-            auto bones =
-                serviceProvider->GetService<BoneMatrixResources>();
+            auto bones = serviceProvider->GetService<BoneMatrixResources>();
             auto materials =
                 serviceProvider->GetService<MaterialDescriptorResources>();
             auto ibl      = serviceProvider->GetService<IBLService>();
@@ -313,20 +311,19 @@ namespace FREYA_NAMESPACE
                                        serviceProvider, bones, materials)
                          .Build();
 
-            deferred = DeferredCompressedPassBuilder(
-                           device, physicalDevice, surface, options,
-                           serviceProvider, lights, ibl, shadow, materials,
-                           bones)
-                           .Build(sc, vk::Extent2D { extent.x, extent.y });
+            deferred =
+                DeferredCompressedPassBuilder(
+                    device, physicalDevice, surface, options, serviceProvider,
+                    lights, ibl, shadow, materials, bones)
+                    .Build(sc, vk::Extent2D { extent.x, extent.y });
 
             composite =
                 serviceProvider->GetService<CompositePassBuilder>()->Build(sc);
 
-            indirect =
-                IndirectDrawSystemBuilder(device, physicalDevice, commandPool,
-                                          meshPool, materials, options,
-                                          serviceProvider)
-                    .Build();
+            indirect = IndirectDrawSystemBuilder(
+                           device, physicalDevice, commandPool, meshPool,
+                           materials, options, serviceProvider)
+                           .Build();
             if (indirect)
                 indirect->ResizeHiZ(vk::Extent2D { extent.x, extent.y });
 
@@ -354,8 +351,9 @@ namespace FREYA_NAMESPACE
             if (options->enableSsao)
             {
                 if (!ssao)
-                    ssao = serviceProvider->GetService<SsaoPassBuilder>()->Build(
-                        swapChain, vkExtent);
+                    ssao =
+                        serviceProvider->GetService<SsaoPassBuilder>()->Build(
+                            swapChain, vkExtent);
             }
             else
                 ssao.reset();
@@ -389,10 +387,11 @@ namespace FREYA_NAMESPACE
             {
                 if (!bloom)
                 {
-                    bloom = serviceProvider->GetService<BloomPassBuilder>()
-                                ->Build(swapChain,
-                                        deferred->GetSceneColorImage(),
-                                        vkExtent);
+                    bloom =
+                        serviceProvider->GetService<BloomPassBuilder>()->Build(
+                            swapChain,
+                            deferred->GetSceneColorImage(),
+                            vkExtent);
                     bloomResults.clear();
                     bloomResults.resize(options->frameCount);
                     for (std::uint32_t i = 0; i < options->frameCount; ++i)
@@ -419,9 +418,8 @@ namespace FREYA_NAMESPACE
         {
             if (orbit.autoRotate && !dragging && orbit.enabled)
             {
-                const float yaw =
-                    yawDeg.load(std::memory_order_relaxed) +
-                    orbit.autoSpeed * dt;
+                const float yaw = yawDeg.load(std::memory_order_relaxed) +
+                                  orbit.autoSpeed * dt;
                 yawDeg.store(yaw, std::memory_order_relaxed);
                 orbit.yawDeg = yaw;
             }
@@ -442,18 +440,16 @@ namespace FREYA_NAMESPACE
                 dist * std::sin(pitchRad),
                 dist * std::cos(pitchRad) * std::cos(yawRad)
             };
-            const glm::vec3 eye    = orbit.target + offset;
-            const glm::vec3 up     = { 0.f, 1.f, 0.f };
-            const float     aspect = extent.y > 0
-                                         ? static_cast<float>(extent.x) /
-                                           static_cast<float>(extent.y)
-                                         : 1.f;
+            const glm::vec3 eye = orbit.target + offset;
+            const glm::vec3 up  = { 0.f, 1.f, 0.f };
+            const float aspect = extent.y > 0 ? static_cast<float>(extent.x) /
+                                                    static_cast<float>(extent.y)
+                                              : 1.f;
 
-            projection.view = glm::lookAt(eye, orbit.target, up);
-            projection.projection =
-                MakePreviewProjection(glm::radians(orbit.fovDegrees), aspect,
-                                      orbit.nearPlane, orbit.farPlane,
-                                      options->ReverseZ);
+            projection.view       = glm::lookAt(eye, orbit.target, up);
+            projection.projection = MakePreviewProjection(
+                glm::radians(orbit.fovDegrees), aspect, orbit.nearPlane,
+                orbit.farPlane, options->ReverseZ);
             projection.unjitteredProjection = projection.projection;
             projection.prevViewProjection   = prevViewProjection;
             if (options->enableTaa && taa)
@@ -477,13 +473,13 @@ namespace FREYA_NAMESPACE
                 !bloomResults[frameIndex])
                 return;
 
-            auto bloomUp = bloom->GetBloomUpImage(frameIndex);
+            auto bloomUp     = bloom->GetBloomUpImage(frameIndex);
             auto bloomResult = bloomResults[frameIndex];
             if (!bloomUp || !bloomResult)
                 return;
 
-            auto commandBuffer = cmdPool->GetCommandBuffer();
-            const auto vkExtent = vk::Extent2D { extent.x, extent.y };
+            auto       commandBuffer = cmdPool->GetCommandBuffer();
+            const auto vkExtent      = vk::Extent2D { extent.x, extent.y };
             const auto bloomExtent =
                 ScaledExtent(vkExtent, options->bloomResolutionDivisor);
             const auto srcW = static_cast<std::int32_t>(bloomExtent.width);
@@ -518,10 +514,9 @@ namespace FREYA_NAMESPACE
                     .setOldLayout(vk::ImageLayout::eUndefined)
                     .setNewLayout(vk::ImageLayout::eTransferDstOptimal)
                     .setSubresourceRange(range);
-            commandBuffer.pipelineBarrier(
-                vk::PipelineStageFlagBits::eTopOfPipe,
-                vk::PipelineStageFlagBits::eTransfer, {}, nullptr, nullptr,
-                dstBarrier);
+            commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,
+                                          vk::PipelineStageFlagBits::eTransfer,
+                                          {}, nullptr, nullptr, dstBarrier);
 
             auto blit =
                 vk::ImageBlit {}
@@ -575,19 +570,18 @@ namespace FREYA_NAMESPACE
 
             std::vector<SceneInstanceUpload> uploads;
             uploads.reserve(scene.Size());
-            scene.ForEach(
-                [&](Scene::InstanceId, const Scene::Instance& inst) {
-                    uploads.push_back(SceneInstanceUpload {
-                        .transform   = inst.transform,
-                        .mesh        = inst.mesh,
-                        .material    = inst.material,
-                        .entityId    = inst.entityId,
-                        .techniqueId = inst.techniqueId,
-                        .flags       = inst.flags,
-                        .boneOffset  = inst.boneOffset,
-                        .boneCount   = inst.boneCount,
-                    });
+            scene.ForEach([&](Scene::InstanceId, const Scene::Instance& inst) {
+                uploads.push_back(SceneInstanceUpload {
+                    .transform   = inst.transform,
+                    .mesh        = inst.mesh,
+                    .material    = inst.material,
+                    .entityId    = inst.entityId,
+                    .techniqueId = inst.techniqueId,
+                    .flags       = inst.flags,
+                    .boneOffset  = inst.boneOffset,
+                    .boneCount   = inst.boneCount,
                 });
+            });
 
             if (uploads.empty())
             {
@@ -648,9 +642,9 @@ namespace FREYA_NAMESPACE
                     cmdPool,
                     [&](const glm::mat4& lightVP) {
                         indirect->SetCullView(cameraPos, vkExtent);
-                        indirect->DispatchCull(lightVP, CullMode::Shadow,
-                                               options->ReverseZ,
-                                               kTechniqueFilterAll);
+                        indirect->DispatchCull(
+                            lightVP, CullMode::Shadow, options->ReverseZ,
+                            kTechniqueFilterAll);
                     },
                     [&]() {
                         indirect->ExecuteDraws(
@@ -668,8 +662,8 @@ namespace FREYA_NAMESPACE
             {
                 if ((usedMask & (1u << t)) == 0)
                     continue;
-                indirect->DispatchCull(viewProj, CullMode::Camera,
-                                       options->ReverseZ, t);
+                indirect->DispatchCull(
+                    viewProj, CullMode::Camera, options->ReverseZ, t);
             }
 
             deferred->Begin(sc, cmdPool);
@@ -702,26 +696,25 @@ namespace FREYA_NAMESPACE
 
             if (ssao)
             {
-                ssao->Dispatch(cmdPool, deferred->GetDepthImage(),
-                               deferred->GetNormalImage(), projection.view,
-                               projection.unjitteredProjection,
-                               options->ReverseZ, options->ssaoRadius,
-                               options->ssaoBias, options->ssaoPower,
-                               options->ssaoIntensity);
+                ssao->Dispatch(
+                    cmdPool, deferred->GetDepthImage(),
+                    deferred->GetNormalImage(), projection.view,
+                    projection.unjitteredProjection, options->ReverseZ,
+                    options->ssaoRadius, options->ssaoBias, options->ssaoPower,
+                    options->ssaoIntensity);
             }
 
             if (shadowMask && options->enableShadows &&
                 options->enableShadowMask)
             {
-                shadowMask->Dispatch(cmdPool, deferred->GetDepthImage(),
-                                     deferred->GetNormalImage(), shadow,
-                                     *lights, projection.view,
-                                     projection.unjitteredProjection,
-                                     options->ReverseZ, frameIndex);
+                shadowMask->Dispatch(
+                    cmdPool, deferred->GetDepthImage(),
+                    deferred->GetNormalImage(), shadow, *lights,
+                    projection.view, projection.unjitteredProjection,
+                    options->ReverseZ, frameIndex);
             }
 
-            auto ssaoImage =
-                ssao ? ssao->GetOutputImage() : ssaoFallback;
+            auto ssaoImage = ssao ? ssao->GetOutputImage() : ssaoFallback;
             auto maskImage =
                 shadowMask ? shadowMask->GetOutputImage() : ssaoFallback;
             if (!ssaoImage)
@@ -779,19 +772,18 @@ namespace FREYA_NAMESPACE
                 bloomResults[frameIndex])
                 bloomColor = bloomResults[frameIndex];
 
-            composite->UpdateDescriptorSet(frameIndex, sceneColor, bloomColor,
-                                           bloomSampler);
+            composite->UpdateDescriptorSet(
+                frameIndex, sceneColor, bloomColor, bloomSampler);
             SetFullViewport(cmdPool, vkExtent);
-            composite->Begin(renderTarget->GetRenderPass(),
-                             renderTarget->GetFramebuffer(),
-                             renderTarget->GetExtent(), cmdPool,
-                             ToVkClearValue(options->clearColor));
+            composite->Begin(
+                renderTarget->GetRenderPass(), renderTarget->GetFramebuffer(),
+                renderTarget->GetExtent(), cmdPool,
+                ToVkClearValue(options->clearColor));
             composite->BindPipeline(cmdPool, frameIndex);
             composite->DrawFullscreenTriangle(cmdPool, 1.0f);
             composite->End(cmdPool);
 
-            prevViewProjection =
-                projection.projection * projection.view;
+            prevViewProjection = projection.projection * projection.view;
             if (options->enableTaa && taa)
                 ++taaFrameIndex;
         }
@@ -804,15 +796,13 @@ namespace FREYA_NAMESPACE
     {
         mImpl->serviceProvider = serviceProvider;
         mImpl->texturePool     = &texturePool;
-        mImpl->device = serviceProvider->GetService<Device>();
-        mImpl->surface = serviceProvider->GetService<Surface>();
-        mImpl->physicalDevice =
-            serviceProvider->GetService<PhysicalDevice>();
-        mImpl->options     = serviceProvider->GetService<FreyaOptions>();
-        mImpl->commandPool = serviceProvider->GetService<CommandPool>();
+        mImpl->device          = serviceProvider->GetService<Device>();
+        mImpl->surface         = serviceProvider->GetService<Surface>();
+        mImpl->physicalDevice  = serviceProvider->GetService<PhysicalDevice>();
+        mImpl->options         = serviceProvider->GetService<FreyaOptions>();
+        mImpl->commandPool     = serviceProvider->GetService<CommandPool>();
         mImpl->yawDeg.store(mImpl->orbit.yawDeg, std::memory_order_relaxed);
-        mImpl->pitchDeg.store(mImpl->orbit.pitchDeg,
-                              std::memory_order_relaxed);
+        mImpl->pitchDeg.store(mImpl->orbit.pitchDeg, std::memory_order_relaxed);
         mImpl->rebuildTarget(extent);
     }
 
@@ -889,8 +879,8 @@ namespace FREYA_NAMESPACE
         const float sens = mImpl->orbit.sensitivity;
         float       yaw =
             mImpl->yawDeg.load(std::memory_order_relaxed) + deltaX * sens;
-        float pitch = mImpl->pitchDeg.load(std::memory_order_relaxed) -
-                      deltaY * sens;
+        float pitch =
+            mImpl->pitchDeg.load(std::memory_order_relaxed) - deltaY * sens;
         pitch = mImpl->orbit.ClampPitch(pitch);
         mImpl->yawDeg.store(yaw, std::memory_order_relaxed);
         mImpl->pitchDeg.store(pitch, std::memory_order_relaxed);
@@ -915,7 +905,8 @@ namespace FREYA_NAMESPACE
 
     void UiModelPreview::SetActive(const bool active)
     {
-        const bool was = mImpl->active.exchange(active, std::memory_order_relaxed);
+        const bool was =
+            mImpl->active.exchange(active, std::memory_order_relaxed);
         if (was && !active)
         {
             // Drop the mini deferred/shadow stack while hidden so maximize
@@ -948,7 +939,7 @@ namespace FREYA_NAMESPACE
         mImpl->recordDeferred(commandPool, swapChain, frameIndex);
     }
 
-    TextureHandle UiModelPreview::CaptureSnapshot(TexturePool&   pool,
+    TextureHandle UiModelPreview::CaptureSnapshot(TexturePool&     pool,
                                                   const glm::uvec2 size)
     {
         if (!mImpl->renderTarget || !mImpl->device || !mImpl->commandPool)
@@ -968,11 +959,10 @@ namespace FREYA_NAMESPACE
 
         const std::uint64_t byteSize =
             static_cast<std::uint64_t>(srcW) * srcH * 4u;
-        auto staging =
-            BufferBuilder(mImpl->device)
-                .SetUsage(BufferUsage::Readback)
-                .SetSize(byteSize)
-                .Build();
+        auto staging = BufferBuilder(mImpl->device)
+                           .SetUsage(BufferUsage::Readback)
+                           .SetSize(byteSize)
+                           .Build();
 
         auto cmd = mImpl->commandPool->CreateCommandBuffer();
         cmd.begin(vk::CommandBufferBeginInfo().setFlags(
@@ -1001,16 +991,16 @@ namespace FREYA_NAMESPACE
         const auto region =
             vk::BufferImageCopy()
                 .setBufferOffset(0)
-                .setImageSubresource(vk::ImageSubresourceLayers()
-                                         .setAspectMask(
-                                             vk::ImageAspectFlagBits::eColor)
-                                         .setMipLevel(0)
-                                         .setBaseArrayLayer(0)
-                                         .setLayerCount(1))
+                .setImageSubresource(
+                    vk::ImageSubresourceLayers()
+                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                        .setMipLevel(0)
+                        .setBaseArrayLayer(0)
+                        .setLayerCount(1))
                 .setImageExtent(vk::Extent3D { srcW, srcH, 1 });
-        cmd.copyImageToBuffer(color->GetImage(),
-                              vk::ImageLayout::eTransferSrcOptimal,
-                              staging->Get(), 1, &region);
+        cmd.copyImageToBuffer(
+            color->GetImage(), vk::ImageLayout::eTransferSrcOptimal,
+            staging->Get(), 1, &region);
 
         auto toSample =
             vk::ImageMemoryBarrier()
@@ -1028,17 +1018,17 @@ namespace FREYA_NAMESPACE
 
         vk::SubmitInfo submit;
         submit.setCommandBuffers(cmd);
-        mImpl->device->SubmitAndWait(mImpl->device->GetGraphicsQueue(),
-                                     submit);
+        mImpl->device->SubmitAndWait(mImpl->device->GetGraphicsQueue(), submit);
         mImpl->commandPool->FreeCommandBuffer(cmd);
 
-        const auto* src = static_cast<const std::uint8_t*>(staging->GetMapped());
+        const auto* src =
+            static_cast<const std::uint8_t*>(staging->GetMapped());
         if (!src)
             return {};
 
-        std::vector<std::uint8_t> rgba(static_cast<std::size_t>(srcW) * srcH *
-                                       4u);
-        const bool                bgra = IsBgra(fmt);
+        std::vector<std::uint8_t> rgba(
+            static_cast<std::size_t>(srcW) * srcH * 4u);
+        const bool bgra = IsBgra(fmt);
         for (std::uint32_t i = 0; i < srcW * srcH; ++i)
         {
             const auto* p = src + i * 4;
@@ -1060,8 +1050,8 @@ namespace FREYA_NAMESPACE
             return pool.CreateTextureFromMemory(rgba.data(), srcW, srcH, 4, 1);
         }
 
-        std::vector<std::uint8_t> scaled(static_cast<std::size_t>(dstW) *
-                                         dstH * 4u);
+        std::vector<std::uint8_t> scaled(
+            static_cast<std::size_t>(dstW) * dstH * 4u);
         for (std::uint32_t y = 0; y < dstH; ++y)
         {
             const auto sy = y * srcH / dstH;

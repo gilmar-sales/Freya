@@ -27,8 +27,8 @@ namespace FREYA_NAMESPACE
         glm::vec4     uvRect { 0.f, 0.f, 1.f, 1.f };
         glm::vec2     localOffset { 0.f };
         float         outlineWidth = 0.f;
-        float         _pad         = 0.f;
-        glm::vec4     outlineColor { 0.f, 0.f, 0.f, 1.f };
+        float     rotation = 0.f; ///< Screen-space rotation radians (ex _pad)
+        glm::vec4 outlineColor { 0.f, 0.f, 0.f, 1.f };
     };
 
     static_assert(sizeof(BillboardGpuInstance) == 96,
@@ -45,12 +45,26 @@ namespace FREYA_NAMESPACE
         if (b.align == BillboardAlign::Cylindrical)
             g.flags |= kBillboardFlagCylindrical;
         if (b.sdf)
+        {
             g.flags |= kBillboardFlagSdf;
+            g.outlineWidth = b.outlineWidth;
+        }
+        else if (b.softParticle)
+        {
+            // outlineWidth repurposed as fade range; SDF and softParticle
+            // are mutually exclusive in practice.
+            g.flags |= kBillboardFlagSoft;
+            g.outlineWidth = b.softFadeRange;
+        }
+        else
+        {
+            g.outlineWidth = b.outlineWidth;
+        }
         g.color        = b.color;
         g.uvRect       = b.uvRect;
         g.localOffset  = b.localOffset;
-        g.outlineWidth = b.outlineWidth;
         g.outlineColor = b.outlineColor;
+        g.rotation     = b.rotation;
         return g;
     }
 

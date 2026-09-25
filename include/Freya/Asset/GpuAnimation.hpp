@@ -108,10 +108,10 @@ namespace FREYA_NAMESPACE
         float         timeMask   = 0.f;
         float         weightMask = 0.f;
         /// Slot: Additive (idle breathe / recoil, …)
-        std::uint32_t clipAdd       = 0;
-        std::uint32_t skeletonSlot  = 0; ///< index into skeleton atlas (0..7)
-        float         timeAdd       = 0.f;
-        float         weightAdd     = 0.f;
+        std::uint32_t clipAdd      = 0;
+        std::uint32_t skeletonSlot = 0; ///< index into skeleton atlas (0..7)
+        float         timeAdd      = 0.f;
+        float         weightAdd    = 0.f;
         glm::mat4     modelWorld { 1.f };
         glm::vec3     lookTarget { 0.f };
         float         lookWeight = 0.f;

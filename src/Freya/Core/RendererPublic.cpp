@@ -196,8 +196,8 @@ namespace FREYA_NAMESPACE
         mImpl->UploadBoneMatrices(bones);
     }
 
-    void Renderer::UploadBoneMatrices(
-        const std::uint32_t boneOffset, const std::span<const glm::mat4> bones)
+    void Renderer::UploadBoneMatrices(const std::uint32_t boneOffset,
+                                      const std::span<const glm::mat4> bones)
     {
         mImpl->UploadBoneMatrices(boneOffset, bones);
     }
@@ -607,16 +607,18 @@ namespace FREYA_NAMESPACE
     }
 
     void GpuAnimationSystem::UploadRestJoints(
-        const std::uint32_t                     skeletonSlot,
-        const std::span<const GpuFloatJoint> joints)
+        const std::uint32_t skeletonSlot,
+        const std::span<const GpuFloatJoint>
+            joints)
     {
         static_cast<Renderer::Impl*>(mImpl)->UploadGpuAnimRestJoints(
             skeletonSlot, joints);
     }
 
     void GpuAnimationSystem::UploadRestJoints(
-        const std::uint32_t                     skeletonSlot,
-        const std::span<const GpuQuantJoint> joints)
+        const std::uint32_t skeletonSlot,
+        const std::span<const GpuQuantJoint>
+            joints)
     {
         static_cast<Renderer::Impl*>(mImpl)->UploadGpuAnimRestJoints(
             skeletonSlot, joints);

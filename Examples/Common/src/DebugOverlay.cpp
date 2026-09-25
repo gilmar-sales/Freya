@@ -11,9 +11,9 @@
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
-#include <algorithm>
 
 namespace FreyaExamples
 {

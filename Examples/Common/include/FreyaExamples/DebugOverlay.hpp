@@ -100,15 +100,15 @@ namespace FreyaExamples
         void applyPendingSwapchainChanges();
         void pollCullFrameDump(fra::Renderer& renderer);
 
-        bool            mInitialized    = false;
-        bool            mEnabled        = true;
-        fra::Renderer*  mRenderer       = nullptr;
-        fra::IPlatform* mPlatform       = nullptr;
-        void*           mSdlWindow      = nullptr; ///< SDL_Window*
-        void*           mDescriptorPool = nullptr; ///< VkDescriptorPool
-        void*           mDevice         = nullptr; ///< VkDevice (for shutdown)
-        void*           mViewportSet    = nullptr; ///< VkDescriptorSet
-        void*           mViewportView   = nullptr; ///< VkImageView cached key
+        bool            mInitialized     = false;
+        bool            mEnabled         = true;
+        fra::Renderer*  mRenderer        = nullptr;
+        fra::IPlatform* mPlatform        = nullptr;
+        void*           mSdlWindow       = nullptr; ///< SDL_Window*
+        void*           mDescriptorPool  = nullptr; ///< VkDescriptorPool
+        void*           mDevice          = nullptr; ///< VkDevice (for shutdown)
+        void*           mViewportSet     = nullptr; ///< VkDescriptorSet
+        void*           mViewportView    = nullptr; ///< VkImageView cached key
         void*           mBoundRenderPass = nullptr; ///< VkRenderPass ImGui uses
         std::uint32_t   mBoundImageCount = 0;
 

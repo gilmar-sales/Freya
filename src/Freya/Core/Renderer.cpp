@@ -1615,16 +1615,18 @@ namespace FREYA_NAMESPACE
     }
 
     void Renderer::Impl::UploadGpuAnimRestJoints(
-        const std::uint32_t                     skeletonSlot,
-        const std::span<const GpuFloatJoint> joints)
+        const std::uint32_t skeletonSlot,
+        const std::span<const GpuFloatJoint>
+            joints)
     {
         if (mGpuAnimPass)
             mGpuAnimPass->UploadRestJoints(skeletonSlot, joints);
     }
 
     void Renderer::Impl::UploadGpuAnimRestJoints(
-        const std::uint32_t                     skeletonSlot,
-        const std::span<const GpuQuantJoint> joints)
+        const std::uint32_t skeletonSlot,
+        const std::span<const GpuQuantJoint>
+            joints)
     {
         if (mGpuAnimPass)
             mGpuAnimPass->UploadRestJoints(skeletonSlot, joints);
@@ -1802,16 +1804,16 @@ namespace FREYA_NAMESPACE
 
         if (mResizeEvent.has_value())
         {
-            const auto newW = mResizeEvent->width;
-            const auto newH = mResizeEvent->height;
+            const auto newW       = mResizeEvent->width;
+            const auto newH       = mResizeEvent->height;
             mFreyaOptions->width  = newW;
             mFreyaOptions->height = newH;
             mResizeEvent.reset();
 
             // SDL often emits a same-size resize on the first frame; rebuilding
             // every pass (shader reload + full-res images) stalls for seconds.
-            const auto cur = mSwapChain ? mSwapChain->GetExtent()
-                                        : vk::Extent2D {};
+            const auto cur =
+                mSwapChain ? mSwapChain->GetExtent() : vk::Extent2D {};
             if (cur.width != newW || cur.height != newH)
                 RebuildSwapChain();
         }

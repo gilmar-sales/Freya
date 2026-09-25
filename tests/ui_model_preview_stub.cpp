@@ -12,13 +12,24 @@ namespace FREYA_NAMESPACE
         return sOrbit;
     }
 
-    void UiModelPreview::FeedMouseMove(float, float) {}
+    void UiModelPreview::FeedMouseMove(float, float)
+    {
+    }
 
-    void UiModelPreview::FeedMouseButton(MouseButton, bool) {}
+    void UiModelPreview::FeedMouseButton(MouseButton, bool)
+    {
+    }
 
-    void UiModelPreview::SetFrameDelta(float) {}
+    void UiModelPreview::SetFrameDelta(float)
+    {
+    }
 
-    void UiModelPreview::SetActive(bool) {}
+    void UiModelPreview::SetActive(bool)
+    {
+    }
 
-    bool UiModelPreview::IsActive() const { return false; }
+    bool UiModelPreview::IsActive() const
+    {
+        return false;
+    }
 } // namespace FREYA_NAMESPACE

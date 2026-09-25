@@ -21,12 +21,12 @@ namespace FREYA_NAMESPACE
       public:
         class Impl;
 
-        static constexpr std::uint32_t kMaxJoints               = 128;
-        static constexpr std::uint32_t kMaxSkeletons            = 8;
-        static constexpr std::uint32_t kMaxInstances            = 2048;
-        static constexpr std::uint32_t kMaxClips                = 32;
-        static constexpr std::uint32_t kMaxBakedJointsFloat     = 65536;
-        static constexpr std::uint32_t kMaxBakedJointsQuant     = 196608;
+        static constexpr std::uint32_t kMaxJoints           = 128;
+        static constexpr std::uint32_t kMaxSkeletons        = 8;
+        static constexpr std::uint32_t kMaxInstances        = 2048;
+        static constexpr std::uint32_t kMaxClips            = 32;
+        static constexpr std::uint32_t kMaxBakedJointsFloat = 65536;
+        static constexpr std::uint32_t kMaxBakedJointsQuant = 196608;
         static constexpr std::uint32_t kMaxMaskFloats =
             kMaxJoints * kMaxSkeletons;
         static constexpr std::uint32_t kMaxAtlasJoints =
@@ -114,10 +114,10 @@ namespace FREYA_NAMESPACE
         void UploadBoneMask(std::span<const float> weights);
         void UploadRestJoints(std::span<const GpuFloatJoint> joints);
         void UploadRestJoints(std::span<const GpuQuantJoint> joints);
-        void UploadRestJoints(std::uint32_t                     skeletonSlot,
-                              std::span<const GpuFloatJoint> joints);
-        void UploadRestJoints(std::uint32_t                     skeletonSlot,
-                              std::span<const GpuQuantJoint> joints);
+        void UploadRestJoints(
+            std::uint32_t skeletonSlot, std::span<const GpuFloatJoint> joints);
+        void UploadRestJoints(
+            std::uint32_t skeletonSlot, std::span<const GpuQuantJoint> joints);
 
         /**
          * @brief Cumulative GPU anim instance upload (thread-safe Upload).

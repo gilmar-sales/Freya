@@ -11,7 +11,7 @@ struct BillboardInstance
     vec4 uvRect;
     vec2 localOffset;
     float outlineWidth;
-    float _pad;
+    float rotation; // screen-space rotation radians
     vec4 outlineColor;
 };
 
@@ -63,9 +63,18 @@ void main()
         camUp    = worldUp;
     }
 
+    // Scale then rotate in screen space.
+    vec2 scaled = corner * inst.size;
+    if (abs(inst.rotation) > 1e-6) {
+        float co = cos(inst.rotation);
+        float si = sin(inst.rotation);
+        scaled = vec2(scaled.x * co - scaled.y * si,
+                      scaled.x * si + scaled.y * co);
+    }
+
     vec3 world = inst.worldPos
-        + camRight * (inst.localOffset.x + corner.x * inst.size.x)
-        + camUp * (inst.localOffset.y + corner.y * inst.size.y);
+        + camRight * (inst.localOffset.x + scaled.x)
+        + camUp * (inst.localOffset.y + scaled.y);
 
     gl_Position   = pc.proj * pc.view * vec4(world, 1.0);
     vec2 uv01     = uvs[gl_VertexIndex];

@@ -147,11 +147,11 @@ namespace FREYA_NAMESPACE
         void UploadRestJoints(std::span<const GpuQuantJoint> joints);
 
         /** @brief Rest joints for a specific skeleton atlas slot. */
-        void UploadRestJoints(std::uint32_t                     skeletonSlot,
-                              std::span<const GpuFloatJoint> joints);
+        void UploadRestJoints(
+            std::uint32_t skeletonSlot, std::span<const GpuFloatJoint> joints);
 
-        void UploadRestJoints(std::uint32_t                     skeletonSlot,
-                              std::span<const GpuQuantJoint> joints);
+        void UploadRestJoints(
+            std::uint32_t skeletonSlot, std::span<const GpuQuantJoint> joints);
 
         void SetRigIndices(
 

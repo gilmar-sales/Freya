@@ -236,8 +236,9 @@ namespace FREYA_NAMESPACE
     /** Local → GPU skin matrices (global * inverseBind). */
     std::vector<glm::mat4> PoseToSkinMatrices(const Skeleton&  skeleton,
                                               const LocalPose& local);
-    void PoseToSkinMatricesInto(const Skeleton& skeleton, const LocalPose& local,
-                                std::vector<glm::mat4>& out);
+    void                   PoseToSkinMatricesInto(const Skeleton&         skeleton,
+                                                  const LocalPose&        local,
+                                                  std::vector<glm::mat4>& out);
 
     /**
      * @brief Delta of the first root joint (parent < 0) between t0 and t1.

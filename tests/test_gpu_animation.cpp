@@ -33,9 +33,9 @@ TEST_CASE("GpuSkeletonKey matches GpuClipKey FNV", "[gpu-anim]")
 TEST_CASE("GpuAnimInstance skeletonSlot layout and header size", "[gpu-anim]")
 {
     STATIC_REQUIRE(sizeof(fra::GpuSkeletonHeader) == 16);
-    STATIC_REQUIRE(offsetof(fra::GpuAnimInstance, skeletonSlot) ==
-                   offsetof(fra::GpuAnimInstance, clipAdd) +
-                       sizeof(std::uint32_t));
+    STATIC_REQUIRE(
+        offsetof(fra::GpuAnimInstance, skeletonSlot) ==
+        offsetof(fra::GpuAnimInstance, clipAdd) + sizeof(std::uint32_t));
     fra::GpuAnimInstance inst {};
     REQUIRE(inst.skeletonSlot == 0u);
 }

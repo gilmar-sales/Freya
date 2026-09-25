@@ -738,8 +738,8 @@ namespace FREYA_NAMESPACE
             if (parent >= 0 && static_cast<std::uint32_t>(parent) < n)
             {
                 compute(static_cast<std::uint32_t>(parent));
-                out[i] = out[static_cast<std::uint32_t>(parent)] * bridge *
-                         localM;
+                out[i] =
+                    out[static_cast<std::uint32_t>(parent)] * bridge * localM;
             }
             else
                 out[i] = bridge * localM;
@@ -757,7 +757,8 @@ namespace FREYA_NAMESPACE
         return skin;
     }
 
-    void PoseToSkinMatricesInto(const Skeleton& skeleton, const LocalPose& local,
+    void PoseToSkinMatricesInto(const Skeleton&         skeleton,
+                                const LocalPose&        local,
                                 std::vector<glm::mat4>& out)
     {
         LocalToGlobalInto(skeleton, local, out);
@@ -767,7 +768,7 @@ namespace FREYA_NAMESPACE
             const glm::mat4 ib = i < skeleton.inverseBind.size()
                                      ? skeleton.inverseBind[i]
                                      : glm::mat4(1.f);
-            out[i] = out[i] * ib;
+            out[i]             = out[i] * ib;
         }
     }
 

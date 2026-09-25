@@ -207,16 +207,16 @@ namespace FREYA_NAMESPACE
         mImpl->UploadRestJoints(joints);
     }
 
-    void GpuAnimPass::UploadRestJoints(
-        const std::uint32_t                     skeletonSlot,
-        const std::span<const GpuFloatJoint> joints)
+    void GpuAnimPass::UploadRestJoints(const std::uint32_t skeletonSlot,
+                                       const std::span<const GpuFloatJoint>
+                                           joints)
     {
         mImpl->UploadRestJoints(skeletonSlot, joints);
     }
 
-    void GpuAnimPass::UploadRestJoints(
-        const std::uint32_t                     skeletonSlot,
-        const std::span<const GpuQuantJoint> joints)
+    void GpuAnimPass::UploadRestJoints(const std::uint32_t skeletonSlot,
+                                       const std::span<const GpuQuantJoint>
+                                           joints)
     {
         mImpl->UploadRestJoints(skeletonSlot, joints);
     }

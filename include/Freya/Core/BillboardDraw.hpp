@@ -31,6 +31,8 @@ namespace FREYA_NAMESPACE
 
     constexpr std::uint32_t kBillboardFlagCylindrical = 1u;
     constexpr std::uint32_t kBillboardFlagSdf         = 2u;
+    /// Depth-based soft fade (GPU support requires follow-up pass work).
+    constexpr std::uint32_t kBillboardFlagSoft = 4u;
 
     /**
      * @brief One camera-facing quad in world space.
@@ -54,6 +56,9 @@ namespace FREYA_NAMESPACE
         glm::vec2      localOffset { 0.f };
         float          outlineWidth = 0.f; ///< SDF units, 0 = no outline
         glm::vec4      outlineColor { 0.f, 0.f, 0.f, 1.f };
+        float          rotation     = 0.f; ///< Screen-space rotation in radians
+        bool           softParticle = false;  ///< Enable depth-based fade
+        float softFadeRange         = 0.002f; ///< NDC depth range for soft fade
     };
 
     /**
