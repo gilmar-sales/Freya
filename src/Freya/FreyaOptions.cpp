@@ -94,7 +94,7 @@ namespace FREYA_NAMESPACE
                 options.maxSpotShadows               = 4;
                 options.maxPointShadows              = 2;
                 options.shadowSampleCount            = 16;
-                options.shadowCascadeBlend           = 0.3f;
+                options.shadowCascadeBlend           = 0.1f;
                 options.shadowCascadeDistance        = 120.0f;
                 options.shadowPointResolution        = 0;
                 options.shadowPointResolutionDivisor = 1;
