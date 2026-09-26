@@ -189,6 +189,19 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
+        /**
+         * @brief Fraction of each cascade split used to blend into the next
+         * (0 = hard seam, 0.3 = smooth 30% overlap). Higher values hide
+         * cascade banding at the cost of sampling two cascades per pixel in
+         * the blend zone.
+         */
+        FreyaOptionsBuilder& SetShadowCascadeBlend(float blend)
+        {
+            mFreyaOptions->shadowCascadeBlend =
+                std::clamp(blend, 0.0f, 0.5f);
+            return *this;
+        }
+
         FreyaOptionsBuilder& SetShadowLightSize(float lightSize)
         {
             mFreyaOptions->shadowLightSize = lightSize;

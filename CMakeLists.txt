@@ -75,7 +75,8 @@ endif()
 
 file(GLOB_RECURSE Freya_SRCS CONFIGURE_DEPENDS src/**.cpp)
 
-add_library(Freya ${Freya_SRCS})
+add_library(Freya ${Freya_SRCS}
+        src/Freya/FreyaOptions.cpp)
 
 add_library(Freya::Freya ALIAS Freya)
 
