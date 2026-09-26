@@ -5,15 +5,12 @@
 #include <Freya/Events/Keyboard.hpp>
 #include <Freya/Events/Mouse.hpp>
 
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <gtest/gtest.h>
 
 #include <atomic>
 #include <string>
 #include <thread>
 #include <vector>
-
-using Catch::Matchers::WithinAbs;
 
 namespace
 {
@@ -42,50 +39,49 @@ namespace
     }
 } // namespace
 
-TEST_CASE("UiStyle Default has expected tokens", "[ui]")
+TEST(UiStyle, DefaultHasExpectedTokens)
 {
     auto s = fra::UiStyle::Default();
-    REQUIRE(s.Var(fra::UiVar::FontSize) > 0.f);
-    REQUIRE(s.Color(fra::UiCol::Text).a > 0.f);
-    REQUIRE(s.Var(fra::UiVar::ItemSpacing) > 0.f);
+    EXPECT_GT(s.Var(fra::UiVar::FontSize), 0.f);
+    EXPECT_GT(s.Color(fra::UiCol::Text).a, 0.f);
+    EXPECT_GT(s.Var(fra::UiVar::ItemSpacing), 0.f);
 }
 
-TEST_CASE("UiContext Begin End and Button without click", "[ui]")
+TEST(UiContext, BeginEndAndButtonWithoutClick)
 {
     fra::UiDraw    draw;
     fra::UiContext ui(&draw);
     ui.Begin(0.016f, { 1920, 1080 });
-    REQUIRE_THAT(ui.Scale(), WithinAbs(1.f, 1e-5f));
-    REQUIRE_FALSE(ui.Button("Go", { 100, 40 }));
+    EXPECT_NEAR(ui.Scale(), 1.f, 1e-5f);
+    EXPECT_FALSE(ui.Button("Go", { 100, 40 }));
     ui.End();
-    REQUIRE_FALSE(draw.Empty());
+    EXPECT_FALSE(draw.Empty());
 }
 
-TEST_CASE("UiContext style push pop", "[ui]")
+TEST(UiContext, StylePushPop)
 {
     fra::UiDraw    draw;
     fra::UiContext ui(&draw);
     const auto     base = ui.Style().Color(fra::UiCol::Button);
     ui.PushStyleColor(fra::UiCol::Button, { 1, 0, 0, 1 });
-    REQUIRE_THAT(ui.Style().Color(fra::UiCol::Button).r, WithinAbs(1.f, 1e-5f));
+    EXPECT_NEAR(ui.Style().Color(fra::UiCol::Button).r, 1.f, 1e-5f);
     ui.PopStyleColor();
-    REQUIRE_THAT(ui.Style().Color(fra::UiCol::Button).r,
-                 WithinAbs(base.r, 1e-5f));
+    EXPECT_NEAR(ui.Style().Color(fra::UiCol::Button).r, base.r, 1e-5f);
 }
 
-TEST_CASE("UiContext scales logical size to framebuffer", "[ui]")
+TEST(UiContext, ScalesLogicalSizeToFramebuffer)
 {
     fra::UiDraw    draw;
     fra::UiContext ui(&draw);
     ui.SetReferenceSize({ 1920.f, 1080.f });
     ui.Begin(0.016f, { 960, 540 });
-    REQUIRE_THAT(ui.Scale(), WithinAbs(0.5f, 1e-5f));
-    REQUIRE_THAT(ui.LogicalSize().x, WithinAbs(1920.f, 1e-3f));
-    REQUIRE_THAT(ui.LogicalSize().y, WithinAbs(1080.f, 1e-3f));
+    EXPECT_NEAR(ui.Scale(), 0.5f, 1e-5f);
+    EXPECT_NEAR(ui.LogicalSize().x, 1920.f, 1e-3f);
+    EXPECT_NEAR(ui.LogicalSize().y, 1080.f, 1e-3f);
     ui.End();
 }
 
-TEST_CASE("UiContext Button click via EventManager", "[ui]")
+TEST(UiContext, ButtonClickViaEventManager)
 {
     fra::UiDraw       draw;
     fra::UiContext    ui(&draw);
@@ -94,7 +90,7 @@ TEST_CASE("UiContext Button click via EventManager", "[ui]")
 
     // Frame 1: place button, no click yet.
     ui.Begin(0.016f, { 1920, 1080 });
-    REQUIRE_FALSE(ui.Button("HitMe", { 120, 40 }));
+    EXPECT_FALSE(ui.Button("HitMe", { 120, 40 }));
     const auto r = ui.LastItemRect();
     ui.End();
 
@@ -103,21 +99,21 @@ TEST_CASE("UiContext Button click via EventManager", "[ui]")
         fra::MouseButtonPressedEvent { .button = fra::MouseButton::Left });
 
     ui.Begin(0.016f, { 1920, 1080 });
-    REQUIRE_FALSE(ui.Button("HitMe", { 120, 40 })); // press arms active
+    EXPECT_FALSE(ui.Button("HitMe", { 120, 40 })); // press arms active
     ui.End();
 
     events.Send(
         fra::MouseButtonReleasedEvent { .button = fra::MouseButton::Left });
 
     ui.Begin(0.016f, { 1920, 1080 });
-    REQUIRE(ui.Button("HitMe", { 120, 40 }));
-    REQUIRE(ui.WantCaptureMouse());
+    EXPECT_TRUE(ui.Button("HitMe", { 120, 40 }));
+    EXPECT_TRUE(ui.WantCaptureMouse());
     ui.End();
 
     ui.UnbindEvents(events);
 }
 
-TEST_CASE("UiContext SetPointerFramebuffer overrides window mouse", "[ui]")
+TEST(UiContext, SetPointerFramebufferOverridesWindowMouse)
 {
     fra::UiDraw       draw;
     fra::UiContext    ui(&draw);
@@ -125,7 +121,7 @@ TEST_CASE("UiContext SetPointerFramebuffer overrides window mouse", "[ui]")
     ui.BindEvents(events);
 
     ui.Begin(0.016f, { 1920, 1080 });
-    REQUIRE_FALSE(ui.Button("HitMe", { 120, 40 }));
+    EXPECT_FALSE(ui.Button("HitMe", { 120, 40 }));
     const auto r = ui.LastItemRect();
     ui.End();
 
@@ -138,7 +134,7 @@ TEST_CASE("UiContext SetPointerFramebuffer overrides window mouse", "[ui]")
     ui.SetPointerFramebuffer(r.x + r.w * 0.5f, r.y + r.h * 0.5f);
 
     ui.Begin(0.016f, { 1920, 1080 });
-    REQUIRE_FALSE(ui.Button("HitMe", { 120, 40 }));
+    EXPECT_FALSE(ui.Button("HitMe", { 120, 40 }));
     ui.End();
 
     events.Send(
@@ -146,13 +142,13 @@ TEST_CASE("UiContext SetPointerFramebuffer overrides window mouse", "[ui]")
 
     ui.SetPointerFramebuffer(r.x + r.w * 0.5f, r.y + r.h * 0.5f);
     ui.Begin(0.016f, { 1920, 1080 });
-    REQUIRE(ui.Button("HitMe", { 120, 40 }));
+    EXPECT_TRUE(ui.Button("HitMe", { 120, 40 }));
     ui.End();
 
     ui.UnbindEvents(events);
 }
 
-TEST_CASE("UiContext SetPointerFramebuffer scales with framebuffer", "[ui]")
+TEST(UiContext, SetPointerFramebufferScalesWithFramebuffer)
 {
     fra::UiDraw    draw;
     fra::UiContext ui(&draw);
@@ -161,18 +157,18 @@ TEST_CASE("UiContext SetPointerFramebuffer scales with framebuffer", "[ui]")
     // Half-res RT: logical button at (0,0)-(120,40) → FB (0,0)-(60,20).
     ui.SetPointerFramebuffer(30.f, 10.f);
     ui.Begin(0.016f, { 960, 540 });
-    REQUIRE_FALSE(ui.Button("Scaled", { 120, 40 }));
-    REQUIRE(ui.IsItemHovered());
+    EXPECT_FALSE(ui.Button("Scaled", { 120, 40 }));
+    EXPECT_TRUE(ui.IsItemHovered());
     ui.End();
 
     ui.SetPointerFramebuffer(200.f, 200.f);
     ui.Begin(0.016f, { 960, 540 });
-    REQUIRE_FALSE(ui.Button("Scaled", { 120, 40 }));
-    REQUIRE_FALSE(ui.IsItemHovered());
+    EXPECT_FALSE(ui.Button("Scaled", { 120, 40 }));
+    EXPECT_FALSE(ui.IsItemHovered());
     ui.End();
 }
 
-TEST_CASE("UiContext tooltip and popup do not steal grid cells", "[ui]")
+TEST(UiContext, TooltipAndPopupDoNotStealGridCells)
 {
     fra::UiDraw       draw;
     fra::UiContext    ui(&draw);
@@ -184,7 +180,7 @@ TEST_CASE("UiContext tooltip and popup do not steal grid cells", "[ui]")
 
     // Open inventory modal and seed hover on first slot.
     ui.Begin(0.016f, { 1920, 1080 });
-    REQUIRE(ui.BeginModal("inv", { 400, 300 }));
+    EXPECT_TRUE(ui.BeginModal("inv", { 400, 300 }));
     ui.BeginGrid("g", 4, { kCell, kCell }, kGap);
     ui.ItemSlot("s0", {}, 0, false, { kCell, kCell });
     const auto slot0 = ui.LastItemRect();
@@ -200,7 +196,7 @@ TEST_CASE("UiContext tooltip and popup do not steal grid cells", "[ui]")
     for (int frame = 0; frame < 30; ++frame)
     {
         ui.Begin(0.016f, { 1920, 1080 });
-        REQUIRE(ui.BeginModal("inv", { 400, 300 }));
+        EXPECT_TRUE(ui.BeginModal("inv", { 400, 300 }));
         ui.BeginGrid("g", 4, { kCell, kCell }, kGap);
         ui.ItemSlot("s0", {}, 0, false, { kCell, kCell });
         if (ui.IsItemHovered() && ui.BeginTooltip("tip", 0.f))
@@ -211,8 +207,8 @@ TEST_CASE("UiContext tooltip and popup do not steal grid cells", "[ui]")
         }
         ui.ItemSlot("s1", {}, 0, false, { kCell, kCell });
         const auto slot1 = ui.LastItemRect();
-        REQUIRE_THAT(slot1.x, WithinAbs(slot1a.x, 0.5f));
-        REQUIRE_THAT(slot1.y, WithinAbs(slot1a.y, 0.5f));
+        EXPECT_NEAR(slot1.x, slot1a.x, 0.5f);
+        EXPECT_NEAR(slot1.y, slot1a.y, 0.5f);
         ui.EndGrid();
         ui.EndModal();
         ui.End();
@@ -221,7 +217,7 @@ TEST_CASE("UiContext tooltip and popup do not steal grid cells", "[ui]")
     // Right-click opens popup; later slots must keep grid placement.
     ClickRight(events);
     ui.Begin(0.016f, { 1920, 1080 });
-    REQUIRE(ui.BeginModal("inv", { 400, 300 }));
+    EXPECT_TRUE(ui.BeginModal("inv", { 400, 300 }));
     ui.BeginGrid("g", 4, { kCell, kCell }, kGap);
     ui.ItemSlot("s0", {}, 0, false, { kCell, kCell });
     if (ui.BeginPopupContextItem("ctx0"))
@@ -232,8 +228,8 @@ TEST_CASE("UiContext tooltip and popup do not steal grid cells", "[ui]")
     }
     ui.ItemSlot("s1", {}, 0, false, { kCell, kCell });
     const auto slot1b = ui.LastItemRect();
-    REQUIRE_THAT(slot1b.x, WithinAbs(slot1a.x, 0.5f));
-    REQUIRE_THAT(slot1b.y, WithinAbs(slot1a.y, 0.5f));
+    EXPECT_NEAR(slot1b.x, slot1a.x, 0.5f);
+    EXPECT_NEAR(slot1b.y, slot1a.y, 0.5f);
     ui.EndGrid();
     ui.EndModal();
     ui.End();
@@ -241,12 +237,12 @@ TEST_CASE("UiContext tooltip and popup do not steal grid cells", "[ui]")
     // Overlay quads exist (popup drawn on top layer).
     std::vector<fra::UiQuad> snap;
     draw.Snapshot(snap);
-    REQUIRE(snap.size() > 4);
+    EXPECT_GT(snap.size(), 4u);
 
     ui.UnbindEvents(events);
 }
 
-TEST_CASE("UiContext TextInput focus submit and WantTextInput", "[ui]")
+TEST(UiContext, TextInputFocusSubmitAndWantTextInput)
 {
     fra::UiDraw       draw;
     fra::UiContext    ui(&draw);
@@ -256,32 +252,32 @@ TEST_CASE("UiContext TextInput focus submit and WantTextInput", "[ui]")
     std::string buffer;
 
     ui.Begin(0.016f, { 1920, 1080 });
-    REQUIRE_FALSE(ui.TextInput("chat", buffer, 64, { 200, 32 }));
+    EXPECT_FALSE(ui.TextInput("chat", buffer, 64, { 200, 32 }));
     const auto r = ui.LastItemRect();
     ui.End();
-    REQUIRE_FALSE(ui.WantTextInput());
+    EXPECT_FALSE(ui.WantTextInput());
 
     MoveMouse(events, r.Center().x, r.Center().y);
     events.Send(
         fra::MouseButtonPressedEvent { .button = fra::MouseButton::Left });
 
     ui.Begin(0.016f, { 1920, 1080 });
-    REQUIRE_FALSE(ui.TextInput("chat", buffer, 64, { 200, 32 }));
-    REQUIRE(ui.WantTextInput());
+    EXPECT_FALSE(ui.TextInput("chat", buffer, 64, { 200, 32 }));
+    EXPECT_TRUE(ui.WantTextInput());
     ui.End();
 
     events.Send(fra::TextInputEvent { .text = "hi" });
     events.Send(fra::KeyPressedEvent { .key = fra::KeyCode::Return });
 
     ui.Begin(0.016f, { 1920, 1080 });
-    REQUIRE(ui.TextInput("chat", buffer, 64, { 200, 32 }));
-    REQUIRE(buffer == "hi");
+    EXPECT_TRUE(ui.TextInput("chat", buffer, 64, { 200, 32 }));
+    EXPECT_EQ(buffer, "hi");
     ui.End();
 
     ui.UnbindEvents(events);
 }
 
-TEST_CASE("UiContext FocusTextInput primes IME without click", "[ui]")
+TEST(UiContext, FocusTextInputPrimesImeWithoutClick)
 {
     fra::UiDraw    draw;
     fra::UiContext ui(&draw);
@@ -289,14 +285,14 @@ TEST_CASE("UiContext FocusTextInput primes IME without click", "[ui]")
 
     ui.Begin(0.016f, { 1920, 1080 });
     ui.FocusTextInput("chat", buffer);
-    REQUIRE_FALSE(ui.TextInput("chat", buffer, 64, { 200, 32 }));
-    REQUIRE(ui.WantTextInput());
-    REQUIRE(ui.MouseCursor() == fra::UiMouseCursor::Arrow);
+    EXPECT_FALSE(ui.TextInput("chat", buffer, 64, { 200, 32 }));
+    EXPECT_TRUE(ui.WantTextInput());
+    EXPECT_EQ(ui.MouseCursor(), fra::UiMouseCursor::Arrow);
     ui.End();
-    REQUIRE(ui.WantTextInput());
+    EXPECT_TRUE(ui.WantTextInput());
 }
 
-TEST_CASE("UiContext checkbox and slider mutate values", "[ui]")
+TEST(UiContext, CheckboxAndSliderMutateValues)
 {
     fra::UiDraw       draw;
     fra::UiContext    ui(&draw);
@@ -317,8 +313,8 @@ TEST_CASE("UiContext checkbox and slider mutate values", "[ui]")
     ClickLeft(events);
 
     ui.Begin(0.016f, { 1920, 1080 });
-    REQUIRE(ui.Checkbox("Toggle", &flag));
-    REQUIRE(flag);
+    EXPECT_TRUE(ui.Checkbox("Toggle", &flag));
+    EXPECT_TRUE(flag);
     ui.End();
 
     // Drag slider grab toward the right edge.
@@ -332,12 +328,11 @@ TEST_CASE("UiContext checkbox and slider mutate values", "[ui]")
     events.Send(
         fra::MouseButtonReleasedEvent { .button = fra::MouseButton::Left });
 
-    REQUIRE(value > 0.5f);
+    EXPECT_GT(value, 0.5f);
     ui.UnbindEvents(events);
 }
 
-TEST_CASE("UiContext workers can fill UiDraw while context draws",
-          "[ui][thread]")
+TEST(UiContext, WorkersCanFillUiDrawWhileContextDraws)
 {
     // Contract: UiDraw is the thread-safe queue; UiContext is main-thread.
     // Workers may push Rect/Image concurrently with main-thread widgets.
@@ -370,8 +365,8 @@ TEST_CASE("UiContext workers can fill UiDraw while context draws",
 
         std::vector<fra::UiQuad> snap;
         draw.Snapshot(snap);
-        REQUIRE_FALSE(snap.empty());
-        REQUIRE(snap.size() <= draw.MaxQuads());
+        EXPECT_FALSE(snap.empty());
+        EXPECT_LE(snap.size(), draw.MaxQuads());
         draw.Clear();
     }
 

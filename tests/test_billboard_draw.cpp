@@ -1,12 +1,12 @@
 #include <Freya/Core/BillboardDraw.hpp>
 
-#include <catch2/catch_test_macros.hpp>
+#include <gtest/gtest.h>
 
 #include <atomic>
 #include <thread>
 #include <vector>
 
-TEST_CASE("BillboardDraw concurrent Quad and Snapshot", "[billboard]")
+TEST(BillboardDraw, ConcurrentQuadAndSnapshot)
 {
     fra::BillboardDraw draw(4096);
     std::atomic<int>   ready { 0 };
@@ -42,7 +42,7 @@ TEST_CASE("BillboardDraw concurrent Quad and Snapshot", "[billboard]")
         for (int i = 0; i < kIters; ++i)
         {
             draw.Snapshot(snap);
-            REQUIRE(snap.size() <= draw.MaxQuads());
+            EXPECT_LE(snap.size(), draw.MaxQuads());
             if ((i & 63) == 0)
                 draw.Clear();
         }
@@ -53,10 +53,10 @@ TEST_CASE("BillboardDraw concurrent Quad and Snapshot", "[billboard]")
 
     std::vector<fra::Billboard> finalSnap;
     draw.Snapshot(finalSnap);
-    REQUIRE(finalSnap.size() <= draw.MaxQuads());
+    EXPECT_LE(finalSnap.size(), draw.MaxQuads());
 }
 
-TEST_CASE("BillboardDraw HealthBar is atomic under Snapshot", "[billboard]")
+TEST(BillboardDraw, HealthBarIsAtomicUnderSnapshot)
 {
     fra::BillboardDraw draw;
     constexpr int      kBars = 200;
@@ -73,11 +73,11 @@ TEST_CASE("BillboardDraw HealthBar is atomic under Snapshot", "[billboard]")
     for (int i = 0; i < kBars * 4; ++i)
     {
         draw.Snapshot(snap);
-        REQUIRE((snap.size() % 2) == 0);
-        REQUIRE(snap.size() <= draw.MaxQuads());
+        EXPECT_EQ(snap.size() % 2, 0u);
+        EXPECT_LE(snap.size(), draw.MaxQuads());
     }
     producer.join();
 
     draw.Snapshot(snap);
-    REQUIRE(snap.size() == static_cast<std::size_t>(kBars * 2));
+    EXPECT_EQ(snap.size(), static_cast<std::size_t>(kBars * 2));
 }

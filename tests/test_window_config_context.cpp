@@ -2,10 +2,9 @@
 #include <Freya/Builders/FreyaOptionsBuilder.hpp>
 #include <Freya/FreyaOptions.hpp>
 
-#include <catch2/catch_test_macros.hpp>
+#include <gtest/gtest.h>
 
-TEST_CASE("FreyaOptions copy seeds an independent WindowConfigContext",
-          "[multi-window]")
+TEST(WindowConfigContext, FreyaOptionsCopySeedsIndependentContext)
 {
     fra::FreyaOptionsTemplate defaults;
     defaults.options             = skr::MakeArc<fra::FreyaOptions>();
@@ -18,8 +17,8 @@ TEST_CASE("FreyaOptions copy seeds an independent WindowConfigContext",
     fra::WindowConfigContext mainCtx;
     mainCtx.options = defaults.options;
 
-    REQUIRE(mainCtx.options->title == "Main");
-    REQUIRE(mainCtx.options.get() == defaults.options.get());
+    EXPECT_EQ(mainCtx.options->title, "Main");
+    EXPECT_EQ(mainCtx.options.get(), defaults.options.get());
 
     fra::FreyaOptionsBuilder secondaryBuilder;
     *secondaryBuilder.Build() = *defaults.options;
@@ -31,26 +30,26 @@ TEST_CASE("FreyaOptions copy seeds an independent WindowConfigContext",
     fra::WindowConfigContext secondaryCtx;
     secondaryCtx.options = secondaryBuilder.Build();
 
-    REQUIRE(secondaryCtx.options.get() != defaults.options.get());
-    REQUIRE(secondaryCtx.options->title == "Game View");
-    REQUIRE(secondaryCtx.options->width == 1280);
-    REQUIRE(secondaryCtx.options->height == 720);
-    REQUIRE_FALSE(secondaryCtx.options->vSync);
+    EXPECT_NE(secondaryCtx.options.get(), defaults.options.get());
+    EXPECT_EQ(secondaryCtx.options->title, "Game View");
+    EXPECT_EQ(secondaryCtx.options->width, 1280u);
+    EXPECT_EQ(secondaryCtx.options->height, 720u);
+    EXPECT_FALSE(secondaryCtx.options->vSync);
 
     // Template / main options remain unchanged by the secondary clone.
-    REQUIRE(defaults.options->title == "Main");
-    REQUIRE(defaults.options->width == 1920);
-    REQUIRE(defaults.options->vSync);
-    REQUIRE(defaults.options->frameCount == 3);
+    EXPECT_EQ(defaults.options->title, "Main");
+    EXPECT_EQ(defaults.options->width, 1920u);
+    EXPECT_TRUE(defaults.options->vSync);
+    EXPECT_EQ(defaults.options->frameCount, 3u);
 
     // Shared template mutation is visible through the main context seed.
     defaults.options->frameCount = 4;
-    REQUIRE(mainCtx.options->frameCount == 4);
-    REQUIRE(secondaryCtx.options->frameCount == 3);
+    EXPECT_EQ(mainCtx.options->frameCount, 4u);
+    EXPECT_EQ(secondaryCtx.options->frameCount, 3u);
 }
 
-TEST_CASE("WindowConfigContext starts unseeded", "[multi-window]")
+TEST(WindowConfigContext, StartsUnseeded)
 {
     fra::WindowConfigContext ctx;
-    REQUIRE(ctx.options == nullptr);
+    EXPECT_EQ(ctx.options, nullptr);
 }

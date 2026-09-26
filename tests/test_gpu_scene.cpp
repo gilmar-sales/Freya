@@ -3,33 +3,35 @@
 #include <Freya/Asset/SceneInstanceUpload.hpp>
 #include <Freya/Asset/SceneTransform.hpp>
 
-#include <catch2/catch_test_macros.hpp>
+#include <gtest/gtest.h>
 
 #include <limits>
 
-TEST_CASE("GPU scene records keep GLSL std430 sizes", "[gpu-scene]")
+TEST(GpuScene, RecordsKeepGlslStd430Sizes)
 {
-    STATIC_REQUIRE(sizeof(fra::MeshLodInfo) == 16);
-    STATIC_REQUIRE(sizeof(fra::MeshInfo) == 64);
-    STATIC_REQUIRE(sizeof(fra::SceneInstance) == 96);
-    STATIC_REQUIRE(sizeof(fra::CullPushConstants) == 128);
-    STATIC_REQUIRE(sizeof(fra::MaterialGPU) == 96);
-    STATIC_REQUIRE(sizeof(fra::SceneTransform) == 40);
-    STATIC_REQUIRE(fra::kPickMissId == 0xFFFFFFFFu);
-    STATIC_REQUIRE(fra::kNoSkin == std::numeric_limits<std::uint32_t>::max());
+    static_assert(sizeof(fra::MeshLodInfo) == 16);
+    static_assert(sizeof(fra::MeshInfo) == 64);
+    static_assert(sizeof(fra::SceneInstance) == 96);
+    static_assert(sizeof(fra::CullPushConstants) == 128);
+    static_assert(sizeof(fra::MaterialGPU) == 96);
+    static_assert(sizeof(fra::SceneTransform) == 40);
+    static_assert(fra::kPickMissId == 0xFFFFFFFFu);
+    static_assert(fra::kNoSkin == std::numeric_limits<std::uint32_t>::max());
 }
 
-TEST_CASE("material and instance flags are distinct bits", "[gpu-scene]")
+TEST(GpuScene, MaterialAndInstanceFlagsAreDistinctBits)
 {
-    REQUIRE((fra::kMaterialFlagPackedMR & fra::kMaterialFlagUnlit) == 0u);
-    REQUIRE((fra::kSceneInstanceFlagCastShadows &
-             fra::kSceneInstanceFlagTranslucent) == 0u);
-    REQUIRE((fra::kSceneInstanceFlagTranslucent &
-             fra::kSceneInstanceFlagSkinned) == 0u);
+    EXPECT_EQ(fra::kMaterialFlagPackedMR & fra::kMaterialFlagUnlit, 0u);
+    EXPECT_EQ(
+        fra::kSceneInstanceFlagCastShadows & fra::kSceneInstanceFlagTranslucent,
+        0u);
+    EXPECT_EQ(
+        fra::kSceneInstanceFlagTranslucent & fra::kSceneInstanceFlagSkinned,
+        0u);
 }
 
-TEST_CASE("SceneTransform packed layout", "[gpu-scene]")
+TEST(GpuScene, SceneTransformPackedLayout)
 {
-    STATIC_REQUIRE(offsetof(fra::SceneTransform, scale) == 12);
-    STATIC_REQUIRE(offsetof(fra::SceneTransform, rotation) == 24);
+    static_assert(offsetof(fra::SceneTransform, scale) == 12);
+    static_assert(offsetof(fra::SceneTransform, rotation) == 24);
 }

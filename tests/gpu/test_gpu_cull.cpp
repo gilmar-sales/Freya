@@ -13,10 +13,11 @@
 
 #include "Freya/Core/IndirectDrawSystem.hpp"
 
-#include <catch2/catch_test_macros.hpp>
+#include <gtest/gtest.h>
 
 #include <cstdlib>
 #include <filesystem>
+#include <string>
 #include <unordered_set>
 #include <vector>
 
@@ -63,9 +64,12 @@ namespace
         return pool.CreateMesh(verts, indices);
     }
 
-    void AssertExpected(const fra::CullFrameExpected&         expected,
+    // Runs on the application thread (no active GTest test context), so it
+    // reports mismatches through `error` instead of using assertions.
+    bool AssertExpected(const fra::CullFrameExpected&         expected,
                         const std::vector<fra::CullSurvivor>& survivors,
-                        const std::uint32_t                   drawCount)
+                        const std::uint32_t                   drawCount,
+                        std::string&                          error)
     {
         std::unordered_set<std::uint32_t> live;
         for (const auto& s : survivors)
@@ -73,18 +77,29 @@ namespace
 
         for (const auto id : expected.mustSurviveEntityIds)
         {
-            INFO("missing mustSurvive entityId="
-                 << id << " (survivors=" << survivors.size() << ")");
-            REQUIRE(live.contains(id));
+            if (!live.contains(id))
+            {
+                error = "missing mustSurvive entityId=" + std::to_string(id) +
+                        " (survivors=" + std::to_string(survivors.size()) + ")";
+                return false;
+            }
         }
         for (const auto id : expected.mustDieEntityIds)
         {
-            INFO("unexpected survivor entityId=" << id);
-            REQUIRE_FALSE(live.contains(id));
+            if (live.contains(id))
+            {
+                error = "unexpected survivor entityId=" + std::to_string(id);
+                return false;
+            }
         }
-        if (expected.drawCount >= 0)
-            REQUIRE(drawCount ==
-                    static_cast<std::uint32_t>(expected.drawCount));
+        if (expected.drawCount >= 0 &&
+            drawCount != static_cast<std::uint32_t>(expected.drawCount))
+        {
+            error = "drawCount mismatch: got " + std::to_string(drawCount) +
+                    " expected " + std::to_string(expected.drawCount);
+            return false;
+        }
+        return true;
     }
 
     bool ReplayOnDevice(
@@ -239,7 +254,14 @@ namespace
                         break;
                     }
 
-                    AssertExpected(snap.expected, survivors, drawCount);
+                    if (!AssertExpected(snap.expected, survivors, drawCount,
+                                        error))
+                    {
+                        gRunError =
+                            cse.relativePath + std::string(": ") + error;
+                        gAllOk = false;
+                        break;
+                    }
                 }
             }
             catch (const std::exception& ex)
@@ -273,7 +295,10 @@ namespace
         {
             if (!std::filesystem::exists(
                     FixtureRoot() / cse.relativePath / "frame.json"))
-                SKIP("fixture missing: " << cse.relativePath);
+            {
+                GTEST_SKIP() << "fixture missing: " << cse.relativePath;
+                return;
+            }
         }
 
         try
@@ -299,7 +324,8 @@ namespace
         }
         catch (const std::exception& ex)
         {
-            SKIP("Vulkan/Freya init failed: " << ex.what());
+            GTEST_SKIP() << "Vulkan/Freya init failed: " << ex.what();
+            return;
         }
 
         if (!gRunError.empty() && !gAllOk)
@@ -307,14 +333,17 @@ namespace
             if (gRunError.find("SDL") != std::string::npos ||
                 gRunError.find("Vulkan") != std::string::npos ||
                 gRunError.find("Failed") != std::string::npos)
-                SKIP("Vulkan/Freya init failed: " << gRunError);
-            FAIL(gRunError);
+            {
+                GTEST_SKIP() << "Vulkan/Freya init failed: " << gRunError;
+                return;
+            }
+            FAIL() << gRunError;
         }
-        REQUIRE(gAllOk);
+        EXPECT_TRUE(gAllOk);
     }
 } // namespace
 
-TEST_CASE("GPU cull fixtures from JSON", "[gpu-cull]")
+TEST(GpuCull, FixturesFromJson)
 {
     RunGpuCullFixtures({
         { "frustum_visible" },
@@ -325,8 +354,7 @@ TEST_CASE("GPU cull fixtures from JSON", "[gpu-cull]")
     });
 }
 
-TEST_CASE("Ground plane survives when camera is close (near-frustum / Hi-Z)",
-          "[gpu-cull][near-plane]")
+TEST(GpuCull, GroundPlaneSurvivesWhenCameraIsClose)
 {
     // Bug dump: cull_dumps/20260907_153341 (entityId 1 missing).
     // Good dump: 20260907_153340 (same viewProj/instances; plane survived).

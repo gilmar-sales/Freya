@@ -2,8 +2,7 @@
 #include <Freya/Asset/Pose.hpp>
 #include <Freya/Asset/Skeleton.hpp>
 
-#include <catch2/catch_approx.hpp>
-#include <catch2/catch_test_macros.hpp>
+#include <gtest/gtest.h>
 
 #include <cstddef>
 
@@ -17,36 +16,36 @@
 //   while instance staging is open.
 // - Multi-rig mid-tier: GpuAnimInstance::skeletonSlot indexes atlas slabs.
 
-TEST_CASE("GpuClipKey is stable FNV-1a and never zero", "[gpu-anim]")
+TEST(GpuAnimation, ClipKeyIsStableFnv1aAndNeverZero)
 {
-    REQUIRE(fra::GpuClipKey("Idle") == fra::GpuClipKey("Idle"));
-    REQUIRE(fra::GpuClipKey("Idle") != fra::GpuClipKey("Walk"));
-    REQUIRE(fra::GpuClipKey("") != 0ull);
+    EXPECT_EQ(fra::GpuClipKey("Idle"), fra::GpuClipKey("Idle"));
+    EXPECT_NE(fra::GpuClipKey("Idle"), fra::GpuClipKey("Walk"));
+    EXPECT_NE(fra::GpuClipKey(""), 0ull);
 }
 
-TEST_CASE("GpuSkeletonKey matches GpuClipKey FNV", "[gpu-anim]")
+TEST(GpuAnimation, SkeletonKeyMatchesClipKeyFnv)
 {
-    REQUIRE(fra::GpuSkeletonKey("Fox") == fra::GpuClipKey("Fox"));
-    REQUIRE(fra::GpuSkeletonKey("Fox") != fra::GpuSkeletonKey("Human"));
+    EXPECT_EQ(fra::GpuSkeletonKey("Fox"), fra::GpuClipKey("Fox"));
+    EXPECT_NE(fra::GpuSkeletonKey("Fox"), fra::GpuSkeletonKey("Human"));
 }
 
-TEST_CASE("GpuAnimInstance skeletonSlot layout and header size", "[gpu-anim]")
+TEST(GpuAnimation, InstanceSkeletonSlotLayoutAndHeaderSize)
 {
-    STATIC_REQUIRE(sizeof(fra::GpuSkeletonHeader) == 16);
-    STATIC_REQUIRE(
+    static_assert(sizeof(fra::GpuSkeletonHeader) == 16);
+    static_assert(
         offsetof(fra::GpuAnimInstance, skeletonSlot) ==
         offsetof(fra::GpuAnimInstance, clipAdd) + sizeof(std::uint32_t));
     fra::GpuAnimInstance inst {};
-    REQUIRE(inst.skeletonSlot == 0u);
+    EXPECT_EQ(inst.skeletonSlot, 0u);
 }
 
-TEST_CASE("identity quaternion omits W in smallest-three pack", "[gpu-anim]")
+TEST(GpuAnimation, IdentityQuaternionOmitsWInSmallestThreePack)
 {
     const auto bits = fra::PackQuatSmallestThree(glm::quat(1.f, 0.f, 0.f, 0.f));
-    REQUIRE((bits >> 30) == 3u);
+    EXPECT_EQ(bits >> 30, 3u);
 }
 
-TEST_CASE("float joint pack copies TRS", "[gpu-anim]")
+TEST(GpuAnimation, FloatJointPackCopiesTrs)
 {
     fra::JointTRS j;
     j.translation = { 1.f, 2.f, 3.f };
@@ -54,33 +53,33 @@ TEST_CASE("float joint pack copies TRS", "[gpu-anim]")
     j.scale       = { 2.f, 2.f, 2.f };
 
     const auto g = fra::ToGpuFloatJoint(j);
-    REQUIRE(g.t == j.translation);
-    REQUIRE(g.s == j.scale);
-    REQUIRE(g.q.w == Catch::Approx(1.f));
+    EXPECT_TRUE(g.t == j.translation);
+    EXPECT_TRUE(g.s == j.scale);
+    EXPECT_FLOAT_EQ(g.q.w, 1.f);
 }
 
-TEST_CASE("PackSkeleton fills missing parents and IBM", "[gpu-anim]")
+TEST(GpuAnimation, PackSkeletonFillsMissingParentsAndIbm)
 {
     fra::Skeleton sk;
     sk.names = { "root", "child" };
 
     const auto pack = fra::PackSkeleton(sk);
-    REQUIRE(pack.jointCount == 2u);
-    REQUIRE(pack.parents.size() == 2);
-    REQUIRE(pack.inverseBind.size() == 2);
-    REQUIRE(pack.parents[0] == -1);
-    REQUIRE(pack.inverseBind[1] == glm::mat4(1.f));
+    EXPECT_EQ(pack.jointCount, 2u);
+    EXPECT_EQ(pack.parents.size(), 2u);
+    EXPECT_EQ(pack.inverseBind.size(), 2u);
+    EXPECT_EQ(pack.parents[0], -1);
+    EXPECT_TRUE(pack.inverseBind[1] == glm::mat4(1.f));
 }
 
-TEST_CASE("PackBoneMask clamps and pads", "[gpu-anim]")
+TEST(GpuAnimation, PackBoneMaskClampsAndPads)
 {
     fra::BoneMask mask;
     mask.weights = { 1.5f, -0.2f };
 
     const auto packed = fra::PackBoneMask(mask, 4);
-    REQUIRE(packed.size() == 4);
-    REQUIRE(packed[0] == Catch::Approx(1.f));
-    REQUIRE(packed[1] == Catch::Approx(0.f));
-    REQUIRE(packed[2] == Catch::Approx(0.f));
-    REQUIRE(packed[3] == Catch::Approx(0.f));
+    EXPECT_EQ(packed.size(), 4u);
+    EXPECT_FLOAT_EQ(packed[0], 1.f);
+    EXPECT_FLOAT_EQ(packed[1], 0.f);
+    EXPECT_FLOAT_EQ(packed[2], 0.f);
+    EXPECT_FLOAT_EQ(packed[3], 0.f);
 }

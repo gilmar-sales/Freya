@@ -1,89 +1,87 @@
 #include <Freya/FreyaOptions.hpp>
 
-#include <catch2/catch_approx.hpp>
-#include <catch2/catch_test_macros.hpp>
+#include <gtest/gtest.h>
 
-TEST_CASE("ScaledExtent never returns a zero axis", "[options]")
+TEST(FreyaOptions, ScaledExtentNeverReturnsZeroAxis)
 {
     const auto e = fra::ScaledExtent({ 1920, 1080 }, 2);
-    REQUIRE(e.width == 960);
-    REQUIRE(e.height == 540);
+    EXPECT_EQ(e.width, 960u);
+    EXPECT_EQ(e.height, 540u);
 
     const auto tiny = fra::ScaledExtent({ 1, 1 }, 8);
-    REQUIRE(tiny.width == 1);
-    REQUIRE(tiny.height == 1);
+    EXPECT_EQ(tiny.width, 1u);
+    EXPECT_EQ(tiny.height, 1u);
 
     const auto zeroDiv = fra::ScaledExtent({ 64, 64 }, 0);
-    REQUIRE(zeroDiv.width == 64);
-    REQUIRE(zeroDiv.height == 64);
+    EXPECT_EQ(zeroDiv.width, 64u);
+    EXPECT_EQ(zeroDiv.height, 64u);
 }
 
-TEST_CASE("ApplyShadowQuality Off disables shadows", "[options]")
+TEST(FreyaOptions, ApplyShadowQualityOffDisablesShadows)
 {
     fra::FreyaOptions o;
     o.enableShadows = true;
     fra::ApplyShadowQuality(o, fra::ShadowQuality::Off);
-    REQUIRE_FALSE(o.enableShadows);
+    EXPECT_FALSE(o.enableShadows);
 }
 
-TEST_CASE("ApplyShadowQuality High sets cascade and map size", "[options]")
+TEST(FreyaOptions, ApplyShadowQualityHighSetsCascadeAndMapSize)
 {
     fra::FreyaOptions o;
     fra::ApplyShadowQuality(o, fra::ShadowQuality::High);
-    REQUIRE(o.enableShadows);
-    REQUIRE(o.shadowMapResolution == 2048);
-    REQUIRE(o.shadowCascadeCount == 4);
-    REQUIRE(o.shadowSampleCount == 16);
-    REQUIRE(o.shadowCascadeBlend == Catch::Approx(0.05f));
-    REQUIRE(o.shadowCascadeDistance == Catch::Approx(80.0f));
-    REQUIRE(o.shadowPointResolutionDivisor == 1);
-    REQUIRE(o.shadowSpotResolutionDivisor == 1);
-    REQUIRE(o.shadowMaskResolutionDivisor == 1);
-    REQUIRE(o.shadowCascadeUpdatePeriod == 2);
-    REQUIRE_FALSE(o.enableShadowMask);
-    REQUIRE(fra::ResolveShadowSideResolution(
-                o.shadowMapResolution,
-                o.shadowPointResolution,
-                o.shadowPointResolutionDivisor) == 2048);
+    EXPECT_TRUE(o.enableShadows);
+    EXPECT_EQ(o.shadowMapResolution, 2048u);
+    EXPECT_EQ(o.shadowCascadeCount, 4u);
+    EXPECT_EQ(o.shadowSampleCount, 16u);
+    EXPECT_FLOAT_EQ(o.shadowCascadeBlend, 0.05f);
+    EXPECT_FLOAT_EQ(o.shadowCascadeDistance, 80.0f);
+    EXPECT_EQ(o.shadowPointResolutionDivisor, 1u);
+    EXPECT_EQ(o.shadowSpotResolutionDivisor, 1u);
+    EXPECT_EQ(o.shadowMaskResolutionDivisor, 1u);
+    EXPECT_EQ(o.shadowCascadeUpdatePeriod, 2u);
+    EXPECT_FALSE(o.enableShadowMask);
+    EXPECT_EQ(fra::ResolveShadowSideResolution(o.shadowMapResolution,
+                                               o.shadowPointResolution,
+                                               o.shadowPointResolutionDivisor),
+              2048u);
 }
 
-TEST_CASE("ApplyShadowQuality Ultra exceeds High resolution and fidelity",
-          "[options]")
+TEST(FreyaOptions, ApplyShadowQualityUltraExceedsHigh)
 {
     fra::FreyaOptions o;
     fra::ApplyShadowQuality(o, fra::ShadowQuality::Ultra);
-    REQUIRE(o.enableShadows);
-    REQUIRE(o.shadowMapResolution == 4096);
-    REQUIRE(o.shadowCascadeCount == 4);
-    REQUIRE(o.shadowSampleCount == 16);
-    REQUIRE(o.shadowCascadeBlend == Catch::Approx(0.1f));
-    REQUIRE(o.shadowCascadeDistance == Catch::Approx(120.0f));
-    REQUIRE(o.shadowPointResolutionDivisor == 1);
-    REQUIRE(o.shadowSpotResolutionDivisor == 1);
-    REQUIRE(o.shadowMaskResolutionDivisor == 1);
-    REQUIRE(o.shadowCascadeUpdatePeriod == 1);
-    REQUIRE(o.shadowPointUpdatePeriod == 1);
-    REQUIRE_FALSE(o.enableShadowMask);
-    REQUIRE(fra::ResolveShadowSideResolution(
-                o.shadowMapResolution,
-                o.shadowPointResolution,
-                o.shadowPointResolutionDivisor) == 4096);
+    EXPECT_TRUE(o.enableShadows);
+    EXPECT_EQ(o.shadowMapResolution, 4096u);
+    EXPECT_EQ(o.shadowCascadeCount, 4u);
+    EXPECT_EQ(o.shadowSampleCount, 16u);
+    EXPECT_FLOAT_EQ(o.shadowCascadeBlend, 0.1f);
+    EXPECT_FLOAT_EQ(o.shadowCascadeDistance, 120.0f);
+    EXPECT_EQ(o.shadowPointResolutionDivisor, 1u);
+    EXPECT_EQ(o.shadowSpotResolutionDivisor, 1u);
+    EXPECT_EQ(o.shadowMaskResolutionDivisor, 1u);
+    EXPECT_EQ(o.shadowCascadeUpdatePeriod, 1u);
+    EXPECT_EQ(o.shadowPointUpdatePeriod, 1u);
+    EXPECT_FALSE(o.enableShadowMask);
+    EXPECT_EQ(fra::ResolveShadowSideResolution(o.shadowMapResolution,
+                                               o.shadowPointResolution,
+                                               o.shadowPointResolutionDivisor),
+              4096u);
 }
 
-TEST_CASE("AnimLodTick fires at the requested rate", "[options]")
+TEST(FreyaOptions, AnimLodTickFiresAtRequestedRate)
 {
     float accum = 0.f;
-    REQUIRE_FALSE(fra::ConsumeAnimLodTick(accum, 0.008f, 30.f));
-    REQUIRE(fra::ConsumeAnimLodTick(accum, 0.03f, 30.f));
+    EXPECT_FALSE(fra::ConsumeAnimLodTick(accum, 0.008f, 30.f));
+    EXPECT_TRUE(fra::ConsumeAnimLodTick(accum, 0.03f, 30.f));
 
     float always = 1.f;
-    REQUIRE(fra::ConsumeAnimLodTick(always, 0.016f, 1e6f));
-    REQUIRE(always == Catch::Approx(0.f));
+    EXPECT_TRUE(fra::ConsumeAnimLodTick(always, 0.016f, 1e6f));
+    EXPECT_FLOAT_EQ(always, 0.f);
 }
 
-TEST_CASE("AnimLodHz ignores tiers when lod is disabled", "[options]")
+TEST(FreyaOptions, AnimLodHzIgnoresTiersWhenLodDisabled)
 {
     fra::FreyaOptions o;
     o.enableAnimLod = false;
-    REQUIRE(fra::AnimLodHz(o, 3) >= 1e5f);
+    EXPECT_GE(fra::AnimLodHz(o, 3), 1e5f);
 }

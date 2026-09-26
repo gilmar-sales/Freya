@@ -1,7 +1,7 @@
 #include <Freya/Asset/MeshLod.hpp>
 #include <Freya/Asset/Vertex.hpp>
 
-#include <catch2/catch_test_macros.hpp>
+#include <gtest/gtest.h>
 
 #include <vector>
 
@@ -54,7 +54,7 @@ namespace
     }
 } // namespace
 
-TEST_CASE("BuildMeshLodIndexSets keeps LOD0 and disables cleanly", "[mesh-lod]")
+TEST(MeshLod, KeepsLod0AndDisablesCleanly)
 {
     std::vector<fra::Vertex>   verts;
     std::vector<std::uint32_t> indices;
@@ -62,31 +62,31 @@ TEST_CASE("BuildMeshLodIndexSets keeps LOD0 and disables cleanly", "[mesh-lod]")
 
     fra::MeshLodBuildOptions off { .enabled = false };
     const auto only = fra::BuildMeshLodIndexSets(verts, indices, off);
-    REQUIRE(only.size() == 1);
-    REQUIRE(only[0].size() == indices.size());
+    EXPECT_EQ(only.size(), 1u);
+    EXPECT_EQ(only[0].size(), indices.size());
 
     fra::MeshLodBuildOptions tiny { .minSourceIndices = 1'000'000 };
     const auto skipped = fra::BuildMeshLodIndexSets(verts, indices, tiny);
-    REQUIRE(skipped.size() == 1);
+    EXPECT_EQ(skipped.size(), 1u);
 }
 
-TEST_CASE("BuildMeshLodIndexSets decimates with shared vertices", "[mesh-lod]")
+TEST(MeshLod, DecimatesWithSharedVertices)
 {
     std::vector<fra::Vertex>   verts;
     std::vector<std::uint32_t> indices;
     MakeGrid(verts, indices, 32);
-    REQUIRE(indices.size() >= 768);
+    EXPECT_GE(indices.size(), 768u);
 
     const auto lods = fra::BuildMeshLodIndexSets(verts, indices, {});
-    REQUIRE(lods.size() >= 2);
-    REQUIRE(lods.size() <= fra::kMaxLodsPerMesh);
-    REQUIRE(lods[0].size() == indices.size());
+    EXPECT_GE(lods.size(), 2u);
+    EXPECT_LE(lods.size(), fra::kMaxLodsPerMesh);
+    EXPECT_EQ(lods[0].size(), indices.size());
 
     for (std::size_t i = 1; i < lods.size(); ++i)
     {
-        REQUIRE(lods[i].size() % 3 == 0);
-        REQUIRE(lods[i].size() < lods[i - 1].size());
+        EXPECT_EQ(lods[i].size() % 3, 0u);
+        EXPECT_LT(lods[i].size(), lods[i - 1].size());
         for (const auto idx : lods[i])
-            REQUIRE(idx < verts.size());
+            EXPECT_LT(idx, verts.size());
     }
 }

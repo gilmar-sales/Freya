@@ -3,76 +3,72 @@
 #include <Freya/Core/UiTypes.hpp>
 #include <Freya/Scene/AssetHandle.hpp>
 
-#include <catch2/catch_approx.hpp>
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <gtest/gtest.h>
 
 #include <atomic>
 #include <cstdint>
 #include <thread>
 #include <vector>
 
-using Catch::Matchers::WithinAbs;
-
-TEST_CASE("UiRect Contains Expand Intersect", "[ui]")
+TEST(UiDraw, RectContainsExpandIntersect)
 {
     fra::UiRect a { 10, 10, 50, 40 };
-    REQUIRE(a.Contains(20, 20));
-    REQUIRE_FALSE(a.Contains(5, 5));
-    REQUIRE(a.Contains(10, 10));
-    REQUIRE_FALSE(a.Contains(60, 50));
+    EXPECT_TRUE(a.Contains(20, 20));
+    EXPECT_FALSE(a.Contains(5, 5));
+    EXPECT_TRUE(a.Contains(10, 10));
+    EXPECT_FALSE(a.Contains(60, 50));
 
     const auto expanded = a.Expand(2.f);
-    REQUIRE_THAT(expanded.x, WithinAbs(8.f, 1e-5f));
-    REQUIRE_THAT(expanded.w, WithinAbs(54.f, 1e-5f));
+    EXPECT_NEAR(expanded.x, 8.f, 1e-5f);
+    EXPECT_NEAR(expanded.w, 54.f, 1e-5f);
 
     auto b = a.Intersect({ 40, 30, 40, 40 });
-    REQUIRE_THAT(b.w, WithinAbs(20.f, 1e-5f));
-    REQUIRE_THAT(b.h, WithinAbs(20.f, 1e-5f));
+    EXPECT_NEAR(b.w, 20.f, 1e-5f);
+    EXPECT_NEAR(b.h, 20.f, 1e-5f);
 
     auto empty = a.Intersect({ 200, 200, 10, 10 });
-    REQUIRE(empty.w <= 0.f);
+    EXPECT_LE(empty.w, 0.f);
 }
 
-TEST_CASE("UiDraw ProgressBar emits two quads", "[ui]")
+TEST(UiDraw, ProgressBarEmitsTwoQuads)
 {
     fra::UiDraw draw;
     draw.ProgressBar({ 0, 0, 100, 10 }, 0.5f, { 0, 0, 0, 1 }, { 1, 0, 0, 1 });
     std::vector<fra::UiQuad> snap;
     draw.Snapshot(snap);
-    REQUIRE(snap.size() == 2);
-    REQUIRE_THAT(snap[1].clipMax, WithinAbs(0.5f, 1e-5f));
-    REQUIRE((snap[1].flags & fra::kUiFlagClipU) != 0u);
+    EXPECT_EQ(snap.size(), 2u);
+    EXPECT_NEAR(snap[1].clipMax, 0.5f, 1e-5f);
+    EXPECT_NE(snap[1].flags & fra::kUiFlagClipU, 0u);
 }
 
-TEST_CASE("UiDraw CooldownRadial emits clip-radial quad", "[ui]")
+TEST(UiDraw, CooldownRadialEmitsClipRadialQuad)
 {
     fra::UiDraw draw;
     draw.CooldownRadial({ 0, 0, 64, 64 }, 0.75f, { 0, 0, 0, 0.6f });
     std::vector<fra::UiQuad> snap;
     draw.Snapshot(snap);
-    REQUIRE(snap.size() == 1);
-    REQUIRE((snap[0].flags & fra::kUiFlagClipRadial) != 0u);
-    REQUIRE_THAT(snap[0].clipMax, WithinAbs(0.75f, 1e-5f));
+    EXPECT_EQ(snap.size(), 1u);
+    EXPECT_NE(snap[0].flags & fra::kUiFlagClipRadial, 0u);
+    EXPECT_NEAR(snap[0].clipMax, 0.75f, 1e-5f);
 
     draw.Clear();
     draw.CooldownRadial({ 0, 0, 64, 64 }, 0.f);
     draw.Snapshot(snap);
-    REQUIRE(snap.empty());
+    EXPECT_TRUE(snap.empty());
 }
 
-TEST_CASE("UiDraw soft-caps at MaxQuads", "[ui]")
+TEST(UiDraw, SoftCapsAtMaxQuads)
 {
     fra::UiDraw draw(16);
     for (int i = 0; i < 64; ++i)
         draw.Rect({ static_cast<float>(i), 0, 1, 1 }, { 1, 1, 1, 1 });
     std::vector<fra::UiQuad> snap;
     draw.Snapshot(snap);
-    REQUIRE(snap.size() == 16);
-    REQUIRE(snap.size() == draw.MaxQuads());
+    EXPECT_EQ(snap.size(), 16u);
+    EXPECT_EQ(snap.size(), draw.MaxQuads());
 }
 
-TEST_CASE("UiDraw overlay quads append after base", "[ui]")
+TEST(UiDraw, OverlayQuadsAppendAfterBase)
 {
     fra::UiDraw draw;
     draw.Rect({ 0, 0, 10, 10 }, { 1, 0, 0, 1 });
@@ -83,27 +79,27 @@ TEST_CASE("UiDraw overlay quads append after base", "[ui]")
 
     std::vector<fra::UiQuad> snap;
     draw.Snapshot(snap);
-    REQUIRE(snap.size() == 3);
-    REQUIRE_THAT(snap[0].rect.x, WithinAbs(0.f, 1e-5f));
-    REQUIRE_THAT(snap[1].rect.x, WithinAbs(40.f, 1e-5f));
-    REQUIRE_THAT(snap[2].rect.x, WithinAbs(20.f, 1e-5f));
+    EXPECT_EQ(snap.size(), 3u);
+    EXPECT_NEAR(snap[0].rect.x, 0.f, 1e-5f);
+    EXPECT_NEAR(snap[1].rect.x, 40.f, 1e-5f);
+    EXPECT_NEAR(snap[2].rect.x, 20.f, 1e-5f);
 }
 
-TEST_CASE("UiDraw Clear resets overlay depth", "[ui]")
+TEST(UiDraw, ClearResetsOverlayDepth)
 {
     fra::UiDraw draw;
     draw.BeginOverlay();
     draw.Rect({ 1, 1, 1, 1 }, { 1, 1, 1, 1 });
     draw.Clear();
-    REQUIRE(draw.Empty());
+    EXPECT_TRUE(draw.Empty());
     draw.Rect({ 2, 2, 1, 1 }, { 1, 1, 1, 1 });
     std::vector<fra::UiQuad> snap;
     draw.Snapshot(snap);
-    REQUIRE(snap.size() == 1);
-    REQUIRE_THAT(snap[0].rect.x, WithinAbs(2.f, 1e-5f));
+    EXPECT_EQ(snap.size(), 1u);
+    EXPECT_NEAR(snap[0].rect.x, 2.f, 1e-5f);
 }
 
-TEST_CASE("UiDraw Quads batch append under cap", "[ui]")
+TEST(UiDraw, QuadsBatchAppendUnderCap)
 {
     fra::UiDraw              draw(8);
     std::vector<fra::UiQuad> batch(4);
@@ -117,10 +113,10 @@ TEST_CASE("UiDraw Quads batch append under cap", "[ui]")
     draw.Quads(batch);
     std::vector<fra::UiQuad> snap;
     draw.Snapshot(snap);
-    REQUIRE(snap.size() == 8);
+    EXPECT_EQ(snap.size(), 8u);
 }
 
-TEST_CASE("UiDraw concurrent Rect and Snapshot", "[ui][thread]")
+TEST(UiDraw, ConcurrentRectAndSnapshot)
 {
     fra::UiDraw      draw(4096);
     std::atomic<int> ready { 0 };
@@ -154,7 +150,7 @@ TEST_CASE("UiDraw concurrent Rect and Snapshot", "[ui][thread]")
         for (int i = 0; i < kIters; ++i)
         {
             draw.Snapshot(snap);
-            REQUIRE(snap.size() <= draw.MaxQuads());
+            EXPECT_LE(snap.size(), draw.MaxQuads());
             if ((i & 63) == 0)
                 draw.Clear();
         }
@@ -165,10 +161,10 @@ TEST_CASE("UiDraw concurrent Rect and Snapshot", "[ui][thread]")
 
     std::vector<fra::UiQuad> finalSnap;
     draw.Snapshot(finalSnap);
-    REQUIRE(finalSnap.size() <= draw.MaxQuads());
+    EXPECT_LE(finalSnap.size(), draw.MaxQuads());
 }
 
-TEST_CASE("UiDraw concurrent mixed producers with Snapshot", "[ui][thread]")
+TEST(UiDraw, ConcurrentMixedProducersWithSnapshot)
 {
     fra::UiDraw      draw(8192);
     std::atomic<int> ready { 0 };
@@ -232,11 +228,11 @@ TEST_CASE("UiDraw concurrent mixed producers with Snapshot", "[ui][thread]")
         for (int i = 0; i < kIters * 2; ++i)
         {
             draw.Snapshot(snap);
-            REQUIRE(snap.size() <= draw.MaxQuads());
+            EXPECT_LE(snap.size(), draw.MaxQuads());
             for (const auto& q : snap)
             {
-                REQUIRE(q.rect.z >= 0.f);
-                REQUIRE(q.rect.w >= 0.f);
+                EXPECT_GE(q.rect.z, 0.f);
+                EXPECT_GE(q.rect.w, 0.f);
             }
             if ((i & 31) == 0)
                 draw.Clear();
@@ -248,11 +244,10 @@ TEST_CASE("UiDraw concurrent mixed producers with Snapshot", "[ui][thread]")
 
     std::vector<fra::UiQuad> finalSnap;
     draw.Snapshot(finalSnap);
-    REQUIRE(finalSnap.size() <= draw.MaxQuads());
+    EXPECT_LE(finalSnap.size(), draw.MaxQuads());
 }
 
-TEST_CASE("UiDraw Image by bindless index is atomic under Snapshot",
-          "[ui][thread]")
+TEST(UiDraw, ImageByBindlessIndexIsAtomicUnderSnapshot)
 {
     fra::UiDraw   draw(2048);
     constexpr int kImages = 250;
@@ -272,16 +267,15 @@ TEST_CASE("UiDraw Image by bindless index is atomic under Snapshot",
     for (int i = 0; i < kImages * 3; ++i)
     {
         draw.Snapshot(snap);
-        REQUIRE(snap.size() <= draw.MaxQuads());
+        EXPECT_LE(snap.size(), draw.MaxQuads());
     }
     producer.join();
 
     draw.Snapshot(snap);
-    REQUIRE(snap.size() == static_cast<std::size_t>(kImages));
+    EXPECT_EQ(snap.size(), static_cast<std::size_t>(kImages));
 }
 
-TEST_CASE("UiDraw concurrent overlay and base do not tear Snapshot",
-          "[ui][thread]")
+TEST(UiDraw, ConcurrentOverlayAndBaseDoNotTearSnapshot)
 {
     fra::UiDraw       draw(4096);
     std::atomic<bool> stop { false };
@@ -324,7 +318,7 @@ TEST_CASE("UiDraw concurrent overlay and base do not tear Snapshot",
     for (int i = 0; i < 800; ++i)
     {
         draw.Snapshot(snap);
-        REQUIRE(snap.size() <= draw.MaxQuads());
+        EXPECT_LE(snap.size(), draw.MaxQuads());
         if ((i & 15) == 0)
             draw.Clear();
     }
@@ -333,17 +327,17 @@ TEST_CASE("UiDraw concurrent overlay and base do not tear Snapshot",
     overlayWriter.join();
 }
 
-TEST_CASE("UiModelPreviewOrbit ClampPitch respects min/max", "[ui]")
+TEST(UiModelPreview, ClampPitchRespectsMinMax)
 {
     fra::UiModelPreviewOrbit orbit {};
     orbit.minPitch = -45.f;
     orbit.maxPitch = 30.f;
-    REQUIRE(orbit.ClampPitch(-90.f) == Catch::Approx(-45.f));
-    REQUIRE(orbit.ClampPitch(90.f) == Catch::Approx(30.f));
-    REQUIRE(orbit.ClampPitch(10.f) == Catch::Approx(10.f));
+    EXPECT_FLOAT_EQ(orbit.ClampPitch(-90.f), -45.f);
+    EXPECT_FLOAT_EQ(orbit.ClampPitch(90.f), 30.f);
+    EXPECT_FLOAT_EQ(orbit.ClampPitch(10.f), 10.f);
 }
 
-TEST_CASE("UiDraw Image TextureHandle concurrent with Snapshot", "[ui][thread]")
+TEST(UiDraw, ImageTextureHandleConcurrentWithSnapshot)
 {
     // Static / snapshot handles share the same bindless Image path as live
     // RTs — workers may enqueue while Snapshot runs.
@@ -365,7 +359,7 @@ TEST_CASE("UiDraw Image TextureHandle concurrent with Snapshot", "[ui][thread]")
     for (int i = 0; i < 600; ++i)
     {
         draw.Snapshot(snap);
-        REQUIRE(snap.size() <= draw.MaxQuads());
+        EXPECT_LE(snap.size(), draw.MaxQuads());
         if ((i & 31) == 0)
             draw.Clear();
     }

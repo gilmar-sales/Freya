@@ -1,14 +1,13 @@
 #include <Freya/Core/BillboardDraw.hpp>
 #include <Freya/Core/ParticleEmitter.hpp>
 
-#include <catch2/catch_test_macros.hpp>
+#include <gtest/gtest.h>
 
 #include <atomic>
 #include <thread>
 #include <vector>
 
-TEST_CASE("ParticleEmitter concurrent Tick on shared BillboardDraw",
-          "[particle]")
+TEST(ParticleEmitter, ConcurrentTickOnSharedBillboardDraw)
 {
     fra::BillboardDraw draw(8192);
     constexpr int      kEmitters = 4;
@@ -43,6 +42,6 @@ TEST_CASE("ParticleEmitter concurrent Tick on shared BillboardDraw",
 
     std::vector<fra::Billboard> snap;
     draw.Snapshot(snap);
-    REQUIRE(snap.size() <= draw.MaxQuads());
-    REQUIRE_FALSE(snap.empty());
+    EXPECT_LE(snap.size(), draw.MaxQuads());
+    EXPECT_FALSE(snap.empty());
 }

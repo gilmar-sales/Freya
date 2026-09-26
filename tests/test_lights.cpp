@@ -1,59 +1,57 @@
 #include <Freya/Core/LightService.hpp>
 #include <Freya/Core/Limits.hpp>
 
-#include <catch2/catch_approx.hpp>
-#include <catch2/catch_test_macros.hpp>
+#include <gtest/gtest.h>
 
 #include <cmath>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 
-TEST_CASE("light factories pack LightType into type field", "[lights]")
+TEST(Lights, FactoriesPackLightTypeIntoTypeField)
 {
     const auto point =
         fra::MakePointLight({ 1.f, 2.f, 3.f }, { 1.f, 0.f, 0.f }, 8.f, 2.5f);
-    REQUIRE(point.type == fra::LightType::Point);
-    REQUIRE(point.position == glm::vec3(1.f, 2.f, 3.f));
-    REQUIRE(point.radius == Catch::Approx(8.f));
-    REQUIRE(point.intensity == Catch::Approx(2.5f));
+    EXPECT_EQ(point.type, fra::LightType::Point);
+    EXPECT_TRUE(point.position == glm::vec3(1.f, 2.f, 3.f));
+    EXPECT_FLOAT_EQ(point.radius, 8.f);
+    EXPECT_FLOAT_EQ(point.intensity, 2.5f);
 
     const auto dir =
         fra::MakeDirectionalLight({ 0.f, -2.f, 0.f }, { 1.f, 1.f, 1.f }, 1.f);
-    REQUIRE(dir.type == fra::LightType::Directional);
-    REQUIRE(glm::length(dir.direction) == Catch::Approx(1.f));
+    EXPECT_EQ(dir.type, fra::LightType::Directional);
+    EXPECT_FLOAT_EQ(glm::length(dir.direction), 1.f);
 
     const auto spot = fra::MakeSpotLight(
         { 0.f, 1.f, 0.f }, { 0.f, -1.f, 0.f }, { 1.f, 1.f, 1.f }, 12.f,
         glm::radians(15.f), glm::radians(30.f), 4.f);
-    REQUIRE(spot.type == fra::LightType::Spot);
-    REQUIRE(spot.innerCutoff == Catch::Approx(std::cos(glm::radians(15.f))));
-    REQUIRE(spot.outerCutoff == Catch::Approx(std::cos(glm::radians(30.f))));
+    EXPECT_EQ(spot.type, fra::LightType::Spot);
+    EXPECT_NEAR(spot.innerCutoff, std::cos(glm::radians(15.f)), 1e-6);
+    EXPECT_NEAR(spot.outerCutoff, std::cos(glm::radians(30.f)), 1e-6);
 
     const auto area =
         fra::MakeAreaLight({ 0.f, 2.f, 0.f }, { 0.f, -1.f, 0.f },
                            { 1.f, 0.f, 0.f }, 0.5f, 0.25f, { 1.f, 1.f, 1.f });
-    REQUIRE(area.type == fra::LightType::Area);
-    REQUIRE(area.outerCutoff == Catch::Approx(0.5f));
-    REQUIRE(area.halfHeight == Catch::Approx(0.25f));
-    REQUIRE(glm::dot(area.direction, area.tangent) ==
-            Catch::Approx(0.f).margin(1e-5f));
+    EXPECT_EQ(area.type, fra::LightType::Area);
+    EXPECT_FLOAT_EQ(area.outerCutoff, 0.5f);
+    EXPECT_FLOAT_EQ(area.halfHeight, 0.25f);
+    EXPECT_NEAR(glm::dot(area.direction, area.tangent), 0.0, 1e-5);
 }
 
-TEST_CASE("LightUpload defaults to null handle", "[lights]")
+TEST(Lights, UploadDefaultsToNullHandle)
 {
     const fra::LightUpload upload {};
-    REQUIRE_FALSE(upload.handle.IsValid());
-    REQUIRE(upload.light.type == fra::LightType::Point);
+    EXPECT_FALSE(upload.handle.IsValid());
+    EXPECT_EQ(upload.light.type, fra::LightType::Point);
 }
 
-TEST_CASE("Light defaults to enabled", "[lights]")
+TEST(Lights, DefaultsToEnabled)
 {
     const fra::Light light {};
-    REQUIRE(light.enabled);
-    REQUIRE(light.castShadows);
+    EXPECT_TRUE(light.enabled);
+    EXPECT_TRUE(light.castShadows);
 
     auto muted = fra::MakePointLight({ 0.f, 1.f, 0.f }, { 1.f, 1.f, 1.f }, 5.f);
     muted.enabled = false;
-    REQUIRE_FALSE(muted.enabled);
+    EXPECT_FALSE(muted.enabled);
 }

@@ -1,12 +1,12 @@
 #include <Freya/Core/SpinLock.hpp>
 
-#include <catch2/catch_test_macros.hpp>
+#include <gtest/gtest.h>
 
 #include <atomic>
 #include <thread>
 #include <vector>
 
-TEST_CASE("SpinLock serializes concurrent increments", "[spinlock]")
+TEST(SpinLock, SerializesConcurrentIncrements)
 {
     fra::SpinLock    lock;
     std::atomic<int> ready { 0 };
@@ -33,15 +33,15 @@ TEST_CASE("SpinLock serializes concurrent increments", "[spinlock]")
     for (auto& th : threads)
         th.join();
 
-    REQUIRE(counter == kThreads * kIters);
+    EXPECT_EQ(counter, kThreads * kIters);
 }
 
-TEST_CASE("SpinLock try_lock fails when held", "[spinlock]")
+TEST(SpinLock, TryLockFailsWhenHeld)
 {
     fra::SpinLock lock;
     lock.lock();
-    REQUIRE_FALSE(lock.try_lock());
+    EXPECT_FALSE(lock.try_lock());
     lock.unlock();
-    REQUIRE(lock.try_lock());
+    EXPECT_TRUE(lock.try_lock());
     lock.unlock();
 }

@@ -142,8 +142,8 @@ if(FREYA_BUILD_EXAMPLES)
 endif(FREYA_BUILD_EXAMPLES)
 
 if(FREYA_BUILD_TESTS)
-        include(CTest)
         enable_testing()
+        include(CTest)
         add_subdirectory(tests)
 endif()
 

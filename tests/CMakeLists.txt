@@ -1,11 +1,17 @@
-set(CATCH_INSTALL_EXTRAS OFF CACHE BOOL "" FORCE)
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+if(MSVC)
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+endif()
 
 include(FetchContent)
 FetchContent_Declare(
-        Catch2 GIT_REPOSITORY
-        "https://github.com/catchorg/Catch2.git" GIT_TAG
-        "v3.8.1" GIT_SHALLOW TRUE)
-FetchContent_MakeAvailable(Catch2)
+        googletest GIT_REPOSITORY
+        "https://github.com/google/googletest.git" GIT_TAG
+        "v1.17.0" GIT_SHALLOW TRUE)
+FetchContent_MakeAvailable(googletest)
+
+include(GoogleTest)
 
 add_executable(FreyaTests test_billboard_draw.cpp test_event_manager.cpp test_freya_options.cpp test_gpu_animation.cpp test_gpu_scene.cpp test_lights.cpp test_limits.cpp test_lighting_technique_registry.cpp test_material_mask.cpp test_mesh_lod.cpp test_particle_emitter.cpp test_sparse_set.cpp test_spinlock.cpp test_uniform_buffer.cpp test_window_config_context.cpp test_ui_draw.cpp test_ui_layout.cpp
         font_atlas_stub.cpp
@@ -21,11 +27,11 @@ target_include_directories(
         FreyaTests PRIVATE ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src)
 
 target_link_libraries(
-        FreyaTests PRIVATE Catch2::Catch2WithMain Freya::Freya)
+        FreyaTests PRIVATE GTest::gtest_main Freya::Freya)
 
 target_precompile_headers(FreyaTests PRIVATE <Freya/Config.hpp>)
 
-add_test(NAME Freya.Unit COMMAND FreyaTests)
+gtest_discover_tests(FreyaTests)
 
 option(FREYA_BUILD_GPU_TESTS "Build FreyaGpuTests (requires Vulkan ICD)" OFF)
 
@@ -58,7 +64,7 @@ if (FREYA_BUILD_GPU_TESTS)
             FREYA_GPU_FIXTURE_ROOT="${CMAKE_SOURCE_DIR}/tests/fixtures/gpu_cull")
 
     target_link_libraries(FreyaGpuTests PRIVATE
-            Catch2::Catch2WithMain
+            GTest::gtest_main
             Freya::Freya
             nlohmann_json::nlohmann_json
             SDL3::SDL3
@@ -70,6 +76,5 @@ if (FREYA_BUILD_GPU_TESTS)
 
     add_dependencies(FreyaGpuTests Shaders)
 
-    add_test(NAME Freya.Gpu COMMAND FreyaGpuTests)
-    set_tests_properties(Freya.Gpu PROPERTIES LABELS "gpu")
+    gtest_discover_tests(FreyaGpuTests PROPERTIES LABELS "gpu")
 endif ()

@@ -1,19 +1,19 @@
 #include <Freya/Events/EventManager.hpp>
 #include <Freya/Events/Keyboard.hpp>
 
-#include <catch2/catch_test_macros.hpp>
+#include <gtest/gtest.h>
 
-TEST_CASE("GetEventId is stable per type and unique across types", "[events]")
+TEST(EventManager, GetEventIdStablePerTypeAndUniqueAcrossTypes)
 {
     const auto pressed  = fra::GetEventId<fra::KeyPressedEvent>();
     const auto pressed2 = fra::GetEventId<fra::KeyPressedEvent>();
     const auto released = fra::GetEventId<fra::KeyReleasedEvent>();
 
-    REQUIRE(pressed == pressed2);
-    REQUIRE(pressed != released);
+    EXPECT_EQ(pressed, pressed2);
+    EXPECT_NE(pressed, released);
 }
 
-TEST_CASE("EventManager delivers and unsubscribes listeners", "[events]")
+TEST(EventManager, DeliversAndUnsubscribesListeners)
 {
     fra::EventManager events;
     int               pressed  = 0;
@@ -27,17 +27,17 @@ TEST_CASE("EventManager delivers and unsubscribes listeners", "[events]")
 
     events.Send(fra::KeyPressedEvent {});
     events.Send(fra::KeyReleasedEvent {});
-    REQUIRE(pressed == 1);
-    REQUIRE(released == 1);
+    EXPECT_EQ(pressed, 1);
+    EXPECT_EQ(released, 1);
 
     events.Unsubscribe<fra::KeyPressedEvent>(pressSub);
     events.Send(fra::KeyPressedEvent {});
     events.Send(fra::KeyReleasedEvent {});
-    REQUIRE(pressed == 1);
-    REQUIRE(released == 2);
+    EXPECT_EQ(pressed, 1);
+    EXPECT_EQ(released, 2);
 }
 
-TEST_CASE("EventManager destructor releases publishers", "[events]")
+TEST(EventManager, DestructorReleasesPublishers)
 {
     int calls = 0;
     {
@@ -47,5 +47,5 @@ TEST_CASE("EventManager destructor releases publishers", "[events]")
         });
         events.Send(fra::KeyPressedEvent {});
     }
-    REQUIRE(calls == 1);
+    EXPECT_EQ(calls, 1);
 }

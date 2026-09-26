@@ -1,7 +1,7 @@
 #include <Freya/Core/Limits.hpp>
 #include <Freya/Core/PostProcess.hpp>
 
-#include <catch2/catch_test_macros.hpp>
+#include <gtest/gtest.h>
 
 #include <cstdint>
 
@@ -30,13 +30,13 @@ namespace
     }
 } // namespace
 
-TEST_CASE("PostProcessMaterialMask std140 size covers 1024 ids", "[mask]")
+TEST(MaterialMask, Std140SizeCovers1024Ids)
 {
-    STATIC_REQUIRE(sizeof(fra::PostProcessMaterialMask) == 144);
-    STATIC_REQUIRE(fra::kMaxMaterialSets == 32u * 8u * 4u);
+    static_assert(sizeof(fra::PostProcessMaterialMask) == 144);
+    static_assert(fra::kMaxMaterialSets == 32u * 8u * 4u);
 }
 
-TEST_CASE("material mask bits match cell.frag addressing", "[mask]")
+TEST(MaterialMask, BitsMatchCellFragAddressing)
 {
     fra::PostProcessMaterialMask mask {};
     Bind(mask, 0);
@@ -46,12 +46,12 @@ TEST_CASE("material mask bits match cell.frag addressing", "[mask]")
     Bind(mask, 1023);
     Bind(mask, 1024);
 
-    REQUIRE(mask.count == 5);
-    REQUIRE(MaskIncludes(mask, 0));
-    REQUIRE(MaskIncludes(mask, 31));
-    REQUIRE(MaskIncludes(mask, 32));
-    REQUIRE(MaskIncludes(mask, 128));
-    REQUIRE(MaskIncludes(mask, 1023));
-    REQUIRE_FALSE(MaskIncludes(mask, 1));
-    REQUIRE_FALSE(MaskIncludes(mask, 127));
+    EXPECT_EQ(mask.count, 5u);
+    EXPECT_TRUE(MaskIncludes(mask, 0));
+    EXPECT_TRUE(MaskIncludes(mask, 31));
+    EXPECT_TRUE(MaskIncludes(mask, 32));
+    EXPECT_TRUE(MaskIncludes(mask, 128));
+    EXPECT_TRUE(MaskIncludes(mask, 1023));
+    EXPECT_FALSE(MaskIncludes(mask, 1));
+    EXPECT_FALSE(MaskIncludes(mask, 127));
 }
