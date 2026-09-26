@@ -76,9 +76,10 @@ float SoftShadow2DUV(sampler2DArrayShadow map, mat4 lightVP, vec3 biased,
 float SampleCascadeLayer(int cascade, vec3 worldPos, vec3 N, vec3 lightDir,
                          float slope) {
     float ts = max(shadows.cascadeTexelSize[cascade], 1e-6);
-    // Match spot/point contact scale — clamp so far cascades stay sharp.
+    // Scale bias with texel size so High/Ultra quality gets tighter contact
+    // shadows without a hard minimum that peter-pans feet on close geometry.
     float worldBias = min(ts * (1.5 + 2.0 * slope) * max(shadows.params.y, 1.0),
-                          max(0.015, ts * 3.0));
+                          ts * 3.0);
     vec3 biased =
         worldPos + N * (worldBias * 0.9) + lightDir * (worldBias * 0.35);
 
@@ -90,8 +91,11 @@ float SampleCascadeLayer(int cascade, vec3 worldPos, vec3 N, vec3 lightDir,
     vec4 clipUnbiased = shadows.cascadeViewProj[cascade] * vec4(worldPos, 1.0);
     float ndcBias =
         abs(ndc.z - clipUnbiased.z / max(abs(clipUnbiased.w), 1e-6));
+    // abs(mat[2][2]) = 2/zRange — normalises params.x so a fixed world-space
+    // bias budget is maintained regardless of cascade depth range.
+    float zScale = abs(shadows.cascadeViewProj[cascade][2][2]);
     float depthBiasAmount =
-        max(shadows.params.x * (2.0 + 3.0 * slope), ndcBias * 1.1);
+        max(shadows.params.x * zScale * (2.0 + 3.0 * slope), ndcBias * 1.1);
 
     float cascadeRes = CascadeMapResolution();
     float uvRadius = max(

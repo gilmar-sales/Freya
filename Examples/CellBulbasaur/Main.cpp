@@ -414,10 +414,10 @@ class MainApp final : public fra::AbstractApplication
             [&](fra::MaterialHandle& eye, fra::MaterialHandle& bodyB,
                 fra::MaterialHandle& bodyA, std::uint32_t techniqueId) {
                 eye   = mMaterialPool->Create({
-                    .albedo          = eyeAlbedo,
-                    .roughnessFactor = 1.0f,
-                    .metalnessFactor = 0.0f,
-                    .techniqueId     = techniqueId,
+                      .albedo          = eyeAlbedo,
+                      .roughnessFactor = 1.0f,
+                      .metalnessFactor = 0.0f,
+                      .techniqueId     = techniqueId,
                 });
                 bodyB = mMaterialPool->Create({
                     .albedo          = bodyBAlbedo,
@@ -661,8 +661,8 @@ class MainApp final : public fra::AbstractApplication
         {
             const float flicker = 0.75f + 0.25f * std::sin(mHpPulse * 11.0f) +
                                   0.12f * std::sin(mHpPulse * 23.0f);
-            auto        lit     = mFireLight;
-            lit.intensity       = 6.0f * flicker;
+            auto lit      = mFireLight;
+            lit.intensity = 6.0f * flicker;
             mLightService->UpdateLight(mFireLightHandle, lit);
         }
 
@@ -703,7 +703,7 @@ class MainApp final : public fra::AbstractApplication
         {
             fra::Scene::Instance ground {};
             ground.transform = fra::SceneTransform::FromMatrix(
-                glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.2f, 0.0f)));
+                glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f)));
             ground.mesh     = mGroundMesh;
             ground.material = mGroundMaterial;
             ground.entityId = nextEntity++;
@@ -727,8 +727,8 @@ class MainApp final : public fra::AbstractApplication
                 inst.entityId  = nextEntity++;
                 inst.techniqueId =
                     cellShaded
-                        ? mCellTechnique
-                        : fra::MaterialTechniqueRegistry::kDefaultTechnique;
+                              ? mCellTechnique
+                              : fra::MaterialTechniqueRegistry::kDefaultTechnique;
                 inst.flags = fra::kSceneInstanceFlagCastShadows |
                              (joints > 0 ? fra::kSceneInstanceFlagSkinned : 0u);
                 inst.boneOffset = joints > 0 ? 0u : fra::kNoSkin;
