@@ -87,7 +87,7 @@ namespace FREYA_NAMESPACE
     class BillboardDraw
     {
       public:
-        static constexpr std::uint32_t kDefaultMaxQuads = 1u << 14;
+        static constexpr std::uint32_t kDefaultMaxQuads = 1u << 16;
 
         explicit BillboardDraw(std::uint32_t maxQuads = kDefaultMaxQuads);
 
