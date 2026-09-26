@@ -13,7 +13,7 @@ FetchContent_MakeAvailable(googletest)
 
 include(GoogleTest)
 
-add_executable(FreyaTests test_billboard_draw.cpp test_event_manager.cpp test_freya_options.cpp test_gpu_animation.cpp test_gpu_scene.cpp test_lights.cpp test_limits.cpp test_lighting_technique_registry.cpp test_material_mask.cpp test_mesh_lod.cpp test_particle_emitter.cpp test_sparse_set.cpp test_spinlock.cpp test_uniform_buffer.cpp test_window_config_context.cpp test_ui_draw.cpp test_ui_layout.cpp
+add_executable(FreyaTests BillboardDrawSpec.cpp EventManagerSpec.cpp FreyaOptionsSpec.cpp GpuAnimationSpec.cpp GpuSceneSpec.cpp LightsSpec.cpp LimitsSpec.cpp LightingTechniqueRegistrySpec.cpp MaterialMaskSpec.cpp MeshLodSpec.cpp ParticleEmitterSpec.cpp SparseSetSpec.cpp SpinLockSpec.cpp UniformBufferSpec.cpp WindowConfigContextSpec.cpp UiDrawSpec.cpp UiLayoutSpec.cpp
         font_atlas_stub.cpp
         ui_model_preview_stub.cpp)
 
@@ -46,7 +46,7 @@ if (FREYA_BUILD_GPU_TESTS)
     endif ()
 
     add_executable(FreyaGpuTests
-            gpu/test_gpu_cull.cpp
+            gpu/GpuCullSpec.cpp
             ${CMAKE_SOURCE_DIR}/Examples/Common/src/CullFrameDumpIo.cpp)
 
     target_compile_features(FreyaGpuTests PRIVATE cxx_std_26)
