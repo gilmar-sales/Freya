@@ -58,7 +58,7 @@ namespace FREYA_NAMESPACE
     } // namespace
 
     skr::Arc<DeferredCompressedPass> DeferredCompressedPassBuilder::Build(
-        const skr::Arc<SwapChain>& swapChain, vk::Extent2D extent)
+        const skr::Arc<SwapChain>&, vk::Extent2D extent)
     {
         if (extent.width == 0 || extent.height == 0)
             extent = mSurface->QueryExtent();
@@ -278,15 +278,21 @@ namespace FREYA_NAMESPACE
                 return builder.Build();
             };
 
-        auto albedoImage     = createImage(ImageUsage::GBufferAlbedo);
-        auto normalImage     = createImage(ImageUsage::GBufferNormal);
-        auto pbrImage        = createImage(ImageUsage::GBufferPbr);
-        auto sceneColorImage = createImage(ImageUsage::GBufferSceneColor);
-        auto velocityImage   = createImage(ImageUsage::GBufferVelocity);
-        auto depthImage      = createImage(ImageUsage::Depth);
-
-        std::vector<skr::Arc<Image>> gbufferImages = { albedoImage, normalImage,
-                                                       pbrImage };
+        // One full G-buffer set per flight slot so concurrently
+        // executing frames never share attachments.
+        auto slotImages = std::vector<GBufferSlotImages> {};
+        slotImages.reserve(mFreyaOptions->frameCount);
+        for (std::uint32_t i = 0; i < mFreyaOptions->frameCount; ++i)
+        {
+            slotImages.push_back(GBufferSlotImages {
+                .albedo     = createImage(ImageUsage::GBufferAlbedo),
+                .normal     = createImage(ImageUsage::GBufferNormal),
+                .pbr        = createImage(ImageUsage::GBufferPbr),
+                .sceneColor = createImage(ImageUsage::GBufferSceneColor),
+                .velocity   = createImage(ImageUsage::GBufferVelocity),
+                .depth      = createImage(ImageUsage::Depth),
+            });
+        }
 
         auto gbufferSampler = mDevice->Get().createSampler(
             vk::SamplerCreateInfo()
@@ -338,21 +344,20 @@ namespace FREYA_NAMESPACE
                 .setImageLayout(layout);
         };
 
-        auto depthSampleInfo =
-            makeCisInfo(depthImage->GetImageView(),
-                        vk::ImageLayout::eDepthStencilReadOnlyOptimal);
-        auto albedoSampleInfo =
-            makeCisInfo(albedoImage->GetImageView(),
-                        vk::ImageLayout::eShaderReadOnlyOptimal);
-        auto normalSampleInfo =
-            makeCisInfo(normalImage->GetImageView(),
-                        vk::ImageLayout::eShaderReadOnlyOptimal);
-        auto pbrSampleInfo =
-            makeCisInfo(pbrImage->GetImageView(),
-                        vk::ImageLayout::eShaderReadOnlyOptimal);
-        auto velocitySampleInfo =
-            makeCisInfo(velocityImage->GetImageView(),
-                        vk::ImageLayout::eShaderReadOnlyOptimal);
+        const auto slotSampleInfos = [&](const GBufferSlotImages& slot) {
+            return std::array {
+                makeCisInfo(slot.depth->GetImageView(),
+                            vk::ImageLayout::eDepthStencilReadOnlyOptimal),
+                makeCisInfo(slot.albedo->GetImageView(),
+                            vk::ImageLayout::eShaderReadOnlyOptimal),
+                makeCisInfo(slot.normal->GetImageView(),
+                            vk::ImageLayout::eShaderReadOnlyOptimal),
+                makeCisInfo(slot.pbr->GetImageView(),
+                            vk::ImageLayout::eShaderReadOnlyOptimal),
+                makeCisInfo(slot.velocity->GetImageView(),
+                            vk::ImageLayout::eShaderReadOnlyOptimal),
+            };
+        };
 
         auto irradianceInfo =
             vk::DescriptorImageInfo()
@@ -388,6 +393,13 @@ namespace FREYA_NAMESPACE
              ++frameIndex)
         {
             const auto set = lightingSets[frameIndex];
+
+            const auto  slotInfos = slotSampleInfos(slotImages[frameIndex]);
+            const auto& depthSampleInfo    = slotInfos[0];
+            const auto& albedoSampleInfo   = slotInfos[1];
+            const auto& normalSampleInfo   = slotInfos[2];
+            const auto& pbrSampleInfo      = slotInfos[3];
+            const auto& velocitySampleInfo = slotInfos[4];
 
             auto cameraBufInfo =
                 vk::DescriptorBufferInfo()
@@ -678,42 +690,43 @@ namespace FREYA_NAMESPACE
         destroyShader(lightVert);
         destroyShader(lightFrag);
 
-        auto frames       = swapChain->GetFrames();
-        auto framebuffers = std::vector<vk::Framebuffer>(frames.size());
+        auto framebuffers         = std::vector<vk::Framebuffer> {};
+        auto lightingFramebuffers = std::vector<vk::Framebuffer> {};
+        framebuffers.reserve(mFreyaOptions->frameCount);
+        lightingFramebuffers.reserve(mFreyaOptions->frameCount);
 
-        for (std::size_t i = 0; i < frames.size(); i++)
+        for (const auto& slot : slotImages)
         {
             auto attachments = std::vector<vk::ImageView> {
-                depthImage->GetImageView(),      albedoImage->GetImageView(),
-                normalImage->GetImageView(),     pbrImage->GetImageView(),
-                sceneColorImage->GetImageView(), velocityImage->GetImageView(),
+                slot.depth->GetImageView(),      slot.albedo->GetImageView(),
+                slot.normal->GetImageView(),     slot.pbr->GetImageView(),
+                slot.sceneColor->GetImageView(), slot.velocity->GetImageView(),
             };
-            framebuffers[i] = mDevice->Get().createFramebuffer(
+            framebuffers.push_back(mDevice->Get().createFramebuffer(
                 vk::FramebufferCreateInfo()
                     .setRenderPass(renderPass)
                     .setAttachments(attachments)
                     .setWidth(extent.width)
                     .setHeight(extent.height)
-                    .setLayers(1));
-        }
+                    .setLayers(1)));
 
-        auto lightingFramebuffer = mDevice->Get().createFramebuffer(
-            vk::FramebufferCreateInfo()
-                .setRenderPass(lightingRenderPass)
-                .setAttachments(sceneColorImage->GetImageView())
-                .setWidth(extent.width)
-                .setHeight(extent.height)
-                .setLayers(1));
+            lightingFramebuffers.push_back(mDevice->Get().createFramebuffer(
+                vk::FramebufferCreateInfo()
+                    .setRenderPass(lightingRenderPass)
+                    .setAttachments(slot.sceneColor->GetImageView())
+                    .setWidth(extent.width)
+                    .setHeight(extent.height)
+                    .setLayers(1)));
+        }
 
         return skr::MakeArc<DeferredCompressedPass>(
             mDevice, mFreyaOptions, mSurface, renderPass, vertexPipelineLayout,
             fullscreenPipelineLayout, depthPipeline,
             std::move(gbufferTechniques), lightingPipeline, uniformBuffer,
-            frameLayouts, descriptorSets, descriptorPool, gbufferImages,
-            sceneColorImage, velocityImage, depthImage, framebuffers,
-            lightingRenderPass, lightingFramebuffer, lightingSetLayout,
-            lightingDescriptorPool, lightingSets, mMaterialResources,
-            mBoneResources, gbufferSampler, extent);
+            frameLayouts, descriptorSets, descriptorPool, slotImages,
+            framebuffers, lightingRenderPass, lightingFramebuffers,
+            lightingSetLayout, lightingDescriptorPool, lightingSets,
+            mMaterialResources, mBoneResources, gbufferSampler, extent);
     }
 
     vk::RenderPass DeferredCompressedPassBuilder::createGeometryRenderPass()

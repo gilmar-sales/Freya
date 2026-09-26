@@ -7,7 +7,10 @@ namespace FREYA_NAMESPACE
         mFragment = std::move(fragmentRelativeSpv);
     }
 
-    void LightingTechniqueRegistry::Clear() { mFragment.clear(); }
+    void LightingTechniqueRegistry::Clear()
+    {
+        mFragment.clear();
+    }
 
     bool LightingTechniqueRegistry::HasOverride() const
     {

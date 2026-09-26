@@ -215,8 +215,8 @@ namespace FREYA_NAMESPACE
 
         (*ctx.ssaoPass)
             ->Dispatch(ctx.commandPool,
-                       (*ctx.deferred)->GetDepthImage(),
-                       (*ctx.deferred)->GetNormalImage(),
+                       (*ctx.deferred)->GetDepthImage(ctx.frameIndex),
+                       (*ctx.deferred)->GetNormalImage(ctx.frameIndex),
                        ctx.projection->view,
                        ctx.projection->unjitteredProjection,
                        ctx.options->ReverseZ,
@@ -260,8 +260,8 @@ namespace FREYA_NAMESPACE
 
         (*ctx.shadowMaskPass)
             ->Dispatch(ctx.commandPool,
-                       (*ctx.deferred)->GetDepthImage(),
-                       (*ctx.deferred)->GetNormalImage(),
+                       (*ctx.deferred)->GetDepthImage(ctx.frameIndex),
+                       (*ctx.deferred)->GetNormalImage(ctx.frameIndex),
                        *ctx.shadow,
                        **ctx.lights,
                        ctx.projection->view,
@@ -344,10 +344,12 @@ namespace FREYA_NAMESPACE
         if (!ctx.taa || !*ctx.taa || !ctx.deferred || !*ctx.deferred)
             return;
 
-        (*ctx.taa)->Dispatch(ctx.commandPool,
-                             (*ctx.deferred)->GetSceneColorImage(),
-                             (*ctx.deferred)->GetVelocityImage(),
-                             (*ctx.deferred)->GetDepthImage());
+        (*ctx.taa)->Dispatch(
+            ctx.commandPool,
+            (*ctx.deferred)->GetSceneColorImage(ctx.frameIndex),
+            (*ctx.deferred)->GetVelocityImage(ctx.frameIndex),
+            (*ctx.deferred)->GetDepthImage(ctx.frameIndex),
+            ctx.frameIndex);
     }
 
     void TranslucentFrameStage::Rebuild(StageContext&         stageCtx,
@@ -358,7 +360,8 @@ namespace FREYA_NAMESPACE
             return;
         ctx.translucent->reset();
         *ctx.translucent = sp.GetService<TranslucentPassBuilder>()->Build(
-            ctx.swapChain, (*ctx.deferred)->GetDepthImage(), ctx.VkExtent());
+            ctx.swapChain, (*ctx.deferred)->GetDepthImage(ctx.frameIndex),
+            ctx.VkExtent());
     }
 
     void TranslucentFrameStage::Execute(StageContext& stageCtx)
@@ -383,8 +386,9 @@ namespace FREYA_NAMESPACE
             *ctx.drawPipelineLayoutOverride = layout;
 
         const auto opaque =
-            (ctx.taa && *ctx.taa) ? (*ctx.taa)->GetOutputImage()
-                                  : (*ctx.deferred)->GetSceneColorImage();
+            (ctx.taa && *ctx.taa)
+                ? (*ctx.taa)->GetOutputImage(ctx.frameIndex)
+                : (*ctx.deferred)->GetSceneColorImage(ctx.frameIndex);
 
         (*ctx.translucent)
             ->BeginAccumulate(ctx.commandPool, opaque, ctx.frameIndex);
@@ -406,7 +410,7 @@ namespace FREYA_NAMESPACE
         if (!ctx.billboardPass || !ctx.deferred || !*ctx.deferred)
             return;
         ctx.billboardPass->reset();
-        const auto depth = (*ctx.deferred)->GetDepthImage();
+        const auto depth = (*ctx.deferred)->GetDepthImage(ctx.frameIndex);
         *ctx.billboardPass =
             sp.GetService<BillboardPassBuilder>()->Build(ctx.swapChain, depth);
 
@@ -420,8 +424,8 @@ namespace FREYA_NAMESPACE
         }
         else if (ctx.deferred && *ctx.deferred)
         {
-            colors.assign(ctx.options->frameCount,
-                          (*ctx.deferred)->GetSceneColorImage());
+            for (std::uint32_t i = 0; i < ctx.options->frameCount; ++i)
+                colors.push_back((*ctx.deferred)->GetSceneColorImage(i));
         }
         if (*ctx.billboardPass)
             (*ctx.billboardPass)
@@ -452,14 +456,15 @@ namespace FREYA_NAMESPACE
         if (ctx.outputTarget && *ctx.outputTarget)
         {
             (*ctx.billboardPass)
-                ->UpdateLdrOffscreen((*ctx.outputTarget)->GetColorImage(),
-                                     (*ctx.deferred)->GetDepthImage(),
-                                     ctx.VkExtent());
+                ->UpdateLdrOffscreen(
+                    (*ctx.outputTarget)->GetColorImage(),
+                    (*ctx.deferred)->GetDepthImage(ctx.frameIndex),
+                    ctx.VkExtent());
         }
         else
         {
             (*ctx.billboardPass)
-                ->UpdateLdrDepth((*ctx.deferred)->GetDepthImage(),
+                ->UpdateLdrDepth((*ctx.deferred)->GetDepthImage(ctx.frameIndex),
                                  ctx.swapChain);
         }
     }
@@ -492,7 +497,7 @@ namespace FREYA_NAMESPACE
         if (ctx.translucent && *ctx.translucent)
             bloomSource = (*ctx.translucent)->GetSceneWithTranslucency(0);
         else if (ctx.deferred && *ctx.deferred)
-            bloomSource = (*ctx.deferred)->GetSceneColorImage();
+            bloomSource = (*ctx.deferred)->GetSceneColorImage(0);
         if (!bloomSource)
             return;
 
@@ -574,6 +579,15 @@ namespace FREYA_NAMESPACE
             return;
         }
 
+        if ((!ctx.translucent || !*ctx.translucent) && ctx.deferred &&
+            *ctx.deferred)
+        {
+            (*ctx.bloom)
+                ->SetThresholdInput(
+                    ctx.frameIndex,
+                    (*ctx.deferred)->GetSceneColorImage(ctx.frameIndex));
+        }
+
         const auto commandBuffer = ctx.commandPool->GetCommandBuffer();
         const auto bloomExtent =
             ScaledExtent(ctx.VkExtent(), ctx.options->bloomResolutionDivisor);
@@ -631,7 +645,9 @@ namespace FREYA_NAMESPACE
             if (ctx.translucent && *ctx.translucent)
                 scene = (*ctx.translucent)->GetSceneWithTranslucency(frame);
             else if (ctx.deferred && *ctx.deferred)
-                scene = (*ctx.deferred)->GetSceneColorImage();
+                scene =
+                    (*ctx.deferred)
+                        ->GetSceneColorImage(static_cast<std::uint32_t>(frame));
             if (!scene ||
                 static_cast<std::size_t>(frame) >=
                     ctx.bloomResultImages->size() ||
@@ -657,9 +673,9 @@ namespace FREYA_NAMESPACE
             scene =
                 (*ctx.translucent)->GetSceneWithTranslucency(ctx.frameIndex);
         else if (ctx.taa && *ctx.taa)
-            scene = (*ctx.taa)->GetOutputImage();
+            scene = (*ctx.taa)->GetOutputImage(ctx.frameIndex);
         else if (ctx.deferred && *ctx.deferred)
-            scene = (*ctx.deferred)->GetSceneColorImage();
+            scene = (*ctx.deferred)->GetSceneColorImage(ctx.frameIndex);
         if (!scene)
             return;
 

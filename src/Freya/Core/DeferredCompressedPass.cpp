@@ -21,13 +21,10 @@ namespace FREYA_NAMESPACE
         const std::vector<vk::DescriptorSetLayout>&  descriptorSetLayouts,
         const std::vector<vk::DescriptorSet>&        descriptorSets,
         const vk::DescriptorPool                     descriptorPool,
-        const std::vector<skr::Arc<Image>>&          gbufferImages,
-        const skr::Arc<Image>&                       sceneColorImage,
-        const skr::Arc<Image>&                       velocityImage,
-        const skr::Arc<Image>&                       depthImage,
+        const std::vector<GBufferSlotImages>&        slotImages,
         const std::vector<vk::Framebuffer>&          framebuffers,
         const vk::RenderPass                         lightingRenderPass,
-        const vk::Framebuffer                        lightingFramebuffer,
+        const std::vector<vk::Framebuffer>&          lightingFramebuffers,
         const vk::DescriptorSetLayout                lightingSetLayout,
         const vk::DescriptorPool                     lightingDescriptorPool,
         const std::vector<vk::DescriptorSet>&        lightingSets,
@@ -41,10 +38,9 @@ namespace FREYA_NAMESPACE
         mUniformBuffer(uniformBuffer),
         mDescriptorSetLayouts(descriptorSetLayouts),
         mDescriptorSets(descriptorSets), mDescriptorPool(descriptorPool),
-        mGBufferImages(gbufferImages), mSceneColorImage(sceneColorImage),
-        mVelocityImage(velocityImage), mDepthImage(depthImage),
-        mFramebuffers(framebuffers), mLightingFramebuffer(lightingFramebuffer),
-        mExtent(extent), mLightingRenderPass(lightingRenderPass),
+        mSlotImages(slotImages), mFramebuffers(framebuffers),
+        mLightingFramebuffers(lightingFramebuffers), mExtent(extent),
+        mLightingRenderPass(lightingRenderPass),
         mLightingSetLayout(lightingSetLayout),
         mLightingDescriptorPool(lightingDescriptorPool),
         mLightingSets(lightingSets), mMaterialResources(materialResources),
@@ -67,7 +63,8 @@ namespace FREYA_NAMESPACE
         for (auto& fb : mFramebuffers)
             vkDevice.destroyFramebuffer(fb);
 
-        vkDevice.destroyFramebuffer(mLightingFramebuffer);
+        for (auto& fb : mLightingFramebuffers)
+            vkDevice.destroyFramebuffer(fb);
 
         vkDevice.destroyDescriptorPool(mLightingDescriptorPool);
         vkDevice.destroyDescriptorSetLayout(mLightingSetLayout);
@@ -95,10 +92,7 @@ namespace FREYA_NAMESPACE
 
         vkDevice.destroySampler(mGbufferSampler);
 
-        mGBufferImages.clear();
-        mDepthImage.reset();
-        mSceneColorImage.reset();
-        mVelocityImage.reset();
+        mSlotImages.clear();
         mMaterialResources.reset();
 
         mUniformBuffer.reset();
@@ -131,14 +125,13 @@ namespace FREYA_NAMESPACE
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // velocity
         };
 
-        const auto imageIndex = swapChain->GetCurrentImageIndex();
         const auto frameIndex = swapChain->GetCurrentFrameIndex();
-        // Offscreen / stale preview passes may have fewer framebuffers than
-        // the current swapchain image count after a resize.
+        // Framebuffers are per flight slot; guard against a stale pass
+        // whose slot count no longer matches after a resize.
         const auto fbIndex =
             !mFramebuffers.empty()
                 ? std::min(
-                      imageIndex,
+                      frameIndex,
                       static_cast<std::uint32_t>(mFramebuffers.size() - 1u))
                 : 0u;
 
@@ -369,10 +362,17 @@ namespace FREYA_NAMESPACE
 
         mDevice->BeginDebugLabel(commandBuffer, DebugLabel::DeferredLighting);
 
+        const auto lightingFbIndex =
+            !mLightingFramebuffers.empty()
+                ? std::min(frameIndex,
+                           static_cast<std::uint32_t>(
+                               mLightingFramebuffers.size() - 1u))
+                : 0u;
+
         commandBuffer.beginRenderPass(
             vk::RenderPassBeginInfo()
                 .setRenderPass(mLightingRenderPass)
-                .setFramebuffer(mLightingFramebuffer)
+                .setFramebuffer(mLightingFramebuffers[lightingFbIndex])
                 .setRenderArea(
                     vk::Rect2D().setOffset({ 0, 0 }).setExtent(mExtent)),
             vk::SubpassContents::eInline);

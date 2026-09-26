@@ -73,7 +73,7 @@ namespace FREYA_NAMESPACE
     }
 
     GpuClipHeader MakeGpuClipHeader(const BakedClip& clip,
-                                    std::uint32_t jointsBase)
+                                    std::uint32_t    jointsBase)
     {
         GpuClipHeader h;
         h.duration   = clip.duration;
@@ -124,15 +124,15 @@ namespace FREYA_NAMESPACE
             pack.headers.push_back(h);
             if (quantize)
             {
-                pack.quantJoints.reserve(pack.quantJoints.size() +
-                                         c.joints.size());
+                pack.quantJoints.reserve(
+                    pack.quantJoints.size() + c.joints.size());
                 for (const auto& j : c.joints)
                     pack.quantJoints.push_back(ToGpuQuantJoint(j));
             }
             else
             {
-                pack.floatJoints.reserve(pack.floatJoints.size() +
-                                         c.joints.size());
+                pack.floatJoints.reserve(
+                    pack.floatJoints.size() + c.joints.size());
                 for (const auto& j : c.joints)
                     pack.floatJoints.push_back(ToGpuFloatJoint(j));
             }
@@ -159,7 +159,7 @@ namespace FREYA_NAMESPACE
     }
 
     std::vector<float> PackBoneMask(const BoneMask& mask,
-                                    std::uint32_t jointCount)
+                                    std::uint32_t   jointCount)
     {
         std::vector<float> out(jointCount, 0.f);
         const auto         n = std::min(jointCount, mask.Size());
@@ -169,7 +169,7 @@ namespace FREYA_NAMESPACE
     }
 
     std::vector<GpuFloatJoint> PackRestJointsFloat(const LocalPose& rest,
-                                                   std::uint32_t jointCount)
+                                                   std::uint32_t    jointCount)
     {
         std::vector<GpuFloatJoint> out(jointCount);
         const auto                 n = std::min(jointCount, rest.Size());
@@ -181,7 +181,7 @@ namespace FREYA_NAMESPACE
     }
 
     std::vector<GpuQuantJoint> PackRestJointsQuant(const LocalPose& rest,
-                                                   std::uint32_t jointCount)
+                                                   std::uint32_t    jointCount)
     {
         std::vector<GpuQuantJoint> out(jointCount);
         const auto                 n = std::min(jointCount, rest.Size());

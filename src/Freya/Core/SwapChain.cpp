@@ -66,6 +66,14 @@ namespace FREYA_NAMESPACE
         }
 
         mCurrentImageIndex = imageIndexResult.value;
+        // The flight slot may be free while this image is still presented
+        // by an earlier frame (image count can exceed the slot count).
+        if (const auto imageFence = mImagesInFlight[mCurrentImageIndex])
+        {
+            if (mDevice->Get().waitForFences(
+                    1, &imageFence, true, UINT64_MAX) != vk::Result::eSuccess)
+                throw std::runtime_error("failed to wait for image fence!");
+        }
         return mFrames[mCurrentImageIndex];
     }
 
@@ -85,7 +93,7 @@ namespace FREYA_NAMESPACE
         };
 
         std::vector<vk::Semaphore> signalSemaphores = {
-            mRenderFinishedSemaphores[mCurrentImageIndex]
+            mRenderFinishedSemaphores[mCurrentFrameIndex]
         };
 
         vk::SubmitInfo submitInfo = {};
@@ -112,6 +120,11 @@ namespace FREYA_NAMESPACE
             .setImageIndices(imageIndices);
 
         const auto result = mDevice->GetPresentQueue().presentKHR(presentInfo);
+
+        // Tag the image with this slot's fence so a later frame acquiring
+        // the same image waits for this presentation to finish.
+        mImagesInFlight[mCurrentImageIndex] =
+            mInFlightFences[mCurrentFrameIndex];
 
         mCurrentFrameIndex = (mCurrentFrameIndex + 1) % mInFlightFences.size();
 

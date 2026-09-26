@@ -194,10 +194,10 @@ namespace FREYA_NAMESPACE
         if (*family >= qProps.size() || qProps[*family].timestampValidBits == 0)
             return;
 
-        const std::uint32_t frameCount = std::max<std::uint32_t>(
-            1u, mSwapChain
-                    ? static_cast<std::uint32_t>(mSwapChain->GetFrameCount())
-                    : mFreyaOptions->frameCount);
+        // Indexed by flight slot (GetCurrentFrameIndex), so size by the
+        // flight-slot count, not the swapchain image count.
+        const std::uint32_t frameCount =
+            std::max<std::uint32_t>(1u, mFreyaOptions->frameCount);
         const auto queriesPerFrame = kMaxFrameGpuStages * kTimestampsPerStage;
         try
         {
@@ -462,7 +462,8 @@ namespace FREYA_NAMESPACE
         const auto h = ctx.renderExtent.height;
         if (mDeferredPass)
         {
-            skr::Arc<Image> hdr = mDeferredPass->GetSceneColorImage();
+            skr::Arc<Image> hdr =
+                mDeferredPass->GetSceneColorImage(ctx.frameIndex);
             if (mTranslucentPass)
             {
                 if (auto img = mTranslucentPass->GetSceneWithTranslucency(
@@ -471,16 +472,20 @@ namespace FREYA_NAMESPACE
             }
             else if (mTaaPass)
             {
-                if (auto img = mTaaPass->GetOutputImage())
+                if (auto img = mTaaPass->GetOutputImage(ctx.frameIndex))
                     hdr = img;
             }
             ctx.sceneColor = MakeGpuImageRef(hdr, w, h);
-            ctx.depth  = MakeGpuImageRef(mDeferredPass->GetDepthImage(), w, h);
-            ctx.albedo = MakeGpuImageRef(mDeferredPass->GetAlbedoImage(), w, h);
-            ctx.normal = MakeGpuImageRef(mDeferredPass->GetNormalImage(), w, h);
-            ctx.pbr    = MakeGpuImageRef(mDeferredPass->GetPbrImage(), w, h);
-            ctx.velocity =
-                MakeGpuImageRef(mDeferredPass->GetVelocityImage(), w, h);
+            ctx.depth      = MakeGpuImageRef(
+                mDeferredPass->GetDepthImage(ctx.frameIndex), w, h);
+            ctx.albedo = MakeGpuImageRef(
+                mDeferredPass->GetAlbedoImage(ctx.frameIndex), w, h);
+            ctx.normal = MakeGpuImageRef(
+                mDeferredPass->GetNormalImage(ctx.frameIndex), w, h);
+            ctx.pbr = MakeGpuImageRef(
+                mDeferredPass->GetPbrImage(ctx.frameIndex), w, h);
+            ctx.velocity = MakeGpuImageRef(
+                mDeferredPass->GetVelocityImage(ctx.frameIndex), w, h);
         }
         if (mSsaoPass)
         {
@@ -504,9 +509,10 @@ namespace FREYA_NAMESPACE
         };
         ctx.executePickDraws = [this]() { ExecutePickDrawCommands(); };
         ctx.buildHiZ         = [this]() {
-            if (!mIndirectDraw || !mDeferredPass)
+            if (!mIndirectDraw || !mDeferredPass || !mSwapChain)
                 return;
-            mIndirectDraw->BuildHiZ(mDeferredPass->GetDepthImage(),
+            mIndirectDraw->BuildHiZ(mDeferredPass->GetDepthImage(
+                                        mSwapChain->GetCurrentFrameIndex()),
                                     mFreyaOptions->ReverseZ);
         };
         ctx.blitBloomToFullRes = [this]() {

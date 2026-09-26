@@ -97,11 +97,12 @@ namespace FREYA_NAMESPACE
                             "\tFailed to create image views");
         }
 
+        // Flight-slot primitives (indexed by mCurrentFrameIndex).
         auto imageAvailableSemaphores =
             std::vector<vk::Semaphore>(mFreyaOptions->frameCount);
 
         auto renderFinishedSemaphores =
-            std::vector<vk::Semaphore>(swapChainImages.size());
+            std::vector<vk::Semaphore>(mFreyaOptions->frameCount);
 
         auto inFlightFences = std::vector<vk::Fence>(mFreyaOptions->frameCount);
 
@@ -115,20 +116,16 @@ namespace FREYA_NAMESPACE
             imageAvailableSemaphores[i] =
                 mDevice->Get().createSemaphore(semaphoreInfo);
 
-            inFlightFences[i] = mDevice->Get().createFence(fenceInfo);
-        }
-
-        for (size_t i = 0; i < swapChainImages.size(); i++)
-        {
             renderFinishedSemaphores[i] =
                 mDevice->Get().createSemaphore(semaphoreInfo);
 
+            inFlightFences[i] = mDevice->Get().createFence(fenceInfo);
+
             mLogger->Assert(
-                imageAvailableSemaphores
-                        [i < imageAvailableSemaphores.size() ? i : 0] &&
-                    renderFinishedSemaphores[i] &&
-                    inFlightFences[i < inFlightFences.size() ? i : 0],
-                "\tFailed to create synchronization objects for a frame");
+                imageAvailableSemaphores[i] && renderFinishedSemaphores[i] &&
+                    inFlightFences[i],
+                "\tFailed to create synchronization objects "
+                "for a frame");
         }
 
         return skr::MakeArc<SwapChain>(

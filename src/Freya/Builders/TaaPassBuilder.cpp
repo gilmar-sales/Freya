@@ -4,6 +4,8 @@
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
 #include "Freya/Core/ShaderModule.hpp"
 
+#include <algorithm>
+
 namespace FREYA_NAMESPACE
 {
     TaaPassBuilder::TaaPassBuilder(
@@ -45,9 +47,21 @@ namespace FREYA_NAMESPACE
                 .Build();
         };
 
-        std::array historyImages      = { createHistory(), createHistory() };
-        std::array depthHistoryImages = { createDepthHistory(),
-                                          createDepthHistory() };
+        const auto frameCount = std::max(1u, mFreyaOptions->frameCount);
+
+        // One ping-pong pair per flight slot: frames overlap on the GPU,
+        // so slots must not share history images.
+        auto historyImages = std::vector<std::array<skr::Arc<Image>, 2>> {};
+        auto depthHistoryImages =
+            std::vector<std::array<skr::Arc<Image>, 2>> {};
+        historyImages.reserve(frameCount);
+        depthHistoryImages.reserve(frameCount);
+        for (std::uint32_t i = 0; i < frameCount; ++i)
+        {
+            historyImages.push_back({ createHistory(), createHistory() });
+            depthHistoryImages.push_back(
+                { createDepthHistory(), createDepthHistory() });
+        }
 
         auto makeSampler = [&](vk::Filter filter) {
             return mDevice->Get().createSampler(
@@ -104,26 +118,30 @@ namespace FREYA_NAMESPACE
         auto setLayout = mDevice->Get().createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo().setBindings(bindings));
 
-        // 2 sets × (5 CIS + 2 storage)
+        // frameCount × (2 sets × (5 CIS + 2 storage))
         auto poolSizes = std::array {
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eCombinedImageSampler)
-                .setDescriptorCount(10),
+                .setDescriptorCount(10 * frameCount),
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eStorageImage)
-                .setDescriptorCount(4),
+                .setDescriptorCount(4 * frameCount),
         };
         auto pool = mDevice->Get().createDescriptorPool(
             vk::DescriptorPoolCreateInfo().setPoolSizes(poolSizes).setMaxSets(
-                2));
+                2 * frameCount));
 
-        auto layouts = std::vector { setLayout, setLayout };
-        auto sets    = mDevice->Get().allocateDescriptorSets(
+        auto layouts =
+            std::vector<vk::DescriptorSetLayout>(2 * frameCount, setLayout);
+        auto sets = mDevice->Get().allocateDescriptorSets(
             vk::DescriptorSetAllocateInfo()
                 .setDescriptorPool(pool)
                 .setSetLayouts(layouts));
 
-        std::array<vk::DescriptorSet, 2> descriptorSets = { sets[0], sets[1] };
+        auto descriptorSets = std::vector<std::array<vk::DescriptorSet, 2>> {};
+        descriptorSets.reserve(frameCount);
+        for (std::uint32_t i = 0; i < frameCount; ++i)
+            descriptorSets.push_back({ sets[2 * i], sets[2 * i + 1] });
 
         auto pushRange = vk::PushConstantRange()
                              .setStageFlags(vk::ShaderStageFlagBits::eCompute)
@@ -153,7 +171,7 @@ namespace FREYA_NAMESPACE
         return skr::MakeArc<TaaPass>(
             mDevice, mFreyaOptions, pipelineLayout, pipeline, setLayout, pool,
             descriptorSets, historyImages, depthHistoryImages, colorSampler,
-            nearestSampler, extent);
+            nearestSampler, extent, frameCount);
     }
 
 } // namespace FREYA_NAMESPACE

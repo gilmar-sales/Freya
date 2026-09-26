@@ -43,6 +43,22 @@ namespace FREYA_NAMESPACE
         DefLightingPass,
     };
 
+    /**
+     * @brief One full G-buffer image set for a single flight slot.
+     *
+     * Every frame in flight renders into its own slot so concurrently
+     * executing command buffers never share attachments.
+     */
+    struct GBufferSlotImages
+    {
+        skr::Arc<Image> albedo;
+        skr::Arc<Image> normal;
+        skr::Arc<Image> pbr;
+        skr::Arc<Image> sceneColor;
+        skr::Arc<Image> velocity;
+        skr::Arc<Image> depth;
+    };
+
     class DeferredCompressedPass
     {
       public:
@@ -61,13 +77,10 @@ namespace FREYA_NAMESPACE
             const std::vector<vk::DescriptorSetLayout>&  descriptorSetLayouts,
             const std::vector<vk::DescriptorSet>&        descriptorSets,
             const vk::DescriptorPool                     descriptorPool,
-            const std::vector<skr::Arc<Image>>&          gbufferImages,
-            const skr::Arc<Image>&                       sceneColorImage,
-            const skr::Arc<Image>&                       velocityImage,
-            const skr::Arc<Image>&                       depthImage,
+            const std::vector<GBufferSlotImages>&        slotImages,
             const std::vector<vk::Framebuffer>&          framebuffers,
             const vk::RenderPass                         lightingRenderPass,
-            const vk::Framebuffer                        lightingFramebuffer,
+            const std::vector<vk::Framebuffer>&          lightingFramebuffers,
             const vk::DescriptorSetLayout                lightingSetLayout,
             const vk::DescriptorPool                     lightingDescriptorPool,
             const std::vector<vk::DescriptorSet>&        lightingSets,
@@ -93,13 +106,34 @@ namespace FREYA_NAMESPACE
         vk::Pipeline& GetPipeline(std::uint32_t subpass);
 
         /// HDR scene color (emissive + lighting). Used as composite “opaque”.
-        skr::Arc<Image> GetOpaqueImage() const { return mSceneColorImage; }
-        skr::Arc<Image> GetSceneColorImage() const { return mSceneColorImage; }
-        skr::Arc<Image> GetDepthImage() const { return mDepthImage; }
-        skr::Arc<Image> GetVelocityImage() const { return mVelocityImage; }
-        skr::Arc<Image> GetAlbedoImage() const { return mGBufferImages[0]; }
-        skr::Arc<Image> GetNormalImage() const { return mGBufferImages[1]; }
-        skr::Arc<Image> GetPbrImage() const { return mGBufferImages[2]; }
+        skr::Arc<Image> GetOpaqueImage(std::uint32_t frameIndex) const
+        {
+            return Slot(frameIndex).sceneColor;
+        }
+        skr::Arc<Image> GetSceneColorImage(std::uint32_t frameIndex) const
+        {
+            return Slot(frameIndex).sceneColor;
+        }
+        skr::Arc<Image> GetDepthImage(std::uint32_t frameIndex) const
+        {
+            return Slot(frameIndex).depth;
+        }
+        skr::Arc<Image> GetVelocityImage(std::uint32_t frameIndex) const
+        {
+            return Slot(frameIndex).velocity;
+        }
+        skr::Arc<Image> GetAlbedoImage(std::uint32_t frameIndex) const
+        {
+            return Slot(frameIndex).albedo;
+        }
+        skr::Arc<Image> GetNormalImage(std::uint32_t frameIndex) const
+        {
+            return Slot(frameIndex).normal;
+        }
+        skr::Arc<Image> GetPbrImage(std::uint32_t frameIndex) const
+        {
+            return Slot(frameIndex).pbr;
+        }
 
         void Begin(const skr::Arc<SwapChain>    swapChain,
                    const skr::Arc<CommandPool>& commandPool) const;
@@ -170,13 +204,18 @@ namespace FREYA_NAMESPACE
         std::vector<vk::DescriptorSet>       mDescriptorSets;
         vk::DescriptorPool                   mDescriptorPool;
 
-        std::vector<skr::Arc<Image>> mGBufferImages;
-        skr::Arc<Image>              mSceneColorImage;
-        skr::Arc<Image>              mVelocityImage;
-        skr::Arc<Image>              mDepthImage;
+        std::vector<GBufferSlotImages> mSlotImages;
 
         std::vector<vk::Framebuffer> mFramebuffers;
-        vk::Framebuffer              mLightingFramebuffer;
+        std::vector<vk::Framebuffer> mLightingFramebuffers;
+
+        const GBufferSlotImages& Slot(std::uint32_t frameIndex) const
+        {
+            static const GBufferSlotImages kEmpty {};
+            if (mSlotImages.empty())
+                return kEmpty;
+            return mSlotImages[frameIndex % mSlotImages.size()];
+        }
 
         vk::Extent2D mExtent;
 

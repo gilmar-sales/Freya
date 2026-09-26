@@ -390,7 +390,7 @@ namespace FREYA_NAMESPACE
                     bloom =
                         serviceProvider->GetService<BloomPassBuilder>()->Build(
                             swapChain,
-                            deferred->GetSceneColorImage(),
+                            deferred->GetSceneColorImage(0),
                             vkExtent);
                     bloomResults.clear();
                     bloomResults.resize(options->frameCount);
@@ -692,13 +692,14 @@ namespace FREYA_NAMESPACE
             }
             deferred->End(cmdPool);
 
-            indirect->BuildHiZ(deferred->GetDepthImage(), options->ReverseZ);
+            indirect->BuildHiZ(deferred->GetDepthImage(frameIndex),
+                               options->ReverseZ);
 
             if (ssao)
             {
                 ssao->Dispatch(
-                    cmdPool, deferred->GetDepthImage(),
-                    deferred->GetNormalImage(), projection.view,
+                    cmdPool, deferred->GetDepthImage(frameIndex),
+                    deferred->GetNormalImage(frameIndex), projection.view,
                     projection.unjitteredProjection, options->ReverseZ,
                     options->ssaoRadius, options->ssaoBias, options->ssaoPower,
                     options->ssaoIntensity);
@@ -708,8 +709,8 @@ namespace FREYA_NAMESPACE
                 options->enableShadowMask)
             {
                 shadowMask->Dispatch(
-                    cmdPool, deferred->GetDepthImage(),
-                    deferred->GetNormalImage(), shadow, *lights,
+                    cmdPool, deferred->GetDepthImage(frameIndex),
+                    deferred->GetNormalImage(frameIndex), shadow, *lights,
                     projection.view, projection.unjitteredProjection,
                     options->ReverseZ, frameIndex);
             }
@@ -729,14 +730,16 @@ namespace FREYA_NAMESPACE
 
             if (taa)
             {
-                taa->Dispatch(cmdPool, deferred->GetSceneColorImage(),
-                              deferred->GetVelocityImage(),
-                              deferred->GetDepthImage());
+                taa->Dispatch(cmdPool, deferred->GetSceneColorImage(frameIndex),
+                              deferred->GetVelocityImage(frameIndex),
+                              deferred->GetDepthImage(frameIndex), frameIndex);
             }
 
             if (bloom)
             {
                 // Bloom samples pre-TAA scene color (same as main path).
+                bloom->SetThresholdInput(
+                    frameIndex, deferred->GetSceneColorImage(frameIndex));
                 const auto bloomExtent =
                     ScaledExtent(vkExtent, options->bloomResolutionDivisor);
                 auto commandBuffer = cmdPool->GetCommandBuffer();
@@ -766,7 +769,8 @@ namespace FREYA_NAMESPACE
             }
 
             skr::Arc<Image> sceneColor =
-                taa ? taa->GetOutputImage() : deferred->GetSceneColorImage();
+                taa ? taa->GetOutputImage(frameIndex)
+                    : deferred->GetSceneColorImage(frameIndex);
             skr::Arc<Image> bloomColor = bloomStub;
             if (bloom && frameIndex < bloomResults.size() &&
                 bloomResults[frameIndex])

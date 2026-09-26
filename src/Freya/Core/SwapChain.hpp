@@ -37,7 +37,10 @@ namespace FREYA_NAMESPACE
             mCurrentImageIndex(0),
             mImageAvailableSemaphores(imageAvailableSemaphores),
             mRenderFinishedSemaphores(renderFinishedSemaphores),
-            mInFlightFences(inFlightFences)
+            mInFlightFences(inFlightFences),
+            // One entry per swapchain image; non-owning copies of the
+            // flight-slot fence currently using that image (if any).
+            mImagesInFlight(frames.size(), nullptr)
         {
             mExtent = surface->QueryExtent();
         }
@@ -57,11 +60,6 @@ namespace FREYA_NAMESPACE
         void BeginNextFrame();
 
         const SwapChainFrame& GetNextFrame();
-
-        const SwapChainFrame& GetCurrentFrame() const
-        {
-            return mFrames[mCurrentFrameIndex];
-        }
 
         void WaitCommandBuffersSubmission(
             std::vector<vk::CommandBuffer> commandBuffers);
@@ -92,6 +90,10 @@ namespace FREYA_NAMESPACE
         std::vector<vk::Semaphore> mImageAvailableSemaphores;
         std::vector<vk::Semaphore> mRenderFinishedSemaphores;
         std::vector<vk::Fence>     mInFlightFences;
+        // Flight-slot fence currently presenting each swapchain image
+        // (non-owning; owned by mInFlightFences). Guards image reuse when
+        // the image count differs from the flight-slot count.
+        std::vector<vk::Fence> mImagesInFlight;
 
         std::uint32_t mCurrentFrameIndex;
         std::uint32_t mCurrentImageIndex;

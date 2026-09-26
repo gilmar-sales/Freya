@@ -53,7 +53,7 @@ namespace FREYA_NAMESPACE
         {
             bloomPass = mServiceProvider->GetService<BloomPassBuilder>()->Build(
                 mSwapChain,
-                deferredPass->GetSceneColorImage());
+                deferredPass->GetSceneColorImage(0));
         }
 
         skr::Arc<TaaPass> taaPass;

@@ -182,9 +182,9 @@ namespace FREYA_NAMESPACE
                 return img;
         }
         if (ctx.taa && *ctx.taa)
-            return (*ctx.taa)->GetOutputImage();
+            return (*ctx.taa)->GetOutputImage(ctx.frameIndex);
         if (ctx.deferred && *ctx.deferred)
-            return (*ctx.deferred)->GetSceneColorImage();
+            return (*ctx.deferred)->GetSceneColorImage(ctx.frameIndex);
         return {};
     }
 
@@ -201,15 +201,15 @@ namespace FREYA_NAMESPACE
             case PostProcessInput::SceneColor:
                 return hdr;
             case PostProcessInput::Depth:
-                return (*ctx.deferred)->GetDepthImage();
+                return (*ctx.deferred)->GetDepthImage(ctx.frameIndex);
             case PostProcessInput::Albedo:
-                return (*ctx.deferred)->GetAlbedoImage();
+                return (*ctx.deferred)->GetAlbedoImage(ctx.frameIndex);
             case PostProcessInput::Normal:
-                return (*ctx.deferred)->GetNormalImage();
+                return (*ctx.deferred)->GetNormalImage(ctx.frameIndex);
             case PostProcessInput::Pbr:
-                return (*ctx.deferred)->GetPbrImage();
+                return (*ctx.deferred)->GetPbrImage(ctx.frameIndex);
             case PostProcessInput::Velocity:
-                return (*ctx.deferred)->GetVelocityImage();
+                return (*ctx.deferred)->GetVelocityImage(ctx.frameIndex);
         }
         return {};
     }
