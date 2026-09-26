@@ -15,6 +15,12 @@ namespace FREYA_NAMESPACE
     {
         Screen      = 0,
         Cylindrical = 1,
+        /// Per-instance point-toward-camera (correct at wide FOV).
+        Spherical = 2,
+        /// Cylindrical with a custom up axis (see Billboard::axisUp).
+        FixedAxis = 3,
+        /// Flat on a surface; axisUp is the surface normal.
+        Planar = 4,
     };
 
     enum class BillboardBlend : std::uint32_t
@@ -29,10 +35,15 @@ namespace FREYA_NAMESPACE
         Ui  = 1,
     };
 
-    constexpr std::uint32_t kBillboardFlagCylindrical = 1u;
-    constexpr std::uint32_t kBillboardFlagSdf         = 2u;
-    /// Depth-based soft fade (GPU support requires follow-up pass work).
-    constexpr std::uint32_t kBillboardFlagSoft = 4u;
+    /// Bits 0-2 of the GPU flags field encode BillboardAlign.
+    constexpr std::uint32_t kBillboardAlignMask = 7u;
+    constexpr std::uint32_t kBillboardFlagSdf   = 8u;
+    /// Depth-based soft fade via subpass input attachment.
+    constexpr std::uint32_t kBillboardFlagSoft            = 16u;
+    /// Constant screen size; Billboard::size is in NDC half-extents.
+    constexpr std::uint32_t kBillboardFlagScreenSize      = 32u;
+    /// Stretch along velocity; Billboard::velocity / velocityStretchScale.
+    constexpr std::uint32_t kBillboardFlagVelocityStretch = 64u;
 
     /**
      * @brief One camera-facing quad in world space.
@@ -56,9 +67,15 @@ namespace FREYA_NAMESPACE
         glm::vec2      localOffset { 0.f };
         float          outlineWidth = 0.f; ///< SDF units, 0 = no outline
         glm::vec4      outlineColor { 0.f, 0.f, 0.f, 1.f };
-        float          rotation     = 0.f; ///< Screen-space rotation in radians
-        bool           softParticle = false;  ///< Enable depth-based fade
-        float softFadeRange         = 0.002f; ///< NDC depth range for soft fade
+        float     rotation     = 0.f; ///< Screen-space rotation in radians
+        bool      softParticle = false; ///< Depth-based fade (subpass input)
+        float     softFadeRange = 0.002f; ///< NDC depth range for soft fade
+        bool      screenSpaceSize = false; ///< Constant NDC size vs. world size
+        /// Custom up axis for FixedAxis / surface normal for Planar.
+        glm::vec3 axisUp { 0.f, 1.f, 0.f };
+        bool      velocityStretch      = false;
+        glm::vec3 velocity { 0.f };
+        float     velocityStretchScale = 1.f;
     };
 
     /**

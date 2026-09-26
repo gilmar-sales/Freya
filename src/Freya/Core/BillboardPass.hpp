@@ -36,6 +36,13 @@ namespace FREYA_NAMESPACE
             vk::Pipeline addNoDepth {};
         };
 
+        struct DepthInputResources
+        {
+            vk::DescriptorSetLayout setLayout;
+            vk::DescriptorPool      pool;
+            vk::DescriptorSet       set;
+        };
+
         BillboardPass(
             const skr::Arc<Device>&                      device,
             const skr::Arc<FreyaOptions>&                freyaOptions,
@@ -49,8 +56,9 @@ namespace FREYA_NAMESPACE
             std::vector<skr::Arc<Buffer>>         instanceBuffers,
             Pipelines hdrPipelines, Pipelines ldrPipelines,
             Pipelines                    offscreenLdrPipelines,
-            std::vector<vk::Framebuffer> ldrFramebuffers, vk::Extent2D extent,
-            std::uint32_t maxQuads);
+            std::vector<vk::Framebuffer> ldrFramebuffers,
+            vk::Extent2D extent, std::uint32_t maxQuads,
+            DepthInputResources depthInput);
 
         ~BillboardPass();
 
@@ -60,6 +68,8 @@ namespace FREYA_NAMESPACE
         void UpdateHdrTargets(std::span<const skr::Arc<Image>> colors,
                               const skr::Arc<Image>&           depth,
                               vk::Extent2D                     extent);
+
+        void UpdateDepthInput(vk::ImageView depthView);
 
         void UpdateLdrDepth(const skr::Arc<Image>&     depth,
                             const skr::Arc<SwapChain>& swapChain);
@@ -109,6 +119,10 @@ namespace FREYA_NAMESPACE
         std::vector<vk::Framebuffer> mLdrFramebuffers;
         vk::ImageView                mLdrDepthView {};
         bool                         mLdrOffscreen = false;
+
+        vk::DescriptorSetLayout mDepthInputSetLayout {};
+        vk::DescriptorPool      mDepthInputPool {};
+        vk::DescriptorSet       mDepthInputSet {};
 
         vk::Extent2D  mHdrExtent {};
         vk::Extent2D  mLdrExtent {};

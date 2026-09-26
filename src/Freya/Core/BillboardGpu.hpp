@@ -29,9 +29,11 @@ namespace FREYA_NAMESPACE
         float         outlineWidth = 0.f;
         float     rotation = 0.f; ///< Screen-space rotation radians (ex _pad)
         glm::vec4 outlineColor { 0.f, 0.f, 0.f, 1.f };
+        /// FixedAxis/Planar: (axisUp, 0).  VelocityStretch: (vel, scale).
+        glm::vec4 aux { 0.f };
     };
 
-    static_assert(sizeof(BillboardGpuInstance) == 96,
+    static_assert(sizeof(BillboardGpuInstance) == 112,
                   "BillboardGpuInstance must match GLSL std430");
 
     [[nodiscard]] inline BillboardGpuInstance ToBillboardGpu(const Billboard& b)
@@ -41,9 +43,11 @@ namespace FREYA_NAMESPACE
         g.clipMax      = b.clipMax;
         g.size         = b.size;
         g.textureIndex = b.textureIndex;
-        g.flags        = 0;
-        if (b.align == BillboardAlign::Cylindrical)
-            g.flags |= kBillboardFlagCylindrical;
+
+        // Bits 0-2: alignment type.
+        g.flags =
+            static_cast<std::uint32_t>(b.align) & kBillboardAlignMask;
+
         if (b.sdf)
         {
             g.flags |= kBillboardFlagSdf;
@@ -51,8 +55,6 @@ namespace FREYA_NAMESPACE
         }
         else if (b.softParticle)
         {
-            // outlineWidth repurposed as fade range; SDF and softParticle
-            // are mutually exclusive in practice.
             g.flags |= kBillboardFlagSoft;
             g.outlineWidth = b.softFadeRange;
         }
@@ -60,6 +62,23 @@ namespace FREYA_NAMESPACE
         {
             g.outlineWidth = b.outlineWidth;
         }
+
+        if (b.screenSpaceSize)
+            g.flags |= kBillboardFlagScreenSize;
+
+        // aux: velocity-stretch takes priority; otherwise axis for
+        // FixedAxis/Planar.
+        if (b.velocityStretch)
+        {
+            g.flags |= kBillboardFlagVelocityStretch;
+            g.aux = glm::vec4(b.velocity, b.velocityStretchScale);
+        }
+        else if (b.align == BillboardAlign::FixedAxis ||
+                 b.align == BillboardAlign::Planar)
+        {
+            g.aux = glm::vec4(b.axisUp, 0.f);
+        }
+
         g.color        = b.color;
         g.uvRect       = b.uvRect;
         g.localOffset  = b.localOffset;

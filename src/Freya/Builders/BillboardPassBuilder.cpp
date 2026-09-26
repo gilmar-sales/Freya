@@ -61,12 +61,18 @@ namespace FREYA_NAMESPACE
             vk::ImageLayout::eColorAttachmentOptimal);
         auto depthRef = vk::AttachmentReference().setAttachment(1).setLayout(
             vk::ImageLayout::eDepthStencilReadOnlyOptimal);
+        auto depthInputRef =
+            vk::AttachmentReference()
+                .setAttachment(1)
+                .setLayout(
+                    vk::ImageLayout::eDepthStencilReadOnlyOptimal);
 
         auto subpass =
             vk::SubpassDescription()
                 .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
                 .setColorAttachments(colorRef)
-                .setPDepthStencilAttachment(&depthRef);
+                .setPDepthStencilAttachment(&depthRef)
+                .setInputAttachments(depthInputRef);
 
         auto deps = std::array {
             vk::SubpassDependency()
@@ -80,7 +86,8 @@ namespace FREYA_NAMESPACE
                 .setDstStageMask(
                     vk::PipelineStageFlagBits::eColorAttachmentOutput |
                     vk::PipelineStageFlagBits::eEarlyFragmentTests |
-                    vk::PipelineStageFlagBits::eLateFragmentTests)
+                    vk::PipelineStageFlagBits::eLateFragmentTests |
+                    vk::PipelineStageFlagBits::eFragmentShader)
                 .setSrcAccessMask(
                     vk::AccessFlagBits::eShaderRead |
                     vk::AccessFlagBits::eColorAttachmentWrite |
@@ -88,7 +95,8 @@ namespace FREYA_NAMESPACE
                 .setDstAccessMask(
                     vk::AccessFlagBits::eColorAttachmentWrite |
                     vk::AccessFlagBits::eColorAttachmentRead |
-                    vk::AccessFlagBits::eDepthStencilAttachmentRead),
+                    vk::AccessFlagBits::eDepthStencilAttachmentRead |
+                    vk::AccessFlagBits::eInputAttachmentRead),
             vk::SubpassDependency()
                 .setSrcSubpass(0)
                 .setDstSubpass(VK_SUBPASS_EXTERNAL)
@@ -135,12 +143,18 @@ namespace FREYA_NAMESPACE
             vk::ImageLayout::eColorAttachmentOptimal);
         auto depthRef = vk::AttachmentReference().setAttachment(1).setLayout(
             vk::ImageLayout::eDepthStencilReadOnlyOptimal);
+        auto depthInputRef =
+            vk::AttachmentReference()
+                .setAttachment(1)
+                .setLayout(
+                    vk::ImageLayout::eDepthStencilReadOnlyOptimal);
 
         auto subpass =
             vk::SubpassDescription()
                 .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
                 .setColorAttachments(colorRef)
-                .setPDepthStencilAttachment(&depthRef);
+                .setPDepthStencilAttachment(&depthRef)
+                .setInputAttachments(depthInputRef);
 
         auto deps = std::array {
             vk::SubpassDependency()
@@ -153,14 +167,16 @@ namespace FREYA_NAMESPACE
                 .setDstStageMask(
                     vk::PipelineStageFlagBits::eColorAttachmentOutput |
                     vk::PipelineStageFlagBits::eEarlyFragmentTests |
-                    vk::PipelineStageFlagBits::eLateFragmentTests)
+                    vk::PipelineStageFlagBits::eLateFragmentTests |
+                    vk::PipelineStageFlagBits::eFragmentShader)
                 .setSrcAccessMask(
                     vk::AccessFlagBits::eColorAttachmentWrite |
                     vk::AccessFlagBits::eDepthStencilAttachmentRead)
                 .setDstAccessMask(
                     vk::AccessFlagBits::eColorAttachmentWrite |
                     vk::AccessFlagBits::eColorAttachmentRead |
-                    vk::AccessFlagBits::eDepthStencilAttachmentRead),
+                    vk::AccessFlagBits::eDepthStencilAttachmentRead |
+                    vk::AccessFlagBits::eInputAttachmentRead),
             vk::SubpassDependency()
                 .setSrcSubpass(0)
                 .setDstSubpass(VK_SUBPASS_EXTERNAL)
@@ -208,12 +224,18 @@ namespace FREYA_NAMESPACE
             vk::ImageLayout::eColorAttachmentOptimal);
         auto depthRef = vk::AttachmentReference().setAttachment(1).setLayout(
             vk::ImageLayout::eDepthStencilReadOnlyOptimal);
+        auto depthInputRef =
+            vk::AttachmentReference()
+                .setAttachment(1)
+                .setLayout(
+                    vk::ImageLayout::eDepthStencilReadOnlyOptimal);
 
         auto subpass =
             vk::SubpassDescription()
                 .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
                 .setColorAttachments(colorRef)
-                .setPDepthStencilAttachment(&depthRef);
+                .setPDepthStencilAttachment(&depthRef)
+                .setInputAttachments(depthInputRef);
 
         auto deps = std::array {
             vk::SubpassDependency()
@@ -227,7 +249,8 @@ namespace FREYA_NAMESPACE
                 .setDstStageMask(
                     vk::PipelineStageFlagBits::eColorAttachmentOutput |
                     vk::PipelineStageFlagBits::eEarlyFragmentTests |
-                    vk::PipelineStageFlagBits::eLateFragmentTests)
+                    vk::PipelineStageFlagBits::eLateFragmentTests |
+                    vk::PipelineStageFlagBits::eFragmentShader)
                 .setSrcAccessMask(
                     vk::AccessFlagBits::eColorAttachmentWrite |
                     vk::AccessFlagBits::eShaderRead |
@@ -235,7 +258,8 @@ namespace FREYA_NAMESPACE
                 .setDstAccessMask(
                     vk::AccessFlagBits::eColorAttachmentWrite |
                     vk::AccessFlagBits::eColorAttachmentRead |
-                    vk::AccessFlagBits::eDepthStencilAttachmentRead),
+                    vk::AccessFlagBits::eDepthStencilAttachmentRead |
+                    vk::AccessFlagBits::eInputAttachmentRead),
             vk::SubpassDependency()
                 .setSrcSubpass(0)
                 .setDstSubpass(VK_SUBPASS_EXTERNAL)
@@ -373,13 +397,26 @@ namespace FREYA_NAMESPACE
         auto setLayout = mDevice->Get().createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo().setBindings(instanceBinding));
 
+        // set=2: depth input attachment for soft particles.
+        auto depthInputBinding =
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(0)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eFragment);
+        auto depthInputSetLayout =
+            mDevice->Get().createDescriptorSetLayout(
+                vk::DescriptorSetLayoutCreateInfo().setBindings(
+                    depthInputBinding));
+
         auto pushRange = vk::PushConstantRange()
                              .setStageFlags(vk::ShaderStageFlagBits::eVertex)
                              .setOffset(0)
                              .setSize(sizeof(BillboardPush));
 
-        auto setLayouts =
-            std::array { setLayout, mMaterials->GetBindlessLayout() };
+        auto setLayouts = std::array { setLayout,
+                                       mMaterials->GetBindlessLayout(),
+                                       depthInputSetLayout };
         auto pipelineLayout = mDevice->Get().createPipelineLayout(
             vk::PipelineLayoutCreateInfo()
                 .setSetLayouts(setLayouts)
@@ -462,15 +499,35 @@ namespace FREYA_NAMESPACE
         }
         mDevice->Get().updateDescriptorSets(writes, nullptr);
 
+        auto depthInputPoolSize =
+            vk::DescriptorPoolSize()
+                .setType(vk::DescriptorType::eInputAttachment)
+                .setDescriptorCount(1);
+        auto depthInputPool = mDevice->Get().createDescriptorPool(
+            vk::DescriptorPoolCreateInfo()
+                .setPoolSizes(depthInputPoolSize)
+                .setMaxSets(1));
+        auto depthInputSet =
+            mDevice->Get()
+                .allocateDescriptorSets(
+                    vk::DescriptorSetAllocateInfo()
+                        .setDescriptorPool(depthInputPool)
+                        .setSetLayouts(depthInputSetLayout))
+                .front();
+
+        BillboardPass::DepthInputResources depthInput {
+            depthInputSetLayout, depthInputPool, depthInputSet };
+
         const auto extent = swapChain->GetExtent();
         auto       pass   = skr::MakeArc<BillboardPass>(
             mDevice, mFreyaOptions, mMaterials, hdrPass, ldrPass,
             offscreenLdrPass, pipelineLayout, setLayout, pool, sets,
             std::move(buffers), hdr, ldr, offscreenLdr,
-            std::vector<vk::Framebuffer> {}, extent, maxQuads);
+            std::vector<vk::Framebuffer> {}, extent, maxQuads, depthInput);
 
         if (depthImage)
         {
+            pass->UpdateDepthInput(depthImage->GetImageView());
             pass->UpdateLdrDepth(depthImage, swapChain);
         }
         return pass;

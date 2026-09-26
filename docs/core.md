@@ -185,9 +185,22 @@ nameplate or a partial particle batch. Readers must use `Snapshot(out)`
 (copy under lock) — the Vfx/Ui frame stages do this before packing GPU
 instances. Soft-capped at `MaxQuads()` (default `1 << 14`).
 
-`BillboardAlign::Screen` faces the camera fully; `Cylindrical` yaws only
-(same path as `Billboard::align` / `billboard.vert`). Call sites that omit
-`align` keep cylindrical nameplates.
+**Alignment modes** (`BillboardAlign`):
+
+| Mode | Description |
+|------|-------------|
+| `Screen` | View-plane aligned (camera right/up axes). |
+| `Cylindrical` | Yaw-only, world Y up. Default for nameplates. |
+| `Spherical` | Per-instance point-toward-camera (correct at wide FOV). |
+| `FixedAxis` | Cylindrical with custom up axis (`Billboard::axisUp`). |
+| `Planar` | Flat on a surface; `axisUp` is the surface normal. |
+
+**Extra features:**
+- `screenSpaceSize = true` — `size` is treated as NDC half-extents; the billboard stays the same pixel size regardless of distance. Useful for map pins and waypoints.
+- `velocityStretch = true` — the quad's long axis aligns with `velocity`; length grows by `length(velocity) * velocityStretchScale`. For sparks, tracers, rain.
+- `softParticle = true` — alpha fades where the billboard intersects geometry (reads depth via subpass input attachment). `softFadeRange` controls the NDC transition width.
+
+Call sites that omit `align` keep cylindrical nameplates.
 
 ```cpp
 auto& bb = mRenderer->GetBillboardDraw();

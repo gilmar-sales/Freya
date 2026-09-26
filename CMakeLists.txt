@@ -4,10 +4,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(Freya LANGUAGES CXX VERSION 0.58.1)
 
-# GCC 16.1 MinGW + C++26 constexpr exceptions emits a strong
-# std::runtime_error copy ctor (should be weak). That clashes with
-# cow-stdexcept.o from static libstdc++ (assimp pulls -static-libstdc++
-# on MinGW). Workaround until GCC PR125151 / msys2#29279 is fixed.
 if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         add_compile_options(
                 $<$<COMPILE_LANGUAGE:CXX>:-D__cpp_lib_constexpr_exceptions=0>)
@@ -28,7 +24,7 @@ include(FetchContent)
 FetchContent_Declare(
         SDL
         GIT_REPOSITORY "https://github.com/libsdl-org/SDL.git"
-        GIT_TAG "release-3.4.14"
+        GIT_TAG "release-3.4.16"
         GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(SDL)

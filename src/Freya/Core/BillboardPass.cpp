@@ -39,7 +39,8 @@ namespace FREYA_NAMESPACE
         std::vector<vk::Framebuffer>
                             ldrFramebuffers,
         const vk::Extent2D  extent,
-        const std::uint32_t maxQuads) :
+        const std::uint32_t maxQuads,
+        DepthInputResources depthInput) :
         mDevice(device), mFreyaOptions(freyaOptions), mMaterials(materials),
         mHdrRenderPass(hdrRenderPass), mLdrRenderPass(ldrRenderPass),
         mOffscreenLdrRenderPass(offscreenLdrRenderPass),
@@ -49,7 +50,10 @@ namespace FREYA_NAMESPACE
         mHdrPipelines(hdrPipelines), mLdrPipelines(ldrPipelines),
         mOffscreenLdrPipelines(offscreenLdrPipelines),
         mLdrFramebuffers(std::move(ldrFramebuffers)), mHdrExtent(extent),
-        mLdrExtent(extent), mMaxQuads(maxQuads)
+        mLdrExtent(extent), mMaxQuads(maxQuads),
+        mDepthInputSetLayout(depthInput.setLayout),
+        mDepthInputPool(depthInput.pool),
+        mDepthInputSet(depthInput.set)
     {
     }
 
@@ -89,6 +93,10 @@ namespace FREYA_NAMESPACE
             d.destroyDescriptorPool(mDescriptorPool);
         if (mSetLayout)
             d.destroyDescriptorSetLayout(mSetLayout);
+        if (mDepthInputPool)
+            d.destroyDescriptorPool(mDepthInputPool);
+        if (mDepthInputSetLayout)
+            d.destroyDescriptorSetLayout(mDepthInputSetLayout);
     }
 
     void BillboardPass::destroyHdrFramebuffers()
@@ -126,6 +134,7 @@ namespace FREYA_NAMESPACE
             return;
 
         mHdrDepthView = depth->GetImageView();
+        UpdateDepthInput(mHdrDepthView);
         mHdrFramebuffers.resize(colors.size());
         mHdrColorViews.resize(colors.size());
         for (std::size_t i = 0; i < colors.size(); ++i)
@@ -152,8 +161,9 @@ namespace FREYA_NAMESPACE
         if (!depth || !swapChain || !mLdrRenderPass)
             return;
 
-        mLdrOffscreen      = false;
-        mLdrDepthView      = depth->GetImageView();
+        mLdrOffscreen = false;
+        mLdrDepthView = depth->GetImageView();
+        UpdateDepthInput(mLdrDepthView);
         const auto& frames = swapChain->GetFrames();
         const auto  extent = swapChain->GetExtent();
         mLdrExtent         = extent;
@@ -184,6 +194,7 @@ namespace FREYA_NAMESPACE
 
         mLdrOffscreen = true;
         mLdrDepthView = depth->GetImageView();
+        UpdateDepthInput(mLdrDepthView);
         mLdrExtent    = extent;
         mLdrFramebuffers.resize(1);
         auto views = std::array { color->GetImageView(), mLdrDepthView };
@@ -194,6 +205,24 @@ namespace FREYA_NAMESPACE
                 .setWidth(extent.width)
                 .setHeight(extent.height)
                 .setLayers(1));
+    }
+
+    void BillboardPass::UpdateDepthInput(const vk::ImageView depthView)
+    {
+        if (!mDepthInputSet || !depthView)
+            return;
+        auto imgInfo = vk::DescriptorImageInfo()
+                           .setImageView(depthView)
+                           .setImageLayout(
+                               vk::ImageLayout::eDepthStencilReadOnlyOptimal);
+        auto write =
+            vk::WriteDescriptorSet()
+                .setDstSet(mDepthInputSet)
+                .setDstBinding(0)
+                .setDescriptorCount(1)
+                .setDescriptorType(vk::DescriptorType::eInputAttachment)
+                .setImageInfo(imgInfo);
+        mDevice->Get().updateDescriptorSets(write, nullptr);
     }
 
     vk::Pipeline BillboardPass::pickPipeline(const BillboardTarget target,
@@ -353,6 +382,10 @@ namespace FREYA_NAMESPACE
             &mInstanceSets[frameIndex], 0, nullptr);
         cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
                                mPipelineLayout, 1, 1, &bindless, 0, nullptr);
+        if (mDepthInputSet)
+            cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+                                   mPipelineLayout, 2, 1,
+                                   &mDepthInputSet, 0, nullptr);
 
         BillboardPush push { view, proj };
         cmd.pushConstants(mPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0,
