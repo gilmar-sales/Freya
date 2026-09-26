@@ -11,22 +11,25 @@ namespace FREYA_NAMESPACE
     {
       public:
         GpuAnimPassBuilder(
-            const skr::Arc<Device>&               device,
-            const skr::Arc<FreyaOptions>&         freyaOptions,
-            const skr::Arc<BoneMatrixResources>&  boneResources,
-            const skr::Arc<skr::ServiceProvider>& serviceProvider) :
+            const skr::Arc<Device>&                          device,
+            const skr::Arc<FreyaOptions>&                    freyaOptions,
+            const skr::Arc<BoneMatrixResources>&             boneResources,
+            const skr::Arc<skr::ServiceProvider>&            serviceProvider,
+            const skr::Arc<skr::Logger<GpuAnimPassBuilder>>& logger) :
             mDevice(device), mFreyaOptions(freyaOptions),
-            mBoneResources(boneResources), mServiceProvider(serviceProvider)
+            mBoneResources(boneResources), mServiceProvider(serviceProvider),
+            mLogger(logger)
         {
         }
 
         skr::Arc<GpuAnimPass> Build();
 
       private:
-        skr::Arc<Device>               mDevice;
-        skr::Arc<FreyaOptions>         mFreyaOptions;
-        skr::Arc<BoneMatrixResources>  mBoneResources;
-        skr::Arc<skr::ServiceProvider> mServiceProvider;
+        skr::Arc<Device>                          mDevice;
+        skr::Arc<FreyaOptions>                    mFreyaOptions;
+        skr::Arc<BoneMatrixResources>             mBoneResources;
+        skr::Arc<skr::ServiceProvider>            mServiceProvider;
+        skr::Arc<skr::Logger<GpuAnimPassBuilder>> mLogger;
     };
 
 } // namespace FREYA_NAMESPACE

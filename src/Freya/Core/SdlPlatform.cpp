@@ -14,7 +14,7 @@ namespace FREYA_NAMESPACE
                         "Failed to initialize SDL3");
 
         const auto vulkanLoad = SDL_Vulkan_LoadLibrary(nullptr);
-        mLogger->LogWarning("Vulkan loaded: {}", vulkanLoad);
+        mLogger->LogTrace("Vulkan loaded: {}", vulkanLoad);
     }
 
     SdlPlatform::~SdlPlatform()

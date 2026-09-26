@@ -2,8 +2,6 @@
 
 #include "Freya/Internal/GpuAnimPassImpl.hpp"
 
-#include <memory>
-
 #include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ShaderModuleBuilder.hpp"
 #include "Freya/Core/ShaderModule.hpp"
@@ -11,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <iostream>
+#include <memory>
 
 namespace FREYA_NAMESPACE
 {
@@ -20,9 +19,9 @@ namespace FREYA_NAMESPACE
         const auto shaderPath = mFreyaOptions->shaderRoot +
                                 (quantize ? "/Anim/skin_bake_quant.comp.spv"
                                           : "/Anim/skin_bake.comp.spv");
-        auto       shader = mServiceProvider->GetService<ShaderModuleBuilder>()
-                                ->SetFilePath(shaderPath)
-                                .Build();
+        auto shader = mServiceProvider->GetService<ShaderModuleBuilder>()
+                          ->SetFilePath(shaderPath)
+                          .Build();
 
         const auto jointStride =
             quantize ? sizeof(GpuQuantJoint) : sizeof(GpuFloatJoint);
@@ -202,7 +201,7 @@ namespace FREYA_NAMESPACE
                     .setBufferInfo(info);
             mDevice->Get().updateDescriptorSets(write, {});
         };
-        // Binding order matches skin_bake_body.inc (0..8) + skeleton headers@9.
+
         writeSsbo(0, parentsBuf, parentsBytes);
         writeSsbo(1, invBindBuf, invBindBytes);
         writeSsbo(2, clipHdrBuf, std::max(clipHdrBytes, 256u));
@@ -218,8 +217,7 @@ namespace FREYA_NAMESPACE
             vk::PushConstantRange()
                 .setStageFlags(vk::ShaderStageFlagBits::eCompute)
                 .setOffset(0)
-                .setSize(
-                    static_cast<std::uint32_t>(sizeof(std::uint32_t) * 4u));
+                .setSize(sizeof(std::uint32_t) * 4u);
 
         const auto setLayouts =
             std::array { mBoneResources->GetLayout(), animSetLayout };
@@ -233,9 +231,8 @@ namespace FREYA_NAMESPACE
                          .setModule(shader->Get())
                          .setPName("main");
 
-        std::cout << "[GpuAnimPass] createComputePipeline ("
-                  << (quantize ? "skin_bake_quant" : "skin_bake") << ")...\n"
-                  << std::flush;
+        mLogger->LogTrace("Creating compute pipeline ({})",
+                          (quantize ? "skin_bake_quant" : "skin_bake"));
         auto pipeline =
             mDevice->Get()
                 .createComputePipeline(
@@ -243,7 +240,8 @@ namespace FREYA_NAMESPACE
                     vk::ComputePipelineCreateInfo().setStage(stage).setLayout(
                         pipelineLayout))
                 .value;
-        std::cout << "[GpuAnimPass] createComputePipeline OK\n" << std::flush;
+
+        mLogger->LogTrace("Created compute pipeline");
 
         mDevice->Get().destroyShaderModule(shader->Get());
 
