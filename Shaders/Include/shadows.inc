@@ -94,9 +94,8 @@ float SampleCascadeLayer(int cascade, vec3 worldPos, vec3 N, vec3 lightDir,
         max(shadows.params.x * (2.0 + 3.0 * slope), ndcBias * 1.1);
 
     float cascadeRes = CascadeMapResolution();
-    // Cap soft kernel like a tight local light (was up to 8 texels → mushy).
     float uvRadius = max(
-        SoftUvRadius(ts, min(shadows.pcss.y, 2.0), cascadeRes),
+        SoftUvRadius(ts, shadows.pcss.y, cascadeRes),
         1.0 / cascadeRes);
 
     return SoftShadow2DUV(cascadeShadowMap, shadows.cascadeViewProj[cascade],
