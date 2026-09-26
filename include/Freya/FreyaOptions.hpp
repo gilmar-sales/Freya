@@ -62,11 +62,7 @@ namespace FREYA_NAMESPACE
         Shadows     = 11,
     };
 
-    [[nodiscard]] inline bool IsDeferredDebugActive(
-        const DeferredDebugView view)
-    {
-        return view != DeferredDebugView::None;
-    }
+    [[nodiscard]] bool IsDeferredDebugActive(DeferredDebugView view);
 
     /**
      * @brief TAA responsiveness vs stability preset.
@@ -121,22 +117,11 @@ namespace FREYA_NAMESPACE
     /**
      * @brief Scales a full render extent by an integer divisor (≥1).
      */
-    inline Extent2D ScaledExtent(Extent2D full, std::uint32_t divisor)
-    {
-        divisor = std::max(1u, divisor);
-        return Extent2D { std::max(1u, full.width / divisor),
-                          std::max(1u, full.height / divisor) };
-    }
-
+    Extent2D ScaledExtent(Extent2D full, std::uint32_t divisor);
     /// Absolute side length wins when >0; otherwise cascadeRes / divisor.
-    inline std::uint32_t ResolveShadowSideResolution(
-        const std::uint32_t cascadeResolution, const std::uint32_t absolute,
-        const std::uint32_t divisor)
-    {
-        if (absolute > 0)
-            return absolute;
-        return std::max(1u, cascadeResolution / std::max(1u, divisor));
-    }
+    std::uint32_t ResolveShadowSideResolution(std::uint32_t cascadeResolution,
+                                              std::uint32_t absolute,
+                                              std::uint32_t divisor);
 
     /**
      * @brief Global configuration options for Freya engine.

@@ -10,6 +10,46 @@
 
 namespace FREYA_NAMESPACE
 {
+    AnimCondition AnimCondition::FloatGreater(std::string name, float value)
+    {
+        return { Kind::FloatGreater, std::move(name), value };
+    }
+
+    AnimCondition AnimCondition::FloatLessEqual(std::string name, float value)
+    {
+        return { Kind::FloatLessEqual, std::move(name), value };
+    }
+
+    AnimCondition AnimCondition::BoolTrue(std::string name)
+    {
+        return { Kind::BoolTrue, std::move(name), 0.f };
+    }
+
+    AnimCondition AnimCondition::BoolFalse(std::string name)
+    {
+        return { Kind::BoolFalse, std::move(name), 0.f };
+    }
+
+    AnimCondition AnimCondition::OnTrigger(std::string name)
+    {
+        return { Kind::Trigger, std::move(name), 0.f };
+    }
+
+    bool AnimGraph::IsBlending() const
+    {
+        return mBlending;
+    }
+
+    std::uint32_t AnimGraph::LayerCount() const
+    {
+        return static_cast<std::uint32_t>(mLayers.size());
+    }
+
+    const Skeleton* AnimGraph::GetSkeleton() const
+    {
+        return mSkeleton;
+    }
+
     void AnimGraph::SetFloat(const std::string_view name, const float value)
     {
         const std::string key { name };

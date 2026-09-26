@@ -37,23 +37,11 @@ namespace FREYA_NAMESPACE
         std::uint32_t Register(std::string name,
                                std::string fragmentRelativeSpv);
 
-        [[nodiscard]] std::uint32_t Count() const
-        {
-            return static_cast<std::uint32_t>(mEntries.size()) + 1u;
-        }
+        [[nodiscard]] std::uint32_t Count() const;
 
-        [[nodiscard]] const Entry* Get(std::uint32_t techniqueId) const
-        {
-            if (techniqueId == kDefaultTechnique ||
-                techniqueId > mEntries.size())
-                return nullptr;
-            return &mEntries[techniqueId - 1u];
-        }
+        [[nodiscard]] const Entry* Get(std::uint32_t techniqueId) const;
 
-        [[nodiscard]] const std::vector<Entry>& Entries() const
-        {
-            return mEntries;
-        }
+        [[nodiscard]] const std::vector<Entry>& Entries() const;
 
       private:
         std::vector<Entry> mEntries;

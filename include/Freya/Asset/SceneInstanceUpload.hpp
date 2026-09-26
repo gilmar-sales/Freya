@@ -33,18 +33,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t boneCount  = 0;
     };
 
-    [[nodiscard]] inline std::uint32_t MakeSceneInstanceFlags(
-        const bool castShadows, const bool translucent = false,
-        const bool skinned = false)
-    {
-        std::uint32_t flags = 0;
-        if (castShadows)
-            flags |= kSceneInstanceFlagCastShadows;
-        if (translucent)
-            flags |= kSceneInstanceFlagTranslucent;
-        if (skinned)
-            flags |= kSceneInstanceFlagSkinned;
-        return flags;
-    }
+    [[nodiscard]] std::uint32_t MakeSceneInstanceFlags(
+        bool castShadows, bool translucent = false, bool skinned = false);
 
 } // namespace FREYA_NAMESPACE

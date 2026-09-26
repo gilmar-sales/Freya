@@ -25,27 +25,21 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Select a custom lighting fragment (empty clears override).
          */
-        void SetFragment(std::string fragmentRelativeSpv)
-        {
-            mFragment = std::move(fragmentRelativeSpv);
-        }
+        void SetFragment(std::string fragmentRelativeSpv);
 
-        void Clear() { mFragment.clear(); }
+        void Clear();
 
-        [[nodiscard]] bool HasOverride() const { return !mFragment.empty(); }
+        [[nodiscard]] bool HasOverride() const;
 
         /**
          * @brief Active relative path, or empty when using the stock default.
          */
-        [[nodiscard]] const std::string& Fragment() const { return mFragment; }
+        [[nodiscard]] const std::string& Fragment() const;
 
         /**
          * @brief Path loaded by DeferredCompressedPassBuilder.
          */
-        [[nodiscard]] std::string FragmentOrDefault() const
-        {
-            return HasOverride() ? mFragment : std::string(kDefaultFragment);
-        }
+        [[nodiscard]] std::string FragmentOrDefault() const;
 
       private:
         std::string mFragment;

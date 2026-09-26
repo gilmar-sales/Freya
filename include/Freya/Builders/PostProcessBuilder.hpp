@@ -15,35 +15,15 @@ namespace FREYA_NAMESPACE
         PostProcessBuilder(
             const skr::Arc<skr::ServiceProvider>& serviceProvider);
 
-        PostProcessBuilder& SetName(std::string name)
-        {
-            mName = std::move(name);
-            return *this;
-        }
+        PostProcessBuilder& SetName(std::string name);
 
-        PostProcessBuilder& SetFragment(std::string relativeSpv)
-        {
-            mFragmentRelative = std::move(relativeSpv);
-            return *this;
-        }
+        PostProcessBuilder& SetFragment(std::string relativeSpv);
 
-        PostProcessBuilder& SetVertex(std::string relativeSpv)
-        {
-            mVertexRelative = std::move(relativeSpv);
-            return *this;
-        }
+        PostProcessBuilder& SetVertex(std::string relativeSpv);
 
-        PostProcessBuilder& SetInputs(std::vector<PostProcessInput> inputs)
-        {
-            mInputs = std::move(inputs);
-            return *this;
-        }
+        PostProcessBuilder& SetInputs(std::vector<PostProcessInput> inputs);
 
-        PostProcessBuilder& SetPushConstantSize(std::uint32_t size)
-        {
-            mPushConstantSize = size;
-            return *this;
-        }
+        PostProcessBuilder& SetPushConstantSize(std::uint32_t size);
 
         skr::Arc<PostProcess> Build();
 

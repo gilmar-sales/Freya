@@ -24,11 +24,7 @@ namespace FREYA_NAMESPACE
          */
         FreyaExtension& WithOptions(
             const std::function<void(FreyaOptionsBuilder&)>&
-                freyaOptionsBuilderFunc)
-        {
-            freyaOptionsBuilderFunc(mFreyaOptionsBuilder);
-            return *this;
-        }
+                freyaOptionsBuilderFunc);
 
       protected:
         void ConfigureServices(skr::ServiceCollection& services) override;

@@ -1,7 +1,30 @@
 #include "Freya/FreyaOptions.hpp"
 
+#include <algorithm>
+
 namespace FREYA_NAMESPACE
 {
+
+    bool IsDeferredDebugActive(DeferredDebugView view)
+    {
+        return view != DeferredDebugView::None;
+    }
+
+    Extent2D ScaledExtent(Extent2D full, std::uint32_t divisor)
+    {
+        divisor = std::max(1u, divisor);
+        return Extent2D { std::max(1u, full.width / divisor),
+                          std::max(1u, full.height / divisor) };
+    }
+
+    std::uint32_t ResolveShadowSideResolution(std::uint32_t cascadeResolution,
+                                              std::uint32_t absolute,
+                                              std::uint32_t divisor)
+    {
+        if (absolute > 0)
+            return absolute;
+        return std::max(1u, cascadeResolution / std::max(1u, divisor));
+    }
 
     void ApplyShadowQuality(FreyaOptions& options, ShadowQuality quality)
     {

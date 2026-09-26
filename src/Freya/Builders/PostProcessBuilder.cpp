@@ -14,6 +14,38 @@ namespace FREYA_NAMESPACE
     {
     }
 
+    PostProcessBuilder& PostProcessBuilder::SetName(std::string name)
+    {
+        mName = std::move(name);
+        return *this;
+    }
+
+    PostProcessBuilder& PostProcessBuilder::SetFragment(std::string relativeSpv)
+    {
+        mFragmentRelative = std::move(relativeSpv);
+        return *this;
+    }
+
+    PostProcessBuilder& PostProcessBuilder::SetVertex(std::string relativeSpv)
+    {
+        mVertexRelative = std::move(relativeSpv);
+        return *this;
+    }
+
+    PostProcessBuilder& PostProcessBuilder::SetInputs(
+        std::vector<PostProcessInput> inputs)
+    {
+        mInputs = std::move(inputs);
+        return *this;
+    }
+
+    PostProcessBuilder& PostProcessBuilder::SetPushConstantSize(
+        std::uint32_t size)
+    {
+        mPushConstantSize = size;
+        return *this;
+    }
+
     skr::Arc<PostProcess> PostProcessBuilder::Build()
     {
         if (mFragmentRelative.empty())

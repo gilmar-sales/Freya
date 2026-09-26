@@ -16,4 +16,23 @@ namespace FREYA_NAMESPACE
         });
         return static_cast<std::uint32_t>(mEntries.size());
     }
+
+    std::uint32_t MaterialTechniqueRegistry::Count() const
+    {
+        return static_cast<std::uint32_t>(mEntries.size()) + 1u;
+    }
+
+    const MaterialTechniqueRegistry::Entry* MaterialTechniqueRegistry::Get(
+        std::uint32_t techniqueId) const
+    {
+        if (techniqueId == kDefaultTechnique || techniqueId > mEntries.size())
+            return nullptr;
+        return &mEntries[techniqueId - 1u];
+    }
+
+    const std::vector<MaterialTechniqueRegistry::Entry>&
+    MaterialTechniqueRegistry::Entries() const
+    {
+        return mEntries;
+    }
 } // namespace FREYA_NAMESPACE

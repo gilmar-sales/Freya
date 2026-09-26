@@ -2,7 +2,6 @@
 
 #include "Freya/Asset/TexturePool.hpp"
 
-#include <algorithm>
 #include <cstdint>
 
 #include <glm/glm.hpp>
@@ -96,14 +95,7 @@ namespace FREYA_NAMESPACE
             return { x - pad, y - pad, w + pad * 2.f, h + pad * 2.f };
         }
 
-        [[nodiscard]] UiRect Intersect(const UiRect& o) const
-        {
-            const float x0 = std::max(x, o.x);
-            const float y0 = std::max(y, o.y);
-            const float x1 = std::min(x + w, o.x + o.w);
-            const float y1 = std::min(y + h, o.y + o.h);
-            return { x0, y0, std::max(0.f, x1 - x0), std::max(0.f, y1 - y0) };
-        }
+        [[nodiscard]] UiRect Intersect(const UiRect& o) const;
 
         [[nodiscard]] glm::vec2 Center() const
         {

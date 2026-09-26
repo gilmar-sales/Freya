@@ -49,6 +49,14 @@
 namespace FREYA_NAMESPACE
 {
 
+    FreyaExtension& FreyaExtension::WithOptions(
+        const std::function<void(FreyaOptionsBuilder&)>&
+            freyaOptionsBuilderFunc)
+    {
+        freyaOptionsBuilderFunc(mFreyaOptionsBuilder);
+        return *this;
+    }
+
     void FreyaExtension::ConfigureServices(skr::ServiceCollection& services)
     {
         const auto baseOptions = mFreyaOptionsBuilder.Build();

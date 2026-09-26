@@ -83,30 +83,15 @@ namespace FREYA_NAMESPACE
         std::string param;
         float       threshold = 0.f;
 
-        static AnimCondition FloatGreater(std::string name, float value)
-        {
-            return { Kind::FloatGreater, std::move(name), value };
-        }
+        static AnimCondition FloatGreater(std::string name, float value);
 
-        static AnimCondition FloatLessEqual(std::string name, float value)
-        {
-            return { Kind::FloatLessEqual, std::move(name), value };
-        }
+        static AnimCondition FloatLessEqual(std::string name, float value);
 
-        static AnimCondition BoolTrue(std::string name)
-        {
-            return { Kind::BoolTrue, std::move(name), 0.f };
-        }
+        static AnimCondition BoolTrue(std::string name);
 
-        static AnimCondition BoolFalse(std::string name)
-        {
-            return { Kind::BoolFalse, std::move(name), 0.f };
-        }
+        static AnimCondition BoolFalse(std::string name);
 
-        static AnimCondition OnTrigger(std::string name)
-        {
-            return { Kind::Trigger, std::move(name), 0.f };
-        }
+        static AnimCondition OnTrigger(std::string name);
     };
 
     /**
@@ -161,7 +146,7 @@ namespace FREYA_NAMESPACE
             float dt, std::vector<FiredAnimationEvent>* outEvents = nullptr);
 
         [[nodiscard]] std::string_view CurrentStateName() const;
-        [[nodiscard]] bool             IsBlending() const { return mBlending; }
+        [[nodiscard]] bool             IsBlending() const;
 
         /**
          * @brief Pack current loco state for GPU (Blend1D or Blend2D).
@@ -204,12 +189,9 @@ namespace FREYA_NAMESPACE
          */
         void ApplyDebugSnapshot(const AnimGraphDebugSnapshot& in);
 
-        [[nodiscard]] std::uint32_t LayerCount() const
-        {
-            return static_cast<std::uint32_t>(mLayers.size());
-        }
+        [[nodiscard]] std::uint32_t LayerCount() const;
 
-        [[nodiscard]] const Skeleton* GetSkeleton() const { return mSkeleton; }
+        [[nodiscard]] const Skeleton* GetSkeleton() const;
 
       private:
         friend class AnimGraphBuilder;

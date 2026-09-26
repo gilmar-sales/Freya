@@ -4,7 +4,6 @@
 
 #include <Skirnir/Skirnir.hpp>
 
-#include <algorithm>
 #include <cstdint>
 #include <string>
 
@@ -23,7 +22,7 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Constructs builder with default options.
          */
-        FreyaOptionsBuilder() : mFreyaOptions(skr::MakeArc<FreyaOptions>()) {};
+        FreyaOptionsBuilder();
         ~FreyaOptionsBuilder() = default;
 
         /**
@@ -31,163 +30,91 @@ namespace FREYA_NAMESPACE
          * @param title Window title string
          * @return Reference to this for chaining
          */
-        FreyaOptionsBuilder& SetTitle(const std::string& title)
-        {
-            mFreyaOptions->title = title;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetTitle(const std::string& title);
 
         /**
          * @brief Sets window width.
          * @param width Width in pixels
          * @return Reference to this for chaining
          */
-        FreyaOptionsBuilder& SetWidth(std::uint32_t width)
-        {
-            mFreyaOptions->width = width;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetWidth(std::uint32_t width);
 
         /**
          * @brief Sets window height.
          * @param height Height in pixels
          * @return Reference to this for chaining
          */
-        FreyaOptionsBuilder& SetHeight(std::uint32_t height)
-        {
-            mFreyaOptions->height = height;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetHeight(std::uint32_t height);
 
         /**
          * @brief Sets vertical synchronization.
          * @param vSync true to enable vsync
          * @return Reference to this for chaining
          */
-        FreyaOptionsBuilder& SetVSync(bool vSync)
-        {
-            mFreyaOptions->vSync = vSync;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetVSync(bool vSync);
 
         /**
          * @brief Sets fullscreen mode.
          * @param fullscreen true for fullscreen
          * @return Reference to this for chaining
          */
-        FreyaOptionsBuilder& SetFullscreen(bool fullscreen)
-        {
-            mFreyaOptions->fullscreen = fullscreen;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetFullscreen(bool fullscreen);
 
         /**
          * @brief Sets MSAA sample count.
          * @param sampleCount Sample count (1, 2, 4, 8, 16, 32, 64)
          * @return Reference to this for chaining
          */
-        FreyaOptionsBuilder& SetSampleCount(std::uint32_t sampleCount)
-        {
-            mFreyaOptions->sampleCount = sampleCount;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetSampleCount(std::uint32_t sampleCount);
 
         /**
          * @brief Sets frame count (swapchain image count).
          * @param frameCount Number of frames
          * @return Reference to this for chaining
          */
-        FreyaOptionsBuilder& SetFrameCount(std::uint32_t frameCount)
-        {
-            mFreyaOptions->frameCount = frameCount;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetFrameCount(std::uint32_t frameCount);
 
         /**
          * @brief Sets clear color for render pass.
          * @param clearColor Clear color value
          * @return Reference to this for chaining
          */
-        FreyaOptionsBuilder& SetClearColor(const glm::vec4& clearColor)
-        {
-            mFreyaOptions->clearColor = clearColor;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetClearColor(const glm::vec4& clearColor);
 
         /**
          * @brief Sets draw distance for frustum culling.
          * @param drawDistance Draw distance in world units
          * @return Reference to this for chaining
          */
-        FreyaOptionsBuilder& SetDrawDistance(float drawDistance)
-        {
-            mFreyaOptions->drawDistance = drawDistance;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetDrawDistance(float drawDistance);
 
         /**
          * @brief Sets maximum number of lights.
          * @param maxLights Maximum light count (default 64)
          * @return Reference to this for chaining
          */
-        FreyaOptionsBuilder& SetMaxLights(std::uint32_t maxLights)
-        {
-            mFreyaOptions->maxLights = maxLights;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetMaxLights(std::uint32_t maxLights);
 
-        FreyaOptionsBuilder& SetIblIntensity(float intensity)
-        {
-            mFreyaOptions->iblIntensity = intensity;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetIblIntensity(float intensity);
 
-        FreyaOptionsBuilder& SetExposure(float exposure)
-        {
-            mFreyaOptions->exposure = exposure;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetExposure(float exposure);
 
-        FreyaOptionsBuilder& SetAmbient(const glm::vec3& color, float intensity)
-        {
-            mFreyaOptions->ambientColor     = color;
-            mFreyaOptions->ambientIntensity = intensity;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetAmbient(const glm::vec3& color,
+                                        float            intensity);
 
-        FreyaOptionsBuilder& SetEnvironmentMapPath(const std::string& path)
-        {
-            mFreyaOptions->environmentMapPath = path;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetEnvironmentMapPath(const std::string& path);
 
-        FreyaOptionsBuilder& SetShadowCascadeCount(std::uint32_t count)
-        {
-            mFreyaOptions->shadowCascadeCount = count;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetShadowCascadeCount(std::uint32_t count);
 
-        FreyaOptionsBuilder& SetShadowMapResolution(std::uint32_t resolution)
-        {
-            mFreyaOptions->shadowMapResolution = resolution;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetShadowMapResolution(std::uint32_t resolution);
 
-        FreyaOptionsBuilder& SetShadowBias(float bias)
-        {
-            mFreyaOptions->shadowBias = bias;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetShadowBias(float bias);
 
         /**
          * @brief Max view-space range of directional CSM (meters).
          * Independent of draw distance; keep modest for contact quality.
          */
-        FreyaOptionsBuilder& SetShadowCascadeDistance(float distance)
-        {
-            mFreyaOptions->shadowCascadeDistance = std::max(1.0f, distance);
-            return *this;
-        }
+        FreyaOptionsBuilder& SetShadowCascadeDistance(float distance);
 
         /**
          * @brief Fraction of each cascade split used to blend into the next
@@ -195,290 +122,112 @@ namespace FREYA_NAMESPACE
          * cascade banding at the cost of sampling two cascades per pixel in
          * the blend zone.
          */
-        FreyaOptionsBuilder& SetShadowCascadeBlend(float blend)
-        {
-            mFreyaOptions->shadowCascadeBlend =
-                std::clamp(blend, 0.0f, 0.5f);
-            return *this;
-        }
+        FreyaOptionsBuilder& SetShadowCascadeBlend(float blend);
 
-        FreyaOptionsBuilder& SetShadowLightSize(float lightSize)
-        {
-            mFreyaOptions->shadowLightSize = lightSize;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetShadowLightSize(float lightSize);
 
-        FreyaOptionsBuilder& SetShadowMaxSoftness(float maxSoftness)
-        {
-            mFreyaOptions->shadowMaxSoftness = maxSoftness;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetShadowMaxSoftness(float maxSoftness);
 
-        FreyaOptionsBuilder& SetShadowMinVisibility(float minVisibility)
-        {
-            mFreyaOptions->shadowMinVisibility = minVisibility;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetShadowMinVisibility(float minVisibility);
 
-        FreyaOptionsBuilder& SetMaxSpotShadows(std::uint32_t count)
-        {
-            mFreyaOptions->maxSpotShadows = count;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetMaxSpotShadows(std::uint32_t count);
 
-        FreyaOptionsBuilder& SetMaxPointShadows(std::uint32_t count)
-        {
-            mFreyaOptions->maxPointShadows = count;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetMaxPointShadows(std::uint32_t count);
 
-        FreyaOptionsBuilder& SetShadowPointResolution(std::uint32_t resolution)
-        {
-            mFreyaOptions->shadowPointResolution = resolution;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetShadowPointResolution(std::uint32_t resolution);
 
         FreyaOptionsBuilder& SetShadowPointResolutionDivisor(
-            std::uint32_t divisor)
-        {
-            mFreyaOptions->shadowPointResolutionDivisor = divisor;
-            return *this;
-        }
+            std::uint32_t divisor);
 
-        FreyaOptionsBuilder& SetShadowSpotResolution(std::uint32_t resolution)
-        {
-            mFreyaOptions->shadowSpotResolution = resolution;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetShadowSpotResolution(std::uint32_t resolution);
 
         FreyaOptionsBuilder& SetShadowSpotResolutionDivisor(
-            std::uint32_t divisor)
-        {
-            mFreyaOptions->shadowSpotResolutionDivisor = divisor;
-            return *this;
-        }
+            std::uint32_t divisor);
 
-        FreyaOptionsBuilder& SetShadowPointUpdatePeriod(std::uint32_t period)
-        {
-            mFreyaOptions->shadowPointUpdatePeriod = period;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetShadowPointUpdatePeriod(std::uint32_t period);
 
-        FreyaOptionsBuilder& SetShadowSampleCount(std::uint32_t count)
-        {
-            mFreyaOptions->shadowSampleCount = count;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetShadowSampleCount(std::uint32_t count);
 
         /**
          * @brief Applies a ShadowQuality preset (resolution, cascades,
          * spot/point slots, soft-shadow tap count). Bias / light size /
          * softness knobs are left unchanged.
          */
-        FreyaOptionsBuilder& SetShadowQuality(ShadowQuality quality)
-        {
-            ApplyShadowQuality(*mFreyaOptions, quality);
-            return *this;
-        }
+        FreyaOptionsBuilder& SetShadowQuality(ShadowQuality quality);
 
-        FreyaOptionsBuilder& SetSsaoQuality(SsaoQuality quality)
-        {
-            ApplySsaoQuality(*mFreyaOptions, quality);
-            return *this;
-        }
+        FreyaOptionsBuilder& SetSsaoQuality(SsaoQuality quality);
 
-        FreyaOptionsBuilder& SetTaaQuality(TaaQuality quality)
-        {
-            ApplyTaaQuality(*mFreyaOptions, quality);
-            return *this;
-        }
+        FreyaOptionsBuilder& SetTaaQuality(TaaQuality quality);
 
-        FreyaOptionsBuilder& SetBloomQuality(BloomQuality quality)
-        {
-            ApplyBloomQuality(*mFreyaOptions, quality);
-            return *this;
-        }
+        FreyaOptionsBuilder& SetBloomQuality(BloomQuality quality);
 
         /**
          * @brief Applies an AnimationQuality preset (LOD distances /
          * Hz rates / bakeHz). Per-field setters still override after.
          */
-        FreyaOptionsBuilder& SetAnimationQuality(AnimationQuality quality)
-        {
-            ApplyAnimationQuality(*mFreyaOptions, quality);
-            return *this;
-        }
+        FreyaOptionsBuilder& SetAnimationQuality(AnimationQuality quality);
 
-        FreyaOptionsBuilder& SetAnimLodEnabled(bool enabled)
-        {
-            mFreyaOptions->enableAnimLod = enabled;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetAnimLodEnabled(bool enabled);
 
-        FreyaOptionsBuilder& SetAnimBakeHz(float hz)
-        {
-            mFreyaOptions->animBakeHz = std::max(1.f, hz);
-            return *this;
-        }
+        FreyaOptionsBuilder& SetAnimBakeHz(float hz);
 
-        FreyaOptionsBuilder& SetQuantizeGpuAnimJoints(bool enabled)
-        {
-            mFreyaOptions->quantizeGpuAnimJoints = enabled;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetQuantizeGpuAnimJoints(bool enabled);
 
-        FreyaOptionsBuilder& SetSsaoResolutionDivisor(std::uint32_t divisor)
-        {
-            mFreyaOptions->ssaoResolutionDivisor = std::max(1u, divisor);
-            return *this;
-        }
+        FreyaOptionsBuilder& SetSsaoResolutionDivisor(std::uint32_t divisor);
 
-        FreyaOptionsBuilder& SetSsaoRadius(float radius)
-        {
-            mFreyaOptions->ssaoRadius = radius;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetSsaoRadius(float radius);
 
-        FreyaOptionsBuilder& SetSsaoBias(float bias)
-        {
-            mFreyaOptions->ssaoBias = bias;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetSsaoBias(float bias);
 
-        FreyaOptionsBuilder& SetSsaoPower(float power)
-        {
-            mFreyaOptions->ssaoPower = power;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetSsaoPower(float power);
 
-        FreyaOptionsBuilder& SetDeferredDebugView(DeferredDebugView view)
-        {
-            mFreyaOptions->deferredDebugView = view;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetDeferredDebugView(DeferredDebugView view);
 
-        FreyaOptionsBuilder& SetSsaoIntensity(float intensity)
-        {
-            mFreyaOptions->ssaoIntensity = intensity;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetSsaoIntensity(float intensity);
 
-        FreyaOptionsBuilder& SetTaaCurrentWeight(float weight)
-        {
-            mFreyaOptions->taaCurrentWeight = weight;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetTaaCurrentWeight(float weight);
 
-        FreyaOptionsBuilder& SetTaaHaltonPeriod(std::uint32_t period)
-        {
-            mFreyaOptions->taaHaltonPeriod = std::max(1u, period);
-            return *this;
-        }
+        FreyaOptionsBuilder& SetTaaHaltonPeriod(std::uint32_t period);
 
-        FreyaOptionsBuilder& SetTaaVarianceGammaY(float gamma)
-        {
-            mFreyaOptions->taaVarianceGammaY = gamma;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetTaaVarianceGammaY(float gamma);
 
-        FreyaOptionsBuilder& SetTaaVarianceGammaC(float gamma)
-        {
-            mFreyaOptions->taaVarianceGammaC = gamma;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetTaaVarianceGammaC(float gamma);
 
-        FreyaOptionsBuilder& SetTaaDepthRejectThreshold(float threshold)
-        {
-            mFreyaOptions->taaDepthRejectThreshold = threshold;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetTaaDepthRejectThreshold(float threshold);
 
-        FreyaOptionsBuilder& SetTaaSharpen(float sharpen)
-        {
-            mFreyaOptions->taaSharpen = sharpen;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetTaaSharpen(float sharpen);
 
-        FreyaOptionsBuilder& SetBloomResolutionDivisor(std::uint32_t divisor)
-        {
-            mFreyaOptions->bloomResolutionDivisor = std::max(1u, divisor);
-            return *this;
-        }
+        FreyaOptionsBuilder& SetBloomResolutionDivisor(std::uint32_t divisor);
 
-        FreyaOptionsBuilder& SetBloomThreshold(float threshold)
-        {
-            mFreyaOptions->bloomThreshold = threshold;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetBloomThreshold(float threshold);
 
-        FreyaOptionsBuilder& SetBloomExtractScale(float scale)
-        {
-            mFreyaOptions->bloomExtractScale = scale;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetBloomExtractScale(float scale);
 
-        FreyaOptionsBuilder& SetBloomStrength(float strength)
-        {
-            mFreyaOptions->bloomStrength = strength;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetBloomStrength(float strength);
 
-        FreyaOptionsBuilder& WithReverseZ(bool value = true)
-        {
-            mFreyaOptions->ReverseZ = value;
+        FreyaOptionsBuilder& WithReverseZ(bool value = true);
 
-            return *this;
-        }
+        FreyaOptionsBuilder& SetShaderRoot(const std::string& shaderRoot);
 
-        FreyaOptionsBuilder& SetShaderRoot(const std::string& shaderRoot)
-        {
-            mFreyaOptions->shaderRoot = shaderRoot;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetEnableShadows(bool enable);
 
-        FreyaOptionsBuilder& SetEnableShadows(bool enable)
-        {
-            mFreyaOptions->enableShadows = enable;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetEnableSsao(bool enable);
 
-        FreyaOptionsBuilder& SetEnableSsao(bool enable)
-        {
-            mFreyaOptions->enableSsao = enable;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetEnableTaa(bool enable);
 
-        FreyaOptionsBuilder& SetEnableTaa(bool enable)
-        {
-            mFreyaOptions->enableTaa = enable;
-            return *this;
-        }
-
-        FreyaOptionsBuilder& SetEnableBloom(bool enable)
-        {
-            mFreyaOptions->enableBloom = enable;
-            return *this;
-        }
+        FreyaOptionsBuilder& SetEnableBloom(bool enable);
 
         /// Lower = pick coarser mesh LODs sooner (screen diameter in px).
-        FreyaOptionsBuilder& SetMeshLodPixelRef(float pixels)
-        {
-            mFreyaOptions->meshLodPixelRef = std::max(1.0f, pixels);
-            return *this;
-        }
+        FreyaOptionsBuilder& SetMeshLodPixelRef(float pixels);
 
         /// Diameter shrink per LOD step (> 1). Lower = denser LOD ladder.
-        FreyaOptionsBuilder& SetMeshLodStep(float step)
-        {
-            mFreyaOptions->meshLodStep = std::max(1.01f, step);
-            return *this;
-        }
+        FreyaOptionsBuilder& SetMeshLodStep(float step);
 
         /**
          * @brief Builds and returns the FreyaOptions object.
          * @return Shared pointer to configured FreyaOptions
          */
-        skr::Arc<FreyaOptions> Build() { return mFreyaOptions; }
+        skr::Arc<FreyaOptions> Build();
 
       private:
         skr::Arc<FreyaOptions>
