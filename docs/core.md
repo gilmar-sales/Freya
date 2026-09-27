@@ -179,15 +179,20 @@ helpers:
 | Helper | Notes |
 |--------|-------|
 | `Quads(span)` | Batch append under one lock (used by `ParticleEmitter`) |
+| `ConnectedQuad` / `ConnectedQuads(span)` | Explicit-corner strip segments with shared edges (seamless) |
+| `Strip(points, style, camRight, camUp)` | Miter-joined camera-facing ribbon through centerline points (used by `SplineRope`, `RibbonEmitter`) |
 | `HealthBar(pos, w, h, fill01, bg, fg, align = Cylindrical)` | Background + left-aligned fill; same clip/blend/layer path |
-| `Text(pos, utf8, font, height, color, …, align = Cylindrical)` | SDF glyphs via `FontAtlas` |
+| `Text(pos, utf8, font, height, color, …, align = Cylindrical)` | SDF glyphs via `FontAtlas |
 
-**Thread-safety:** concurrent `Quad` / `Quads` / `HealthBar` / `Text` from
-worker threads is safe (`SpinLock`). `HealthBar`, `Text`, and `Quads` hold
-one lock for the whole multi-quad submit so a snapshot never sees a half
-nameplate or a partial particle batch. Readers must use `Snapshot(out)`
-(copy under lock) — the Vfx/Ui frame stages do this before packing GPU
-instances. Soft-capped at `MaxQuads()` (default `1 << 16`).
+**Thread-safety:** concurrent `Quad` / `Quads` / `ConnectedQuad` /
+`ConnectedQuads` / `Strip` / `HealthBar` / `Text` from worker threads is
+safe (`SpinLock`). `HealthBar`, `Text`, `Quads`, `ConnectedQuads`, and
+`Strip` hold one lock for the whole multi-quad submit so a snapshot never
+sees a partial strip or nameplate. Readers must use `Snapshot(out)` /
+`SnapshotConnected(out)` (copies under lock) — the Vfx/Ui frame stages do
+this before packing GPU instances. Each queue is soft-capped at
+`MaxQuads()` (connected queue: default `1 << 14`, see
+`kDefaultMaxConnectedQuads`).
 
 Raw `Billboard::align` defaults to `Screen`; the `HealthBar` / `Text`
 helpers default to `Cylindrical`.
@@ -214,6 +219,31 @@ auto& bb = mRenderer->GetBillboardDraw();
 bb.HealthBar(head, 0.85f, 0.08f, hp, bg, fg); // cylindrical
 bb.HealthBar(head, 0.85f, 0.08f, hp, bg, fg, fra::BillboardAlign::Screen);
 ```
+
+## Connected strips
+
+Independent rotated quads leave gaps (or double-blended overlaps) where
+segments meet at an angle. `Strip` builds a seamless ribbon instead: each
+`StripPoint` carries a centerline position, full width, color, and `u`;
+`StripStyle` carries the shared texture/blend/layer plus a miter limit.
+Joints use mitered edges shared bitwise between neighbours, with a bevel
+fallback on hairpin turns. The quads land in the `ConnectedBillboard`
+queue (`SnapshotConnected`), rendered by a dedicated vertex shader
+(`billboard_connected.vert`) in the same Vfx/Ui passes.
+
+```cpp
+std::vector<fra::StripPoint> pts;
+for (const auto& sample : centerline)
+    pts.push_back({ sample.pos, sample.width, sample.color, sample.u });
+fra::StripStyle style {};
+style.blend = fra::BillboardBlend::Alpha;
+draw.Strip(pts, style, camRight, camUp);
+```
+
+`SplineRope::Submit` samples its Catmull-Rom spline into a `Strip`
+(tapered width, gradient color, `growT` tip trim, `uvRepeat` tiling), and
+`RibbonEmitter::Tick` submits its trail the same way (with transposed UVs
+to keep the legacy U-across / V-along orientation).
 
 ## Screen UI
 

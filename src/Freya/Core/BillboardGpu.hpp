@@ -87,4 +87,45 @@ namespace FREYA_NAMESPACE
         return g;
     }
 
+    /**
+     * @brief GPU instance for one ConnectedBillboard (std430).
+     *
+     * Corners are vec4 (w unused) to keep std430 alignment trivial.
+     * Keep in sync with billboard_connected.vert.
+     */
+    struct ConnectedBillboardGpuInstance
+    {
+        glm::vec4     c0 { 0.f };
+        glm::vec4     c1 { 0.f };
+        glm::vec4     c2 { 0.f };
+        glm::vec4     c3 { 0.f };
+        glm::vec4     color0 { 1.f };
+        glm::vec4     color1 { 1.f };
+        glm::vec4     uvRect { 0.f, 0.f, 1.f, 1.f };
+        std::uint32_t textureIndex = 0;
+        std::uint32_t flags        = 0;
+        float         clipMax      = 1.f;
+        float         pad          = 0.f;
+    };
+
+    static_assert(sizeof(ConnectedBillboardGpuInstance) == 128,
+                  "ConnectedBillboardGpuInstance must match GLSL "
+                  "std430");
+
+    [[nodiscard]] inline ConnectedBillboardGpuInstance
+    ToConnectedBillboardGpu(const ConnectedBillboard& b)
+    {
+        ConnectedBillboardGpuInstance g {};
+        g.c0           = glm::vec4(b.c0, 0.f);
+        g.c1           = glm::vec4(b.c1, 0.f);
+        g.c2           = glm::vec4(b.c2, 0.f);
+        g.c3           = glm::vec4(b.c3, 0.f);
+        g.color0       = b.color0;
+        g.color1       = b.color1;
+        g.uvRect       = b.uvRect;
+        g.textureIndex = b.textureIndex;
+        g.clipMax      = b.clipMax;
+        return g;
+    }
+
 } // namespace FREYA_NAMESPACE

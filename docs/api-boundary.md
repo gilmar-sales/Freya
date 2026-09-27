@@ -38,7 +38,8 @@ Treat as **app-stable**:
   Vulkan/SDL handles exposed as opaque `void*`), `GpuAnimation()` cull
   dumps (`RequestCullFrameDump` / `TryConsumeCullFrameDump`)
 - `Renderer::GetBillboardDraw` + `BillboardDraw` (`Quad`, `Quads`,
-  `HealthBar`, `Text`, `Snapshot`; thread-safe concurrent submits via
+  `ConnectedQuad`, `ConnectedQuads`, `Strip`, `HealthBar`, `Text`,
+  `Snapshot`, `SnapshotConnected`; thread-safe concurrent submits via
   `SpinLock`) and `BillboardAlign` (`Screen` / `Cylindrical` / `Spherical`
   / `FixedAxis` / `Planar`)
 - `ParticleEmitter` (`Tick`; one thread per emitter — draw queue is

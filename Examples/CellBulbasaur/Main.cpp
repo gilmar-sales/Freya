@@ -8,6 +8,7 @@
 #include <FreyaExamples/GroundMesh.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <iostream>
@@ -565,6 +566,55 @@ class MainApp final : public fra::AbstractApplication
         buildScene();
         updateTitle();
 
+        // ── Vine Whip (left / Cell Bulbasaur at x=-1.2)
+        mVineBase = {
+            { -1.20f,  0.82f,  0.30f },
+            { -0.70f,  1.35f,  0.50f },
+            {  0.00f,  1.20f,  0.38f },
+            {  0.65f,  0.90f,  0.22f },
+            {  1.35f,  0.38f,  0.08f },
+        };
+        mVineWhip.baseRadius = 0.055f;
+        mVineWhip.tipRadius  = 0.015f;
+        mVineWhip.color0     = { 0.30f, 0.75f, 0.20f, 1.0f };
+        mVineWhip.color1     = { 0.15f, 0.50f, 0.10f, 1.0f };
+        mVineWhip.segments   = 32;
+        mVineWhip.growT      = 0.0f;
+
+        // ── Leech Seed helical roots (right / PBR Bulbasaur at x=+1.2)
+        static constexpr float kTwoPi = 6.28318530f;
+        const glm::vec3        lc { 1.2f, 0.0f, 0.0f };
+
+        auto makeHelix = [&](float startAngle)
+            -> std::vector<glm::vec3>
+        {
+            constexpr int kPts = 10;
+            std::vector<glm::vec3> pts;
+            pts.reserve(kPts);
+            for (int j = 0; j < kPts; ++j)
+            {
+                const float t = static_cast<float>(j) / (kPts - 1);
+                const float a = startAngle + t * 1.5f * kTwoPi;
+                const float r = 0.38f * (1.0f - 0.25f * t);
+                pts.push_back({ lc.x + r * std::cos(a),
+                                lc.y + t * 0.88f,
+                                lc.z + r * std::sin(a) });
+            }
+            return pts;
+        };
+
+        for (int k = 0; k < 3; ++k)
+        {
+            mLeechRoots[k].controlPoints =
+                makeHelix(static_cast<float>(k) * kTwoPi / 3.0f);
+            mLeechRoots[k].baseRadius = 0.040f;
+            mLeechRoots[k].tipRadius  = 0.012f;
+            mLeechRoots[k].color0     = { 0.22f, 0.68f, 0.15f, 1.0f };
+            mLeechRoots[k].color1     = { 0.10f, 0.40f, 0.08f, 1.0f };
+            mLeechRoots[k].segments   = 28;
+            mLeechRoots[k].growT      = 0.0f;
+        }
+
         // After RebuildSwapChain / InsertFrameStage so ImGui binds the final
         // UI render pass.
         if (mPlatform)
@@ -578,7 +628,8 @@ class MainApp final : public fra::AbstractApplication
                "F9 item glow | F12 Mu glow (+N) | [ ] change +level\n"
                "F10 ground triplanar | F11 eyes unlit\n"
                "RMB look | WASD move | Space/Q up | Ctrl/E down\n"
-               "ImGui: Freya Debug panel (timing / quality / SSAO views)\n";
+               "ImGui: Freya Debug panel (timing / quality / SSAO views)\n"
+               "Vine Whip (left, 4s cycle) + Leech Seed roots (right, 5s cycle) auto-play\n";
     }
 
     void Update() override
@@ -656,6 +707,82 @@ class MainApp final : public fra::AbstractApplication
         mFire.Tick(dt, bb);
         mEmbers.Tick(dt, bb);
         mSmoke.Tick(dt, bb);
+
+        // ── Vine Whip: extends from left Bulbasaur bulb toward the right
+        {
+            constexpr float kCycle   = 4.0f;
+            constexpr float kExtend  = 0.45f;
+            constexpr float kHold    = 2.20f;
+            constexpr float kRetract = 2.70f;
+
+            mVineTime = std::fmod(mVineTime + dt, kCycle);
+
+            float growT = 0.0f;
+            if (mVineTime < kExtend)
+                growT = mVineTime / kExtend;
+            else if (mVineTime < kHold)
+                growT = 1.0f;
+            else if (mVineTime < kRetract)
+                growT = 1.0f -
+                        (mVineTime - kHold) / (kRetract - kHold);
+
+            mVineWhip.growT         = growT;
+            mVineWhip.controlPoints = mVineBase;
+            // Tip wiggle during the hold phase
+            if (mVineTime >= kExtend && mVineTime < kRetract)
+            {
+                const float wt = mVineTime * 9.0f;
+                mVineWhip.controlPoints.back() +=
+                    glm::vec3(0.0f,
+                              0.10f * std::sin(wt),
+                              0.07f * std::cos(wt * 0.7f));
+            }
+            // Camera vectors for seamless Screen-aligned rope quads
+            const float     yr = glm::radians(mCam.yaw);
+            const float     pr = glm::radians(mCam.pitch);
+            const glm::vec3 cf { std::cos(yr) * std::cos(pr),
+                                 std::sin(pr),
+                                 std::sin(yr) * std::cos(pr) };
+            const glm::vec3 cr =
+                glm::normalize(glm::cross(cf, glm::vec3(0.f, 1.f, 0.f)));
+            const glm::vec3 cu = glm::cross(cr, cf);
+            mVineWhip.Submit(bb, cr, cu);
+        }
+
+        // ── Leech Seed: 3 helical roots wrap around right Bulbasaur
+        {
+            constexpr float kCycle = 5.0f;
+            constexpr float kGrow  = 1.20f;
+            constexpr float kHold  = 3.50f;
+            constexpr float kFade  = 4.50f;
+
+            mLeechTime = std::fmod(mLeechTime + dt, kCycle);
+
+            const float     yr = glm::radians(mCam.yaw);
+            const float     pr = glm::radians(mCam.pitch);
+            const glm::vec3 cf { std::cos(yr) * std::cos(pr),
+                                 std::sin(pr),
+                                 std::sin(yr) * std::cos(pr) };
+            const glm::vec3 cr =
+                glm::normalize(glm::cross(cf, glm::vec3(0.f, 1.f, 0.f)));
+            const glm::vec3 cu = glm::cross(cr, cf);
+
+            for (int k = 0; k < 3; ++k)
+            {
+                // Stagger each root by 0.15 s
+                const float lt =
+                    mLeechTime - static_cast<float>(k) * 0.15f;
+                float growT = 0.0f;
+                if (lt > 0.0f && lt < kGrow)
+                    growT = lt / kGrow;
+                else if (lt >= kGrow && lt < kHold)
+                    growT = 1.0f;
+                else if (lt >= kHold && lt < kFade)
+                    growT = 1.0f - (lt - kHold) / (kFade - kHold);
+                mLeechRoots[k].growT = growT;
+                mLeechRoots[k].Submit(bb, cr, cu);
+            }
+        }
 
         if (mFireLightHandle)
         {
@@ -854,6 +981,15 @@ class MainApp final : public fra::AbstractApplication
     float                     mHpPulse = 0.0f;
     fra::Scene                mScene;
     std::vector<bool>         mIsEye;
+
+    // Vine Whip — left (Cell) Bulbasaur
+    fra::SplineRope        mVineWhip;
+    std::vector<glm::vec3> mVineBase;
+    float                  mVineTime = 0.0f;
+
+    // Leech Seed — right (PBR) Bulbasaur
+    std::array<fra::SplineRope, 3> mLeechRoots;
+    float                          mLeechTime = 3.0f;
 
     FreyaExamples::FlyCam       mCam;
     FreyaExamples::DebugOverlay mOverlay;

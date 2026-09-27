@@ -33,13 +33,19 @@ namespace FREYA_NAMESPACE
         const std::vector<vk::DescriptorSet>&        instanceSets,
         std::vector<skr::Arc<Buffer>>
                         instanceBuffers,
+        std::vector<skr::Arc<Buffer>>
+                        connectedBuffers,
         const Pipelines hdrPipelines,
         const Pipelines ldrPipelines,
         const Pipelines offscreenLdrPipelines,
+        const Pipelines hdrConnectedPipelines,
+        const Pipelines ldrConnectedPipelines,
+        const Pipelines offscreenLdrConnectedPipelines,
         std::vector<vk::Framebuffer>
                             ldrFramebuffers,
         const vk::Extent2D  extent,
         const std::uint32_t maxQuads,
+        const std::uint32_t maxConnectedQuads,
         DepthInputResources depthInput) :
         mDevice(device), mFreyaOptions(freyaOptions), mMaterials(materials),
         mHdrRenderPass(hdrRenderPass), mLdrRenderPass(ldrRenderPass),
@@ -47,10 +53,15 @@ namespace FREYA_NAMESPACE
         mPipelineLayout(pipelineLayout), mSetLayout(setLayout),
         mDescriptorPool(descriptorPool), mInstanceSets(instanceSets),
         mInstanceBuffers(std::move(instanceBuffers)),
+        mConnectedBuffers(std::move(connectedBuffers)),
         mHdrPipelines(hdrPipelines), mLdrPipelines(ldrPipelines),
         mOffscreenLdrPipelines(offscreenLdrPipelines),
+        mHdrConnectedPipelines(hdrConnectedPipelines),
+        mLdrConnectedPipelines(ldrConnectedPipelines),
+        mOffscreenLdrConnectedPipelines(offscreenLdrConnectedPipelines),
         mLdrFramebuffers(std::move(ldrFramebuffers)), mHdrExtent(extent),
         mLdrExtent(extent), mMaxQuads(maxQuads),
+        mMaxConnectedQuads(maxConnectedQuads),
         mDepthInputSetLayout(depthInput.setLayout),
         mDepthInputPool(depthInput.pool),
         mDepthInputSet(depthInput.set)
@@ -81,6 +92,18 @@ namespace FREYA_NAMESPACE
         destroyPipe(mOffscreenLdrPipelines.alphaNoDepth);
         destroyPipe(mOffscreenLdrPipelines.addDepth);
         destroyPipe(mOffscreenLdrPipelines.addNoDepth);
+        destroyPipe(mHdrConnectedPipelines.alphaDepth);
+        destroyPipe(mHdrConnectedPipelines.alphaNoDepth);
+        destroyPipe(mHdrConnectedPipelines.addDepth);
+        destroyPipe(mHdrConnectedPipelines.addNoDepth);
+        destroyPipe(mLdrConnectedPipelines.alphaDepth);
+        destroyPipe(mLdrConnectedPipelines.alphaNoDepth);
+        destroyPipe(mLdrConnectedPipelines.addDepth);
+        destroyPipe(mLdrConnectedPipelines.addNoDepth);
+        destroyPipe(mOffscreenLdrConnectedPipelines.alphaDepth);
+        destroyPipe(mOffscreenLdrConnectedPipelines.alphaNoDepth);
+        destroyPipe(mOffscreenLdrConnectedPipelines.addDepth);
+        destroyPipe(mOffscreenLdrConnectedPipelines.addNoDepth);
         if (mPipelineLayout)
             d.destroyPipelineLayout(mPipelineLayout);
         if (mHdrRenderPass)
@@ -237,6 +260,21 @@ namespace FREYA_NAMESPACE
         return depthTest ? p->alphaDepth : p->alphaNoDepth;
     }
 
+    vk::Pipeline BillboardPass::pickConnectedPipeline(
+        const BillboardTarget target, const BillboardBlend blend,
+        const bool depthTest) const
+    {
+        const Pipelines* p = &mHdrConnectedPipelines;
+        if (target == BillboardTarget::Ldr)
+        {
+            p = mLdrOffscreen ? &mOffscreenLdrConnectedPipelines
+                              : &mLdrConnectedPipelines;
+        }
+        if (blend == BillboardBlend::Additive)
+            return depthTest ? p->addDepth : p->addNoDepth;
+        return depthTest ? p->alphaDepth : p->alphaNoDepth;
+    }
+
     void BillboardPass::Draw(
         const skr::Arc<CommandPool>& commandPool,
         const skr::Arc<SwapChain>& swapChain, const BillboardTarget target,
@@ -248,12 +286,15 @@ namespace FREYA_NAMESPACE
 
         std::vector<Billboard> quads;
         source.Snapshot(quads);
-        if (quads.empty())
+        std::vector<ConnectedBillboard> connected;
+        source.SnapshotConnected(connected);
+        if (quads.empty() && connected.empty())
             return;
 
         const auto frameIndex = swapChain->GetCurrentFrameIndex();
         const auto imageIndex = swapChain->GetCurrentImageIndex();
         if (frameIndex >= mInstanceBuffers.size() ||
+            frameIndex >= mConnectedBuffers.size() ||
             frameIndex >= mInstanceSets.size())
             return;
 
@@ -305,8 +346,6 @@ namespace FREYA_NAMESPACE
             batches[bi].gpu.push_back(ToBillboardGpu(q));
             ++total;
         }
-        if (total == 0)
-            return;
 
         total                 = std::min(total, mMaxQuads);
         std::uint32_t written = 0;
@@ -346,7 +385,81 @@ namespace FREYA_NAMESPACE
         }
 
         const auto bytes = packed.size() * sizeof(BillboardGpuInstance);
-        mInstanceBuffers[frameIndex]->Copy(packed.data(), bytes);
+        if (!packed.empty())
+            mInstanceBuffers[frameIndex]->Copy(packed.data(), bytes);
+
+        struct ConnectedBatch
+        {
+            BillboardBlend                             blend;
+            bool                                       depthTest;
+            std::vector<ConnectedBillboardGpuInstance> gpu;
+        };
+        ConnectedBatch connectedBatches[4] = {
+            { BillboardBlend::Alpha, true, {} },
+            { BillboardBlend::Alpha, false, {} },
+            { BillboardBlend::Additive, true, {} },
+            { BillboardBlend::Additive, false, {} },
+        };
+
+        std::uint32_t connectedTotal = 0;
+        for (const auto& q : connected)
+        {
+            if (q.layer != layer)
+                continue;
+            const int bi = (q.blend == BillboardBlend::Additive ? 2 : 0) +
+                           (q.depthTest ? 0 : 1);
+            connectedBatches[bi].gpu.push_back(ToConnectedBillboardGpu(q));
+            ++connectedTotal;
+        }
+
+        connectedTotal = std::min(connectedTotal, mMaxConnectedQuads);
+        std::uint32_t connectedWritten = 0;
+        for (auto& b : connectedBatches)
+        {
+            if (connectedWritten >= mMaxConnectedQuads)
+            {
+                b.gpu.clear();
+                continue;
+            }
+            if (connectedWritten + b.gpu.size() > mMaxConnectedQuads)
+                b.gpu.resize(mMaxConnectedQuads - connectedWritten);
+            connectedWritten += static_cast<std::uint32_t>(b.gpu.size());
+        }
+
+        std::vector<ConnectedBillboardGpuInstance> connectedPacked;
+        connectedPacked.reserve(connectedWritten);
+        struct ConnectedDrawRange
+        {
+            BillboardBlend blend;
+            bool           depthTest;
+            std::uint32_t  first;
+            std::uint32_t  count;
+        };
+        std::vector<ConnectedDrawRange> connectedRanges;
+        for (auto& b : connectedBatches)
+        {
+            if (b.gpu.empty())
+                continue;
+            ConnectedDrawRange r {};
+            r.blend     = b.blend;
+            r.depthTest = b.depthTest;
+            r.first     = static_cast<std::uint32_t>(connectedPacked.size());
+            r.count     = static_cast<std::uint32_t>(b.gpu.size());
+            connectedPacked.insert(connectedPacked.end(), b.gpu.begin(),
+                                   b.gpu.end());
+            connectedRanges.push_back(r);
+        }
+
+        if (packed.empty() && connectedPacked.empty())
+            return;
+
+        if (!connectedPacked.empty())
+        {
+            const auto connectedBytes =
+                connectedPacked.size() * sizeof(ConnectedBillboardGpuInstance);
+            mConnectedBuffers[frameIndex]->Copy(connectedPacked.data(),
+                                                connectedBytes);
+        }
 
         const auto extent =
             target == BillboardTarget::Hdr ? mHdrExtent : mLdrExtent;
@@ -401,6 +514,20 @@ namespace FREYA_NAMESPACE
             {
                 cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, pipe);
                 bound = pipe;
+            }
+            cmd.draw(6, r.count, 0, r.first);
+        }
+
+        vk::Pipeline connectedBound {};
+        for (const auto& r : connectedRanges)
+        {
+            auto pipe = pickConnectedPipeline(target, r.blend, r.depthTest);
+            if (!pipe)
+                continue;
+            if (pipe != connectedBound)
+            {
+                cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, pipe);
+                connectedBound = pipe;
             }
             cmd.draw(6, r.count, 0, r.first);
         }

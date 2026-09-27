@@ -54,11 +54,15 @@ namespace FREYA_NAMESPACE
             vk::DescriptorPool                    descriptorPool,
             const std::vector<vk::DescriptorSet>& instanceSets,
             std::vector<skr::Arc<Buffer>>         instanceBuffers,
+            std::vector<skr::Arc<Buffer>>         connectedBuffers,
             Pipelines hdrPipelines, Pipelines ldrPipelines,
             Pipelines                    offscreenLdrPipelines,
+            Pipelines                    hdrConnectedPipelines,
+            Pipelines                    ldrConnectedPipelines,
+            Pipelines                    offscreenLdrConnectedPipelines,
             std::vector<vk::Framebuffer> ldrFramebuffers,
             vk::Extent2D extent, std::uint32_t maxQuads,
-            DepthInputResources depthInput);
+            std::uint32_t maxConnectedQuads, DepthInputResources depthInput);
 
         ~BillboardPass();
 
@@ -95,6 +99,9 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] vk::Pipeline pickPipeline(
             BillboardTarget target, BillboardBlend blend, bool depthTest) const;
 
+        [[nodiscard]] vk::Pipeline pickConnectedPipeline(
+            BillboardTarget target, BillboardBlend blend, bool depthTest) const;
+
         skr::Arc<Device>                      mDevice;
         skr::Arc<FreyaOptions>                mFreyaOptions;
         skr::Arc<MaterialDescriptorResources> mMaterials;
@@ -107,10 +114,15 @@ namespace FREYA_NAMESPACE
         vk::DescriptorPool             mDescriptorPool {};
         std::vector<vk::DescriptorSet> mInstanceSets;
         std::vector<skr::Arc<Buffer>>  mInstanceBuffers;
+        std::vector<skr::Arc<Buffer>>  mConnectedBuffers;
 
         Pipelines mHdrPipelines {};
         Pipelines mLdrPipelines {};
         Pipelines mOffscreenLdrPipelines {};
+
+        Pipelines mHdrConnectedPipelines {};
+        Pipelines mLdrConnectedPipelines {};
+        Pipelines mOffscreenLdrConnectedPipelines {};
 
         std::vector<vk::Framebuffer> mHdrFramebuffers;
         std::vector<vk::ImageView>   mHdrColorViews;
@@ -126,7 +138,8 @@ namespace FREYA_NAMESPACE
 
         vk::Extent2D  mHdrExtent {};
         vk::Extent2D  mLdrExtent {};
-        std::uint32_t mMaxQuads = 0;
+        std::uint32_t mMaxQuads          = 0;
+        std::uint32_t mMaxConnectedQuads = 0;
     };
 
 } // namespace FREYA_NAMESPACE

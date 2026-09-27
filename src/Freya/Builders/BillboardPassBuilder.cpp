@@ -385,6 +385,8 @@ namespace FREYA_NAMESPACE
                 .Build();
         };
         auto vertShader = loadShader("Billboard/billboard.vert.spv");
+        auto connectedVertShader =
+            loadShader("Billboard/billboard_connected.vert.spv");
         auto fragShader = loadShader("Billboard/billboard.frag.spv");
 
         auto instanceBinding =
@@ -394,8 +396,17 @@ namespace FREYA_NAMESPACE
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eVertex);
 
+        auto connectedInstanceBinding =
+            vk::DescriptorSetLayoutBinding()
+                .setBinding(1)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(vk::ShaderStageFlagBits::eVertex);
+
+        auto bindings = std::array { instanceBinding,
+                                     connectedInstanceBinding };
         auto setLayout = mDevice->Get().createDescriptorSetLayout(
-            vk::DescriptorSetLayoutCreateInfo().setBindings(instanceBinding));
+            vk::DescriptorSetLayoutCreateInfo().setBindings(bindings));
 
         // set=2: depth input attachment for soft particles.
         auto depthInputBinding =
@@ -425,7 +436,11 @@ namespace FREYA_NAMESPACE
         BillboardPass::Pipelines hdr {};
         BillboardPass::Pipelines ldr {};
         BillboardPass::Pipelines offscreenLdr {};
+        BillboardPass::Pipelines hdrConnected {};
+        BillboardPass::Pipelines ldrConnected {};
+        BillboardPass::Pipelines offscreenLdrConnected {};
         auto                     v = vertShader->Get();
+        auto                     cv = connectedVertShader->Get();
         auto                     f = fragShader->Get();
         hdr.alphaDepth =
             createPipeline(v, f, pipelineLayout, hdrPass, false, true);
@@ -451,18 +466,48 @@ namespace FREYA_NAMESPACE
             createPipeline(v, f, pipelineLayout, offscreenLdrPass, true, true);
         offscreenLdr.addNoDepth =
             createPipeline(v, f, pipelineLayout, offscreenLdrPass, true, false);
+        hdrConnected.alphaDepth =
+            createPipeline(cv, f, pipelineLayout, hdrPass, false, true);
+        hdrConnected.alphaNoDepth =
+            createPipeline(cv, f, pipelineLayout, hdrPass, false, false);
+        hdrConnected.addDepth =
+            createPipeline(cv, f, pipelineLayout, hdrPass, true, true);
+        hdrConnected.addNoDepth =
+            createPipeline(cv, f, pipelineLayout, hdrPass, true, false);
+        ldrConnected.alphaDepth =
+            createPipeline(cv, f, pipelineLayout, ldrPass, false, true);
+        ldrConnected.alphaNoDepth =
+            createPipeline(cv, f, pipelineLayout, ldrPass, false, false);
+        ldrConnected.addDepth =
+            createPipeline(cv, f, pipelineLayout, ldrPass, true, true);
+        ldrConnected.addNoDepth =
+            createPipeline(cv, f, pipelineLayout, ldrPass, true, false);
+        offscreenLdrConnected.alphaDepth = createPipeline(
+            cv, f, pipelineLayout, offscreenLdrPass, false, true);
+        offscreenLdrConnected.alphaNoDepth = createPipeline(
+            cv, f, pipelineLayout, offscreenLdrPass, false, false);
+        offscreenLdrConnected.addDepth = createPipeline(
+            cv, f, pipelineLayout, offscreenLdrPass, true, true);
+        offscreenLdrConnected.addNoDepth = createPipeline(
+            cv, f, pipelineLayout, offscreenLdrPass, true, false);
 
         mDevice->Get().destroyShaderModule(v);
+        mDevice->Get().destroyShaderModule(cv);
         mDevice->Get().destroyShaderModule(f);
 
         constexpr auto maxQuads = BillboardDraw::kDefaultMaxQuads;
-        const auto     byteSize =
+        constexpr auto maxConnectedQuads =
+            BillboardDraw::kDefaultMaxConnectedQuads;
+        const auto byteSize =
             static_cast<std::uint64_t>(maxQuads) * sizeof(BillboardGpuInstance);
+        const auto connectedByteSize =
+            static_cast<std::uint64_t>(maxConnectedQuads) *
+            sizeof(ConnectedBillboardGpuInstance);
 
         const auto frameCount = mFreyaOptions->frameCount;
         auto       poolSize   = vk::DescriptorPoolSize()
                                     .setType(vk::DescriptorType::eStorageBuffer)
-                                    .setDescriptorCount(frameCount);
+                                    .setDescriptorCount(frameCount * 2);
         auto       pool       = mDevice->Get().createDescriptorPool(
             vk::DescriptorPoolCreateInfo().setPoolSizes(poolSize).setMaxSets(
                 frameCount));
@@ -475,16 +520,22 @@ namespace FREYA_NAMESPACE
 
         std::vector<skr::Arc<Buffer>> buffers;
         buffers.reserve(frameCount);
+        std::vector<skr::Arc<Buffer>> connectedBuffers;
+        connectedBuffers.reserve(frameCount);
         std::vector<vk::WriteDescriptorSet>   writes;
         std::vector<vk::DescriptorBufferInfo> infos;
-        infos.reserve(frameCount);
-        writes.reserve(frameCount);
+        infos.reserve(frameCount * 2);
+        writes.reserve(frameCount * 2);
         for (std::uint32_t i = 0; i < frameCount; ++i)
         {
             buffers.push_back(BufferBuilder(mDevice)
                                   .SetUsage(BufferUsage::Storage)
                                   .SetSize(byteSize)
                                   .Build());
+            connectedBuffers.push_back(BufferBuilder(mDevice)
+                                           .SetUsage(BufferUsage::Storage)
+                                           .SetSize(connectedByteSize)
+                                           .Build());
             infos.push_back(vk::DescriptorBufferInfo()
                                 .setBuffer(buffers.back()->Get())
                                 .setOffset(0)
@@ -493,6 +544,17 @@ namespace FREYA_NAMESPACE
                 vk::WriteDescriptorSet()
                     .setDstSet(sets[i])
                     .setDstBinding(0)
+                    .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                    .setDescriptorCount(1)
+                    .setBufferInfo(infos.back()));
+            infos.push_back(vk::DescriptorBufferInfo()
+                                .setBuffer(connectedBuffers.back()->Get())
+                                .setOffset(0)
+                                .setRange(connectedByteSize));
+            writes.push_back(
+                vk::WriteDescriptorSet()
+                    .setDstSet(sets[i])
+                    .setDstBinding(1)
                     .setDescriptorType(vk::DescriptorType::eStorageBuffer)
                     .setDescriptorCount(1)
                     .setBufferInfo(infos.back()));
@@ -522,8 +584,10 @@ namespace FREYA_NAMESPACE
         auto       pass   = skr::MakeArc<BillboardPass>(
             mDevice, mFreyaOptions, mMaterials, hdrPass, ldrPass,
             offscreenLdrPass, pipelineLayout, setLayout, pool, sets,
-            std::move(buffers), hdr, ldr, offscreenLdr,
-            std::vector<vk::Framebuffer> {}, extent, maxQuads, depthInput);
+            std::move(buffers), std::move(connectedBuffers), hdr, ldr,
+            offscreenLdr, hdrConnected, ldrConnected, offscreenLdrConnected,
+            std::vector<vk::Framebuffer> {}, extent, maxQuads,
+            maxConnectedQuads, depthInput);
 
         if (depthImage)
         {

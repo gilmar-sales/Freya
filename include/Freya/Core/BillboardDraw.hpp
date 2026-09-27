@@ -79,6 +79,67 @@ namespace FREYA_NAMESPACE
     };
 
     /**
+     * @brief One explicit-quad segment of a camera-facing strip.
+     *
+     * Unlike Billboard (a center + size + rotation rectangle), the four
+     * corners are independent world positions, so consecutive segments can
+     * share edge vertices exactly and connect without gaps or overlaps.
+     * Corners c0/c1 form the edge at t0 (color0), c2/c3 the edge at t1
+     * (color1). Triangles are (c0, c1, c2) and (c1, c3, c2); face culling
+     * is disabled so winding does not matter.
+     *
+     * Produced by Strip() (miter joints computed on the CPU) or filled in
+     * manually via ConnectedQuad()/ConnectedQuads().
+     */
+    struct ConnectedBillboard
+    {
+        glm::vec3      c0 { 0.f };
+        glm::vec3      c1 { 0.f };
+        glm::vec3      c2 { 0.f };
+        glm::vec3      c3 { 0.f };
+        glm::vec4      color0 { 1.f };
+        glm::vec4      color1 { 1.f };
+        glm::vec4      uvRect { 0.f, 0.f, 1.f, 1.f };
+        std::uint32_t  textureIndex = 0;
+        BillboardBlend blend        = BillboardBlend::Alpha;
+        BillboardLayer layer        = BillboardLayer::Vfx;
+        bool           depthTest    = true;
+        float          clipMax      = 1.f;
+    };
+
+    /**
+     * @brief One centerline sample of a Strip() ribbon.
+     *
+     * width is the full ribbon width at this point (2 * radius for tubes).
+     * u is the texture coordinate along the strip.
+     */
+    struct StripPoint
+    {
+        glm::vec3 pos { 0.f };
+        float     width = 1.f;
+        glm::vec4 color { 1.f };
+        float     u = 0.f;
+    };
+
+    /**
+     * @brief Shared style for every quad of one Strip() call.
+     *
+     * miterLimit caps the joint extension as a multiple of the local
+     * half-width (avoids spikes on hairpin turns; the excess is beveled).
+     * transposeUv swaps the UV axes so U runs across and V along the
+     * strip (matches the legacy RibbonEmitter orientation).
+     */
+    struct StripStyle
+    {
+        std::uint32_t  textureIndex = 0;
+        BillboardBlend blend        = BillboardBlend::Alpha;
+        BillboardLayer layer        = BillboardLayer::Vfx;
+        bool           depthTest    = true;
+        float          miterLimit   = 2.5f;
+        bool           transposeUv  = false;
+    };
+
+    /**
      * @brief Per-frame CPU billboard queue (cleared each BeginFrame).
      *
      * Concurrent Quad/Quads/HealthBar/Text submits are safe (SpinLock).
@@ -88,6 +149,8 @@ namespace FREYA_NAMESPACE
     {
       public:
         static constexpr std::uint32_t kDefaultMaxQuads = 1u << 16;
+        static constexpr std::uint32_t kDefaultMaxConnectedQuads =
+            1u << 14;
 
         explicit BillboardDraw(std::uint32_t maxQuads = kDefaultMaxQuads);
 
@@ -95,10 +158,17 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] bool Empty() const;
 
+        [[nodiscard]] bool ConnectedEmpty() const;
+
         /**
          * @brief Copy the current queue under lock into @p out.
          */
         void Snapshot(std::vector<Billboard>& out) const;
+
+        /**
+         * @brief Copy the current connected-quad queue under lock.
+         */
+        void SnapshotConnected(std::vector<ConnectedBillboard>& out) const;
 
         [[nodiscard]] std::uint32_t MaxQuads() const { return mMaxQuads; }
 
@@ -108,6 +178,33 @@ namespace FREYA_NAMESPACE
          * @brief Append many quads under one lock (soft-capped at MaxQuads).
          */
         void Quads(std::span<const Billboard> billboards);
+
+        /**
+         * @brief Append one seamless strip segment (explicit corners).
+         */
+        void ConnectedQuad(const ConnectedBillboard& quad);
+
+        /**
+         * @brief Append many connected quads under one lock so a snapshot
+         * never sees a partial strip.
+         */
+        void ConnectedQuads(std::span<const ConnectedBillboard> quads);
+
+        /**
+         * @brief Build a seamless camera-facing ribbon through @p points.
+         *
+         * Consecutive segments share mitered edge vertices exactly, so the
+         * strip has no gaps or double-blended overlaps at joints (unlike
+         * independent rotated quads). Offsets are computed in the screen
+         * plane spanned by @p camRight / @p camUp, so all quads stay
+         * coplanar for the current camera.
+         *
+         * Needs at least 2 points; zero-length runs are skipped. No-op
+         * when fewer than one segment survives.
+         */
+        void Strip(std::span<const StripPoint> points,
+                   const StripStyle&           style,
+                   const glm::vec3& camRight, const glm::vec3& camUp);
 
         /**
          * @brief Nameplate: background + left-aligned fill.
@@ -134,10 +231,12 @@ namespace FREYA_NAMESPACE
 
       private:
         void pushUnlocked(const Billboard& billboard);
+        void pushConnectedUnlocked(const ConnectedBillboard& quad);
 
-        std::uint32_t          mMaxQuads = kDefaultMaxQuads;
-        std::vector<Billboard> mQuads;
-        mutable SpinLock       mLock;
+        std::uint32_t                   mMaxQuads = kDefaultMaxQuads;
+        std::vector<Billboard>          mQuads;
+        std::vector<ConnectedBillboard> mConnected;
+        mutable SpinLock                mLock;
     };
 
 } // namespace FREYA_NAMESPACE

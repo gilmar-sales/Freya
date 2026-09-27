@@ -48,50 +48,30 @@ namespace FREYA_NAMESPACE
         if (mPoints.size() < 2)
             return;
 
-        std::vector<Billboard> batch;
-        batch.reserve(mPoints.size() - 1);
+        std::vector<StripPoint> strip;
+        strip.reserve(mPoints.size());
 
         const auto numSegments = static_cast<float>(mPoints.size() - 1);
 
-        for (std::size_t i = 0; i + 1 < mPoints.size(); ++i)
+        for (std::size_t i = 0; i < mPoints.size(); ++i)
         {
-            const Point& a = mPoints[i];
-            const Point& b = mPoints[i + 1];
+            const Point& p = mPoints[i];
+            const float  t = std::clamp(p.age / p.lifetime, 0.f, 1.f);
 
-            const float tA = std::clamp(a.age / a.lifetime, 0.f, 1.f);
-            const float tB = std::clamp(b.age / b.lifetime, 0.f, 1.f);
-            const float t  = (tA + tB) * 0.5f;
-
-            const float segLen = glm::distance(a.pos, b.pos);
-            if (segLen < 1e-5f)
-                continue;
-
-            const glm::vec3 segDir = (b.pos - a.pos) / segLen;
-
-            // Compute screen-space rotation to align billboard Y axis with
-            // the projected segment direction.
-            const float screenX = glm::dot(segDir, cameraRight);
-            const float screenY = glm::dot(segDir, cameraUp);
-            const float angle   = std::atan2(screenX, screenY);
-
-            const float segT = static_cast<float>(i) / numSegments;
-
-            Billboard bb {};
-            bb.worldPos     = (a.pos + b.pos) * 0.5f;
-            bb.size         = { width, segLen };
-            bb.color        = glm::mix(color0, color1, t);
-            bb.uvRect       = { 0.f, segT, 1.f, segT + 1.f / numSegments };
-            bb.textureIndex = textureIndex;
-            bb.align        = BillboardAlign::Screen;
-            bb.blend        = blend;
-            bb.layer        = BillboardLayer::Vfx;
-            bb.depthTest    = true;
-            bb.rotation     = angle;
-            batch.push_back(bb);
+            StripPoint sp {};
+            sp.pos   = p.pos;
+            sp.width = width;
+            sp.color = glm::mix(color0, color1, t);
+            sp.u     = static_cast<float>(i) / numSegments;
+            strip.push_back(sp);
         }
 
-        if (!batch.empty())
-            draw.Quads(batch);
+        // transposeUv keeps the legacy orientation (U across, V along).
+        StripStyle style {};
+        style.textureIndex = textureIndex;
+        style.blend        = blend;
+        style.transposeUv  = true;
+        draw.Strip(strip, style, cameraRight, cameraUp);
     }
 
 } // namespace FREYA_NAMESPACE
