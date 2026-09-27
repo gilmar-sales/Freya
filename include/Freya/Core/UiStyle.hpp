@@ -31,6 +31,9 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] static UiStyle Default();
 
+        [[nodiscard]] std::string SaveIni() const;
+        bool                      LoadIni(std::string_view ini);
+
         [[nodiscard]] glm::vec4& Color(UiCol c)
         {
             return colors[static_cast<std::size_t>(c)];

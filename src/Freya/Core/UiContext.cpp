@@ -62,7 +62,8 @@ namespace FREYA_NAMESPACE
 
     void UiContext::Begin(float dt, glm::uvec2 fbExtent)
     {
-        mDt       = dt;
+        mDt = dt;
+        mTime += dt;
         mFbExtent = fbExtent;
         const float sx =
             fbExtent.x > 0 ? static_cast<float>(fbExtent.x) / mRefSize.x : 1.f;
@@ -86,6 +87,7 @@ namespace FREYA_NAMESPACE
         mColumns.clear();
         mScrolls.clear();
         mLastHovered = mLastActive = mLastClicked = false;
+        mLastDoubleClicked                        = false;
         mLastRect                                 = {};
         mLastId                                   = 0;
         mCloseTopModal                            = false;
@@ -104,6 +106,7 @@ namespace FREYA_NAMESPACE
 
     void UiContext::End()
     {
+        DrawToasts();
         if (mDrag.active)
         {
             mMouseCursor = UiMouseCursor::Move;
@@ -168,6 +171,8 @@ namespace FREYA_NAMESPACE
             [this](MouseWheelEvent& e) { FeedScroll(e.y); }));
         mSubs.push_back(events.Subscribe<KeyPressedEvent>(
             [this](KeyPressedEvent& e) { FeedKey(e.key, true); }));
+        mSubs.push_back(events.Subscribe<KeyReleasedEvent>(
+            [this](KeyReleasedEvent& e) { FeedKey(e.key, false); }));
         mSubs.push_back(events.Subscribe<TextInputEvent>(
             [this](TextInputEvent& e) { FeedText(e.text); }));
         mSubs.push_back(events.Subscribe<GamepadButtonPressedEvent>(
@@ -351,6 +356,11 @@ namespace FREYA_NAMESPACE
 
     void UiContext::FeedKey(KeyCode key, bool down)
     {
+        if (key == KeyCode::LCtrl || key == KeyCode::RCtrl)
+        {
+            mCtrlHeld = down;
+            return;
+        }
         if (!down)
             return;
         if (key == KeyCode::Escape && mModalLayer > 0)
@@ -370,14 +380,84 @@ namespace FREYA_NAMESPACE
             mFocusId      = mFocusables[static_cast<std::size_t>(idx)].id;
             mWantKeyboard = true;
         }
-        if (mTextInputId != 0 && key == KeyCode::Backspace &&
-            !mTextEditBuffer.empty())
+        if (mTextInputId != 0)
         {
-            mTextEditBuffer.pop_back();
-            while (!mTextEditBuffer.empty() &&
-                   (static_cast<unsigned char>(mTextEditBuffer.back()) &
-                    0xC0) == 0x80)
-                mTextEditBuffer.pop_back();
+            // Clipboard shortcuts (Ctrl held).
+            if (mCtrlHeld && key == KeyCode::C)
+            {
+                mClipboard = mTextEditBuffer;
+                return;
+            }
+            if (mCtrlHeld && key == KeyCode::X)
+            {
+                mClipboard = mTextEditBuffer;
+                mTextEditBuffer.clear();
+                mTextCursor = 0;
+                return;
+            }
+            if (mCtrlHeld && key == KeyCode::V)
+            {
+                mTextEditBuffer.insert(mTextCursor, mClipboard);
+                mTextCursor += mClipboard.size();
+                return;
+            }
+            if (mCtrlHeld && key == KeyCode::A)
+            {
+                mTextCursor = mTextEditBuffer.size();
+                return;
+            }
+            if (key == KeyCode::Left && mTextCursor > 0)
+            {
+                --mTextCursor;
+                while (
+                    mTextCursor > 0 &&
+                    (static_cast<unsigned char>(mTextEditBuffer[mTextCursor]) &
+                     0xC0) == 0x80)
+                    --mTextCursor;
+                return;
+            }
+            if (key == KeyCode::Right && mTextCursor < mTextEditBuffer.size())
+            {
+                ++mTextCursor;
+                while (
+                    mTextCursor < mTextEditBuffer.size() &&
+                    (static_cast<unsigned char>(mTextEditBuffer[mTextCursor]) &
+                     0xC0) == 0x80)
+                    ++mTextCursor;
+                return;
+            }
+            if (key == KeyCode::Home)
+            {
+                mTextCursor = 0;
+                return;
+            }
+            if (key == KeyCode::End)
+            {
+                mTextCursor = mTextEditBuffer.size();
+                return;
+            }
+            if (key == KeyCode::Delete && mTextCursor < mTextEditBuffer.size())
+            {
+                std::size_t end = mTextCursor + 1;
+                while (end < mTextEditBuffer.size() &&
+                       (static_cast<unsigned char>(mTextEditBuffer[end]) &
+                        0xC0) == 0x80)
+                    ++end;
+                mTextEditBuffer.erase(mTextCursor, end - mTextCursor);
+                return;
+            }
+            if (key == KeyCode::Backspace && mTextCursor > 0 &&
+                !mTextEditBuffer.empty())
+            {
+                std::size_t start = mTextCursor - 1;
+                while (start > 0 &&
+                       (static_cast<unsigned char>(mTextEditBuffer[start]) &
+                        0xC0) == 0x80)
+                    --start;
+                mTextEditBuffer.erase(start, mTextCursor - start);
+                mTextCursor = start;
+                return;
+            }
         }
         if (mTextInputId != 0 && key == KeyCode::Return)
             mTextSubmit = true;
@@ -387,7 +467,8 @@ namespace FREYA_NAMESPACE
     {
         if (mTextInputId == 0)
             return;
-        mTextEditBuffer.append(text);
+        mTextEditBuffer.insert(mTextCursor, text);
+        mTextCursor += text.size();
     }
 
     void UiContext::FeedScroll(float dy)
@@ -693,6 +774,44 @@ namespace FREYA_NAMESPACE
             mDraw->Rect(r, mStyle.Color(UiCol::Border));
     }
 
+    glm::vec4 UiContext::ApplyDisabled(glm::vec4 c) const
+    {
+        if (mDisabledDepth > 0)
+            c.a *= mStyle.Var(UiVar::DisabledAlpha);
+        return c;
+    }
+
+    void UiContext::TrackClick(UiId id, const UiRect& r)
+    {
+        (void) r;
+        const float kDoubleS = 0.4f;
+        mLastDoubleClicked =
+            (id == mLastClickId) && (mTime - mLastClickTime < kDoubleS);
+        mLastClickId   = id;
+        mLastClickTime = mTime;
+    }
+
+    bool UiContext::IsItemLongPressed(float duration) const
+    {
+        if (mLastId == 0 || mPressId != mLastId)
+            return false;
+        if (!mMouseDown[static_cast<int>(MouseButton::Left)])
+            return false;
+        return (mTime - mPressTime) >= duration;
+    }
+
+    void UiContext::BeginDisabled(bool disabled)
+    {
+        if (disabled)
+            ++mDisabledDepth;
+    }
+
+    void UiContext::EndDisabled()
+    {
+        if (mDisabledDepth > 0)
+            --mDisabledDepth;
+    }
+
     bool UiContext::Button(std::string_view label, glm::vec2 size)
     {
         const UiId   id = HashId(label);
@@ -700,28 +819,44 @@ namespace FREYA_NAMESPACE
         mLastRect       = r;
         mLastId         = id;
         RegisterFocusable(id, r);
-        const bool hovered = Hit(r);
-        mLastHovered       = hovered;
+        const bool disabled = IsDisabled();
+        const bool hovered  = !disabled && Hit(r);
+        mLastHovered        = hovered;
+        auto&       st      = State(id);
+        const float animK =
+            std::clamp(mStyle.Var(UiVar::AnimSpeed) * mDt, 0.f, 1.f);
+        st.hoverT =
+            std::clamp(st.hoverT + (hovered ? animK : -animK), 0.f, 1.f);
         if (hovered)
         {
             mWantMouse   = true;
             mMouseCursor = UiMouseCursor::Hand;
         }
-        if (hovered && mMouseClicked[static_cast<int>(MouseButton::Left)])
-            mActiveId = id;
+        if (!disabled && hovered &&
+            mMouseClicked[static_cast<int>(MouseButton::Left)])
+        {
+            mActiveId  = id;
+            mPressId   = id;
+            mPressTime = mTime;
+        }
         const bool clicked =
-            hovered && mActiveId == id &&
+            !disabled && hovered && mActiveId == id &&
             mMouseReleased[static_cast<int>(MouseButton::Left)];
         mLastClicked = clicked;
         mLastActive  = mActiveId == id;
         if (clicked)
+        {
+            TrackClick(id, r);
             mActiveId = 0;
+        }
 
-        glm::vec4 col = mStyle.Color(UiCol::Button);
+        glm::vec4 col = AnimMix(mStyle.Color(UiCol::Button),
+                                mStyle.Color(UiCol::ButtonHovered), st.hoverT);
         if (mActiveId == id)
             col = mStyle.Color(UiCol::ButtonActive);
-        else if (hovered || mFocusId == id)
-            col = mStyle.Color(UiCol::ButtonHovered);
+        if (disabled)
+            col = mStyle.Color(UiCol::ButtonDisabled);
+        col = ApplyDisabled(col);
 
         if (mDraw)
         {
@@ -743,10 +878,13 @@ namespace FREYA_NAMESPACE
             if (mStyle.font)
             {
                 const float fs = mStyle.Var(UiVar::FontSizeSmall);
+                const auto  tc =
+                    ApplyDisabled(disabled ? mStyle.Color(UiCol::TextDisabled)
+                                           : mStyle.Color(UiCol::Text));
                 mDraw->Text({ r.x + mStyle.Var(UiVar::FramePadding),
                               r.y + (r.h - fs) * 0.5f, r.w, fs },
-                            label, *mStyle.font, fs, mStyle.Color(UiCol::Text),
-                            0.f, 1.f, mStyle.Color(UiCol::TextOutline));
+                            label, *mStyle.font, fs, tc, 0.f, 1.f,
+                            mStyle.Color(UiCol::TextOutline));
             }
             if (mFocusId == id)
                 DrawFocusRing(r);
@@ -841,23 +979,27 @@ namespace FREYA_NAMESPACE
         const UiId   id = HashId(label);
         const UiRect r  = Place(size);
         mLastRect       = r;
+        mLastId         = id;
         RegisterFocusable(id, r);
-        const bool hovered = Hit(r);
-        mLastHovered       = hovered;
+        const bool disabled = IsDisabled();
+        const bool hovered  = !disabled && Hit(r);
+        mLastHovered        = hovered;
         if (hovered)
             mWantMouse = true;
-        const bool clicked =
-            hovered && mMouseClicked[static_cast<int>(MouseButton::Left)];
-        mLastClicked = clicked;
+        const bool clicked = !disabled && hovered &&
+                             mMouseClicked[static_cast<int>(MouseButton::Left)];
+        mLastClicked       = clicked;
+        if (clicked)
+            TrackClick(id, r);
         if (mDraw)
         {
             if (selected || hovered)
-                mDraw->Rect(r, mStyle.Color(UiCol::ListSelected),
+                mDraw->Rect(r, ApplyDisabled(mStyle.Color(UiCol::ListSelected)),
                             mStyle.Var(UiVar::Rounding));
             if (mStyle.font)
                 mDraw->Text({ r.x + 8, r.y + 4, r.w - 8, r.h }, label,
                             *mStyle.font, mStyle.Var(UiVar::FontSizeSmall),
-                            mStyle.Color(UiCol::Text));
+                            ApplyDisabled(mStyle.Color(UiCol::Text)));
         }
         return clicked;
     }
@@ -1298,6 +1440,7 @@ namespace FREYA_NAMESPACE
         mPendingTextFocusId = HashId(id);
         mPendingTextFocus   = true;
         mTextEditBuffer     = std::string(text);
+        mTextCursor         = mTextEditBuffer.size();
         mTextInputId        = mPendingTextFocusId;
         mFocusId            = mPendingTextFocusId;
         mWantTextInput      = true;
@@ -1309,6 +1452,7 @@ namespace FREYA_NAMESPACE
         const UiId   tid = HashId(id);
         const UiRect r   = Place(size);
         mLastRect        = r;
+        mLastId          = tid;
         RegisterFocusable(tid, r);
         mTextInputSeen = true;
         if (mPendingTextFocus && mPendingTextFocusId == tid)
@@ -1318,15 +1462,22 @@ namespace FREYA_NAMESPACE
             mTextEditBuffer = buffer.empty() ? mTextEditBuffer : buffer;
             if (!mTextEditBuffer.empty())
                 buffer = mTextEditBuffer;
+            mTextCursor       = mTextEditBuffer.size();
             mPendingTextFocus = false;
         }
-        const bool hovered = Hit(r);
+        const bool disabled = IsDisabled();
+        const bool hovered  = !disabled && Hit(r);
         if (hovered)
-            mWantMouse = true;
-        if (hovered && mMouseClicked[static_cast<int>(MouseButton::Left)])
+        {
+            mWantMouse   = true;
+            mMouseCursor = UiMouseCursor::IBeam;
+        }
+        if (!disabled && hovered &&
+            mMouseClicked[static_cast<int>(MouseButton::Left)])
         {
             mTextInputId    = tid;
             mTextEditBuffer = buffer;
+            mTextCursor     = mTextEditBuffer.size();
             mFocusId        = tid;
         }
         else if (mMouseClicked[static_cast<int>(MouseButton::Left)] &&
@@ -1339,33 +1490,39 @@ namespace FREYA_NAMESPACE
         {
             mWantTextInput = true;
             mWantKeyboard  = true;
+            mTextCursor    = std::min(mTextCursor, mTextEditBuffer.size());
             buffer         = mTextEditBuffer;
             if (buffer.size() > maxLen)
+            {
                 buffer.resize(maxLen);
+                mTextCursor = std::min(mTextCursor, maxLen);
+            }
             mTextEditBuffer = buffer;
+            mMouseCursor    = UiMouseCursor::IBeam;
         }
         bool submitted = false;
-        if (focused && mTextSubmit)
+        if (focused && !disabled && mTextSubmit)
         {
             submitted   = true;
             mTextSubmit = false;
         }
         if (mDraw)
         {
-            mDraw->Rect(r, mStyle.Color(UiCol::FrameBg), 4.f, 1.f,
+            mDraw->Rect(r, ApplyDisabled(mStyle.Color(UiCol::FrameBg)), 4.f,
+                        1.f,
                         focused ? mStyle.Color(UiCol::FocusRing)
                                 : mStyle.Color(UiCol::Border));
             if (mStyle.font)
             {
                 std::string display = buffer;
-                if (focused)
-                    display.push_back('|');
+                if (focused && !disabled)
+                    display.insert(std::min(mTextCursor, display.size()), "|");
                 mDraw->Text({ r.x + 6, r.y + 4, r.w - 12, r.h }, display,
                             *mStyle.font, mStyle.Var(UiVar::FontSizeSmall),
-                            mStyle.Color(UiCol::Text));
+                            ApplyDisabled(mStyle.Color(UiCol::Text)));
             }
         }
-        return submitted;
+        return submitted && !disabled;
     }
 
     bool UiContext::BeginColumns(std::string_view id, int count, float widths[])
@@ -1397,6 +1554,457 @@ namespace FREYA_NAMESPACE
     {
         if (!mColumns.empty())
             mColumns.pop_back();
+    }
+
+    // --- Group 1: input widgets ---
+
+    bool UiContext::RadioButton(std::string_view label, bool active,
+                                glm::vec2 size)
+    {
+        if (size.x <= 0.f)
+            size.x = 200.f;
+        const UiId   id  = HashId(label);
+        const UiRect r   = Place(size);
+        const float  dot = std::min(size.y, 22.f);
+        const UiRect circle { r.x, r.y + (r.h - dot) * 0.5f, dot, dot };
+        mLastRect = r;
+        mLastId   = id;
+        RegisterFocusable(id, r);
+        const bool disabled = IsDisabled();
+        const bool hovered  = !disabled && Hit(r);
+        mLastHovered        = hovered;
+        if (hovered)
+            mWantMouse = true;
+        const bool clicked = !disabled && hovered &&
+                             mMouseClicked[static_cast<int>(MouseButton::Left)];
+        mLastClicked       = clicked;
+        if (clicked)
+            TrackClick(id, r);
+        if (mDraw)
+        {
+            mDraw->Rect(circle, ApplyDisabled(mStyle.Color(UiCol::FrameBg)),
+                        dot * 0.5f, 1.5f,
+                        ApplyDisabled(mStyle.Color(UiCol::Border)));
+            if (active)
+                mDraw->Rect({ circle.x + dot * 0.28f, circle.y + dot * 0.28f,
+                              dot * 0.44f, dot * 0.44f },
+                            ApplyDisabled(mStyle.Color(UiCol::CheckMark)),
+                            dot * 0.22f);
+            if (mStyle.font)
+                mDraw->Text({ circle.x + dot + 8.f, r.y, r.w - dot - 8.f, r.h },
+                            label, *mStyle.font,
+                            mStyle.Var(UiVar::FontSizeSmall),
+                            ApplyDisabled(mStyle.Color(UiCol::Text)));
+            if (mFocusId == id)
+                DrawFocusRing(r);
+        }
+        return clicked;
+    }
+
+    bool UiContext::ToggleSwitch(std::string_view label, bool* value,
+                                 glm::vec2 size)
+    {
+        if (!value)
+            return false;
+        const UiId   id = HashId(label);
+        const UiRect r  = Place({ size.x + 8.f + 140.f, size.y });
+        const UiRect sw { r.x, r.y, size.x, size.y };
+        mLastRect = r;
+        mLastId   = id;
+        RegisterFocusable(id, sw);
+        const bool disabled = IsDisabled();
+        const bool hovered  = !disabled && Hit(sw);
+        mLastHovered        = hovered;
+        if (hovered)
+        {
+            mWantMouse   = true;
+            mMouseCursor = UiMouseCursor::Hand;
+        }
+        bool changed = false;
+        if (!disabled && hovered &&
+            mMouseClicked[static_cast<int>(MouseButton::Left)])
+        {
+            *value  = !*value;
+            changed = true;
+            TrackClick(id, sw);
+        }
+        if (mDraw)
+        {
+            const auto bg = *value ? mStyle.Color(UiCol::SliderGrab)
+                                   : mStyle.Color(UiCol::FrameBg);
+            mDraw->Rect(sw, ApplyDisabled(bg), size.y * 0.5f, 1.f,
+                        ApplyDisabled(mStyle.Color(UiCol::Border)));
+            const float knob = size.y - 6.f;
+            const float kx   = *value ? sw.x + sw.w - knob - 3.f : sw.x + 3.f;
+            mDraw->Rect({ kx, sw.y + 3.f, knob, knob },
+                        ApplyDisabled(mStyle.Color(UiCol::Text)), knob * 0.5f);
+            if (mStyle.font)
+                mDraw->Text({ sw.x + sw.w + 8.f, r.y, 140.f, r.h }, label,
+                            *mStyle.font, mStyle.Var(UiVar::FontSizeSmall),
+                            ApplyDisabled(mStyle.Color(UiCol::Text)));
+        }
+        return changed;
+    }
+
+    bool UiContext::SliderInt(std::string_view label, int* value, int vMin,
+                              int vMax, glm::vec2 size)
+    {
+        if (!value)
+            return false;
+        float f = static_cast<float>(*value);
+        Label(label, mStyle.Var(UiVar::FontSizeSmall));
+        const bool changed = SliderFloat(label, &f, static_cast<float>(vMin),
+                                         static_cast<float>(vMax), size);
+        const int  rounded = static_cast<int>(std::round(f));
+        const int  clamped = std::clamp(rounded, vMin, vMax);
+        if (clamped != *value)
+            *value = clamped;
+        return changed;
+    }
+
+    bool UiContext::SpinBox(std::string_view id, int* value, int vMin, int vMax,
+                            int step, glm::vec2 size)
+    {
+        if (!value)
+            return false;
+        const float btnW     = 32.f;
+        float       widths[] = { btnW, size.x - btnW * 2.f, btnW };
+        BeginColumns(id, 3, widths);
+        bool changed = false;
+        if (Button("-", { btnW, size.y }) && !IsDisabled())
+        {
+            *value  = std::max(vMin, *value - step);
+            changed = true;
+        }
+        NextColumn();
+        SliderInt(id, value, vMin, vMax, { widths[1], size.y });
+        // SliderInt already reports change; fold in.
+        NextColumn();
+        if (Button("+", { btnW, size.y }) && !IsDisabled())
+        {
+            *value  = std::min(vMax, *value + step);
+            changed = true;
+        }
+        EndColumns();
+        return changed;
+    }
+
+    bool UiContext::ComboBox(std::string_view                  id,
+                             std::span<const std::string_view> items,
+                             int* selected, glm::vec2 size)
+    {
+        if (!selected || items.empty())
+            return false;
+        *selected =
+            std::clamp(*selected, 0, static_cast<int>(items.size()) - 1);
+        const UiId   cid = HashId(id);
+        auto&        st  = State(cid);
+        const UiRect r   = Place(size);
+        mLastRect        = r;
+        mLastId          = cid;
+        RegisterFocusable(cid, r);
+        const bool disabled = IsDisabled();
+        const bool hovered  = !disabled && Hit(r);
+        mLastHovered        = hovered;
+        if (hovered)
+        {
+            mWantMouse   = true;
+            mMouseCursor = UiMouseCursor::Hand;
+        }
+        bool changed = false;
+        if (!disabled && hovered &&
+            mMouseClicked[static_cast<int>(MouseButton::Left)])
+            st.open = !st.open;
+        if (mDraw)
+        {
+            mDraw->Rect(r, ApplyDisabled(mStyle.Color(UiCol::FrameBg)),
+                        mStyle.Var(UiVar::Rounding), 1.f,
+                        ApplyDisabled(mStyle.Color(UiCol::Border)));
+            if (mStyle.font)
+                mDraw->Text({ r.x + 8, r.y + 4, r.w - 28, r.h },
+                            items[static_cast<std::size_t>(*selected)],
+                            *mStyle.font, mStyle.Var(UiVar::FontSizeSmall),
+                            ApplyDisabled(mStyle.Color(UiCol::Text)));
+            if (mStyle.font)
+                mDraw->Text({ r.x + r.w - 20, r.y + 4, 16, r.h },
+                            st.open ? "^" : "v", *mStyle.font,
+                            mStyle.Var(UiVar::FontSizeSmall),
+                            ApplyDisabled(mStyle.Color(UiCol::Text)));
+        }
+        if (st.open && !disabled)
+        {
+            ++mOverlayDepth;
+            if (mDraw)
+                mDraw->BeginOverlay();
+            const float  itemH = 28.f;
+            const UiRect list { r.x, r.y + r.h + 2.f, r.w,
+                                itemH * static_cast<float>(items.size()) };
+            if (mDraw)
+                mDraw->Rect(list, mStyle.Color(UiCol::PanelBg), 4.f, 1.f,
+                            mStyle.Color(UiCol::Border));
+            PushParent({ list.x + 4, list.y + 4, list.w - 8, list.h - 8 });
+            for (std::size_t i = 0; i < items.size(); ++i)
+            {
+                if (Selectable(std::string(id) + "##" + std::to_string(i),
+                               static_cast<int>(i) == *selected,
+                               { list.w - 8, itemH }))
+                {
+                    *selected = static_cast<int>(i);
+                    changed   = true;
+                    st.open   = false;
+                }
+            }
+            PopParent();
+            if (mDraw)
+                mDraw->EndOverlay();
+            if (mOverlayDepth > 0)
+                --mOverlayDepth;
+            mWantMouse = true;
+            if (mMouseClicked[static_cast<int>(MouseButton::Left)] && !hovered)
+                st.open = false;
+        }
+        return changed;
+    }
+
+    bool UiContext::ColorEdit(std::string_view id, glm::vec3* rgb)
+    {
+        if (!rgb)
+            return false;
+        bool        changed  = false;
+        float       c[3]     = { rgb->x, rgb->y, rgb->z };
+        const char* names[3] = { "R", "G", "B" };
+        for (int i = 0; i < 3; ++i)
+        {
+            const std::string sub = std::string(id) + "##c" + std::to_string(i);
+            if (SliderFloat(sub, &c[i], 0.f, 1.f, { 200.f, 22.f }))
+                changed = true;
+            (void) names;
+        }
+        if (changed)
+            *rgb = { c[0], c[1], c[2] };
+        if (mDraw)
+        {
+            const UiRect sw { mParents.back().cursorX, mParents.back().cursorY,
+                              200.f, 18.f };
+            AdvanceCursor({ 200.f, 18.f });
+            mDraw->Rect(sw, { rgb->x, rgb->y, rgb->z, 1.f }, 4.f, 1.f,
+                        mStyle.Color(UiCol::Border));
+        }
+        return changed;
+    }
+
+    bool UiContext::SearchBox(std::string_view id, std::string& buffer,
+                              std::size_t maxLen, glm::vec2 size)
+    {
+        const float clearW   = 32.f;
+        float       widths[] = { size.x - clearW - 4.f, clearW };
+        BeginColumns(id, 2, widths);
+        const bool submitted =
+            TextInput(id, buffer, maxLen, { widths[0], size.y });
+        NextColumn();
+        bool cleared = false;
+        if (Button("x", { clearW, size.y }))
+        {
+            buffer.clear();
+            cleared = true;
+        }
+        EndColumns();
+        return submitted || cleared;
+    }
+
+    // --- Group 2: display widgets ---
+
+    void UiContext::Heading(std::string_view text)
+    {
+        Label(text, mStyle.Var(UiVar::FontSizeTitle));
+        Separator();
+    }
+
+    void UiContext::Bullet(std::string_view text, float fontSize)
+    {
+        const float fs =
+            fontSize > 0.f ? fontSize : mStyle.Var(UiVar::FontSizeSmall);
+        const UiRect r = Place({ CurrentParent().w, fs + 4.f });
+        mLastRect      = r;
+        if (!mDraw || !mStyle.font)
+            return;
+        mDraw->Rect({ r.x + 6.f, r.y + fs * 0.4f, 5.f, 5.f },
+                    mStyle.Color(UiCol::Text), 2.5f);
+        mDraw->Text({ r.x + 18.f, r.y, r.w - 18.f, r.h }, text, *mStyle.font,
+                    fs, mStyle.Color(UiCol::Text));
+    }
+
+    void UiContext::LabelColored(std::string_view text, const glm::vec4& color,
+                                 float fontSize)
+    {
+        Label(text, fontSize, &color);
+    }
+
+    bool UiContext::CollapsingHeader(std::string_view id,
+                                     std::string_view label, bool defaultOpen)
+    {
+        const UiId cid = HashId(id);
+        if (mStates.find(cid) == mStates.end())
+            mStates[cid].open = defaultOpen;
+        auto&        st = State(cid);
+        const UiRect r  = Place({ CurrentParent().w, 32.f });
+        mLastRect       = r;
+        mLastId         = cid;
+        RegisterFocusable(cid, r);
+        const bool disabled = IsDisabled();
+        const bool hovered  = !disabled && Hit(r);
+        mLastHovered        = hovered;
+        if (hovered)
+        {
+            mWantMouse   = true;
+            mMouseCursor = UiMouseCursor::Hand;
+        }
+        if (!disabled && hovered &&
+            mMouseClicked[static_cast<int>(MouseButton::Left)])
+            st.open = !st.open;
+        if (mDraw)
+        {
+            mDraw->Rect(r, mStyle.Color(UiCol::HeaderBg),
+                        mStyle.Var(UiVar::Rounding));
+            if (mStyle.font)
+            {
+                mDraw->Text({ r.x + 8, r.y + 4, 16, r.h }, st.open ? "-" : "+",
+                            *mStyle.font, mStyle.Var(UiVar::FontSize),
+                            mStyle.Color(UiCol::Text));
+                mDraw->Text({ r.x + 28, r.y + 4, r.w - 28, r.h }, label,
+                            *mStyle.font, mStyle.Var(UiVar::FontSizeSmall),
+                            mStyle.Color(UiCol::Text));
+            }
+        }
+        return st.open;
+    }
+
+    void UiContext::Spinner(std::string_view id, glm::vec2 size)
+    {
+        const UiId   sid = HashId(id);
+        const UiRect r   = Place(size);
+        mLastRect        = r;
+        mLastId          = sid;
+        if (!mDraw)
+            return;
+        const float phase = std::fmod(mTime * 1.5f, 1.f);
+        mDraw->Rect(r, mStyle.Color(UiCol::FrameBg), std::min(r.w, r.h) * 0.5f);
+        mDraw->CooldownRadial(r, 1.f - phase, mStyle.Color(UiCol::SliderGrab),
+                              12.f);
+    }
+
+    void UiContext::ShowToast(std::string text, float duration)
+    {
+        mToasts.push_back({ std::move(text), duration, duration });
+    }
+
+    void UiContext::DrawToasts()
+    {
+        if (!mDraw || mToasts.empty())
+            return;
+        float y = 80.f;
+        for (auto it = mToasts.begin(); it != mToasts.end();)
+        {
+            it->remaining -= mDt;
+            if (it->remaining <= 0.f)
+            {
+                it = mToasts.erase(it);
+                continue;
+            }
+            const float w    = 440.f;
+            const float h    = 44.f;
+            const float x    = (mLogicalSize.x - w) * 0.5f;
+            const float fade = std::clamp(it->remaining / 0.5f, 0.f, 1.f);
+            auto        bg   = mStyle.Color(UiCol::ToastBg);
+            bg.a *= fade;
+            auto fg = mStyle.Color(UiCol::Text);
+            fg.a *= fade;
+            mDraw->BeginOverlay();
+            mDraw->Rect({ x, y, w, h }, bg, mStyle.Var(UiVar::Rounding), 1.f,
+                        mStyle.Color(UiCol::Border));
+            if (mStyle.font)
+                mDraw->Text({ x + 12, y + 10, w - 24, h - 12 }, it->text,
+                            *mStyle.font, mStyle.Var(UiVar::FontSizeSmall), fg);
+            mDraw->EndOverlay();
+            y += h + 8.f;
+            ++it;
+        }
+    }
+
+    // --- Group 3: layout containers ---
+
+    bool UiContext::BeginRow(std::string_view       id,
+                             std::span<const float> weights, float gap,
+                             float height)
+    {
+        const int count = static_cast<int>(weights.size());
+        if (count <= 0 || count > 8)
+            return false;
+        const float totalW = CurrentParent().w;
+        const float gaps   = gap * static_cast<float>(count - 1);
+        float       sum    = 0.f;
+        for (float w : weights)
+            sum += std::max(w, 0.001f);
+        float widths[8] = {};
+        for (int i = 0; i < count; ++i)
+            widths[i] = (std::max(weights[i], 0.001f) / sum) * (totalW - gaps);
+        (void) height;
+        (void) id;
+        return BeginColumns(id, count, widths);
+    }
+
+    void UiContext::NextCell()
+    {
+        NextColumn();
+    }
+
+    void UiContext::EndRow()
+    {
+        EndColumns();
+    }
+
+    bool UiContext::BeginMargin(std::string_view id, float pad)
+    {
+        (void) id;
+        const UiRect p = CurrentParent();
+        PushParent({ p.x + pad, p.y + pad, std::max(0.f, p.w - pad * 2.f),
+                     std::max(0.f, p.h - pad * 2.f) });
+        return true;
+    }
+
+    void UiContext::EndMargin()
+    {
+        PopParent();
+    }
+
+    bool UiContext::BeginCenter(std::string_view id, glm::vec2 size)
+    {
+        (void) id;
+        const UiRect p = CurrentParent();
+        const float  x = p.x + (p.w - size.x) * 0.5f;
+        const float  y = p.y + (p.h - size.y) * 0.5f;
+        PushParent({ x, y, size.x, size.y });
+        return true;
+    }
+
+    void UiContext::EndCenter()
+    {
+        PopParent();
+    }
+
+    bool UiContext::BeginVStack(std::string_view id, float gap)
+    {
+        (void) id;
+        mVStackGapBackup               = mStyle.Var(UiVar::ItemSpacing);
+        mStyle.Var(UiVar::ItemSpacing) = gap;
+        mInVStack                      = true;
+        return true;
+    }
+
+    void UiContext::EndVStack()
+    {
+        mStyle.Var(UiVar::ItemSpacing) = mVStackGapBackup;
+        mInVStack                      = false;
     }
 
 } // namespace FREYA_NAMESPACE

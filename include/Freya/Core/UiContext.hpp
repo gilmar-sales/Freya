@@ -9,6 +9,7 @@
 #include "Freya/Events/Mouse.hpp"
 
 #include <cstdint>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -109,6 +110,15 @@ namespace FREYA_NAMESPACE
                    const glm::vec4* color = nullptr);
         void TextWrapped(std::string_view text, float maxWidth,
                          float fontSize = 0.f);
+        // --- Group 2: display widgets ---
+        void Heading(std::string_view text);
+        void Bullet(std::string_view text, float fontSize = 0.f);
+        void LabelColored(std::string_view text, const glm::vec4& color,
+                          float fontSize = 0.f);
+        bool CollapsingHeader(std::string_view id, std::string_view label,
+                              bool defaultOpen = true);
+        void Spinner(std::string_view id, glm::vec2 size = { 24.f, 24.f });
+        void ShowToast(std::string text, float duration = 2.5f);
 
         void ProgressBar(float fill01, glm::vec2 size);
         void Separator();
@@ -117,6 +127,21 @@ namespace FREYA_NAMESPACE
         bool Checkbox(std::string_view label, bool* value);
         bool SliderFloat(std::string_view label, float* value, float vMin,
                          float vMax, glm::vec2 size = { 200.f, 24.f });
+        // --- Group 1: input widgets ---
+        bool RadioButton(std::string_view label, bool active,
+                         glm::vec2 size = { 200.f, 24.f });
+        bool ToggleSwitch(std::string_view label, bool* value,
+                          glm::vec2 size = { 52.f, 28.f });
+        bool SliderInt(std::string_view label, int* value, int vMin, int vMax,
+                       glm::vec2 size = { 200.f, 24.f });
+        bool SpinBox(std::string_view id, int* value, int vMin, int vMax,
+                     int step = 1, glm::vec2 size = { 200.f, 32.f });
+        bool ComboBox(std::string_view                  id,
+                      std::span<const std::string_view> items, int* selected,
+                      glm::vec2 size = { 220.f, 32.f });
+        bool ColorEdit(std::string_view id, glm::vec3* rgb);
+        bool SearchBox(std::string_view id, std::string& buffer,
+                       std::size_t maxLen, glm::vec2 size = { 220.f, 32.f });
         bool Selectable(std::string_view label, bool selected,
                         glm::vec2 size = { 0.f, 32.f });
 
@@ -173,6 +198,33 @@ namespace FREYA_NAMESPACE
         void NextColumn();
         void EndColumns();
 
+        // --- Group 3: layout containers ---
+        bool BeginRow(std::string_view id, std::span<const float> weights,
+                      float gap = 8.f, float height = 0.f);
+        void NextCell();
+        void EndRow();
+        bool BeginMargin(std::string_view id, float pad);
+        void EndMargin();
+        bool BeginCenter(std::string_view id, glm::vec2 size);
+        void EndCenter();
+        bool BeginVStack(std::string_view id, float gap = 8.f);
+        void EndVStack();
+
+        // --- Group 6: interaction state ---
+        [[nodiscard]] bool IsItemDoubleClicked() const
+        {
+            return mLastDoubleClicked;
+        }
+        [[nodiscard]] bool IsItemLongPressed(float duration = 0.6f) const;
+        void               BeginDisabled(bool disabled = true);
+        void               EndDisabled();
+        [[nodiscard]] bool IsDisabled() const { return mDisabledDepth > 0; }
+        void SetClipboard(std::string text) { mClipboard = std::move(text); }
+        [[nodiscard]] const std::string& Clipboard() const
+        {
+            return mClipboard;
+        }
+
         [[nodiscard]] bool   IsItemHovered() const { return mLastHovered; }
         [[nodiscard]] bool   IsItemActive() const { return mLastActive; }
         [[nodiscard]] bool   IsItemClicked() const { return mLastClicked; }
@@ -201,6 +253,7 @@ namespace FREYA_NAMESPACE
             bool      open       = false;
             float     scrollY    = 0.f;
             float     hoverTime  = 0.f;
+            float     hoverT     = 0.f;
             int       activeTab  = 0;
             int       focusIndex = 0;
             bool      dragging   = false;
@@ -339,6 +392,38 @@ namespace FREYA_NAMESPACE
         UiId mPopupId       = 0;
         int  mOverlayDepth  = 0;
         bool mTextInputSeen = false;
+
+        // Group 6/7 runtime
+        float       mTime              = 0.f;
+        bool        mLastDoubleClicked = false;
+        UiId        mLastClickId       = 0;
+        float       mLastClickTime     = -10.f;
+        UiId        mPressId           = 0;
+        float       mPressTime         = -10.f;
+        bool        mCtrlHeld          = false;
+        int         mDisabledDepth     = 0;
+        std::string mClipboard;
+        std::size_t mTextCursor      = 0;
+        float       mVStackGapBackup = 8.f;
+        bool        mInVStack        = false;
+
+        struct Toast
+        {
+            std::string text;
+            float       remaining = 0.f;
+            float       duration  = 1.f;
+        };
+        std::vector<Toast> mToasts;
+
+        [[nodiscard]] glm::vec4 AnimMix(const glm::vec4& a, const glm::vec4& b,
+                                        float t) const
+        {
+            return { a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t,
+                     a.b + (b.b - a.b) * t, a.a + (b.a - a.a) * t };
+        }
+        void                    TrackClick(UiId id, const UiRect& r);
+        void                    DrawToasts();
+        [[nodiscard]] glm::vec4 ApplyDisabled(glm::vec4 c) const;
     };
 
 } // namespace FREYA_NAMESPACE

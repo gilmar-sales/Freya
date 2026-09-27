@@ -1873,6 +1873,15 @@ namespace FREYA_NAMESPACE
                     case UiMouseCursor::NotAllowed:
                         cursor = SystemCursor::NotAllowed;
                         break;
+                    case UiMouseCursor::IBeam:
+                        cursor = SystemCursor::IBeam;
+                        break;
+                    case UiMouseCursor::HSize:
+                        cursor = SystemCursor::HSize;
+                        break;
+                    case UiMouseCursor::VSize:
+                        cursor = SystemCursor::VSize;
+                        break;
                     case UiMouseCursor::Arrow:
                     default:
                         cursor = SystemCursor::Arrow;

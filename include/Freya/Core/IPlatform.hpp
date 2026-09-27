@@ -34,6 +34,9 @@ namespace FREYA_NAMESPACE
         Hand,
         Move,
         NotAllowed,
+        IBeam,
+        HSize,
+        VSize,
     };
 
     /**

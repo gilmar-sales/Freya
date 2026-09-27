@@ -215,7 +215,7 @@ namespace FREYA_NAMESPACE
     SDL_Cursor* SdlPlatform::ensureCursor(SystemCursor cursor)
     {
         const auto i = static_cast<std::uint8_t>(cursor);
-        if (i >= 4)
+        if (i >= 7)
             return nullptr;
         if (mCursors[i])
             return mCursors[i];
@@ -230,6 +230,15 @@ namespace FREYA_NAMESPACE
                 break;
             case SystemCursor::NotAllowed:
                 sys = SDL_SYSTEM_CURSOR_NOT_ALLOWED;
+                break;
+            case SystemCursor::IBeam:
+                sys = SDL_SYSTEM_CURSOR_TEXT;
+                break;
+            case SystemCursor::HSize:
+                sys = SDL_SYSTEM_CURSOR_EW_RESIZE;
+                break;
+            case SystemCursor::VSize:
+                sys = SDL_SYSTEM_CURSOR_NS_RESIZE;
                 break;
             case SystemCursor::Arrow:
             default:

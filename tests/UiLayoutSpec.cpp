@@ -287,7 +287,7 @@ TEST(UiContext, FocusTextInputPrimesImeWithoutClick)
     ui.FocusTextInput("chat", buffer);
     EXPECT_FALSE(ui.TextInput("chat", buffer, 64, { 200, 32 }));
     EXPECT_TRUE(ui.WantTextInput());
-    EXPECT_EQ(ui.MouseCursor(), fra::UiMouseCursor::Arrow);
+    EXPECT_EQ(ui.MouseCursor(), fra::UiMouseCursor::IBeam);
     ui.End();
     EXPECT_TRUE(ui.WantTextInput());
 }

@@ -16,6 +16,9 @@ namespace FREYA_NAMESPACE
         Hand,
         Move,
         NotAllowed,
+        IBeam,
+        HSize,
+        VSize,
     };
 
     enum class UiImageFit : std::uint32_t
@@ -59,6 +62,8 @@ namespace FREYA_NAMESPACE
         CheckMark,
         ListSelected,
         FocusRing,
+        ToastBg,
+        HeaderBg,
         COUNT
     };
 
@@ -75,6 +80,8 @@ namespace FREYA_NAMESPACE
         FontSize,
         FontSizeSmall,
         FontSizeTitle,
+        DisabledAlpha,
+        AnimSpeed,
         COUNT
     };
 

@@ -77,3 +77,23 @@ widgets on `UiContext` are main-thread only. `WantCaptureMouse` /
 
 See **GameUiDemo** for inventory paper-doll, HUD portrait snapshot,
 dialogue, chat, and ability bar (radial cooldown) recipes.
+
+## Extended widgets (groups 1/2/3/6/7)
+
+Input: `RadioButton`, `ToggleSwitch`, `SliderInt`, `SpinBox`, `ComboBox`
+(overlay dropdown), `ColorEdit` (3 sliders + swatch), `SearchBox`
+(`TextInput` + clear button).
+Display: `Heading`, `Bullet`, `LabelColored`, `CollapsingHeader`
+(persistent open state), `Spinner` (time-animated), `ShowToast`
+(auto-fading overlay, drawn in `End()`).
+Layout: `BeginRow`/`NextCell`/`EndRow` (weight flex), `BeginMargin`/`
+EndMargin`, `BeginCenter`/`EndCenter`, `BeginVStack`/`EndVStack`
+(custom `ItemSpacing`).
+Interaction: `IsItemDoubleClicked` (0.4s), `IsItemLongPressed(0.6s)`,
+`BeginDisabled`/`EndDisabled` (`DisabledAlpha`), internal clipboard
+(`SetClipboard`/`Clipboard`, Ctrl+C/X/V in `TextInput`), cursor
+Left/Right/Home/End/Delete, `IBeam` cursor on text fields, `HSize`/
+`VSize` cursors available.
+Style: `UiStyle::SaveIni`/`LoadIni` (`Color.*` / `Var.*` lines),
+`UiVar::DisabledAlpha` / `AnimSpeed`, hover-animated `Button`
+(`hoverT` lerp), `UiCol::ToastBg` / `HeaderBg`.
