@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.29)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(Freya LANGUAGES CXX VERSION 0.60.0)
+project(Freya LANGUAGES CXX VERSION 0.61.0)
 
 if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         add_compile_options(
