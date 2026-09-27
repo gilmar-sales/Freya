@@ -69,7 +69,8 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief Copy the current queue under lock into @p out
-         * (base quads then overlays).
+         * (base quads then overlays). Total size never exceeds
+         * MaxQuads().
          */
         void Snapshot(std::vector<UiQuad>& out) const;
 
@@ -78,7 +79,8 @@ namespace FREYA_NAMESPACE
         void Quad(const UiQuad& quad);
 
         /**
-         * @brief Append many quads under one lock (soft-capped at MaxQuads).
+         * @brief Append many quads under one lock (soft-capped at
+         * MaxQuads() combined across base and overlay lists).
          */
         void Quads(std::span<const UiQuad> quads);
 

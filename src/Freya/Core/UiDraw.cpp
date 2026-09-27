@@ -222,9 +222,9 @@ namespace FREYA_NAMESPACE
 
     void UiDraw::pushUnlocked(const UiQuad& quad)
     {
-        auto& dst = mOverlayDepth > 0 ? mOverlayQuads : mQuads;
-        if (dst.size() >= mMaxQuads)
+        if (mQuads.size() + mOverlayQuads.size() >= mMaxQuads)
             return;
+        auto& dst = mOverlayDepth > 0 ? mOverlayQuads : mQuads;
         dst.push_back(quad);
     }
 
