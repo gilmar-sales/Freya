@@ -40,7 +40,8 @@ Embed a deferred + shadows (+ skinned) panel without
 2. Fill `PreviewScene()` (skinned instances use `boneOffset` /
    `UploadBoneMatrices` on the shared `BoneMatrixResources`).
 3. `renderer->AddModelPreview(preview)` — `ModelPreviewFrameStage` runs
-   **before** `ScreenUi`.
+   **before** `ScreenUi`. Call `renderer->RemoveModelPreview(preview)`
+   to detach it (e.g. on shutdown), before destroying the preview.
 4. Live sample: `ui.ModelPreview(id, preview->Texture(), size, preview)`.
 5. Static HUD photo: `preview->CaptureSnapshot(*pool, {96,96})` →
    owned `TextureHandle` (survives after removing the preview).
@@ -66,7 +67,7 @@ on). Prefer one paper-doll; N stacks scale linearly.
 | Orbit / `FeedMouse*` / `SetOrbit` | Main (UI) thread; yaw/pitch read atomically in `Record` |
 | `UiContext::ModelPreview` | Main-thread only |
 | `CaptureSnapshot` | Main/render thread after ≥1 `Record`; GPU copy finishes before the handle is used (or use next frame) |
-| `AddModelPreview` / `Remove` | Mutate outside `Execute` (e.g. startup / shutdown) |
+| `AddModelPreview` / `RemoveModelPreview` | Mutate outside `Execute` (e.g. startup / shutdown) |
 
 ## Thread-safety (widgets)
 
@@ -97,3 +98,21 @@ Left/Right/Home/End/Delete, `IBeam` cursor on text fields, `HSize`/
 Style: `UiStyle::SaveIni`/`LoadIni` (`Color.*` / `Var.*` lines),
 `UiVar::DisabledAlpha` / `AnimSpeed`, hover-animated `Button`
 (`hoverT` lerp), `UiCol::ToastBg` / `HeaderBg`.
+
+## Windows / navigation (group 4)
+
+`BeginWindow` / `EndWindow` (`UiWindowOpts`): floating panel with title
+bar, drag-to-move (title grab), resize grip (bottom-right, `HSize`
+cursor), collapse chevron, optional close `x`. Position/size persist in
+`WidgetState`; `WindowRect(id)`, `IsWindowOpen` / `SetWindowOpen`.
+`BeginSwitcher` / `EndSwitcher`: fixed-size stacked page container.
+`BeginWizard` / `EndWizard` + `WizardNav`: numbered step header plus
+Back / Next-or-Finish row (`-1` / `+1` / `0`).
+`BeginDrawer` / `EndDrawer` (`UiAnchor::Left` / `Right`): full-height
+side panel with collapse strip; `IsDrawerOpen` / `OpenDrawer`.
+`Paginate` (`< 1/5 >`, fixed `{220,32}` layout) + `PageRange` helper.
+`OpenFileDialog` + `FileDialog` (`UiFileDialogOpts`: start directory,
+extension filter, `..` entry): modal `std::filesystem` picker, single
+click selects, double-click / Select confirms, Cancel / Esc aborts.
+Out of scope: docking layout and multi-viewport (host-level windows
+via `CreateWindow` cover this).

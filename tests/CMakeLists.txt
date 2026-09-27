@@ -13,8 +13,6 @@ FetchContent_MakeAvailable(googletest)
 
 include(GoogleTest)
 
-file(Freya)
-
 add_executable(FreyaTests BillboardDrawSpec.cpp EventManagerSpec.cpp FreyaOptionsSpec.cpp
         GpuAnimationSpec.cpp GpuSceneSpec.cpp LightsSpec.cpp LimitsSpec.cpp LightingTechniqueRegistrySpec.cpp MaterialMaskSpec.cpp MeshLodSpec.cpp ParticleEmitterSpec.cpp SparseSetSpec.cpp SpinLockSpec.cpp UniformBufferSpec.cpp WindowConfigContextSpec.cpp UiDrawSpec.cpp UiLayoutSpec.cpp UiExtendedSpec.cpp
         font_atlas_stub.cpp

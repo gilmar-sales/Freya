@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <filesystem>
 #include <string>
 
 namespace FREYA_NAMESPACE
@@ -86,6 +87,7 @@ namespace FREYA_NAMESPACE
         mTabs.clear();
         mColumns.clear();
         mScrolls.clear();
+        mWindows.clear();
         mLastHovered = mLastActive = mLastClicked = false;
         mLastDoubleClicked                        = false;
         mLastRect                                 = {};
@@ -2005,6 +2007,642 @@ namespace FREYA_NAMESPACE
     {
         mStyle.Var(UiVar::ItemSpacing) = mVStackGapBackup;
         mInVStack                      = false;
+    }
+
+    // --- Group 4: windows / navigation ---
+
+    UiContext::WidgetState* UiContext::FindState(UiId id)
+    {
+        auto it = mStates.find(id);
+        return it != mStates.end() ? &it->second : nullptr;
+    }
+
+    const UiContext::WidgetState* UiContext::FindState(UiId id) const
+    {
+        auto it = mStates.find(id);
+        return it != mStates.end() ? &it->second : nullptr;
+    }
+
+    namespace
+    {
+        constexpr float kWinTitleH = 30.f;
+        constexpr float kWinGrip   = 18.f;
+    } // namespace
+
+    bool UiContext::BeginWindow(std::string_view id, std::string_view title,
+                                glm::vec2 size, const UiWindowOpts& opts)
+    {
+        const UiId wid = HashId(id);
+        auto&      st  = State(wid);
+        if (!st.winInit)
+        {
+            st.winPos  = opts.defaultPos;
+            st.winSize = { size.x > 0.f ? size.x : opts.defaultSize.x,
+                           size.y > 0.f ? size.y : opts.defaultSize.y };
+            st.open    = true;
+            st.winInit = true;
+        }
+        if (!st.open)
+        {
+            mWindows.push_back({ wid, false });
+            return false;
+        }
+
+        const int btn = static_cast<int>(MouseButton::Left);
+        UiRect    win { st.winPos.x, st.winPos.y, st.winSize.x, st.winSize.y };
+        UiRect    bar { win.x, win.y, win.w, kWinTitleH };
+        UiRect    grip { win.x + win.w - kWinGrip, win.y + win.h - kWinGrip,
+                         kWinGrip, kWinGrip };
+
+        // Close / collapse buttons (right side of title bar).
+        const float bb = 22.f;
+        UiRect      closeR { bar.x + bar.w - bb - 4.f, bar.y + 4.f, bb, bb };
+        UiRect      collR { closeR.x - (opts.closable ? bb + 4.f : 0.f) -
+                                (opts.collapsible ? bb + 4.f : 0.f) + 4.f,
+                            bar.y + 4.f, bb, bb };
+        if (!opts.collapsible)
+            collR = {};
+        if (!opts.closable)
+            closeR = {};
+
+        const bool barHover  = opts.draggable && !IsDisabled() && Hit(bar);
+        const bool gripHover = opts.resizable && !IsDisabled() && Hit(grip);
+        const bool winHover  = !IsDisabled() && Hit(win);
+        if (winHover || barHover || gripHover)
+            mWantMouse = true;
+
+        const bool onBtn =
+            (opts.closable && Hit(closeR)) || (opts.collapsible && Hit(collR));
+        if (!onBtn && barHover && mMouseClicked[btn] && mWinActiveId == 0)
+        {
+            mWinActiveId   = wid;
+            st.winDragging = true;
+            st.grabOffset  = { mMouseLogicalX - st.winPos.x,
+                               mMouseLogicalY - st.winPos.y };
+        }
+        if (!onBtn && gripHover && mMouseClicked[btn] && mWinActiveId == 0)
+        {
+            mWinActiveId   = wid;
+            st.winResizing = true;
+            st.grabOffset  = { mMouseLogicalX - st.winPos.x - st.winSize.x,
+                               mMouseLogicalY - st.winPos.y - st.winSize.y };
+        }
+        if (mWinActiveId == wid)
+        {
+            mWantMouse = true;
+            mMouseCursor =
+                st.winResizing ? UiMouseCursor::HSize : UiMouseCursor::Move;
+            if (mMouseDown[btn])
+            {
+                if (st.winDragging)
+                {
+                    st.winPos   = { mMouseLogicalX - st.grabOffset.x,
+                                    mMouseLogicalY - st.grabOffset.y };
+                    st.winPos.x = std::clamp(
+                        st.winPos.x, 0.f, std::max(0.f, mLogicalSize.x - 60.f));
+                    st.winPos.y = std::clamp(
+                        st.winPos.y, 0.f, std::max(0.f, mLogicalSize.y - 20.f));
+                }
+                else if (st.winResizing)
+                {
+                    st.winSize = {
+                        mMouseLogicalX - st.grabOffset.x - st.winPos.x,
+                        mMouseLogicalY - st.grabOffset.y - st.winPos.y
+                    };
+                    st.winSize.x =
+                        std::clamp(st.winSize.x, 160.f, mLogicalSize.x);
+                    st.winSize.y = std::clamp(
+                        st.winSize.y, kWinTitleH + 40.f, mLogicalSize.y);
+                }
+            }
+            else
+            {
+                st.winDragging = false;
+                st.winResizing = false;
+                mWinActiveId   = 0;
+            }
+            win    = { st.winPos.x, st.winPos.y, st.winSize.x, st.winSize.y };
+            bar    = { win.x, win.y, win.w, kWinTitleH };
+            grip   = { win.x + win.w - kWinGrip, win.y + win.h - kWinGrip,
+                       kWinGrip, kWinGrip };
+            closeR = { bar.x + bar.w - bb - 4.f, bar.y + 4.f, bb, bb };
+            if (!opts.closable)
+                closeR = {};
+        }
+        else if (gripHover)
+        {
+            mMouseCursor = UiMouseCursor::HSize;
+        }
+
+        if (opts.closable && !IsDisabled() && Hit(closeR) && mMouseClicked[btn])
+        {
+            st.open = false;
+            mWindows.push_back({ wid, false });
+            return false;
+        }
+        if (opts.collapsible && !IsDisabled() && Hit(collR) &&
+            mMouseClicked[btn])
+            st.collapsed = !st.collapsed;
+
+        mLastRect = win;
+        mLastId   = wid;
+        RegisterFocusable(wid, bar);
+
+        if (mDraw)
+        {
+            const float drawH = st.collapsed ? kWinTitleH : win.h;
+            mDraw->Rect({ win.x, win.y, win.w, drawH },
+                        ApplyDisabled(mStyle.Color(UiCol::PanelBg)),
+                        mStyle.Var(UiVar::Rounding),
+                        mStyle.Var(UiVar::BorderWidth),
+                        mStyle.Color(UiCol::Border));
+            mDraw->Rect(bar, ApplyDisabled(mStyle.Color(UiCol::HeaderBg)),
+                        mStyle.Var(UiVar::Rounding));
+            if (mStyle.font)
+            {
+                mDraw->Text(
+                    { bar.x + 10.f, bar.y + 5.f,
+                      bar.w - (opts.closable ? 70.f : 40.f), kWinTitleH - 6.f },
+                    title, *mStyle.font, mStyle.Var(UiVar::FontSizeSmall),
+                    ApplyDisabled(mStyle.Color(UiCol::Text)));
+                if (opts.collapsible)
+                    mDraw->Text(collR, st.collapsed ? "+" : "-", *mStyle.font,
+                                mStyle.Var(UiVar::FontSizeSmall),
+                                ApplyDisabled(mStyle.Color(UiCol::Text)));
+                if (opts.closable)
+                    mDraw->Text(closeR, "x", *mStyle.font,
+                                mStyle.Var(UiVar::FontSizeSmall),
+                                ApplyDisabled(mStyle.Color(UiCol::Text)));
+            }
+            if (!st.collapsed && opts.resizable)
+                mDraw->Rect(grip, mStyle.Color(UiCol::Border), 3.f);
+        }
+
+        if (st.collapsed)
+        {
+            mWindows.push_back({ wid, false });
+            return false;
+        }
+        const float pad = mStyle.Var(UiVar::WindowPadding);
+        PushParent({ win.x + pad, win.y + kWinTitleH + pad, win.w - pad * 2.f,
+                     win.h - kWinTitleH - pad * 2.f });
+        mWindows.push_back({ wid, true });
+        return true;
+    }
+
+    void UiContext::EndWindow()
+    {
+        if (mWindows.empty())
+            return;
+        const auto f = mWindows.back();
+        mWindows.pop_back();
+        if (f.content)
+            PopParent();
+    }
+
+    UiRect UiContext::WindowRect(std::string_view id) const
+    {
+        const UiId sid = Fnv1a(id);
+        const auto it  = mStates.find(sid);
+        if (it == mStates.end() || !it->second.winInit)
+            return {};
+        return { it->second.winPos.x, it->second.winPos.y, it->second.winSize.x,
+                 it->second.winSize.y };
+    }
+
+    bool UiContext::IsWindowOpen(std::string_view id) const
+    {
+        const auto* st = FindState(Fnv1a(id));
+        return st != nullptr && st->open;
+    }
+
+    void UiContext::SetWindowOpen(std::string_view id, bool open)
+    {
+        State(HashId(id)).open = open;
+    }
+
+    bool UiContext::BeginSwitcher(std::string_view id, glm::vec2 size)
+    {
+        (void) id;
+        const UiRect r = Place(size);
+        mLastRect      = r;
+        PushParent({ r.x, r.y, r.w, r.h });
+        return true;
+    }
+
+    void UiContext::EndSwitcher()
+    {
+        PopParent();
+    }
+
+    bool UiContext::BeginWizard(std::string_view                  id,
+                                std::span<const std::string_view> steps,
+                                int current, glm::vec2 size)
+    {
+        const UiRect r = Place(size);
+        mLastRect      = r;
+        if (mDraw)
+        {
+            mDraw->Rect(r, ApplyDisabled(mStyle.Color(UiCol::PanelBg)),
+                        mStyle.Var(UiVar::Rounding),
+                        mStyle.Var(UiVar::BorderWidth),
+                        mStyle.Color(UiCol::Border));
+        }
+        // Step header: numbered dots + labels.
+        const float headerH = 40.f;
+        if (mDraw && mStyle.font && !steps.empty())
+        {
+            float x = r.x + 12.f;
+            for (std::size_t i = 0; i < steps.size(); ++i)
+            {
+                const bool done = static_cast<int>(i) < current;
+                const bool here = static_cast<int>(i) == current;
+                const auto dot  = here   ? mStyle.Color(UiCol::SliderGrab)
+                                  : done ? mStyle.Color(UiCol::CheckMark)
+                                         : mStyle.Color(UiCol::FrameBg);
+                mDraw->Rect({ x, r.y + 9.f, 22.f, 22.f }, dot, 11.f, 1.f,
+                            mStyle.Color(UiCol::Border));
+                mDraw->Text({ x + 6.f, r.y + 11.f, 14.f, 18.f },
+                            std::to_string(i + 1), *mStyle.font, 14.f,
+                            mStyle.Color(UiCol::Text));
+                mDraw->Text(
+                    { x + 28.f, r.y + 11.f, 110.f, 20.f }, steps[i],
+                    *mStyle.font, mStyle.Var(UiVar::FontSizeSmall),
+                    ApplyDisabled(here ? mStyle.Color(UiCol::Text)
+                                       : mStyle.Color(UiCol::TextDisabled)));
+                x += 150.f;
+                if (x > r.x + r.w - 20.f)
+                    break;
+            }
+        }
+        PushParent(
+            { r.x + mStyle.Var(UiVar::WindowPadding), r.y + headerH,
+              r.w - mStyle.Var(UiVar::WindowPadding) * 2.f, r.h - headerH });
+        (void) id;
+        return true;
+    }
+
+    void UiContext::EndWizard()
+    {
+        PopParent();
+    }
+
+    int UiContext::WizardNav(std::string_view id, int current, int stepCount,
+                             glm::vec2 size)
+    {
+        if (size.x <= 0.f)
+            size.x = CurrentParent().w;
+        const UiRect r      = Place(size);
+        mLastRect           = r;
+        const bool last     = current >= stepCount - 1 || stepCount <= 1;
+        float      widths[] = { 120.f, 120.f };
+        BeginColumns(id, 2, widths);
+        int nav = 0;
+        BeginDisabled(current <= 0);
+        if (Button("Back", { 120.f, 32.f }))
+            nav = -1;
+        EndDisabled();
+        NextColumn();
+        if (Button(last ? "Finish" : "Next", { 120.f, 32.f }))
+            nav = 1;
+        EndColumns();
+        (void) r;
+        return nav;
+    }
+
+    bool UiContext::BeginDrawer(std::string_view id, UiAnchor side, float width)
+    {
+        const UiId did = HashId(id);
+        auto&      st  = State(did);
+        if (!st.winInit)
+        {
+            st.open    = true;
+            st.winInit = true;
+        }
+        if (!st.open)
+            return false;
+        const bool left = side == UiAnchor::Left;
+        if (side != UiAnchor::Left && side != UiAnchor::Right)
+            return false;
+        const float  strip = 32.f;
+        const float  w     = st.collapsed ? strip : width;
+        const float  x = left ? mSafeArea.x : mLogicalSize.x - mSafeArea.w - w;
+        const UiRect r { x, mSafeArea.y, w,
+                         mLogicalSize.y - mSafeArea.y - mSafeArea.h };
+        mLastRect = r;
+        mLastId   = did;
+        if (Hit(r))
+            mWantMouse = true;
+        if (mDraw)
+        {
+            mDraw->Rect(r, ApplyDisabled(mStyle.Color(UiCol::PanelBg)), 0.f,
+                        mStyle.Var(UiVar::BorderWidth),
+                        mStyle.Color(UiCol::Border));
+        }
+        // Collapse toggle at top outer edge.
+        const UiRect tog { left ? r.x + r.w - strip : r.x, r.y + 8.f, 24.f,
+                           24.f };
+        if (!IsDisabled() && Hit(tog) &&
+            mMouseClicked[static_cast<int>(MouseButton::Left)])
+            st.collapsed = !st.collapsed;
+        if (mDraw && mStyle.font)
+            mDraw->Text(tog, st.collapsed ? ">" : "<", *mStyle.font, 16.f,
+                        mStyle.Color(UiCol::Text));
+        if (st.collapsed)
+            return false;
+        const float pad = mStyle.Var(UiVar::WindowPadding);
+        PushParent({ r.x + pad, r.y + pad + 28.f, r.w - pad * 2.f,
+                     r.h - pad * 2.f - 28.f });
+        mWindows.push_back({ did, true });
+        return true;
+    }
+
+    void UiContext::EndDrawer()
+    {
+        if (mWindows.empty())
+            return;
+        const auto f = mWindows.back();
+        mWindows.pop_back();
+        if (f.content)
+            PopParent();
+    }
+
+    bool UiContext::IsDrawerOpen(std::string_view id) const
+    {
+        const auto* st = FindState(Fnv1a(id));
+        return st != nullptr && !st->collapsed;
+    }
+
+    void UiContext::OpenDrawer(std::string_view id, bool open)
+    {
+        auto& st     = State(HashId(id));
+        st.open      = true;
+        st.winInit   = true;
+        st.collapsed = !open;
+    }
+
+    bool UiContext::Paginate(std::string_view id, int itemCount, int pageSize,
+                             int* page)
+    {
+        if (!page || pageSize <= 0)
+            return false;
+        const int pages = std::max(1, (itemCount + pageSize - 1) / pageSize);
+        *page           = std::clamp(*page, 0, pages - 1);
+        const UiRect r  = Place({ 220.f, 32.f });
+        mLastRect       = r;
+        const UiRect prev { r.x, r.y, 40.f, 32.f };
+        const UiRect next { r.x + r.w - 40.f, r.y, 40.f, 32.f };
+        const int    before = *page;
+        // Steal-free mini buttons (do not disturb grid parents).
+        const int  btn = static_cast<int>(MouseButton::Left);
+        const bool dis = IsDisabled();
+        auto mini      = [&](const UiRect& b, const char* glyph, bool enabled) {
+            const bool hov = enabled && !dis && Hit(b);
+            if (hov)
+                mWantMouse = true;
+            const bool clicked = hov && mMouseClicked[btn];
+            if (mDraw)
+            {
+                mDraw->Rect(b,
+                            ApplyDisabled(
+                                enabled ? mStyle.Color(UiCol::Button)
+                                        : mStyle.Color(UiCol::ButtonDisabled)),
+                            4.f, 1.f, mStyle.Color(UiCol::Border));
+                if (mStyle.font)
+                    mDraw->Text({ b.x + 12.f, b.y + 6.f, 20.f, 20.f }, glyph,
+                                *mStyle.font, 16.f,
+                                ApplyDisabled(mStyle.Color(UiCol::Text)));
+            }
+            return clicked;
+        };
+        if (mini(prev, "<", *page > 0))
+            *page = *page - 1;
+        if (mini(next, ">", *page < pages - 1))
+            *page = *page + 1;
+        if (mDraw && mStyle.font)
+        {
+            const std::string t =
+                std::to_string(*page + 1) + "/" + std::to_string(pages);
+            mDraw->Text({ r.x + 44.f, r.y + 6.f, r.w - 88.f, 22.f }, t,
+                        *mStyle.font, mStyle.Var(UiVar::FontSizeSmall),
+                        mStyle.Color(UiCol::Text));
+        }
+        (void) id;
+        return *page != before;
+    }
+
+    void UiContext::PageRange(int itemCount, int pageSize, int page, int* first,
+                              int* count)
+    {
+        if (pageSize <= 0)
+        {
+            if (first)
+                *first = 0;
+            if (count)
+                *count = 0;
+            return;
+        }
+        const int pages = std::max(1, (itemCount + pageSize - 1) / pageSize);
+        const int p     = std::clamp(page, 0, pages - 1);
+        if (first)
+            *first = p * pageSize;
+        if (count)
+            *count = std::min(pageSize, std::max(0, itemCount - p * pageSize));
+    }
+
+    void UiContext::OpenFileDialog(std::string_view id, std::string directory)
+    {
+        auto& st     = State(HashId(id));
+        st.open      = true;
+        st.dialogDir = std::move(directory);
+        st.dialogSel.clear();
+    }
+
+    bool UiContext::FileDialog(std::string_view id, std::string_view title,
+                               const UiFileDialogOpts& opts,
+                               std::string* outPath, glm::vec2 size)
+    {
+        const UiId fid = HashId(id);
+        auto&      st  = State(fid);
+        if (!st.open)
+            return false;
+        if (st.dialogDir.empty())
+            st.dialogDir = opts.directory;
+
+        if (mDraw)
+            mDraw->Rect({ 0, 0, mLogicalSize.x, mLogicalSize.y },
+                        mStyle.Color(UiCol::ModalDim));
+        const UiRect m { (mLogicalSize.x - size.x) * 0.5f,
+                         (mLogicalSize.y - size.y) * 0.5f, size.x, size.y };
+        if (mDraw)
+            mDraw->Rect(
+                m, mStyle.Color(UiCol::PanelBg), mStyle.Var(UiVar::Rounding),
+                mStyle.Var(UiVar::BorderWidth), mStyle.Color(UiCol::Border));
+        const float pad = mStyle.Var(UiVar::WindowPadding);
+        PushParent({ m.x + pad, m.y + pad, m.w - pad * 2.f, m.h - pad * 2.f });
+        ++mModalLayer;
+        mWantMouse = mWantKeyboard = mWantGamepad = true;
+        if (mCloseTopModal)
+        {
+            mCloseTopModal = false;
+            st.open        = false;
+        }
+
+        Label(title, mStyle.Var(UiVar::FontSizeTitle));
+        Label(st.dialogDir, mStyle.Var(UiVar::FontSizeSmall));
+
+        // Collect entries (dirs first, then extension-filtered files).
+        struct Entry
+        {
+            std::string name;
+            bool        dir = false;
+        };
+        std::vector<Entry> entries;
+        std::error_code    ec;
+        if (opts.allowParent)
+            entries.push_back({ "..", true });
+        namespace fs = std::filesystem;
+        fs::directory_iterator it(st.dialogDir, ec), end;
+        if (!ec)
+        {
+            std::vector<Entry> dirs, files;
+            for (; it != end; it.increment(ec))
+            {
+                if (ec)
+                    break;
+                const auto&       p    = it->path();
+                const std::string name = p.filename().string();
+                if (name.empty())
+                    continue;
+                std::error_code dc;
+                if (it->is_directory(dc))
+                    dirs.push_back({ name, true });
+                else if (it->is_regular_file(dc))
+                {
+                    if (!opts.extensions.empty())
+                    {
+                        const std::string ext   = p.extension().string();
+                        bool              match = false;
+                        for (const auto& e : opts.extensions)
+                        {
+                            if (e == ext)
+                            {
+                                match = true;
+                                break;
+                            }
+                        }
+                        if (!match)
+                            continue;
+                    }
+                    files.push_back({ name, false });
+                }
+            }
+            auto byName = [](const Entry& a, const Entry& b) {
+                return a.name < b.name;
+            };
+            std::sort(dirs.begin(), dirs.end(), byName);
+            std::sort(files.begin(), files.end(), byName);
+            entries.insert(entries.end(), dirs.begin(), dirs.end());
+            entries.insert(entries.end(), files.begin(), files.end());
+        }
+
+        const float rowH = 28.f;
+        BeginScrollView(std::string(id) + "##files",
+                        { CurrentParent().w, 220.f },
+                        static_cast<float>(entries.size()) * rowH);
+        for (std::size_t i = 0; i < entries.size(); ++i)
+        {
+            const std::string rowId =
+                std::string(id) + "##f" + std::to_string(i);
+            const UiId   rid = HashId(rowId);
+            const UiRect rr  = Place({ CurrentParent().w, rowH });
+            mLastRect        = rr;
+            mLastId          = rid;
+            RegisterFocusable(rid, rr);
+            const bool hov = !IsDisabled() && Hit(rr);
+            if (hov)
+                mWantMouse = true;
+            const bool clicked =
+                hov && mMouseClicked[static_cast<int>(MouseButton::Left)];
+            mLastHovered = hov;
+            mLastClicked = clicked;
+            if (clicked)
+            {
+                TrackClick(rid, rr);
+                st.dialogSel = entries[i].name;
+                if (entries[i].dir)
+                {
+                    fs::path np = fs::path(st.dialogDir) / entries[i].name;
+                    std::error_code nc;
+                    st.dialogDir = fs::weakly_canonical(np, nc).string();
+                    st.dialogSel.clear();
+                    if (nc)
+                        st.dialogDir = np.string();
+                }
+            }
+            const bool sel = st.dialogSel == entries[i].name;
+            if (!entries[i].dir && sel && IsItemDoubleClicked())
+            {
+                fs::path full = fs::path(st.dialogDir) / st.dialogSel;
+                if (outPath)
+                    *outPath = full.string();
+                st.open = false;
+                if (mModalLayer > 0)
+                    --mModalLayer;
+                PopParent();
+                return true;
+            }
+            if (mDraw)
+            {
+                if (sel || hov)
+                    mDraw->Rect(rr, mStyle.Color(UiCol::ListSelected),
+                                mStyle.Var(UiVar::Rounding));
+                if (mStyle.font)
+                {
+                    const std::string glyph = entries[i].dir ? "[D] " : "";
+                    mDraw->Text({ rr.x + 8, rr.y + 4, rr.w - 8, rr.h },
+                                glyph + entries[i].name, *mStyle.font,
+                                mStyle.Var(UiVar::FontSizeSmall),
+                                mStyle.Color(UiCol::Text));
+                }
+            }
+        }
+        EndScrollView();
+
+        bool  confirmed = false;
+        float bwidths[] = { 120.f, 120.f };
+        BeginColumns(std::string(id) + "##btns", 2, bwidths);
+        if (Button("Cancel", { 120.f, 32.f }))
+            st.open = false;
+        NextColumn();
+        BeginDisabled(st.dialogSel.empty());
+        if (Button("Select", { 120.f, 32.f }) && !st.dialogSel.empty())
+        {
+            fs::path        full = fs::path(st.dialogDir) / st.dialogSel;
+            std::error_code fc;
+            if (fs::is_directory(full, fc))
+            {
+                std::error_code nc;
+                st.dialogDir = fs::weakly_canonical(full, nc).string();
+                st.dialogSel.clear();
+                if (nc)
+                    st.dialogDir = full.string();
+            }
+            else
+            {
+                if (outPath)
+                    *outPath = full.string();
+                st.open   = false;
+                confirmed = true;
+            }
+        }
+        EndDisabled();
+        EndColumns();
+
+        if (mModalLayer > 0)
+            --mModalLayer;
+        PopParent();
+        return confirmed;
     }
 
 } // namespace FREYA_NAMESPACE

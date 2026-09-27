@@ -6,6 +6,8 @@
 
 #include <gtest/gtest.h>
 
+#include <filesystem>
+#include <fstream>
 #include <string>
 
 namespace
@@ -193,4 +195,221 @@ TEST(UiExtended, TextCursorAndClipboard)
     ui.End();
     EXPECT_FALSE(buf.empty());
     ui.UnbindEvents(events);
+}
+
+TEST(UiExtended, WindowDragMovesRect)
+{
+    fra::UiDraw       draw;
+    fra::UiContext    ui(&draw);
+    fra::EventManager events;
+    ui.BindEvents(events);
+
+    fra::UiWindowOpts opts {};
+    opts.defaultPos = { 100.f, 100.f };
+
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_TRUE(ui.BeginWindow("w1", "Tools", { 400.f, 300.f }, opts));
+    ui.EndWindow();
+    ui.End();
+    const auto r0 = ui.WindowRect("w1");
+    EXPECT_NEAR(r0.x, 100.f, 1e-3f);
+
+    // Grab title bar center and drag +60/+40.
+    MoveMouse(events, r0.x + 200.f, r0.y + 15.f);
+    events.Send(
+        fra::MouseButtonPressedEvent { .button = fra::MouseButton::Left });
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_TRUE(ui.BeginWindow("w1", "Tools", { 400.f, 300.f }, opts));
+    ui.EndWindow();
+    ui.End();
+
+    MoveMouse(events, r0.x + 260.f, r0.y + 55.f);
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_TRUE(ui.BeginWindow("w1", "Tools", { 400.f, 300.f }, opts));
+    ui.EndWindow();
+    ui.End();
+
+    events.Send(
+        fra::MouseButtonReleasedEvent { .button = fra::MouseButton::Left });
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_TRUE(ui.BeginWindow("w1", "Tools", { 400.f, 300.f }, opts));
+    ui.EndWindow();
+    ui.End();
+
+    const auto r1 = ui.WindowRect("w1");
+    EXPECT_NEAR(r1.x, r0.x + 60.f, 1.f);
+    EXPECT_NEAR(r1.y, r0.y + 40.f, 1.f);
+    ui.UnbindEvents(events);
+}
+
+TEST(UiExtended, WindowResizeAndClose)
+{
+    fra::UiDraw       draw;
+    fra::UiContext    ui(&draw);
+    fra::EventManager events;
+    ui.BindEvents(events);
+
+    fra::UiWindowOpts opts {};
+    opts.closable = true;
+
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_TRUE(ui.BeginWindow("w2", "Panel", { 400.f, 300.f }, opts));
+    ui.EndWindow();
+    ui.End();
+    const auto r0 = ui.WindowRect("w2");
+
+    // Drag resize grip +40/+30.
+    MoveMouse(events, r0.x + r0.w - 9.f, r0.y + r0.h - 9.f);
+    events.Send(
+        fra::MouseButtonPressedEvent { .button = fra::MouseButton::Left });
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_TRUE(ui.BeginWindow("w2", "Panel", { 400.f, 300.f }, opts));
+    ui.EndWindow();
+    ui.End();
+
+    MoveMouse(events, r0.x + r0.w - 9.f + 40.f, r0.y + r0.h - 9.f + 30.f);
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_TRUE(ui.BeginWindow("w2", "Panel", { 400.f, 300.f }, opts));
+    ui.EndWindow();
+    ui.End();
+    events.Send(
+        fra::MouseButtonReleasedEvent { .button = fra::MouseButton::Left });
+
+    const auto r1 = ui.WindowRect("w2");
+    EXPECT_NEAR(r1.w, r0.w + 40.f, 1.5f);
+    EXPECT_NEAR(r1.h, r0.h + 30.f, 1.5f);
+
+    // Close via X button (title bar right).
+    MoveMouse(events, r1.x + r1.w - 15.f, r1.y + 15.f);
+    ClickLeft(events);
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_FALSE(ui.BeginWindow("w2", "Panel", { 400.f, 300.f }, opts));
+    ui.EndWindow();
+    ui.End();
+    EXPECT_FALSE(ui.IsWindowOpen("w2"));
+
+    ui.SetWindowOpen("w2", true);
+    EXPECT_TRUE(ui.IsWindowOpen("w2"));
+    ui.UnbindEvents(events);
+}
+
+TEST(UiExtended, SwitcherWizardDrawerPaginate)
+{
+    fra::UiDraw       draw;
+    fra::UiContext    ui(&draw);
+    fra::EventManager events;
+    ui.BindEvents(events);
+
+    // Switcher + drawer anchoring.
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_TRUE(ui.BeginDrawer("dock", fra::UiAnchor::Left, 300.f));
+    ui.Label("docked");
+    EXPECT_NEAR(ui.LastItemRect().x, 12.f, 1.f);
+    ui.EndDrawer();
+    EXPECT_TRUE(ui.BeginSwitcher("sw", { 400.f, 200.f }));
+    ui.Label("page0");
+    ui.EndSwitcher();
+    std::array<std::string_view, 3> steps { "One", "Two", "Three" };
+    EXPECT_TRUE(ui.BeginWizard("wiz", steps, 0, { 500.f, 300.f }));
+    ui.Label("step0");
+    ui.EndWizard();
+    ui.End();
+
+    // Wizard Next at col1 (x=120..240); columns start below container.
+    ui.Begin(0.016f, { 1920, 1080 });
+    const int nav = ui.WizardNav("wiznav", 0, 3, { 500.f, 36.f });
+    (void) nav;
+    ui.End();
+    MoveMouse(events, 180.f, 36.f + 8.f + 16.f);
+    ClickLeft(events);
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_EQ(ui.WizardNav("wiznav", 0, 3, { 500.f, 36.f }), 1);
+    ui.End();
+
+    // Paginate: container at (0,0,220,32), next at x=180..220.
+    int page = 0;
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_FALSE(ui.Paginate("pg", 95, 10, &page));
+    ui.End();
+    EXPECT_EQ(page, 0);
+    int first = -1;
+    int count = -1;
+    fra::UiContext::PageRange(95, 10, 9, &first, &count);
+    EXPECT_EQ(first, 90);
+    EXPECT_EQ(count, 5);
+    MoveMouse(events, 200.f, 16.f);
+    ClickLeft(events);
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_TRUE(ui.Paginate("pg", 95, 10, &page));
+    ui.End();
+    EXPECT_EQ(page, 1);
+
+    // Collapse drawer via toggle (top outer edge).
+    MoveMouse(events, 300.f - 32.f + 12.f, 8.f + 12.f);
+    ClickLeft(events);
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_FALSE(ui.BeginDrawer("dock", fra::UiAnchor::Left, 300.f));
+    ui.EndDrawer();
+    ui.End();
+    EXPECT_FALSE(ui.IsDrawerOpen("dock"));
+    ui.OpenDrawer("dock", true);
+    EXPECT_TRUE(ui.IsDrawerOpen("dock"));
+    ui.UnbindEvents(events);
+}
+
+TEST(UiExtended, FileDialogSelectsFile)
+{
+    namespace fs       = std::filesystem;
+    const fs::path tmp = fs::temp_directory_path() / "freya_fd_test_ui";
+    fs::remove_all(tmp);
+    fs::create_directories(tmp / "sub");
+    {
+        std::ofstream(tmp / "a.txt") << "a";
+        std::ofstream(tmp / "b.txt") << "b";
+        std::ofstream(tmp / "c.bin") << "c";
+    }
+
+    fra::UiDraw       draw;
+    fra::UiContext    ui(&draw);
+    fra::EventManager events;
+    ui.BindEvents(events);
+
+    fra::UiFileDialogOpts opts {};
+    opts.extensions = { ".txt" };
+    ui.OpenFileDialog("fd", tmp.string());
+
+    std::string out;
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_FALSE(ui.FileDialog("fd", "Open", opts, &out, { 560.f, 420.f }));
+    ui.End();
+    EXPECT_TRUE(out.empty());
+
+    // Rows: "..", "sub", "a.txt" — click a.txt (row 2).
+    // Modal at ((1920-560)/2,(1080-420)/2)=(680,330), pad 12.
+    // Title 28 + path 16 -> list view y = 342+36+24 = 402, rows 28+8.
+    MoveMouse(events, 960.f, 402.f + 2 * (28.f + 8.f) + 14.f);
+    ClickLeft(events);
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_FALSE(ui.FileDialog("fd", "Open", opts, &out, { 560.f, 420.f }));
+    ui.End();
+    EXPECT_TRUE(out.empty());
+
+    // Select button at col1 (x=812..932, y=630..662).
+    MoveMouse(events, 872.f, 646.f);
+    ClickLeft(events);
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_TRUE(ui.FileDialog("fd", "Open", opts, &out, { 560.f, 420.f }));
+    ui.End();
+    EXPECT_EQ(fs::path(out).filename().string(), "a.txt");
+
+    // Missing directory degrades gracefully.
+    ui.OpenFileDialog("fd2", (tmp / "nope").string());
+    std::string out2;
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_FALSE(ui.FileDialog("fd2", "Open", opts, &out2, { 560.f, 420.f }));
+    ui.End();
+    EXPECT_TRUE(out2.empty());
+
+    ui.UnbindEvents(events);
+    fs::remove_all(tmp);
 }

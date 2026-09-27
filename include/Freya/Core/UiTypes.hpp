@@ -10,6 +10,23 @@ namespace FREYA_NAMESPACE
 {
     using UiId = std::uint32_t;
 
+    struct UiWindowOpts
+    {
+        glm::vec2 defaultPos { 100.f, 100.f };
+        glm::vec2 defaultSize { 400.f, 300.f };
+        bool      draggable   = true;
+        bool      resizable   = true;
+        bool      collapsible = true;
+        bool      closable    = false;
+    };
+
+    struct UiFileDialogOpts
+    {
+        std::string              directory = ".";
+        std::vector<std::string> extensions {}; // empty = all files
+        bool                     allowParent = true;
+    };
+
     enum class UiMouseCursor : std::uint32_t
     {
         Arrow = 0,

@@ -106,6 +106,46 @@ namespace FREYA_NAMESPACE
                         const UiPanelOpts& opts = {});
         void EndModal();
 
+        bool BeginWindow(std::string_view id, std::string_view title,
+                         glm::vec2 size, const UiWindowOpts& opts = {});
+        void EndWindow();
+        [[nodiscard]] UiRect WindowRect(std::string_view id) const;
+        [[nodiscard]] bool   IsWindowOpen(std::string_view id) const;
+        void                 SetWindowOpen(std::string_view id, bool open);
+
+        bool BeginSwitcher(std::string_view id, glm::vec2 size);
+        void EndSwitcher();
+
+        bool BeginWizard(std::string_view                  id,
+                         std::span<const std::string_view> steps, int current,
+                         glm::vec2 size);
+        void EndWizard();
+        /**
+         * @brief Back / Next-or-Finish row. @return -1 back, +1 next/finish,
+         * 0 none.
+         */
+        int WizardNav(std::string_view id, int current, int stepCount,
+                      glm::vec2 size = { 0.f, 36.f });
+
+        bool BeginDrawer(std::string_view id, UiAnchor side, float width);
+        void EndDrawer();
+        [[nodiscard]] bool IsDrawerOpen(std::string_view id) const;
+        void               OpenDrawer(std::string_view id, bool open = true);
+
+        /**
+         * @brief Pager row ("< 1/5 >"). @return true when *page changed.
+         * Layout: {220,32}, prev {40,32} left, next {40,32} right.
+         */
+        bool        Paginate(std::string_view id, int itemCount, int pageSize,
+                             int* page);
+        static void PageRange(int itemCount, int pageSize, int page, int* first,
+                              int* count);
+
+        void OpenFileDialog(std::string_view id, std::string directory);
+        bool FileDialog(std::string_view id, std::string_view title,
+                        const UiFileDialogOpts& opts, std::string* outPath,
+                        glm::vec2 size = { 560.f, 420.f });
+
         void Label(std::string_view text, float fontSize = 0.f,
                    const glm::vec4* color = nullptr);
         void TextWrapped(std::string_view text, float maxWidth,
@@ -259,6 +299,16 @@ namespace FREYA_NAMESPACE
             bool      dragging   = false;
             glm::vec2 popupPos { 0.f, 0.f };
             UiRect    popupRect {};
+            // Group 4: floating windows / dialogs
+            glm::vec2   winPos { 0.f, 0.f };
+            glm::vec2   winSize { 0.f, 0.f };
+            bool        winInit     = false;
+            bool        collapsed   = false;
+            bool        winDragging = false;
+            bool        winResizing = false;
+            glm::vec2   grabOffset { 0.f, 0.f };
+            std::string dialogDir;
+            std::string dialogSel;
         };
         struct Focusable
         {
@@ -421,9 +471,19 @@ namespace FREYA_NAMESPACE
             return { a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t,
                      a.b + (b.b - a.b) * t, a.a + (b.a - a.a) * t };
         }
-        void                    TrackClick(UiId id, const UiRect& r);
-        void                    DrawToasts();
-        [[nodiscard]] glm::vec4 ApplyDisabled(glm::vec4 c) const;
+        void                             TrackClick(UiId id, const UiRect& r);
+        void                             DrawToasts();
+        [[nodiscard]] glm::vec4          ApplyDisabled(glm::vec4 c) const;
+        [[nodiscard]] WidgetState*       FindState(UiId id);
+        [[nodiscard]] const WidgetState* FindState(UiId id) const;
+
+        struct WindowFrame
+        {
+            UiId id;
+            bool content = false;
+        };
+        std::vector<WindowFrame> mWindows;
+        UiId                     mWinActiveId = 0;
     };
 
 } // namespace FREYA_NAMESPACE
