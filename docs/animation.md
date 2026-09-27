@@ -216,12 +216,23 @@ blends loco/layers, optional look/IK, FK, then writes skin matrices into
 
 ### Limits
 
-| Constant | Value |
-|----------|------:|
-| `kMaxJoints` | 128 |
+Public caps live in `include/Freya/Core/Limits.hpp` — size streaming and
+validation against these names. The internal compute pass
+(`src/Freya/Core/GpuAnimPass.hpp`, not public API) mirrors them as
+`GpuAnimPass::kMax*`; its clip pool is sized 32, but the public contract
+is `kGpuAnimMaxClips` = 24 slots.
+
+| Public constant | Value |
+|-----------------|------:|
+| `kGpuAnimMaxJoints` | 128 |
+| `kGpuAnimMaxInstances` | 2048 |
+| `kGpuAnimMaxClips` | 24 |
+
+Internal-only (`GpuAnimPass::`, no public constant):
+
+| Internal constant | Value |
+|-------------------|------:|
 | `kMaxSkeletons` | 8 (atlas slabs; mid-tier multi-rig) |
-| `kMaxInstances` | 2048 |
-| `kMaxClips` | 32 |
 | `kMaxBakedJointsFloat` | 65536 (48 B/joint) |
 | `kMaxBakedJointsQuant` | 196608 (16 B; same VRAM as float pool) |
 | `kMaxMaskFloats` | 1024 (`kMaxJoints * kMaxSkeletons`) |
@@ -292,9 +303,9 @@ gpu.EndGpuAnimInstanceUploads();
 
 `UploadInstances` wraps `BeginGpuAnimInstanceUploads` →
 `UploadGpuAnimInstanceUploads` → `EndGpuAnimInstanceUploads`.
-`Evict` / `ResetClipCache` / `UploadClipSlot` / `UploadSkeleton` /
-`UploadBakes` are rejected while instance staging is open; Ensure
-(clip/skeleton) may fill free slots.
+`ResetClipCache` / `UploadClipSlot` / `UploadSkeleton` (plus internal
+`UploadBakes` / `EvictClipSlot`) are rejected while instance staging is
+open; Ensure (clip/skeleton) may fill free slots.
 
 **Mixed CPU + GPU (same frame):** upload CPU skins first, then
 `UploadInstances` / `EndGpuAnimInstanceUploads` for GPU actors, with
@@ -303,7 +314,8 @@ so hero CPU skins are not wiped. Prefer uploading only CPU-owned matrices
 (not a full palette of identity padding for GPU slots). Call GPU instance
 `End` after the CPU bone `End` so wild slots are re-marked the same frame.
 
-**Multi-rig mid-tier:** up to `kMaxSkeletons` atlased slabs of parents /
+**Multi-rig mid-tier:** up to 8 atlased slabs (internal
+`GpuAnimPass::kMaxSkeletons`; no public constant) of parents /
 inverseBind / rest; each `GpuAnimInstance` carries `skeletonSlot`. One
 Dispatch processes mixed fox + humanoid (etc.) in the same EachAsync cohort.
 Far-tier crowds (BAT/VAT) remain a separate follow-up.
@@ -326,18 +338,18 @@ smallest-three quat + half floats) via `quantizeGpuAnimJoints`.
 
 ### Skeleton atlas
 
-Cache of 8 slabs (`kMaxJoints` each). `EnsureSkeletonResident` mirrors
+Cache of 8 slabs (internal `GpuAnimPass::kMaxJoints` each). `EnsureSkeletonResident` mirrors
 clip Ensure (free-slot only while staging open; LRU unpinned when closed).
 `UploadSkeleton` writes / pins slot 0. `GpuSkeletonHeader` holds
 `jointCount` + `rootJoint` (CancelRootXZ) per slot. `SetRigIndices`
 patches slot 0’s `rootJoint` when resident.
 ### Clip streaming
 
-Cache of 24 slots. `EnsureClipResident` is thread-safe. With staging
+Cache of 24 slots (`kGpuAnimMaxClips`). `EnsureClipResident` is thread-safe. With staging
 **closed**, it may evict **unpinned** LRU entries. With staging **open**,
 it only fills free slots (no concurrent evict). `PinClipSlot` /
-`TouchClipSlot` / `EvictClipSlot` / `ResetClipCache`. Bulk `UploadBakes`
-fills slots 0..n−1 pinned.
+`ResetClipCache` are public (`GpuAnimationSystem`); `TouchClipSlot` /
+`EvictClipSlot` / bulk `UploadBakes` are internal `GpuAnimPass`-only.
 
 Prefer pre-pin at load and `FindClipSlot` in workers. Worker
 `EnsureClipResident` is valid for miss/stream fill into free slots;
@@ -346,11 +358,14 @@ frames).
 
 ### Joint extract and timing (N+1)
 
+Public facade is `GpuAnimationSystem` (`SetJointExtract`); the
+`SetJointExtractList` / `PollGpuAnim*` spellings are internal
+(`GpuAnimPass` / `Renderer::Impl`).
+
 | API | Role |
 |-----|------|
-| `SetJointExtractList` / `PollJointExtract` | Async copy of a few skin mats |
-| `Renderer::PollGpuAnimJointExtract` | Wrapper at Update start |
-| `PollTiming` / `PollGpuAnimTiming` | Carry + bake GPU timestamps |
+| `GpuAnimationSystem::SetJointExtract` / `PollJointExtract` | Async copy of a few skin mats |
+| `GpuAnimationSystem::PollTiming` | Carry + bake GPU timestamps |
 
 Extract and timing are **one frame late**. Same-frame gameplay should use
 CPU FK for sockets or sync `ReadbackBones` (debug / golden only). Prefer a
@@ -415,7 +430,8 @@ Header: `Rig.hpp`.
 | `DrivePlanarLocomotion(..., localForward=−Z)` | In-place clips |
 
 GPU mirrors look/IK on each `GpuAnimInstance`; shared defaults via
-`GpuAnimPass::SetRigIndices` / `SetLookClamp`.
+`GpuAnimationSystem::SetRigIndices` (`SetLookClamp` is internal
+`GpuAnimPass`-only).
 
 ## Debugging
 
@@ -472,7 +488,6 @@ running (relative `./Resources/...`).
 |-----|--------|
 | F1 | Help / status |
 | F2 | Cast shadows |
-| F3 | Debug draw |
 | F4 | AnimGraph on/off (off = rest pose) |
 | F5 | Upper masked layer |
 | F6 | Additive upper |
@@ -525,8 +540,9 @@ by hand).
 | `include/Freya/Asset/BakedAnimation.hpp` | CPU bake table |
 | `include/Freya/Asset/AnimGraph.hpp` | Graph + builder + GPU sample packs |
 | `include/Freya/Asset/GpuAnimation.hpp` | Instance / flags / pack / extract |
-| `include/Freya/Asset/BoneMatrixResources.hpp` | Palette SSBO |
-| `include/Freya/Core/GpuAnimPass.hpp` | Compute bake pass |
+| `include/Freya/Core/GpuAnimationSystem.hpp` | Public GPU anim facade |
+| `src/Freya/Asset/BoneMatrixResources.hpp` | Palette SSBO (internal) |
+| `src/Freya/Core/GpuAnimPass.hpp` | Compute bake pass (internal) |
 | `include/Freya/FreyaOptions.hpp` | LOD / bake / quantize |
 | `include/Freya/Asset/AnimDebug.hpp` | Skeleton / pose / event ring |
 | `include/Freya/Asset/AnimGraphDebug.hpp` | Graph UI snapshot |

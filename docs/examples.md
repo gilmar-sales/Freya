@@ -75,9 +75,56 @@ cd build/Examples/GameUiDemo
 ./GameUiDemo
 ```
 
+## BillboardShowcase
+
+Location: `Examples/BillboardShowcase/`
+
+Billboard types row (screen, cylindrical, spherical, fixed-axis, planar,
+screen-size, velocity-stretch, soft-particle) plus player/enemy nameplates
+with HP bars and animated damage numbers. Shares the Noto Sans font from
+`GameUiDemo/Resources/Fonts/` (copied at configure time).
+
+```bash
+cd build/Examples/BillboardShowcase
+./BillboardShowcase
+```
+
+## ParticleShowcase
+
+Location: `Examples/ParticleShowcase/`
+
+`ParticleEmitter` / `RibbonEmitter` features: campfire, magic portal,
+fountain, sparkle ring (flipbook atlas), one-shot `Burst()` on **Space**,
+ribbon trails, grinder sparks, bullet traces, and velocity-stretched rain.
+
+```bash
+cd build/Examples/ParticleShowcase
+./ParticleShowcase
+```
+
+## ChurchShowcase
+
+Location: `Examples/ChurchShowcase/`
+
+Gothic nave demonstrating opaque / transparent shadow interaction:
+directional sun, pillar shadow bars, stained-glass windows (WBOIT), candle
+point-lights, and an altar spot light. Hotkeys: `F3` light gizmos,
+`1` sun / `2` altar / `3` all.
+
+```bash
+cd build/Examples/ChurchShowcase
+./ChurchShowcase
+```
+
 ## Creating a new example
 
-1. Add `Examples/<Name>/Main.cpp` and `Resources/` as needed.
+1. Add `Examples/<Name>/Main.cpp` and an `Examples/<Name>/Resources/`
+   directory as needed. `Resources/` is mandatory when the example loads
+   shaders, textures, models, or fonts: `add_freya_example` copies it into
+   the example binary directory at configure time
+   (`file(COPY Resources DESTINATION <bindir>)`), alongside the compiled
+   shaders (`Resources/Shaders/`) and the selected IBL environment
+   (`Resources/Environments/`, unless `IBL none`).
 2. Add a short `CMakeLists.txt`:
 
 ```cmake
@@ -101,7 +148,7 @@ Reuse helpers from `FreyaExamples::`:
 
 ## Debug overlay
 
-All five examples enable `FreyaExamples::DebugOverlay` on startup. The panel
+All eight examples enable `FreyaExamples::DebugOverlay` on startup. The panel
 shows:
 
 - **Timing** — CPU frame/update ms, render resolution, and GPU ms per

@@ -46,17 +46,21 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 });
 ```
 
-`SetShadowQuality` applies Low / Medium / High / Ultra budgets for shadow map
-resolution, cascade count, spot/point slots, soft-shadow tap count, and
-(for Ultra) full-res locals/mask with every-frame updates.
-Individual setters can still override fields after the preset.
+`SetShadowQuality` applies Low / Medium / High / Ultra / `Off` budgets for
+shadow map resolution, cascade count, spot/point slots, soft-shadow tap
+count, and (for Ultra) full-res locals/mask with every-frame updates.
+`Off` skips shadow maps. Individual setters can still override fields
+after the preset.
 
 ## PostProcessBuilder
 
-Builds a post-deferred fullscreen pass. Obtain it from the service provider
-and insert the stage before Bloom:
+Builds a post-deferred fullscreen pass (`<Freya/Advanced.hpp>`). Obtain it
+from the service provider (`Build()` returns `skr::Arc<PostProcess>`) and
+insert the instance stage before Bloom via `RendererAdvanced`:
 
 ```cpp
+#include <Freya/Advanced.hpp>
+
 struct CellPushConstants { /* match your .frag push_constant */ };
 
 auto cell = serviceProvider->GetService<fra::PostProcessBuilder>()
@@ -68,7 +72,7 @@ auto cell = serviceProvider->GetService<fra::PostProcessBuilder>()
                 .SetPushConstantSize(sizeof(CellPushConstants))
                 .Build();
 
-mRenderer->InsertFrameStage("Bloom", cell->MakeStage());
+fra::Advanced(*mRenderer).InsertFrameStage("Bloom", cell->MakeStage());
 ```
 
 See [Flexibility](flexibility.md).

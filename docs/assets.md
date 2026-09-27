@@ -17,8 +17,8 @@ auto meshPool = serviceProvider->GetService<fra::MeshPool>();
 auto model = meshPool->CreateModelFromFile("./Resources/Models/Helmet.glb");
 for (const auto& part : model)
 {
-    instances.push_back({ .meshId = part.meshId,
-                          .materialId = part.materialId, .entityId = id++ });
+    instances.push_back({ .mesh = part.mesh,
+                          .material = part.material, .entityId = id++ });
 }
 
 // Skinned: submeshes + materials, joints/weights, shared skeleton/clips.
@@ -26,14 +26,17 @@ fra::SkinnedModel fox =
     meshPool->CreateSkinnedModelFromFile("./Resources/Models/Fox.glb");
 for (const auto& part : fox.submeshes)
 {
-    instances.push_back({ .meshId = part.meshId,
-                          .materialId = part.materialId, .entityId = id++,
+    instances.push_back({ .mesh = part.mesh,
+                          .material = part.material, .entityId = id++,
                           .boneOffset = 0, .boneCount = fox.skeleton.JointCount() });
 }
 
 // From memory (already CPU-side Freya vertices + uint32 indices).
 // Default MeshLodBuildOptions builds up to 4 GPU LODs (shared verts / UVs).
-std::uint32_t meshId = meshPool->CreateMesh(vertices, indices);
+// `MeshHandle` is a typed opaque id (`AssetHandle<MeshTag>`);
+// default-constructed is null. Pool ids may be 0 — validity is an
+// engaged flag, not "id != 0".
+fra::MeshHandle mesh = meshPool->CreateMesh(vertices, indices);
 
 // Opt out of auto LOD, or pass explicit index sets:
 meshPool->CreateMesh(vertices, indices, { .enabled = false });
@@ -66,12 +69,13 @@ Draw submission goes through `Scene::Upload` or
 ```cpp
 auto texturePool = serviceProvider->GetService<fra::TexturePool>();
 
-std::uint32_t fromFile =
+// nullopt when the file is missing/unreadable.
+std::optional<fra::TextureHandle> fromFile =
     texturePool->CreateTextureFromFile("./Resources/Textures/albedo.png");
 
 // RGBA8 (or other channel count) already in memory
 std::vector<std::uint8_t> rgba = /* ... */;
-std::uint32_t fromMemory = texturePool->CreateTextureFromMemory(
+fra::TextureHandle fromMemory = texturePool->CreateTextureFromMemory(
     rgba.data(), width, height, /*channels=*/4);
 ```
 
@@ -82,7 +86,7 @@ Both paths create a mipmapped image and linear anisotropic sampler.
 ```cpp
 auto materialPool = serviceProvider->GetService<fra::MaterialPool>();
 
-std::uint32_t material = materialPool->Create(fra::MaterialCreateInfo {
+fra::MaterialHandle material = materialPool->Create(fra::MaterialCreateInfo {
     .albedo     = albedoId,
     .normal     = normalId,
     .roughness  = roughnessId, // or packed ORM / metallicRoughness
@@ -104,10 +108,11 @@ std::uint32_t material = materialPool->Create(fra::MaterialCreateInfo {
     .unlit                   = false, // skip lighting (emissive only)
     .doubleSided             = false, // G-buffer flips back-face N
     .receiveShadows          = true,
+    .techniqueId             = 0, // opaque G-buffer technique (0 = stock PBR)
 });
 
 // albedo, normal, roughness, emissive, metalness, occlusion — missing slots skip.
-std::uint32_t fromFiles = materialPool->CreateFromTextureFiles({
+fra::MaterialHandle fromFiles = materialPool->CreateFromTextureFiles({
     "./Resources/Textures/albedo.png",
     "./Resources/Textures/normal.png",
     "./Resources/Textures/roughness.png",
@@ -159,13 +164,18 @@ back-faces via no-cull G-buffer + flipped N.
 ```cpp
 struct Vertex
 {
-    glm::vec3 position;
-    glm::vec3 color;
-    glm::vec3 normal;
-    glm::vec3 tangent;
-    glm::vec2 texCoord;
+    glm::vec3  position;
+    glm::vec3  color;
+    glm::vec3  normal;
+    glm::vec3  tangent;
+    glm::vec2  texCoord;
+    glm::uvec4 joints { 0 };                 // bone indices (static: all 0)
+    glm::vec4  weights { 1.f, 0.f, 0.f, 0.f }; // skin weights (static: 1,0,0,0)
 };
 ```
+
+Static meshes leave `joints` at 0 and `weights` at (1,0,0,0); skinned
+draws still gate on instance `boneOffset != kNoSkin`.
 
 ## Instancing (GPU-driven MDI)
 

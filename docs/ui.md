@@ -1,4 +1,4 @@
-# Screen UI (game HUD / menus)
+# Screen UI
 
 Freya’s game UI is **not** Dear ImGui (ImGui stays in examples for
 debug tools). Use `Renderer::GetUiContext()` (main-thread widgets) and

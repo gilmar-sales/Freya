@@ -4,8 +4,8 @@
 
 | Header | Audience |
 |--------|----------|
-| `<Freya/Freya.hpp>` | Apps: options, extension, pools, materials, events, `AbstractApplication`, `Renderer`, `PostProcess`, GPU animation, frame stages |
-| `<Freya/Vulkan.hpp>` | Deprecated stub that includes `<Freya/Freya.hpp>` |
+| `<Freya/Freya.hpp>` | Apps: options, extension, pools, materials, events, `AbstractApplication`, `Renderer` frame loop, billboards, particles, UI draws |
+| `<Freya/Advanced.hpp>` | Frame-stage plugins: `RendererAdvanced`, `PostProcess` + `PostProcessBuilder`, `IFrameStage` + `StageContext` + `GpuImageRef`, `MaterialTechniqueRegistry`, `LightingTechniqueRegistry`, GPU animation (`GpuAnimation`, `GpuAnimationSystem`, `GpuAnimDebug`) |
 | Individual `Freya/...` | Prefer the umbrella; leaf headers still do not include Vulkan or SDL |
 
 Public headers live under `include/Freya/` and compile without `vk::` or
@@ -26,23 +26,33 @@ Treat as **app-stable**:
 - `AbstractApplication` lifecycle and multi-window API (`CreateWindow`,
   `GetRenderer` / `GetWindowServices`, `GetMainServiceProvider`)
 - `IPlatform` (process-wide window/event backend; default `SdlPlatform`)
-- `Renderer` frame loop, quality knobs, pick, debug draw, GPU anim methods
+- `Renderer` frame loop (`BeginFrame` / `EndScene` / `Present` / `EndFrame`),
+  quality knobs (`SetShadowQuality` / `SetSsaoQuality` / `SetTaaQuality` /
+  `SetBloomQuality`), pick, debug draw, billboards, scene-instance upload
+- `RendererAdvanced` (`<Freya/Advanced.hpp>`, via `fra::Advanced(renderer)`):
+  `InsertFrameStage` / `ReplaceFrameStage`, scene-instance upload trio,
+  `NativeCommandBuffer` / `NativeDevice` (opaque `void*` =
+  `VkCommandBuffer` / `VkDevice`), `BeginUI` / `EndUI`,
+  `GetImGuiNativeHandles`, `GetViewportImage`, `SetViewportTarget` /
+  `ClearOutputTarget` (offscreen viewport + swapchain UI pass; all
+  Vulkan/SDL handles exposed as opaque `void*`), `GpuAnimation()` cull
+  dumps (`RequestCullFrameDump` / `TryConsumeCullFrameDump`)
 - `Renderer::GetBillboardDraw` + `BillboardDraw` (`Quad`, `Quads`,
   `HealthBar`, `Text`, `Snapshot`; thread-safe concurrent submits via
-  `SpinLock`) and `BillboardAlign` (`Screen` / `Cylindrical`)
+  `SpinLock`) and `BillboardAlign` (`Screen` / `Cylindrical` / `Spherical`
+  / `FixedAxis` / `Planar`)
 - `ParticleEmitter` (`Tick`; one thread per emitter — draw queue is
   thread-safe)
-- `Renderer::NativeCommandBuffer` / `NativeDevice` (opaque `void*` =
-  `VkCommandBuffer` / `VkDevice`)
-- `Renderer::BeginUI` / `EndUI`, `GetImGuiNativeHandles`, `GetViewportImage`,
-  `SetViewportTarget` / `ClearOutputTarget` (offscreen viewport + swapchain UI
-  pass; all Vulkan/SDL handles exposed as opaque `void*`)
 - `Window::NativeWindow` (opaque `void*` = `SDL_Window*`)
-- `PostProcess` + `PostProcessBuilder` + `MakeStage()`
+- `PostProcess` + `PostProcessBuilder` (`<Freya/Advanced.hpp>`) +
+  instance `postProcess->MakeStage()` (not a static factory)
 - `MaterialTechniqueRegistry` + `MaterialCreateInfo::techniqueId`
-- `LightingTechniqueRegistry` (global deferred lighting fragment override)
-- `IFrameStage` + `StageContext` + `GpuImageRef` — apps may implement stages
-  and use `InsertFrameStage` / `ReplaceFrameStage`
+  (`<Freya/Advanced.hpp>`)
+- `LightingTechniqueRegistry` (global deferred lighting fragment override;
+  `<Freya/Advanced.hpp>`)
+- `IFrameStage` + `StageContext` + `GpuImageRef` (`<Freya/Advanced.hpp>`)
+  — apps may implement stages and use `RendererAdvanced`
+  `InsertFrameStage` / `ReplaceFrameStage`
 
 Treat as **internal** (not installed, not part of the app API):
 
@@ -55,12 +65,14 @@ Treat as **internal** (not installed, not part of the app API):
 
 ```cmake
 target_include_directories(Freya
-    PUBLIC  include
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
     PRIVATE src ${Vulkan_INCLUDE_DIRS})
 
 target_link_libraries(Freya
     PUBLIC  glm skirnir::skirnir
-    PRIVATE SDL3::SDL3 assimp ${Vulkan_LIBRARIES})
+    PRIVATE SDL3::SDL3 assimp meshoptimizer ${Vulkan_LIBRARIES})
 
 target_precompile_headers(Freya PRIVATE
     <vulkan/vulkan.hpp> <SDL3/SDL.h> …)

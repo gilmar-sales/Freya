@@ -9,17 +9,15 @@ Base class for all Freya applications. Inherits from `skr::IApplication` and pro
 ```cpp
 class MyApp final : public fra::AbstractApplication
 {
-    void StartUp() override;
-    void Update() override;
-    void ShutDown() override;
+    void Update() override; // only pure virtual; StartUp/ShutDown default to no-ops
 };
 ```
 
 ### Lifecycle Methods
 
-- `StartUp()` - Called once before the main loop begins
+- `StartUp()` - Called once before the main loop begins (default: no-op)
 - `Update()` - Called every frame (pure virtual, must be implemented)
-- `ShutDown()` - Called once after the main loop ends
+- `ShutDown()` - Called once after the main loop ends (default: no-op)
 - `Run()` - Starts the main application loop
 
 ### Protected Members
@@ -129,13 +127,17 @@ renderer->EndSceneInstances();
 
 Default order:
 
-`Pick → Shadow → DeferredGeometry → Ssao → Lighting → Taa → Bloom → Composite`
+`GpuAnim → Pick → Shadow → DeferredGeometry → Ssao → ShadowMask → Lighting → Taa → Translucent → BillboardVfx → Bloom → Composite → BillboardUi → ModelPreview → ScreenUi → DebugDraw`
 
 ```cpp
-#include <Freya/Freya.hpp>
+#include <Freya/Advanced.hpp>
 
-mRenderer->InsertFrameStage("Bloom", cell->MakeStage());
+fra::Advanced(*mRenderer).InsertFrameStage("Bloom", cell->MakeStage());
 ```
+
+`InsertFrameStage(beforeName, stage)` / `ReplaceFrameStage(name, stage)`
+live on `fra::RendererAdvanced` (via `fra::Advanced(renderer)`), not on
+`Renderer`.
 
 See [Flexibility](flexibility.md).
 
@@ -148,21 +150,23 @@ See [Flexibility](flexibility.md).
 | `Present()` | Submit the command buffer and present |
 | `EndFrame()` | `EndScene()` + `Present()` |
 | `RebuildSwapChain()` | Recreate swap chain (e.g., on resize) |
-| `InsertFrameStage` / `ReplaceFrameStage` | Insert a Freya-built stage |
 | `SetVSync(bool)` | Enable/disable vertical sync |
 | `SetSamples(uint32_t)` | Set MSAA sample count |
 | `SetDrawDistance(float)` | Set render distance |
-| `SetInstanceModels(const mat4*, size_t)` | Legacy instance matrices (with DrawInstanced) |
 | `Begin/Reserve/Upload/EndSceneInstances` | Cumulative TRS upload (prefer `Scene::Upload`) |
 | `Begin/Reserve/Upload/EndBoneMatrixUploads` | Cumulative CPU bone palette upload |
 | `GetCurrentFrameIndex()` | Get current frame index |
 | `GetFrameCount()` | Get total frame count |
 | `CalculateProjectionMatrix(float near, float far)` | Calculate projection matrix |
 | `ClearProjections()` | Clear all projection matrices |
-| `UpdateProjection(ProjectionUniformBuffer&)` | Update projection data |
-| `GetGpuAnimPass()` | GPU skinning pass (optional) |
 | `GetBillboardDraw()` | CPU billboard queue for the frame |
 | `GetUiDraw()` / `GetUiContext()` | Screen-space game UI ([ui.md](ui.md)) |
+
+Frame-graph customization (`InsertFrameStage` / `ReplaceFrameStage`), GPU
+skinning (`Advanced(renderer).GpuAnimation()`), and the legacy
+`Draw` / `DrawInstanced` / `SetInstanceModels` (deprecated — prefer
+`Scene::Upload`) live on `fra::RendererAdvanced` via
+`fra::Advanced(renderer)` (`<Freya/Advanced.hpp>`).
 
 Apps that do not customize the frame graph can keep calling `EndFrame()`.
 
@@ -183,7 +187,10 @@ worker threads is safe (`SpinLock`). `HealthBar`, `Text`, and `Quads` hold
 one lock for the whole multi-quad submit so a snapshot never sees a half
 nameplate or a partial particle batch. Readers must use `Snapshot(out)`
 (copy under lock) — the Vfx/Ui frame stages do this before packing GPU
-instances. Soft-capped at `MaxQuads()` (default `1 << 14`).
+instances. Soft-capped at `MaxQuads()` (default `1 << 16`).
+
+Raw `Billboard::align` defaults to `Screen`; the `HealthBar` / `Text`
+helpers default to `Cylindrical`.
 
 **Alignment modes** (`BillboardAlign`):
 
@@ -267,9 +274,9 @@ along the bitangent (`cross(normal, tangent)`).
 - `lightPositions[i]` — xyz position / area center, **w = LightType**
 - `lightColorsAndRadius[i]` — rgb color, w radius
 - `lightDirectionsAndCutoff[i]` — xyz direction / area normal, w innerCutoff (cos)
-- `lightOuterCutoffAndIntensity[i]` — x outerCutoff (spot cos) or halfWidth (area), y intensity, z halfHeight (area), **w = castShadows** (0/1)
+- `lightOuterCutoffAndIntensity[i]` — x outerCutoff (spot cos) or halfWidth (area), y intensity, z halfHeight (area), **w = shadow flag** (1 when the light is on **and** shadows are enabled **and** `castShadows`)
 - `lightAreaTangents[i]` — xyz area tangent
-- `viewPosition`, `lightCount`
+- `viewPosition`, `cameraForward`, `lightCount`, `iblIntensity`, `exposure`
 
 Set `Light::castShadows = true` on directional / spot / point lights that should
 write shadow maps. Area lights never cast shadows. Shadow budgets and quality
@@ -344,9 +351,10 @@ Do not call `AddLight` / `RemoveLight` / `ClearLights` concurrently with
 `Renderer::UpdateCamera` refreshes the light UBO for the current frame when
 the light service is present (also uploads `iblIntensity` for IBL).
 
-## IBLService
+## IBLService (internal, src-only)
 
-Provides split-sum image-based lighting: an equirectangular environment map
+Not part of the public headers — resolved as a scoped service inside the
+engine. Provides split-sum image-based lighting: an equirectangular environment map
 with GGX importance-sampled specular mips (roughness → LOD), a convolved
 irradiance map, a BRDF integration LUT, and parametric LTC LUTs used by
 rectangular area lights. Built at startup from
@@ -378,11 +386,12 @@ Configure with `SetIblIntensity` / `SetEnvironmentMapPath` on
 | Point | Cube array (multiview 6 faces) | `maxPointShadows` (0–2) |
 
 Configure via `FreyaOptionsBuilder`: `SetShadowQuality` presets
-(`Low` / `Medium` / `High` / `Ultra`) or individual setters
+(`Off` / `Low` / `Medium` / `High` / `Ultra`) or individual setters
 (`SetShadowCascadeCount`, `SetShadowMapResolution`, `SetShadowBias`,
 `SetMaxSpotShadows`, `SetMaxPointShadows`, `SetShadowSampleCount`,
 `SetShadowPointResolutionDivisor`, `SetShadowSpotResolutionDivisor`,
-`SetShadowPointUpdatePeriod`).
+`SetShadowPointUpdatePeriod`). `Off` skips shadow maps entirely
+(`enableShadows = false`); lighting then ignores `castShadows`.
 
 Spot/point map size defaults to cascade resolution / 2. Point cubes
 rebuild every `shadowPointUpdatePeriod` frames when the light is stable.
@@ -396,10 +405,13 @@ texels and world bias until contact shadows vanish.
 | High | 2048² | 4 | 4 | 2 | 16 | 80 |
 | Ultra | 4096² | 4 | 4 | 2 | 16 | 120 |
 
-`Ultra` also rebuilds stable cascades / point cubes every frame and uses a
-full-res directional shadow mask (High keeps a 2-frame update period and
-half-res mask). High/Ultra use the same atlas resolution for cascade, spot,
-and point maps; Low/Medium keep half-res locals for cost.
+`Ultra` also rebuilds stable cascades / point cubes every frame (High keeps
+a 2-frame update period). High/Ultra use the same atlas resolution for
+cascade, spot, and point maps; Low/Medium keep half-res locals for cost.
+
+`enableShadowMask` defaults to `false` in every preset (including the
+no-preset defaults) — the directional shadow mask stage only runs when
+explicitly enabled.
 
 Defaults without a preset: 4 cascades, 2048², bias `0.002`, 4 spot /
 2 point slots, 16 soft-shadow taps. Spot/point budgets of `0` keep a 1×1
@@ -409,6 +421,9 @@ Lighting shaders multiply each light’s radiance by a PCF shadow factor
 (hardware compare samplers). Deferred lighting bindings 12–15 hold the shadow
 UBO and cascade / spot / point maps.
 
-## DeferredCompressedPass
+## DeferredCompressedPass (internal, src-only)
 
-Deferred rendering pass with G-buffer compression.
+Balanced G-buffer (160-bit color with velocity) plus HDR scene color:
+depth pre-pass, then G-buffer (albedo+matID, normal+flags, PBR, HDR scene
+color with emissive, velocity RG16F). SSAO runs after geometry; lighting is
+a separate additive fullscreen pass, followed by TAA.

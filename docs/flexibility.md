@@ -10,7 +10,7 @@ deferred stack without forking the renderer.
 | Window / lighting / shadows | `FreyaOptions` / `FreyaOptionsBuilder` |
 | Post features | `SetEnableShadows` / `SetEnableSsao` / `SetEnableTaa` / `SetEnableBloom` |
 | SPIR-V root | `SetShaderRoot("./Resources/Shaders")` |
-| Frame graph | `Renderer::InsertFrameStage` / `ReplaceFrameStage` with Freya factories |
+| Frame graph | `RendererAdvanced::InsertFrameStage` / `ReplaceFrameStage` via `fra::Advanced(*mRenderer)` (`<Freya/Advanced.hpp>`) |
 | Custom post shaders | `PostProcessBuilder` + `BindMaterial` (G-buffer albedo.a IDs) |
 | Custom G-buffer shaders | `MaterialTechniqueRegistry` + `MaterialCreateInfo::techniqueId` |
 | Textures from memory | `TexturePool::CreateTextureFromMemory` |
@@ -46,7 +46,7 @@ strength knobs.
 | API | Controls |
 |-----|----------|
 | `SetShadowQuality` | map res, cascades, spot/point slots, soft taps, mask / update period; `Off` skips maps |
-| `SetSsaoQuality` | resolution divisor (1/2/4), radius, bias, power, intensity |
+| `SetSsaoQuality` | resolution divisor (2 on Low/Medium/High, 1 on Ultra), radius, bias, power, intensity |
 | `SetTaaQuality` | current-frame blend weight, Halton period |
 | `SetBloomQuality` | resolution divisor, threshold, extract scale, composite strength |
 
@@ -100,10 +100,10 @@ are not part of the public extension API.
 Each window gets its own scoped `Renderer` / `LightService` /
 `IndirectDrawSystem`. Asset pools stay shared:
 
-| Shared (singleton) | Per window (scoped) |
-|--------------------|---------------------|
-| `MeshPool`, `TexturePool`, `MaterialPool` | `Window`, `Renderer`, `SwapChain` |
-| `Device`, `Instance`, `IPlatform` | `LightService`, `ShadowPass`, `CommandPool` |
+| Shared (singleton) | Per window (scoped) | Transient (per resolve) |
+|--------------------|---------------------|-------------------------|
+| `MeshPool`, `TexturePool`, `MaterialPool` | `Window`, `Renderer`, `LightService` | `SwapChain` (rebuilt per resolution) |
+| `Device`, `Instance`, `IPlatform` | `ShadowPass`, `CommandPool` | Vulkan builders |
 
 ```cpp
 auto window = CreateWindow([](fra::FreyaOptionsBuilder& o) {
@@ -119,23 +119,25 @@ window. Secondary windows use `GetWindowServices(*window)` /
 
 ## Frame stages
 
-`Renderer::EndScene` runs an ordered list of `IFrameStage` adapters:
+`Renderer::EndScene` runs an ordered list of `IFrameStage` adapters
+(16 stages):
 
-`GpuAnim → Pick → Shadow → DeferredGeometry → Ssao → Lighting → Taa → Translucent → Bloom → Composite → DebugDraw`
+`GpuAnim → Pick → Shadow → DeferredGeometry → Ssao → ShadowMask → Lighting → Taa → Translucent → BillboardVfx → Bloom → Composite → BillboardUi → ModelPreview → ScreenUi → DebugDraw`
 
 ```cpp
-#include <Freya/Freya.hpp>
+#include <Freya/Advanced.hpp>
 
-mRenderer->InsertFrameStage("Bloom", cell->MakeStage());
+fra::Advanced(*mRenderer).InsertFrameStage("Bloom", cell->MakeStage());
 ```
 
-Apps may insert Freya factories (`PostProcess::MakeStage`) **or** implement
-`IFrameStage` themselves. `Execute` / `Rebuild` receive a public
-`StageContext` (Vulkan-free): options, extent, frame index, G-buffer / HDR
-`GpuImageRef` taps, `DispatchCull` / `ExecuteDraws`, and opaque
-`NativeCommandBuffer` / `NativeDevice` (`void*` → cast to Vulkan in the
-app). `ReplaceFrameStage` rebuilds the new stage immediately (same as
-insert).
+Apps may insert stages from a `PostProcess` instance
+(`postProcess->MakeStage()`, an instance method — not a static factory)
+**or** implement `IFrameStage` themselves. `Execute` / `Rebuild` receive
+a public `StageContext` (Vulkan-free): options, extent, frame index,
+G-buffer / HDR `GpuImageRef` taps, `DispatchCull` / `ExecuteDraws`, and
+opaque `NativeCommandBuffer` / `NativeDevice` (`void*` → cast to Vulkan
+in the app). `RendererAdvanced::ReplaceFrameStage` rebuilds the new
+stage immediately (same as insert).
 
 `RenderFrameContext` (pass pointers, typed `vk::` fields) remains internal
 to Freya.
@@ -168,7 +170,7 @@ Put the fragment under `Shaders/<Name>/` (or your own `add_shader_target`)
 and insert **before Bloom** so ACES / bloom see the result:
 
 ```cpp
-#include <Freya/Freya.hpp>
+#include <Freya/Advanced.hpp>
 
 struct CellPushConstants
 {
@@ -195,7 +197,7 @@ CellPushConstants params {};
 params.reverseZ = options->ReverseZ ? 1.0f : 0.0f;
 cell->SetPushConstants(params);
 cell->BindMaterial(bodyMaterial); // albedo.a material ID; omit = all pixels
-mRenderer->InsertFrameStage("Bloom", cell->MakeStage());
+fra::Advanced(*mRenderer).InsertFrameStage("Bloom", cell->MakeStage());
 ```
 
 `SetInputs` order is descriptor binding order (`set = 0`). Vertex defaults
@@ -233,7 +235,7 @@ auto mat = materialPool->Create({
 });
 ```
 
-Up to `kMaxMaterialTechniques` (8) slots. Shadow / pick / OIT stay on stock
+Up to `kMaxTechniques` (8) slots. Shadow / pick / OIT stay on stock
 shaders; lighting uses `LightingTechniqueRegistry` (default stock). Custom
 G-buffer fragments must still write albedo+matID, normal+flags, PBR,
 emissive HDR, and velocity.
@@ -244,6 +246,11 @@ Stock technique frags under `Shaders/Material/`:
 |--------|------|
 | `Material/unlit_emissive.frag.spv` | Skip lighting; albedo+emissive → HDR |
 | `Material/triplanar.frag.spv` | World-space triplanar albedo/normal |
+
+Stock technique frags under `Shaders/Cell/`:
+
+| SPIR-V | Role |
+|--------|------|
 | `Cell/gbuffer_cell.frag.spv` | Matte PBR (pairs with cell lighting / post) |
 | `Cell/lighting_cell.frag.spv` | Cel-banded deferred lighting override |
 
