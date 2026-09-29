@@ -568,11 +568,9 @@ class MainApp final : public fra::AbstractApplication
 
         // ── Vine Whip (left / Cell Bulbasaur at x=-1.2)
         mVineBase = {
-            { -1.20f,  0.82f,  0.30f },
-            { -0.70f,  1.35f,  0.50f },
-            {  0.00f,  1.20f,  0.38f },
-            {  0.65f,  0.90f,  0.22f },
-            {  1.35f,  0.38f,  0.08f },
+            { -1.20f, 0.82f, 0.30f }, { -0.70f, 1.35f, 0.50f },
+            { 0.00f, 1.20f, 0.38f },  { 0.65f, 0.90f, 0.22f },
+            { 1.35f, 0.38f, 0.08f },
         };
         mVineWhip.baseRadius = 0.055f;
         mVineWhip.tipRadius  = 0.015f;
@@ -585,20 +583,19 @@ class MainApp final : public fra::AbstractApplication
         static constexpr float kTwoPi = 6.28318530f;
         const glm::vec3        lc { 1.2f, 0.0f, 0.0f };
 
-        auto makeHelix = [&](float startAngle)
-            -> std::vector<glm::vec3>
-        {
-            constexpr int kPts = 10;
+        auto makeHelix = [&](float startAngle) -> std::vector<glm::vec3> {
+            constexpr int          kPts = 10;
             std::vector<glm::vec3> pts;
             pts.reserve(kPts);
             for (int j = 0; j < kPts; ++j)
             {
-                const float t = static_cast<float>(j) / (kPts - 1);
-                const float a = startAngle + t * 1.5f * kTwoPi;
-                const float r = 0.38f * (1.0f - 0.25f * t);
-                pts.push_back({ lc.x + r * std::cos(a),
-                                lc.y + t * 0.88f,
-                                lc.z + r * std::sin(a) });
+                const float t     = static_cast<float>(j) / (kPts - 1);
+                const float a     = startAngle + t * 1.5f * kTwoPi;
+                const float taper = 1.0f - 0.15f * t;
+                const float rx    = 0.46f * taper;
+                const float rz    = 0.62f * taper;
+                pts.push_back({ lc.x + rx * std::cos(a), lc.y + t * 0.88f,
+                                lc.z + 0.055f + rz * std::sin(a) });
             }
             return pts;
         };
@@ -629,7 +626,8 @@ class MainApp final : public fra::AbstractApplication
                "F10 ground triplanar | F11 eyes unlit\n"
                "RMB look | WASD move | Space/Q up | Ctrl/E down\n"
                "ImGui: Freya Debug panel (timing / quality / SSAO views)\n"
-               "Vine Whip (left, 4s cycle) + Leech Seed roots (right, 5s cycle) auto-play\n";
+               "Vine Whip (left, 4s cycle) + Leech Seed roots (right, 5s "
+               "cycle) auto-play\n";
     }
 
     void Update() override
@@ -723,8 +721,7 @@ class MainApp final : public fra::AbstractApplication
             else if (mVineTime < kHold)
                 growT = 1.0f;
             else if (mVineTime < kRetract)
-                growT = 1.0f -
-                        (mVineTime - kHold) / (kRetract - kHold);
+                growT = 1.0f - (mVineTime - kHold) / (kRetract - kHold);
 
             mVineWhip.growT         = growT;
             mVineWhip.controlPoints = mVineBase;
@@ -740,8 +737,7 @@ class MainApp final : public fra::AbstractApplication
             // Camera vectors for seamless Screen-aligned rope quads
             const float     yr = glm::radians(mCam.yaw);
             const float     pr = glm::radians(mCam.pitch);
-            const glm::vec3 cf { std::cos(yr) * std::cos(pr),
-                                 std::sin(pr),
+            const glm::vec3 cf { std::cos(yr) * std::cos(pr), std::sin(pr),
                                  std::sin(yr) * std::cos(pr) };
             const glm::vec3 cr =
                 glm::normalize(glm::cross(cf, glm::vec3(0.f, 1.f, 0.f)));
@@ -760,8 +756,7 @@ class MainApp final : public fra::AbstractApplication
 
             const float     yr = glm::radians(mCam.yaw);
             const float     pr = glm::radians(mCam.pitch);
-            const glm::vec3 cf { std::cos(yr) * std::cos(pr),
-                                 std::sin(pr),
+            const glm::vec3 cf { std::cos(yr) * std::cos(pr), std::sin(pr),
                                  std::sin(yr) * std::cos(pr) };
             const glm::vec3 cr =
                 glm::normalize(glm::cross(cf, glm::vec3(0.f, 1.f, 0.f)));
@@ -770,9 +765,8 @@ class MainApp final : public fra::AbstractApplication
             for (int k = 0; k < 3; ++k)
             {
                 // Stagger each root by 0.15 s
-                const float lt =
-                    mLeechTime - static_cast<float>(k) * 0.15f;
-                float growT = 0.0f;
+                const float lt    = mLeechTime - static_cast<float>(k) * 0.15f;
+                float       growT = 0.0f;
                 if (lt > 0.0f && lt < kGrow)
                     growT = lt / kGrow;
                 else if (lt >= kGrow && lt < kHold)
