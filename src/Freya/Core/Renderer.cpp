@@ -10,13 +10,9 @@
 #include "Freya/Builders/DeferredCompressedPassBuilder.hpp"
 #include "Freya/Builders/GpuAnimPassBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
-#include "Freya/Builders/IndirectDrawSystemBuilder.hpp"
-#include "Freya/Builders/PickPassBuilder.hpp"
 #include "Freya/Builders/RenderTargetBuilder.hpp"
 #include "Freya/Builders/ShadowPassBuilder.hpp"
-#include "Freya/Builders/SsaoPassBuilder.hpp"
 #include "Freya/Builders/SwapChainBuilder.hpp"
-#include "Freya/Builders/TaaPassBuilder.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/DebugLabels.hpp"
@@ -31,7 +27,6 @@
 #include "Freya/Core/UniformBuffer.hpp"
 
 #include <algorithm>
-#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <glm/gtc/matrix_inverse.hpp>
@@ -67,9 +62,9 @@ namespace FREYA_NAMESPACE
             const auto  period = std::max(1u, haltonPeriod);
             const auto  sample = (frameIndex % period) + 1;
             const float jx     = (Halton(sample, 2) - 0.5f) * 2.0f /
-                                 static_cast<float>(extent.width);
-            const float jy     = -(Halton(sample, 3) - 0.5f) * 2.0f /
-                                 static_cast<float>(extent.height);
+                             static_cast<float>(extent.width);
+            const float jy = -(Halton(sample, 3) - 0.5f) * 2.0f /
+                             static_cast<float>(extent.height);
             projection[2][0] += jx;
             projection[2][1] += jy;
         }
@@ -322,7 +317,9 @@ namespace FREYA_NAMESPACE
 
     void Renderer::Impl::rebuildSceneResources()
     {
-        const auto extent = getRenderExtent();
+        auto extent   = getRenderExtent();
+        extent.width  = std::max<std::uint32_t>(extent.width, 1);
+        extent.height = std::max<std::uint32_t>(extent.height, 1);
 
         mBloomResultImages.clear();
         mBloomResultImages.resize(mFreyaOptions->frameCount);
@@ -513,7 +510,7 @@ namespace FREYA_NAMESPACE
                 return;
             mIndirectDraw->BuildHiZ(mDeferredPass->GetDepthImage(
                                         mSwapChain->GetCurrentFrameIndex()),
-                                    mFreyaOptions->ReverseZ);
+                                            mFreyaOptions->ReverseZ);
         };
         ctx.blitBloomToFullRes = [this]() {
             blitBloomToFullRes(mCommandPool,
@@ -535,7 +532,7 @@ namespace FREYA_NAMESPACE
             const glm::mat4 viewProj = mCurrentProjection.unjitteredProjection *
                                        mCurrentProjection.view;
             mDebugDrawPass->Draw(mSwapChain, mCommandPool,
-                                 mDebugDraw.Vertices(), viewProj);
+                                   mDebugDraw.Vertices(), viewProj);
         };
         ctx.recordModelPreviews = [this]() {
             std::vector<UiModelPreview*> copy;
@@ -1010,14 +1007,14 @@ namespace FREYA_NAMESPACE
         const auto far  = mFreyaOptions->drawDistance;
 
         auto projectionUniformBuffer = ProjectionUniformBuffer {
-            .view       = glm::lookAt(cameraPosition,
-                                      cameraPosition + cameraForward,
-                                      cameraUp),
-            .projection = MakeProjection(glm::radians(45.0f),
-                                         static_cast<float>(extent.width) /
-                                             static_cast<float>(extent.height),
-                                         near,
-                                         far),
+            .view         = glm::lookAt(cameraPosition,
+                                        cameraPosition + cameraForward,
+                                        cameraUp),
+            .projection   = MakeProjection(glm::radians(45.0f),
+                                           static_cast<float>(extent.width) /
+                                               static_cast<float>(extent.height),
+                                           near,
+                                           far),
             .ambientLight = glm::vec4(mFreyaOptions->ambientColor,
                                       mFreyaOptions->ambientIntensity)
         };
@@ -1816,12 +1813,13 @@ namespace FREYA_NAMESPACE
             mFreyaOptions->height = newH;
             mResizeEvent.reset();
 
-            // SDL often emits a same-size resize on the first frame; rebuilding
-            // every pass (shader reload + full-res images) stalls for seconds.
-            const auto cur =
-                mSwapChain ? mSwapChain->GetExtent() : vk::Extent2D {};
-            if (cur.width != newW || cur.height != newH)
-                RebuildSwapChain();
+            if (newW != 0 && newH != 0)
+            {
+                const auto cur =
+                    mSwapChain ? mSwapChain->GetExtent() : vk::Extent2D {};
+                if (cur.width != newW || cur.height != newH)
+                    RebuildSwapChain();
+            }
         }
 
         auto swapChainFrame = mSwapChain->GetNextFrame();

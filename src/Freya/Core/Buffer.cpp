@@ -67,19 +67,31 @@ namespace FREYA_NAMESPACE
     void Buffer::Copy(const void* data, const std::uint64_t size,
                       const std::uint64_t offset)
     {
-        if (mSize < size + offset || data == nullptr)
+        if (mSize < size + offset || data == nullptr || size == 0)
+        {
+            assert(false && "Buffer::Copy out of bounds or null data.");
             return;
+        }
 
         if (mMapped)
         {
             std::memcpy(static_cast<std::byte*>(mMapped) + offset, data, size);
             if (!mHostCoherent)
             {
+                const auto atom =
+                    mDevice->GetPhysicalDevice()
+                        ->Get()
+                        .getProperties()
+                        .limits.nonCoherentAtomSize;
+                const auto align = atom == 0 ? 1 : atom;
+                const auto alignedOffset = (offset / align) * align;
+                const auto end           = offset + size;
+                const auto alignedEnd = ((end + align - 1) / align) * align;
                 const auto range =
                     vk::MappedMemoryRange()
                         .setMemory(mMemory)
-                        .setOffset(offset)
-                        .setSize(size);
+                        .setOffset(alignedOffset)
+                        .setSize(alignedEnd - alignedOffset);
                 mDevice->Get().flushMappedMemoryRanges(range);
             }
             return;
@@ -90,6 +102,14 @@ namespace FREYA_NAMESPACE
 
         std::memcpy(deviceData, data, size);
 
+        if (!mHostCoherent)
+        {
+            const auto range = vk::MappedMemoryRange()
+                                   .setMemory(mMemory)
+                                   .setOffset(offset)
+                                   .setSize(size);
+            mDevice->Get().flushMappedMemoryRanges(range);
+        }
         mDevice->Get().unmapMemory(mMemory);
     }
 

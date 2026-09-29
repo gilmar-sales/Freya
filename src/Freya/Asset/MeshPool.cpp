@@ -5,11 +5,12 @@
 #include "Freya/Asset/MeshPoolGpu.hpp"
 #include "Freya/Asset/TexturePool.hpp"
 #include "Freya/Builders/BufferBuilder.hpp"
-#include "Freya/Containers/MeshSet.hpp" // src/Freya/Containers (internal)
+#include "Freya/Containers/MeshSet.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
+#include "Freya/Core/SpinLock.hpp"
 #include "Freya/Core/TransferCommandPool.hpp"
 
 #ifndef NDEBUG
@@ -70,6 +71,8 @@ namespace FREYA_NAMESPACE
         skr::Arc<TexturePool>           texturePool;
 
         std::vector<skr::Arc<Buffer>> stagingBuffers;
+        SpinLock                      stagingLock;
+        std::uint32_t                 nextId = 0;
 
         skr::Arc<Buffer> vertexBuffer;
         std::uint32_t    vertexOffset = 0;
@@ -79,6 +82,7 @@ namespace FREYA_NAMESPACE
 
         MeshSet                  meshes;
         std::vector<MeshLodInfo> meshLods;
+        SpinLock                 meshLock;
 
         Impl(skr::Arc<Device> inDevice,
              skr::Arc<PhysicalDevice>
@@ -103,10 +107,10 @@ namespace FREYA_NAMESPACE
                                .SetSize(MinVertexBufferSize)
                                .SetUsage(BufferUsage::Vertex)
                                .Build();
-            indexBuffer  = BufferBuilder(device)
-                               .SetSize(MinIndexBufferSize)
-                               .SetUsage(BufferUsage::Index)
-                               .Build();
+            indexBuffer = BufferBuilder(device)
+                              .SetSize(MinIndexBufferSize)
+                              .SetUsage(BufferUsage::Index)
+                              .Build();
         }
 
         skr::Arc<Buffer> createStagingBuffer(std::uint32_t size)
@@ -175,6 +179,7 @@ namespace FREYA_NAMESPACE
                                             lodIndexSetsIn,
                                  const bool inflateAabb = false)
         {
+            SpinLockGuard stagingGuard { stagingLock };
             std::vector<std::vector<std::uint32_t>> lodIndexSets;
             lodIndexSets.reserve(kMaxLodsPerMesh);
             for (const auto& lod : lodIndexSetsIn)
@@ -322,7 +327,7 @@ namespace FREYA_NAMESPACE
                 .aabbMin  = aabbMin,
                 .aabbMax  = aabbMax,
                 .skinned  = inflateAabb,
-                .id       = static_cast<std::uint32_t>(meshes.size()),
+                .id       = nextId++,
             };
 
             meshes.insert(mesh);
@@ -358,7 +363,7 @@ namespace FREYA_NAMESPACE
                                            : aiVector3D(1, 0, 0);
                 const auto  aTextCoord =
                     mesh->HasTextureCoords(0) ? mesh->mTextureCoords[0][i]
-                                              : aiVector3D(0, 0, 0);
+                                               : aiVector3D(0, 0, 0);
 
                 aiColor3D aColor(1.0, 1.0, 1.0);
                 if (mesh->HasVertexColors(0))
@@ -714,7 +719,7 @@ namespace FREYA_NAMESPACE
                     const auto    matIndex = mesh->mMaterialIndex;
                     const auto    material =
                         matIndex < materials.size() ? materials[matIndex]
-                                                    : MaterialHandle {};
+                                                       : MaterialHandle {};
                     fn(mesh, material);
                 }
                 for (unsigned i = 0; i < node->mNumChildren; ++i)
@@ -876,10 +881,6 @@ namespace FREYA_NAMESPACE
                 skeleton.inverseBind[i] = glm::inverse(bindGlobal[i]);
         }
 
-        // Walk the Assimp node tree and fill parents / restLocal /
-        // nonBoneParent. Non-bone nodes between bones (glTF scene roots with
-        // scale, etc.) are recorded in nonBoneParent — not restLocal — so
-        // animation channels that overwrite joint scale cannot drop them.
         void assignParentsAndRest(
             const aiNode*                                   node,
             const std::int32_t                              parentBone,
@@ -924,7 +925,7 @@ namespace FREYA_NAMESPACE
                                            : aiVector3D(1, 0, 0);
                 const auto  aTextCoord =
                     mesh->HasTextureCoords(0) ? mesh->mTextureCoords[0][i]
-                                              : aiVector3D(0, 0, 0);
+                                               : aiVector3D(0, 0, 0);
 
                 aiColor3D aColor(1.0, 1.0, 1.0);
                 if (mesh->HasVertexColors(0))
@@ -1015,10 +1016,10 @@ namespace FREYA_NAMESPACE
             const std::unordered_map<std::string, std::uint32_t>& nameToIndex)
         {
             AnimationClip clip;
-            clip.name       = aiName(anim->mName);
-            const float tps = anim->mTicksPerSecond > 0.0
-                                  ? static_cast<float>(anim->mTicksPerSecond)
-                                  : 25.f;
+            clip.name           = aiName(anim->mName);
+            const float tps     = anim->mTicksPerSecond > 0.0
+                                      ? static_cast<float>(anim->mTicksPerSecond)
+                                      : 25.f;
             clip.ticksPerSecond = tps;
             clip.duration =
                 static_cast<float>(anim->mDuration) / std::max(tps, 1e-6f);
@@ -1124,25 +1125,25 @@ namespace FREYA_NAMESPACE
         void draw(const skr::Arc<CommandPool>& commandPool,
                   std::uint32_t                meshId)
         {
-            if (!meshes.contains(meshId))
+            const auto* mesh = meshes.find(meshId);
+            if (mesh == nullptr)
                 return;
-            const auto& mesh = meshes[meshId];
             bindGeometry(commandPool);
             commandPool->GetCommandBuffer().drawIndexed(
-                mesh.indexCount, 1, mesh.firstIndex, mesh.vertexOffset, 0);
+                mesh->indexCount, 1, mesh->firstIndex, mesh->vertexOffset, 0);
         }
 
         void drawInstanced(const skr::Arc<CommandPool>& commandPool,
                            std::uint32_t meshId, size_t instanceCount,
                            size_t firstInstance)
         {
-            if (!meshes.contains(meshId))
+            const auto* mesh = meshes.find(meshId);
+            if (mesh == nullptr)
                 return;
-            const auto& mesh = meshes[meshId];
             bindGeometry(commandPool);
             commandPool->GetCommandBuffer().drawIndexed(
-                mesh.indexCount, instanceCount, mesh.firstIndex,
-                mesh.vertexOffset, firstInstance);
+                mesh->indexCount, instanceCount, mesh->firstIndex,
+                mesh->vertexOffset, firstInstance);
         }
     };
 
@@ -1157,7 +1158,22 @@ namespace FREYA_NAMESPACE
     {
     }
 
-    MeshPool::~MeshPool() = default;
+    MeshPool::~MeshPool()
+    {
+        if (!mImpl)
+            return;
+
+        if (mImpl->device)
+        {
+            try
+            {
+                mImpl->device->Get().waitIdle();
+            }
+            catch (...)
+            {
+            }
+        }
+    }
 
     MeshPool::MeshPool(MeshPool&&) noexcept            = default;
     MeshPool& MeshPool::operator=(MeshPool&&) noexcept = default;
@@ -1195,7 +1211,7 @@ namespace FREYA_NAMESPACE
 
     const Mesh& MeshPool::GetMesh(const MeshHandle mesh) const
     {
-        return mImpl->meshes[mesh.Id()];
+        return mImpl->meshes.atId(mesh.Id());
     }
 
     std::uint32_t MeshPool::GetMeshCount() const
@@ -1248,14 +1264,17 @@ namespace FREYA_NAMESPACE
     void MeshPoolGpuAccess::FillMeshInfos(const MeshPool&        pool,
                                           std::vector<MeshInfo>& out)
     {
-        const auto count = pool.GetMeshCount();
-        out.assign(count, MeshInfo {});
-        for (std::uint32_t id = 0; id < count; ++id)
+        std::uint32_t maxId = 0;
+
+        for (const auto& mesh : pool.mImpl->meshes.getDense())
+            maxId = std::max(maxId, mesh.id);
+
+        const auto live = pool.mImpl->meshes.getDense();
+        out.assign(live.empty() ? 0 : maxId + 1, MeshInfo {});
+
+        for (const auto& mesh : live)
         {
-            if (!pool.mImpl->meshes.contains(id))
-                continue;
-            const auto& mesh = pool.mImpl->meshes[id];
-            out[id]          = MeshInfo {
+            out[mesh.id] = MeshInfo {
                 .lodCount = mesh.lodCount,
                 .lodBase  = mesh.lodBase,
                 .aabbMin  = glm::vec4(mesh.aabbMin, 0.0f),

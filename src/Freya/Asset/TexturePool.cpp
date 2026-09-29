@@ -35,6 +35,7 @@ namespace FREYA_NAMESPACE
         std::vector<skr::Arc<Buffer>>         stagingBuffers;
         SparseSet<Texture>                    textures { 4096 };
         mutable SpinLock                      lock;
+        std::uint32_t                         nextId = 0;
 
         skr::Arc<Buffer> queryStagingBuffer(std::uint32_t size);
         skr::Arc<Buffer> createStagingBuffer(std::uint32_t size);
@@ -60,10 +61,15 @@ namespace FREYA_NAMESPACE
             return;
 
         mImpl->device->Get().waitIdle();
-        for (auto texture : mImpl->textures)
+        for (const auto& texture : mImpl->textures.getDense())
         {
-            texture.image.reset();
-            mImpl->device->Get().destroySampler(texture.sampler);
+            if (texture.external)
+                continue;
+
+            const_cast<Texture&>(texture).image.reset();
+
+            if (texture.sampler)
+                mImpl->device->Get().destroySampler(texture.sampler);
         }
     }
 
@@ -139,12 +145,13 @@ namespace FREYA_NAMESPACE
 
         const auto sampler = i.device->Get().createSampler(samplerCreateInfo);
 
+        const auto newId   = i.nextId++;
         const auto texture = Texture {
             .image        = image,
             .sampler      = sampler,
             .width        = width,
             .height       = height,
-            .id           = static_cast<std::uint32_t>(i.textures.size()),
+            .id           = newId,
             .external     = false,
             .externalView = {},
         };
@@ -174,12 +181,13 @@ namespace FREYA_NAMESPACE
         const auto samp =
             static_cast<vk::Sampler>(reinterpret_cast<VkSampler>(sampler));
 
+        const auto newId   = i.nextId++;
         const auto texture = Texture {
             .image        = {},
             .sampler      = samp,
             .width        = width,
             .height       = height,
-            .id           = static_cast<std::uint32_t>(i.textures.size()),
+            .id           = newId,
             .external     = true,
             .externalView = view,
         };
@@ -195,28 +203,30 @@ namespace FREYA_NAMESPACE
 
     void TexturePool::UnregisterExternal(const TextureHandle id)
     {
-        SpinLockGuard guard(mImpl->lock);
-        auto&         i = *mImpl;
-        if (!id.IsValid() || !i.textures.contains(id.Id()))
-            return;
-        auto& texture = i.textures[id.Id()];
-        if (!texture.external)
-            return;
+        auto& i = *mImpl;
+        {
+            SpinLockGuard guard(mImpl->lock);
+            auto*         texture = i.textures.find(id.Id());
+            if (!id.IsValid() || texture == nullptr)
+                return;
+            if (!texture->external)
+                return;
 
-        i.materialsRes->WriteBindlessTexture(
-            MaterialDescriptorResources::TextureHeapIndex(id.Id()),
-            i.materialsRes->GetFallbackImageView(),
-            i.materialsRes->GetFallbackSampler());
+            i.materialsRes->WriteBindlessTexture(
+                MaterialDescriptorResources::TextureHeapIndex(id.Id()),
+                i.materialsRes->GetFallbackImageView(),
+                i.materialsRes->GetFallbackSampler());
 
-        i.textures.remove(Texture {
-            .image        = {},
-            .sampler      = {},
-            .width        = 0,
-            .height       = 0,
-            .id           = id.Id(),
-            .external     = true,
-            .externalView = {},
-        });
+            i.textures.remove(Texture {
+                .image        = {},
+                .sampler      = {},
+                .width        = 0,
+                .height       = 0,
+                .id           = id.Id(),
+                .external     = true,
+                .externalView = {},
+            });
+        }
         i.logger->LogTrace("TexturePool::UnregisterExternal id={}", id.Id());
     }
 
@@ -253,47 +263,66 @@ namespace FREYA_NAMESPACE
 
     void TexturePool::Destroy(const TextureHandle id)
     {
-        SpinLockGuard guard(mImpl->lock);
-        auto&         i = *mImpl;
-        if (!id.IsValid() || !i.textures.contains(id.Id()))
+        auto& i = *mImpl;
+        if (!id.IsValid())
             return;
 
-        auto& texture = i.textures[id.Id()];
-
-        i.materialsRes->WriteBindlessTexture(
-            MaterialDescriptorResources::TextureHeapIndex(id.Id()),
-            i.materialsRes->GetFallbackImageView(),
-            i.materialsRes->GetFallbackSampler());
-
-        if (texture.external)
+        skr::Arc<Image> imageToFree;
+        vk::Sampler     samplerToFree {};
+        bool            wasExternal = false;
         {
-            i.textures.remove(Texture {
-                .image        = {},
-                .sampler      = {},
-                .width        = 0,
-                .height       = 0,
-                .id           = id.Id(),
-                .external     = true,
-                .externalView = {},
-            });
+            SpinLockGuard guard(mImpl->lock);
+            auto*         texture = i.textures.find(id.Id());
+            if (texture == nullptr)
+                return;
+
+            i.materialsRes->WriteBindlessTexture(
+                MaterialDescriptorResources::TextureHeapIndex(id.Id()),
+                i.materialsRes->GetFallbackImageView(),
+                i.materialsRes->GetFallbackSampler());
+
+            wasExternal = texture->external;
+            if (wasExternal)
+            {
+                i.textures.remove(Texture {
+                    .image        = {},
+                    .sampler      = {},
+                    .width        = 0,
+                    .height       = 0,
+                    .id           = id.Id(),
+                    .external     = true,
+                    .externalView = {},
+                });
+            }
+            else
+            {
+                imageToFree   = texture->image;
+                samplerToFree = texture->sampler;
+                i.textures.remove(Texture {
+                    .image        = {},
+                    .sampler      = {},
+                    .width        = 0,
+                    .height       = 0,
+                    .id           = id.Id(),
+                    .external     = false,
+                    .externalView = {},
+                });
+            }
+        }
+
+        if (wasExternal)
+        {
             i.logger->LogTrace("TexturePool::Destroy external id={}", id.Id());
             return;
         }
 
         i.device->Get().waitIdle();
 
-        texture.image.reset();
-        i.device->Get().destroySampler(texture.sampler);
+        imageToFree.reset();
 
-        i.textures.remove(Texture {
-            .image        = {},
-            .sampler      = {},
-            .width        = 0,
-            .height       = 0,
-            .id           = id.Id(),
-            .external     = false,
-            .externalView = {},
-        });
+        if (samplerToFree)
+            i.device->Get().destroySampler(samplerToFree);
+
         i.logger->LogTrace("TexturePool::Destroy id={}", id.Id());
     }
 } // namespace FREYA_NAMESPACE

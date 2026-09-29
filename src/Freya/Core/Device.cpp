@@ -79,8 +79,20 @@ namespace FREYA_NAMESPACE
     void Device::SubmitAndWait(vk::Queue queue, vk::SubmitInfo submitInfo) const
     {
         vk::Fence fence = mDevice.createFence({});
-        queue.submit(submitInfo, fence);
-        (void) mDevice.waitForFences(1, &fence, VK_TRUE, UINT64_MAX);
-        mDevice.destroyFence(fence);
+        try
+        {
+            queue.submit(submitInfo, fence);
+            const auto result =
+                mDevice.waitForFences(1, &fence, VK_TRUE, UINT64_MAX);
+            mDevice.destroyFence(fence);
+            if (result != vk::Result::eSuccess)
+                throw std::runtime_error("Device::SubmitAndWait fence wait "
+                                         "failed.");
+        }
+        catch (...)
+        {
+            mDevice.destroyFence(fence);
+            throw;
+        }
     }
 } // namespace FREYA_NAMESPACE

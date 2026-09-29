@@ -6,8 +6,6 @@
 #include "Freya/Builders/BufferBuilder.hpp"
 
 #include <algorithm>
-#include <cmath>
-
 #include <glm/glm.hpp>
 
 namespace FREYA_NAMESPACE
@@ -191,18 +189,6 @@ namespace FREYA_NAMESPACE
 
         i.mAlive[index] = 0;
         --i.mLightCount;
-
-        LightUniformBuffer data = {};
-        data.iblIntensity       = i.mIblIntensity;
-        data.exposure           = i.mExposure;
-        PackLights(i.mLights, i.mAlive, i.mMaxLights, i.mShadowsEnabled,
-                   i.mTypeEnabled, data);
-
-        for (std::uint32_t f = 0; f < i.mFrameCount; ++f)
-        {
-            i.mBuffer->Copy(&data, sizeof(LightUniformBuffer),
-                            f * sizeof(LightUniformBuffer));
-        }
     }
 
     void LightService::UpdateLightPosition(const LightHandle handle,
@@ -257,7 +243,9 @@ namespace FREYA_NAMESPACE
     {
         if (!handle)
             return nullptr;
-        // Pointer valid until Remove/Clear; callers must not race those.
+        // Pointer into the live vector: copy immediately. Invalidated by
+        // AddLight (realloc) or Remove/Clear. Must not be held across those
+        // calls nor used from another thread without external sync.
         auto&               i     = *mImpl;
         const std::uint32_t index = handle.Index();
         SpinLockGuard       lock(i.mLock);
@@ -273,15 +261,6 @@ namespace FREYA_NAMESPACE
         i.mLights.clear();
         i.mAlive.clear();
         i.mLightCount = 0;
-
-        LightUniformBuffer data = {};
-        data.iblIntensity       = i.mIblIntensity;
-        data.exposure           = i.mExposure;
-        for (std::uint32_t f = 0; f < i.mFrameCount; ++f)
-        {
-            i.mBuffer->Copy(&data, sizeof(LightUniformBuffer),
-                            f * sizeof(LightUniformBuffer));
-        }
     }
 
     void LightService::BeginLightUploads()
@@ -324,7 +303,9 @@ namespace FREYA_NAMESPACE
 
     void LightService::EndLightUploads()
     {
-        auto& i        = *mImpl;
+        auto& i = *mImpl;
+        if (!i.mStagingOpen)
+            return;
         i.mStagingOpen = false;
 
         SpinLockGuard lock(i.mLock);
@@ -345,8 +326,10 @@ namespace FREYA_NAMESPACE
                               const glm::vec3& viewPosition,
                               const glm::vec3& cameraForward)
     {
-        SpinLockGuard      lock(mImpl->mLock);
-        auto&              i    = *mImpl;
+        SpinLockGuard lock(mImpl->mLock);
+        auto&         i = *mImpl;
+        if (frameIndex >= i.mFrameCount)
+            return;
         LightUniformBuffer data = {};
 
         data.iblIntensity  = i.mIblIntensity;

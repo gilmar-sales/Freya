@@ -101,8 +101,8 @@ namespace FREYA_NAMESPACE
             mBoundNormalView == normalView)
             return;
 
-        // Keep Descriptor*Info storage alive for the whole update — vulkan-hpp
-        // WriteDescriptorSet only stores pointers into these.
+        mDevice->Get().waitIdle();
+
         const auto imageInfos = std::array {
             // 0 depth, 1 normal, 2 noise, 3 ssao raw storage
             vk::DescriptorImageInfo {}
@@ -390,9 +390,9 @@ namespace FREYA_NAMESPACE
             mDevice->EndDebugLabel(commandBuffer);
         };
 
-        // H→V is compute→compute; final output is sampled by lighting.
         runBlur(mBlurSetH, mBlurImages[0], 1.0f, 0.0f, DebugLabel::SsaoBlurH,
                 vk::PipelineStageFlagBits::eComputeShader);
+
         runBlur(mBlurSetV, mBlurImages[1], 0.0f, 1.0f, DebugLabel::SsaoBlurV,
                 vk::PipelineStageFlagBits::eFragmentShader);
 

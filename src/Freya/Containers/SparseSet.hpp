@@ -24,6 +24,10 @@ namespace FREYA_NAMESPACE
      * Thread-safe via SpinLock. Supports O(1) contains, insert, remove,
      * and sort operations.
      *
+     * IDs are stable: use contains()/atId()/find() by id. operator[]
+     * indexes the dense array by position and must NOT be used for id
+     * lookup.
+     *
      * @tparam T Type convertible to size_t (provides id())
      */
     template <typename T>
@@ -48,14 +52,22 @@ namespace FREYA_NAMESPACE
          */
         SparseSet(const SparseSet& other)
         {
-            dense.reserve(other.dense.capacity());
-            sparse.resize(other.sparse.size());
+            SpinLockGuard lock { other.m_lock };
+            dense  = other.dense;
+            sparse = other.sparse;
             sorted = false;
+        }
 
-            for (auto value : other.dense)
-            {
-                insert(value);
-            }
+        SparseSet& operator=(const SparseSet& other)
+        {
+            if (this == &other)
+                return *this;
+            SpinLockGuard selfLock { m_lock };
+            SpinLockGuard otherLock { other.m_lock };
+            dense  = other.dense;
+            sparse = other.sparse;
+            sorted = false;
+            return *this;
         }
 
         ~SparseSet() = default;
@@ -63,16 +75,17 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Inserts element if not already present.
          * @param n Element to insert
-         * @note Thread-safe with SpinLock
+         * @note Thread-safe with SpinLock; grows sparse array as needed.
          */
         void insert(const T& n)
         {
-            if (contains(n))
+            const auto id = static_cast<std::size_t>(n);
+            SpinLockGuard lock { m_lock };
+            ensureCapacityLocked(id);
+            if (containsLocked(static_cast<std::uint32_t>(id)))
                 return;
 
-            SpinLockGuard lock { m_lock };
-
-            sparse[n] = dense.size();
+            sparse[id] = dense.size();
             dense.push_back(n);
             sorted = false;
         }
@@ -84,51 +97,114 @@ namespace FREYA_NAMESPACE
          */
         void remove(const T& n)
         {
-            if (!contains(n))
+            const auto id = static_cast<std::size_t>(n);
+            SpinLockGuard lock { m_lock };
+            if (!containsLocked(static_cast<std::uint32_t>(id)))
                 return;
 
-            SpinLockGuard lock { m_lock };
-
-            dense[sparse[n]]                = dense[dense.size() - 1];
-            sparse[dense[dense.size() - 1]] = sparse[n];
-            sparse[n]                       = 0;
+            dense[sparse[id]]                = dense[dense.size() - 1];
+            sparse[static_cast<std::size_t>(dense[dense.size() - 1])] =
+                sparse[id];
+            sparse[id] = 0;
             dense.pop_back();
             sorted = false;
         }
 
         /**
-         * @brief Swaps two elements in the set.
-         * @param a First element
-         * @param b Second element
-         * @note Does nothing if either element is not present
+         * @brief Swaps positions of two present elements.
+         * @note Does nothing if either element is not present.
          */
         void swap(const T& a, const T& b)
         {
-            if (!contains(a))
+            const auto ida = static_cast<std::size_t>(a);
+            const auto idb = static_cast<std::size_t>(b);
+            SpinLockGuard lock { m_lock };
+            if (!containsLocked(static_cast<std::uint32_t>(ida)) ||
+                !containsLocked(static_cast<std::uint32_t>(idb)))
+                return;
+            if (ida == idb)
                 return;
 
-            if (contains(b))
-                return;
-
-            sparse[b]        = sparse[a];
-            dense[sparse[a]] = b;
-            sparse[a]        = 0;
+            const auto posA = sparse[ida];
+            const auto posB = sparse[idb];
+            std::swap(dense[posA], dense[posB]);
+            sparse[ida] = posB;
+            sparse[idb] = posA;
+            sorted      = false;
         }
 
         /**
-         * @brief Checks if element exists.
-         * @param n Element ID to check
-         * @return true if present
+         * @brief Renames a present id to an absent id, preserving position.
+         * @note Does nothing unless a is present and b is absent.
          */
-        bool contains(const uint32_t& n) const
+        void rename(const T& a, const T& b)
         {
-            return sparse[n] < dense.size() && dense[sparse[n]] == n;
+            const auto ida = static_cast<std::size_t>(a);
+            const auto idb = static_cast<std::size_t>(b);
+            SpinLockGuard lock { m_lock };
+            if (!containsLocked(static_cast<std::uint32_t>(ida)))
+                return;
+            ensureCapacityLocked(idb);
+            if (containsLocked(static_cast<std::uint32_t>(idb)))
+                return;
+
+            sparse[idb]        = sparse[ida];
+            dense[sparse[ida]] = b;
+            sparse[ida]        = 0;
+            sorted             = false;
+        }
+
+        [[nodiscard]] bool contains(const uint32_t& n) const
+        {
+            SpinLockGuard lock { m_lock };
+            return containsLocked(n);
         }
 
         /**
-         * @brief Clears all elements from dense array.
+         * @brief Stable lookup by id (not dense position).
          */
-        void clear() { dense.clear(); }
+        T& atId(const uint32_t n)
+        {
+            SpinLockGuard lock { m_lock };
+            return dense[sparse[n]];
+        }
+
+        const T& atId(const uint32_t n) const
+        {
+            SpinLockGuard lock { m_lock };
+            return dense[sparse[n]];
+        }
+
+        /**
+         * @brief Non-throwing stable lookup by id.
+         * @return Pointer to element or nullptr when absent/out of range.
+         */
+        T* find(const uint32_t n)
+        {
+            SpinLockGuard lock { m_lock };
+            if (!containsLocked(n))
+                return nullptr;
+            return &dense[sparse[n]];
+        }
+
+        const T* find(const uint32_t n) const
+        {
+            SpinLockGuard lock { m_lock };
+            if (!containsLocked(n))
+                return nullptr;
+            return &dense[sparse[n]];
+        }
+
+        /**
+         * @brief Clears all elements.
+         */
+        void clear()
+        {
+            SpinLockGuard lock { m_lock };
+            dense.clear();
+            std::fill(sparse.begin(), sparse.end(), 0);
+            sorted = false;
+        }
 
         /**
          * @brief Resizes sparse array capacity.
@@ -136,8 +212,10 @@ namespace FREYA_NAMESPACE
          */
         void resize(unsigned size)
         {
+            SpinLockGuard lock { m_lock };
             dense.reserve(size);
-            sparse.resize(size);
+            if (sparse.size() < size)
+                sparse.resize(size);
         }
 
         /**
@@ -146,9 +224,9 @@ namespace FREYA_NAMESPACE
          */
         void sort()
         {
+            SpinLockGuard lock { m_lock };
             if (sorted)
                 return;
-            SpinLockGuard lock { m_lock };
             denseSort();
 
             sparseReorder();
@@ -156,17 +234,20 @@ namespace FREYA_NAMESPACE
         }
 
         /**
-         * @brief Accesses element by dense array index.
-         * @param index Dense array index
-         * @return Reference to element
+         * @brief Accesses element by dense array position.
+         * @param index Dense array position (NOT a stable id)
          */
-        T&       operator[](int index) { return dense[index]; }
-        const T& operator[](int index) const { return dense[index]; }
+        T&       operator[](std::size_t index) { return dense[index]; }
+        const T& operator[](std::size_t index) const { return dense[index]; }
 
         /**
-         * @brief Returns number of elements.
+         * @brief Returns number of live elements.
          */
-        std::uint64_t size() { return dense.size(); }
+        [[nodiscard]] std::uint64_t size() const
+        {
+            SpinLockGuard lock { m_lock };
+            return dense.size();
+        }
 
         /**
          * @brief Returns reverse iterator to beginning.
@@ -180,29 +261,38 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief Computes intersection with another SparseSet.
-         * @param other Other SparseSet to intersect with
-         * @return New SparseSet containing intersection
          */
         SparseSet<T> intersect(const SparseSet<T>& other)
         {
-            auto intersection = SparseSet<T>(sparse.size());
-
-            auto base = dense.size() > other.dense.size() ? other : *this;
-
+            SpinLockGuard lock { m_lock };
+            SparseSet<T> intersection(
+                static_cast<unsigned>(std::max(sparse.size(),
+                                               other.sparse.size())));
+            const auto& smaller =
+                (dense.size() <= other.dense.size()) ? dense : other.dense;
+            for (const auto& value : smaller)
+            {
+                const auto id = static_cast<std::uint32_t>(
+                    static_cast<std::size_t>(value));
+                if (containsLocked(id) && other.contains(id))
+                    intersection.insert(value);
+            }
             return intersection;
         }
 
         /**
          * @brief Returns sparse array index for a value.
-         * @param value Value to look up
-         * @return Sparse array index
          */
-        const T& getIndex(const T& value) { return sparse[value]; }
+        std::size_t getIndex(const T& value) const
+        {
+            SpinLockGuard lock { m_lock };
+            return sparse[static_cast<std::size_t>(value)];
+        }
 
         /**
          * @brief Returns const reference to dense array.
          */
-        const std::vector<T>& getDense() { return dense; }
+        const std::vector<T>& getDense() const { return dense; }
 
       protected:
         /**
@@ -215,14 +305,35 @@ namespace FREYA_NAMESPACE
          */
         void sparseReorder()
         {
-            for (T i = 0; i < dense.size(); i++)
+            for (std::size_t i = 0; i < dense.size(); i++)
             {
-                sparse[dense[i]] = i;
+                sparse[static_cast<std::size_t>(dense[i])] = i;
             }
         }
 
+        [[nodiscard]] bool containsLocked(const uint32_t n) const
+        {
+            const auto id = static_cast<std::size_t>(n);
+            if (id >= sparse.size())
+                return false;
+            const auto pos = sparse[id];
+            return pos < dense.size() &&
+                   static_cast<std::size_t>(dense[pos]) == id;
+        }
+
+        void ensureCapacityLocked(const std::size_t id)
+        {
+            if (id < sparse.size())
+                return;
+            auto grown = sparse.size() == 0 ? 512u : sparse.size();
+            while (grown <= id)
+                grown *= 2;
+            sparse.resize(grown);
+            dense.reserve(grown);
+        }
+
       private:
-        SpinLock            m_lock; ///< SpinLock for thread safety
+        mutable SpinLock    m_lock; ///< SpinLock for thread safety
         std::vector<T>      dense;  ///< Dense array of elements
         std::vector<size_t> sparse; ///< Sparse array for O(1) lookup
         bool                sorted; ///< Whether dense array is sorted

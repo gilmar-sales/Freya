@@ -4,10 +4,21 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(Freya LANGUAGES CXX VERSION 0.61.0)
 
-if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        add_compile_options(
-                $<$<COMPILE_LANGUAGE:CXX>:-D__cpp_lib_constexpr_exceptions=0>)
-endif()
+if (WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    add_compile_options(
+            $<$<COMPILE_LANGUAGE:CXX>:-D__cpp_lib_constexpr_exceptions=0>)
+endif ()
+
+if (${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
+    find_program(FREYR_CCACHE_PROGRAM ccache)
+    if (FREYR_CCACHE_PROGRAM)
+        message(STATUS "Using ccache: ${FREYR_CCACHE_PROGRAM}")
+        set(CMAKE_C_COMPILER_LAUNCHER "${FREYR_CCACHE_PROGRAM}")
+        set(CMAKE_CXX_COMPILER_LAUNCHER "${FREYR_CCACHE_PROGRAM}")
+    else ()
+        message(STATUS "ccache not found; compiling without cache")
+    endif ()
+endif ()
 
 find_package(Vulkan REQUIRED)
 
@@ -64,13 +75,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(meshoptimizer)
 
-if(${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
-        option(FREYA_BUILD_EXAMPLES "Build Freya examples" ON)
-        option(FREYA_BUILD_TESTS "Build Freya unit tests" ON)
-else()
-        option(FREYA_BUILD_EXAMPLES "Build Freya examples" OFF)
-        option(FREYA_BUILD_TESTS "Build Freya unit tests" OFF)
-endif()
+if (${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
+    option(FREYA_BUILD_EXAMPLES "Build Freya examples" ON)
+    option(FREYA_BUILD_TESTS "Build Freya unit tests" ON)
+else ()
+    option(FREYA_BUILD_EXAMPLES "Build Freya examples" OFF)
+    option(FREYA_BUILD_TESTS "Build Freya unit tests" OFF)
+endif ()
 
 
 file(GLOB_RECURSE Freya_SRCS CONFIGURE_DEPENDS src/**.cpp)
@@ -83,27 +94,27 @@ add_library(Freya::Freya ALIAS Freya)
 target_compile_features(Freya PUBLIC cxx_std_26)
 target_include_directories(Freya
         PUBLIC
-                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-                $<INSTALL_INTERFACE:include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
         PRIVATE
-                ${CMAKE_CURRENT_SOURCE_DIR}/src
-                ${CMAKE_CURRENT_SOURCE_DIR}/src/Freya
-                ${CMAKE_CURRENT_SOURCE_DIR}/src/Freya/Core
-                ${CMAKE_CURRENT_SOURCE_DIR}/src/Freya/Builders
-                ${CMAKE_CURRENT_SOURCE_DIR}/src/Freya/Asset
-                # Same-directory style includes in .cpp ("Renderer.hpp")
-                ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya
-                ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Core
-                ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Builders
-                ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Asset
-                ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Events
-                ${Vulkan_INCLUDE_DIRS}
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Freya
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Freya/Core
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Freya/Builders
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Freya/Asset
+        # Same-directory style includes in .cpp ("Renderer.hpp")
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Core
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Builders
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Asset
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Events
+        ${Vulkan_INCLUDE_DIRS}
 )
 target_link_libraries(Freya
         PUBLIC
-                glm skirnir::skirnir
+        glm skirnir::skirnir
         PRIVATE
-                SDL3::SDL3 assimp meshoptimizer ${Vulkan_LIBRARIES})
+        SDL3::SDL3 assimp meshoptimizer ${Vulkan_LIBRARIES})
 
 target_precompile_headers(Freya PRIVATE
         <memory>
@@ -137,18 +148,18 @@ add_shader_target(TARGET Shaders
 )
 add_dependencies(Freya Shaders)
 
-if(FREYA_BUILD_EXAMPLES)
-        add_subdirectory(Examples)
-endif(FREYA_BUILD_EXAMPLES)
+if (FREYA_BUILD_EXAMPLES)
+    add_subdirectory(Examples)
+endif (FREYA_BUILD_EXAMPLES)
 
-if(FREYA_BUILD_TESTS)
-        enable_testing()
-        include(CTest)
-        add_subdirectory(tests)
-endif()
+if (FREYA_BUILD_TESTS)
+    enable_testing()
+    include(CTest)
+    add_subdirectory(tests)
+endif ()
 
 option(FREYA_BUILD_BENCHMARKS "Build Freya benchmarks" OFF)
 
-if(FREYA_BUILD_BENCHMARKS)
-        add_subdirectory(benchmarks)
-endif()
+if (FREYA_BUILD_BENCHMARKS)
+    add_subdirectory(benchmarks)
+endif ()

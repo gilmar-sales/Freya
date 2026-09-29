@@ -61,6 +61,8 @@ namespace FREYA_NAMESPACE
             mBoundCascadeView == cascadeView && mBoundFrame == frameIndex)
             return;
 
+        mDevice->Get().waitIdle();
+
         constexpr auto shadowMapLayout =
             vk::ImageLayout::eShaderReadOnlyOptimal;
 

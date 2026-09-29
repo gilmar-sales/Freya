@@ -56,22 +56,39 @@ namespace FREYA_NAMESPACE
                 .setSemaphore(mImageAvailableSemaphores[mCurrentFrameIndex])
                 .setDeviceMask(1);
 
-        const auto imageIndexResult =
-            mDevice->Get().acquireNextImage2KHR(nextImageInfo);
+        vk::Result    result     = vk::Result::eSuccess;
+        std::uint32_t imageIndex = 0;
+        try
+        {
+            const auto acquired =
+                mDevice->Get().acquireNextImage2KHR(nextImageInfo);
+            result     = acquired.result;
+            imageIndex = acquired.value;
+        }
+        catch (const vk::OutOfDateKHRError&)
+        {
+            return SwapChainFrame::Null;
+        }
 
-        if (imageIndexResult.result != vk::Result::eSuccess &&
-            imageIndexResult.result != vk::Result::eSuboptimalKHR)
+        if (result == vk::Result::eErrorOutOfDateKHR ||
+            result == vk::Result::eTimeout || result == vk::Result::eNotReady)
+        {
+            return SwapChainFrame::Null;
+        }
+
+        if (result != vk::Result::eSuccess &&
+            result != vk::Result::eSuboptimalKHR)
         {
             throw std::runtime_error("Failed to acquire next image!");
         }
 
-        mCurrentImageIndex = imageIndexResult.value;
-        // The flight slot may be free while this image is still presented
-        // by an earlier frame (image count can exceed the slot count).
+        mCurrentImageIndex = imageIndex;
+
         if (const auto imageFence = mImagesInFlight[mCurrentImageIndex])
         {
-            if (mDevice->Get().waitForFences(
-                    1, &imageFence, true, UINT64_MAX) != vk::Result::eSuccess)
+            if (mDevice->Get()
+                    .waitForFences(1, &imageFence, true, UINT64_MAX) !=
+                vk::Result::eSuccess)
                 throw std::runtime_error("failed to wait for image fence!");
         }
         return mFrames[mCurrentImageIndex];

@@ -3,7 +3,7 @@
 #include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Asset/MaterialDescriptorResources.hpp"
 #include "Freya/Asset/TexturePool.hpp"
-#include "Freya/Containers/SparseSet.hpp" // src/Freya/Containers (internal)
+#include "Freya/Containers/SparseSet.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -13,6 +13,7 @@ namespace FREYA_NAMESPACE
         skr::Arc<TexturePool>                 texturePool;
         skr::Arc<skr::Logger<MaterialPool>>   logger;
         SparseSet<Material>                   materials { 4096 };
+        std::uint32_t                         nextId = 0;
 
         void writeBindlessMaterial(Material& material);
     };
@@ -28,14 +29,23 @@ namespace FREYA_NAMESPACE
             serviceProvider->GetService<skr::Logger<MaterialPool>>();
     }
 
-    MaterialPool::~MaterialPool() = default;
+    MaterialPool::~MaterialPool()
+    {
+        if (!mImpl || !mImpl->materialsRes)
+            return;
+
+        for (const auto& material : mImpl->materials.getDense())
+        {
+            mImpl->materialsRes->WriteMaterial(material.id, MaterialGPU {});
+        }
+    }
 
     MaterialHandle MaterialPool::CreateFromTextureFiles(
         std::vector<std::string> texturesPath)
     {
         auto&              i = *mImpl;
         MaterialCreateInfo info {};
-        if (texturesPath.size() > 0)
+        if (!texturesPath.empty())
             info.albedo = i.texturePool->CreateTextureFromFile(texturesPath[0]);
         if (texturesPath.size() > 1)
             info.normal = i.texturePool->CreateTextureFromFile(texturesPath[1]);
@@ -57,9 +67,10 @@ namespace FREYA_NAMESPACE
     MaterialHandle MaterialPool::Create(const MaterialCreateInfo& createInfo)
     {
         auto& i        = *mImpl;
+        auto  id       = i.nextId++;
         auto  material = Material {
-            .createInfo = createInfo,
-            .id         = static_cast<std::uint32_t>(i.materials.size()),
+             .createInfo = createInfo,
+             .id         = id,
         };
 
         i.writeBindlessMaterial(material);
@@ -72,16 +83,20 @@ namespace FREYA_NAMESPACE
     void MaterialPool::Update(MaterialHandle            id,
                               const MaterialCreateInfo& createInfo)
     {
-        auto& i             = *mImpl;
-        auto& material      = i.materials[id.Id()];
-        material.createInfo = createInfo;
-        i.writeBindlessMaterial(material);
+        auto& i        = *mImpl;
+        auto* material = i.materials.find(id.Id());
+
+        if (!id.IsValid() || material == nullptr)
+            return;
+
+        material->createInfo = createInfo;
+        i.writeBindlessMaterial(*material);
     }
 
     const MaterialCreateInfo& MaterialPool::GetCreateInfo(
         MaterialHandle id) const
     {
-        return mImpl->materials[id.Id()].createInfo;
+        return mImpl->materials.atId(id.Id()).createInfo;
     }
 
     MaterialDrawInfo MaterialPool::GetDrawInfo(MaterialHandle id) const
@@ -119,7 +134,8 @@ namespace FREYA_NAMESPACE
 
         auto resolveIndex = [&](const std::optional<TextureHandle>& textureId,
                                 const std::uint32_t fallback) -> std::uint32_t {
-            if (!textureId)
+            if (!textureId || !textureId->IsValid() ||
+                !texturePool->Contains(*textureId))
                 return fallback;
             return MaterialDescriptorResources::TextureHeapIndex(
                 textureId->Id());
