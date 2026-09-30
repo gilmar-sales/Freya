@@ -60,8 +60,7 @@ void main() {
         mat.albedoFactor.rgb;
 
     // A = material ID (0–255); PostProcess BindMaterial reads this channel.
-    outAlbedo = vec4(linearToSrgb(albedoLin),
-                     float(inMaterialId & 255u) / 255.0);
+    outAlbedo = vec4(albedoLin, float(inMaterialId & 255u) / 255.0);
 
     uint flags = 0u;
     if ((mat.flags & kMaterialFlagUnlit) != 0u)

@@ -52,8 +52,7 @@ void main() {
         srgbToLinear(albedoSample.rgb) * inColor *
         mat.albedoFactor.rgb;
 
-    outAlbedo = vec4(linearToSrgb(albedoLin),
-                     float(inMaterialId & 255u) / 255.0);
+    outAlbedo = vec4(albedoLin, float(inMaterialId & 255u) / 255.0);
 
     uint flags = 0u;
     if ((mat.flags & kMaterialFlagUnlit) != 0u)

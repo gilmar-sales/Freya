@@ -743,7 +743,7 @@ namespace FREYA_NAMESPACE
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
                 .setFinalLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal),
-            colorAttachment(vk::Format::eR8G8B8A8Unorm,
+            colorAttachment(vk::Format::eR8G8B8A8Srgb,
                             vk::ImageLayout::eShaderReadOnlyOptimal),
             colorAttachment(vk::Format::eA2B10G10R10UnormPack32,
                             vk::ImageLayout::eShaderReadOnlyOptimal),

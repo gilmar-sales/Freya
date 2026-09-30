@@ -17,7 +17,7 @@ namespace FREYA_NAMESPACE
         Depth,             ///< Depth stencil attachment
         Sampling,          ///< MSAA sampling target
         Texture,           ///< Texture/sampled image
-        GBufferAlbedo,     ///< Albedo RGB + 8-bit material ID (R8G8B8A8_UNORM)
+        GBufferAlbedo,     ///< Albedo RGB + 8-bit material ID (R8G8B8A8_SRGB)
         GBufferNormal,     ///< World normal + 2-bit flags (A2B10G10R10)
         GBufferPbr,        ///< Rough, metal, AO|coatR, clearcoat (RGBA8)
         GBufferSceneColor, ///< HDR light accumulation / emissive (RGBA16F)

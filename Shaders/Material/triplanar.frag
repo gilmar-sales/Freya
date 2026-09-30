@@ -76,8 +76,7 @@ void main() {
         worldNormal = normalize(mix(worldNormal, worldNormal + mapped * 0.35, 0.5));
     }
 
-    outAlbedo = vec4(linearToSrgb(albedoLin),
-                     float(inMaterialId & 255u) / 255.0);
+    outAlbedo = vec4(albedoLin, float(inMaterialId & 255u) / 255.0);
 
     uint flags = 0u;
     if ((mat.flags & kMaterialFlagUnlit) != 0u)

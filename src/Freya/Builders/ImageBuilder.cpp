@@ -493,8 +493,9 @@ namespace FREYA_NAMESPACE
                 mFormat = mSurface->QuerySurfaceFormat().format;
                 break;
             case ImageUsage::GBufferAlbedo:
-                // UNORM: albedo in gamma space; mat ID in A (not sRGB)
-                mFormat = vk::Format::eR8G8B8A8Unorm;
+                // Hardware sRGB conversion for RGB; material ID in A is
+                // unaffected by the sRGB format.
+                mFormat = vk::Format::eR8G8B8A8Srgb;
                 break;
             case ImageUsage::GBufferNormal:
                 mFormat = vk::Format::eA2B10G10R10UnormPack32;

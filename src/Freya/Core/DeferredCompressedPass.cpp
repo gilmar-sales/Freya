@@ -112,7 +112,7 @@ namespace FREYA_NAMESPACE
 
         mDevice->BeginDebugLabel(commandBuffer, DebugLabel::DeferredGeometry);
 
-        auto clearValues = std::vector<vk::ClearValue> {
+        const std::array<vk::ClearValue, 6> clearValues {
             vk::ClearValue().setDepthStencil(
                 vk::ClearDepthStencilValue().setDepth(
                     mFreyaOptions->ReverseZ ? 0.0f : 1.0f)),
@@ -126,8 +126,7 @@ namespace FREYA_NAMESPACE
         };
 
         const auto frameIndex = swapChain->GetCurrentFrameIndex();
-        // Framebuffers are per flight slot; guard against a stale pass
-        // whose slot count no longer matches after a resize.
+
         const auto fbIndex =
             !mFramebuffers.empty()
                 ? std::min(
@@ -144,8 +143,9 @@ namespace FREYA_NAMESPACE
                 .setClearValues(clearValues),
             vk::SubpassContents::eInline);
 
-        mLabelActive    = false;
-        mCurrentSubpass = DefDepthPrePass;
+        mLabelActive              = false;
+        mGeometryDescriptorsBound = false;
+        mCurrentSubpass           = DefDepthPrePass;
         BindPipeline(DefDepthPrePass, commandPool, frameIndex);
     }
 
@@ -196,27 +196,29 @@ namespace FREYA_NAMESPACE
         }
         else
         {
-            commandBuffer.bindDescriptorSets(
-                vk::PipelineBindPoint::eGraphics,
-                mVertexPipelineLayout,
-                0,
-                1,
-                &mDescriptorSets[frameIndex],
-                0,
-                nullptr);
-            if (mBoneResources)
-            {
-                auto boneSet = mBoneResources->GetSet(frameIndex);
-                commandBuffer.bindDescriptorSets(
-                    vk::PipelineBindPoint::eGraphics,
-                    mVertexPipelineLayout,
-                    2,
-                    1,
-                    &boneSet,
-                    0,
-                    nullptr);
-            }
+            BindGeometryDescriptors(commandPool, frameIndex);
         }
+    }
+
+    void DeferredCompressedPass::BindGeometryDescriptors(
+        const skr::Arc<CommandPool>& commandPool,
+        const std::uint32_t          frameIndex) const
+    {
+        if (mGeometryDescriptorsBound)
+            return;
+
+        auto commandBuffer = commandPool->GetCommandBuffer();
+        commandBuffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics, mVertexPipelineLayout, 0, 1,
+            &mDescriptorSets[frameIndex], 0, nullptr);
+        if (mBoneResources)
+        {
+            auto boneSet = mBoneResources->GetSet(frameIndex);
+            commandBuffer.bindDescriptorSets(
+                vk::PipelineBindPoint::eGraphics, mVertexPipelineLayout, 2, 1,
+                &boneSet, 0, nullptr);
+        }
+        mGeometryDescriptorsBound = true;
     }
 
     void DeferredCompressedPass::BindGBufferTechnique(
@@ -248,26 +250,7 @@ namespace FREYA_NAMESPACE
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
         mCurrentSubpass = DefGBufferPass;
 
-        commandBuffer.bindDescriptorSets(
-            vk::PipelineBindPoint::eGraphics,
-            mVertexPipelineLayout,
-            0,
-            1,
-            &mDescriptorSets[frameIndex],
-            0,
-            nullptr);
-        if (mBoneResources)
-        {
-            auto boneSet = mBoneResources->GetSet(frameIndex);
-            commandBuffer.bindDescriptorSets(
-                vk::PipelineBindPoint::eGraphics,
-                mVertexPipelineLayout,
-                2,
-                1,
-                &boneSet,
-                0,
-                nullptr);
-        }
+        BindGeometryDescriptors(commandPool, frameIndex);
     }
 
     void DeferredCompressedPass::AdvanceSubpass(

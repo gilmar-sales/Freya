@@ -54,8 +54,7 @@ void main() {
                 .rgb) *
         mat.emissiveFactor.rgb;
 
-    outAlbedo = vec4(linearToSrgb(albedoLin),
-                     float(inMaterialId & 255u) / 255.0);
+    outAlbedo = vec4(albedoLin, float(inMaterialId & 255u) / 255.0);
     outNormal = vec4(worldNormal * 0.5 + 0.5, float(kFlagUnlit) / 3.0);
     outPbr = vec4(1.0, 0.0, 1.0, 0.0);
     // Unlit path in lighting uses emissive/scene; fold albedo into HDR.

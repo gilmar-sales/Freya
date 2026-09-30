@@ -229,12 +229,17 @@ namespace FREYA_NAMESPACE
 
         mutable bool                       mLabelActive    = false;
         mutable bool                       mLightingActive = false;
+        mutable bool                       mGeometryDescriptorsBound = false;
         mutable std::uint32_t              mCurrentSubpass = DefDepthPrePass;
         mutable std::vector<vk::ImageView> mBoundSsaoViews;
         mutable std::vector<vk::ImageView> mBoundShadowMaskViews;
 
         static const char* GetSubpassLabel(std::uint32_t subpass);
         static DebugRegion GetSubpassRegion(std::uint32_t subpass);
+
+        void BindGeometryDescriptors(
+            const skr::Arc<CommandPool>& commandPool,
+            std::uint32_t                  frameIndex) const;
     };
 
 } // namespace FREYA_NAMESPACE
