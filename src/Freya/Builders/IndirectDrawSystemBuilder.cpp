@@ -331,25 +331,45 @@ namespace FREYA_NAMESPACE
                 vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
             const auto cmd = mCommandPool->CreateCommandBuffer();
             cmd.begin(beginInfo);
-            const auto barrier =
+            const auto range =
+                vk::ImageSubresourceRange()
+                    .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                    .setBaseMipLevel(0)
+                    .setLevelCount(1)
+                    .setBaseArrayLayer(0)
+                    .setLayerCount(1);
+
+            const auto toTransfer =
                 vk::ImageMemoryBarrier()
                     .setOldLayout(vk::ImageLayout::eUndefined)
-                    .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                    .setNewLayout(vk::ImageLayout::eTransferDstOptimal)
                     .setSrcAccessMask({})
+                    .setDstAccessMask(vk::AccessFlagBits::eTransferWrite)
+                    .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                    .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                    .setImage(fallbackImage)
+                    .setSubresourceRange(range);
+            cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,
+                                vk::PipelineStageFlagBits::eTransfer, {}, 0,
+                                nullptr, 0, nullptr, 1, &toTransfer);
+            const auto clearValue =
+                vk::ClearColorValue().setFloat32({ 1.0f, 1.0f, 1.0f, 1.0f });
+            cmd.clearColorImage(fallbackImage,
+                                vk::ImageLayout::eTransferDstOptimal,
+                                clearValue, range);
+            const auto toReadOnly =
+                vk::ImageMemoryBarrier()
+                    .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
+                    .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                    .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
                     .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
                     .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
                     .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
                     .setImage(fallbackImage)
-                    .setSubresourceRange(
-                        vk::ImageSubresourceRange()
-                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                            .setBaseMipLevel(0)
-                            .setLevelCount(1)
-                            .setBaseArrayLayer(0)
-                            .setLayerCount(1));
-            cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,
+                    .setSubresourceRange(range);
+            cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
                                 vk::PipelineStageFlagBits::eComputeShader, {},
-                                0, nullptr, 0, nullptr, 1, &barrier);
+                                0, nullptr, 0, nullptr, 1, &toReadOnly);
             cmd.end();
             const auto submit =
                 vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(

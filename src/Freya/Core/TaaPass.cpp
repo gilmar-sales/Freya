@@ -1,6 +1,7 @@
 #include "TaaPass.hpp"
 
 #include <algorithm>
+#include <vector>
 
 namespace FREYA_NAMESPACE
 {
@@ -27,8 +28,9 @@ namespace FREYA_NAMESPACE
         mWriteIndex(frameCount, 0), mHistoryValid(frameCount, 0),
         mBoundViews(frameCount)
     {
-        // Wire history/output for both ping-pong entries of each flight slot. Scene/velocity/
-        // depth are filled on first Dispatch (stable until rebuild).
+        // Wire history/output for both ping-pong entries of each flight slot.
+        // Scene/velocity/ depth are filled on first Dispatch (stable until
+        // rebuild).
         for (std::uint32_t slot = 0; slot < frameCount; ++slot)
         {
             for (std::uint32_t writeIndex = 0; writeIndex < 2; ++writeIndex)
@@ -180,8 +182,6 @@ namespace FREYA_NAMESPACE
 
         ensureSceneDescriptors(sceneColor, velocity, depth, frameIndex);
 
-        const auto readIndex = 1u - mWriteIndex[slot];
-
         auto colorRange =
             vk::ImageSubresourceRange()
                 .setAspectMask(vk::ImageAspectFlagBits::eColor)
@@ -190,49 +190,58 @@ namespace FREYA_NAMESPACE
                 .setBaseArrayLayer(0)
                 .setLayerCount(1);
 
-        auto barriers = std::array {
+        const auto writeOldLayout =
+            mHistoryValid[slot] ? vk::ImageLayout::eShaderReadOnlyOptimal
+                                : vk::ImageLayout::eUndefined;
+        const vk::AccessFlags writeSrcAccess =
+            mHistoryValid[slot] ? vk::AccessFlagBits::eShaderRead
+                                : vk::AccessFlags {};
+        const vk::PipelineStageFlags writeSrcStage =
+            mHistoryValid[slot]
+                ? (vk::PipelineStageFlagBits::eComputeShader |
+                   vk::PipelineStageFlagBits::eFragmentShader)
+                : vk::PipelineStageFlagBits::eTopOfPipe;
+
+        auto barriers = std::vector<vk::ImageMemoryBarrier> {
             vk::ImageMemoryBarrier()
-                .setOldLayout(vk::ImageLayout::eUndefined)
+                .setOldLayout(writeOldLayout)
                 .setNewLayout(vk::ImageLayout::eGeneral)
-                .setSrcAccessMask({})
+                .setSrcAccessMask(writeSrcAccess)
                 .setDstAccessMask(vk::AccessFlagBits::eShaderWrite)
                 .setImage(mHistoryImages[slot][mWriteIndex[slot]]->GetImage())
                 .setSubresourceRange(colorRange),
             vk::ImageMemoryBarrier()
-                .setOldLayout(mHistoryValid[slot]
-                                  ? vk::ImageLayout::eShaderReadOnlyOptimal
-                                  : vk::ImageLayout::eUndefined)
-                .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setSrcAccessMask(mHistoryValid[slot]
-                                      ? vk::AccessFlagBits::eShaderRead
-                                      : vk::AccessFlags {})
-                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
-                .setImage(mHistoryImages[slot][readIndex]->GetImage())
-                .setSubresourceRange(colorRange),
-            vk::ImageMemoryBarrier()
-                .setOldLayout(vk::ImageLayout::eUndefined)
+                .setOldLayout(writeOldLayout)
                 .setNewLayout(vk::ImageLayout::eGeneral)
-                .setSrcAccessMask({})
+                .setSrcAccessMask(writeSrcAccess)
                 .setDstAccessMask(vk::AccessFlagBits::eShaderWrite)
                 .setImage(
                     mDepthHistoryImages[slot][mWriteIndex[slot]]->GetImage())
                 .setSubresourceRange(colorRange),
-            vk::ImageMemoryBarrier()
-                .setOldLayout(mHistoryValid[slot]
-                                  ? vk::ImageLayout::eShaderReadOnlyOptimal
-                                  : vk::ImageLayout::eUndefined)
-                .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setSrcAccessMask(mHistoryValid[slot]
-                                      ? vk::AccessFlagBits::eShaderRead
-                                      : vk::AccessFlags {})
-                .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
-                .setImage(mDepthHistoryImages[slot][readIndex]->GetImage())
-                .setSubresourceRange(colorRange),
         };
+        if (!mHistoryValid[slot])
+        {
+            const auto readIndex = 1u - mWriteIndex[slot];
+            barriers.push_back(
+                vk::ImageMemoryBarrier()
+                    .setOldLayout(vk::ImageLayout::eUndefined)
+                    .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                    .setSrcAccessMask({})
+                    .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                    .setImage(mHistoryImages[slot][readIndex]->GetImage())
+                    .setSubresourceRange(colorRange));
+            barriers.push_back(
+                vk::ImageMemoryBarrier()
+                    .setOldLayout(vk::ImageLayout::eUndefined)
+                    .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                    .setSrcAccessMask({})
+                    .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                    .setImage(mDepthHistoryImages[slot][readIndex]->GetImage())
+                    .setSubresourceRange(colorRange));
+        }
 
         commandBuffer.pipelineBarrier(
-            vk::PipelineStageFlagBits::eComputeShader |
-                vk::PipelineStageFlagBits::eFragmentShader |
+            writeSrcStage | vk::PipelineStageFlagBits::eFragmentShader |
                 vk::PipelineStageFlagBits::eEarlyFragmentTests |
                 vk::PipelineStageFlagBits::eLateFragmentTests,
             vk::PipelineStageFlagBits::eComputeShader, {}, nullptr, nullptr,

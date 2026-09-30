@@ -413,7 +413,7 @@ namespace FREYA_NAMESPACE
                 .setCompareOp(mFreyaOptions->ReverseZ ? vk::CompareOp::eGreater
                                                       : vk::CompareOp::eLess)
                 .setMinLod(0.0f)
-                .setMaxLod(0.0f)
+                .setMaxLod(VK_LOD_CLAMP_NONE)
                 .setMipLodBias(0.0f);
 
         auto compareSampler = mDevice->Get().createSampler(compareSamplerInfo);
@@ -589,6 +589,7 @@ namespace FREYA_NAMESPACE
                 .setSamples(vk::SampleCountFlagBits::e1)
                 .setTiling(vk::ImageTiling::eOptimal)
                 .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment |
+                          vk::ImageUsageFlagBits::eTransferDst |
                           vk::ImageUsageFlagBits::eSampled)
                 .setSharingMode(vk::SharingMode::eExclusive)
                 .setInitialLayout(vk::ImageLayout::eUndefined);
@@ -673,19 +674,46 @@ namespace FREYA_NAMESPACE
                 .setBaseArrayLayer(0)
                 .setLayerCount(layerCount);
 
-        auto barrier =
+        // New images have undefined contents. Route through
+        // TransferDstOptimal instead of a direct Undefined ->
+        // ShaderReadOnlyOptimal transition, which the validation
+        // BestPractices layer flags. (No clear: the shadow render
+        // pass clears on first use via LOAD_OP_CLEAR.)
+        auto toTransfer =
             vk::ImageMemoryBarrier()
                 .setOldLayout(vk::ImageLayout::eUndefined)
-                .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setNewLayout(vk::ImageLayout::eTransferDstOptimal)
                 .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
                 .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
                 .setImage(image)
                 .setSubresourceRange(range)
                 .setSrcAccessMask({})
-                .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
+                .setDstAccessMask(vk::AccessFlagBits::eTransferWrite);
 
         commandBuffer.pipelineBarrier(
             vk::PipelineStageFlagBits::eTopOfPipe,
+            vk::PipelineStageFlagBits::eTransfer,
+            vk::DependencyFlags(),
+            0,
+            nullptr,
+            0,
+            nullptr,
+            1,
+            &toTransfer);
+
+        auto toReadOnly =
+            vk::ImageMemoryBarrier()
+                .setOldLayout(vk::ImageLayout::eTransferDstOptimal)
+                .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                .setImage(image)
+                .setSubresourceRange(range)
+                .setSrcAccessMask(vk::AccessFlagBits::eTransferWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eShaderRead);
+
+        commandBuffer.pipelineBarrier(
+            vk::PipelineStageFlagBits::eTransfer,
             vk::PipelineStageFlagBits::eFragmentShader,
             vk::DependencyFlags(),
             0,
@@ -693,7 +721,7 @@ namespace FREYA_NAMESPACE
             0,
             nullptr,
             1,
-            &barrier);
+            &toReadOnly);
 
         commandBuffer.end();
 

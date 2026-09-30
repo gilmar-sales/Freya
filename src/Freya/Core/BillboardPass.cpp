@@ -32,7 +32,7 @@ namespace FREYA_NAMESPACE
         const vk::DescriptorPool                     descriptorPool,
         const std::vector<vk::DescriptorSet>&        instanceSets,
         std::vector<skr::Arc<Buffer>>
-                        instanceBuffers,
+            instanceBuffers,
         std::vector<skr::Arc<Buffer>>
                         connectedBuffers,
         const Pipelines hdrPipelines,
@@ -63,8 +63,7 @@ namespace FREYA_NAMESPACE
         mLdrExtent(extent), mMaxQuads(maxQuads),
         mMaxConnectedQuads(maxConnectedQuads),
         mDepthInputSetLayout(depthInput.setLayout),
-        mDepthInputPool(depthInput.pool),
-        mDepthInputSet(depthInput.set)
+        mDepthInputPool(depthInput.pool), mDepthInputSet(depthInput.set)
     {
     }
 
@@ -218,7 +217,7 @@ namespace FREYA_NAMESPACE
         mLdrOffscreen = true;
         mLdrDepthView = depth->GetImageView();
         UpdateDepthInput(mLdrDepthView);
-        mLdrExtent    = extent;
+        mLdrExtent = extent;
         mLdrFramebuffers.resize(1);
         auto views = std::array { color->GetImageView(), mLdrDepthView };
         mLdrFramebuffers[0] = mDevice->Get().createFramebuffer(
@@ -234,10 +233,9 @@ namespace FREYA_NAMESPACE
     {
         if (!mDepthInputSet || !depthView)
             return;
-        auto imgInfo = vk::DescriptorImageInfo()
-                           .setImageView(depthView)
-                           .setImageLayout(
-                               vk::ImageLayout::eDepthStencilReadOnlyOptimal);
+        auto imgInfo =
+            vk::DescriptorImageInfo().setImageView(depthView).setImageLayout(
+                vk::ImageLayout::eDepthStencilReadOnlyOptimal);
         auto write =
             vk::WriteDescriptorSet()
                 .setDstSet(mDepthInputSet)
@@ -445,8 +443,8 @@ namespace FREYA_NAMESPACE
             r.depthTest = b.depthTest;
             r.first     = static_cast<std::uint32_t>(connectedPacked.size());
             r.count     = static_cast<std::uint32_t>(b.gpu.size());
-            connectedPacked.insert(connectedPacked.end(), b.gpu.begin(),
-                                   b.gpu.end());
+            connectedPacked.insert(
+                connectedPacked.end(), b.gpu.begin(), b.gpu.end());
             connectedRanges.push_back(r);
         }
 
@@ -496,9 +494,9 @@ namespace FREYA_NAMESPACE
         cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
                                mPipelineLayout, 1, 1, &bindless, 0, nullptr);
         if (mDepthInputSet)
-            cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
-                                   mPipelineLayout, 2, 1,
-                                   &mDepthInputSet, 0, nullptr);
+            cmd.bindDescriptorSets(
+                vk::PipelineBindPoint::eGraphics, mPipelineLayout, 2, 1,
+                &mDepthInputSet, 0, nullptr);
 
         BillboardPush push { view, proj };
         cmd.pushConstants(mPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0,
@@ -518,16 +516,17 @@ namespace FREYA_NAMESPACE
             cmd.draw(6, r.count, 0, r.first);
         }
 
-        vk::Pipeline connectedBound {};
+        // Keep tracking across both loops: the connected pipelines
+        // may resolve to the same handle as the last bound one.
         for (const auto& r : connectedRanges)
         {
             auto pipe = pickConnectedPipeline(target, r.blend, r.depthTest);
             if (!pipe)
                 continue;
-            if (pipe != connectedBound)
+            if (pipe != bound)
             {
                 cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, pipe);
-                connectedBound = pipe;
+                bound = pipe;
             }
             cmd.draw(6, r.count, 0, r.first);
         }

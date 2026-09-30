@@ -266,39 +266,6 @@ namespace FREYA_NAMESPACE
 
         ensureDescriptors(depthImage, normalImage);
 
-        // Geometry depth/normal -> compute
-        {
-            auto depthRange =
-                vk::ImageSubresourceRange()
-                    .setAspectMask(vk::ImageAspectFlagBits::eDepth)
-                    .setBaseMipLevel(0)
-                    .setLevelCount(1)
-                    .setBaseArrayLayer(0)
-                    .setLayerCount(1);
-            auto depthBarrier =
-                vk::ImageMemoryBarrier()
-                    .setOldLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal)
-                    .setNewLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal)
-                    .setSrcAccessMask(
-                        vk::AccessFlagBits::eDepthStencilAttachmentWrite)
-                    .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
-                    .setImage(depthImage->GetImage())
-                    .setSubresourceRange(depthRange);
-            commandBuffer.pipelineBarrier(
-                vk::PipelineStageFlagBits::eLateFragmentTests,
-                vk::PipelineStageFlagBits::eComputeShader, {}, nullptr, nullptr,
-                depthBarrier);
-
-            barrierColor(commandPool,
-                         normalImage->GetImage(),
-                         vk::ImageLayout::eShaderReadOnlyOptimal,
-                         vk::ImageLayout::eShaderReadOnlyOptimal,
-                         vk::AccessFlagBits::eColorAttachmentWrite,
-                         vk::AccessFlagBits::eShaderRead,
-                         vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                         vk::PipelineStageFlagBits::eComputeShader);
-        }
-
         const auto groupsX = (mSsaoExtent.width + 7) / 8;
         const auto groupsY = (mSsaoExtent.height + 7) / 8;
 

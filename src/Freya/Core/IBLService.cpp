@@ -439,7 +439,7 @@ namespace FREYA_NAMESPACE
 
     void IBLService::createSamplers()
     {
-        auto makeSampler = [&](bool enableMip) {
+        auto makeSampler = [&] {
             auto info =
                 vk::SamplerCreateInfo()
                     .setMagFilter(vk::Filter::eLinear)
@@ -454,15 +454,15 @@ namespace FREYA_NAMESPACE
                     .setCompareEnable(false)
                     .setMipmapMode(vk::SamplerMipmapMode::eLinear)
                     .setMinLod(0.0f)
-                    .setMaxLod(enableMip ? VK_LOD_CLAMP_NONE : 0.0f)
+                    .setMaxLod(VK_LOD_CLAMP_NONE)
                     .setMipLodBias(0.0f);
             return mDevice->Get().createSampler(info);
         };
 
-        mEnvironmentSampler = makeSampler(true);
-        mIrradianceSampler  = makeSampler(false);
-        mBrdfSampler        = makeSampler(false);
-        mLtcSampler         = makeSampler(false);
+        mEnvironmentSampler = makeSampler();
+        mIrradianceSampler  = makeSampler();
+        mBrdfSampler        = makeSampler();
+        mLtcSampler         = makeSampler();
     }
 
     void IBLService::generateLtcLuts(std::vector<float>& ltc1,

@@ -177,7 +177,7 @@ namespace FREYA_NAMESPACE
                     .setMipmapMode(vk::SamplerMipmapMode::eLinear)
                     .setMipLodBias(0.0f)
                     .setMinLod(0.0f)
-                    .setMaxLod(0.0f));
+                    .setMaxLod(VK_LOD_CLAMP_NONE));
 
             return std::tuple { image, imageMemory, imageView, sampler };
         };
