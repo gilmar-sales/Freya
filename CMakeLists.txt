@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.29)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(Freya LANGUAGES CXX VERSION 0.61.0)
+project(Freya LANGUAGES CXX VERSION 0.62.0)
 
 if (WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     add_compile_options(
@@ -59,7 +59,7 @@ FetchContent_MakeAvailable(assimp)
 FetchContent_Declare(
         skirnir
         GIT_REPOSITORY "https://github.com/gilmar-sales/Skirnir.git"
-        GIT_TAG "v0.23.3"
+        GIT_TAG "v0.24.0"
         GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(skirnir)
