@@ -267,7 +267,7 @@ namespace FREYA_NAMESPACE
             cascadeCount,
             false,
             vk::ImageViewType::e2DArray);
-        transitionToReadOnly(cascade.image, cascadeCount);
+        transitionToReadOnly(cascade.image, cascadeCount, depthFormat);
 
         const auto spotLayers = maxSpot == 0 ? 1u : maxSpot;
         const auto spotResolution =
@@ -293,7 +293,7 @@ namespace FREYA_NAMESPACE
             spotLayers,
             false,
             vk::ImageViewType::e2DArray);
-        transitionToReadOnly(spot.image, spotLayers);
+        transitionToReadOnly(spot.image, spotLayers, depthFormat);
 
         auto point = createArrayImage(
             depthFormat,
@@ -301,7 +301,7 @@ namespace FREYA_NAMESPACE
             pointLayers,
             true,
             vk::ImageViewType::eCubeArray);
-        transitionToReadOnly(point.image, pointLayers);
+        transitionToReadOnly(point.image, pointLayers, depthFormat);
 
         // Per-slot 6-layer views for multiview cube framebuffers.
         auto pointSlotViews = std::vector<vk::ImageView>(pointSlotCount);
@@ -642,8 +642,9 @@ namespace FREYA_NAMESPACE
         return ArrayImage { image, memory, arrayView, layerViews };
     }
 
-    void ShadowPassBuilder::transitionToReadOnly(
-        vk::Image image, const std::uint32_t layerCount) const
+    void ShadowPassBuilder::transitionToReadOnly(vk::Image           image,
+                                                 const std::uint32_t layerCount,
+                                                 vk::Format format) const
     {
         if (!image || layerCount == 0)
             return;
@@ -660,7 +661,7 @@ namespace FREYA_NAMESPACE
 
         auto range =
             vk::ImageSubresourceRange()
-                .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                .setAspectMask(DepthAspectMask(format))
                 .setBaseMipLevel(0)
                 .setLevelCount(1)
                 .setBaseArrayLayer(0)

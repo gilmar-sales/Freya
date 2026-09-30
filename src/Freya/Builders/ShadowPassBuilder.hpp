@@ -72,7 +72,8 @@ namespace FREYA_NAMESPACE
             std::uint32_t                     resolution) const;
 
         void transitionToReadOnly(vk::Image     image,
-                                  std::uint32_t layerCount) const;
+                                  std::uint32_t layerCount,
+                                  vk::Format    format) const;
 
         skr::Arc<Device>                      mDevice;
         skr::Arc<PhysicalDevice>              mPhysicalDevice;

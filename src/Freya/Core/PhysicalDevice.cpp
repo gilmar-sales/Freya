@@ -126,6 +126,20 @@ namespace FREYA_NAMESPACE
 
         return candidates.front();
     }
+
+    vk::ImageAspectFlags DepthAspectMask(vk::Format format)
+    {
+        switch (format)
+        {
+            case vk::Format::eD16UnormS8Uint:
+            case vk::Format::eD24UnormS8Uint:
+            case vk::Format::eD32SfloatS8Uint:
+                return vk::ImageAspectFlagBits::eDepth |
+                       vk::ImageAspectFlagBits::eStencil;
+            default:
+                return vk::ImageAspectFlagBits::eDepth;
+        }
+    }
     std::vector<const char*> PhysicalDevice::FilterSupportedExtensions(
         std::vector<const char*> requestedExtensions) const
     {

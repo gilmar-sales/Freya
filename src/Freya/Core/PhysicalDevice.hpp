@@ -102,4 +102,15 @@ namespace FREYA_NAMESPACE
         vk::PhysicalDevice mPhysicalDevice;
     };
 
+    /**
+     * @brief Aspect mask for barriers on a depth image of the given format.
+     *
+     * Combined depth/stencil formats require DEPTH|STENCIL in
+     * VkImageMemoryBarrier subresource ranges unless
+     * separateDepthStencilLayouts is enabled
+     * (VUID-VkImageMemoryBarrier-image-03320). Depth-only views are
+     * unaffected and keep a depth-only aspect.
+     */
+    [[nodiscard]] vk::ImageAspectFlags DepthAspectMask(vk::Format format);
+
 } // namespace FREYA_NAMESPACE
