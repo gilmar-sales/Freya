@@ -3,6 +3,7 @@
 #include "Freya/Asset/BoneMatrixResources.hpp"
 #include "Freya/Asset/MaterialDescriptorResources.hpp"
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/MemoryAllocator.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
 #include "Freya/Core/ShadowPass.hpp"
 #include "Freya/FreyaOptions.hpp"
@@ -49,7 +50,7 @@ namespace FREYA_NAMESPACE
         struct ArrayImage
         {
             vk::Image                  image;
-            vk::DeviceMemory           memory;
+            VmaAllocation              memory = VK_NULL_HANDLE;
             vk::ImageView              arrayView;
             std::vector<vk::ImageView> layerViews;
         };

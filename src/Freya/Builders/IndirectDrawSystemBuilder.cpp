@@ -304,16 +304,13 @@ namespace FREYA_NAMESPACE
                           vk::ImageUsageFlagBits::eTransferDst)
                 .setSharingMode(vk::SharingMode::eExclusive)
                 .setInitialLayout(vk::ImageLayout::eUndefined);
-        auto       fallbackImage = vkDevice.createImage(fallbackInfo);
-        const auto reqs    = vkDevice.getImageMemoryRequirements(fallbackImage);
-        const auto memType = mPhysicalDevice->QueryCompatibleMemoryType(
-            reqs.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal);
-        auto fallbackMem = vkDevice.allocateMemory(
-            vk::MemoryAllocateInfo()
-                .setAllocationSize(reqs.size)
-                .setMemoryTypeIndex(memType));
-        vkDevice.bindImageMemory(fallbackImage, fallbackMem, 0);
-        auto fallbackView = vkDevice.createImageView(
+        auto& allocator = mDevice->GetAllocator();
+        assert(allocator && "Device has no VMA MemoryAllocator.");
+        const auto rawInfo = static_cast<VkImageCreateInfo>(fallbackInfo);
+        const auto created = allocator->CreateImage(rawInfo, 0.5f);
+        auto fallbackImage = vk::Image(static_cast<VkImage>(created.image));
+        auto fallbackMem   = created.allocation;
+        auto fallbackView  = vkDevice.createImageView(
             vk::ImageViewCreateInfo()
                 .setImage(fallbackImage)
                 .setViewType(vk::ImageViewType::e2D)

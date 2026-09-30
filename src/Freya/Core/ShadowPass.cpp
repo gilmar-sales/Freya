@@ -167,17 +167,17 @@ namespace FREYA_NAMESPACE
         const vk::Pipeline                   cascadePipeline,
         const vk::Pipeline                   pointPipeline,
         const vk::Image                      cascadeImage,
-        const vk::DeviceMemory               cascadeMemory,
+        const VmaAllocation                  cascadeMemory,
         const vk::ImageView                  cascadeArrayView,
         const std::vector<vk::ImageView>&    cascadeLayerViews,
         const vk::Framebuffer                cascadeFramebuffer,
         const std::vector<vk::Framebuffer>&  spotFramebuffers,
         const vk::Image                      spotImage,
-        const vk::DeviceMemory               spotMemory,
+        const VmaAllocation                  spotMemory,
         const vk::ImageView                  spotArrayView,
         const std::vector<vk::ImageView>&    spotLayerViews,
         const vk::Image                      pointImage,
-        const vk::DeviceMemory               pointMemory,
+        const VmaAllocation                  pointMemory,
         const vk::ImageView                  pointArrayView,
         const std::vector<vk::ImageView>&    pointSlotViews,
         const std::vector<vk::Framebuffer>&  pointFramebuffers,
@@ -277,25 +277,25 @@ namespace FREYA_NAMESPACE
 
         if (mCascadeImage)
         {
-            vkDevice.destroyImage(mCascadeImage);
-            vkDevice.freeMemory(mCascadeMemory);
+            mDevice->GetAllocator()->DestroyImage(
+                static_cast<VkImage>(mCascadeImage), mCascadeMemory);
+            mCascadeMemory = VK_NULL_HANDLE;
         }
         if (mSpotImage)
         {
-            vkDevice.destroyImage(mSpotImage);
-            vkDevice.freeMemory(mSpotMemory);
+            mDevice->GetAllocator()->DestroyImage(
+                static_cast<VkImage>(mSpotImage), mSpotMemory);
+            mSpotMemory = VK_NULL_HANDLE;
         }
         if (mPointImage)
         {
-            vkDevice.destroyImage(mPointImage);
-            vkDevice.freeMemory(mPointMemory);
+            mDevice->GetAllocator()->DestroyImage(
+                static_cast<VkImage>(mPointImage), mPointMemory);
+            mPointMemory = VK_NULL_HANDLE;
         }
-        mCascadeImage  = VK_NULL_HANDLE;
-        mCascadeMemory = VK_NULL_HANDLE;
-        mSpotImage     = VK_NULL_HANDLE;
-        mSpotMemory    = VK_NULL_HANDLE;
-        mPointImage    = VK_NULL_HANDLE;
-        mPointMemory   = VK_NULL_HANDLE;
+        mCascadeImage = VK_NULL_HANDLE;
+        mSpotImage    = VK_NULL_HANDLE;
+        mPointImage   = VK_NULL_HANDLE;
 
         if (mCompareSampler)
             vkDevice.destroySampler(mCompareSampler);

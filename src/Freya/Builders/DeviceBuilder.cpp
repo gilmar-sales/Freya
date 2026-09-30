@@ -1,7 +1,10 @@
 #include "Freya/Builders/DeviceBuilder.hpp"
 
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/MemoryAllocator.hpp"
 #include "Freya/Core/Surface.hpp"
+
+#include <algorithm>
 
 namespace FREYA_NAMESPACE
 {
@@ -175,13 +178,26 @@ namespace FREYA_NAMESPACE
         mLogger->LogTrace("\tTransferQueue: {}",
                           indices.transferFamily.value());
 
+        const bool memoryPriorityEnabled =
+            std::ranges::find(optionalExtensions,
+                              std::string_view("VK_EXT_memory_priority")) !=
+            optionalExtensions.end();
+
+        auto allocator = skr::MakeArc<MemoryAllocator>(
+            static_cast<VkInstance>(mInstance->Get()),
+            static_cast<VkPhysicalDevice>(mPhysicalDevice->Get()),
+            static_cast<VkDevice>(device),
+            VK_API_VERSION_1_3,
+            memoryPriorityEnabled);
+
         return skr::MakeArc<Device>(
             mPhysicalDevice,
             device,
             graphicsQueue,
             presentQueue,
             transferQueue,
-            indices);
+            indices,
+            std::move(allocator));
     }
 
     QueueFamilyIndices DeviceBuilder::findQueueFamilies(

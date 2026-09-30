@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Freya/Core/MemoryAllocator.hpp"
+
 namespace FREYA_NAMESPACE
 {
     class Device;
@@ -22,17 +24,19 @@ namespace FREYA_NAMESPACE
     };
 
     /**
-     * @brief Wrapper for Vulkan buffer with device memory management.
+     * @brief Wrapper for a VMA-backed Vulkan buffer.
      *
-     * Manages buffer lifecycle, binding to command buffers, and memory
-     * operations. Host-visible buffers are persistently mapped at creation;
-     * Copy writes through the mapped pointer (no per-call map/unmap).
+     * Memory is sub-allocated from MemoryAllocator blocks; the
+     * buffer stays persistently mapped when host-visible.
+     * Copy writes through the mapped pointer (no per-call
+     * map/unmap) and flushes non-coherent ranges via VMA.
      *
-     * @param device  Device reference
-     * @param usage   Buffer usage type
-     * @param size    Buffer size in bytes
-     * @param buffer  Vulkan buffer handle
-     * @param memory  Device memory handle
+     * @param device     Device reference (owns the VMA allocator)
+     * @param usage      Buffer usage type
+     * @param size       Buffer size in bytes
+     * @param buffer     Vulkan buffer handle (VMA-owned)
+     * @param allocation VMA allocation handle
+     * @param info       VMA allocation info (mapped ptr, deviceMemory)
      */
     class Buffer
     {
@@ -41,11 +45,12 @@ namespace FREYA_NAMESPACE
                const BufferUsage       usage,
                const std::uint64_t     size,
                const vk::Buffer        buffer,
-               const vk::DeviceMemory  memory,
-               void*                   mapped       = nullptr,
+               const VmaAllocation     allocation,
+               const VmaAllocationInfo info,
                const bool              hostCoherent = true) :
-            mDevice(device), mBuffer(buffer), mMemory(memory), mUsage(usage),
-            mSize(size), mMapped(mapped), mHostCoherent(hostCoherent)
+            mDevice(device), mBuffer(buffer), mAllocation(allocation),
+            mInfo(info), mUsage(usage), mSize(size), mMapped(info.pMappedData),
+            mHostCoherent(hostCoherent)
         {
         }
 
@@ -64,9 +69,14 @@ namespace FREYA_NAMESPACE
         vk::Buffer& Get() { return mBuffer; }
 
         /**
-         * @brief Returns the underlying device memory handle.
+         * @brief Returns the VMA allocation handle.
          */
-        vk::DeviceMemory& GetMemory() { return mMemory; }
+        VmaAllocation GetAllocation() const { return mAllocation; }
+
+        /**
+         * @brief Returns the VMA allocation info (deviceMemory, offset).
+         */
+        const VmaAllocationInfo& GetInfo() const { return mInfo; }
 
         /**
          * @brief Returns the buffer size in bytes.
@@ -93,12 +103,13 @@ namespace FREYA_NAMESPACE
       private:
         skr::Arc<Device> mDevice;
 
-        vk::Buffer       mBuffer;
-        vk::DeviceMemory mMemory;
-        BufferUsage      mUsage;
-        std::uint64_t    mSize;
-        void*            mMapped       = nullptr;
-        bool             mHostCoherent = true;
+        vk::Buffer        mBuffer;
+        VmaAllocation     mAllocation = VK_NULL_HANDLE;
+        VmaAllocationInfo mInfo {};
+        BufferUsage       mUsage;
+        std::uint64_t     mSize;
+        void*             mMapped       = nullptr;
+        bool              mHostCoherent = true;
     };
 
 } // namespace FREYA_NAMESPACE

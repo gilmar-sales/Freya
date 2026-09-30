@@ -106,24 +106,19 @@ namespace FREYA_NAMESPACE
                 break;
         }
 
-        auto image = mDevice->Get().createImage(imageInfo);
+        float priority = 1.0f;
+        if (mUsage == ImageUsage::Texture)
+            priority = 0.5f;
 
-        const auto imageRequirements =
-            mDevice->Get().getImageMemoryRequirements(image);
+        auto& allocator = mDevice->GetAllocator();
+        assert(allocator && "Device has no VMA MemoryAllocator.");
 
-        const auto memoryTypeIndex =
-            mDevice->GetPhysicalDevice()->QueryCompatibleMemoryType(
-                imageRequirements.memoryTypeBits,
-                vk::MemoryPropertyFlagBits::eDeviceLocal);
+        const auto rawInfo = static_cast<VkImageCreateInfo>(imageInfo);
+        const auto created = allocator->CreateImage(rawInfo, priority);
+        auto       image   = vk::Image(static_cast<VkImage>(created.image));
+        auto       imageAllocation = created.allocation;
 
-        const auto imageMemoryInfo =
-            vk::MemoryAllocateInfo()
-                .setAllocationSize(imageRequirements.size)
-                .setMemoryTypeIndex(memoryTypeIndex);
-
-        auto imageMemory = mDevice->Get().allocateMemory(imageMemoryInfo);
-
-        mDevice->Get().bindImageMemory(image, imageMemory, 0);
+        assert(image && "VMA failed to create vk::Image.");
 
         if (mData != nullptr && mUsage == ImageUsage::Texture)
         {
@@ -475,7 +470,7 @@ namespace FREYA_NAMESPACE
             mDevice,
             image,
             imageView,
-            imageMemory,
+            imageAllocation,
             mFormat,
             mMipLevels);
     }

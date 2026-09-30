@@ -3,6 +3,7 @@
 #include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/MemoryAllocator.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 
 namespace FREYA_NAMESPACE
@@ -20,11 +21,11 @@ namespace FREYA_NAMESPACE
             vk::DescriptorSet       bindlessSet,
             const skr::Arc<Buffer>& materialsBuffer,
             vk::Image               fallbackImage,
-            vk::DeviceMemory        fallbackImageMemory,
+            VmaAllocation           fallbackImageMemory,
             vk::ImageView           fallbackImageView,
             vk::Sampler             fallbackSampler,
             vk::Image               emissiveFallbackImage,
-            vk::DeviceMemory        emissiveFallbackMemory,
+            VmaAllocation           emissiveFallbackMemory,
             vk::ImageView           emissiveFallbackImageView,
             vk::Sampler             emissiveFallbackSampler);
 
@@ -74,14 +75,14 @@ namespace FREYA_NAMESPACE
         skr::Arc<Buffer>        mMaterialsBuffer;
         std::uint32_t           mMaterialCapacity = MAX_MATERIAL_SETS;
 
-        vk::Image        mFallbackImage;
-        vk::DeviceMemory mFallbackImageMemory;
-        vk::ImageView    mFallbackImageView;
-        vk::Sampler      mFallbackSampler;
+        vk::Image     mFallbackImage;
+        VmaAllocation mFallbackImageMemory = VK_NULL_HANDLE;
+        vk::ImageView mFallbackImageView;
+        vk::Sampler   mFallbackSampler;
 
-        vk::Image        mEmissiveFallbackImage;
-        vk::DeviceMemory mEmissiveFallbackMemory;
-        vk::ImageView    mEmissiveFallbackImageView;
-        vk::Sampler      mEmissiveFallbackSampler;
+        vk::Image     mEmissiveFallbackImage;
+        VmaAllocation mEmissiveFallbackMemory = VK_NULL_HANDLE;
+        vk::ImageView mEmissiveFallbackImageView;
+        vk::Sampler   mEmissiveFallbackSampler;
     };
 } // namespace FREYA_NAMESPACE

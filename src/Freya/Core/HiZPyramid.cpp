@@ -122,15 +122,13 @@ namespace FREYA_NAMESPACE
                 .setSharingMode(vk::SharingMode::eExclusive)
                 .setInitialLayout(vk::ImageLayout::eUndefined);
 
-        auto       image = vkDevice.createImage(imageInfo);
-        const auto reqs  = vkDevice.getImageMemoryRequirements(image);
-        const auto memType =
-            mDevice->GetPhysicalDevice()->QueryCompatibleMemoryType(
-                reqs.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal);
-        auto memory = vkDevice.allocateMemory(vk::MemoryAllocateInfo()
-                                                  .setAllocationSize(reqs.size)
-                                                  .setMemoryTypeIndex(memType));
-        vkDevice.bindImageMemory(image, memory, 0);
+        auto& allocator = mDevice->GetAllocator();
+        assert(allocator && "Device has no VMA MemoryAllocator.");
+
+        const auto rawInfo = static_cast<VkImageCreateInfo>(imageInfo);
+        const auto created = allocator->CreateImage(rawInfo, 1.0f);
+        auto       image   = vk::Image(static_cast<VkImage>(created.image));
+        auto       memory  = created.allocation;
 
         const auto fullViewInfo =
             vk::ImageViewCreateInfo()

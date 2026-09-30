@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DebugLabels.hpp"
+#include "Freya/Core/MemoryAllocator.hpp"
 #include "PhysicalDevice.hpp"
 
 #include <array>
@@ -68,11 +69,14 @@ namespace FREYA_NAMESPACE
                const vk::Queue                 graphicsQueue,
                const vk::Queue                 presentQueue,
                const vk::Queue                 transferQueue,
-               const QueueFamilyIndices&       queueFamilyIndices);
+               const QueueFamilyIndices&       queueFamilyIndices,
+               skr::Arc<MemoryAllocator>       allocator = nullptr);
 
         ~Device()
         {
             mDevice.waitIdle();
+            // VMA must die while VkDevice is still valid.
+            mAllocator.reset();
             mDevice.destroy();
         }
 
@@ -150,15 +154,27 @@ namespace FREYA_NAMESPACE
 
         void SubmitAndWait(vk::Queue queue, vk::SubmitInfo submitInfo) const;
 
+        /**
+         * @brief VMA sub-allocator owning all device memory.
+         * Null until DeviceBuilder attaches it right after
+         * logical-device creation.
+         */
+        skr::Arc<MemoryAllocator>& GetAllocator() { return mAllocator; }
+        [[nodiscard]] const skr::Arc<MemoryAllocator>& GetAllocator() const
+        {
+            return mAllocator;
+        }
+
       private:
         skr::Arc<PhysicalDevice> mPhysicalDevice;
 
         QueueFamilyIndices mQueueFamilyIndices;
 
-        vk::Device mDevice;
-        vk::Queue  mGraphicsQueue;
-        vk::Queue  mPresentQueue;
-        vk::Queue  mTransferQueue;
+        vk::Device                mDevice;
+        skr::Arc<MemoryAllocator> mAllocator;
+        vk::Queue                 mGraphicsQueue;
+        vk::Queue                 mPresentQueue;
+        vk::Queue                 mTransferQueue;
 
         PFN_vkCmdBeginDebugUtilsLabelEXT mCmdBeginDebugLabel = nullptr;
         PFN_vkCmdEndDebugUtilsLabelEXT   mCmdEndDebugLabel   = nullptr;

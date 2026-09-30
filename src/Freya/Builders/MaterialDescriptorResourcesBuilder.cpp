@@ -44,20 +44,11 @@ namespace FREYA_NAMESPACE
                               vk::ImageUsageFlagBits::eSampled)
                     .setSharingMode(vk::SharingMode::eExclusive)
                     .setInitialLayout(vk::ImageLayout::eUndefined);
-            const auto image = mDevice->Get().createImage(imageInfo);
-
-            const auto memoryRequirements =
-                mDevice->Get().getImageMemoryRequirements(image);
-            const auto memoryType = mPhysicalDevice->QueryCompatibleMemoryType(
-                memoryRequirements.memoryTypeBits,
-                vk::MemoryPropertyFlagBits::eDeviceLocal);
-            const auto allocationInfo =
-                vk::MemoryAllocateInfo()
-                    .setAllocationSize(memoryRequirements.size)
-                    .setMemoryTypeIndex(memoryType);
-            const auto imageMemory =
-                mDevice->Get().allocateMemory(allocationInfo);
-            mDevice->Get().bindImageMemory(image, imageMemory, 0);
+            const auto rawInfo = static_cast<VkImageCreateInfo>(imageInfo);
+            const auto created =
+                mDevice->GetAllocator()->CreateImage(rawInfo, 0.5f);
+            const auto image = vk::Image(static_cast<VkImage>(created.image));
+            const auto imageMemory = created.allocation;
 
             const auto graphicsFamily =
                 mDevice->GetQueueFamilyIndices().graphicsFamily.value();

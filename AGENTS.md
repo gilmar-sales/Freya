@@ -16,6 +16,7 @@
   | assimp          | `v6.0.5` | root `CMakeLists.txt` |
   | skirnir         | `v0.23.3` | root `CMakeLists.txt` |
   | meshoptimizer   | `v0.25` | root `CMakeLists.txt` |
+  | VMA (VulkanMemoryAllocator) | `v3.4.0` | root `CMakeLists.txt` |
   | Dear ImGui      | `v1.91.8` | `Examples/Common/CMakeLists.txt` |
   | nlohmann_json   | `v3.11.3` | `Examples/Common/CMakeLists.txt` (also `tests/` for GPU tests) |
   | googletest      | `v1.17.0` | `tests/CMakeLists.txt` |

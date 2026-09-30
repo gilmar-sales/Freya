@@ -8,18 +8,16 @@
 namespace FREYA_NAMESPACE
 {
     /**
-     * @brief Destroys the Vulkan buffer and frees device memory.
+     * @brief Destroys the VMA buffer allocation.
      */
     Buffer::~Buffer()
     {
         mDevice->Get().waitIdle();
-        if (mMapped)
-        {
-            mDevice->Get().unmapMemory(mMemory);
-            mMapped = nullptr;
-        }
-        mDevice->Get().destroyBuffer(mBuffer);
-        mDevice->Get().freeMemory(mMemory);
+        mMapped = nullptr;
+        mDevice->GetAllocator()->DestroyBuffer(
+            static_cast<VkBuffer>(mBuffer), mAllocation);
+        mAllocation = VK_NULL_HANDLE;
+        mBuffer     = vk::Buffer {};
     }
 
     /**
@@ -57,8 +55,8 @@ namespace FREYA_NAMESPACE
     /**
      * @brief Copies data into buffer memory via the persistent mapping.
      *
-     * Only performs copy if size fits within buffer and data is not null.
-     * Falls back to a one-shot map when no persistent mapping exists.
+     * Falls back to a one-shot vmaMapMemory when no persistent mapping
+     * exists (GpuOnly buffers). Non-coherent ranges are flushed via VMA.
      *
      * @param data  Source data pointer
      * @param size  Size of data to copy
@@ -73,44 +71,28 @@ namespace FREYA_NAMESPACE
             return;
         }
 
+        auto& allocator = mDevice->GetAllocator();
+
         if (mMapped)
         {
             std::memcpy(static_cast<std::byte*>(mMapped) + offset, data, size);
             if (!mHostCoherent)
-            {
-                const auto atom =
-                    mDevice->GetPhysicalDevice()
-                        ->Get()
-                        .getProperties()
-                        .limits.nonCoherentAtomSize;
-                const auto align = atom == 0 ? 1 : atom;
-                const auto alignedOffset = (offset / align) * align;
-                const auto end           = offset + size;
-                const auto alignedEnd = ((end + align - 1) / align) * align;
-                const auto range =
-                    vk::MappedMemoryRange()
-                        .setMemory(mMemory)
-                        .setOffset(alignedOffset)
-                        .setSize(alignedEnd - alignedOffset);
-                mDevice->Get().flushMappedMemoryRanges(range);
-            }
+                allocator->Flush(mAllocation, offset, size);
             return;
         }
 
-        void* deviceData = mDevice->Get().mapMemory(
-            mMemory, offset, size, vk::MemoryMapFlagBits {});
+        void*          mapped = nullptr;
+        const VkResult result =
+            vmaMapMemory(allocator->Get(), mAllocation, &mapped);
+        assert(result == VK_SUCCESS && "vmaMapMemory failed.");
+        if (result != VK_SUCCESS || mapped == nullptr)
+            return;
 
-        std::memcpy(deviceData, data, size);
+        std::memcpy(static_cast<std::byte*>(mapped) + offset, data, size);
 
         if (!mHostCoherent)
-        {
-            const auto range = vk::MappedMemoryRange()
-                                   .setMemory(mMemory)
-                                   .setOffset(offset)
-                                   .setSize(size);
-            mDevice->Get().flushMappedMemoryRanges(range);
-        }
-        mDevice->Get().unmapMemory(mMemory);
+            allocator->Flush(mAllocation, offset, size);
+        vmaUnmapMemory(allocator->Get(), mAllocation);
     }
 
 } // namespace FREYA_NAMESPACE

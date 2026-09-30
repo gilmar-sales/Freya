@@ -1,20 +1,21 @@
 #pragma once
 
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/MemoryAllocator.hpp"
 
 namespace FREYA_NAMESPACE
 {
     /**
-     * @brief Wrapper for Vulkan image with view and memory management.
+     * @brief Wrapper for a VMA-backed Vulkan image.
      *
-     * Manages a 2D Vulkan image, its view, and device memory.
+     * Memory is sub-allocated from MemoryAllocator blocks.
      * Used for depth buffers, MSAA targets, and textures.
      *
-     * @param device    Device reference
-     * @param image     Vulkan image handle
-     * @param imageView Vulkan image view handle
-     * @param memory    Device memory handle
-     * @param format    Image format
+     * @param device     Device reference (owns the VMA allocator)
+     * @param image      Vulkan image handle (VMA-owned)
+     * @param imageView  Vulkan image view handle
+     * @param allocation VMA allocation handle
+     * @param format     Image format
      */
     class Image
     {
@@ -22,11 +23,11 @@ namespace FREYA_NAMESPACE
         Image(const skr::Arc<Device>& device,
               const vk::Image         image,
               const vk::ImageView     imageView,
-              const vk::DeviceMemory  memory,
+              const VmaAllocation     allocation,
               const vk::Format        format,
               const std::uint32_t     mipLevels = 1) :
             mDevice(device), mImage(image), mImageView(imageView),
-            mMemory(memory), mFormat(format), mMipLevels(mipLevels)
+            mAllocation(allocation), mFormat(format), mMipLevels(mipLevels)
         {
         }
 
@@ -43,9 +44,9 @@ namespace FREYA_NAMESPACE
         vk::ImageView& GetImageView() { return mImageView; }
 
         /**
-         * @brief Returns the device memory handle.
+         * @brief Returns the VMA allocation handle.
          */
-        vk::DeviceMemory& GetMemory() { return mMemory; }
+        VmaAllocation GetAllocation() const { return mAllocation; }
 
         /**
          * @brief Returns the image format.
@@ -57,11 +58,11 @@ namespace FREYA_NAMESPACE
       private:
         skr::Arc<Device> mDevice;
 
-        vk::Image        mImage;
-        vk::ImageView    mImageView;
-        vk::DeviceMemory mMemory;
-        vk::Format       mFormat;
-        std::uint32_t    mMipLevels;
+        vk::Image     mImage;
+        vk::ImageView mImageView;
+        VmaAllocation mAllocation = VK_NULL_HANDLE;
+        vk::Format    mFormat;
+        std::uint32_t mMipLevels;
     };
 
 }; // namespace FREYA_NAMESPACE

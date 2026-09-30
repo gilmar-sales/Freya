@@ -75,6 +75,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(meshoptimizer)
 
+FetchContent_Declare(
+        vma
+        GIT_REPOSITORY "https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git"
+        GIT_TAG "v3.4.0"
+        GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(vma)
+
 if (${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR})
     option(FREYA_BUILD_EXAMPLES "Build Freya examples" ON)
     option(FREYA_BUILD_TESTS "Build Freya unit tests" ON)
@@ -109,6 +117,7 @@ target_include_directories(Freya
         ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Asset
         ${CMAKE_CURRENT_SOURCE_DIR}/include/Freya/Events
         ${Vulkan_INCLUDE_DIRS}
+        ${vma_SOURCE_DIR}/include
 )
 target_link_libraries(Freya
         PUBLIC

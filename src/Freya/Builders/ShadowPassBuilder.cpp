@@ -597,21 +597,12 @@ namespace FREYA_NAMESPACE
         if (cubeCompatible)
             imageInfo.setFlags(vk::ImageCreateFlagBits::eCubeCompatible);
 
-        auto image = mDevice->Get().createImage(imageInfo);
-
-        const auto requirements =
-            mDevice->Get().getImageMemoryRequirements(image);
-
-        const auto memoryTypeIndex = mPhysicalDevice->QueryCompatibleMemoryType(
-            requirements.memoryTypeBits,
-            vk::MemoryPropertyFlagBits::eDeviceLocal);
-
-        const auto memoryInfo = vk::MemoryAllocateInfo()
-                                    .setAllocationSize(requirements.size)
-                                    .setMemoryTypeIndex(memoryTypeIndex);
-
-        auto memory = mDevice->Get().allocateMemory(memoryInfo);
-        mDevice->Get().bindImageMemory(image, memory, 0);
+        auto& allocator = mDevice->GetAllocator();
+        assert(allocator && "Device has no VMA MemoryAllocator.");
+        const auto rawInfo = static_cast<VkImageCreateInfo>(imageInfo);
+        const auto created = allocator->CreateImage(rawInfo, 1.0f);
+        auto       image   = vk::Image(static_cast<VkImage>(created.image));
+        auto       memory  = created.allocation;
 
         const auto arrayViewInfo =
             vk::ImageViewCreateInfo()

@@ -3,13 +3,15 @@
 namespace FREYA_NAMESPACE
 {
     /**
-     * @brief Destroys image view, image, and frees device memory.
+     * @brief Destroys image view and VMA image allocation.
      */
     Image::~Image()
     {
         mDevice->Get().waitIdle();
         mDevice->Get().destroyImageView(mImageView);
-        mDevice->Get().destroyImage(mImage);
-        mDevice->Get().freeMemory(mMemory);
+        mDevice->GetAllocator()->DestroyImage(
+            static_cast<VkImage>(mImage), mAllocation);
+        mAllocation = VK_NULL_HANDLE;
+        mImage      = vk::Image {};
     }
 } // namespace FREYA_NAMESPACE

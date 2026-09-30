@@ -2,6 +2,7 @@
 
 #include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/Device.hpp"
+#include "Freya/Core/MemoryAllocator.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
 
 #include <cstring>
@@ -13,67 +14,37 @@ namespace FREYA_NAMESPACE
     {
         struct MemoryChoice
         {
-            std::uint32_t typeIndex    = 0;
-            bool          hostVisible  = false;
-            bool          hostCoherent = false;
+            MemoryUsage usage        = MemoryUsage::Upload;
+            bool        hostCoherent = true;
         };
 
-        MemoryChoice ChooseBufferMemory(
-            const skr::Arc<PhysicalDevice>& physical,
-            const std::uint32_t             typeBits,
-            const BufferUsage               usage)
+        MemoryChoice ChooseBufferMemory(const BufferUsage usage)
         {
-            using enum vk::MemoryPropertyFlagBits;
+            // Every Freya buffer is CPU-written at least once
+            // (initial data + Copy ring updates), so keep them
+            // host-visible via VMA CPU_TO_GPU / GPU_TO_CPU.
+            // VMA sub-allocates from host-visible blocks (ReBAR
+            // device-local when available) — no more 1:1
+            // vkAllocateMemory per buffer.
+            if (usage == BufferUsage::Readback)
+                return { MemoryUsage::Readback, true };
+            return { MemoryUsage::Upload, true };
+        }
 
-            const auto tryProps =
-                [&](const vk::MemoryPropertyFlags props) -> std::uint32_t {
-                std::uint32_t index = 0;
-                if (physical->TryQueryCompatibleMemoryType(
-                        typeBits, props, index))
-                    return index;
-                return std::numeric_limits<std::uint32_t>::max();
-            };
-
-            MemoryChoice choice {};
-
-            if (usage == BufferUsage::Staging || usage == BufferUsage::Readback)
+        float BufferPriority(const BufferUsage usage)
+        {
+            switch (usage)
             {
-                const auto idx = tryProps(eHostVisible | eHostCoherent);
-                assert(idx != std::numeric_limits<std::uint32_t>::max());
-                if (idx == std::numeric_limits<std::uint32_t>::max())
-                    throw vk::SystemError(
-                        vk::Result::eErrorOutOfDeviceMemory,
-                        "No host-visible coherent memory for staging.");
-                choice.typeIndex    = idx;
-                choice.hostVisible  = true;
-                choice.hostCoherent = true;
-                return choice;
+                case BufferUsage::Vertex:
+                case BufferUsage::Index:
+                case BufferUsage::Uniform:
+                case BufferUsage::Instance:
+                case BufferUsage::Storage:
+                case BufferUsage::Indirect:
+                    return 1.0f;
+                default:
+                    return 0.2f;
             }
-
-            // Prefer ReBAR-style host-visible device-local + coherent so
-            // Copy can write without flush or map/unmap.
-            static constexpr vk::MemoryPropertyFlags kCandidates[] = {
-                eHostVisible | eHostCoherent | eDeviceLocal,
-                eHostVisible | eDeviceLocal,
-                eHostVisible | eHostCoherent,
-            };
-
-            for (const auto props : kCandidates)
-            {
-                const auto idx = tryProps(props);
-                if (idx == std::numeric_limits<std::uint32_t>::max())
-                    continue;
-
-                choice.typeIndex    = idx;
-                choice.hostVisible  = true;
-                choice.hostCoherent = (props & eHostCoherent) == eHostCoherent;
-                return choice;
-            }
-
-            assert(!"Failed to find suitable buffer memory type.");
-            throw vk::SystemError(
-                vk::Result::eErrorOutOfDeviceMemory,
-                "Failed to find suitable buffer memory type.");
         }
     } // namespace
 
@@ -139,10 +110,8 @@ namespace FREYA_NAMESPACE
         bool                         useConcurrent = false;
         if (queueFamilyIndices.isUnique())
         {
-            concurrentQueues = {
-                queueFamilyIndices.graphicsFamily.value(),
-                queueFamilyIndices.transferFamily.value()
-            };
+            concurrentQueues = { queueFamilyIndices.graphicsFamily.value(),
+                                 queueFamilyIndices.transferFamily.value() };
 
             bufferInfo.setSharingMode(vk::SharingMode::eConcurrent)
                 .setQueueFamilyIndexCount(2)
@@ -151,84 +120,60 @@ namespace FREYA_NAMESPACE
             (void) useConcurrent;
         }
 
-        vk::Buffer       buffer {};
-        vk::DeviceMemory memory {};
+        VkBuffer          rawBuffer {};
+        VmaAllocation     allocation {};
+        VmaAllocationInfo allocInfo {};
         try
         {
-            buffer = mDevice->Get().createBuffer(bufferInfo);
+            const auto choice = ChooseBufferMemory(mUsage);
 
-            assert(buffer && "Failed to create vk::Buffer.");
+            auto& allocator = mDevice->GetAllocator();
+            assert(allocator && "Device has no VMA MemoryAllocator.");
 
-            const auto memoryRequirements =
-                mDevice->Get().getBufferMemoryRequirements(buffer);
+            const auto rawInfo = static_cast<VkBufferCreateInfo>(bufferInfo);
+            auto       created = allocator->CreateBuffer(
+                rawInfo, choice.usage, BufferPriority(mUsage), mSize > 0);
+            rawBuffer  = created.buffer;
+            allocation = created.allocation;
+            allocInfo  = created.info;
 
-            const auto choice =
-                ChooseBufferMemory(mDevice->GetPhysicalDevice(),
-                                   memoryRequirements.memoryTypeBits, mUsage);
+            vk::Buffer buffer(static_cast<VkBuffer>(rawBuffer));
+            assert(buffer && "VMA failed to create vk::Buffer.");
 
-            auto priorityInfo =
-                vk::MemoryPriorityAllocateInfoEXT().setPriority(0.2f);
-
-            switch (mUsage)
+            void* mapped = allocInfo.pMappedData;
+            if (mSize > 0)
             {
-                case BufferUsage::Vertex:
-                case BufferUsage::Index:
-                case BufferUsage::Uniform:
-                case BufferUsage::Instance:
-                case BufferUsage::Storage:
-                case BufferUsage::Indirect:
-                    priorityInfo.setPriority(1.0f);
-                    break;
-                default:
-                    break;
-            }
-
-            const auto allocInfo =
-                vk::MemoryAllocateInfo()
-                    .setAllocationSize(memoryRequirements.size)
-                    .setMemoryTypeIndex(choice.typeIndex)
-                    .setPNext(&priorityInfo);
-
-            memory = mDevice->Get().allocateMemory(allocInfo);
-
-            assert(memory && "Failed to allocate vk::DeviceMemory");
-
-            mDevice->Get().bindBufferMemory(buffer, memory, 0);
-
-            void* mapped = nullptr;
-            if (choice.hostVisible && mSize > 0)
-            {
-                mapped = mDevice->Get().mapMemory(
-                    memory, 0, mSize, vk::MemoryMapFlagBits {});
-                assert(mapped && "Failed to persistently map buffer memory");
+                assert(mapped && "VMA did not persistently map buffer.");
                 if (mapped == nullptr)
                     throw vk::SystemError(vk::Result::eErrorMemoryMapFailed,
                                           "Failed to map buffer memory.");
             }
 
+            bool                  hostCoherent = true;
+            VkMemoryPropertyFlags memProps {};
+            vmaGetAllocationMemoryProperties(
+                allocator->Get(), allocation, &memProps);
+            hostCoherent =
+                (memProps & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
+
             if (mData != nullptr && mapped != nullptr)
             {
                 std::memcpy(mapped, mData, mSize);
-                if (!choice.hostCoherent)
-                {
-                    const auto range =
-                        vk::MappedMemoryRange()
-                            .setMemory(memory)
-                            .setOffset(0)
-                            .setSize(mSize);
-                    mDevice->Get().flushMappedMemoryRanges(range);
-                }
+                if (!hostCoherent)
+                    allocator->Flush(allocation, 0, mSize);
             }
 
-            return skr::MakeArc<Buffer>(mDevice, mUsage, mSize, buffer, memory,
-                                        mapped, choice.hostCoherent);
+            return skr::MakeArc<Buffer>(mDevice, mUsage, mSize, buffer,
+                                        allocation, allocInfo, hostCoherent);
         }
         catch (...)
         {
-            if (buffer)
-                mDevice->Get().destroyBuffer(buffer);
-            if (memory)
-                mDevice->Get().freeMemory(memory);
+            if (rawBuffer)
+            {
+                auto& allocator = mDevice->GetAllocator();
+                if (allocator)
+                    allocator->DestroyBuffer(rawBuffer, allocation);
+            }
             throw;
         }
     };

@@ -5,6 +5,7 @@
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/LightService.hpp"
+#include "Freya/Core/MemoryAllocator.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
 #include "Freya/Core/UniformBuffer.hpp"
 #include "Freya/FreyaOptions.hpp"
@@ -38,17 +39,17 @@ namespace FREYA_NAMESPACE
             vk::Pipeline                         cascadePipeline,
             vk::Pipeline                         pointPipeline,
             vk::Image                            cascadeImage,
-            vk::DeviceMemory                     cascadeMemory,
+            VmaAllocation                        cascadeMemory,
             vk::ImageView                        cascadeArrayView,
             const std::vector<vk::ImageView>&    cascadeLayerViews,
             vk::Framebuffer                      cascadeFramebuffer,
             const std::vector<vk::Framebuffer>&  spotFramebuffers,
             vk::Image                            spotImage,
-            vk::DeviceMemory                     spotMemory,
+            VmaAllocation                        spotMemory,
             vk::ImageView                        spotArrayView,
             const std::vector<vk::ImageView>&    spotLayerViews,
             vk::Image                            pointImage,
-            vk::DeviceMemory                     pointMemory,
+            VmaAllocation                        pointMemory,
             vk::ImageView                        pointArrayView,
             const std::vector<vk::ImageView>&    pointSlotViews,
             const std::vector<vk::Framebuffer>&  pointFramebuffers,
@@ -155,19 +156,19 @@ namespace FREYA_NAMESPACE
         vk::Pipeline       mPointPipeline;   ///< Point cube multiview
 
         vk::Image                  mCascadeImage;
-        vk::DeviceMemory           mCascadeMemory;
+        VmaAllocation              mCascadeMemory = VK_NULL_HANDLE;
         vk::ImageView              mCascadeArrayView;
         std::vector<vk::ImageView> mCascadeLayerViews;
         vk::Framebuffer            mCascadeFramebuffer = {};
 
         vk::Image                    mSpotImage;
-        vk::DeviceMemory             mSpotMemory;
+        VmaAllocation                mSpotMemory = VK_NULL_HANDLE;
         vk::ImageView                mSpotArrayView;
         std::vector<vk::ImageView>   mSpotLayerViews;
         std::vector<vk::Framebuffer> mSpotFramebuffers;
 
         vk::Image                    mPointImage;
-        vk::DeviceMemory             mPointMemory;
+        VmaAllocation                mPointMemory = VK_NULL_HANDLE;
         vk::ImageView                mPointArrayView;
         std::vector<vk::ImageView>   mPointSlotViews;
         std::vector<vk::Framebuffer> mPointFramebuffers;

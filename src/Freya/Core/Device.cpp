@@ -15,10 +15,13 @@ namespace FREYA_NAMESPACE
                    const vk::Queue                 graphicsQueue,
                    const vk::Queue                 presentQueue,
                    const vk::Queue                 transferQueue,
-                   const QueueFamilyIndices&       queueFamilyIndices) :
+                   const QueueFamilyIndices&       queueFamilyIndices,
+                   skr::Arc<MemoryAllocator>
+                       allocator) :
         mPhysicalDevice(physicalDevice), mDevice(device),
         mGraphicsQueue(graphicsQueue), mPresentQueue(presentQueue),
-        mTransferQueue(transferQueue), mQueueFamilyIndices(queueFamilyIndices)
+        mTransferQueue(transferQueue), mQueueFamilyIndices(queueFamilyIndices),
+        mAllocator(std::move(allocator))
     {
 #ifndef NDEBUG
         mCmdBeginDebugLabel =
