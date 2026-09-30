@@ -41,11 +41,13 @@ namespace FREYA_NAMESPACE
             queueCreateInfos.push_back(queueCreateInfo);
         }
 
+        auto vulkan13Features = vk::PhysicalDeviceVulkan13Features {};
         auto vulkan12Features = vk::PhysicalDeviceVulkan12Features {};
         auto vulkan11Features = vk::PhysicalDeviceVulkan11Features {};
         auto features2 =
             vk::PhysicalDeviceFeatures2 {}.setPNext(&vulkan11Features);
         vulkan11Features.setPNext(&vulkan12Features);
+        vulkan12Features.setPNext(&vulkan13Features);
         mPhysicalDevice->Get().getFeatures2(&features2);
 
         mLogger->Assert(features2.features.imageCubeArray,
@@ -88,6 +90,10 @@ namespace FREYA_NAMESPACE
         mLogger->Assert(vulkan11Features.multiview,
                         "Physical device does not support multiview "
                         "(required for CSM shadow maps)");
+        mLogger->Assert(vulkan13Features.shaderDemoteToHelperInvocation,
+                        "Physical device does not support "
+                        "shaderDemoteToHelperInvocation "
+                        "(required for discard in fragment shaders)");
 
         auto multiviewProps = vk::PhysicalDeviceMultiviewProperties {};
         auto props2         = vk::PhysicalDeviceProperties2 {};
@@ -96,6 +102,9 @@ namespace FREYA_NAMESPACE
         mLogger->Assert(multiviewProps.maxMultiviewViewCount >= 4,
                         "Physical device maxMultiviewViewCount < 4 "
                         "(required for CSM shadow maps)");
+
+        auto enabled13 = vk::PhysicalDeviceVulkan13Features {}
+                             .setShaderDemoteToHelperInvocation(true);
 
         auto enabled12 =
             vk::PhysicalDeviceVulkan12Features {}
@@ -107,6 +116,7 @@ namespace FREYA_NAMESPACE
                 .setDescriptorBindingPartiallyBound(true)
                 .setDescriptorBindingSampledImageUpdateAfterBind(true)
                 .setDescriptorBindingStorageBufferUpdateAfterBind(true);
+        enabled12.setPNext(&enabled13);
 
         auto enabled11 =
             vk::PhysicalDeviceVulkan11Features {}.setMultiview(true);
