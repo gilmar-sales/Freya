@@ -695,6 +695,8 @@ namespace FREYA_NAMESPACE
             indirect->BuildHiZ(deferred->GetDepthImage(frameIndex),
                                options->ReverseZ);
 
+            deferred->DispatchLightCulling(cmdPool, frameIndex);
+
             if (ssao)
             {
                 ssao->Dispatch(

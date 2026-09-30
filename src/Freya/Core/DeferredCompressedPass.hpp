@@ -81,10 +81,18 @@ namespace FREYA_NAMESPACE
             const std::vector<vk::Framebuffer>&          framebuffers,
             const vk::RenderPass                         lightingRenderPass,
             const std::vector<vk::Framebuffer>&          lightingFramebuffers,
-            const vk::DescriptorSetLayout                lightingSetLayout,
-            const vk::DescriptorPool                     lightingDescriptorPool,
-            const std::vector<vk::DescriptorSet>&        lightingSets,
-            const skr::Arc<MaterialDescriptorResources>& materialResources,
+             const vk::DescriptorSetLayout                lightingSetLayout,
+             const vk::DescriptorPool                     lightingDescriptorPool,
+             const std::vector<vk::DescriptorSet>&        lightingSets,
+             const vk::Pipeline                           tileCullingPipeline,
+             const vk::PipelineLayout                     tileCullingPipelineLayout,
+             const vk::DescriptorSetLayout                tileCullingSetLayout,
+             const vk::DescriptorPool                     tileCullingDescriptorPool,
+             const std::vector<vk::DescriptorSet>&        tileCullingSets,
+             const std::vector<vk::DescriptorSet>&        lightSets,
+             const std::vector<skr::Arc<Buffer>>&         tileBuffers,
+             vk::Extent2D                                 tileCounts,
+             const skr::Arc<MaterialDescriptorResources>& materialResources,
             const skr::Arc<BoneMatrixResources>&         boneResources,
             const vk::Sampler                            gbufferSampler,
             vk::Extent2D                                 extent);
@@ -163,6 +171,10 @@ namespace FREYA_NAMESPACE
 
         void EndLighting(const skr::Arc<CommandPool>& commandPool) const;
 
+        void DispatchLightCulling(
+            const skr::Arc<CommandPool>& commandPool,
+            std::uint32_t                frameIndex) const;
+
         void End(const skr::Arc<CommandPool> commandPool) const;
 
         void UpdateProjection(const ProjectionUniformBuffer& buffer,
@@ -222,6 +234,15 @@ namespace FREYA_NAMESPACE
         vk::DescriptorSetLayout        mLightingSetLayout;
         vk::DescriptorPool             mLightingDescriptorPool;
         std::vector<vk::DescriptorSet> mLightingSets;
+
+        vk::Pipeline            mTileCullingPipeline;
+        vk::PipelineLayout      mTileCullingPipelineLayout;
+        vk::DescriptorSetLayout mTileCullingSetLayout;
+        vk::DescriptorPool      mTileCullingDescriptorPool;
+        std::vector<vk::DescriptorSet> mTileCullingSets;
+        std::vector<vk::DescriptorSet> mLightSets;
+        std::vector<skr::Arc<Buffer>>  mTileBuffers;
+        vk::Extent2D                    mTileCounts;
 
         skr::Arc<MaterialDescriptorResources> mMaterialResources;
         skr::Arc<BoneMatrixResources>         mBoneResources;

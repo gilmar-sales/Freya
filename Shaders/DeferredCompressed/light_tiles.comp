@@ -1,0 +1,110 @@
+#version 450
+
+#extension GL_GOOGLE_include_directive : require
+#include "Include/freya_limits.inc"
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+const uint kTileSize = 16u;
+// Point/spot attenuation has no hard radius in the lighting shader. Keep
+// lights until their maximum possible contribution is below this threshold
+// so tile boundaries do not become visible.
+const float kLightContributionCutoff = 1e-4;
+
+layout(set = 0, binding = 0) uniform CameraBuffer {
+    mat4 view;
+    mat4 projection;
+    vec4 ambientLight;
+    vec4 _pad0;
+    vec4 _pad1;
+    vec4 _pad2;
+    mat4 invViewProjection;
+} camera;
+
+layout(set = 1, binding = 0) uniform LightBuffer {
+    vec4 lightPositions[FREYA_MAX_LIGHTS];
+    vec4 lightColorsAndRadius[FREYA_MAX_LIGHTS];
+    vec4 lightDirectionsAndCutoff[FREYA_MAX_LIGHTS];
+    vec4 lightOuterCutoffAndIntensity[FREYA_MAX_LIGHTS];
+    vec4 lightAreaTangents[FREYA_MAX_LIGHTS];
+    vec4 viewPosition;
+    vec4 cameraForward;
+    uint lightCount;
+    float iblIntensity;
+    float exposure;
+} lights;
+
+struct TileLightGrid {
+    uint count;
+    uint indices[FREYA_MAX_LIGHTS];
+};
+
+layout(std430, set = 2, binding = 0) buffer TileBuffer {
+    TileLightGrid tiles[];
+} tileBuffer;
+
+layout(push_constant) uniform TilePush {
+    vec2 screenSize;
+    uint tileCountX;
+    uint tileCountY;
+} push;
+
+bool IntersectsTile(uint index, vec2 tileMin, vec2 tileMax) {
+    float type = lights.lightPositions[index].w;
+    if (type >= 0.5 && type < 1.5)
+        return true;
+
+    // LTC area lights do not use the light radius for attenuation. They must
+    // remain available to every tile to preserve the unclustered result.
+    if (type >= 2.5)
+        return true;
+
+    vec3 viewPosition =
+        (camera.view * vec4(lights.lightPositions[index].xyz, 1.0)).xyz;
+    float radius = max(lights.lightColorsAndRadius[index].w, 0.0);
+    float intensity = max(lights.lightOuterCutoffAndIntensity[index].y, 0.0);
+    float color = max(max(lights.lightColorsAndRadius[index].r,
+                          lights.lightColorsAndRadius[index].g),
+                      lights.lightColorsAndRadius[index].b);
+    float influenceRadius = sqrt(max(
+        radius * intensity * color / kLightContributionCutoff - 1.0, 0.0));
+    float viewDepth = -viewPosition.z;
+    if (viewDepth <= 0.001 || viewDepth - influenceRadius <= 0.001)
+        return true;
+
+    vec4 clip = camera.projection * vec4(viewPosition, 1.0);
+    if (clip.w <= 0.001)
+        return true;
+
+    vec2 center = clip.xy / clip.w;
+    vec2 radiusNdc =
+        abs(vec2(camera.projection[0][0], camera.projection[1][1])) *
+        influenceRadius / max(viewDepth - influenceRadius, 0.001);
+    vec2 lightMin = center - radiusNdc;
+    vec2 lightMax = center + radiusNdc;
+    return lightMax.x >= tileMin.x && lightMin.x <= tileMax.x &&
+           lightMax.y >= tileMin.y && lightMin.y <= tileMax.y;
+}
+
+void main() {
+    uvec2 tile = gl_GlobalInvocationID.xy;
+    if (tile.x >= push.tileCountX || tile.y >= push.tileCountY)
+        return;
+
+    vec2 invScreen = 1.0 / push.screenSize;
+    vec2 tileMin = vec2(tile * kTileSize) * invScreen * 2.0 - 1.0;
+    vec2 tileMax =
+        vec2(min((tile + 1u) * kTileSize, uvec2(push.screenSize))) *
+            invScreen * 2.0 - 1.0;
+
+    uint tileIndex = tile.y * push.tileCountX + tile.x;
+    uint count = 0u;
+    uint lightCount = min(lights.lightCount, FREYA_MAX_LIGHTS);
+    for (uint i = 0u; i < lightCount; ++i) {
+        if (IntersectsTile(i, tileMin, tileMax)) {
+            tileBuffer.tiles[tileIndex].indices[count] = i;
+            ++count;
+        }
+    }
+    tileBuffer.tiles[tileIndex].count = count;
+}

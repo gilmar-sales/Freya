@@ -187,6 +187,9 @@ namespace FREYA_NAMESPACE
 
         if (ctx.buildHiZ)
             ctx.buildHiZ();
+
+        (*ctx.deferred)->DispatchLightCulling(ctx.commandPool,
+                                              ctx.frameIndex);
     }
 
     void SsaoFrameStage::Rebuild(StageContext&         stageCtx,

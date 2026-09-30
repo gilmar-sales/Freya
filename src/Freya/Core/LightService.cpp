@@ -443,7 +443,8 @@ namespace FREYA_NAMESPACE
                 .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eVertex |
-                               vk::ShaderStageFlagBits::eFragment);
+                               vk::ShaderStageFlagBits::eFragment |
+                               vk::ShaderStageFlagBits::eCompute);
 
         auto layoutInfo =
             vk::DescriptorSetLayoutCreateInfo().setBindings(binding);

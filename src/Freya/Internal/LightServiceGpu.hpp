@@ -53,6 +53,12 @@ namespace FREYA_NAMESPACE
             return lights.mImpl->mSets[frameIndex];
         }
 
+        static const std::vector<vk::DescriptorSet>& Sets(
+            const LightService& lights)
+        {
+            return lights.mImpl->mSets;
+        }
+
         static skr::Arc<fra::Buffer> Buffer(const LightService& lights)
         {
             return lights.mImpl->mBuffer;

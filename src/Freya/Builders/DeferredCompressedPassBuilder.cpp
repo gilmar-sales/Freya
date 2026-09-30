@@ -33,6 +33,16 @@ namespace FREYA_NAMESPACE
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment);
         }
 
+        vk::DescriptorSetLayoutBinding storageBinding(
+            std::uint32_t binding, vk::ShaderStageFlags stages)
+        {
+            return vk::DescriptorSetLayoutBinding()
+                .setBinding(binding)
+                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorCount(1)
+                .setStageFlags(stages);
+        }
+
         vk::DescriptorSetLayoutBinding inputAttBinding(std::uint32_t binding)
         {
             return vk::DescriptorSetLayoutBinding()
@@ -77,7 +87,8 @@ namespace FREYA_NAMESPACE
         auto depthFrag = loadShader("DeferredCompressed/depth.frag.spv");
         auto gbufVert  = loadShader("DeferredCompressed/gbuffer.vert.spv");
         auto gbufFrag  = loadShader("DeferredCompressed/gbuffer.frag.spv");
-        auto lightVert = loadShader("DeferredCompressed/lighting.vert.spv");
+         auto lightVert = loadShader("DeferredCompressed/lighting.vert.spv");
+         auto tileShader = loadShader("DeferredCompressed/light_tiles.comp.spv");
         auto lightingRegistry =
             mServiceProvider->GetService<LightingTechniqueRegistry>();
         const auto lightFragPath =
@@ -214,8 +225,9 @@ namespace FREYA_NAMESPACE
                 .setBinding(0)
                 .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                 .setDescriptorCount(1)
-                .setStageFlags(vk::ShaderStageFlagBits::eVertex |
-                               vk::ShaderStageFlagBits::eFragment);
+                 .setStageFlags(vk::ShaderStageFlagBits::eVertex |
+                                vk::ShaderStageFlagBits::eFragment |
+                                vk::ShaderStageFlagBits::eCompute);
 
         auto frameLayouts = std::vector<vk::DescriptorSetLayout> {};
         for (auto i = 0u; i < mFreyaOptions->frameCount; i++)
@@ -306,9 +318,10 @@ namespace FREYA_NAMESPACE
         auto lightingBindings = std::array {
             cisBinding(0),  cisBinding(1),  cisBinding(2),  cisBinding(3),
             uboBinding(4),  uboBinding(5),  cisBinding(6),  cisBinding(7),
-            cisBinding(8),  cisBinding(9),  cisBinding(10), uboBinding(11),
-            cisBinding(12), cisBinding(13), cisBinding(14), cisBinding(15),
-            cisBinding(16), cisBinding(17),
+             cisBinding(8),  cisBinding(9),  cisBinding(10), uboBinding(11),
+             cisBinding(12), cisBinding(13), cisBinding(14), cisBinding(15),
+             cisBinding(16), cisBinding(17),
+             storageBinding(18, vk::ShaderStageFlagBits::eFragment),
         };
 
         auto lightingSetLayout = mDevice->Get().createDescriptorSetLayout(
@@ -318,9 +331,12 @@ namespace FREYA_NAMESPACE
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eCombinedImageSampler)
                 .setDescriptorCount(15 * mFreyaOptions->frameCount),
-            vk::DescriptorPoolSize()
-                .setType(vk::DescriptorType::eUniformBuffer)
-                .setDescriptorCount(3 * mFreyaOptions->frameCount),
+             vk::DescriptorPoolSize()
+                 .setType(vk::DescriptorType::eUniformBuffer)
+                 .setDescriptorCount(3 * mFreyaOptions->frameCount),
+             vk::DescriptorPoolSize()
+                 .setType(vk::DescriptorType::eStorageBuffer)
+                 .setDescriptorCount(mFreyaOptions->frameCount),
         };
 
         auto lightingDescriptorPool = mDevice->Get().createDescriptorPool(
@@ -336,6 +352,66 @@ namespace FREYA_NAMESPACE
             vk::DescriptorSetAllocateInfo()
                 .setDescriptorPool(lightingDescriptorPool)
                 .setSetLayouts(lightingSetLayouts));
+
+        constexpr std::uint32_t tileSize = 16;
+        const vk::Extent2D tileCounts {
+            (extent.width + tileSize - 1) / tileSize,
+            (extent.height + tileSize - 1) / tileSize,
+        };
+        constexpr std::uint32_t tileStride =
+            (1u + kMaxLights) * sizeof(std::uint32_t);
+
+        std::vector<skr::Arc<Buffer>> tileBuffers;
+        tileBuffers.reserve(mFreyaOptions->frameCount);
+        for (std::uint32_t i = 0; i < mFreyaOptions->frameCount; ++i)
+        {
+            tileBuffers.push_back(
+                BufferBuilder(mDevice)
+                    .SetUsage(BufferUsage::Storage)
+                    .SetSize(static_cast<std::uint64_t>(tileCounts.width) *
+                             tileCounts.height * tileStride)
+                    .Build());
+        }
+
+        const auto tileBindings = std::array {
+            storageBinding(0, vk::ShaderStageFlagBits::eCompute)
+        };
+        auto tileSetLayout = mDevice->Get().createDescriptorSetLayout(
+            vk::DescriptorSetLayoutCreateInfo().setBindings(tileBindings));
+        auto tilePoolSize = vk::DescriptorPoolSize()
+                                .setType(vk::DescriptorType::eStorageBuffer)
+                                .setDescriptorCount(
+                                    mFreyaOptions->frameCount);
+        auto tileDescriptorPool = mDevice->Get().createDescriptorPool(
+            vk::DescriptorPoolCreateInfo()
+                .setPoolSizes(tilePoolSize)
+                .setMaxSets(mFreyaOptions->frameCount));
+        auto tileSetLayouts = std::vector<vk::DescriptorSetLayout>(
+            mFreyaOptions->frameCount, tileSetLayout);
+        auto tileSets = mDevice->Get().allocateDescriptorSets(
+            vk::DescriptorSetAllocateInfo()
+                .setDescriptorPool(tileDescriptorPool)
+                .setSetLayouts(tileSetLayouts));
+
+        for (std::uint32_t i = 0; i < mFreyaOptions->frameCount; ++i)
+        {
+            auto tileInfo = vk::DescriptorBufferInfo()
+                                .setBuffer(tileBuffers[i]->Get())
+                                .setOffset(0)
+                                .setRange(VK_WHOLE_SIZE);
+            auto tileWrite = vk::WriteDescriptorSet()
+                                 .setDstSet(tileSets[i])
+                                 .setDstBinding(0)
+                                 .setDescriptorType(
+                                     vk::DescriptorType::eStorageBuffer)
+                                 .setDescriptorCount(1)
+                                 .setBufferInfo(tileInfo);
+            mDevice->Get().updateDescriptorSets(tileWrite, nullptr);
+
+            auto lightingTileWrite = tileWrite.setDstSet(lightingSets[i])
+                                         .setDstBinding(18);
+            mDevice->Get().updateDescriptorSets(lightingTileWrite, nullptr);
+        }
 
         auto makeCisInfo = [&](vk::ImageView view, vk::ImageLayout layout) {
             return vk::DescriptorImageInfo()
@@ -574,6 +650,31 @@ namespace FREYA_NAMESPACE
                 .setSetLayouts(lightingSetLayout)
                 .setPushConstantRanges(lightingPushRange));
 
+        auto tilePushRange = vk::PushConstantRange()
+                                 .setStageFlags(vk::ShaderStageFlagBits::eCompute)
+                                 .setOffset(0)
+                                 .setSize(sizeof(float) * 2 +
+                                          sizeof(std::uint32_t) * 2);
+        const auto tilePipelineSetLayouts = std::array {
+            frameLayouts[0], LightServiceGpu::Layout(*mLightService),
+            tileSetLayout
+        };
+        auto tilePipelineLayout = mDevice->Get().createPipelineLayout(
+            vk::PipelineLayoutCreateInfo()
+                .setSetLayouts(tilePipelineSetLayouts)
+                .setPushConstantRanges(tilePushRange));
+        auto tileStages = vk::PipelineShaderStageCreateInfo()
+                              .setStage(vk::ShaderStageFlagBits::eCompute)
+                              .setModule(tileShader->Get())
+                              .setPName("main");
+        auto tilePipeline = mDevice->Get()
+                                .createComputePipeline(
+                                    nullptr,
+                                    vk::ComputePipelineCreateInfo()
+                                        .setStage(tileStages)
+                                        .setLayout(tilePipelineLayout))
+                                .value;
+
         auto depthAttributes = GetVertexDepthAttributesDescription();
         auto depthVertexInputInfo =
             vk::PipelineVertexInputStateCreateInfo()
@@ -689,6 +790,7 @@ namespace FREYA_NAMESPACE
         destroyShader(gbufFrag);
         destroyShader(lightVert);
         destroyShader(lightFrag);
+        destroyShader(tileShader);
 
         auto framebuffers         = std::vector<vk::Framebuffer> {};
         auto lightingFramebuffers = std::vector<vk::Framebuffer> {};
@@ -726,6 +828,9 @@ namespace FREYA_NAMESPACE
             frameLayouts, descriptorSets, descriptorPool, slotImages,
             framebuffers, lightingRenderPass, lightingFramebuffers,
             lightingSetLayout, lightingDescriptorPool, lightingSets,
+            tilePipeline, tilePipelineLayout, tileSetLayout,
+            tileDescriptorPool, tileSets,
+            LightServiceGpu::Sets(*mLightService), tileBuffers, tileCounts,
             mMaterialResources, mBoneResources, gbufferSampler, extent);
     }
 

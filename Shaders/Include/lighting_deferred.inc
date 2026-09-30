@@ -64,11 +64,20 @@ layout(set = 0, binding = 15) uniform sampler2D inSsao;
 layout(set = 0, binding = 16) uniform sampler2D inVelocity;
 layout(set = 0, binding = 17) uniform sampler2D directionalShadowMask;
 
+const uint kLightTileSize = 16u;
+struct TileLightGrid {
+    uint count;
+    uint indices[FREYA_MAX_LIGHTS];
+};
+layout(std430, set = 0, binding = 18) readonly buffer TileBuffer {
+    TileLightGrid tiles[];
+} tileBuffer;
+
 layout(push_constant) uniform LightingPush
 {
     uint debugMode; // DeferredDebugView (0 = lit)
-    uint _pad0;
-    uint _pad1;
+    uint tileCountX;
+    uint tileCountY;
     uint _pad2;
 }
 push;
@@ -84,8 +93,8 @@ vec2 gLightingUV;
 #define FREYA_DIRECTIONAL_SHADOW_MASK
 #include "Include/ltc.inc"
 #include "Include/pbr_ibl.inc"
-#include "Include/pbr_shade.inc"
 #include "Include/shadows.inc"
+#include "Include/pbr_shade.inc"
 
 uint UnpackFlags(float a)
 {
@@ -267,8 +276,15 @@ void main()
         ao;
     totalLighting += calculateClearcoatIBL(N, V, coatRoughness, clearcoat) * ao;
 
-    for (int i = 0; i < int(lights.lightCount); i++)
+    uint tileX = min(uint(gl_FragCoord.x) / kLightTileSize,
+                     push.tileCountX - 1u);
+    uint tileY = min(uint(gl_FragCoord.y) / kLightTileSize,
+                     push.tileCountY - 1u);
+    TileLightGrid tile =
+        tileBuffer.tiles[tileY * push.tileCountX + tileX];
+    for (uint lightIndex = 0u; lightIndex < tile.count; ++lightIndex)
     {
+        int i = int(tile.indices[lightIndex]);
         float lightType = lights.lightPositions[i].w;
         if (lightType >= 2.5)
         {

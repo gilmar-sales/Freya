@@ -25,10 +25,18 @@ namespace FREYA_NAMESPACE
         const std::vector<vk::Framebuffer>&          framebuffers,
         const vk::RenderPass                         lightingRenderPass,
         const std::vector<vk::Framebuffer>&          lightingFramebuffers,
-        const vk::DescriptorSetLayout                lightingSetLayout,
-        const vk::DescriptorPool                     lightingDescriptorPool,
-        const std::vector<vk::DescriptorSet>&        lightingSets,
-        const skr::Arc<MaterialDescriptorResources>& materialResources,
+         const vk::DescriptorSetLayout                lightingSetLayout,
+         const vk::DescriptorPool                     lightingDescriptorPool,
+         const std::vector<vk::DescriptorSet>&        lightingSets,
+         const vk::Pipeline                           tileCullingPipeline,
+         const vk::PipelineLayout                     tileCullingPipelineLayout,
+         const vk::DescriptorSetLayout                tileCullingSetLayout,
+         const vk::DescriptorPool                     tileCullingDescriptorPool,
+         const std::vector<vk::DescriptorSet>&        tileCullingSets,
+         const std::vector<vk::DescriptorSet>&        lightSets,
+         const std::vector<skr::Arc<Buffer>>&         tileBuffers,
+         const vk::Extent2D                           tileCounts,
+         const skr::Arc<MaterialDescriptorResources>& materialResources,
         const skr::Arc<BoneMatrixResources>&         boneResources,
         const vk::Sampler                            gbufferSampler,
         const vk::Extent2D                           extent) :
@@ -43,8 +51,14 @@ namespace FREYA_NAMESPACE
         mLightingRenderPass(lightingRenderPass),
         mLightingSetLayout(lightingSetLayout),
         mLightingDescriptorPool(lightingDescriptorPool),
-        mLightingSets(lightingSets), mMaterialResources(materialResources),
-        mBoneResources(boneResources), mGbufferSampler(gbufferSampler),
+         mLightingSets(lightingSets), mMaterialResources(materialResources),
+         mTileCullingPipeline(tileCullingPipeline),
+         mTileCullingPipelineLayout(tileCullingPipelineLayout),
+         mTileCullingSetLayout(tileCullingSetLayout),
+         mTileCullingDescriptorPool(tileCullingDescriptorPool),
+         mTileCullingSets(tileCullingSets), mLightSets(lightSets),
+         mTileBuffers(tileBuffers), mTileCounts(tileCounts),
+         mBoneResources(boneResources), mGbufferSampler(gbufferSampler),
         mBoundSsaoViews(lightingSets.size()),
         mGBufferTechniques(std::move(gbufferTechniques))
     {
@@ -68,6 +82,11 @@ namespace FREYA_NAMESPACE
 
         vkDevice.destroyDescriptorPool(mLightingDescriptorPool);
         vkDevice.destroyDescriptorSetLayout(mLightingSetLayout);
+
+        vkDevice.destroyPipeline(mTileCullingPipeline);
+        vkDevice.destroyPipelineLayout(mTileCullingPipelineLayout);
+        vkDevice.destroyDescriptorPool(mTileCullingDescriptorPool);
+        vkDevice.destroyDescriptorSetLayout(mTileCullingSetLayout);
 
         vkDevice.destroyDescriptorPool(mDescriptorPool);
 
@@ -93,6 +112,7 @@ namespace FREYA_NAMESPACE
         vkDevice.destroySampler(mGbufferSampler);
 
         mSlotImages.clear();
+        mTileBuffers.clear();
         mMaterialResources.reset();
 
         mUniformBuffer.reset();
@@ -271,15 +291,58 @@ namespace FREYA_NAMESPACE
         struct LightingPush
         {
             std::uint32_t debugMode;
-            std::uint32_t pad0;
-            std::uint32_t pad1;
+            std::uint32_t tileCountX;
+            std::uint32_t tileCountY;
             std::uint32_t pad2;
-        } push { lightingDebug, 0u, 0u, 0u };
+        } push { lightingDebug, mTileCounts.width, mTileCounts.height, 0u };
 
         commandBuffer.pushConstants(
             mFullscreenPipelineLayout, vk::ShaderStageFlagBits::eFragment, 0,
             sizeof(LightingPush), &push);
         commandBuffer.draw(3, 1, 0, 0);
+    }
+
+    void DeferredCompressedPass::DispatchLightCulling(
+        const skr::Arc<CommandPool>& commandPool,
+        const std::uint32_t          frameIndex) const
+    {
+        auto commandBuffer = commandPool->GetCommandBuffer();
+        commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute,
+                                   mTileCullingPipeline);
+
+        const std::array sets = { mDescriptorSets[frameIndex],
+                                  mLightSets[frameIndex],
+                                  mTileCullingSets[frameIndex] };
+        commandBuffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eCompute, mTileCullingPipelineLayout, 0,
+            sets, nullptr);
+
+        struct TilePush
+        {
+            float         screenWidth;
+            float         screenHeight;
+            std::uint32_t tileCountX;
+            std::uint32_t tileCountY;
+        } push { static_cast<float>(mExtent.width),
+                 static_cast<float>(mExtent.height), mTileCounts.width,
+                 mTileCounts.height };
+        commandBuffer.pushConstants(
+            mTileCullingPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0,
+            sizeof(TilePush), &push);
+        commandBuffer.dispatch(mTileCounts.width, mTileCounts.height, 1);
+
+        auto barrier = vk::BufferMemoryBarrier()
+                           .setSrcAccessMask(vk::AccessFlagBits::eShaderWrite)
+                           .setDstAccessMask(vk::AccessFlagBits::eShaderRead)
+                           .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                           .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                           .setBuffer(mTileBuffers[frameIndex]->Get())
+                           .setOffset(0)
+                           .setSize(VK_WHOLE_SIZE);
+        commandBuffer.pipelineBarrier(
+            vk::PipelineStageFlagBits::eComputeShader,
+            vk::PipelineStageFlagBits::eFragmentShader, {}, nullptr, barrier,
+            nullptr);
     }
 
     void DeferredCompressedPass::BeginLighting(
