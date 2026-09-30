@@ -207,6 +207,21 @@ namespace FREYA_NAMESPACE
 
         FreyaOptionsBuilder& WithReverseZ(bool value = true);
 
+        /**
+         * @brief Sets depth buffer precision (Standard = D24 default).
+         * @param precision Low (D16), Standard (D24) or High (D32F)
+         * @return Reference to this for chaining
+         */
+        FreyaOptionsBuilder& SetDepthPrecision(DepthPrecision precision);
+
+        /**
+         * @brief Enables 32-bit float depth when true, D24 default when
+         * false. Convenience wrapper over SetDepthPrecision.
+         * @param enabled true for High precision
+         * @return Reference to this for chaining
+         */
+        FreyaOptionsBuilder& SetHighPrecisionDepth(bool enabled = true);
+
         FreyaOptionsBuilder& SetShaderRoot(const std::string& shaderRoot);
 
         FreyaOptionsBuilder& SetEnableShadows(bool enable);

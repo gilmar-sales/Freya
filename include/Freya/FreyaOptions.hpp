@@ -2,8 +2,6 @@
 
 #include "Freya/Config.hpp"
 
-#include <algorithm>
-#include <cmath>
 #include <cstdint>
 #include <string>
 
@@ -106,6 +104,21 @@ namespace FREYA_NAMESPACE
     };
 
     /**
+     * @brief Depth buffer precision preset.
+     *
+     * Standard is the vendor-recommended default (24-bit depth). Low prefers
+     * 16-bit depth for memory / bandwidth savings where precision allows. High
+     * opts into 32-bit float depth for large view distances / ReverseZ setups
+     * that need the extra precision.
+     */
+    enum class DepthPrecision
+    {
+        Low,      ///< D16_UNORM preferred (cheapest)
+        Standard, ///< D24_UNORM_S8_UINT preferred (default)
+        High,     ///< D32_SFLOAT preferred (extra precision)
+    };
+
+    /**
      * @brief Pixel extent used by FreyaOptions helpers (Vulkan-free).
      */
     struct Extent2D
@@ -181,7 +194,9 @@ namespace FREYA_NAMESPACE
         std::uint32_t shadowSpotResolutionDivisor = 2;
         /// When >1, rebuild a stable point cube every N frames.
         std::uint32_t shadowPointUpdatePeriod = 2;
-        bool          ReverseZ;
+        bool          ReverseZ                = false;
+        /// Depth buffer precision.
+        DepthPrecision depthPrecision = DepthPrecision::Standard;
 
         std::string shaderRoot = "./Resources/Shaders";
 

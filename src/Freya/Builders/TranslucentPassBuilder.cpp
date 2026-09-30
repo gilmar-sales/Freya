@@ -52,7 +52,8 @@ namespace FREYA_NAMESPACE
         auto resVert   = loadShader("DeferredCompressed/oit_resolve.vert.spv");
         auto resFrag   = loadShader("DeferredCompressed/oit_resolve.frag.spv");
 
-        const auto depthFormat = mPhysicalDevice->GetDepthFormat();
+        const auto depthFormat =
+            mPhysicalDevice->GetDepthFormat(mFreyaOptions->depthPrecision);
 
         auto createImage =
             [&](ImageUsage usage, std::optional<vk::Format> format = {}) {

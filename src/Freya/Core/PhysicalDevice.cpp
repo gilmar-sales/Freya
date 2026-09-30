@@ -89,13 +89,28 @@ namespace FREYA_NAMESPACE
         return 1;
     }
 
-    vk::Format PhysicalDevice::GetDepthFormat() const
+    vk::Format PhysicalDevice::GetDepthFormat(DepthPrecision precision) const
     {
-        const auto candidates = std::vector {
+        const auto lowCandidates = std::vector {
+            vk::Format::eD16Unorm,        vk::Format::eD16UnormS8Uint,
+            vk::Format::eD24UnormS8Uint,  vk::Format::eD32Sfloat,
+            vk::Format::eD32SfloatS8Uint,
+        };
+        const auto standardCandidates = std::vector {
+            vk::Format::eD24UnormS8Uint,  vk::Format::eD16UnormS8Uint,
+            vk::Format::eD16Unorm,        vk::Format::eD32Sfloat,
+            vk::Format::eD32SfloatS8Uint,
+        };
+        const auto highCandidates = std::vector {
             vk::Format::eD32Sfloat,      vk::Format::eD32SfloatS8Uint,
             vk::Format::eD24UnormS8Uint, vk::Format::eD16UnormS8Uint,
             vk::Format::eD16Unorm,
         };
+
+        const auto& candidates =
+            precision == DepthPrecision::High  ? highCandidates
+            : precision == DepthPrecision::Low ? lowCandidates
+                                               : standardCandidates;
 
         constexpr auto depthFeature =
             vk::FormatFeatureFlagBits::eDepthStencilAttachment;
@@ -109,7 +124,7 @@ namespace FREYA_NAMESPACE
             }
         }
 
-        return vk::Format::eD32Sfloat;
+        return candidates.front();
     }
     std::vector<const char*> PhysicalDevice::FilterSupportedExtensions(
         std::vector<const char*> requestedExtensions) const

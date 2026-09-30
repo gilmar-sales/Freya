@@ -18,9 +18,10 @@ namespace FREYA_NAMESPACE
 {
     skr::Arc<PickPass> PickPassBuilder::Build(const vk::Extent2D extent)
     {
-        const auto depthFormat = mPhysicalDevice->GetDepthFormat();
-        const auto width       = std::max(1u, extent.width);
-        const auto height      = std::max(1u, extent.height);
+        const auto depthFormat =
+            mPhysicalDevice->GetDepthFormat(mFreyaOptions->depthPrecision);
+        const auto width  = std::max(1u, extent.width);
+        const auto height = std::max(1u, extent.height);
 
         auto renderPass = createRenderPass(depthFormat);
 

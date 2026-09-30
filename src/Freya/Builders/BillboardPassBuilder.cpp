@@ -373,10 +373,11 @@ namespace FREYA_NAMESPACE
     skr::Arc<BillboardPass> BillboardPassBuilder::Build(
         const skr::Arc<SwapChain>& swapChain, const skr::Arc<Image>& depthImage)
     {
-        const auto depthFormat      = mPhysicalDevice->GetDepthFormat();
-        auto       hdrPass          = createHdrRenderPass(depthFormat);
-        auto       ldrPass          = createLdrRenderPass(depthFormat);
-        auto       offscreenLdrPass = createOffscreenLdrRenderPass(depthFormat);
+        const auto depthFormat =
+            mPhysicalDevice->GetDepthFormat(mFreyaOptions->depthPrecision);
+        auto hdrPass          = createHdrRenderPass(depthFormat);
+        auto ldrPass          = createLdrRenderPass(depthFormat);
+        auto offscreenLdrPass = createOffscreenLdrRenderPass(depthFormat);
 
         const auto& root       = mFreyaOptions->shaderRoot;
         auto        loadShader = [&](const std::string& relative) {

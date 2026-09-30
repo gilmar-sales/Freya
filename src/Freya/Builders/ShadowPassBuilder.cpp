@@ -17,8 +17,9 @@ namespace FREYA_NAMESPACE
 {
     skr::Arc<ShadowPass> ShadowPassBuilder::Build()
     {
-        const auto depthFormat = mPhysicalDevice->GetDepthFormat();
-        const auto resolution  = mFreyaOptions->shadowMapResolution;
+        const auto depthFormat =
+            mPhysicalDevice->GetDepthFormat(mFreyaOptions->depthPrecision);
+        const auto resolution = mFreyaOptions->shadowMapResolution;
 
         const auto cascadeCount =
             std::clamp(mFreyaOptions->shadowCascadeCount,

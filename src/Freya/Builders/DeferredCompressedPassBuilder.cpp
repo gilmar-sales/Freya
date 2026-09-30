@@ -734,7 +734,8 @@ namespace FREYA_NAMESPACE
     {
         auto attachments = std::vector<vk::AttachmentDescription> {
             vk::AttachmentDescription()
-                .setFormat(mPhysicalDevice->GetDepthFormat())
+                .setFormat(mPhysicalDevice->GetDepthFormat(
+                    mFreyaOptions->depthPrecision))
                 .setSamples(vk::SampleCountFlagBits::e1)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStoreOp(vk::AttachmentStoreOp::eStore)

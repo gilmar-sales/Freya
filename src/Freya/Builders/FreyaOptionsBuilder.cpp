@@ -372,6 +372,23 @@ namespace FREYA_NAMESPACE
         return *this;
     }
 
+    FreyaOptionsBuilder& FreyaOptionsBuilder::SetDepthPrecision(
+        DepthPrecision precision)
+    {
+        mFreyaOptions->depthPrecision = precision;
+
+        return *this;
+    }
+
+    FreyaOptionsBuilder& FreyaOptionsBuilder::SetHighPrecisionDepth(
+        bool enabled)
+    {
+        mFreyaOptions->depthPrecision =
+            enabled ? DepthPrecision::High : DepthPrecision::Standard;
+
+        return *this;
+    }
+
     FreyaOptionsBuilder& FreyaOptionsBuilder::SetShaderRoot(
         const std::string& shaderRoot)
     {

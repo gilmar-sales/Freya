@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Freya/FreyaOptions.hpp"
+
 namespace FREYA_NAMESPACE
 {
     /**
@@ -79,10 +81,13 @@ namespace FREYA_NAMESPACE
         std::uint32_t QuerySamplesSupport(std::uint32_t desired) const;
 
         /**
-         * @brief Returns the best supported depth format from a candidate list.
-         * @return Preferred depth format (defaults to eD32Sfloat)
+         * @brief Returns the best supported depth format for a precision.
+         * @param precision Standard prefers D24 (vendor recommended);
+         * High prefers 32-bit float depth.
+         * @return Preferred depth format (falls back to first candidate)
          */
-        vk::Format GetDepthFormat() const;
+        vk::Format GetDepthFormat(
+            DepthPrecision precision = DepthPrecision::Standard) const;
 
         /**
          * @brief Filters requested extensions to only those supported by this

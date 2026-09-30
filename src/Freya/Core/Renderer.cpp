@@ -641,7 +641,8 @@ namespace FREYA_NAMESPACE
         auto depthImage =
             mServiceProvider->GetService<ImageBuilder>()
                 ->SetUsage(ImageUsage::Depth)
-                .SetFormat(mPhysicalDevice->GetDepthFormat())
+                .SetFormat(mPhysicalDevice->GetDepthFormat(
+                    mFreyaOptions->depthPrecision))
                 .SetWidth(extent.width)
                 .SetHeight(extent.height)
                 .SetSamples(vk::SampleCountFlagBits::e1)

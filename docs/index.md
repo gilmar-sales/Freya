@@ -180,6 +180,7 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `shadowSpotResolutionDivisor` | `std::uint32_t` | `2` | Spot res divisor when absolute is 0 |
 | `shadowPointUpdatePeriod` | `std::uint32_t` | `2` | Rebuild point cubes every N frames |
 | `ReverseZ` | `bool` | `false` | Opt in via `WithReverseZ()` |
+| `depthPrecision` | `DepthPrecision` | `Standard` | D24 default; `Low` for D16, `High` for D32F via `SetDepthPrecision()` / `SetHighPrecisionDepth()` |
 | `shaderRoot` | `std::string` | `./Resources/Shaders` | SPIR-V directory root |
 | `enableSsao` | `bool` | `true` | Run SSAO compute pass |
 | `enableTaa` | `bool` | `true` | Run TAA resolve + jitter |

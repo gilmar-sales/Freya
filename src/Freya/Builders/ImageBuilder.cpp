@@ -78,9 +78,6 @@ namespace FREYA_NAMESPACE
                                    vk::ImageUsageFlagBits::eSampled);
                 break;
             case ImageUsage::GBufferSceneColor:
-                // Geometry emissive + lighting accumulation; sampled by
-                // bloom/TAA; Transfer* lets PostProcess blit results
-                // back onto the HDR target.
                 imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment |
                                    vk::ImageUsageFlagBits::eSampled |
                                    vk::ImageUsageFlagBits::eTransferSrc |
@@ -483,7 +480,8 @@ namespace FREYA_NAMESPACE
                 mFormat = mSurface->QuerySurfaceFormat().format;
                 break;
             case ImageUsage::Depth:
-                mFormat = mDevice->GetPhysicalDevice()->GetDepthFormat();
+                mFormat = mDevice->GetPhysicalDevice()->GetDepthFormat(
+                    mFreyaOptions->depthPrecision);
                 break;
             case ImageUsage::Texture:
                 if (mChannels == 1)

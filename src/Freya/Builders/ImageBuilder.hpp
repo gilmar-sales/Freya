@@ -47,16 +47,18 @@ namespace FREYA_NAMESPACE
          * @param surface        Surface reference for format queries
          * @param device          Device reference
          * @param logger          Logger reference
+         * @param freyaOptions
          * @param serviceProvider Service provider reference
          */
         explicit ImageBuilder(
             const skr::Arc<Surface>&                   surface,
             const skr::Arc<Device>&                    device,
             const skr::Arc<skr::Logger<ImageBuilder>>& logger,
+            const skr::Arc<FreyaOptions>&              freyaOptions,
             const skr::Arc<skr::ServiceProvider>&      serviceProvider) :
-            mSurface(surface), mDevice(device), mLogger(logger),
-            mServiceProvider(serviceProvider), mUsage(ImageUsage::Texture),
-            mFormat(vk::Format::eUndefined),
+            mLogger(logger), mSurface(surface), mDevice(device),
+            mServiceProvider(serviceProvider), mFreyaOptions(freyaOptions),
+            mUsage(ImageUsage::Texture), mFormat(vk::Format::eUndefined),
             mSamples(vk::SampleCountFlagBits::e1), mWidth(1024), mHeight(1024),
             mChannels(0), mMipLevels(1), mMipLevelsOverride(false),
             mUploadCustomMipChain(false), mData(nullptr)
@@ -206,7 +208,8 @@ namespace FREYA_NAMESPACE
         skr::Arc<Surface>                   mSurface; ///< Surface reference
         skr::Arc<Device>                    mDevice;  ///< Device reference
         skr::Arc<skr::ServiceProvider>
-            mServiceProvider; ///< Service provider reference
+                               mServiceProvider; ///< Service provider reference
+        skr::Arc<FreyaOptions> mFreyaOptions;
 
         skr::Arc<Buffer>
                    mStagingBuffer; ///< Optional pre-allocated staging buffer
