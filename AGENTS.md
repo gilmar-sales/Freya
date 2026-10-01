@@ -90,7 +90,7 @@ ctest --test-dir build --output-on-failure
 |---|---|
 | `include/Freya/` | Public headers. Umbrella `Freya.hpp` (app surface). Public `Builders/` holds only `FreyaOptionsBuilder.hpp` + `PostProcessBuilder.hpp`; every other builder is private under `src/`. |
 | `src/Freya/` | Library `.cpp` plus private headers, split into `Asset/`, `Builders/`, `Containers/`, `Core/`, `Internal/`, `Scene/`, and `Vendor/` (`stb_image.h`, `stb_truetype.h`). Private PCH: `src/Freya/Pch.hpp`. |
-| `Examples/` | 8 demo apps (`IndustrialPipeLamp`, `SsaoDebug`, `SkinnedFox`, `CellBulbasaur`, `GameUiDemo`, `ParticleShowcase`, `BillboardShowcase`, `ChurchShowcase`) plus shared `Examples/Common/` (`FreyaExamplesCommon`, `add_freya_example()` helper). |
+| `Examples/` | 8 demo apps (`IndustrialPipeLamp`, `SsaoDebug`, `SkinnedFox`, `CellBulbasaur`, `GameUiShowcase`, `ParticleShowcase`, `BillboardShowcase`, `ChurchShowcase`) plus shared `Examples/Common/` (`FreyaExamplesCommon`, `add_freya_example()` helper). |
 | `Shaders/` | GLSL sources in 12 variant dirs (see Shaders); shared snippets in `Shaders/Include/` (`.inc`). |
 | `Resources/` | IBL environment maps (`*.hdr`: studio + outdoor), copied per-example into `Resources/Environments/`. There is no root-level `textures/` dir; example textures live under each example's own `Resources/`. |
 | `benchmarks/` | google-benchmark suites, opt-in via `-DFREYA_BUILD_BENCHMARKS=OFF` (default off); currently `benchmarks/Animation/`. |

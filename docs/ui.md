@@ -76,7 +76,7 @@ run from workers between `BeginFrame` and `EndScene`. Interactive
 widgets on `UiContext` are main-thread only. `WantCaptureMouse` /
 `WantTextInput` gate camera / IME.
 
-See **GameUiDemo** for inventory paper-doll, HUD portrait snapshot,
+See **GameUiShowcase** for inventory paper-doll, HUD portrait snapshot,
 dialogue, chat, and ability bar (radial cooldown) recipes.
 
 ## Extended widgets (groups 1/2/3/6/7)

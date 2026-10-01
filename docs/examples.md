@@ -57,22 +57,27 @@ cd build/Examples/CellBulbasaur
 ./CellBulbasaur
 ```
 
-## GameUiDemo
+## GameUiShowcase
 
-Location: `Examples/GameUiDemo/`
+Location: `Examples/GameUiShowcase/`
 
 Native Freya screen UI (not ImGui): HUD with player portrait (static
 `CaptureSnapshot` from the paper-doll) beside HP, ability bar (**1–6**,
 radial cooldown + tooltip), plus **F1** inventory with a deferred
 skinned paper-doll (`UiModelPreview`, LMB orbit / auto-rotate, six equip
-slots + bag DnD, **Tirar foto**), **F2** dialogue, **F3** chat.
+slots + bag DnD, **Tirar foto**), **F2** dialogue, **F3** chat, and the
+**F4** showcase hub — a floating window with Basics / Inputs / Layout /
+Windows / Game tabs covering every widget (buttons, checkboxes, sliders,
+radio, toggle, spinbox, combobox, color edit, search, text input,
+rows/margins/center/stacks, switcher, wizard, drawers, paginate, file
+dialog, lists, grids, drag-drop, tooltips, popups, toasts, badges).
 **Esc** closes the active panel. FlyCam respects `WantCaptureMouse`.
 Fox.glb is copied from SkinnedFox; font is Noto Sans under
 `Resources/Fonts/`.
 
 ```bash
-cd build/Examples/GameUiDemo
-./GameUiDemo
+cd build/Examples/GameUiShowcase
+./GameUiShowcase
 ```
 
 ## BillboardShowcase
@@ -82,7 +87,7 @@ Location: `Examples/BillboardShowcase/`
 Billboard types row (screen, cylindrical, spherical, fixed-axis, planar,
 screen-size, velocity-stretch, soft-particle) plus player/enemy nameplates
 with HP bars and animated damage numbers. Shares the Noto Sans font from
-`GameUiDemo/Resources/Fonts/` (copied at configure time).
+`GameUiShowcase/Resources/Fonts/` (copied at configure time).
 
 ```bash
 cd build/Examples/BillboardShowcase
