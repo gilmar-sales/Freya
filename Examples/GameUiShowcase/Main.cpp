@@ -627,12 +627,15 @@ class MainApp final : public fra::AbstractApplication
 
     void drawInventory(fra::UiContext& ui)
     {
-        if (!ui.BeginModal("inventory", { 780.f, 520.f }))
+        if (!ui.BeginModal("inventory", { 780.f, 600.f }))
             return;
 
         ui.Label("Inventory — paper-doll",
                  ui.Style().Var(fra::UiVar::FontSizeTitle));
         ui.Separator();
+
+        // Doll column (~740px) exceeds the modal: scroll both columns.
+        ui.BeginScrollView("inv_scroll", { 756.f, 480.f }, 760.f);
 
         float colW[] = { 300.f, 440.f };
         ui.BeginColumns("inv_cols", 2, colW);
@@ -747,6 +750,7 @@ class MainApp final : public fra::AbstractApplication
         }
 
         ui.EndColumns();
+        ui.EndScrollView();
 
         if (ui.Button("Close", { 160.f, 36.f }))
             mScreen = UiScreen::None;

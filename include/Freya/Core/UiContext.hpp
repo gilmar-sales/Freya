@@ -432,7 +432,8 @@ namespace FREYA_NAMESPACE
             int    index = 0;
             float  widths[8] {};
             UiRect area {};
-            float  startY = 0.f;
+            float  startY    = 0.f;
+            float  maxBottom = 0.f; ///< flow resumes below tallest column
         };
         std::vector<ColCtx> mColumns;
 

@@ -9,6 +9,7 @@
 
 #include <array>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -886,6 +887,50 @@ TEST(UiBaseWidgets, OverlayBypassesWindowClip)
     EXPECT_TRUE(unflaggedTip);
 
     ui.UnbindEvents(events);
+}
+
+TEST(UiBaseWidgets, ColumnsAdvanceByTallestColumn)
+{
+    // Flow must resume below the tallest column, not the last one —
+    // otherwise following widgets overlap (cut) taller previous columns.
+    // BeginRow shares this path (it is built on columns).
+    fra::UiDraw    draw;
+    fra::UiContext ui(&draw);
+
+    float widths[] = { 200.f, 200.f };
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_TRUE(ui.BeginColumns("tall_first", 2, widths));
+    EXPECT_FALSE(ui.Button("tall", { 180.f, 200.f }));
+    ui.NextColumn();
+    EXPECT_FALSE(ui.Button("short", { 180.f, 30.f }));
+    ui.EndColumns();
+    EXPECT_FALSE(ui.Button("after", { 180.f, 30.f }));
+    EXPECT_NEAR(ui.LastItemRect().y, 208.f, 1e-3f);
+    ui.End();
+
+    // Reverse order already worked; guard it.
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_TRUE(ui.BeginColumns("tall_last", 2, widths));
+    EXPECT_FALSE(ui.Button("short", { 180.f, 30.f }));
+    ui.NextColumn();
+    EXPECT_FALSE(ui.Button("tall", { 180.f, 200.f }));
+    ui.EndColumns();
+    EXPECT_FALSE(ui.Button("after", { 180.f, 30.f }));
+    EXPECT_NEAR(ui.LastItemRect().y, 208.f, 1e-3f);
+    ui.End();
+
+    // Same guarantee through BeginRow (weights 1/1).
+    ui.Begin(0.016f, { 1920, 1080 });
+    float weights[] = { 1.f, 1.f };
+    EXPECT_TRUE(
+        ui.BeginRow("tall_row", std::span<const float>(weights, 2), 8.f));
+    EXPECT_FALSE(ui.Button("tall", { 180.f, 120.f }));
+    ui.NextCell();
+    EXPECT_FALSE(ui.Button("short", { 180.f, 20.f }));
+    ui.EndRow();
+    EXPECT_FALSE(ui.Button("after", { 180.f, 30.f }));
+    EXPECT_NEAR(ui.LastItemRect().y, 128.f, 1e-3f);
+    ui.End();
 }
 
 TEST(UiBaseWidgets, DisplayWidgetsEmitQuads)

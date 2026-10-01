@@ -295,6 +295,7 @@ namespace FREYA_NAMESPACE
             auto&  p = mParents.back();
             UiRect r { x, p.cursorY, size.x, size.y };
             p.cursorY += size.y + mStyle.Var(UiVar::ItemSpacing);
+            c.maxBottom = std::max(c.maxBottom, p.cursorY);
             return r;
         }
         auto&  p = mParents.back();
@@ -1564,10 +1565,11 @@ namespace FREYA_NAMESPACE
         (void) id;
         count = std::clamp(count, 1, 8);
         ColCtx c {};
-        c.count  = count;
-        c.index  = 0;
-        c.area   = CurrentParent();
-        c.startY = mParents.empty() ? 0.f : mParents.back().cursorY;
+        c.count     = count;
+        c.index     = 0;
+        c.area      = CurrentParent();
+        c.startY    = mParents.empty() ? 0.f : mParents.back().cursorY;
+        c.maxBottom = c.startY;
         for (int i = 0; i < count; ++i)
             c.widths[i] = widths ? widths[i] : c.area.w / count;
         mColumns.push_back(c);
@@ -1586,8 +1588,13 @@ namespace FREYA_NAMESPACE
 
     void UiContext::EndColumns()
     {
-        if (!mColumns.empty())
-            mColumns.pop_back();
+        if (mColumns.empty())
+            return;
+        // Resume flow below the tallest column, not the last one.
+        const float bottom = mColumns.back().maxBottom;
+        mColumns.pop_back();
+        if (!mParents.empty())
+            mParents.back().cursorY = std::max(mParents.back().cursorY, bottom);
     }
 
     // --- Group 1: input widgets ---
