@@ -84,8 +84,8 @@ vec2 gLightingUV;
 #define FREYA_DIRECTIONAL_SHADOW_MASK
 #include "Include/ltc.inc"
 #include "Include/pbr_ibl.inc"
-#include "Include/pbr_shade.inc"
 #include "Include/shadows.inc"
+#include "Include/pbr_shade.inc"
 
 uint UnpackFlags(float a)
 {
