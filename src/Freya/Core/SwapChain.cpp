@@ -1,4 +1,5 @@
 #include "SwapChain.hpp"
+#include "SwapChainSync.hpp"
 
 namespace FREYA_NAMESPACE
 {
@@ -110,7 +111,8 @@ namespace FREYA_NAMESPACE
         };
 
         std::vector<vk::Semaphore> signalSemaphores = {
-            mRenderFinishedSemaphores[mCurrentFrameIndex]
+            mRenderFinishedSemaphores[SwapChainSync::PresentationSemaphoreIndex(
+                mCurrentImageIndex)]
         };
 
         vk::SubmitInfo submitInfo = {};

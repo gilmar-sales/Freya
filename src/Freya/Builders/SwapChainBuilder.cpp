@@ -3,6 +3,7 @@
 #include "Freya/Builders/SurfaceBuilder.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/PhysicalDevice.hpp"
+#include "Freya/Core/SwapChainSync.hpp"
 
 #include <vulkan/vulkan_to_string.hpp>
 
@@ -97,12 +98,12 @@ namespace FREYA_NAMESPACE
                             "\tFailed to create image views");
         }
 
-        // Flight-slot primitives (indexed by mCurrentFrameIndex).
         auto imageAvailableSemaphores =
             std::vector<vk::Semaphore>(mFreyaOptions->frameCount);
 
         auto renderFinishedSemaphores =
-            std::vector<vk::Semaphore>(mFreyaOptions->frameCount);
+            std::vector<vk::Semaphore>(
+                SwapChainSync::PresentationSemaphoreCount(frames.size()));
 
         auto inFlightFences = std::vector<vk::Fence>(mFreyaOptions->frameCount);
 
@@ -116,16 +117,18 @@ namespace FREYA_NAMESPACE
             imageAvailableSemaphores[i] =
                 mDevice->Get().createSemaphore(semaphoreInfo);
 
-            renderFinishedSemaphores[i] =
-                mDevice->Get().createSemaphore(semaphoreInfo);
-
             inFlightFences[i] = mDevice->Get().createFence(fenceInfo);
 
-            mLogger->Assert(
-                imageAvailableSemaphores[i] && renderFinishedSemaphores[i] &&
-                    inFlightFences[i],
+            mLogger->Assert(imageAvailableSemaphores[i] && inFlightFences[i],
                 "\tFailed to create synchronization objects "
                 "for a frame");
+        }
+
+        for (auto& semaphore : renderFinishedSemaphores)
+        {
+            semaphore = mDevice->Get().createSemaphore(semaphoreInfo);
+            mLogger->Assert(semaphore,
+                            "\tFailed to create presentation semaphore");
         }
 
         return skr::MakeArc<SwapChain>(
