@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <vector>
 
 namespace FREYA_NAMESPACE
@@ -165,11 +166,53 @@ namespace FREYA_NAMESPACE
             return;
 
         const float scale = logicalScale > 0.f ? logicalScale : 1.f;
+        struct ClipRun
+        {
+            std::uint32_t first   = 0;
+            std::uint32_t count   = 0;
+            bool          clipped = false;
+            UiRect        clip {};
+        };
         std::vector<UiGpuInstance> gpu;
         gpu.reserve(count);
+        std::vector<ClipRun> runs;
         for (std::uint32_t i = 0; i < count; ++i)
         {
-            auto g = ToUiGpu(quads[i]);
+            const auto& q       = quads[i];
+            const bool  clipped = (q.flags & kUiFlagClipRect) != 0;
+            UiRect      clip {};
+            if (clipped)
+            {
+                clip = { q.clipRect.x, q.clipRect.y, q.clipRect.z,
+                         q.clipRect.w };
+                if (clip.w <= 0.f || clip.h <= 0.f)
+                    continue; // fully clipped away
+            }
+            if (!runs.empty())
+            {
+                auto&      back = runs.back();
+                const bool same =
+                    back.clipped == clipped &&
+                    (!clipped ||
+                     (back.clip.x == clip.x && back.clip.y == clip.y &&
+                      back.clip.w == clip.w && back.clip.h == clip.h));
+                if (same)
+                {
+                    ++back.count;
+                    auto g = ToUiGpu(q);
+                    g.rect.x *= scale;
+                    g.rect.y *= scale;
+                    g.rect.z *= scale;
+                    g.rect.w *= scale;
+                    g.rounding *= scale;
+                    g.borderWidth *= scale;
+                    gpu.push_back(g);
+                    continue;
+                }
+            }
+            runs.push_back(ClipRun {
+                static_cast<std::uint32_t>(gpu.size()), 1, clipped, clip });
+            auto g = ToUiGpu(q);
             g.rect.x *= scale;
             g.rect.y *= scale;
             g.rect.z *= scale;
@@ -178,6 +221,8 @@ namespace FREYA_NAMESPACE
             g.borderWidth *= scale;
             gpu.push_back(g);
         }
+        if (gpu.empty())
+            return;
 
         const auto bytes = gpu.size() * sizeof(UiGpuInstance);
         mInstanceBuffers[frameIndex]->Copy(gpu.data(), bytes);
@@ -202,7 +247,6 @@ namespace FREYA_NAMESPACE
                 .setHeight(static_cast<float>(drawExtent.height))
                 .setMinDepth(0.f)
                 .setMaxDepth(1.f));
-        cmd.setScissor(0, vk::Rect2D({ 0, 0 }, drawExtent));
 
         auto bindless = mMaterials->GetBindlessSet();
         cmd.bindDescriptorSets(
@@ -219,7 +263,36 @@ namespace FREYA_NAMESPACE
         cmd.pushConstants(mPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0,
                           sizeof(UiPush), &push);
 
-        cmd.draw(6, count, 0, 0);
+        const auto fbW = static_cast<int>(drawExtent.width);
+        const auto fbH = static_cast<int>(drawExtent.height);
+        for (const auto& run : runs)
+        {
+            if (run.clipped)
+            {
+                const int x0 = std::max(
+                    0, static_cast<int>(std::floor(run.clip.x * scale)));
+                const int y0 = std::max(
+                    0, static_cast<int>(std::floor(run.clip.y * scale)));
+                const int x1 =
+                    std::min(fbW, static_cast<int>(std::ceil(
+                                      (run.clip.x + run.clip.w) * scale)));
+                const int y1 =
+                    std::min(fbH, static_cast<int>(std::ceil(
+                                      (run.clip.y + run.clip.h) * scale)));
+                if (x1 <= x0 || y1 <= y0)
+                    continue;
+                cmd.setScissor(
+                    0,
+                    vk::Rect2D({ x0, y0 },
+                               { static_cast<std::uint32_t>(x1 - x0),
+                                 static_cast<std::uint32_t>(y1 - y0) }));
+            }
+            else
+            {
+                cmd.setScissor(0, vk::Rect2D({ 0, 0 }, drawExtent));
+            }
+            cmd.draw(6, run.count, 0, run.first);
+        }
 
         cmd.endRenderPass();
         mDevice->EndDebugLabel(cmd);

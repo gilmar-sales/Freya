@@ -191,6 +191,7 @@ namespace FREYA_NAMESPACE
         SpinLockGuard lock(mLock);
         mQuads.clear();
         mOverlayQuads.clear();
+        mClips.clear();
         mOverlayDepth = 0;
     }
 
@@ -224,8 +225,50 @@ namespace FREYA_NAMESPACE
     {
         if (mQuads.size() + mOverlayQuads.size() >= mMaxQuads)
             return;
+        UiQuad q = quad;
+        if (mOverlayDepth == 0 && !mClips.empty())
+        {
+            UiRect clip = mClips.front();
+            for (std::size_t i = 1; i < mClips.size(); ++i)
+                clip = clip.Intersect(mClips[i]);
+            q.clipRect = { clip.x, clip.y, clip.w, clip.h };
+            q.flags |= kUiFlagClipRect;
+        }
         auto& dst = mOverlayDepth > 0 ? mOverlayQuads : mQuads;
-        dst.push_back(quad);
+        dst.push_back(q);
+    }
+
+    void UiDraw::PushClip(const UiRect& rect)
+    {
+        SpinLockGuard lock(mLock);
+        mClips.push_back(rect);
+    }
+
+    void UiDraw::PushClipReset(const UiRect& rect)
+    {
+        SpinLockGuard lock(mLock);
+        mClips.clear();
+        mClips.push_back(rect);
+    }
+
+    void UiDraw::PopClip()
+    {
+        SpinLockGuard lock(mLock);
+        if (!mClips.empty())
+            mClips.pop_back();
+    }
+
+    bool UiDraw::CurrentClip(UiRect* out) const
+    {
+        SpinLockGuard lock(mLock);
+        if (mClips.empty())
+            return false;
+        UiRect clip = mClips.front();
+        for (std::size_t i = 1; i < mClips.size(); ++i)
+            clip = clip.Intersect(mClips[i]);
+        if (out)
+            *out = clip;
+        return true;
     }
 
     void UiDraw::Quad(const UiQuad& quad)

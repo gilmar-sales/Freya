@@ -740,6 +740,154 @@ TEST(UiBaseWidgets, ColorEditShowsChannelNames)
     EXPECT_EQ(glyphs, 3);
 }
 
+TEST(UiBaseWidgets, WindowClipsOverflowContent)
+{
+    // Content taller than the window must carry the content-rect clip;
+    // only pre-push chrome (bg, title bar, resize grip) stays unclipped.
+    fra::UiDraw       draw;
+    fra::UiContext    ui(&draw);
+    fra::EventManager events;
+    ui.BindEvents(events);
+
+    fra::UiWindowOpts opts {};
+    opts.defaultPos = { 100.f, 100.f };
+
+    ui.Begin(0.016f, { 1920, 1080 });
+    ASSERT_TRUE(ui.BeginWindow("clipw", "Clipped", { 300.f, 200.f }, opts));
+    for (int i = 0; i < 5; ++i)
+        ui.Button(std::string("over_") + std::to_string(i), { 260.f, 40.f });
+    ui.EndWindow();
+    ui.End();
+
+    const fra::UiRect        content { 112.f, 142.f, 276.f, 146.f };
+    std::vector<fra::UiQuad> snap;
+    draw.Snapshot(snap);
+    int flagged   = 0;
+    int unflagged = 0;
+    for (const auto& q : snap)
+    {
+        if ((q.flags & fra::kUiFlagClipRect) != 0)
+        {
+            ++flagged;
+            EXPECT_NEAR(q.clipRect.x, content.x, 1e-3f);
+            EXPECT_NEAR(q.clipRect.y, content.y, 1e-3f);
+            EXPECT_NEAR(q.clipRect.z, content.w, 1e-3f);
+            EXPECT_NEAR(q.clipRect.w, content.h, 1e-3f);
+        }
+        else
+            ++unflagged;
+    }
+    EXPECT_EQ(flagged, 5);
+    EXPECT_EQ(unflagged, 3); // bg + title bar + resize grip
+
+    ui.UnbindEvents(events);
+}
+
+TEST(UiBaseWidgets, ScrolledOutContentNotHittable)
+{
+    // Items scrolled outside the view are clipped visually and reject hits.
+    fra::UiDraw       draw;
+    fra::UiContext    ui(&draw);
+    fra::EventManager events;
+    ui.BindEvents(events);
+
+    ui.Begin(0.016f, { 1920, 1080 });
+    ASSERT_TRUE(ui.BeginScrollView("clipscroll", { 200.f, 100.f }, 1000.f));
+    EXPECT_FALSE(ui.Button("visible", { 180.f, 30.f }));
+    ui.ProgressBar(0.5f, { 180.f, 400.f });
+    EXPECT_FALSE(ui.Button("below", { 180.f, 30.f }));
+    const auto below = ui.LastItemRect();
+    ui.EndScrollView();
+    ui.End();
+    EXPECT_GT(below.y, 100.f);
+
+    // The raw rect is far below the 100px view: clicking there must miss.
+    MoveMouse(events, below.Center().x, below.Center().y);
+    ClickLeft(events);
+    ui.Begin(0.016f, { 1920, 1080 });
+    ASSERT_TRUE(ui.BeginScrollView("clipscroll", { 200.f, 100.f }, 1000.f));
+    ui.Button("visible", { 180.f, 30.f });
+    ui.ProgressBar(0.5f, { 180.f, 400.f });
+    EXPECT_FALSE(ui.Button("below", { 180.f, 30.f }));
+    EXPECT_FALSE(ui.IsItemHovered());
+    ui.EndScrollView();
+    ui.End();
+
+    std::vector<fra::UiQuad> snap;
+    draw.Snapshot(snap);
+    bool found = false;
+    for (const auto& q : snap)
+    {
+        if ((q.flags & fra::kUiFlagClipRect) != 0)
+        {
+            found = true;
+            EXPECT_NEAR(q.clipRect.x, 0.f, 1e-3f);
+            EXPECT_NEAR(q.clipRect.y, 0.f, 1e-3f);
+            EXPECT_NEAR(q.clipRect.z, 200.f, 1e-3f);
+            EXPECT_NEAR(q.clipRect.w, 100.f, 1e-3f);
+        }
+    }
+    EXPECT_TRUE(found);
+
+    ui.UnbindEvents(events);
+}
+
+TEST(UiBaseWidgets, OverlayBypassesWindowClip)
+{
+    // Tooltip content renders in the overlay list: no window clip flag,
+    // even though the anchor widget is clipped.
+    fra::UiDraw       draw;
+    fra::UiContext    ui(&draw);
+    fra::EventManager events;
+    ui.BindEvents(events);
+
+    fra::UiWindowOpts opts {};
+    opts.defaultPos = { 100.f, 100.f };
+
+    fra::UiRect tipBtn {};
+    for (int frame = 0; frame < 30; ++frame)
+    {
+        ui.Begin(0.016f, { 1920, 1080 });
+        ASSERT_TRUE(ui.BeginWindow("tipw", "Tips", { 300.f, 200.f }, opts));
+        ui.ItemSlot("tips", {}, 0, false, { 64.f, 64.f });
+        const auto slot = ui.LastItemRect();
+        if (frame == 0)
+            MoveMouse(events, slot.Center().x, slot.Center().y);
+        if (ui.IsItemHovered() && ui.BeginTooltip("tiptip"))
+        {
+            ui.Button("tipbtn", { 100.f, 28.f });
+            tipBtn = ui.LastItemRect();
+            ui.EndTooltip();
+        }
+        ui.EndWindow();
+        ui.End();
+    }
+
+    std::vector<fra::UiQuad> snap;
+    draw.Snapshot(snap);
+    bool flaggedTip   = false;
+    bool unflaggedTip = false;
+    bool flaggedSlot  = false;
+    for (const auto& q : snap)
+    {
+        const bool inTip =
+            q.rect.x >= tipBtn.x - 1.f && q.rect.x < tipBtn.x + tipBtn.w;
+        if ((q.flags & fra::kUiFlagClipRect) != 0)
+        {
+            flaggedSlot = true;
+            if (inTip)
+                flaggedTip = true;
+        }
+        else if (inTip)
+            unflaggedTip = true;
+    }
+    EXPECT_TRUE(flaggedSlot);
+    EXPECT_FALSE(flaggedTip);
+    EXPECT_TRUE(unflaggedTip);
+
+    ui.UnbindEvents(events);
+}
+
 TEST(UiBaseWidgets, DisplayWidgetsEmitQuads)
 {
     fra::UiDraw    draw;

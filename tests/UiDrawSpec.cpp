@@ -10,6 +10,50 @@
 #include <thread>
 #include <vector>
 
+TEST(UiDraw, ClipStackIntersectResetAndOverlayBypass)
+{
+    fra::UiDraw draw;
+    fra::UiRect out {};
+    EXPECT_FALSE(draw.CurrentClip(&out));
+    EXPECT_FALSE(draw.CurrentClip(nullptr));
+
+    draw.PushClip({ 0.f, 0.f, 100.f, 100.f });
+    EXPECT_TRUE(draw.CurrentClip(&out));
+    EXPECT_NEAR(out.w, 100.f, 1e-5f);
+
+    draw.PushClip({ 50.f, 50.f, 100.f, 100.f });
+    EXPECT_TRUE(draw.CurrentClip(&out));
+    EXPECT_NEAR(out.x, 50.f, 1e-5f);
+    EXPECT_NEAR(out.w, 50.f, 1e-5f);
+    EXPECT_NEAR(out.h, 50.f, 1e-5f);
+
+    draw.Rect({ 0.f, 0.f, 200.f, 200.f }, { 1.f, 1.f, 1.f, 1.f });
+    draw.BeginOverlay();
+    draw.Rect({ 0.f, 0.f, 200.f, 200.f }, { 1.f, 1.f, 1.f, 1.f });
+    draw.EndOverlay();
+
+    draw.PopClip();
+    EXPECT_TRUE(draw.CurrentClip(&out));
+    EXPECT_NEAR(out.w, 100.f, 1e-5f);
+
+    draw.PushClipReset({ 10.f, 10.f, 20.f, 20.f });
+    EXPECT_TRUE(draw.CurrentClip(&out));
+    EXPECT_NEAR(out.x, 10.f, 1e-5f);
+
+    draw.PopClip();
+    EXPECT_FALSE(draw.CurrentClip(&out));
+    draw.PopClip(); // underflow-safe
+    EXPECT_FALSE(draw.CurrentClip(&out));
+
+    std::vector<fra::UiQuad> snap;
+    draw.Snapshot(snap);
+    ASSERT_EQ(snap.size(), 2u);
+    EXPECT_NE(snap[0].flags & fra::kUiFlagClipRect, 0u);
+    EXPECT_NEAR(snap[0].clipRect.x, 50.f, 1e-5f);
+    EXPECT_NEAR(snap[0].clipRect.z, 50.f, 1e-5f);
+    EXPECT_EQ(snap[1].flags & fra::kUiFlagClipRect, 0u);
+}
+
 TEST(UiDraw, RectContainsExpandIntersect)
 {
     fra::UiRect a { 10, 10, 50, 40 };

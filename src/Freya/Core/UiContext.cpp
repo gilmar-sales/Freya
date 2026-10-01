@@ -305,7 +305,18 @@ namespace FREYA_NAMESPACE
 
     bool UiContext::Hit(const UiRect& r) const
     {
-        return r.Contains(mMouseLogicalX, mMouseLogicalY);
+        if (!r.Contains(mMouseLogicalX, mMouseLogicalY))
+            return false;
+        // Clipped-away content (scrolled out, window overflow) is not
+        // hittable; overlay content (tooltips, popups, dropdowns) bypasses.
+        if (mOverlayDepth == 0 && mDraw)
+        {
+            UiRect clip {};
+            if (mDraw->CurrentClip(&clip) &&
+                !clip.Contains(mMouseLogicalX, mMouseLogicalY))
+                return false;
+        }
+        return true;
     }
 
     void UiContext::RegisterFocusable(UiId id, const UiRect& r)
@@ -673,12 +684,16 @@ namespace FREYA_NAMESPACE
         }
         const float pad = mStyle.Var(UiVar::WindowPadding);
         PushParent({ r.x + pad, r.y + pad, r.w - pad * 2.f, r.h - pad * 2.f });
+        if (mDraw)
+            mDraw->PushClip(r);
         return true;
     }
 
     void UiContext::EndPanel()
     {
         PopParent();
+        if (mDraw)
+            mDraw->PopClip();
     }
 
     bool UiContext::BeginModal(std::string_view id, glm::vec2 size,
@@ -688,6 +703,8 @@ namespace FREYA_NAMESPACE
         (void) mid;
         if (mDraw)
         {
+            // Fullscreen root: the dim must not inherit any outer clip.
+            mDraw->PushClipReset({ 0.f, 0.f, mLogicalSize.x, mLogicalSize.y });
             mDraw->Rect({ 0, 0, mLogicalSize.x, mLogicalSize.y },
                         mStyle.Color(UiCol::ModalDim));
         }
@@ -720,6 +737,8 @@ namespace FREYA_NAMESPACE
     void UiContext::EndModal()
     {
         EndPanel();
+        if (mDraw)
+            mDraw->PopClip();
         if (mModalLayer > 0)
             --mModalLayer;
     }
@@ -1030,12 +1049,16 @@ namespace FREYA_NAMESPACE
         st.scrollY            = std::clamp(st.scrollY, 0.f, maxScroll);
         mScrolls.push_back({ sid, r, contentHeight });
         PushParent({ r.x, r.y - st.scrollY, r.w, contentHeight });
+        if (mDraw)
+            mDraw->PushClip(r);
         return true;
     }
 
     void UiContext::EndScrollView()
     {
         PopParent();
+        if (mDraw)
+            mDraw->PopClip();
         if (!mScrolls.empty())
             mScrolls.pop_back();
     }
@@ -2228,9 +2251,13 @@ namespace FREYA_NAMESPACE
             mWindows.push_back({ wid, false });
             return false;
         }
-        const float pad = mStyle.Var(UiVar::WindowPadding);
-        PushParent({ win.x + pad, win.y + kWinTitleH + pad, win.w - pad * 2.f,
-                     win.h - kWinTitleH - pad * 2.f });
+        const float  pad = mStyle.Var(UiVar::WindowPadding);
+        const UiRect content { win.x + pad, win.y + kWinTitleH + pad,
+                               win.w - pad * 2.f,
+                               win.h - kWinTitleH - pad * 2.f };
+        PushParent(content);
+        if (mDraw)
+            mDraw->PushClipReset(content);
         mWindows.push_back({ wid, true });
         return true;
     }
@@ -2242,7 +2269,11 @@ namespace FREYA_NAMESPACE
         const auto f = mWindows.back();
         mWindows.pop_back();
         if (f.content)
+        {
             PopParent();
+            if (mDraw)
+                mDraw->PopClip();
+        }
     }
 
     UiRect UiContext::WindowRect(std::string_view id) const
@@ -2272,12 +2303,16 @@ namespace FREYA_NAMESPACE
         const UiRect r = Place(size);
         mLastRect      = r;
         PushParent({ r.x, r.y, r.w, r.h });
+        if (mDraw)
+            mDraw->PushClip(r);
         return true;
     }
 
     void UiContext::EndSwitcher()
     {
         PopParent();
+        if (mDraw)
+            mDraw->PopClip();
     }
 
     bool UiContext::BeginWizard(std::string_view                  id,
@@ -2320,9 +2355,13 @@ namespace FREYA_NAMESPACE
                     break;
             }
         }
-        PushParent(
-            { r.x + mStyle.Var(UiVar::WindowPadding), r.y + headerH,
-              r.w - mStyle.Var(UiVar::WindowPadding) * 2.f, r.h - headerH });
+        const UiRect body {
+            r.x + mStyle.Var(UiVar::WindowPadding), r.y + headerH,
+            r.w - mStyle.Var(UiVar::WindowPadding) * 2.f, r.h - headerH
+        };
+        PushParent(body);
+        if (mDraw)
+            mDraw->PushClip(body);
         (void) id;
         return true;
     }
@@ -2330,6 +2369,8 @@ namespace FREYA_NAMESPACE
     void UiContext::EndWizard()
     {
         PopParent();
+        if (mDraw)
+            mDraw->PopClip();
     }
 
     int UiContext::WizardNav(std::string_view id, int current, int stepCount,
@@ -2398,6 +2439,8 @@ namespace FREYA_NAMESPACE
         const float pad = mStyle.Var(UiVar::WindowPadding);
         PushParent({ r.x + pad, r.y + pad + 28.f, r.w - pad * 2.f,
                      r.h - pad * 2.f - 28.f });
+        if (mDraw)
+            mDraw->PushClipReset(r);
         mWindows.push_back({ did, true });
         return true;
     }
@@ -2409,7 +2452,11 @@ namespace FREYA_NAMESPACE
         const auto f = mWindows.back();
         mWindows.pop_back();
         if (f.content)
+        {
             PopParent();
+            if (mDraw)
+                mDraw->PopClip();
+        }
     }
 
     bool UiContext::IsDrawerOpen(std::string_view id) const
@@ -2515,8 +2562,12 @@ namespace FREYA_NAMESPACE
             st.dialogDir = opts.directory;
 
         if (mDraw)
+        {
+            // Fullscreen root: the dim must not inherit any outer clip.
+            mDraw->PushClipReset({ 0.f, 0.f, mLogicalSize.x, mLogicalSize.y });
             mDraw->Rect({ 0, 0, mLogicalSize.x, mLogicalSize.y },
                         mStyle.Color(UiCol::ModalDim));
+        }
         const UiRect m { (mLogicalSize.x - size.x) * 0.5f,
                          (mLogicalSize.y - size.y) * 0.5f, size.x, size.y };
         if (mDraw)
@@ -2635,6 +2686,8 @@ namespace FREYA_NAMESPACE
                 if (mModalLayer > 0)
                     --mModalLayer;
                 PopParent();
+                if (mDraw)
+                    mDraw->PopClip();
                 return true;
             }
             if (mDraw)
@@ -2687,6 +2740,8 @@ namespace FREYA_NAMESPACE
         if (mModalLayer > 0)
             --mModalLayer;
         PopParent();
+        if (mDraw)
+            mDraw->PopClip();
         return confirmed;
     }
 

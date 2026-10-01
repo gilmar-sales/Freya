@@ -18,6 +18,8 @@ namespace FREYA_NAMESPACE
     constexpr std::uint32_t kUiFlagClipU      = 4u;
     /** Radial wipe: `clipMax` = remaining fraction (1=full, 0=none). */
     constexpr std::uint32_t kUiFlagClipRadial = 8u;
+    /** Hard scissor: discard fragments outside `clipRect` (xywh logical). */
+    constexpr std::uint32_t kUiFlagClipRect = 16u;
 
     /**
      * @brief One screen-space UI quad.
@@ -41,6 +43,7 @@ namespace FREYA_NAMESPACE
         float         outlineWidth = 0.f; ///< SDF units, 0 = no outline
         glm::vec4     outlineColor { 0.f, 0.f, 0.f, 1.f };
         float         z = 0.f;
+        glm::vec4     clipRect { 0.f }; ///< xywh logical px, kUiFlagClipRect
     };
 
     /**
@@ -64,6 +67,29 @@ namespace FREYA_NAMESPACE
          */
         void BeginOverlay();
         void EndOverlay();
+
+        /**
+         * @brief Intersect subsequent quads with @p rect (container clip).
+         *
+         * Quads emitted while any clip is active carry the intersection in
+         * `clipRect` (+ kUiFlagClipRect) for GPU scissoring; overlay quads
+         * (tooltips, popups, dropdowns, toasts) bypass clipping. Workers
+         * emitting Rect/Image concurrently should do so outside container
+         * building, otherwise their quads inherit the active clip.
+         * Main-thread / matching Push/PopClip pairs.
+         */
+        void PushClip(const UiRect& rect);
+
+        /**
+         * @brief Replace the clip stack with @p rect (top-level roots:
+         * windows, drawers, modals).
+         */
+        void PushClipReset(const UiRect& rect);
+
+        void PopClip();
+
+        /** @brief Current intersection, or false when unclipped. */
+        [[nodiscard]] bool CurrentClip(UiRect* out) const;
 
         [[nodiscard]] bool Empty() const;
 
@@ -136,6 +162,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t       mMaxQuads = kDefaultMaxQuads;
         std::vector<UiQuad> mQuads;
         std::vector<UiQuad> mOverlayQuads;
+        std::vector<UiRect> mClips;
         int                 mOverlayDepth = 0;
         mutable SpinLock    mLock;
     };
