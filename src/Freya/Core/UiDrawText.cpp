@@ -49,6 +49,61 @@ namespace FREYA_NAMESPACE
         }
     } // namespace
 
+    std::size_t UiDraw::MeasureLines(std::string_view utf8,
+                                     const FontAtlas& font,
+                                     const float      heightPx,
+                                     const float      wrapW)
+    {
+        if (heightPx <= 0.f || utf8.empty())
+            return 0;
+
+        float       penX = 0.f;
+        std::size_t i    = 0;
+        char32_t    cp   = 0;
+
+        std::size_t cur     = 0;
+        std::size_t maxUsed = 0;
+        bool        any     = false;
+
+        // Same wrap decisions as Text() below: newline, advance overflow
+        // (non-space), and leading-space skipping.
+        while (NextCodepoint(utf8, i, cp))
+        {
+            if (cp == U'\n')
+            {
+                penX = 0.f;
+                ++cur;
+                continue;
+            }
+
+            const FontGlyph* g = font.Find(cp);
+            if (!g)
+                g = font.Find(U'?');
+            if (!g)
+                continue;
+
+            const float adv = g->advance * heightPx;
+            if (wrapW > 0.f && penX > 0.f && penX + adv > wrapW && !IsSpace(cp))
+            {
+                penX = 0.f;
+                ++cur;
+            }
+
+            if (IsSpace(cp) && wrapW > 0.f && penX + adv > wrapW)
+            {
+                penX = 0.f;
+                ++cur;
+                continue;
+            }
+
+            any     = true;
+            maxUsed = std::max(maxUsed, cur);
+            penX += adv;
+        }
+
+        return any ? maxUsed + 1 : 0;
+    }
+
     void UiDraw::Text(const UiRect& rect, std::string_view utf8,
                       const FontAtlas& font, const float heightPx,
                       const glm::vec4& color, const float maxWidth,

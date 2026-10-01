@@ -154,6 +154,18 @@ namespace FREYA_NAMESPACE
                   float            outlineWidthPx = 0.f,
                   const glm::vec4& outlineColor   = { 0.f, 0.f, 0.f, 1.f });
 
+        /**
+         * @brief Line count Text() would emit for the same arguments.
+         *
+         * Uses the same wrap decisions (newline / advance overflow /
+         * space skipping); 0 for empty text or non-positive height.
+         * Widgets use it to reserve matching height so wrapped text is
+         * never cut by following content or container clips.
+         */
+        [[nodiscard]] static std::size_t MeasureLines(
+            std::string_view utf8, const class FontAtlas& font, float heightPx,
+            float wrapW);
+
       private:
         void pushUnlocked(const UiQuad& quad);
         void pushImageUnlocked(const UiRect& rect, std::uint32_t textureIndex,

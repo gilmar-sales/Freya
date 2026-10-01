@@ -749,7 +749,16 @@ namespace FREYA_NAMESPACE
     {
         const float fs =
             fontSize > 0.f ? fontSize : mStyle.Var(UiVar::FontSize);
-        const UiRect r = Place({ 200.f, fs });
+        // Fill the available width so text only wraps when space is truly
+        // gone; reserve the measured height so wrapped lines are never cut.
+        const float w = CurrentParent().w;
+        float       h = fs;
+        if (mStyle.font && !text.empty())
+        {
+            h = fs * static_cast<float>(std::max<std::size_t>(
+                         1, UiDraw::MeasureLines(text, *mStyle.font, fs, w)));
+        }
+        const UiRect r = Place({ w, h });
         mLastRect      = r;
         if (!mDraw || !mStyle.font)
             return;
@@ -763,19 +772,33 @@ namespace FREYA_NAMESPACE
     {
         const float fs =
             fontSize > 0.f ? fontSize : mStyle.Var(UiVar::FontSize);
-        // Approximate height: one line; wrap handled in UiDraw::Text
-        const float lines =
-            maxWidth > 0.f
-                ? std::max(1.f, std::ceil(static_cast<float>(text.size()) * fs *
-                                          0.5f / maxWidth))
-                : 1.f;
-        const UiRect r =
-            Place({ maxWidth > 0.f ? maxWidth : 400.f, fs * lines });
-        mLastRect = r;
+        float w = maxWidth > 0.f ? maxWidth : 400.f;
+        // Never overflow the parent: an oversized maxWidth got hard-cut by
+        // container clips instead of wrapping.
+        const float parentW = CurrentParent().w;
+        if (parentW > 0.f)
+            w = std::min(w, parentW);
+        float lines;
+        if (mStyle.font && !text.empty())
+        {
+            lines = static_cast<float>(std::max<std::size_t>(
+                1, UiDraw::MeasureLines(text, *mStyle.font, fs, w)));
+        }
+        else
+        {
+            // Approximate height: one line; wrap handled in UiDraw::Text
+            lines =
+                maxWidth > 0.f
+                    ? std::max(1.f, std::ceil(static_cast<float>(text.size()) *
+                                              fs * 0.5f / maxWidth))
+                    : 1.f;
+        }
+        const UiRect r = Place({ w, fs * lines });
+        mLastRect      = r;
         if (!mDraw || !mStyle.font)
             return;
-        mDraw->Text(r, text, *mStyle.font, fs, mStyle.Color(UiCol::Text),
-                    maxWidth, 1.5f, mStyle.Color(UiCol::TextOutline));
+        mDraw->Text(r, text, *mStyle.font, fs, mStyle.Color(UiCol::Text), w,
+                    1.5f, mStyle.Color(UiCol::TextOutline));
     }
 
     void UiContext::ProgressBar(float fill01, glm::vec2 size)
@@ -1901,7 +1924,16 @@ namespace FREYA_NAMESPACE
     {
         const float fs =
             fontSize > 0.f ? fontSize : mStyle.Var(UiVar::FontSizeSmall);
-        const UiRect r = Place({ CurrentParent().w, fs + 4.f });
+        const float w = CurrentParent().w;
+        float       h = fs + 4.f;
+        if (mStyle.font && !text.empty())
+        {
+            h = fs * static_cast<float>(std::max<std::size_t>(
+                         1, UiDraw::MeasureLines(text, *mStyle.font, fs,
+                                                 std::max(0.f, w - 18.f)))) +
+                4.f;
+        }
+        const UiRect r = Place({ w, h });
         mLastRect      = r;
         if (!mDraw || !mStyle.font)
             return;

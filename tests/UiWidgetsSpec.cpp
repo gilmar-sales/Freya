@@ -933,6 +933,70 @@ TEST(UiBaseWidgets, ColumnsAdvanceByTallestColumn)
     ui.End();
 }
 
+TEST(UiBaseWidgets, LabelFillsParentWidth)
+{
+    // Regression: Label reserved a hardcoded 200px, wrapping text that had
+    // room to grow. It must fill the parent and stay single-line.
+    fra::UiDraw    draw;
+    fra::UiContext ui(&draw);
+
+    fra::FontAtlas font = fra::FontAtlas::Create(
+        *static_cast<fra::TexturePool*>(nullptr), "stub");
+    ui.Style().font = &font;
+
+    ui.Begin(0.016f, { 1920, 1080 });
+    ui.Label("0123456789");
+    EXPECT_NEAR(ui.LastItemRect().w, 1920.f, 1e-3f);
+    EXPECT_NEAR(ui.LastItemRect().h, 22.f, 1e-3f);
+    ui.End();
+
+    std::vector<fra::UiQuad> snap;
+    draw.Snapshot(snap);
+    int glyphs = 0;
+    for (const auto& q : snap)
+    {
+        if ((q.flags & fra::kUiFlagSdfGlyph) != 0)
+            ++glyphs;
+    }
+    EXPECT_EQ(glyphs, 10);
+}
+
+TEST(UiBaseWidgets, WrappedTextReservesMeasuredHeight)
+{
+    // Regression: wrapped text reserved a mismatched height, so following
+    // widgets overlapped (cut) it. Height must match the rendered lines.
+    fra::UiDraw    draw;
+    fra::UiContext ui(&draw);
+
+    fra::FontAtlas font = fra::FontAtlas::Create(
+        *static_cast<fra::TexturePool*>(nullptr), "stub");
+    ui.Style().font = &font;
+
+    // Narrow container: 20 chars at 8px need 2 lines in 100px (Bullet
+    // keeps an 18px indent, so it wraps in 82px).
+    ui.Begin(0.016f, { 1920, 1080 });
+    EXPECT_TRUE(ui.BeginScrollView("narrow", { 100.f, 400.f }, 800.f));
+    ui.Bullet("01234567890123456789");
+    EXPECT_NEAR(ui.LastItemRect().h, 36.f, 1e-3f);
+    ui.TextWrapped("01234567890123456789", 1000.f);
+    EXPECT_NEAR(ui.LastItemRect().w, 100.f, 1e-3f);
+    // Default size 22 → 11px/char → 9 chars/line → 3 lines.
+    EXPECT_NEAR(ui.LastItemRect().h, 66.f, 1e-3f);
+    ui.EndScrollView();
+    ui.End();
+
+    // All 40 glyphs rendered (nothing cut), on 2 + 3 lines.
+    std::vector<fra::UiQuad> snap;
+    draw.Snapshot(snap);
+    int glyphs = 0;
+    for (const auto& q : snap)
+    {
+        if ((q.flags & fra::kUiFlagSdfGlyph) != 0)
+            ++glyphs;
+    }
+    EXPECT_EQ(glyphs, 40);
+}
+
 TEST(UiBaseWidgets, DisplayWidgetsEmitQuads)
 {
     fra::UiDraw    draw;
