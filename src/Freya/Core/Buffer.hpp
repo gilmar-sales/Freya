@@ -45,12 +45,12 @@ namespace FREYA_NAMESPACE
                const BufferUsage       usage,
                const std::uint64_t     size,
                const vk::Buffer        buffer,
-               const VmaAllocation     allocation,
-               const VmaAllocationInfo info,
+               const MemoryAllocation     allocation,
+               const BufferAllocationInfo info,
                const bool              hostCoherent = true) :
             mDevice(device), mBuffer(buffer), mAllocation(allocation),
-            mInfo(info), mUsage(usage), mSize(size), mMapped(info.pMappedData),
-            mHostCoherent(hostCoherent)
+             mInfo(info), mUsage(usage), mSize(size), mMapped(info.mappedData),
+             mHostCoherent(info.hostCoherent && hostCoherent)
         {
         }
 
@@ -71,12 +71,12 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Returns the VMA allocation handle.
          */
-        VmaAllocation GetAllocation() const { return mAllocation; }
+        MemoryAllocation GetAllocation() const { return mAllocation; }
 
         /**
          * @brief Returns the VMA allocation info (deviceMemory, offset).
          */
-        const VmaAllocationInfo& GetInfo() const { return mInfo; }
+        const BufferAllocationInfo& GetInfo() const { return mInfo; }
 
         /**
          * @brief Returns the buffer size in bytes.
@@ -104,8 +104,8 @@ namespace FREYA_NAMESPACE
         skr::Arc<Device> mDevice;
 
         vk::Buffer        mBuffer;
-        VmaAllocation     mAllocation = VK_NULL_HANDLE;
-        VmaAllocationInfo mInfo {};
+        MemoryAllocation     mAllocation {};
+        BufferAllocationInfo mInfo {};
         BufferUsage       mUsage;
         std::uint64_t     mSize;
         void*             mMapped       = nullptr;

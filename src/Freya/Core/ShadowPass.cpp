@@ -167,17 +167,17 @@ namespace FREYA_NAMESPACE
         const vk::Pipeline                   cascadePipeline,
         const vk::Pipeline                   pointPipeline,
         const vk::Image                      cascadeImage,
-        const VmaAllocation                  cascadeMemory,
+        const MemoryAllocation                  cascadeMemory,
         const vk::ImageView                  cascadeArrayView,
         const std::vector<vk::ImageView>&    cascadeLayerViews,
         const vk::Framebuffer                cascadeFramebuffer,
         const std::vector<vk::Framebuffer>&  spotFramebuffers,
         const vk::Image                      spotImage,
-        const VmaAllocation                  spotMemory,
+        const MemoryAllocation                  spotMemory,
         const vk::ImageView                  spotArrayView,
         const std::vector<vk::ImageView>&    spotLayerViews,
         const vk::Image                      pointImage,
-        const VmaAllocation                  pointMemory,
+        const MemoryAllocation                  pointMemory,
         const vk::ImageView                  pointArrayView,
         const std::vector<vk::ImageView>&    pointSlotViews,
         const std::vector<vk::Framebuffer>&  pointFramebuffers,
@@ -272,30 +272,30 @@ namespace FREYA_NAMESPACE
         if (mPointArrayView)
             vkDevice.destroyImageView(mPointArrayView);
         mCascadeArrayView = VK_NULL_HANDLE;
-        mSpotArrayView    = VK_NULL_HANDLE;
-        mPointArrayView   = VK_NULL_HANDLE;
+        mSpotArrayView = VK_NULL_HANDLE;
+        mPointArrayView = VK_NULL_HANDLE;
 
         if (mCascadeImage)
         {
             mDevice->GetAllocator()->DestroyImage(
                 static_cast<VkImage>(mCascadeImage), mCascadeMemory);
-            mCascadeMemory = VK_NULL_HANDLE;
+            mCascadeMemory = {};
         }
         if (mSpotImage)
         {
             mDevice->GetAllocator()->DestroyImage(
                 static_cast<VkImage>(mSpotImage), mSpotMemory);
-            mSpotMemory = VK_NULL_HANDLE;
+            mSpotMemory = {};
         }
         if (mPointImage)
         {
             mDevice->GetAllocator()->DestroyImage(
                 static_cast<VkImage>(mPointImage), mPointMemory);
-            mPointMemory = VK_NULL_HANDLE;
+            mPointMemory = {};
         }
         mCascadeImage = VK_NULL_HANDLE;
-        mSpotImage    = VK_NULL_HANDLE;
-        mPointImage   = VK_NULL_HANDLE;
+        mSpotImage = VK_NULL_HANDLE;
+        mPointImage = VK_NULL_HANDLE;
 
         if (mCompareSampler)
             vkDevice.destroySampler(mCompareSampler);
@@ -319,14 +319,14 @@ namespace FREYA_NAMESPACE
             vkDevice.destroyDescriptorPool(mShadowUboPool);
         if (mShadowUboSetLayout)
             vkDevice.destroyDescriptorSetLayout(mShadowUboSetLayout);
-        mPipeline           = VK_NULL_HANDLE;
-        mCascadePipeline    = VK_NULL_HANDLE;
-        mPointPipeline      = VK_NULL_HANDLE;
-        mPipelineLayout     = VK_NULL_HANDLE;
-        mCascadeRenderPass  = VK_NULL_HANDLE;
-        mPointRenderPass    = VK_NULL_HANDLE;
-        mRenderPass         = VK_NULL_HANDLE;
-        mShadowUboPool      = VK_NULL_HANDLE;
+        mPipeline = VK_NULL_HANDLE;
+        mCascadePipeline = VK_NULL_HANDLE;
+        mPointPipeline = VK_NULL_HANDLE;
+        mPipelineLayout = VK_NULL_HANDLE;
+        mCascadeRenderPass = VK_NULL_HANDLE;
+        mPointRenderPass = VK_NULL_HANDLE;
+        mRenderPass = VK_NULL_HANDLE;
+        mShadowUboPool = VK_NULL_HANDLE;
         mShadowUboSetLayout = VK_NULL_HANDLE;
         mShadowUboSets.clear();
 
@@ -381,7 +381,7 @@ namespace FREYA_NAMESPACE
         mPointResolution = other.mPointResolution;
         mFrameIndex      = other.mFrameIndex;
 
-        mShadowData             = {};
+        mShadowData = {};
         mCascadeCullViewProj    = glm::mat4(1.0f);
         mHasDirectionalShadow   = false;
         mActiveSpotCount        = 0;
@@ -396,26 +396,26 @@ namespace FREYA_NAMESPACE
         mPointHasLast.fill(false);
         mPointUpdateAge.fill(0);
 
-        other.mRenderPass         = VK_NULL_HANDLE;
-        other.mCascadeRenderPass  = VK_NULL_HANDLE;
-        other.mPointRenderPass    = VK_NULL_HANDLE;
-        other.mPipelineLayout     = VK_NULL_HANDLE;
-        other.mPipeline           = VK_NULL_HANDLE;
-        other.mCascadePipeline    = VK_NULL_HANDLE;
-        other.mPointPipeline      = VK_NULL_HANDLE;
-        other.mCascadeImage       = VK_NULL_HANDLE;
-        other.mCascadeMemory      = VK_NULL_HANDLE;
-        other.mCascadeArrayView   = VK_NULL_HANDLE;
+        other.mRenderPass = VK_NULL_HANDLE;
+        other.mCascadeRenderPass = VK_NULL_HANDLE;
+        other.mPointRenderPass = VK_NULL_HANDLE;
+        other.mPipelineLayout = VK_NULL_HANDLE;
+        other.mPipeline = VK_NULL_HANDLE;
+        other.mCascadePipeline = VK_NULL_HANDLE;
+        other.mPointPipeline = VK_NULL_HANDLE;
+        other.mCascadeImage = VK_NULL_HANDLE;
+        other.mCascadeMemory = {};
+        other.mCascadeArrayView = VK_NULL_HANDLE;
         other.mCascadeFramebuffer = VK_NULL_HANDLE;
-        other.mSpotImage          = VK_NULL_HANDLE;
-        other.mSpotMemory         = VK_NULL_HANDLE;
-        other.mSpotArrayView      = VK_NULL_HANDLE;
-        other.mPointImage         = VK_NULL_HANDLE;
-        other.mPointMemory        = VK_NULL_HANDLE;
-        other.mPointArrayView     = VK_NULL_HANDLE;
-        other.mCompareSampler     = VK_NULL_HANDLE;
+        other.mSpotImage = VK_NULL_HANDLE;
+        other.mSpotMemory = {};
+        other.mSpotArrayView = VK_NULL_HANDLE;
+        other.mPointImage = VK_NULL_HANDLE;
+        other.mPointMemory = {};
+        other.mPointArrayView = VK_NULL_HANDLE;
+        other.mCompareSampler = VK_NULL_HANDLE;
         other.mShadowUboSetLayout = VK_NULL_HANDLE;
-        other.mShadowUboPool      = VK_NULL_HANDLE;
+        other.mShadowUboPool = VK_NULL_HANDLE;
         other.mShadowUboSets.clear();
         other.mUniformBuffer.reset();
     }

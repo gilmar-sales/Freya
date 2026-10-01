@@ -9,11 +9,11 @@ namespace FREYA_NAMESPACE
         const vk::DescriptorSet       bindlessSet,
         const skr::Arc<Buffer>&       materialsBuffer,
         const vk::Image               fallbackImage,
-        const VmaAllocation           fallbackImageMemory,
+        const MemoryAllocation           fallbackImageMemory,
         const vk::ImageView           fallbackImageView,
         const vk::Sampler             fallbackSampler,
         const vk::Image               emissiveFallbackImage,
-        const VmaAllocation           emissiveFallbackMemory,
+        const MemoryAllocation           emissiveFallbackMemory,
         const vk::ImageView           emissiveFallbackImageView,
         const vk::Sampler             emissiveFallbackSampler) :
         mDevice(device), mBindlessLayout(bindlessLayout),
@@ -39,14 +39,14 @@ namespace FREYA_NAMESPACE
         mDevice->GetAllocator()->DestroyImage(
             static_cast<VkImage>(mFallbackImage),
             mFallbackImageMemory);
-        mFallbackImageMemory = VK_NULL_HANDLE;
+        mFallbackImageMemory = {};
 
         vkDevice.destroySampler(mEmissiveFallbackSampler);
         vkDevice.destroyImageView(mEmissiveFallbackImageView);
         mDevice->GetAllocator()->DestroyImage(
             static_cast<VkImage>(mEmissiveFallbackImage),
             mEmissiveFallbackMemory);
-        mEmissiveFallbackMemory = VK_NULL_HANDLE;
+        mEmissiveFallbackMemory = {};
 
         mMaterialsBuffer.reset();
 

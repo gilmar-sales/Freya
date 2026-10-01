@@ -121,8 +121,8 @@ namespace FREYA_NAMESPACE
         }
 
         VkBuffer          rawBuffer {};
-        VmaAllocation     allocation {};
-        VmaAllocationInfo allocInfo {};
+        MemoryAllocation     allocation {};
+        BufferAllocationInfo allocInfo {};
         try
         {
             const auto choice = ChooseBufferMemory(mUsage);
@@ -140,7 +140,7 @@ namespace FREYA_NAMESPACE
             vk::Buffer buffer(static_cast<VkBuffer>(rawBuffer));
             assert(buffer && "VMA failed to create vk::Buffer.");
 
-            void* mapped = allocInfo.pMappedData;
+            void* mapped = allocInfo.mappedData;
             if (mSize > 0)
             {
                 assert(mapped && "VMA did not persistently map buffer.");
@@ -149,12 +149,7 @@ namespace FREYA_NAMESPACE
                                           "Failed to map buffer memory.");
             }
 
-            bool                  hostCoherent = true;
-            VkMemoryPropertyFlags memProps {};
-            vmaGetAllocationMemoryProperties(
-                allocator->Get(), allocation, &memProps);
-            hostCoherent =
-                (memProps & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
+            const bool hostCoherent = allocInfo.hostCoherent;
 
             if (mData != nullptr && mapped != nullptr)
             {

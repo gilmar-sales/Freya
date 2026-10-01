@@ -16,7 +16,7 @@ namespace FREYA_NAMESPACE
         mMapped = nullptr;
         mDevice->GetAllocator()->DestroyBuffer(
             static_cast<VkBuffer>(mBuffer), mAllocation);
-        mAllocation = VK_NULL_HANDLE;
+        mAllocation = {};
         mBuffer     = vk::Buffer {};
     }
 
@@ -82,17 +82,15 @@ namespace FREYA_NAMESPACE
         }
 
         void*          mapped = nullptr;
-        const VkResult result =
-            vmaMapMemory(allocator->Get(), mAllocation, &mapped);
-        assert(result == VK_SUCCESS && "vmaMapMemory failed.");
-        if (result != VK_SUCCESS || mapped == nullptr)
+        mapped = allocator->Map(mAllocation);
+        if (mapped == nullptr)
             return;
 
         std::memcpy(static_cast<std::byte*>(mapped) + offset, data, size);
 
         if (!mHostCoherent)
             allocator->Flush(mAllocation, offset, size);
-        vmaUnmapMemory(allocator->Get(), mAllocation);
+        allocator->Unmap(mAllocation);
     }
 
 } // namespace FREYA_NAMESPACE

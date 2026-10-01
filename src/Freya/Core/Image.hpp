@@ -23,7 +23,7 @@ namespace FREYA_NAMESPACE
         Image(const skr::Arc<Device>& device,
               const vk::Image         image,
               const vk::ImageView     imageView,
-              const VmaAllocation     allocation,
+              const MemoryAllocation     allocation,
               const vk::Format        format,
               const std::uint32_t     mipLevels = 1) :
             mDevice(device), mImage(image), mImageView(imageView),
@@ -46,7 +46,7 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Returns the VMA allocation handle.
          */
-        VmaAllocation GetAllocation() const { return mAllocation; }
+        MemoryAllocation GetAllocation() const { return mAllocation; }
 
         /**
          * @brief Returns the image format.
@@ -60,7 +60,7 @@ namespace FREYA_NAMESPACE
 
         vk::Image     mImage;
         vk::ImageView mImageView;
-        VmaAllocation mAllocation = VK_NULL_HANDLE;
+        MemoryAllocation mAllocation {};
         vk::Format    mFormat;
         std::uint32_t mMipLevels;
     };

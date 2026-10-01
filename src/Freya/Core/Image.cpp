@@ -11,7 +11,7 @@ namespace FREYA_NAMESPACE
         mDevice->Get().destroyImageView(mImageView);
         mDevice->GetAllocator()->DestroyImage(
             static_cast<VkImage>(mImage), mAllocation);
-        mAllocation = VK_NULL_HANDLE;
+        mAllocation = {};
         mImage      = vk::Image {};
     }
 } // namespace FREYA_NAMESPACE

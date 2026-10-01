@@ -1,6 +1,5 @@
 #pragma once
 
-#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
 namespace FREYA_NAMESPACE
@@ -11,7 +10,7 @@ namespace FREYA_NAMESPACE
      * @brief Usage class for VMA sub-allocation.
      *
      * Maps to VMA memory usage plus host-access flags so callers
-     * never touch VmaAllocationCreateInfo directly.
+     * never touch MemoryAllocationCreateInfo directly.
      */
     enum class MemoryUsage
     {
@@ -20,27 +19,47 @@ namespace FREYA_NAMESPACE
         Readback ///< GPU-to-CPU, persistently mapped (pick/cull readback)
     };
 
-    /**
-     * @brief Result of a VMA buffer allocation.
-     */
+    /** Opaque allocation token; its representation is private to MemoryAllocator. */
+    class MemoryAllocation
+    {
+        friend class MemoryAllocator;
+
+      public:
+        constexpr MemoryAllocation() = default;
+        [[nodiscard]] constexpr explicit operator bool() const
+        {
+            return mHandle != nullptr;
+        }
+
+      private:
+        void* mHandle = nullptr;
+    };
+
+    struct BufferAllocationInfo
+    {
+        void* mappedData = nullptr;
+        bool  hostCoherent = true;
+    };
+
+    /** @brief Result of a buffer allocation. */
     struct BufferAllocation
     {
-        VkBuffer          buffer     = VK_NULL_HANDLE;
-        VmaAllocation     allocation = VK_NULL_HANDLE;
-        VmaAllocationInfo info {};
+        VkBuffer             buffer = {};
+        MemoryAllocation     allocation {};
+        BufferAllocationInfo info {};
     };
 
     /**
-     * @brief Result of a VMA image allocation.
+     * @brief Result of an image allocation.
      */
     struct ImageAllocation
     {
-        VkImage       image      = VK_NULL_HANDLE;
-        VmaAllocation allocation = VK_NULL_HANDLE;
+        VkImage       image      = {};
+        MemoryAllocation allocation {};
     };
 
     /**
-     * @brief Thin RAII wrapper around VmaAllocator.
+     * @brief Thin RAII wrapper around the GPU memory allocator.
      *
      * Owned by fra::Device (see Device::GetAllocator). All GPU
      * memory in Freya flows through here: BufferBuilder,
@@ -73,17 +92,18 @@ namespace FREYA_NAMESPACE
         ImageAllocation CreateImage(const VkImageCreateInfo& createInfo,
                                     float                    priority);
 
-        void DestroyBuffer(VkBuffer buffer, VmaAllocation allocation);
-        void DestroyImage(VkImage image, VmaAllocation allocation);
+        void DestroyBuffer(VkBuffer buffer, MemoryAllocation allocation);
+        void DestroyImage(VkImage image, MemoryAllocation allocation);
 
-        void Flush(VmaAllocation allocation,
+        void Flush(MemoryAllocation allocation,
                    VkDeviceSize  offset,
                    VkDeviceSize  size);
-
-        [[nodiscard]] VmaAllocator Get() const { return mAllocator; }
+        [[nodiscard]] void* Map(MemoryAllocation allocation);
+        void Unmap(MemoryAllocation allocation);
 
       private:
-        VmaAllocator mAllocator = VK_NULL_HANDLE;
+        struct Impl;
+        Impl* mImpl = nullptr;
     };
 
 } // namespace FREYA_NAMESPACE

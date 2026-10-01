@@ -21,11 +21,11 @@ namespace FREYA_NAMESPACE
             vk::DescriptorSet       bindlessSet,
             const skr::Arc<Buffer>& materialsBuffer,
             vk::Image               fallbackImage,
-            VmaAllocation           fallbackImageMemory,
+            MemoryAllocation           fallbackImageMemory,
             vk::ImageView           fallbackImageView,
             vk::Sampler             fallbackSampler,
             vk::Image               emissiveFallbackImage,
-            VmaAllocation           emissiveFallbackMemory,
+            MemoryAllocation           emissiveFallbackMemory,
             vk::ImageView           emissiveFallbackImageView,
             vk::Sampler             emissiveFallbackSampler);
 
@@ -76,12 +76,12 @@ namespace FREYA_NAMESPACE
         std::uint32_t           mMaterialCapacity = MAX_MATERIAL_SETS;
 
         vk::Image     mFallbackImage;
-        VmaAllocation mFallbackImageMemory = VK_NULL_HANDLE;
+        MemoryAllocation mFallbackImageMemory = {};
         vk::ImageView mFallbackImageView;
         vk::Sampler   mFallbackSampler;
 
         vk::Image     mEmissiveFallbackImage;
-        VmaAllocation mEmissiveFallbackMemory = VK_NULL_HANDLE;
+        MemoryAllocation mEmissiveFallbackMemory = {};
         vk::ImageView mEmissiveFallbackImageView;
         vk::Sampler   mEmissiveFallbackSampler;
     };

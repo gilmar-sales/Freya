@@ -39,17 +39,17 @@ namespace FREYA_NAMESPACE
             vk::Pipeline                         cascadePipeline,
             vk::Pipeline                         pointPipeline,
             vk::Image                            cascadeImage,
-            VmaAllocation                        cascadeMemory,
+            MemoryAllocation                        cascadeMemory,
             vk::ImageView                        cascadeArrayView,
             const std::vector<vk::ImageView>&    cascadeLayerViews,
             vk::Framebuffer                      cascadeFramebuffer,
             const std::vector<vk::Framebuffer>&  spotFramebuffers,
             vk::Image                            spotImage,
-            VmaAllocation                        spotMemory,
+            MemoryAllocation                        spotMemory,
             vk::ImageView                        spotArrayView,
             const std::vector<vk::ImageView>&    spotLayerViews,
             vk::Image                            pointImage,
-            VmaAllocation                        pointMemory,
+            MemoryAllocation                        pointMemory,
             vk::ImageView                        pointArrayView,
             const std::vector<vk::ImageView>&    pointSlotViews,
             const std::vector<vk::Framebuffer>&  pointFramebuffers,
@@ -156,19 +156,19 @@ namespace FREYA_NAMESPACE
         vk::Pipeline       mPointPipeline;   ///< Point cube multiview
 
         vk::Image                  mCascadeImage;
-        VmaAllocation              mCascadeMemory = VK_NULL_HANDLE;
+        MemoryAllocation              mCascadeMemory = {};
         vk::ImageView              mCascadeArrayView;
         std::vector<vk::ImageView> mCascadeLayerViews;
-        vk::Framebuffer            mCascadeFramebuffer = {};
+        vk::Framebuffer            mCascadeFramebuffer = VK_NULL_HANDLE;
 
         vk::Image                    mSpotImage;
-        VmaAllocation                mSpotMemory = VK_NULL_HANDLE;
+        MemoryAllocation                mSpotMemory = {};
         vk::ImageView                mSpotArrayView;
         std::vector<vk::ImageView>   mSpotLayerViews;
         std::vector<vk::Framebuffer> mSpotFramebuffers;
 
         vk::Image                    mPointImage;
-        VmaAllocation                mPointMemory = VK_NULL_HANDLE;
+        MemoryAllocation                mPointMemory = {};
         vk::ImageView                mPointArrayView;
         std::vector<vk::ImageView>   mPointSlotViews;
         std::vector<vk::Framebuffer> mPointFramebuffers;
@@ -176,8 +176,8 @@ namespace FREYA_NAMESPACE
         skr::Arc<Buffer> mUniformBuffer;
         vk::Sampler      mCompareSampler;
 
-        vk::DescriptorSetLayout        mShadowUboSetLayout = {};
-        vk::DescriptorPool             mShadowUboPool      = {};
+        vk::DescriptorSetLayout        mShadowUboSetLayout = VK_NULL_HANDLE;
+        vk::DescriptorPool             mShadowUboPool = VK_NULL_HANDLE;
         std::vector<vk::DescriptorSet> mShadowUboSets;
 
         std::uint32_t mCascadeCount;
