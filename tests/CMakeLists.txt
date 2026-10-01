@@ -14,7 +14,7 @@ FetchContent_MakeAvailable(googletest)
 include(GoogleTest)
 
 add_executable(FreyaTests BillboardDrawSpec.cpp EventManagerSpec.cpp FreyaOptionsSpec.cpp
-        GpuAnimationSpec.cpp GpuSceneSpec.cpp LightsSpec.cpp LimitsSpec.cpp LightingTechniqueRegistrySpec.cpp MaterialMaskSpec.cpp MeshLodSpec.cpp ParticleEmitterSpec.cpp SparseSetSpec.cpp SpinLockSpec.cpp UniformBufferSpec.cpp WindowConfigContextSpec.cpp UiDrawSpec.cpp UiLayoutSpec.cpp UiExtendedSpec.cpp
+        GpuAnimationSpec.cpp GpuSceneSpec.cpp LightsSpec.cpp LimitsSpec.cpp LightingTechniqueRegistrySpec.cpp MaterialMaskSpec.cpp MeshLodSpec.cpp ParticleEmitterSpec.cpp SparseSetSpec.cpp SpinLockSpec.cpp UniformBufferSpec.cpp WindowConfigContextSpec.cpp UiDrawSpec.cpp UiLayoutSpec.cpp UiExtendedSpec.cpp UiWidgetsSpec.cpp
         font_atlas_stub.cpp
         ui_model_preview_stub.cpp)
 

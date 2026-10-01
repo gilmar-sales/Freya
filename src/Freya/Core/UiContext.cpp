@@ -934,10 +934,19 @@ namespace FREYA_NAMESPACE
     {
         if (!value)
             return false;
-        Label(label, mStyle.Var(UiVar::FontSizeSmall));
-        const UiId   id = HashId(label);
-        const UiRect r  = Place(size);
-        mLastRect       = r;
+        return SliderFloatImpl(HashId(label), label, value, vMin, vMax, size);
+    }
+
+    bool UiContext::SliderFloatImpl(UiId id, std::string_view label,
+                                    float* value, float vMin, float vMax,
+                                    glm::vec2 size)
+    {
+        if (!value)
+            return false;
+        if (!label.empty())
+            Label(label, mStyle.Var(UiVar::FontSizeSmall));
+        const UiRect r = Place(size);
+        mLastRect      = r;
         RegisterFocusable(id, r);
         const bool hovered = Hit(r);
         if (hovered)
@@ -1653,12 +1662,20 @@ namespace FREYA_NAMESPACE
     {
         if (!value)
             return false;
-        float f = static_cast<float>(*value);
-        Label(label, mStyle.Var(UiVar::FontSizeSmall));
-        const bool changed = SliderFloat(label, &f, static_cast<float>(vMin),
-                                         static_cast<float>(vMax), size);
-        const int  rounded = static_cast<int>(std::round(f));
-        const int  clamped = std::clamp(rounded, vMin, vMax);
+        return SliderIntImpl(HashId(label), label, value, vMin, vMax, size);
+    }
+
+    bool UiContext::SliderIntImpl(UiId id, std::string_view label, int* value,
+                                  int vMin, int vMax, glm::vec2 size)
+    {
+        if (!value)
+            return false;
+        float      f = static_cast<float>(*value);
+        const bool changed =
+            SliderFloatImpl(id, label, &f, static_cast<float>(vMin),
+                            static_cast<float>(vMax), size);
+        const int rounded = static_cast<int>(std::round(f));
+        const int clamped = std::clamp(rounded, vMin, vMax);
         if (clamped != *value)
             *value = clamped;
         return changed;
@@ -1679,7 +1696,9 @@ namespace FREYA_NAMESPACE
             changed = true;
         }
         NextColumn();
-        SliderInt(id, value, vMin, vMax, { widths[1], size.y });
+        // No inner label: the host draws its own caption (if any) so the
+        // SpinBox id never leaks into the display.
+        SliderIntImpl(HashId(id), {}, value, vMin, vMax, { widths[1], size.y });
         // SliderInt already reports change; fold in.
         NextColumn();
         if (Button("+", { btnW, size.y }) && !IsDisabled())
@@ -1747,9 +1766,36 @@ namespace FREYA_NAMESPACE
             PushParent({ list.x + 4, list.y + 4, list.w - 8, list.h - 8 });
             for (std::size_t i = 0; i < items.size(); ++i)
             {
-                if (Selectable(std::string(id) + "##" + std::to_string(i),
-                               static_cast<int>(i) == *selected,
-                               { list.w - 8, itemH }))
+                // Unique per-combo identity, but the row displays the item
+                // text (never the internal id).
+                const UiId   rowId = HashId(id, static_cast<int>(i));
+                const UiRect row   = Place({ list.w - 8, itemH });
+                mLastRect          = row;
+                mLastId            = rowId;
+                RegisterFocusable(rowId, row);
+                const bool rowHovered = !disabled && Hit(row);
+                mLastHovered          = rowHovered;
+                if (rowHovered)
+                    mWantMouse = true;
+                const bool rowClicked =
+                    !disabled && rowHovered &&
+                    mMouseClicked[static_cast<int>(MouseButton::Left)];
+                mLastClicked = rowClicked;
+                if (rowClicked)
+                    TrackClick(rowId, row);
+                if (mDraw)
+                {
+                    if (static_cast<int>(i) == *selected || rowHovered)
+                        mDraw->Rect(row,
+                                    mStyle.Color(UiCol::ListSelected),
+                                    mStyle.Var(UiVar::Rounding));
+                    if (mStyle.font)
+                        mDraw->Text({ row.x + 8, row.y + 4, row.w - 8, row.h },
+                                    items[i], *mStyle.font,
+                                    mStyle.Var(UiVar::FontSizeSmall),
+                                    mStyle.Color(UiCol::Text));
+                }
+                if (rowClicked)
                 {
                     *selected = static_cast<int>(i);
                     changed   = true;
@@ -1777,10 +1823,9 @@ namespace FREYA_NAMESPACE
         const char* names[3] = { "R", "G", "B" };
         for (int i = 0; i < 3; ++i)
         {
-            const std::string sub = std::string(id) + "##c" + std::to_string(i);
-            if (SliderFloat(sub, &c[i], 0.f, 1.f, { 200.f, 22.f }))
+            if (SliderFloatImpl(HashId(id, i), names[i], &c[i], 0.f, 1.f,
+                                { 200.f, 22.f }))
                 changed = true;
-            (void) names;
         }
         if (changed)
             *rgb = { c[0], c[1], c[2] };

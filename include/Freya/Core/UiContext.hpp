@@ -324,10 +324,17 @@ namespace FREYA_NAMESPACE
             TextureHandle preview {};
         };
 
-        [[nodiscard]] UiId   HashId(std::string_view id) const;
-        [[nodiscard]] UiId   HashId(std::string_view id, int index) const;
-        WidgetState&         State(UiId id);
-        void                 AdvanceCursor(glm::vec2 size);
+        [[nodiscard]] UiId HashId(std::string_view id) const;
+        [[nodiscard]] UiId HashId(std::string_view id, int index) const;
+        WidgetState&       State(UiId id);
+        // Identity/display split for composite widgets (SpinBox, ColorEdit):
+        // public Slider* keeps label==id, internals pass explicit ids with
+        // their own display text (or empty to skip the label row).
+        bool SliderFloatImpl(UiId id, std::string_view label, float* value,
+                             float vMin, float vMax, glm::vec2 size);
+        bool SliderIntImpl(UiId id, std::string_view label, int* value,
+                           int vMin, int vMax, glm::vec2 size);
+        void AdvanceCursor(glm::vec2 size);
         [[nodiscard]] UiRect Place(glm::vec2 size);
         void                 DrawFocusRing(const UiRect& r);
         bool                 Hit(const UiRect& r) const;

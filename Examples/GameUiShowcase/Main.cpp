@@ -1103,6 +1103,7 @@ class MainApp final : public fra::AbstractApplication
 
         ui.SliderFloat("Volume", &mVolume01, 0.f, 1.f, { 320.f, 24.f });
         ui.SliderInt("Brightness", &mBrightness, 0, 100, { 320.f, 24.f });
+        ui.Label("Party size", ui.Style().Var(fra::UiVar::FontSizeSmall));
         ui.SpinBox("party_size", &mPartySize, 1, 6, 1, { 320.f, 32.f });
         ui.Separator();
 
@@ -1340,6 +1341,8 @@ class MainApp final : public fra::AbstractApplication
             }
             else if (mWizardStep == 1)
             {
+                ui.Label("Party size",
+                         ui.Style().Var(fra::UiVar::FontSizeSmall));
                 ui.SpinBox("wiz_party", &mPartySize, 1, 6, 1, { 320.f, 32.f });
                 ui.ToggleSwitch("Bring torch", &mCheckMusic);
             }
