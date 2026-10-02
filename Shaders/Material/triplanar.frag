@@ -13,7 +13,7 @@ layout (location = 7) flat in uint inMaterialId;
 
 layout (location = 0) out vec4 outAlbedo;
 layout (location = 1) out vec4 outNormal;
-layout (location = 2) out vec4 outPbr;
+layout (location = 2) out vec2 outPbr;
 layout (location = 3) out vec4 outSceneColor;
 layout (location = 4) out vec2 outVelocity;
 
@@ -21,15 +21,13 @@ layout (set = 1, binding = 0) uniform sampler2D uTextures[];
 
 #include "Include/material_gpu.inc"
 #include "Include/pbr_sample.inc"
+#include "Include/gbuffer.inc"
 
 layout (std430, set = 1, binding = 1) readonly buffer MaterialBuffer {
     MaterialGPU materials[];
 };
 
-const float kEmissiveIntensity = 2.0;
 const float kTriScale = 0.35;
-const uint kFlagReceiveShadow = 1u;
-const uint kFlagUnlit = 3u;
 
 vec3 TriplanarWeights(vec3 n) {
     vec3 w = abs(n);
@@ -78,28 +76,30 @@ void main() {
 
     outAlbedo = vec4(albedoLin, float(inMaterialId & 255u) / 255.0);
 
-    uint flags = 0u;
+    uint flags = kGBufferFlagNone;
     if ((mat.flags & kMaterialFlagUnlit) != 0u)
-        flags = kFlagUnlit;
+        flags = kGBufferFlagUnlit;
     else if ((mat.flags & kMaterialFlagReceiveShadow) != 0u)
-        flags = kFlagReceiveShadow;
-    outNormal = vec4(worldNormal * 0.5 + 0.5, float(flags) / 3.0);
+        flags = kGBufferFlagReceiveShadow;
 
     float roughness;
     float metalness;
     float ao;
     SamplePbrMaps(mat, inTexCoord, roughness, metalness, ao);
     float clearcoat = clamp(mat.clearcoat, 0.0, 1.0);
-    float pbrB = (clearcoat > 1e-3)
-                     ? max(mat.clearcoatRoughness, kMinRoughness)
-                     : ao;
-    outPbr = vec4(roughness, metalness, pbrB, clearcoat);
+    if (clearcoat > 1e-3) {
+        outNormal = GBufferPackNormal(worldNormal, roughness,
+                                      kGBufferVariantCoat, flags);
+        outPbr = GBufferPackPbrCoat(
+            metalness, clearcoat,
+            max(mat.clearcoatRoughness, kMinRoughness));
+    } else {
+        outNormal = GBufferPackNormal(worldNormal, roughness,
+                                      kGBufferVariantNone, flags);
+        outPbr = GBufferPackPbr(metalness, ao);
+    }
 
-    vec3 emissiveLin =
-        srgbToLinear(
-            texture(uTextures[nonuniformEXT(mat.emissiveIndex)], inTexCoord)
-                .rgb) *
-        mat.emissiveFactor.rgb;
-    outSceneColor = vec4(emissiveLin * kEmissiveIntensity, 0.0);
+    outSceneColor =
+        vec4(SampleEmissive(mat, inTexCoord) * kEmissiveIntensity, 0.0);
     outVelocity = inVelocity;
 }

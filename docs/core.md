@@ -453,7 +453,18 @@ UBO and cascade / spot / point maps.
 
 ## DeferredCompressedPass (internal, src-only)
 
-Balanced G-buffer (160-bit color with velocity) plus HDR scene color:
-depth pre-pass, then G-buffer (albedo+matID, normal+flags, PBR, HDR scene
-color with emissive, velocity RG16F). SSAO runs after geometry; lighting is
-a separate additive fullscreen pass, followed by TAA.
+Balanced G-buffer (22 B/px of color with velocity) plus HDR scene color:
+depth pre-pass, then G-buffer. SSAO runs after geometry; lighting is a
+separate additive fullscreen pass, followed by TAA.
+
+| RT | Format | Contents |
+|----|--------|----------|
+| Albedo | `RGBA8_SRGB` | albedo RGB, material ID (A) |
+| Normal | `A2B10G10R10` | octahedral normal (RG, 10+10), roughness(8)\|variant(2) (B), shading flags (A) |
+| PBR | `RG8` | metalness (R); AO, or clearcoat(4)\|coat roughness(4) when coated (G) |
+| Scene color | `RGBA16F` | emissive HDR, then lighting accumulation |
+| Velocity | `RG16F` | UV-space motion |
+
+Packing lives in `Shaders/Include/gbuffer.inc` (`GBufferPackNormal`,
+`GBufferUnpackNormal`, ...). Octahedral normals must not be sampled with a
+linear filter.

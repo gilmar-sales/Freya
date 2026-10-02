@@ -73,7 +73,7 @@ namespace FREYA_NAMESPACE
                 .setImageLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal);
         const auto normalInfo =
             vk::DescriptorImageInfo()
-                .setSampler(mLinearSampler)
+                .setSampler(mNearestSampler)
                 .setImageView(normalView)
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
         const auto lightBuf =

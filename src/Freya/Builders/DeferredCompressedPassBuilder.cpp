@@ -751,7 +751,7 @@ namespace FREYA_NAMESPACE
                             vk::ImageLayout::eShaderReadOnlyOptimal),
             colorAttachment(vk::Format::eA2B10G10R10UnormPack32,
                             vk::ImageLayout::eShaderReadOnlyOptimal),
-            colorAttachment(vk::Format::eR8G8B8A8Unorm,
+            colorAttachment(vk::Format::eR8G8Unorm,
                             vk::ImageLayout::eShaderReadOnlyOptimal),
             colorAttachment(vk::Format::eR16G16B16A16Sfloat,
                             vk::ImageLayout::eColorAttachmentOptimal),

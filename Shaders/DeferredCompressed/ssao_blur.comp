@@ -1,7 +1,10 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
 
 // Edge-aware separable bilateral; radius matches 4x4 SSAO noise tile.
 layout(local_size_x = 8, local_size_y = 8) in;
+
+#include "Include/gbuffer.inc"
 
 layout(binding = 0) uniform sampler2D ssaoIn;
 layout(binding = 1) uniform sampler2D normalBuffer;
@@ -33,7 +36,7 @@ void main() {
     vec2 uv = (vec2(pixel) + 0.5) * pc.invResolution;
     float centerAO = textureLod(ssaoIn, uv, 0.0).r;
     float centerDepth = textureLod(depthBuffer, uv, 0.0).r;
-    vec3 centerN = normalize(textureLod(normalBuffer, uv, 0.0).xyz * 2.0 - 1.0);
+    vec3 centerN = GBufferUnpackNormal(textureLod(normalBuffer, uv, 0.0));
 
     bool sky = pc.reverseZ > 0.5 ? (centerDepth <= 1e-6)
                                  : (centerDepth >= 0.999999);
@@ -57,7 +60,7 @@ void main() {
             float sampleAO = textureLod(ssaoIn, sampleUV, 0.0).r;
             float sampleDepth = textureLod(depthBuffer, sampleUV, 0.0).r;
             vec3 sampleN =
-                normalize(textureLod(normalBuffer, sampleUV, 0.0).xyz * 2.0 - 1.0);
+                GBufferUnpackNormal(textureLod(normalBuffer, sampleUV, 0.0));
 
             float sampleViewZ = ViewPosFromDepth(sampleUV, sampleDepth).z;
             float depthDiff = abs(sampleViewZ - centerViewZ);

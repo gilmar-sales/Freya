@@ -73,8 +73,9 @@ namespace FREYA_NAMESPACE
             case ImageUsage::GBufferNormal:
             case ImageUsage::GBufferPbr:
             case ImageUsage::GBufferVelocity:
+                // Lighting is a separate render pass that samples these;
+                // no subpass input is used.
                 imageInfo.setUsage(vk::ImageUsageFlagBits::eColorAttachment |
-                                   vk::ImageUsageFlagBits::eInputAttachment |
                                    vk::ImageUsageFlagBits::eSampled);
                 break;
             case ImageUsage::GBufferSceneColor:
@@ -498,11 +499,13 @@ namespace FREYA_NAMESPACE
                 mFormat = vk::Format::eR8G8B8A8Srgb;
                 break;
             case ImageUsage::GBufferNormal:
+                // Octahedral normal (RG) + roughness|variant (B) + flags (A);
+                // see Shaders/Include/gbuffer.inc.
                 mFormat = vk::Format::eA2B10G10R10UnormPack32;
                 break;
             case ImageUsage::GBufferPbr:
-                // R roughness, G metallic, B AO or coat roughness, A clearcoat
-                mFormat = vk::Format::eR8G8B8A8Unorm;
+                // R metalness, G AO (or clearcoat|coat roughness nibbles)
+                mFormat = vk::Format::eR8G8Unorm;
                 break;
             case ImageUsage::GBufferSceneColor:
                 mFormat = vk::Format::eR16G16B16A16Sfloat;

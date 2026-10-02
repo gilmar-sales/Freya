@@ -75,9 +75,6 @@ push;
 
 layout(location = 0) out vec4 outColor;
 
-const uint kFlagReceiveShadow = 1u;
-const uint kFlagUnlit         = 3u;
-
 vec2 gLightingUV;
 
 #define PBR_WITH_SHADOWS
@@ -86,11 +83,7 @@ vec2 gLightingUV;
 #include "Include/pbr_ibl.inc"
 #include "Include/shadows.inc"
 #include "Include/pbr_shade.inc"
-
-uint UnpackFlags(float a)
-{
-    return uint(clamp(round(a * 3.0), 0.0, 3.0));
-}
+#include "Include/gbuffer.inc"
 
 vec3 ReconstructWorldPos(vec2 uv, float depth)
 {
@@ -134,7 +127,7 @@ void main()
         }
         if (push.debugMode == 2u)
         { // World normal
-            vec3 N   = normalize(texture(inNormal, inUV).rgb * 2.0 - 1.0);
+            vec3 N   = GBufferUnpackNormal(texture(inNormal, inUV));
             outColor = vec4(N * 0.5 + 0.5, 0.0);
             return;
         }
@@ -146,18 +139,20 @@ void main()
         }
         if (push.debugMode == 4u)
         { // Roughness
-            outColor = vec4(vec3(texture(inPbr, inUV).r), 0.0);
+            outColor = vec4(vec3(GBufferUnpackRoughness(texture(inNormal, inUV))), 0.0);
             return;
         }
         if (push.debugMode == 5u)
         { // Metalness
-            outColor = vec4(vec3(texture(inPbr, inUV).g), 0.0);
+            outColor = vec4(vec3(GBufferUnpackMetalness(texture(inPbr, inUV).rg)), 0.0);
             return;
         }
         if (push.debugMode == 6u)
         { // Material AO (PBR.b when uncoated)
-            vec4  pbr = texture(inPbr, inUV);
-            float ao  = (pbr.a > 1e-3) ? 1.0 : pbr.b;
+            vec4  nrm = texture(inNormal, inUV);
+            float ao  = (GBufferUnpackVariant(nrm) == kGBufferVariantCoat)
+                            ? 1.0
+                            : GBufferUnpackAo(texture(inPbr, inUV).rg);
             outColor  = vec4(vec3(ao), 0.0);
             return;
         }
@@ -182,9 +177,10 @@ void main()
         if (push.debugMode == 11u)
         { // Shadows
             vec3  fragPos = ReconstructWorldPos(inUV, depth);
-            vec3  N       = normalize(texture(inNormal, inUV).rgb * 2.0 - 1.0);
-            uint  flags   = UnpackFlags(texture(inNormal, inUV).a);
-            bool  receiveShadow = (flags == kFlagReceiveShadow);
+            vec4  nrm     = texture(inNormal, inUV);
+            vec3  N       = GBufferUnpackNormal(nrm);
+            uint  flags   = GBufferUnpackFlags(nrm);
+            bool  receiveShadow = (flags == kGBufferFlagReceiveShadow);
             float minShadow     = 1.0;
             for (int i = 0; i < int(lights.lightCount); i++)
             {
@@ -218,10 +214,10 @@ void main()
 
     vec4 albedoSample = texture(inAlbedo, inUV);
     vec4 normalSample = texture(inNormal, inUV);
-    vec4 pbrSample    = texture(inPbr, inUV);
+    vec2 pbrSample    = texture(inPbr, inUV).rg;
 
-    uint flags = UnpackFlags(normalSample.a);
-    if (flags == kFlagUnlit)
+    uint flags = GBufferUnpackFlags(normalSample);
+    if (flags == kGBufferFlagUnlit)
     {
         discard;
     }
@@ -229,29 +225,34 @@ void main()
     vec3 fragPos = ReconstructWorldPos(inUV, depth);
     // The sRGB G-buffer performs the RGB decode during sampling.
     vec3  albedo    = albedoSample.rgb;
-    float roughness = max(pbrSample.r, kMinRoughness);
-    float metalness = pbrSample.g;
+    float roughness = max(GBufferUnpackRoughness(normalSample), kMinRoughness);
+    float metalness = GBufferUnpackMetalness(pbrSample);
+    uint  variant   = GBufferUnpackVariant(normalSample);
 #ifdef FREYA_CEL_LIGHTING
-    // gbuffer_cell: PBR.a = 1 marks cel (not clearcoat).
-    bool  applyCel  = pbrSample.a > 0.5;
-    float clearcoat = applyCel ? 0.0 : clamp(pbrSample.a, 0.0, 1.0);
+    // gbuffer_cell marks cel pixels with the cel variant (not clearcoat).
+    bool  applyCel  = (variant == kGBufferVariantCel);
+    float clearcoat = (variant == kGBufferVariantCoat)
+                          ? GBufferUnpackClearcoat(pbrSample)
+                          : 0.0;
 #else
-    float clearcoat = clamp(pbrSample.a, 0.0, 1.0);
+    float clearcoat = (variant == kGBufferVariantCoat)
+                          ? GBufferUnpackClearcoat(pbrSample)
+                          : 0.0;
 #endif
-    // PBR.b is coat roughness when coated, else material AO.
+    // G channel is coat roughness when coated, else material AO.
     float coatRoughness = kMinRoughness;
     float ao;
     if (clearcoat > 1e-3)
     {
-        coatRoughness = max(pbrSample.b, kMinRoughness);
+        coatRoughness = max(GBufferUnpackCoatRoughness(pbrSample), kMinRoughness);
         ao            = ssao;
     }
     else
     {
-        ao = min(pbrSample.b, ssao);
+        ao = min(GBufferUnpackAo(pbrSample), ssao);
     }
 
-    vec3 N  = normalize(normalSample.rgb * 2.0 - 1.0);
+    vec3 N  = GBufferUnpackNormal(normalSample);
     vec3 V  = normalize(lights.viewPosition.xyz - fragPos);
     vec3 F0 = mix(kDielectricF0, albedo, metalness);
 
@@ -261,7 +262,7 @@ void main()
         (clearcoat < 1e-3) ? 1.0
                            : (1.0 - clearcoat * max(Fc.r, max(Fc.g, Fc.b)));
 
-    bool receiveShadow = (flags == kFlagReceiveShadow);
+    bool receiveShadow = (flags == kGBufferFlagReceiveShadow);
     vec3 totalLighting =
         calculateIBL(N, V, albedo, roughness, metalness, F0, coatSpecAtten) *
         ao;
@@ -316,7 +317,7 @@ void main()
 #ifdef FREYA_CEL_LIGHTING
     if (!applyCel)
     {
-        outColor = vec4(totalLighting * lights.exposure, 0.0);
+        outColor = vec4(max(totalLighting * lights.exposure, 0.0), 0.0);
         return;
     }
 
@@ -330,6 +331,6 @@ void main()
     float       cel         = floor(soft * kBands + 1e-4) / kBands;
     outColor                = vec4(albedo * cel * lights.exposure, 0.0);
 #else
-    outColor = vec4(totalLighting * lights.exposure, 0.0);
+    outColor = vec4(max(totalLighting * lights.exposure, 0.0), 0.0);
 #endif
 }

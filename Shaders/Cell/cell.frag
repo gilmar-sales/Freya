@@ -1,4 +1,5 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
 
 layout(location = 0) in vec2 inUV;
 layout(location = 0) out vec4 outColor;
@@ -6,6 +7,8 @@ layout(location = 0) out vec4 outColor;
 layout(set = 0, binding = 0) uniform sampler2D inScene;
 layout(set = 0, binding = 1) uniform sampler2D inDepth;
 layout(set = 0, binding = 2) uniform sampler2D inNormal;
+
+#include "Include/gbuffer.inc"
 
 layout(set = 1, binding = 0) uniform sampler2D inAlbedo;
 layout(std140, set = 1, binding = 1) uniform MaterialMask {
@@ -29,7 +32,7 @@ float SampleDepth(vec2 uv) {
 }
 
 vec3 SampleNormal(vec2 uv) {
-    return normalize(texture(inNormal, uv).rgb * 2.0 - 1.0);
+    return GBufferUnpackNormal(texture(inNormal, uv));
 }
 
 bool IsSky(float depth) {

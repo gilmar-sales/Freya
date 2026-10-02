@@ -22,4 +22,15 @@ void SamplePbrMaps(MaterialGPU mat, vec2 uv, out float roughness,
     ao = clamp(occ * mat.emissiveFactor.w, 0.0, 1.0);
 }
 
+// Emissive radiance (linear, unscaled by kEmissiveIntensity). Skips the
+// bindless fetch for the common case of a material without emissive.
+vec3 SampleEmissive(MaterialGPU mat, vec2 uv) {
+    if (mat.emissiveIndex == kBindlessBlackTexture ||
+        dot(mat.emissiveFactor.rgb, vec3(1.0)) <= 0.0)
+        return vec3(0.0);
+    return srgbToLinear(
+               texture(uTextures[nonuniformEXT(mat.emissiveIndex)], uv).rgb) *
+           mat.emissiveFactor.rgb;
+}
+
 #endif

@@ -13,7 +13,7 @@ layout (location = 7) flat in uint inMaterialId;
 
 layout (location = 0) out vec4 outAlbedo;
 layout (location = 1) out vec4 outNormal;
-layout (location = 2) out vec4 outPbr;
+layout (location = 2) out vec2 outPbr;
 layout (location = 3) out vec4 outSceneColor;
 layout (location = 4) out vec2 outVelocity;
 
@@ -21,13 +21,11 @@ layout (set = 1, binding = 0) uniform sampler2D uTextures[];
 
 #include "Include/material_gpu.inc"
 #include "Include/pbr_sample.inc"
+#include "Include/gbuffer.inc"
 
 layout (std430, set = 1, binding = 1) readonly buffer MaterialBuffer {
     MaterialGPU materials[];
 };
-
-const float kEmissiveIntensity = 2.0;
-const uint kFlagUnlit = 3u;
 
 void main() {
     MaterialGPU mat = materials[inMaterialId];
@@ -48,15 +46,12 @@ void main() {
 
     vec3 albedoLin =
         srgbToLinear(albedoSample.rgb) * inColor * mat.albedoFactor.rgb;
-    vec3 emissiveLin =
-        srgbToLinear(
-            texture(uTextures[nonuniformEXT(mat.emissiveIndex)], inTexCoord)
-                .rgb) *
-        mat.emissiveFactor.rgb;
+    vec3 emissiveLin = SampleEmissive(mat, inTexCoord);
 
     outAlbedo = vec4(albedoLin, float(inMaterialId & 255u) / 255.0);
-    outNormal = vec4(worldNormal * 0.5 + 0.5, float(kFlagUnlit) / 3.0);
-    outPbr = vec4(1.0, 0.0, 1.0, 0.0);
+    outNormal = GBufferPackNormal(worldNormal, 1.0, kGBufferVariantNone,
+                                  kGBufferFlagUnlit);
+    outPbr = GBufferPackPbr(0.0, 1.0);
     // Unlit path in lighting uses emissive/scene; fold albedo into HDR.
     outSceneColor =
         vec4((albedoLin + emissiveLin) * kEmissiveIntensity, 0.0);

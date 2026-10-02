@@ -1,6 +1,9 @@
 #ifndef MATERIAL_GPU_INC
 #define MATERIAL_GPU_INC
 
+// Must match C++ kBindlessBlackTexture (GpuScene.hpp).
+const uint kBindlessBlackTexture = 1u;
+
 const uint kMaterialFlagPackedMR = 1u;
 const uint kMaterialFlagUnlit = 2u;
 const uint kMaterialFlagDoubleSided = 4u;

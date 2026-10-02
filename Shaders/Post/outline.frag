@@ -8,6 +8,8 @@ layout(set = 0, binding = 0) uniform sampler2D inScene;
 layout(set = 0, binding = 1) uniform sampler2D inDepth;
 layout(set = 0, binding = 2) uniform sampler2D inNormal;
 
+#include "Include/gbuffer.inc"
+
 #include "Include/post_mask.inc"
 
 layout(push_constant) uniform OutlinePush {
@@ -25,7 +27,7 @@ layout(push_constant) uniform OutlinePush {
 float SampleDepth(vec2 uv) { return texture(inDepth, uv).r; }
 
 vec3 SampleNormal(vec2 uv) {
-    return normalize(texture(inNormal, uv).rgb * 2.0 - 1.0);
+    return GBufferUnpackNormal(texture(inNormal, uv));
 }
 
 bool IsSky(float depth) {

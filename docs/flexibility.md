@@ -240,8 +240,11 @@ auto mat = materialPool->Create({
 
 Up to `kMaxTechniques` (8) slots. Shadow / pick / OIT stay on stock
 shaders; lighting uses `LightingTechniqueRegistry` (default stock). Custom
-G-buffer fragments must still write albedo+matID, normal+flags, PBR,
-emissive HDR, and velocity.
+G-buffer fragments must still write albedo+matID, normal, PBR, emissive HDR,
+and velocity. Include `Include/gbuffer.inc` and use `GBufferPackNormal` /
+`GBufferPackPbr` (or `GBufferPackPbrCoat`) for locations 1 and 2 (`vec4` and
+`vec2`) and `SampleEmissive` + `kEmissiveIntensity` for emissive; post
+effects reading the normal target must decode it with `GBufferUnpackNormal`.
 
 Stock technique frags under `Shaders/Material/`:
 

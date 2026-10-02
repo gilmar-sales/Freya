@@ -110,7 +110,7 @@ namespace FREYA_NAMESPACE
                 .setImageView(depthView)
                 .setImageLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal),
             vk::DescriptorImageInfo {}
-                .setSampler(mLinearSampler)
+                .setSampler(mNearestSampler)
                 .setImageView(normalView)
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
             vk::DescriptorImageInfo {}
@@ -126,7 +126,7 @@ namespace FREYA_NAMESPACE
                 .setImageView(mSsaoRawImage->GetImageView())
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
             vk::DescriptorImageInfo {}
-                .setSampler(mLinearSampler)
+                .setSampler(mNearestSampler)
                 .setImageView(normalView)
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
             vk::DescriptorImageInfo {}
@@ -142,7 +142,7 @@ namespace FREYA_NAMESPACE
                 .setImageView(mBlurImages[0]->GetImageView())
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
             vk::DescriptorImageInfo {}
-                .setSampler(mLinearSampler)
+                .setSampler(mNearestSampler)
                 .setImageView(normalView)
                 .setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
             vk::DescriptorImageInfo {}
