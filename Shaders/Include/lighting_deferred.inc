@@ -63,6 +63,11 @@ layout(set = 0, binding = 14) uniform samplerCubeArrayShadow pointShadowMap;
 layout(set = 0, binding = 15) uniform sampler2D inSsao;
 layout(set = 0, binding = 16) uniform sampler2D inVelocity;
 layout(set = 0, binding = 17) uniform sampler2D directionalShadowMask;
+// Order-2 SH of the irradiance map: diffuse IBL without a texture fetch.
+layout(set = 0, binding = 18) uniform IrradianceShBuffer
+{
+    vec4 irradianceSh[9];
+};
 
 layout(push_constant) uniform LightingPush
 {
@@ -78,6 +83,7 @@ layout(location = 0) out vec4 outColor;
 vec2 gLightingUV;
 
 #define PBR_WITH_SHADOWS
+#define FREYA_IBL_SH
 #define FREYA_DIRECTIONAL_SHADOW_MASK
 #include "Include/ltc.inc"
 #include "Include/pbr_ibl.inc"

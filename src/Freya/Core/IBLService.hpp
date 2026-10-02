@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Core/Buffer.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/Image.hpp"
 #include "Freya/FreyaOptions.hpp"
@@ -35,6 +36,11 @@ namespace FREYA_NAMESPACE
         skr::Arc<Image> GetEnvironmentMap() const { return mEnvironment; }
         skr::Arc<Image> GetIrradianceMap() const { return mIrradiance; }
         skr::Arc<Image> GetBrdfLut() const { return mBrdfLut; }
+        /// std140 `vec4[9]` order-2 SH of the irradiance map (diffuse IBL).
+        skr::Arc<Buffer> GetIrradianceShBuffer() const
+        {
+            return mIrradianceSh;
+        }
         skr::Arc<Image> GetLtcMatrixMap() const { return mLtcMatrix; }
         skr::Arc<Image> GetLtcAmplMap() const { return mLtcAmpl; }
 
@@ -55,8 +61,8 @@ namespace FREYA_NAMESPACE
 
         bool IsReady() const
         {
-            return mEnvironment && mIrradiance && mBrdfLut && mLtcMatrix &&
-                   mLtcAmpl;
+            return mEnvironment && mIrradiance && mIrradianceSh && mBrdfLut &&
+                   mLtcMatrix && mLtcAmpl;
         }
 
       private:
@@ -92,6 +98,7 @@ namespace FREYA_NAMESPACE
 
         skr::Arc<Image> mEnvironment;
         skr::Arc<Image> mIrradiance;
+        skr::Arc<Buffer> mIrradianceSh;
         skr::Arc<Image> mBrdfLut;
         skr::Arc<Image> mLtcMatrix;
         skr::Arc<Image> mLtcAmpl;

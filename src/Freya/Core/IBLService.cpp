@@ -1,6 +1,8 @@
 #include "Freya/Core/IBLService.hpp"
 
+#include "Freya/Builders/BufferBuilder.hpp"
 #include "Freya/Builders/ImageBuilder.hpp"
+#include "Freya/Internal/IrradianceSh.hpp"
 #include "Freya/Vendor/stb_image.h"
 
 #include <algorithm>
@@ -970,6 +972,15 @@ namespace FREYA_NAMESPACE
             uploadFloatRgbMipChain(prefiltered, envW, envH, mipCount);
         mLogger->LogTrace("\tUploading irradiance");
         mIrradiance = uploadFloatRgb(irradiance, kIrrW, kIrrH, false);
+
+        // Diffuse IBL is evaluated from SH9 in the lighting shader; fit it
+        // to the (cached or freshly baked) irradiance map.
+        auto sh = ProjectIrradianceSh(irradiance, kIrrW, kIrrH);
+        mIrradianceSh = BufferBuilder(mDevice)
+                            .SetUsage(BufferUsage::Uniform)
+                            .SetSize(sizeof(IrradianceSh))
+                            .SetData(&sh)
+                            .Build();
 
         std::vector<float> lut;
         const auto         brdfPath = CacheFilePath(BrdfCacheFileName());

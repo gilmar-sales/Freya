@@ -312,7 +312,7 @@ namespace FREYA_NAMESPACE
             uboBinding(4),  uboBinding(5),  cisBinding(6),  cisBinding(7),
             cisBinding(8),  cisBinding(9),  cisBinding(10), uboBinding(11),
             cisBinding(12), cisBinding(13), cisBinding(14), cisBinding(15),
-            cisBinding(16), cisBinding(17),
+            cisBinding(16), cisBinding(17), uboBinding(18),
         };
 
         auto lightingSetLayout = mDevice->Get().createDescriptorSetLayout(
@@ -324,7 +324,7 @@ namespace FREYA_NAMESPACE
                 .setDescriptorCount(15 * mFreyaOptions->frameCount),
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eUniformBuffer)
-                .setDescriptorCount(3 * mFreyaOptions->frameCount),
+                .setDescriptorCount(4 * mFreyaOptions->frameCount),
         };
 
         auto lightingDescriptorPool = mDevice->Get().createDescriptorPool(
@@ -512,6 +512,21 @@ namespace FREYA_NAMESPACE
             mDevice->Get().updateDescriptorSets(
                 static_cast<std::uint32_t>(iblWrites.size()), iblWrites.data(),
                 0, nullptr);
+
+            auto irradianceShInfo =
+                vk::DescriptorBufferInfo()
+                    .setBuffer(mIblService->GetIrradianceShBuffer()->Get())
+                    .setOffset(0)
+                    .setRange(vk::WholeSize);
+            auto irradianceShWrite =
+                vk::WriteDescriptorSet()
+                    .setDstSet(set)
+                    .setDstBinding(18)
+                    .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                    .setDescriptorCount(1)
+                    .setBufferInfo(irradianceShInfo);
+            mDevice->Get().updateDescriptorSets(1, &irradianceShWrite, 0,
+                                                nullptr);
 
             auto shadowUboInfo =
                 vk::DescriptorBufferInfo()
