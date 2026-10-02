@@ -247,7 +247,7 @@ class MainApp final : public fra::AbstractApplication
                 .transmission    = 0.88f,
                 .ior             = 1.52f,
                 .flags           = fra::MaterialFlags::DoubleSided |
-                                   fra::MaterialFlags::ReceiveShadow,
+                         fra::MaterialFlags::ReceiveShadow,
             });
         }
     }
@@ -269,31 +269,23 @@ class MainApp final : public fra::AbstractApplication
         mScene.Add(inst);
     }
 
-    // ── Church geometry ────────────────────────────────────────────────────
     void buildChurch()
     {
-        // Floor — +Y: p0=(x0,y,z0) p1=(x0,y,z1) p2=(x1,y,z1) p3=(x1,y,z0)
         addInst(
             BuildQuad(*mMeshPool, { -7.f, 0.f, 0.f }, { -7.f, 0.f, 24.f },
                       { 7.f, 0.f, 24.f }, { 7.f, 0.f, 0.f }, { 0.f, 1.f, 0.f }),
             mStoneMat, glm::mat4(1.f));
 
-        // Left solid wall (x=-6, normal +X toward nave)
-        // +X: p0=(x,y0,z0) p1=(x,y1,z0) p2=(x,y1,z1) p3=(x,y0,z1)
         addInst(BuildQuad(*mMeshPool, { -6.f, 0.f, 0.f }, { -6.f, 10.f, 0.f },
                           { -6.f, 10.f, 24.f }, { -6.f, 0.f, 24.f },
                           { 1.f, 0.f, 0.f }),
                 mStoneMat, glm::mat4(1.f));
 
-        // Front wall (z=0, normal +Z)
-        // +Z: p0=(x0,y0,z) p1=(x1,y0,z) p2=(x1,y1,z) p3=(x0,y1,z)
         addInst(BuildQuad(*mMeshPool, { -6.f, 0.f, 0.f }, { 6.f, 0.f, 0.f },
                           { 6.f, 10.f, 0.f }, { -6.f, 10.f, 0.f },
                           { 0.f, 0.f, 1.f }),
                 mStoneMat, glm::mat4(1.f));
 
-        // Back wall (z=24, normal -Z)
-        // -Z: p0=(x1,y0,z) p1=(x0,y0,z) p2=(x0,y1,z) p3=(x1,y1,z)
         addInst(BuildQuad(*mMeshPool, { 6.f, 0.f, 24.f }, { -6.f, 0.f, 24.f },
                           { -6.f, 10.f, 24.f }, { 6.f, 10.f, 24.f },
                           { 0.f, 0.f, -1.f }),
@@ -358,14 +350,12 @@ class MainApp final : public fra::AbstractApplication
                               { 6.f, 6.f, z0 }, { 6.f, 3.f, z0 },
                               { -1.f, 0.f, 0.f }),
                     mGlassMat[i], glm::mat4(1.f),
-                    fra::SceneInstanceFlags::None);
+                    fra::SceneInstanceFlags::Translucent);
         }
     }
 
-    // Right wall: bottom strip, top strip, 5 pilasters around windows
     void buildRightWall()
     {
-        // -X: p0=(x,y0,z1) p1=(x,y1,z1) p2=(x,y1,z0) p3=(x,y0,z0)
         auto addPanel = [&](float y0, float y1, float z0, float z1) {
             addInst(
                 BuildQuad(*mMeshPool, { 6.f, y0, z1 }, { 6.f, y1, z1 },
