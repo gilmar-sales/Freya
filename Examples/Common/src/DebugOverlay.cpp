@@ -3,34 +3,64 @@
 
 #include <Freya/Advanced.hpp>
 
-#include <vulkan/vulkan.h>
-
-#include <imgui.h>
-#include <imgui_impl_sdl3.h>
-#include <imgui_impl_vulkan.h>
-
-#include <SDL3/SDL.h>
-
 #include <algorithm>
+#include <array>
 #include <cstdio>
-#include <cstring>
+#include <span>
+#include <string_view>
 
 namespace FreyaExamples
 {
     namespace
     {
-        void checkVk(const VkResult err)
+        constexpr const char* kFontPath =
+            "./Resources/Fonts/NotoSans-Regular.ttf";
+
+        constexpr std::array<std::string_view, 5> kQualityItems = {
+            "Low", "Medium", "High", "Ultra", "Off"
+        };
+
+        constexpr std::array<std::string_view, 12> kDebugViews = {
+            "Lit",          "Albedo",      "Normal",   "Depth",
+            "Roughness",    "Metalness",   "Material AO", "Material ID",
+            "Velocity",     "SSAO Blurred", "SSAO Raw",  "Shadows"
+        };
+
+        // Window content metrics (logical px; the overlay UI runs at the
+        // host UI scale).
+        constexpr float kWindowW   = 400.f;
+        constexpr float kContentW  = kWindowW - 36.f;
+        constexpr float kRowH      = 30.f;
+        constexpr float kHeaderH   = 38.f;
+        constexpr float kWrapWidth = kContentW - 8.f;
+
+        template <typename... Args>
+        std::string Format(const char* fmt, Args... args)
         {
-            if (err != VK_SUCCESS)
-                std::fprintf(stderr, "Vulkan error %d in DebugOverlay\n",
-                             static_cast<int>(err));
+            char buf[256];
+            std::snprintf(buf, sizeof(buf), fmt, args...);
+            return buf;
         }
 
-        const char* QualityLabel(const int index)
+        // Two-column "label  value" row (the UI font is proportional).
+        void StatRow(fra::UiContext& ui, std::string_view id,
+                     std::string_view label, const std::string& value)
         {
-            static constexpr const char* k[] = { "Low", "Medium", "High",
-                                                 "Ultra", "Off" };
-            return (index >= 0 && index <= 4) ? k[index] : "?";
+            float widths[] = { 200.f, 150.f };
+            ui.BeginColumns(id, 2, widths);
+            ui.Label(label, 14.f);
+            ui.NextColumn();
+            ui.Label(value, 14.f);
+            ui.EndColumns();
+        }
+
+        // Quality combo with a caption row. Returns true when changed.
+        bool QualityCombo(fra::UiContext& ui, std::string_view id, int* value)
+        {
+            ui.Label(id, 14.f);
+            return ui.ComboBox(
+                id, std::span<const std::string_view>(kQualityItems), value,
+                { kContentW, 30.f });
         }
     } // namespace
 
@@ -39,313 +69,70 @@ namespace FreyaExamples
         Shutdown();
     }
 
-    void DebugOverlay::onNativeEvent(const void* nativeEvent, void* user)
+    bool DebugOverlay::Init(fra::Renderer&                        renderer,
+                            fra::Window&                          window,
+                            const skr::Arc<skr::ServiceProvider>& services)
     {
-        auto* self = static_cast<DebugOverlay*>(user);
-        if (!self || !self->mInitialized || !nativeEvent)
-            return;
-        ImGui_ImplSDL3_ProcessEvent(static_cast<const SDL_Event*>(nativeEvent));
-    }
-
-    bool DebugOverlay::createDescriptorPool(void* vkDevice)
-    {
-        auto* device = static_cast<VkDevice>(vkDevice);
-        if (!device)
-            return false;
-
-        VkDescriptorPoolSize poolSizes[] = {
-            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 256 },
-        };
-        VkDescriptorPoolCreateInfo poolInfo {};
-        poolInfo.sType   = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        poolInfo.flags   = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-        poolInfo.maxSets = 256;
-        poolInfo.poolSizeCount = static_cast<uint32_t>(std::size(poolSizes));
-        poolInfo.pPoolSizes    = poolSizes;
-
-        VkDescriptorPool pool = VK_NULL_HANDLE;
-        if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &pool) !=
-            VK_SUCCESS)
-            return false;
-        mDescriptorPool = pool;
-        return true;
-    }
-
-    void DebugOverlay::destroyDescriptorPool(void* vkDevice)
-    {
-        auto* device = static_cast<VkDevice>(vkDevice);
-        if (device && mDescriptorPool)
-        {
-            vkDestroyDescriptorPool(
-                device, static_cast<VkDescriptorPool>(mDescriptorPool),
-                nullptr);
-            mDescriptorPool = nullptr;
-        }
-    }
-
-    bool DebugOverlay::Init(fra::Renderer&  renderer,
-                            fra::Window&    window,
-                            fra::IPlatform& platform)
-    {
+        (void) window;
         if (mInitialized)
             return true;
 
-        const auto width  = window.GetWidth();
-        const auto height = window.GetHeight();
-        auto       adv    = fra::Advanced(renderer);
-        if (!adv.SetViewportTarget(width, height))
+        mEvents = services->GetService<fra::EventManager>();
+        auto textures = services->GetService<fra::TexturePool>();
+        if (!mEvents || !textures)
         {
-            std::fprintf(stderr, "DebugOverlay: SetViewportTarget failed\n");
+            std::fprintf(stderr, "DebugOverlay: missing engine services\n");
             return false;
         }
 
-        auto handles = adv.GetImGuiNativeHandles();
-        if (!handles.device || !handles.window || !handles.renderPass)
-        {
-            std::fprintf(stderr,
-                         "DebugOverlay: incomplete ImGui native handles\n");
-            return false;
-        }
+        mFont = fra::FontAtlas::Create(*textures, kFontPath);
+        if (!mFont.Valid())
+            std::fprintf(stderr, "DebugOverlay: failed to load %s\n",
+                         kFontPath);
 
-        mDevice    = handles.device;
-        mRenderer  = &renderer;
-        mPlatform  = &platform;
-        mSdlWindow = handles.window;
+        mRenderer = &renderer;
+        mUi.SetDraw(renderer.GetUiContext().GetDraw());
+        mUi.BindEvents(*mEvents);
 
-        if (!createDescriptorPool(handles.device))
-        {
-            std::fprintf(stderr,
-                         "DebugOverlay: descriptor pool creation failed\n");
-            return false;
-        }
+        mEvents->Subscribe<fra::KeyReleasedEvent>(
+            [this, alive = mAlive](const fra::KeyReleasedEvent& event) {
+                if (*alive && mInitialized &&
+                    event.key == fra::KeyCode::F1)
+                    mEnabled = !mEnabled;
+            });
 
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGuiIO& io = ImGui::GetIO();
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-
-        ImGui::StyleColorsDark();
-
-        if (!ImGui_ImplSDL3_InitForVulkan(
-                static_cast<SDL_Window*>(handles.window)))
-        {
-            std::fprintf(stderr, "DebugOverlay: SDL3 ImGui init failed\n");
-            Shutdown();
-            return false;
-        }
-
-        if (!reinitVulkanBackend(renderer))
-        {
-            Shutdown();
-            return false;
-        }
-
-        platform.SetNativeEventObserver(&DebugOverlay::onNativeEvent, this);
+        mLastDraw    = std::chrono::steady_clock::now();
         mInitialized = true;
         return true;
     }
 
-    bool DebugOverlay::reinitVulkanBackend(fra::Renderer& renderer)
+    void DebugOverlay::Shutdown()
     {
-        auto handles = fra::Advanced(renderer).GetImGuiNativeHandles();
-        if (!handles.device || !handles.renderPass)
-        {
-            std::fprintf(stderr,
-                         "DebugOverlay: incomplete ImGui native handles\n");
-            return false;
-        }
-
-        // Required when the TU was built with VK_NO_PROTOTYPES /
-        // IMGUI_IMPL_VULKAN_NO_PROTOTYPES; harmless when prototypes are linked.
-        if (!ImGui_ImplVulkan_LoadFunctions(
-                [](const char* functionName, void* userData) {
-                    return vkGetInstanceProcAddr(
-                        static_cast<VkInstance>(userData), functionName);
-                },
-                handles.instance))
-        {
-            std::fprintf(stderr,
-                         "DebugOverlay: ImGui Vulkan LoadFunctions failed\n");
-            return false;
-        }
-
-        ImGui_ImplVulkan_InitInfo initInfo {};
-        initInfo.Instance = static_cast<VkInstance>(handles.instance);
-        initInfo.PhysicalDevice =
-            static_cast<VkPhysicalDevice>(handles.physicalDevice);
-        initInfo.Device      = static_cast<VkDevice>(handles.device);
-        initInfo.QueueFamily = handles.graphicsQueueFamily;
-        initInfo.Queue       = static_cast<VkQueue>(handles.graphicsQueue);
-        initInfo.DescriptorPool =
-            static_cast<VkDescriptorPool>(mDescriptorPool);
-        initInfo.MinImageCount = std::max(2u, handles.minImageCount);
-        initInfo.ImageCount    = std::max(2u, handles.minImageCount);
-        initInfo.MSAASamples   = VK_SAMPLE_COUNT_1_BIT;
-        initInfo.RenderPass    = static_cast<VkRenderPass>(handles.renderPass);
-        initInfo.CheckVkResultFn = checkVk;
-
-        if (!ImGui_ImplVulkan_Init(&initInfo))
-        {
-            std::fprintf(stderr, "DebugOverlay: Vulkan ImGui init failed\n");
-            return false;
-        }
-        if (!ImGui_ImplVulkan_CreateFontsTexture())
-        {
-            std::fprintf(stderr,
-                         "DebugOverlay: failed to recreate ImGui fonts\n");
-            return false;
-        }
-        mBoundRenderPass = handles.renderPass;
-        mBoundImageCount = initInfo.ImageCount;
-        return true;
-    }
-
-    void DebugOverlay::rebindImGuiIfSwapchainChanged()
-    {
-        if (!mInitialized || !mRenderer || !mDevice)
-            return;
-
-        auto handles = fra::Advanced(*mRenderer).GetImGuiNativeHandles();
-        if (!handles.renderPass)
-            return;
-
-        const auto imageCount = std::max(2u, handles.minImageCount);
-        if (handles.renderPass == mBoundRenderPass &&
-            imageCount == mBoundImageCount)
-            return;
-
-        // CompositePass / swapchain UI RP was rebuilt (resize, samples,
-        // etc.). ImGui must be rebound or RenderDrawData hits a destroyed
-        // render pass and the frame stalls with no validation noise.
-        vkDeviceWaitIdle(static_cast<VkDevice>(mDevice));
-        releaseViewportTexture();
-        ImGui_ImplVulkan_Shutdown();
-        if (!reinitVulkanBackend(*mRenderer))
-        {
-            std::fprintf(stderr,
-                         "DebugOverlay: failed to rebind ImGui after "
-                         "swapchain/pass rebuild\n");
-            mEnabled         = false;
-            mBoundRenderPass = nullptr;
-            mBoundImageCount = 0;
-        }
+        if (mInitialized && mEvents)
+            mUi.UnbindEvents(*mEvents);
+        *mAlive            = false;
+        mInitialized       = false;
+        mRenderer          = nullptr;
+        mEvents            = nullptr;
+        mPendingVSync      = false;
+        mPendingVSyncValue = false;
     }
 
     void DebugOverlay::applyPendingSwapchainChanges()
     {
-        if (mPendingVSync && mRenderer)
-        {
-            mPendingVSync = false;
-            if (mRenderer->GetVSync() != mPendingVSyncValue)
-            {
-                // Between frames: no open command buffer. Rebuild then rebind
-                // ImGui to the new CompositePass UI render pass / image count.
-                mRenderer->SetVSync(mPendingVSyncValue);
-
-                if (mDevice)
-                    vkDeviceWaitIdle(static_cast<VkDevice>(mDevice));
-                releaseViewportTexture();
-                ImGui_ImplVulkan_Shutdown();
-                if (!reinitVulkanBackend(*mRenderer))
-                {
-                    std::fprintf(
-                        stderr,
-                        "DebugOverlay: failed to rebind ImGui after VSync\n");
-                    mEnabled = false;
-                }
-            }
-        }
-    }
-
-    void DebugOverlay::releaseViewportTexture()
-    {
-        if (mViewportSet)
-        {
-            ImGui_ImplVulkan_RemoveTexture(
-                static_cast<VkDescriptorSet>(mViewportSet));
-            mViewportSet  = nullptr;
-            mViewportView = nullptr;
-        }
-    }
-
-    void DebugOverlay::ensureViewportTexture(void* sampler, void* imageView)
-    {
-        if (!sampler || !imageView)
-        {
-            releaseViewportTexture();
+        if (!mPendingVSync || !mRenderer)
             return;
-        }
-        if (mViewportSet && mViewportView == imageView)
-            return;
-
-        releaseViewportTexture();
-        const VkDescriptorSet set = ImGui_ImplVulkan_AddTexture(
-            static_cast<VkSampler>(sampler),
-            static_cast<VkImageView>(imageView),
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        if (!set)
-        {
-            std::fprintf(stderr,
-                         "DebugOverlay: AddTexture for viewport failed\n");
-            return;
-        }
-        mViewportSet  = set;
-        mViewportView = imageView;
-    }
-
-    void DebugOverlay::Shutdown()
-    {
-        if (mPlatform)
-        {
-            mPlatform->SetNativeEventObserver(nullptr, nullptr);
-            mPlatform = nullptr;
-        }
-
-        if (mInitialized)
-        {
-            if (mDevice)
-            {
-                vkDeviceWaitIdle(static_cast<VkDevice>(mDevice));
-                releaseViewportTexture();
-                ImGui_ImplVulkan_Shutdown();
-            }
-            ImGui_ImplSDL3_Shutdown();
-            ImGui::DestroyContext();
-            mInitialized = false;
-        }
-
-        if (mDevice)
-        {
-            destroyDescriptorPool(mDevice);
-            mDevice = nullptr;
-        }
-        mRenderer          = nullptr;
-        mSdlWindow         = nullptr;
-        mPendingVSync      = false;
-        mPendingVSyncValue = false;
+        mPendingVSync = false;
+        // Between frames: no open command buffer, safe to rebuild.
+        if (mRenderer->GetVSync() != mPendingVSyncValue)
+            mRenderer->SetVSync(mPendingVSyncValue);
     }
 
     void DebugOverlay::BeginFrame()
     {
         if (!mInitialized)
             return;
-
-        // Apply swapchain rebuilds before Renderer::BeginFrame / recording.
         applyPendingSwapchainChanges();
-
-        if (!mEnabled)
-            return;
-
-        auto* sdlWindow = static_cast<SDL_Window*>(mSdlWindow);
-        int   w         = 0;
-        int   h         = 0;
-        if (!sdlWindow || !SDL_GetWindowSize(sdlWindow, &w, &h) || w < 0 ||
-            h < 0)
-            return;
-
-        ImGui_ImplVulkan_NewFrame();
-        ImGui_ImplSDL3_NewFrame();
-        ImGui::NewFrame();
     }
 
     void DebugOverlay::MarkUpdateStart()
@@ -361,16 +148,12 @@ namespace FreyaExamples
 
     bool DebugOverlay::WantsCaptureMouse() const
     {
-        if (!mInitialized || !mEnabled)
-            return false;
-        return ImGui::GetIO().WantCaptureMouse;
+        return mInitialized && mEnabled && mUi.WantCaptureMouse();
     }
 
     bool DebugOverlay::WantsCaptureKeyboard() const
     {
-        if (!mInitialized || !mEnabled)
-            return false;
-        return ImGui::GetIO().WantCaptureKeyboard;
+        return mInitialized && mEnabled && mUi.WantCaptureKeyboard();
     }
 
     void DebugOverlay::Draw(fra::Renderer&     renderer,
@@ -382,179 +165,228 @@ namespace FreyaExamples
         if (!mInitialized || !mEnabled)
             return;
 
-        // Renderer::BeginFrame may have rebuilt CompositePass on resize;
-        // rebind before any ImGui work that depends on the UI render pass.
-        rebindImGuiIfSwapchainChanged();
+        const auto  now = std::chrono::steady_clock::now();
+        const float dt  = std::clamp(
+            std::chrono::duration<float>(now - mLastDraw).count(), 1e-4f,
+            0.25f);
+        mLastDraw = now;
 
-        auto viewport = fra::Advanced(renderer).GetViewportImage();
-        if (viewport.valid && viewport.imageView && viewport.sampler)
+        // The renderer scales the whole shared UiDraw queue with its own
+        // context's scale. Using the same reference size and framebuffer
+        // extent gives this context the same (resolution-relative) scale, so
+        // the overlay follows 4K / HiDPI like the game UI does.
+        const glm::uvec2 fb { std::max(options.width, 1u),
+                              std::max(options.height, 1u) };
+        mUi.SetDraw(renderer.GetUiContext().GetDraw());
+        mUi.SetReferenceSize(renderer.GetUiContext().ReferenceSize());
+        mUi.Style().font = mFont.Valid() ? &mFont : nullptr;
+
+        auto& ui = mUi;
+        ui.Begin(dt, fb);
+
+        // Tall enough to show the first sections without scrolling.
+        const float winH = std::clamp(
+            ui.LogicalSize().y - 24.f, 320.f, 900.f);
+
+        fra::UiWindowOpts winOpts {};
+        winOpts.defaultPos  = { 12.f, 12.f };
+        winOpts.defaultSize = { kWindowW, winH };
+        winOpts.closable    = false;
+
+        float contentH = 0.f;
+        if (ui.BeginWindow("freya_debug", "Freya Debug  (F1 hide)",
+                           { kWindowW, winH }, winOpts))
         {
-            ensureViewportTexture(viewport.sampler, viewport.imageView);
-            if (mViewportSet)
+            ui.BeginScrollView("freya_debug_scroll",
+                               { kWindowW - 16.f, winH - 64.f },
+                               mLastContentH);
+
+            // ---- Timing -------------------------------------------------
+            contentH += kHeaderH;
+            if (ui.CollapsingHeader("dbg_timing", "Timing", true))
             {
-                // Fullscreen scene behind panels (swapchain UI pass is
-                // otherwise empty when SetViewportTarget is active).
-                const ImVec2 display = ImGui::GetIO().DisplaySize;
-                ImGui::GetBackgroundDrawList()->AddImage(
-                    reinterpret_cast<ImTextureID>(mViewportSet),
-                    ImVec2(0.f, 0.f), display);
-            }
-        }
+                StatRow(ui, "t_cpu", "CPU frame",
+                        Format("%.2f ms (%.1f FPS)", cpuFrameMs,
+                               cpuFrameMs > 1e-3f ? 1000.f / cpuFrameMs
+                                                  : 0.f));
+                StatRow(ui, "t_upd", "CPU update",
+                        Format("%.2f ms", cpuUpdateMs));
+                StatRow(ui, "t_res", "Render",
+                        Format("%ux%u", options.width, options.height));
+                contentH += 3 * 24.f;
 
-        ImGui::SetNextWindowPos(ImVec2(12.f, 12.f), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(360.f, 520.f), ImGuiCond_FirstUseEver);
-        if (!ImGui::Begin("Freya Debug"))
-        {
-            ImGui::End();
-            return;
-        }
-
-        if (ImGui::CollapsingHeader("Timing", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            ImGui::Text("CPU frame:  %.2f ms (%.1f FPS)", cpuFrameMs,
-                        cpuFrameMs > 1e-3f ? 1000.f / cpuFrameMs : 0.f);
-            ImGui::Text("CPU update: %.2f ms", cpuUpdateMs);
-            if (viewport.valid)
-                ImGui::Text("Render:     %ux%u", viewport.width,
-                            viewport.height);
-            else
-                ImGui::Text("Window:     %ux%u", options.width, options.height);
-
-            fra::FrameGpuTimingSample gpu {};
-            if (renderer.PollFrameGpuTiming(gpu) && gpu.enabled)
-            {
-                ImGui::Text("GPU total:  %.2f ms", gpu.totalGpuMs);
-                ImGui::Separator();
-                for (std::uint32_t i = 0; i < gpu.stageCount; ++i)
+                fra::FrameGpuTimingSample gpu {};
+                if (renderer.PollFrameGpuTiming(gpu) && gpu.enabled)
                 {
-                    ImGui::Text("%-16s %6.2f ms", gpu.stages[i].name,
-                                gpu.stages[i].gpuMs);
+                    StatRow(ui, "t_gpu", "GPU total",
+                            Format("%.2f ms", gpu.totalGpuMs));
+                    ui.Separator();
+                    contentH += 24.f + 12.f;
+                    for (std::uint32_t i = 0; i < gpu.stageCount; ++i)
+                    {
+                        StatRow(ui, Format("t_stage%u", i),
+                                gpu.stages[i].name,
+                                Format("%.2f ms", gpu.stages[i].gpuMs));
+                        contentH += 24.f;
+                    }
+                }
+                else
+                {
+                    ui.Label("GPU timestamps: warming up / unavailable", 13.f);
+                    contentH += 24.f;
+                }
+                ui.TextWrapped(
+                    "GPU times are Vulkan timestamp deltas per frame stage "
+                    "(desktop). Not Mali HWCPipe PTILES / late-ZS.",
+                    kWrapWidth, 12.f);
+                contentH += 64.f;
+            }
+
+            // ---- Quality ------------------------------------------------
+            contentH += kHeaderH;
+            if (ui.CollapsingHeader("dbg_quality", "Quality", true))
+            {
+                int shadow = static_cast<int>(renderer.GetShadowQuality());
+                if (QualityCombo(ui, "Shadow", &shadow))
+                    renderer.SetShadowQuality(
+                        static_cast<fra::ShadowQuality>(shadow));
+
+                int ssao = static_cast<int>(renderer.GetSsaoQuality());
+                if (QualityCombo(ui, "SSAO", &ssao))
+                    renderer.SetSsaoQuality(
+                        static_cast<fra::SsaoQuality>(ssao));
+
+                int taa = static_cast<int>(renderer.GetTaaQuality());
+                if (QualityCombo(ui, "TAA", &taa))
+                    renderer.SetTaaQuality(
+                        static_cast<fra::TaaQuality>(taa));
+
+                int bloom = static_cast<int>(renderer.GetBloomQuality());
+                if (QualityCombo(ui, "Bloom", &bloom))
+                    renderer.SetBloomQuality(
+                        static_cast<fra::BloomQuality>(bloom));
+
+                // Defer SetVSync: rebuilding the swapchain mid-frame (open
+                // CB / stale image index / new framebuffer count) aborts.
+                bool vsync =
+                    mPendingVSync ? mPendingVSyncValue : renderer.GetVSync();
+                if (ui.Checkbox("VSync", &vsync))
+                {
+                    mPendingVSync      = true;
+                    mPendingVSyncValue = vsync;
+                }
+                contentH += 4 * 58.f + kRowH;
+            }
+
+            // ---- Lights -------------------------------------------------
+            if (lights != nullptr)
+            {
+                contentH += kHeaderH;
+                if (ui.CollapsingHeader("dbg_lights", "Lights", true))
+                {
+                    auto typeToggle = [&](const char*     label,
+                                          fra::LightType type) {
+                        bool on = HasFlag(lights->GetLightTypeFlags(type),
+                                          fra::LightFlags::Enabled);
+                        if (ui.Checkbox(label, &on))
+                        {
+                            auto flags = lights->GetLightTypeFlags(type);
+                            SetFlag(flags, fra::LightFlags::Enabled, on);
+                            lights->SetLightTypeFlags(type, flags);
+                        }
+                    };
+                    typeToggle("Directional", fra::LightType::Directional);
+                    typeToggle("Point", fra::LightType::Point);
+                    typeToggle("Spot", fra::LightType::Spot);
+                    typeToggle("Area", fra::LightType::Area);
+                    ui.TextWrapped(
+                        "Mutes lighting and shadow casting for the type; "
+                        "host light data is unchanged.",
+                        kWrapWidth, 12.f);
+                    contentH += 4 * kRowH + 64.f;
                 }
             }
-            else
+
+            // ---- Debug views --------------------------------------------
+            contentH += kHeaderH;
+            if (ui.CollapsingHeader("dbg_views", "Debug views", true))
             {
-                ImGui::TextDisabled("GPU timestamps: warming up / unavailable");
-            }
-            ImGui::TextWrapped(
-                "GPU times are Vulkan timestamp deltas per frame "
-                "stage (desktop). Not Mali HWCPipe PTILES / late-ZS.");
-        }
-
-        if (ImGui::CollapsingHeader("Quality", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            int shadow = static_cast<int>(renderer.GetShadowQuality());
-            if (ImGui::Combo("Shadow", &shadow,
-                             "Low\0Medium\0High\0Ultra\0Off\0"))
-                renderer.SetShadowQuality(
-                    static_cast<fra::ShadowQuality>(shadow));
-
-            int ssao = static_cast<int>(renderer.GetSsaoQuality());
-            if (ImGui::Combo("SSAO", &ssao, "Low\0Medium\0High\0Ultra\0Off\0"))
-                renderer.SetSsaoQuality(static_cast<fra::SsaoQuality>(ssao));
-
-            int taa = static_cast<int>(renderer.GetTaaQuality());
-            if (ImGui::Combo("TAA", &taa, "Low\0Medium\0High\0Ultra\0Off\0"))
-                renderer.SetTaaQuality(static_cast<fra::TaaQuality>(taa));
-
-            int bloom = static_cast<int>(renderer.GetBloomQuality());
-            if (ImGui::Combo("Bloom", &bloom,
-                             "Low\0Medium\0High\0Ultra\0Off\0"))
-                renderer.SetBloomQuality(static_cast<fra::BloomQuality>(bloom));
-
-            // Defer SetVSync: rebuilding the swapchain mid-frame (open CB /
-            // stale image index / new framebuffer count) aborts.
-            bool vsync =
-                mPendingVSync ? mPendingVSyncValue : renderer.GetVSync();
-            if (ImGui::Checkbox("VSync", &vsync))
-            {
-                mPendingVSync      = true;
-                mPendingVSyncValue = vsync;
-            }
-
-            (void) QualityLabel;
-        }
-
-        if (lights != nullptr &&
-            ImGui::CollapsingHeader("Lights", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            auto typeToggle = [lights](const char* label, fra::LightType type) {
-                bool on = HasFlag(lights->GetLightTypeFlags(type),
-                                  fra::LightFlags::Enabled);
-                if (ImGui::Checkbox(label, &on))
+                int view = static_cast<int>(renderer.GetDeferredDebugView());
+                ui.Label("Deferred view", 14.f);
+                if (ui.ComboBox("dbg_deferred_view",
+                                std::span<const std::string_view>(kDebugViews),
+                                &view, { kContentW, 30.f }))
                 {
-                    auto flags = lights->GetLightTypeFlags(type);
-                    SetFlag(flags, fra::LightFlags::Enabled, on);
-                    lights->SetLightTypeFlags(type, flags);
+                    renderer.SetDeferredDebugView(
+                        static_cast<fra::DeferredDebugView>(view));
                 }
-            };
-            typeToggle("Directional", fra::LightType::Directional);
-            typeToggle("Point", fra::LightType::Point);
-            typeToggle("Spot", fra::LightType::Spot);
-            typeToggle("Area", fra::LightType::Area);
-            ImGui::TextWrapped(
-                "Mutes lighting and shadow casting for the type; "
-                "host light data is unchanged.");
-        }
 
-        if (ImGui::CollapsingHeader("Debug views",
-                                    ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            int view = static_cast<int>(renderer.GetDeferredDebugView());
-            if (ImGui::Combo(
-                    "Deferred view", &view,
-                    "Lit\0Albedo\0Normal\0Depth\0Roughness\0Metalness\0"
-                    "Material AO\0Material ID\0Velocity\0SSAO Blurred\0"
-                    "SSAO Raw\0Shadows\0"))
-            {
-                renderer.SetDeferredDebugView(
-                    static_cast<fra::DeferredDebugView>(view));
+                bool dbgDraw = renderer.IsDebugDrawEnabled();
+                if (ui.Checkbox("Debug draw", &dbgDraw))
+                    renderer.SetDebugDrawEnabled(dbgDraw);
+
+                const glm::vec2 sliderSize { kContentW, 24.f };
+                ui.SliderFloat("SSAO radius", &options.ssaoRadius, 0.05f,
+                               2.0f, sliderSize);
+                renderer.SetSsaoRadius(options.ssaoRadius);
+                ui.SliderFloat("SSAO bias", &options.ssaoBias, 0.0f, 0.1f,
+                               sliderSize);
+                renderer.SetSsaoBias(options.ssaoBias);
+                ui.SliderFloat("SSAO power", &options.ssaoPower, 0.5f, 4.0f,
+                               sliderSize);
+                renderer.SetSsaoPower(options.ssaoPower);
+                ui.SliderFloat("SSAO intensity", &options.ssaoIntensity, 0.0f,
+                               2.0f, sliderSize);
+                renderer.SetSsaoIntensity(options.ssaoIntensity);
+                contentH += 58.f + kRowH + 4 * 34.f;
             }
 
-            bool dbgDraw = renderer.IsDebugDrawEnabled();
-            if (ImGui::Checkbox("Debug draw", &dbgDraw))
-                renderer.SetDebugDrawEnabled(dbgDraw);
-
-            ImGui::SliderFloat("SSAO radius", &options.ssaoRadius, 0.05f, 2.0f);
-            renderer.SetSsaoRadius(options.ssaoRadius);
-            ImGui::SliderFloat("SSAO bias", &options.ssaoBias, 0.0f, 0.1f);
-            renderer.SetSsaoBias(options.ssaoBias);
-            ImGui::SliderFloat("SSAO power", &options.ssaoPower, 0.5f, 4.0f);
-            renderer.SetSsaoPower(options.ssaoPower);
-            ImGui::SliderFloat("SSAO intensity", &options.ssaoIntensity, 0.0f,
-                               2.0f);
-            renderer.SetSsaoIntensity(options.ssaoIntensity);
-        }
-
-        if (ImGui::CollapsingHeader("GPU Cull"))
-        {
-            if (ImGui::Button("Dump cull frame"))
+            // ---- GPU Cull -----------------------------------------------
+            contentH += kHeaderH;
+            if (ui.CollapsingHeader("dbg_cull", "GPU Cull", false))
             {
-                fra::Advanced(renderer).RequestCullFrameDump();
-                mCullDumpPending = true;
-                mLastCullDumpPath.clear();
+                if (ui.Button("Dump cull frame", { kContentW, 32.f }))
+                {
+                    fra::Advanced(renderer).RequestCullFrameDump();
+                    mCullDumpPending = true;
+                    mLastCullDumpPath.clear();
+                }
+                contentH += 40.f;
+                if (mCullDumpPending)
+                {
+                    ui.Label("Waiting for GPU readback...", 13.f);
+                    contentH += 24.f;
+                }
+                else if (!mLastCullDumpPath.empty())
+                {
+                    ui.TextWrapped("Wrote " + mLastCullDumpPath, kWrapWidth,
+                                   12.f);
+                    contentH += 48.f;
+                }
+                ui.TextWrapped(
+                    "Writes frame.json (+ hiz.r32f) under ./cull_dumps/ for "
+                    "FreyaGpuTests fixtures.",
+                    kWrapWidth, 12.f);
+                ui.Separator();
+                if (ui.Checkbox("Show cull AABBs", &mShowCullAabbs))
+                {
+                    if (mShowCullAabbs)
+                        renderer.SetDebugDrawEnabled(true);
+                }
+                ui.TextWrapped(
+                    "Wireframe of the AABB the GPU cull compute shader tests "
+                    "per instance (mesh-local aabbMin/aabbMax x model). "
+                    "Color coding is example-defined.",
+                    kWrapWidth, 12.f);
+                contentH += 64.f + 12.f + kRowH + 96.f;
             }
-            if (mCullDumpPending)
-                ImGui::TextDisabled("Waiting for GPU readback…");
-            else if (!mLastCullDumpPath.empty())
-                ImGui::TextWrapped("Wrote %s", mLastCullDumpPath.c_str());
-            ImGui::TextWrapped(
-                "Writes frame.json (+ hiz.r32f) under ./cull_dumps/ "
-                "for FreyaGpuTests fixtures.");
 
-            ImGui::Separator();
-            if (ImGui::Checkbox("Show cull AABBs", &mShowCullAabbs))
-            {
-                if (mShowCullAabbs)
-                    renderer.SetDebugDrawEnabled(true);
-            }
-            ImGui::TextWrapped(
-                "Wireframe of the AABB the GPU cull compute shader tests "
-                "per instance (mesh-local aabbMin/aabbMax x model). Color "
-                "coding is example-defined (e.g. CellBulbasaur highlights "
-                "eye submeshes in magenta).");
+            ui.EndScrollView();
+            mLastContentH = contentH + 24.f;
         }
+        ui.EndWindow();
+        ui.End();
 
-        ImGui::End();
         pollCullFrameDump(renderer);
     }
 
@@ -582,25 +414,6 @@ namespace FreyaExamples
 
     void DebugOverlay::EndFrame(fra::Renderer& renderer)
     {
-        if (!mInitialized)
-        {
-            renderer.EndFrame();
-            return;
-        }
-
-        if (mEnabled)
-        {
-            rebindImGuiIfSwapchainChanged();
-            ImGui::Render();
-            renderer.EndFrame([&] {
-                ImGui_ImplVulkan_RenderDrawData(
-                    ImGui::GetDrawData(),
-                    static_cast<VkCommandBuffer>(
-                        fra::Advanced(renderer).NativeCommandBuffer()));
-            });
-            return;
-        }
-
         renderer.EndFrame();
     }
 } // namespace FreyaExamples

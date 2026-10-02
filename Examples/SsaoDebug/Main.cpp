@@ -33,7 +33,7 @@ class MainApp final : public fra::AbstractApplication
         mCam.BindInput(*mEventManager);
 
         if (mPlatform)
-            mOverlay.Init(*mRenderer, *mWindow, *mPlatform);
+            mOverlay.Init(*mRenderer, *mWindow, GetMainServiceProvider());
         mOverlay.SetCullDumpExampleName("SsaoDebug");
 
         mRenderer->ClearProjections();
@@ -77,7 +77,7 @@ class MainApp final : public fra::AbstractApplication
         std::cout
             << "SSAO Debug — DamagedHelmet + Dragon + ally_ship\n"
             << "RMB look | WASD move | Space/Q up | Ctrl/E down\n"
-            << "ImGui: Freya Debug panel (SSAO quality / deferred views / "
+            << "F1: Freya Debug overlay (SSAO quality / deferred views / "
                "params / GPU Cull > Show cull AABBs)\n";
     }
 

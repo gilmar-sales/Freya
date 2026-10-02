@@ -11,7 +11,7 @@ namespace FreyaExamples
     /**
      * @brief Shared freecam for Freya examples (RMB look, WASD move).
      *
-     * WASD always moves (unless requireLookToMove and RMB is up). ImGui should
+     * WASD always moves (unless requireLookToMove and RMB is up). the overlay should
      * only gate mouse look via blockMouse — not keyboard — so the debug panel
      * does not steal freecam movement.
      */
@@ -40,7 +40,7 @@ namespace FreyaExamples
 
         /**
          * @brief When set and returns true, mouse look / grab are skipped
-         * (e.g. ImGui WantCaptureMouse). Does not affect WASD.
+         * (e.g. overlay WantCaptureMouse). Does not affect WASD.
          */
         std::function<bool()> blockMouse;
 

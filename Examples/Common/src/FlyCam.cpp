@@ -30,7 +30,7 @@ namespace FreyaExamples
 
     void FlyCam::Update(const float dt)
     {
-        // WASD must keep working while ImGui wants keyboard (debug panel
+        // WASD must keep working while the overlay wants keyboard (debug panel
         // focused). Only requireLookToMove can gate movement.
         if (requireLookToMove && !lookHeld)
             return;

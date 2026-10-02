@@ -177,7 +177,7 @@ class MainApp final : public fra::AbstractApplication
         mCam.BindInput(*mEventManager);
 
         if (mPlatform)
-            mOverlay.Init(*mRenderer, *mWindow, *mPlatform);
+            mOverlay.Init(*mRenderer, *mWindow, GetMainServiceProvider());
         mOverlay.SetCullDumpExampleName("ChurchShowcase");
 
         mEventManager->Subscribe<fra::KeyReleasedEvent>(

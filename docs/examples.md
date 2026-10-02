@@ -9,7 +9,7 @@ Location: `Examples/IndustrialPipeLamp/`
 
 Deferred PBR reference: lamps, animated lights, shadow-caster modes
 (0–4), light gizmos (F3), and a secondary window (F10). Quality /
-deferred views live in the ImGui debug panel.
+deferred views live in the debug overlay (F1).
 
 ```bash
 cd build/Examples/IndustrialPipeLamp
@@ -21,7 +21,7 @@ cd build/Examples/IndustrialPipeLamp
 Location: `Examples/SsaoDebug/`
 
 SSAO debug scene (DamagedHelmet, Dragon, ally_ship). Quality, deferred
-views, and SSAO knobs live in the ImGui debug panel.
+views, and SSAO knobs live in the debug overlay (F1).
 
 ```bash
 cd build/Examples/SsaoDebug
@@ -146,8 +146,10 @@ Reuse helpers from `FreyaExamples::`:
 - `CreateGroundPlane` — procedural ground quad
 - `FindClipContaining` — animation clip name search
 - `CycleQuality` / `QualityName` — Low→…→Off quality enums
-- `DebugOverlay` — Dear ImGui panel (quality / SSAO debug views /
-  CPU + per-stage GPU ms via Vulkan timestamps)
+- `DebugOverlay` — panel built on the engine UI (`fra::UiContext`; quality /
+  SSAO debug views / CPU + per-stage GPU ms via Vulkan timestamps). Toggle
+  with F1; scales with resolution like the game UI; needs
+  `Resources/Fonts/NotoSans-Regular.ttf` (copied by `add_freya_example()`).
 - `ConfigureLogging` — console + `*.log` file sink (`FREYA_LOG_FILE`,
   `FREYA_LOG_CONSOLE=0`)
 
@@ -164,9 +166,9 @@ shows:
 - **Debug views** — deferred G-buffer / SSAO / shadows (`DeferredDebugView`),
   debug draw, SSAO knobs
 
-The scene is rendered to an offscreen viewport (`SetViewportTarget`) and
-blitted behind ImGui on the swapchain UI pass (`BeginUI` / `EndUI`). FlyCam
-ignores mouse look while ImGui wants mouse capture; WASD stays available.
+The overlay records into the renderer's shared UI draw queue on top of the
+scene (no offscreen viewport target needed). FlyCam ignores mouse look while
+the overlay wants mouse capture; WASD stays available.
 
 ## Running Examples
 

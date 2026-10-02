@@ -130,7 +130,7 @@ class MainApp final : public fra::AbstractApplication
         mMainCam.BindInput(*mEventManager);
 
         if (mPlatform)
-            mOverlay.Init(*mRenderer, *mWindow, *mPlatform);
+            mOverlay.Init(*mRenderer, *mWindow, GetMainServiceProvider());
         mOverlay.SetCullDumpExampleName("GameUiShowcase");
 
         mEventManager->Subscribe<fra::KeyReleasedEvent>(
@@ -270,7 +270,7 @@ class MainApp final : public fra::AbstractApplication
             << "GameUiShowcase — native Freya UI (not ImGui)\n"
             << "  1-6 Abilities | F1 Inventory (paper-doll) | F2 Dialogue | "
                "F3 Chat | F4 Showcase | Esc\n"
-            << "  RMB look | WASD move | ImGui debug panel still available\n";
+            << "  RMB look | WASD move | F1 debug overlay still available\n";
     }
 
     void Update() override

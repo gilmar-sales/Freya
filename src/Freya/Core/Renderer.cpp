@@ -1922,7 +1922,14 @@ namespace FREYA_NAMESPACE
             }
         }
 
-        mUiLogicalScale          = mUiContext.Scale();
+        // Overlays (and any other UiContext sharing this queue) may draw
+        // without the renderer's own context having begun a frame; scale by
+        // resolution like Begin() would so they follow 4K / HiDPI too.
+        mUiLogicalScale =
+            mUiContext.HasBegun()
+                ? mUiContext.Scale()
+                : mUiContext.ScaleForExtent(
+                      { mFreyaOptions->width, mFreyaOptions->height });
         auto       ctx           = makeFrameContext();
         const auto commandBuffer = mCommandPool->GetCommandBuffer();
         const auto frameIndex    = mSwapChain->GetCurrentFrameIndex();

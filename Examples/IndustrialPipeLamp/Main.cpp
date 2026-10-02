@@ -34,7 +34,7 @@ class MainApp final : public fra::AbstractApplication
         mMainCam.BindInput(*mEventManager);
 
         if (mPlatform)
-            mOverlay.Init(*mRenderer, *mWindow, *mPlatform);
+            mOverlay.Init(*mRenderer, *mWindow, GetMainServiceProvider());
         mOverlay.SetCullDumpExampleName("IndustrialPipeLamp");
 
         mEventManager->Subscribe<fra::KeyReleasedEvent>(
@@ -275,7 +275,7 @@ class MainApp final : public fra::AbstractApplication
                "3=cool point  4=all spots | F3 light gizmos | "
                "F10 secondary window\n"
             << "TAA check: lamp 0 orbits — ghost trail => bad velocity\n"
-            << "ImGui: Freya Debug panel (timing / quality / deferred "
+            << "F1: Freya Debug overlay (timing / quality / deferred "
                "views / GPU Cull > Show cull AABBs)\n";
 
         // All casters on by default (same as key 0).
@@ -330,7 +330,7 @@ class MainApp final : public fra::AbstractApplication
 
         // Orbit lamp 0 so TAA object motion can be validated (lamp 1 + ground
         // stay static). Ghosting on the moving lamp with TAA on, gone with
-        // TAA off (ImGui quality Off), points at bad velocity history.
+        // TAA off (overlay quality Off), points at bad velocity history.
         {
             constexpr float kOrbitRadius = 4.0f;
             constexpr float kOrbitSpeed  = 0.9f;
@@ -477,7 +477,7 @@ class MainApp final : public fra::AbstractApplication
      * MeshPool's registered mesh-local aabbMin/aabbMax transformed by the
      * instance's model matrix. Bulb submeshes are highlighted distinctly
      * from the lamp body. Toggle via the "Show cull AABBs" checkbox in the
-     * ImGui "Freya Debug" panel (GPU Cull section).
+     * overlay "Freya Debug" panel (GPU Cull section).
      */
     void drawCullAabbs()
     {
@@ -565,7 +565,7 @@ class MainApp final : public fra::AbstractApplication
                 : "?";
         mFreyaOptions->title =
             std::string("Industrial Pipe Lamp | casters ") + shadowName +
-            " [0-4]" + (mShowLightGizmos ? " | gizmos" : "") + " | ImGui debug";
+            " [0-4]" + (mShowLightGizmos ? " | gizmos" : "") + " | F1 debug";
     }
 
     void drawLightGizmos()

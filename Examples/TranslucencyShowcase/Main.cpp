@@ -74,7 +74,7 @@ class MainApp final : public fra::AbstractApplication
         mCam.blockMouse = [this] { return mOverlay.WantsCaptureMouse(); };
         mCam.BindInput(*mEventManager);
         if (mPlatform)
-            mOverlay.Init(*mRenderer, *mWindow, *mPlatform);
+            mOverlay.Init(*mRenderer, *mWindow, GetMainServiceProvider());
 
         const auto floor = FreyaExamples::CreateGroundPlane(*mMeshPool, 26.f,
                                                              glm::vec3(0.2f));

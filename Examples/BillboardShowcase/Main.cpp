@@ -69,7 +69,7 @@ class MainApp final : public fra::AbstractApplication
         mCam.BindInput(*mEventManager);
 
         if (mPlatform)
-            mOverlay.Init(*mRenderer, *mWindow, *mPlatform);
+            mOverlay.Init(*mRenderer, *mWindow, GetMainServiceProvider());
 
         mGroundMesh = FreyaExamples::CreateGroundPlane(
             *mMeshPool, 20.f, glm::vec3(0.15f));

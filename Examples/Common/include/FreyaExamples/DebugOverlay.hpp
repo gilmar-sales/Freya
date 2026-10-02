@@ -3,25 +3,22 @@
 #include <Freya/Freya.hpp>
 
 #include <chrono>
+#include <memory>
 #include <string>
-
-namespace FREYA_NAMESPACE
-{
-    class IPlatform;
-}
 
 namespace FreyaExamples
 {
     /**
-     * @brief Dear ImGui overlay for Freya examples (options, debug views,
-     * CPU/GPU stage timing via Vulkan timestamps).
+     * @brief Debug overlay for Freya examples (options, debug views, CPU/GPU
+     * stage timing via Vulkan timestamps) built on the engine's own
+     * `fra::UiContext`.
      *
-     * Implementation uses Advanced Renderer APIs (viewport target, ImGui
-     * natives, cull dumps). Apps that only include this header through
-     * Freya.hpp keep the app-tier seal; Advanced is pulled in the .cpp.
+     * The overlay owns a separate UiContext that records into the renderer's
+     * shared UiDraw queue, so it composes on top of an app's own game UI
+     * without sharing frame state. Toggle with F1.
      *
-     * Requires SetViewportTarget so the scene composites to an offscreen
-     * target and BeginUI opens the swapchain UI pass.
+     * Needs `Resources/Fonts/NotoSans-Regular.ttf` next to the executable
+     * (copied by add_freya_example()).
      */
     class DebugOverlay
     {
@@ -33,16 +30,20 @@ namespace FreyaExamples
         DebugOverlay& operator=(const DebugOverlay&) = delete;
 
         /**
-         * @brief Initialize ImGui backends and register the platform event
-         * observer. Call once from StartUp after the renderer exists.
+         * @brief Load the font, bind UI input events and register the toggle
+         * key. Call once from StartUp after the renderer exists.
+         * @param services Main-window service provider
+         * (`GetMainServiceProvider()`), used to resolve EventManager and
+         * TexturePool.
          */
-        bool Init(fra::Renderer&  renderer,
-                  fra::Window&    window,
-                  fra::IPlatform& platform);
+        bool Init(fra::Renderer&                              renderer,
+                  fra::Window&                                window,
+                  const skr::Arc<skr::ServiceProvider>&       services);
 
         void Shutdown();
 
-        /** @brief ImGui NewFrame — call at the start of Update. */
+        /** @brief Apply deferred swapchain changes — call at the start of
+         * Update. */
         void BeginFrame();
 
         /**
@@ -55,10 +56,7 @@ namespace FreyaExamples
                   float              cpuUpdateMs,
                   fra::LightService* lights = nullptr);
 
-        /**
-         * @brief EndScene + ImGui into UI pass + Present via
-         * Renderer::EndFrame(uiDraw).
-         */
+        /** @brief Present the frame (Renderer::EndFrame). */
         void EndFrame(fra::Renderer& renderer);
 
         [[nodiscard]] bool WantsCaptureMouse() const;
@@ -89,33 +87,26 @@ namespace FreyaExamples
         void SetShowCullAabbs(bool enabled) { mShowCullAabbs = enabled; }
 
       private:
-        static void onNativeEvent(const void* nativeEvent, void* user);
-
-        bool createDescriptorPool(void* vkDevice);
-        void destroyDescriptorPool(void* vkDevice);
-        void releaseViewportTexture();
-        void ensureViewportTexture(void* sampler, void* imageView);
-        bool reinitVulkanBackend(fra::Renderer& renderer);
-        void rebindImGuiIfSwapchainChanged();
         void applyPendingSwapchainChanges();
         void pollCullFrameDump(fra::Renderer& renderer);
 
-        bool            mInitialized     = false;
-        bool            mEnabled         = true;
-        fra::Renderer*  mRenderer        = nullptr;
-        fra::IPlatform* mPlatform        = nullptr;
-        void*           mSdlWindow       = nullptr; ///< SDL_Window*
-        void*           mDescriptorPool  = nullptr; ///< VkDescriptorPool
-        void*           mDevice          = nullptr; ///< VkDevice (for shutdown)
-        void*           mViewportSet     = nullptr; ///< VkDescriptorSet
-        void*           mViewportView    = nullptr; ///< VkImageView cached key
-        void*           mBoundRenderPass = nullptr; ///< VkRenderPass ImGui uses
-        std::uint32_t   mBoundImageCount = 0;
+        bool            mInitialized = false;
+        bool            mEnabled     = true;
+        fra::Renderer*  mRenderer    = nullptr;
+        skr::Arc<fra::EventManager> mEvents;
+
+        fra::UiContext mUi;
+        fra::FontAtlas mFont;
+        /// Guards the key listener (events have no unsubscribe API yet).
+        std::shared_ptr<bool> mAlive = std::make_shared<bool>(true);
+
+        float mLastContentH = 900.f; ///< scroll extent estimate (logical px)
 
         bool mPendingVSync      = false;
         bool mPendingVSyncValue = false;
 
         std::chrono::steady_clock::time_point mUpdateStart {};
+        std::chrono::steady_clock::time_point mLastDraw {};
 
         std::string mCullDumpExample = "Example";
         std::string mLastCullDumpPath;

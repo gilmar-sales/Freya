@@ -99,7 +99,7 @@ class MainApp final : public fra::AbstractApplication
         mCam.BindInput(*mEventManager);
 
         if (mPlatform)
-            mOverlay.Init(*mRenderer, *mWindow, *mPlatform);
+            mOverlay.Init(*mRenderer, *mWindow, GetMainServiceProvider());
 
         mEventManager->Subscribe<fra::KeyReleasedEvent>(
             [this](const fra::KeyReleasedEvent& event) {

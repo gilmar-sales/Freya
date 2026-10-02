@@ -129,7 +129,7 @@ class MainApp final : public fra::AbstractApplication
         mCam.BindInput(*mEventManager);
 
         if (mPlatform)
-            mOverlay.Init(*mRenderer, *mWindow, *mPlatform);
+            mOverlay.Init(*mRenderer, *mWindow, GetMainServiceProvider());
         mOverlay.SetCullDumpExampleName("SkinnedFox");
 
         mEventManager->Subscribe<fra::KeyPressedEvent>(
@@ -798,7 +798,7 @@ class MainApp final : public fra::AbstractApplication
                     : "float")
             << "; anim_prof line every 1s (CPU split + GPU "
                "carry/bake timestamps)\n"
-            << "ImGui: Freya Debug panel (timing / quality / SSAO views / "
+            << "F1: Freya Debug overlay (timing / quality / SSAO views / "
                "GPU Cull > Show cull AABBs)\n";
     }
 
@@ -1557,7 +1557,7 @@ class MainApp final : public fra::AbstractApplication
      * MeshPool's registered mesh-local aabbMin/aabbMax transformed by the
      * instance's model matrix. One box per fox submesh (Fox.glb has a
      * single submesh) plus the ground plane. Toggle via the "Show cull
-     * AABBs" checkbox in the ImGui "Freya Debug" panel (GPU Cull section).
+     * AABBs" checkbox in the overlay "Freya Debug" panel (GPU Cull section).
      */
     void drawCullAabbs()
     {

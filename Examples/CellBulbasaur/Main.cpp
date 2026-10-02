@@ -142,7 +142,7 @@ class MainApp final : public fra::AbstractApplication
                     std::cout
                         << "Cull AABB debug draw: " << (enabled ? "on" : "off")
                         << " (magenta = eye submeshes; also toggleable "
-                           "in ImGui: Freya Debug > GPU Cull)\n";
+                           "in the overlay: Freya Debug > GPU Cull)\n";
                     return;
                 }
                 if (event.key == fra::KeyCode::F4)
@@ -615,20 +615,20 @@ class MainApp final : public fra::AbstractApplication
             mLeechRoots[k].growT      = 0.0f;
         }
 
-        // After RebuildSwapChain / InsertFrameStage so ImGui binds the final
+        // After RebuildSwapChain / InsertFrameStage so the overlay binds the final
         // UI render pass.
         if (mPlatform)
-            mOverlay.Init(*mRenderer, *mWindow, *mPlatform);
+            mOverlay.Init(*mRenderer, *mWindow, GetMainServiceProvider());
         mOverlay.SetCullDumpExampleName("CellBulbasaur");
 
         std::cout
             << "CellBulbasaur — left: cell  right: PBR\n"
-               "F3 cull AABBs (also in ImGui: Freya Debug > GPU Cull)\n"
+               "F3 cull AABBs (also in the overlay: Freya Debug > GPU Cull)\n"
                "F4 cell | F5 outline | F6 grade | F7 underwater | F8 heat\n"
                "F9 item glow | F12 Mu glow (+N) | [ ] change +level\n"
                "F10 ground triplanar | F11 eyes unlit\n"
                "RMB look | WASD move | Space/Q up | Ctrl/E down\n"
-               "ImGui: Freya Debug panel (timing / quality / SSAO views)\n"
+               "F1: Freya Debug overlay (timing / quality / SSAO views)\n"
                "Vine Whip (left, 4s cycle) + Leech Seed roots (right, 5s "
                "cycle) auto-play\n";
     }
@@ -884,7 +884,7 @@ class MainApp final : public fra::AbstractApplication
      * cell_eyes_false_cull fixture) are highlighted in magenta so their
      * AABB — inflated for skinned cull conservatism — is easy to pick out
      * against the body submeshes (cyan). Toggle via the "Debug draw"
-     * checkbox in the ImGui "Freya Debug" panel (or F3).
+     * checkbox in the overlay "Freya Debug" panel (or F3).
      */
     void drawCullAabbs()
     {

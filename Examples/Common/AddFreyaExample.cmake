@@ -34,6 +34,10 @@ function(add_freya_example EXAMPLE_NAME)
 
     file(COPY Resources DESTINATION "${_example_bin_dir}")
 
+    # Shared assets (DebugOverlay font); the example's own Resources win.
+    file(COPY "${CMAKE_SOURCE_DIR}/Examples/Common/Resources"
+         DESTINATION "${_example_bin_dir}")
+
     set(_ibl_files "")
     if(ARG_IBL STREQUAL "studio" OR ARG_IBL STREQUAL "both")
         list(APPEND _ibl_files

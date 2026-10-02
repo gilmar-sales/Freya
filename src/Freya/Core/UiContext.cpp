@@ -65,12 +65,9 @@ namespace FREYA_NAMESPACE
     {
         mDt = dt;
         mTime += dt;
-        mFbExtent = fbExtent;
-        const float sx =
-            fbExtent.x > 0 ? static_cast<float>(fbExtent.x) / mRefSize.x : 1.f;
-        const float sy =
-            fbExtent.y > 0 ? static_cast<float>(fbExtent.y) / mRefSize.y : 1.f;
-        mScale         = std::min(sx, sy);
+        mFbExtent      = fbExtent;
+        mHasBegun      = true;
+        mScale         = ScaleForExtent(fbExtent);
         mLogicalSize   = glm::vec2 { static_cast<float>(fbExtent.x) / mScale,
                                      static_cast<float>(fbExtent.y) / mScale };
         mMouseLogicalX = mMouseX / mScale;
