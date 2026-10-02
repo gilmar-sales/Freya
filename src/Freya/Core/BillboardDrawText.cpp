@@ -88,14 +88,14 @@ namespace FREYA_NAMESPACE
                 continue;
 
             Billboard b {};
-            b.worldPos      = worldPos;
-            b.size          = { gw, gh };
-            b.color         = color;
-            b.uvRect        = g.uvRect;
-            b.textureIndex  = font.HeapIndex();
-            b.align         = align;
-            b.blend         = BillboardBlend::Alpha;
-            b.layer         = layer;
+            b.worldPos     = worldPos;
+            b.size         = { gw, gh };
+            b.color        = color;
+            b.uvRect       = g.uvRect;
+            b.textureIndex = font.HeapIndex();
+            b.align        = align;
+            b.blend        = BillboardBlend::Alpha;
+            b.layer        = layer;
             SetFlag(b.flags, BillboardFlags::DepthTest, true);
             b.flags |= BillboardFlags::Sdf;
             b.clipMax       = 1.f;

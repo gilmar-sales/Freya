@@ -83,9 +83,9 @@ namespace FREYA_NAMESPACE
                 const bool typeOn =
                     typeIndex < 4u &&
                     HasFlag(typeFlags[typeIndex], LightFlags::Enabled);
-                const bool  on = typeOn &&
-                                HasFlag(lights[n].flags, LightFlags::Enabled);
-                const float intensity = on ? lights[n].intensity : 0.0f;
+                const bool on =
+                    typeOn && HasFlag(lights[n].flags, LightFlags::Enabled);
+                const float intensity       = on ? lights[n].intensity : 0.0f;
                 data.lightPositions[packed] = glm::vec4(
                     lights[n].position, static_cast<float>(lights[n].type));
                 data.lightColorsAndRadius[packed] =

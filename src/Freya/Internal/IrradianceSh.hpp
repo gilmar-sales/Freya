@@ -69,8 +69,8 @@ namespace FREYA_NAMESPACE
 
             for (int x = 0; x < width; ++x)
             {
-                const float u   = (static_cast<float>(x) + 0.5f) / width;
-                const float phi = (u - 0.5f) * 2.0f * kPi;
+                const float     u   = (static_cast<float>(x) + 0.5f) / width;
+                const float     phi = (u - 0.5f) * 2.0f * kPi;
                 const glm::vec3 n(std::cos(lat) * std::cos(phi),
                                   std::sin(lat),
                                   std::cos(lat) * std::sin(phi));

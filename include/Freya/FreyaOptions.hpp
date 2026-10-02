@@ -148,9 +148,9 @@ namespace FREYA_NAMESPACE
      */
     enum class AnimFlags : std::uint32_t
     {
-        None            = 0,
-        Lod             = 1u,
-        QuantizeJoints  = 2u
+        None           = 0,
+        Lod            = 1u,
+        QuantizeJoints = 2u
     };
 
     /**
@@ -176,10 +176,10 @@ namespace FREYA_NAMESPACE
      */
     struct FreyaOptions
     {
-        std::string   title        = "Freya Window";
-        std::uint32_t width        = 800;
-        std::uint32_t height       = 600;
-        WindowFlags   windowFlags  = WindowFlags::VSync | WindowFlags::Fullscreen;
+        std::string   title     = "Freya Window";
+        std::uint32_t width     = 800;
+        std::uint32_t height    = 600;
+        WindowFlags windowFlags = WindowFlags::VSync | WindowFlags::Fullscreen;
         std::uint32_t sampleCount  = 1;
         std::uint32_t frameCount   = 3;
         glm::vec4     clearColor   = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -214,10 +214,8 @@ namespace FREYA_NAMESPACE
         /// Off by default: lighting samples cascades directly (same PCF as
         /// spot/point). The mask looked softer and could lag with camera
         /// motion.
-        RenderFlags   renderFlags               = RenderFlags::Shadows |
-                                                  RenderFlags::Ssao |
-                                                  RenderFlags::Taa |
-                                                  RenderFlags::Bloom;
+        RenderFlags   renderFlags = RenderFlags::Shadows | RenderFlags::Ssao |
+                                    RenderFlags::Taa | RenderFlags::Bloom;
         std::uint32_t shadowMaskResolutionDivisor = 2;
         /// Kept for API compat; directional CSM may skip redraw when the
         /// camera/sun are stable, but only while reusing the committed VPs

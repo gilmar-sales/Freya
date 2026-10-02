@@ -79,7 +79,7 @@ namespace FREYA_NAMESPACE
          */
         void insert(const T& n)
         {
-            const auto id = static_cast<std::size_t>(n);
+            const auto    id = static_cast<std::size_t>(n);
             SpinLockGuard lock { m_lock };
             ensureCapacityLocked(id);
             if (containsLocked(static_cast<std::uint32_t>(id)))
@@ -97,12 +97,12 @@ namespace FREYA_NAMESPACE
          */
         void remove(const T& n)
         {
-            const auto id = static_cast<std::size_t>(n);
+            const auto    id = static_cast<std::size_t>(n);
             SpinLockGuard lock { m_lock };
             if (!containsLocked(static_cast<std::uint32_t>(id)))
                 return;
 
-            dense[sparse[id]]                = dense[dense.size() - 1];
+            dense[sparse[id]] = dense[dense.size() - 1];
             sparse[static_cast<std::size_t>(dense[dense.size() - 1])] =
                 sparse[id];
             sparse[id] = 0;
@@ -116,8 +116,8 @@ namespace FREYA_NAMESPACE
          */
         void swap(const T& a, const T& b)
         {
-            const auto ida = static_cast<std::size_t>(a);
-            const auto idb = static_cast<std::size_t>(b);
+            const auto    ida = static_cast<std::size_t>(a);
+            const auto    idb = static_cast<std::size_t>(b);
             SpinLockGuard lock { m_lock };
             if (!containsLocked(static_cast<std::uint32_t>(ida)) ||
                 !containsLocked(static_cast<std::uint32_t>(idb)))
@@ -139,8 +139,8 @@ namespace FREYA_NAMESPACE
          */
         void rename(const T& a, const T& b)
         {
-            const auto ida = static_cast<std::size_t>(a);
-            const auto idb = static_cast<std::size_t>(b);
+            const auto    ida = static_cast<std::size_t>(a);
+            const auto    idb = static_cast<std::size_t>(b);
             SpinLockGuard lock { m_lock };
             if (!containsLocked(static_cast<std::uint32_t>(ida)))
                 return;
@@ -265,15 +265,14 @@ namespace FREYA_NAMESPACE
         SparseSet<T> intersect(const SparseSet<T>& other)
         {
             SpinLockGuard lock { m_lock };
-            SparseSet<T> intersection(
-                static_cast<unsigned>(std::max(sparse.size(),
-                                               other.sparse.size())));
-            const auto& smaller =
+            SparseSet<T>  intersection(static_cast<unsigned>(
+                std::max(sparse.size(), other.sparse.size())));
+            const auto&   smaller =
                 (dense.size() <= other.dense.size()) ? dense : other.dense;
             for (const auto& value : smaller)
             {
-                const auto id = static_cast<std::uint32_t>(
-                    static_cast<std::size_t>(value));
+                const auto id =
+                    static_cast<std::uint32_t>(static_cast<std::size_t>(value));
                 if (containsLocked(id) && other.contains(id))
                     intersection.insert(value);
             }

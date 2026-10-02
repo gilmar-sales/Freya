@@ -69,8 +69,8 @@ namespace FREYA_NAMESPACE
         auto& i        = *mImpl;
         auto  id       = i.nextId++;
         auto  material = Material {
-             .createInfo = createInfo,
-             .id         = id,
+            .createInfo = createInfo,
+            .id         = id,
         };
 
         i.writeBindlessMaterial(material);

@@ -23,7 +23,7 @@ namespace FREYA_NAMESPACE
         Image(const skr::Arc<Device>& device,
               const vk::Image         image,
               const vk::ImageView     imageView,
-              const MemoryAllocation     allocation,
+              const MemoryAllocation  allocation,
               const vk::Format        format,
               const std::uint32_t     mipLevels = 1) :
             mDevice(device), mImage(image), mImageView(imageView),
@@ -58,11 +58,11 @@ namespace FREYA_NAMESPACE
       private:
         skr::Arc<Device> mDevice;
 
-        vk::Image     mImage;
-        vk::ImageView mImageView;
+        vk::Image        mImage;
+        vk::ImageView    mImageView;
         MemoryAllocation mAllocation {};
-        vk::Format    mFormat;
-        std::uint32_t mMipLevels;
+        vk::Format       mFormat;
+        std::uint32_t    mMipLevels;
     };
 
 }; // namespace FREYA_NAMESPACE

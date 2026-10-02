@@ -167,17 +167,17 @@ namespace FREYA_NAMESPACE
         const vk::Pipeline                   cascadePipeline,
         const vk::Pipeline                   pointPipeline,
         const vk::Image                      cascadeImage,
-        const MemoryAllocation                  cascadeMemory,
+        const MemoryAllocation               cascadeMemory,
         const vk::ImageView                  cascadeArrayView,
         const std::vector<vk::ImageView>&    cascadeLayerViews,
         const vk::Framebuffer                cascadeFramebuffer,
         const std::vector<vk::Framebuffer>&  spotFramebuffers,
         const vk::Image                      spotImage,
-        const MemoryAllocation                  spotMemory,
+        const MemoryAllocation               spotMemory,
         const vk::ImageView                  spotArrayView,
         const std::vector<vk::ImageView>&    spotLayerViews,
         const vk::Image                      pointImage,
-        const MemoryAllocation                  pointMemory,
+        const MemoryAllocation               pointMemory,
         const vk::ImageView                  pointArrayView,
         const std::vector<vk::ImageView>&    pointSlotViews,
         const std::vector<vk::Framebuffer>&  pointFramebuffers,
@@ -272,8 +272,8 @@ namespace FREYA_NAMESPACE
         if (mPointArrayView)
             vkDevice.destroyImageView(mPointArrayView);
         mCascadeArrayView = VK_NULL_HANDLE;
-        mSpotArrayView = VK_NULL_HANDLE;
-        mPointArrayView = VK_NULL_HANDLE;
+        mSpotArrayView    = VK_NULL_HANDLE;
+        mPointArrayView   = VK_NULL_HANDLE;
 
         if (mCascadeImage)
         {
@@ -294,8 +294,8 @@ namespace FREYA_NAMESPACE
             mPointMemory = {};
         }
         mCascadeImage = VK_NULL_HANDLE;
-        mSpotImage = VK_NULL_HANDLE;
-        mPointImage = VK_NULL_HANDLE;
+        mSpotImage    = VK_NULL_HANDLE;
+        mPointImage   = VK_NULL_HANDLE;
 
         if (mCompareSampler)
             vkDevice.destroySampler(mCompareSampler);
@@ -319,14 +319,14 @@ namespace FREYA_NAMESPACE
             vkDevice.destroyDescriptorPool(mShadowUboPool);
         if (mShadowUboSetLayout)
             vkDevice.destroyDescriptorSetLayout(mShadowUboSetLayout);
-        mPipeline = VK_NULL_HANDLE;
-        mCascadePipeline = VK_NULL_HANDLE;
-        mPointPipeline = VK_NULL_HANDLE;
-        mPipelineLayout = VK_NULL_HANDLE;
-        mCascadeRenderPass = VK_NULL_HANDLE;
-        mPointRenderPass = VK_NULL_HANDLE;
-        mRenderPass = VK_NULL_HANDLE;
-        mShadowUboPool = VK_NULL_HANDLE;
+        mPipeline           = VK_NULL_HANDLE;
+        mCascadePipeline    = VK_NULL_HANDLE;
+        mPointPipeline      = VK_NULL_HANDLE;
+        mPipelineLayout     = VK_NULL_HANDLE;
+        mCascadeRenderPass  = VK_NULL_HANDLE;
+        mPointRenderPass    = VK_NULL_HANDLE;
+        mRenderPass         = VK_NULL_HANDLE;
+        mShadowUboPool      = VK_NULL_HANDLE;
         mShadowUboSetLayout = VK_NULL_HANDLE;
         mShadowUboSets.clear();
 
@@ -381,7 +381,7 @@ namespace FREYA_NAMESPACE
         mPointResolution = other.mPointResolution;
         mFrameIndex      = other.mFrameIndex;
 
-        mShadowData = {};
+        mShadowData             = {};
         mCascadeCullViewProj    = glm::mat4(1.0f);
         mHasDirectionalShadow   = false;
         mActiveSpotCount        = 0;
@@ -396,26 +396,26 @@ namespace FREYA_NAMESPACE
         mPointHasLast.fill(false);
         mPointUpdateAge.fill(0);
 
-        other.mRenderPass = VK_NULL_HANDLE;
-        other.mCascadeRenderPass = VK_NULL_HANDLE;
-        other.mPointRenderPass = VK_NULL_HANDLE;
-        other.mPipelineLayout = VK_NULL_HANDLE;
-        other.mPipeline = VK_NULL_HANDLE;
-        other.mCascadePipeline = VK_NULL_HANDLE;
-        other.mPointPipeline = VK_NULL_HANDLE;
-        other.mCascadeImage = VK_NULL_HANDLE;
-        other.mCascadeMemory = {};
-        other.mCascadeArrayView = VK_NULL_HANDLE;
+        other.mRenderPass         = VK_NULL_HANDLE;
+        other.mCascadeRenderPass  = VK_NULL_HANDLE;
+        other.mPointRenderPass    = VK_NULL_HANDLE;
+        other.mPipelineLayout     = VK_NULL_HANDLE;
+        other.mPipeline           = VK_NULL_HANDLE;
+        other.mCascadePipeline    = VK_NULL_HANDLE;
+        other.mPointPipeline      = VK_NULL_HANDLE;
+        other.mCascadeImage       = VK_NULL_HANDLE;
+        other.mCascadeMemory      = {};
+        other.mCascadeArrayView   = VK_NULL_HANDLE;
         other.mCascadeFramebuffer = VK_NULL_HANDLE;
-        other.mSpotImage = VK_NULL_HANDLE;
-        other.mSpotMemory = {};
-        other.mSpotArrayView = VK_NULL_HANDLE;
-        other.mPointImage = VK_NULL_HANDLE;
-        other.mPointMemory = {};
-        other.mPointArrayView = VK_NULL_HANDLE;
-        other.mCompareSampler = VK_NULL_HANDLE;
+        other.mSpotImage          = VK_NULL_HANDLE;
+        other.mSpotMemory         = {};
+        other.mSpotArrayView      = VK_NULL_HANDLE;
+        other.mPointImage         = VK_NULL_HANDLE;
+        other.mPointMemory        = {};
+        other.mPointArrayView     = VK_NULL_HANDLE;
+        other.mCompareSampler     = VK_NULL_HANDLE;
         other.mShadowUboSetLayout = VK_NULL_HANDLE;
-        other.mShadowUboPool = VK_NULL_HANDLE;
+        other.mShadowUboPool      = VK_NULL_HANDLE;
         other.mShadowUboSets.clear();
         other.mUniformBuffer.reset();
     }
@@ -450,8 +450,9 @@ namespace FREYA_NAMESPACE
             HasFlag(mFreyaOptions->renderFlags, RenderFlags::Shadows) &&
             HasFlag(mFreyaOptions->renderFlags, RenderFlags::ShadowMask);
         mShadowData.reverseZ = glm::vec4(
-            HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ) ? 1.0f
-                                                                       : 0.0f,
+            HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ)
+                ? 1.0f
+                : 0.0f,
             static_cast<float>(std::max(mResolution, 1u)), cascadeBlend,
             useMask ? 1.0f : 0.0f);
         mShadowData.pcss = glm::vec4(
@@ -469,8 +470,7 @@ namespace FREYA_NAMESPACE
             if (light != nullptr && light->type == LightType::Directional &&
                 HasFlag(lights.GetLightTypeFlags(LightType::Directional),
                         LightFlags::Enabled) &&
-                HasFlag(lights.GetLightFlags(handle),
-                        LightFlags::Enabled) &&
+                HasFlag(lights.GetLightFlags(handle), LightFlags::Enabled) &&
                 HasFlag(light->flags, LightFlags::CastShadows))
             {
                 sun = light;
@@ -566,8 +566,7 @@ namespace FREYA_NAMESPACE
             if (light == nullptr || light->type != LightType::Spot ||
                 !HasFlag(lights.GetLightTypeFlags(LightType::Spot),
                          LightFlags::Enabled) ||
-                !HasFlag(lights.GetLightFlags(handle),
-                         LightFlags::Enabled) ||
+                !HasFlag(lights.GetLightFlags(handle), LightFlags::Enabled) ||
                 !HasFlag(light->flags, LightFlags::CastShadows) ||
                 light->intensity <= 1e-4f || light->radius <= 1e-4f)
                 continue;
@@ -589,8 +588,7 @@ namespace FREYA_NAMESPACE
             if (light == nullptr || light->type != LightType::Point ||
                 !HasFlag(lights.GetLightTypeFlags(LightType::Point),
                          LightFlags::Enabled) ||
-                !HasFlag(lights.GetLightFlags(handle),
-                         LightFlags::Enabled) ||
+                !HasFlag(lights.GetLightFlags(handle), LightFlags::Enabled) ||
                 !HasFlag(light->flags, LightFlags::CastShadows) ||
                 light->intensity <= 1e-4f || light->radius <= 1e-4f)
                 continue;
@@ -736,9 +734,10 @@ namespace FREYA_NAMESPACE
             const auto lightView = stabilizedLightView(
                 center, lightDir, up, halfExtent, resolution);
             const auto bounds = stableSphereOrthoBounds(halfExtent, pullBack);
-            mCascadeCullViewProj = lightOrthoFromBounds(
-                bounds,
-                HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ)) *
+            mCascadeCullViewProj =
+                lightOrthoFromBounds(bounds,
+                                     HasFlag(mFreyaOptions->renderFlags,
+                                             RenderFlags::ReverseZ)) *
                 lightView;
         }
     }
@@ -808,7 +807,7 @@ namespace FREYA_NAMESPACE
         const auto  view = glm::translate(glm::mat4(1.0f), -position);
         const bool  reverseZ =
             HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ);
-        const auto  proj = reverseZ ? glm::ortho(-r, r, -r, r, r, -r)
+        const auto proj = reverseZ ? glm::ortho(-r, r, -r, r, r, -r)
                                    : glm::ortho(-r, r, -r, r, -r, r);
         return proj * view;
     }

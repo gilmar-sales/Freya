@@ -21,8 +21,8 @@ namespace
         for (int y = 0; y < kH; ++y)
             for (int x = 0; x < kW; ++x)
             {
-                const float phi = ((x + 0.5f) / kW - 0.5f) * 2.0f * kPi;
-                const float lat = ((y + 0.5f) / kH - 0.5f) * kPi;
+                const float     phi = ((x + 0.5f) / kW - 0.5f) * 2.0f * kPi;
+                const float     lat = ((y + 0.5f) / kH - 0.5f) * kPi;
                 const glm::vec3 n(std::cos(lat) * std::cos(phi), std::sin(lat),
                                   std::cos(lat) * std::sin(phi));
                 const glm::vec3 e = fn(n);
@@ -41,9 +41,9 @@ TEST(IrradianceSh, ConstantMapReconstructsConstant)
         Bake([](glm::vec3) { return glm::vec3(2.0f, 1.0f, 0.5f); });
     const auto sh = fra::ProjectIrradianceSh(map, kW, kH);
 
-    for (const auto& n : { glm::vec3(1, 0, 0), glm::vec3(0, 1, 0),
-                           glm::vec3(0, 0, -1),
-                           glm::normalize(glm::vec3(1, 2, -3)) })
+    for (const auto& n :
+         { glm::vec3(1, 0, 0), glm::vec3(0, 1, 0), glm::vec3(0, 0, -1),
+           glm::normalize(glm::vec3(1, 2, -3)) })
     {
         const auto e = fra::EvaluateIrradianceSh(sh, n);
         EXPECT_NEAR(e.r, 2.0f, 0.02f);
@@ -60,7 +60,7 @@ TEST(IrradianceSh, UpDownGradientKeepsOrientation)
         const float s = 1.0f + 0.5f * n.y;
         return glm::vec3(s);
     });
-    const auto sh = fra::ProjectIrradianceSh(map, kW, kH);
+    const auto sh  = fra::ProjectIrradianceSh(map, kW, kH);
 
     EXPECT_NEAR(fra::EvaluateIrradianceSh(sh, { 0, 1, 0 }).r, 1.5f, 0.03f);
     EXPECT_NEAR(fra::EvaluateIrradianceSh(sh, { 0, -1, 0 }).r, 0.5f, 0.03f);
@@ -73,7 +73,7 @@ TEST(IrradianceSh, HorizontalDirectionIsNotMirrored)
         const float s = 1.0f + 0.5f * n.x;
         return glm::vec3(s);
     });
-    const auto sh = fra::ProjectIrradianceSh(map, kW, kH);
+    const auto sh  = fra::ProjectIrradianceSh(map, kW, kH);
 
     EXPECT_NEAR(fra::EvaluateIrradianceSh(sh, { 1, 0, 0 }).r, 1.5f, 0.03f);
     EXPECT_NEAR(fra::EvaluateIrradianceSh(sh, { -1, 0, 0 }).r, 0.5f, 0.03f);
@@ -86,7 +86,7 @@ TEST(IrradianceSh, ClampsNegativeLobesToZero)
         const float d = std::max(glm::dot(n, glm::vec3(0, 1, 0)), 0.0f);
         return glm::vec3(std::pow(d, 64.0f) * 50.0f);
     });
-    const auto sh = fra::ProjectIrradianceSh(map, kW, kH);
+    const auto sh  = fra::ProjectIrradianceSh(map, kW, kH);
 
     for (const auto& n : { glm::vec3(0, -1, 0), glm::vec3(1, -1, 0) })
     {

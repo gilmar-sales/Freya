@@ -766,7 +766,7 @@ namespace FREYA_NAMESPACE
                                      static_cast<float>(mScreenSize.height));
         pc.instanceCount = mInstanceCount;
         pc.cullMode      = static_cast<std::uint32_t>(mode);
-        pc.reverseZ = reverseZ ? CullFlags::ReverseZ : CullFlags::None;
+        pc.reverseZ      = reverseZ ? CullFlags::ReverseZ : CullFlags::None;
         pc.hizEnabled = (mHiZSafeForFrame && mode == CullMode::Camera && mHiZ &&
                          mHiZ->IsReady())
                             ? CullFlags::HizEnabled
@@ -1085,8 +1085,7 @@ namespace FREYA_NAMESPACE
         }
         out.hiz.present = mHiZ && mHiZ->IsValid();
         out.hiz.ready   = mHiZ && mHiZ->IsReady();
-        out.hiz.enabled = mLastCullPushConstants.hizEnabled !=
-                          CullFlags::None;
+        out.hiz.enabled = mLastCullPushConstants.hizEnabled != CullFlags::None;
         if (mHiZ && mHiZ->IsValid())
         {
             const auto extent = mHiZ->GetExtent();
@@ -1268,12 +1267,11 @@ namespace FREYA_NAMESPACE
         const auto extent = mHiZ->GetExtent();
         out.present       = true;
         out.ready         = mHiZ->IsReady();
-        out.enabled       = mLastCullPushConstants.hizEnabled !=
-                            CullFlags::None;
-        out.width         = extent.width;
-        out.height        = extent.height;
-        out.mipCount      = mHiZ->GetMipLevels();
-        out.file          = "hiz.r32f";
+        out.enabled  = mLastCullPushConstants.hizEnabled != CullFlags::None;
+        out.width    = extent.width;
+        out.height   = extent.height;
+        out.mipCount = mHiZ->GetMipLevels();
+        out.file     = "hiz.r32f";
         if (!out.ready)
             return true;
         return mHiZ->ReadbackMips(mCommandPool, out.pixels);

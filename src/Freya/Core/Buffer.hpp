@@ -41,16 +41,16 @@ namespace FREYA_NAMESPACE
     class Buffer
     {
       public:
-        Buffer(const skr::Arc<Device>& device,
-               const BufferUsage       usage,
-               const std::uint64_t     size,
-               const vk::Buffer        buffer,
+        Buffer(const skr::Arc<Device>&    device,
+               const BufferUsage          usage,
+               const std::uint64_t        size,
+               const vk::Buffer           buffer,
                const MemoryAllocation     allocation,
                const BufferAllocationInfo info,
-               const bool              hostCoherent = true) :
+               const bool                 hostCoherent = true) :
             mDevice(device), mBuffer(buffer), mAllocation(allocation),
-             mInfo(info), mUsage(usage), mSize(size), mMapped(info.mappedData),
-             mHostCoherent(info.hostCoherent && hostCoherent)
+            mInfo(info), mUsage(usage), mSize(size), mMapped(info.mappedData),
+            mHostCoherent(info.hostCoherent && hostCoherent)
         {
         }
 
@@ -103,13 +103,13 @@ namespace FREYA_NAMESPACE
       private:
         skr::Arc<Device> mDevice;
 
-        vk::Buffer        mBuffer;
+        vk::Buffer           mBuffer;
         MemoryAllocation     mAllocation {};
         BufferAllocationInfo mInfo {};
-        BufferUsage       mUsage;
-        std::uint64_t     mSize;
-        void*             mMapped       = nullptr;
-        bool              mHostCoherent = true;
+        BufferUsage          mUsage;
+        std::uint64_t        mSize;
+        void*                mMapped       = nullptr;
+        bool                 mHostCoherent = true;
     };
 
 } // namespace FREYA_NAMESPACE

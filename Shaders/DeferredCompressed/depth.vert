@@ -20,10 +20,15 @@ layout(std430, set = 2, binding = 1) readonly buffer PrevBoneBuffer {
 };
 
 layout (location = 0) in vec3 inPosition;
+layout (location = 4) in vec2 inTexCoord;
 layout (location = 5) in mat4 inModel;
 layout (location = 13) in uvec4 inInstanceIds;
 layout (location = 14) in uvec4 inJoints;
 layout (location = 15) in vec4 inWeights;
+
+// Alpha-masked materials are tested in depth.frag.
+layout (location = 0) out vec2 outTexCoord;
+layout (location = 1) flat out uint outMaterialId;
 
 const uint kNoSkin = 0xFFFFFFFFu;
 
@@ -48,4 +53,6 @@ void main() {
     vec3 localPos = skinPosition(inInstanceIds.w);
     vec4 worldPos = inModel * vec4(localPos, 1.0);
     gl_Position = pub.proj * pub.view * worldPos;
+    outTexCoord = inTexCoord;
+    outMaterialId = inInstanceIds.x;
 }

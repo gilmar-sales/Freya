@@ -356,7 +356,10 @@ static void BM_EvaluateBlend1D(benchmark::State& state)
     for (auto _ : state)
     {
         auto result = fra::EvaluateBlend1D(
-            sk, std::span { samples }, std::span { times }, param);
+            sk,
+            std::span { samples },
+            std::span { times },
+            param);
         benchmark::DoNotOptimize(result);
         param += 0.05f;
         if (param > static_cast<float>(sampleCount - 1))
@@ -410,7 +413,10 @@ static void BM_EvaluateBlend2D(benchmark::State& state)
     for (auto _ : state)
     {
         auto result = fra::EvaluateBlend2D(
-            sk, std::span { samples }, std::span { times }, param);
+            sk,
+            std::span { samples },
+            std::span { times },
+            param);
         benchmark::DoNotOptimize(result);
         param.x += 0.05f;
         if (param.x > 1.f)
@@ -450,8 +456,11 @@ static void BM_AnimGraph_Evaluate(benchmark::State& state)
     builder.Blend1DState("Locomotion", "Speed");
     for (std::uint32_t i = 0; i < sampleCount; ++i)
     {
-        builder.AddBlendSample(
-            static_cast<float>(i), clips[i], true, 1.f, &bakes[i]);
+        builder.AddBlendSample(static_cast<float>(i),
+                               clips[i],
+                               true,
+                               1.f,
+                               &bakes[i]);
     }
     builder.Entry("Locomotion");
 

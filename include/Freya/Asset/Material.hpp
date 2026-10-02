@@ -72,15 +72,15 @@ namespace FREYA_NAMESPACE
         float         roughnessFactor = 1.f;
         float         metalnessFactor = 1.f;
         glm::vec3     emissiveFactor { 1.f, 1.f, 1.f };
-        float         aoFactor                = 1.f;
-        float         alphaCutoff             = 0.f;
-        AlphaMode     alphaMode               = AlphaMode::Opaque;
-        float         clearcoat               = 0.f;
-        float         clearcoatRoughness      = 0.03f;
-        float         transmission            = 0.f;
-        float         ior                     = 1.5f;
-        MaterialFlags flags                   = MaterialFlags::ReceiveShadow;
-        std::uint32_t techniqueId             = 0;
+        float         aoFactor           = 1.f;
+        float         alphaCutoff        = 0.f;
+        AlphaMode     alphaMode          = AlphaMode::Opaque;
+        float         clearcoat          = 0.f;
+        float         clearcoatRoughness = 0.03f;
+        float         transmission       = 0.f;
+        float         ior                = 1.5f;
+        MaterialFlags flags              = MaterialFlags::ReceiveShadow;
+        std::uint32_t techniqueId        = 0;
     };
 
     /**

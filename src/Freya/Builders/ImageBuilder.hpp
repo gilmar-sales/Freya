@@ -13,13 +13,13 @@ namespace FREYA_NAMESPACE
      */
     enum class ImageUsage
     {
-        Color,             ///< Color attachment image
-        Depth,             ///< Depth stencil attachment
-        Sampling,          ///< MSAA sampling target
-        Texture,           ///< Texture/sampled image
-        GBufferAlbedo,     ///< Albedo RGB + 8-bit material ID (R8G8B8A8_SRGB)
-        GBufferNormal,     ///< Oct normal, roughness|variant, flags (A2B10G10R10)
-        GBufferPbr,        ///< Metalness, AO | clearcoat nibbles (RG8)
+        Color,         ///< Color attachment image
+        Depth,         ///< Depth stencil attachment
+        Sampling,      ///< MSAA sampling target
+        Texture,       ///< Texture/sampled image
+        GBufferAlbedo, ///< Albedo RGB + 8-bit material ID (R8G8B8A8_SRGB)
+        GBufferNormal, ///< Oct normal, roughness|variant, flags (A2B10G10R10)
+        GBufferPbr,    ///< Metalness, AO | clearcoat nibbles (RG8)
         GBufferSceneColor, ///< HDR light accumulation / emissive (RGBA16F)
         GBufferVelocity,   ///< Screen-space motion vectors (RG16F)
         TaaHistory,        ///< TAA history / resolve target (RGBA16F storage)

@@ -62,10 +62,8 @@ namespace FREYA_NAMESPACE
         auto depthRef = vk::AttachmentReference().setAttachment(1).setLayout(
             vk::ImageLayout::eDepthStencilReadOnlyOptimal);
         auto depthInputRef =
-            vk::AttachmentReference()
-                .setAttachment(1)
-                .setLayout(
-                    vk::ImageLayout::eDepthStencilReadOnlyOptimal);
+            vk::AttachmentReference().setAttachment(1).setLayout(
+                vk::ImageLayout::eDepthStencilReadOnlyOptimal);
 
         auto subpass =
             vk::SubpassDescription()
@@ -144,10 +142,8 @@ namespace FREYA_NAMESPACE
         auto depthRef = vk::AttachmentReference().setAttachment(1).setLayout(
             vk::ImageLayout::eDepthStencilReadOnlyOptimal);
         auto depthInputRef =
-            vk::AttachmentReference()
-                .setAttachment(1)
-                .setLayout(
-                    vk::ImageLayout::eDepthStencilReadOnlyOptimal);
+            vk::AttachmentReference().setAttachment(1).setLayout(
+                vk::ImageLayout::eDepthStencilReadOnlyOptimal);
 
         auto subpass =
             vk::SubpassDescription()
@@ -225,10 +221,8 @@ namespace FREYA_NAMESPACE
         auto depthRef = vk::AttachmentReference().setAttachment(1).setLayout(
             vk::ImageLayout::eDepthStencilReadOnlyOptimal);
         auto depthInputRef =
-            vk::AttachmentReference()
-                .setAttachment(1)
-                .setLayout(
-                    vk::ImageLayout::eDepthStencilReadOnlyOptimal);
+            vk::AttachmentReference().setAttachment(1).setLayout(
+                vk::ImageLayout::eDepthStencilReadOnlyOptimal);
 
         auto subpass =
             vk::SubpassDescription()
@@ -343,9 +337,9 @@ namespace FREYA_NAMESPACE
 
         const bool reverseZ =
             HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ);
-        const auto compare = reverseZ ? vk::CompareOp::eGreater
-                                      : vk::CompareOp::eLess;
-        auto       depthStencil =
+        const auto compare =
+            reverseZ ? vk::CompareOp::eGreater : vk::CompareOp::eLess;
+        auto depthStencil =
             vk::PipelineDepthStencilStateCreateInfo()
                 .setDepthTestEnable(depthTest)
                 .setDepthWriteEnable(false)
@@ -406,8 +400,8 @@ namespace FREYA_NAMESPACE
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eVertex);
 
-        auto bindings = std::array { instanceBinding,
-                                     connectedInstanceBinding };
+        auto bindings =
+            std::array { instanceBinding, connectedInstanceBinding };
         auto setLayout = mDevice->Get().createDescriptorSetLayout(
             vk::DescriptorSetLayoutCreateInfo().setBindings(bindings));
 
@@ -418,19 +412,17 @@ namespace FREYA_NAMESPACE
                 .setDescriptorType(vk::DescriptorType::eInputAttachment)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment);
-        auto depthInputSetLayout =
-            mDevice->Get().createDescriptorSetLayout(
-                vk::DescriptorSetLayoutCreateInfo().setBindings(
-                    depthInputBinding));
+        auto depthInputSetLayout = mDevice->Get().createDescriptorSetLayout(
+            vk::DescriptorSetLayoutCreateInfo().setBindings(depthInputBinding));
 
         auto pushRange = vk::PushConstantRange()
                              .setStageFlags(vk::ShaderStageFlagBits::eVertex)
                              .setOffset(0)
                              .setSize(sizeof(BillboardPush));
 
-        auto setLayouts = std::array { setLayout,
-                                       mMaterials->GetBindlessLayout(),
-                                       depthInputSetLayout };
+        auto setLayouts =
+            std::array { setLayout, mMaterials->GetBindlessLayout(),
+                         depthInputSetLayout };
         auto pipelineLayout = mDevice->Get().createPipelineLayout(
             vk::PipelineLayoutCreateInfo()
                 .setSetLayouts(setLayouts)
@@ -442,9 +434,9 @@ namespace FREYA_NAMESPACE
         BillboardPass::Pipelines hdrConnected {};
         BillboardPass::Pipelines ldrConnected {};
         BillboardPass::Pipelines offscreenLdrConnected {};
-        auto                     v = vertShader->Get();
+        auto                     v  = vertShader->Get();
         auto                     cv = connectedVertShader->Get();
-        auto                     f = fragShader->Get();
+        auto                     f  = fragShader->Get();
         hdr.alphaDepth =
             createPipeline(v, f, pipelineLayout, hdrPass, false, true);
         hdr.alphaNoDepth =
@@ -489,8 +481,8 @@ namespace FREYA_NAMESPACE
             cv, f, pipelineLayout, offscreenLdrPass, false, true);
         offscreenLdrConnected.alphaNoDepth = createPipeline(
             cv, f, pipelineLayout, offscreenLdrPass, false, false);
-        offscreenLdrConnected.addDepth = createPipeline(
-            cv, f, pipelineLayout, offscreenLdrPass, true, true);
+        offscreenLdrConnected.addDepth =
+            createPipeline(cv, f, pipelineLayout, offscreenLdrPass, true, true);
         offscreenLdrConnected.addNoDepth = createPipeline(
             cv, f, pipelineLayout, offscreenLdrPass, true, false);
 
@@ -574,14 +566,14 @@ namespace FREYA_NAMESPACE
                 .setMaxSets(1));
         auto depthInputSet =
             mDevice->Get()
-                .allocateDescriptorSets(
-                    vk::DescriptorSetAllocateInfo()
-                        .setDescriptorPool(depthInputPool)
-                        .setSetLayouts(depthInputSetLayout))
+                .allocateDescriptorSets(vk::DescriptorSetAllocateInfo()
+                                            .setDescriptorPool(depthInputPool)
+                                            .setSetLayouts(depthInputSetLayout))
                 .front();
 
         BillboardPass::DepthInputResources depthInput {
-            depthInputSetLayout, depthInputPool, depthInputSet };
+            depthInputSetLayout, depthInputPool, depthInputSet
+        };
 
         const auto extent = swapChain->GetExtent();
         auto       pass   = skr::MakeArc<BillboardPass>(

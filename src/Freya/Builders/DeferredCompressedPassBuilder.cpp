@@ -185,8 +185,7 @@ namespace FREYA_NAMESPACE
                 .setDepthTestEnable(true)
                 .setDepthWriteEnable(true)
                 .setDepthCompareOp(
-                    HasFlag(mFreyaOptions->renderFlags,
-                            RenderFlags::ReverseZ)
+                    HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ)
                         ? vk::CompareOp::eGreater
                         : vk::CompareOp::eLess);
 
@@ -195,8 +194,7 @@ namespace FREYA_NAMESPACE
                 .setDepthTestEnable(true)
                 .setDepthWriteEnable(false)
                 .setDepthCompareOp(
-                    HasFlag(mFreyaOptions->renderFlags,
-                            RenderFlags::ReverseZ)
+                    HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ)
                         ? vk::CompareOp::eGreaterOrEqual
                         : vk::CompareOp::eLessOrEqual);
 
@@ -525,8 +523,8 @@ namespace FREYA_NAMESPACE
                     .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                     .setDescriptorCount(1)
                     .setBufferInfo(irradianceShInfo);
-            mDevice->Get().updateDescriptorSets(1, &irradianceShWrite, 0,
-                                                nullptr);
+            mDevice->Get().updateDescriptorSets(
+                1, &irradianceShWrite, 0, nullptr);
 
             auto shadowUboInfo =
                 vk::DescriptorBufferInfo()

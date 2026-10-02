@@ -67,18 +67,16 @@ class MainApp final : public fra::AbstractApplication
             auto key =
                 fra::MakeDirectionalLight(glm::vec3(-0.35f, -1.0f, -0.25f),
                                           glm::vec3(1.0f, 0.97f, 0.92f), 0.15f);
-            fra::SetFlag(key.flags,
-                           fra::LightFlags::CastShadows, false);
+            fra::SetFlag(key.flags, fra::LightFlags::CastShadows, false);
             mLightService->AddLight(key);
         }
 
         buildScene();
 
-        std::cout
-            << "SSAO Debug — DamagedHelmet + Dragon + ally_ship\n"
-            << "RMB look | WASD move | Space/Q up | Ctrl/E down\n"
-            << "F1: Freya Debug overlay (SSAO quality / deferred views / "
-               "params / GPU Cull > Show cull AABBs)\n";
+        std::cout << "SSAO Debug — DamagedHelmet + Dragon + ally_ship\n"
+                  << "RMB look | WASD move | Space/Q up | Ctrl/E down\n"
+                  << "F1: Freya Debug overlay (SSAO quality / deferred views / "
+                     "params / GPU Cull > Show cull AABBs)\n";
     }
 
     void Update() override

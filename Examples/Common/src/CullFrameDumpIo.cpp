@@ -171,7 +171,7 @@ namespace FreyaExamples
             j["instances"] = nlohmann::json::array();
             for (const auto& inst : snap.instances)
             {
-                    j["instances"].push_back({
+                j["instances"].push_back({
                     { "model", Mat4ToJson(inst.model) },
                     { "meshId", inst.meshId },
                     { "materialId", inst.materialId },
@@ -241,12 +241,12 @@ namespace FreyaExamples
             pc.screenSize    = Vec2FromJson(pcj.at("screenSize"));
             pc.instanceCount = pcj.value("instanceCount", 0u);
             pc.cullMode      = pcj.value("cullMode", 0u);
-            pc.reverseZ = static_cast<fra::CullFlags>(
-                pcj.value("reverseZ", 0u));
-            pc.hizEnabled = static_cast<fra::CullFlags>(
-                pcj.value("hizEnabled", 0u));
-            pc.lodPixelRef   = pcj.value("lodPixelRef", 256.f);
-            pc.lodStep       = pcj.value("lodStep", 2.f);
+            pc.reverseZ =
+                static_cast<fra::CullFlags>(pcj.value("reverseZ", 0u));
+            pc.hizEnabled =
+                static_cast<fra::CullFlags>(pcj.value("hizEnabled", 0u));
+            pc.lodPixelRef = pcj.value("lodPixelRef", 256.f);
+            pc.lodStep     = pcj.value("lodStep", 2.f);
             pc.techniqueFilter =
                 pcj.value("techniqueFilter", fra::kTechniqueFilterAll);
             pc.maxDraws     = pcj.value("maxDraws", 0u);
@@ -273,11 +273,11 @@ namespace FreyaExamples
                  j.value("instances", nlohmann::json::array()))
             {
                 fra::SceneInstance s {};
-                s.model       = Mat4FromJson(inst.at("model"));
-                s.meshId      = inst.value("meshId", 0u);
-                s.materialId  = inst.value("materialId", 0u);
-                s.entityId    = inst.value("entityId", 0u);
-                s.flags       = fra::FromBits<fra::SceneInstanceFlags>(
+                s.model      = Mat4FromJson(inst.at("model"));
+                s.meshId     = inst.value("meshId", 0u);
+                s.materialId = inst.value("materialId", 0u);
+                s.entityId   = inst.value("entityId", 0u);
+                s.flags      = fra::FromBits<fra::SceneInstanceFlags>(
                     inst.value("flags", 0u));
                 s.techniqueId = inst.value("techniqueId", 0u);
                 out.instances.push_back(s);

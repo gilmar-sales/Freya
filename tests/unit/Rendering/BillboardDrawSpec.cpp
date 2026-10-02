@@ -110,7 +110,7 @@ namespace
 
 TEST(BillboardDraw, StripNeedsTwoPoints)
 {
-    fra::BillboardDraw draw;
+    fra::BillboardDraw    draw;
     const fra::StripStyle style = testStyle();
 
     std::vector<fra::StripPoint> empty;
@@ -124,7 +124,7 @@ TEST(BillboardDraw, StripNeedsTwoPoints)
 
 TEST(BillboardDraw, StripStraightSharesEdgesExactly)
 {
-    fra::BillboardDraw draw;
+    fra::BillboardDraw           draw;
     std::vector<fra::StripPoint> points { pt(0.f, 0.f, 0.f, 0.5f, 0.f),
                                           pt(1.f, 0.f, 0.f, 0.5f, 0.5f),
                                           pt(2.f, 0.f, 0.f, 0.5f, 1.f) };
@@ -150,7 +150,7 @@ TEST(BillboardDraw, StripStraightSharesEdgesExactly)
 
 TEST(BillboardDraw, StripCornerSharesMiteredEdge)
 {
-    fra::BillboardDraw draw;
+    fra::BillboardDraw           draw;
     std::vector<fra::StripPoint> points { pt(0.f, 0.f, 0.f, 0.5f, 0.f),
                                           pt(1.f, 0.f, 0.f, 0.5f, 0.5f),
                                           pt(1.f, 1.f, 0.f, 0.5f, 1.f) };
@@ -169,13 +169,11 @@ TEST(BillboardDraw, StripCornerSharesMiteredEdge)
 
 TEST(BillboardDraw, StripSkipsDegenerateRuns)
 {
-    fra::BillboardDraw draw;
-    std::vector<fra::StripPoint> points { pt(0.f, 0.f, 0.f),
-                                          pt(0.f, 0.f, 0.f),
-                                          pt(1.f, 0.f, 0.f),
-                                          pt(1.f, 0.f, 0.f),
-                                          pt(1.f, 0.f, 0.f),
-                                          pt(2.f, 0.f, 0.f) };
+    fra::BillboardDraw           draw;
+    std::vector<fra::StripPoint> points {
+        pt(0.f, 0.f, 0.f), pt(0.f, 0.f, 0.f), pt(1.f, 0.f, 0.f),
+        pt(1.f, 0.f, 0.f), pt(1.f, 0.f, 0.f), pt(2.f, 0.f, 0.f)
+    };
     draw.Strip(points, testStyle(), kRight, kUp);
 
     std::vector<fra::ConnectedBillboard> snap;
@@ -193,9 +191,8 @@ TEST(BillboardDraw, StripSkipsDegenerateRuns)
 
 TEST(BillboardDraw, StripAllCoincidentIsNoOp)
 {
-    fra::BillboardDraw draw;
-    std::vector<fra::StripPoint> points { pt(1.f, 2.f, 3.f),
-                                          pt(1.f, 2.f, 3.f),
+    fra::BillboardDraw           draw;
+    std::vector<fra::StripPoint> points { pt(1.f, 2.f, 3.f), pt(1.f, 2.f, 3.f),
                                           pt(1.f, 2.f, 3.f) };
     draw.Strip(points, testStyle(), kRight, kUp);
     EXPECT_TRUE(draw.ConnectedEmpty());
@@ -228,7 +225,7 @@ TEST(BillboardDraw, StripHairpinStaysBounded)
 
 TEST(BillboardDraw, StripRespectsMaxQuads)
 {
-    fra::BillboardDraw draw(4);
+    fra::BillboardDraw           draw(4);
     std::vector<fra::StripPoint> points;
     for (int i = 0; i < 10; ++i)
         points.push_back(pt(static_cast<float>(i), 0.f, 0.f));
@@ -242,16 +239,16 @@ TEST(BillboardDraw, StripRespectsMaxQuads)
 
 TEST(BillboardDraw, ConnectedQuadRoundTrip)
 {
-    fra::BillboardDraw draw;
+    fra::BillboardDraw      draw;
     fra::ConnectedBillboard q {};
-    q.c0            = glm::vec3(0.f, 0.25f, 0.f);
-    q.c1            = glm::vec3(0.f, -0.25f, 0.f);
-    q.c2            = glm::vec3(1.f, 0.25f, 0.f);
-    q.c3            = glm::vec3(1.f, -0.25f, 0.f);
-    q.color0        = glm::vec4(1.f, 0.f, 0.f, 1.f);
-    q.color1        = glm::vec4(0.f, 1.f, 0.f, 1.f);
-    q.blend         = fra::BillboardBlend::Additive;
-    q.textureIndex  = 7;
+    q.c0           = glm::vec3(0.f, 0.25f, 0.f);
+    q.c1           = glm::vec3(0.f, -0.25f, 0.f);
+    q.c2           = glm::vec3(1.f, 0.25f, 0.f);
+    q.c3           = glm::vec3(1.f, -0.25f, 0.f);
+    q.color0       = glm::vec4(1.f, 0.f, 0.f, 1.f);
+    q.color1       = glm::vec4(0.f, 1.f, 0.f, 1.f);
+    q.blend        = fra::BillboardBlend::Additive;
+    q.textureIndex = 7;
     draw.ConnectedQuad(q);
 
     EXPECT_FALSE(draw.ConnectedEmpty());
@@ -276,8 +273,7 @@ TEST(BillboardDraw, ConnectedQuadRoundTrip)
 TEST(BillboardDraw, SplineRopeSubmitsSeamlessStrip)
 {
     fra::SplineRope rope;
-    rope.controlPoints = { glm::vec3(0.f, 0.f, 0.f),
-                           glm::vec3(1.f, 0.f, 0.f),
+    rope.controlPoints = { glm::vec3(0.f, 0.f, 0.f), glm::vec3(1.f, 0.f, 0.f),
                            glm::vec3(2.f, 0.5f, 0.f),
                            glm::vec3(3.f, 0.5f, 0.f) };
     rope.baseRadius    = 0.06f;
@@ -313,8 +309,7 @@ TEST(BillboardDraw, SplineRopeSubmitsSeamlessStrip)
 TEST(BillboardDraw, SplineRopeGrowthTrimsTip)
 {
     fra::SplineRope rope;
-    rope.controlPoints = { glm::vec3(0.f, 0.f, 0.f),
-                           glm::vec3(1.f, 0.f, 0.f) };
+    rope.controlPoints = { glm::vec3(0.f, 0.f, 0.f), glm::vec3(1.f, 0.f, 0.f) };
     rope.segments      = 8;
 
     fra::BillboardDraw draw;
@@ -332,7 +327,7 @@ TEST(BillboardDraw, SplineRopeGrowthTrimsTip)
 TEST(BillboardDraw, RibbonEmitterSubmitsConnectedStrip)
 {
     fra::RibbonEmitter ribbon;
-    ribbon.width = 0.2f;
+    ribbon.width  = 0.2f;
     ribbon.origin = glm::vec3(0.f);
 
     fra::BillboardDraw draw;
@@ -363,7 +358,7 @@ TEST(BillboardDraw, ConcurrentStripAndSnapshot)
     std::vector<fra::StripPoint> points { pt(0.f, 0.f, 0.f, 0.3f, 0.f),
                                           pt(1.f, 0.f, 0.f, 0.3f, 0.5f),
                                           pt(1.f, 1.f, 0.f, 0.3f, 1.f) };
-    const fra::StripStyle style = testStyle();
+    const fra::StripStyle        style = testStyle();
 
     std::vector<std::thread> threads;
     for (int t = 0; t < kWorkers; ++t)

@@ -9,11 +9,11 @@ namespace FREYA_NAMESPACE
         const vk::DescriptorSet       bindlessSet,
         const skr::Arc<Buffer>&       materialsBuffer,
         const vk::Image               fallbackImage,
-        const MemoryAllocation           fallbackImageMemory,
+        const MemoryAllocation        fallbackImageMemory,
         const vk::ImageView           fallbackImageView,
         const vk::Sampler             fallbackSampler,
         const vk::Image               emissiveFallbackImage,
-        const MemoryAllocation           emissiveFallbackMemory,
+        const MemoryAllocation        emissiveFallbackMemory,
         const vk::ImageView           emissiveFallbackImageView,
         const vk::Sampler             emissiveFallbackSampler) :
         mDevice(device), mBindlessLayout(bindlessLayout),

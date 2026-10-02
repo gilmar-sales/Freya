@@ -20,9 +20,9 @@ namespace FREYA_NAMESPACE
         const auto shaderPath = mFreyaOptions->shaderRoot +
                                 (quantize ? "/Anim/skin_bake_quant.comp.spv"
                                           : "/Anim/skin_bake.comp.spv");
-        auto shader = mServiceProvider->GetService<ShaderModuleBuilder>()
-                          ->SetFilePath(shaderPath)
-                          .Build();
+        auto       shader = mServiceProvider->GetService<ShaderModuleBuilder>()
+                                ->SetFilePath(shaderPath)
+                                .Build();
 
         const auto jointStride =
             quantize ? sizeof(GpuQuantJoint) : sizeof(GpuFloatJoint);

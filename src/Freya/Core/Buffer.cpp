@@ -81,8 +81,8 @@ namespace FREYA_NAMESPACE
             return;
         }
 
-        void*          mapped = nullptr;
-        mapped = allocator->Map(mAllocation);
+        void* mapped = nullptr;
+        mapped       = allocator->Map(mAllocation);
         if (mapped == nullptr)
             return;
 

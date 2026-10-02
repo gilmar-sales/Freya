@@ -55,10 +55,10 @@ namespace FREYA_NAMESPACE
         PostProcess(const PostProcess&)            = delete;
         PostProcess& operator=(const PostProcess&) = delete;
 
-        [[nodiscard]] const char* Name() const;
-        void                      SetEnabled(bool enabled);
-        void                      SetFlags(PostProcessFlags flags);
-        [[nodiscard]] bool        Enabled() const;
+        [[nodiscard]] const char*      Name() const;
+        void                           SetEnabled(bool enabled);
+        void                           SetFlags(PostProcessFlags flags);
+        [[nodiscard]] bool             Enabled() const;
         [[nodiscard]] PostProcessFlags Flags() const;
 
         void BindMaterial(std::uint32_t materialId);

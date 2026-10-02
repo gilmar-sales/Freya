@@ -137,8 +137,7 @@ namespace FREYA_NAMESPACE
 
     bool Renderer::GetVSync() const
     {
-        return HasFlag(mImpl->mFreyaOptions->windowFlags,
-                       WindowFlags::VSync);
+        return HasFlag(mImpl->mFreyaOptions->windowFlags, WindowFlags::VSync);
     }
 
     WindowFlags Renderer::GetVSyncFlags() const
@@ -207,8 +206,8 @@ namespace FREYA_NAMESPACE
         mImpl->UploadBoneMatrices(bones);
     }
 
-    void Renderer::UploadBoneMatrices(const std::uint32_t boneOffset,
-                                      const std::span<const glm::mat4> bones)
+    void Renderer::UploadBoneMatrices(
+        const std::uint32_t boneOffset, const std::span<const glm::mat4> bones)
     {
         mImpl->UploadBoneMatrices(boneOffset, bones);
     }

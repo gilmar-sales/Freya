@@ -62,9 +62,9 @@ namespace FREYA_NAMESPACE
             const auto  period = std::max(1u, haltonPeriod);
             const auto  sample = (frameIndex % period) + 1;
             const float jx     = (Halton(sample, 2) - 0.5f) * 2.0f /
-                             static_cast<float>(extent.width);
-            const float jy = -(Halton(sample, 3) - 0.5f) * 2.0f /
-                             static_cast<float>(extent.height);
+                                 static_cast<float>(extent.width);
+            const float jy     = -(Halton(sample, 3) - 0.5f) * 2.0f /
+                                 static_cast<float>(extent.height);
             projection[2][0] += jx;
             projection[2][1] += jy;
         }
@@ -513,10 +513,10 @@ namespace FREYA_NAMESPACE
         ctx.buildHiZ         = [this]() {
             if (!mIndirectDraw || !mDeferredPass || !mSwapChain)
                 return;
-            mIndirectDraw->BuildHiZ(mDeferredPass->GetDepthImage(
-                                        mSwapChain->GetCurrentFrameIndex()),
-                                    HasFlag(mFreyaOptions->renderFlags,
-                                            RenderFlags::ReverseZ));
+            mIndirectDraw->BuildHiZ(
+                mDeferredPass->GetDepthImage(
+                    mSwapChain->GetCurrentFrameIndex()),
+                HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ));
         };
         ctx.blitBloomToFullRes = [this]() {
             blitBloomToFullRes(mCommandPool,
@@ -538,7 +538,7 @@ namespace FREYA_NAMESPACE
             const glm::mat4 viewProj = mCurrentProjection.unjitteredProjection *
                                        mCurrentProjection.view;
             mDebugDrawPass->Draw(mSwapChain, mCommandPool,
-                                   mDebugDraw.Vertices(), viewProj);
+                                 mDebugDraw.Vertices(), viewProj);
         };
         ctx.recordModelPreviews = [this]() {
             std::vector<UiModelPreview*> copy;
@@ -752,8 +752,7 @@ namespace FREYA_NAMESPACE
         ApplyTaaQuality(*mFreyaOptions, quality);
         mTaaQuality = quality;
 
-        if (wasEnabled !=
-            HasFlag(mFreyaOptions->renderFlags, RenderFlags::Taa))
+        if (wasEnabled != HasFlag(mFreyaOptions->renderFlags, RenderFlags::Taa))
         {
             mDevice->Get().waitIdle();
             rebuildSceneResources();
@@ -1011,9 +1010,8 @@ namespace FREYA_NAMESPACE
         const bool reverseZ =
             HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ);
         auto projection =
-            reverseZ
-                ? glm::perspective(fovRadians, aspect, far, near)
-                : glm::perspective(fovRadians, aspect, near, far);
+            reverseZ ? glm::perspective(fovRadians, aspect, far, near)
+                     : glm::perspective(fovRadians, aspect, near, far);
         projection[1][1] *= -1.f;
 
         return projection;
@@ -1036,14 +1034,14 @@ namespace FREYA_NAMESPACE
         const auto far  = mFreyaOptions->drawDistance;
 
         auto projectionUniformBuffer = ProjectionUniformBuffer {
-            .view         = glm::lookAt(cameraPosition,
-                                        cameraPosition + cameraForward,
-                                        cameraUp),
-            .projection   = MakeProjection(glm::radians(45.0f),
-                                           static_cast<float>(extent.width) /
-                                               static_cast<float>(extent.height),
-                                           near,
-                                           far),
+            .view       = glm::lookAt(cameraPosition,
+                                      cameraPosition + cameraForward,
+                                      cameraUp),
+            .projection = MakeProjection(glm::radians(45.0f),
+                                         static_cast<float>(extent.width) /
+                                             static_cast<float>(extent.height),
+                                         near,
+                                         far),
             .ambientLight = glm::vec4(mFreyaOptions->ambientColor,
                                       mFreyaOptions->ambientIntensity)
         };
@@ -2056,8 +2054,7 @@ namespace FREYA_NAMESPACE
             mCullDumpPending.hiz.mipCount = hizMips;
             mCullDumpPending.hiz.file     = "hiz.r32f";
             mCullDumpPending.hiz.enabled =
-                mCullDumpPending.pushConstants.hizEnabled !=
-                CullFlags::None;
+                mCullDumpPending.pushConstants.hizEnabled != CullFlags::None;
             mCullDumpRequested        = false;
             mCullDumpAwaitingReadback = true;
             mCullDumpFrameIndex       = mSwapChain->GetCurrentFrameIndex();

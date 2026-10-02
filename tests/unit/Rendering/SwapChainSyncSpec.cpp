@@ -12,7 +12,7 @@ TEST(SwapChainSync, PresentationSemaphoresAreAllocatedPerSwapchainImage)
 
 TEST(SwapChainSync, PresentationSemaphoreFollowsAcquiredImageNotFrameSlot)
 {
-    constexpr std::size_t frameSlot = 1u;
+    constexpr std::size_t frameSlot     = 1u;
     constexpr std::size_t acquiredImage = 2u;
 
     EXPECT_EQ(fra::SwapChainSync::PresentationSemaphoreIndex(acquiredImage),

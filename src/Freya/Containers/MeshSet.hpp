@@ -61,7 +61,7 @@ namespace FREYA_NAMESPACE
          */
         void insert(Mesh n)
         {
-            const auto id = static_cast<std::size_t>(n.id);
+            const auto    id = static_cast<std::size_t>(n.id);
             SpinLockGuard lock { m_lock };
             ensureCapacityLocked(id);
             if (containsLocked(id))
@@ -78,14 +78,14 @@ namespace FREYA_NAMESPACE
          */
         void remove(Mesh n)
         {
-            const auto id = static_cast<std::size_t>(n.id);
+            const auto    id = static_cast<std::size_t>(n.id);
             SpinLockGuard lock { m_lock };
             if (!containsLocked(id))
                 return;
 
-            dense[sparse[id]]                = dense[dense.size() - 1];
+            dense[sparse[id]]               = dense[dense.size() - 1];
             sparse[dense[dense.size() - 1]] = sparse[id];
-            sparse[id]                       = 0;
+            sparse[id]                      = 0;
             dense.pop_back();
             sorted = false;
         }

@@ -11,7 +11,8 @@
 #include <random>
 #include <vector>
 
-// ── Particle Showcase ─────────────────────────────────────────────────────────
+// ── Particle Showcase
+// ─────────────────────────────────────────────────────────
 //
 // Demonstrates every new ParticleEmitter / RibbonEmitter feature:
 //
@@ -64,9 +65,9 @@ class MainApp final : public fra::AbstractApplication
             });
 
         // Ground plane
-        mGroundMesh = FreyaExamples::CreateGroundPlane(*mMeshPool, 18.f,
-                                                        glm::vec3(0.15f));
-        mGroundMat  = mMaterialPool->Create({
+        mGroundMesh = FreyaExamples::CreateGroundPlane(
+            *mMeshPool, 18.f, glm::vec3(0.15f));
+        mGroundMat = mMaterialPool->Create({
             .albedoFactor    = { 0.18f, 0.18f, 0.18f, 1.f },
             .roughnessFactor = 0.95f,
         });
@@ -82,8 +83,7 @@ class MainApp final : public fra::AbstractApplication
         }
 
         mLightService->AddLight(fra::MakeDirectionalLight(
-            glm::vec3(-0.3f, -1.f, -0.4f), glm::vec3(1.f, 0.95f, 0.85f),
-            0.8f));
+            glm::vec3(-0.3f, -1.f, -0.4f), glm::vec3(1.f, 0.95f, 0.85f), 0.8f));
 
         // ── [1] Campfire ──────────────────────────────────────────────────
         const glm::vec3 firePos { -3.5f, 0.05f, 0.f };
@@ -104,27 +104,27 @@ class MainApp final : public fra::AbstractApplication
         mFireFlames.turbulenceStrength = 0.9f;
         mFireFlames.turbulenceScale    = 2.5f;
 
-        mFireSmoke.origin = firePos + glm::vec3(0.f, 0.3f, 0.f);
-        mFireSmoke.velocity           = { 0.f, 0.5f, 0.f };
-        mFireSmoke.velocityJitter     = { 0.15f, 0.1f, 0.15f };
-        mFireSmoke.spawnRate          = 8.f;
-        mFireSmoke.lifetime           = 2.2f;
-        mFireSmoke.size0              = 0.2f;
-        mFireSmoke.size1              = 0.7f;
-        mFireSmoke.color0             = { 0.1f, 0.1f, 0.09f, 0.3f };
-        mFireSmoke.color1             = { 0.05f, 0.05f, 0.05f, 0.f };
-        mFireSmoke.blend              = fra::BillboardBlend::Alpha;
-        mFireSmoke.maxParticles       = 48;
-        mFireSmoke.gravity            = { 0.f, 0.1f, 0.f };
-        mFireSmoke.drag               = 0.5f;
+        mFireSmoke.origin                = firePos + glm::vec3(0.f, 0.3f, 0.f);
+        mFireSmoke.velocity              = { 0.f, 0.5f, 0.f };
+        mFireSmoke.velocityJitter        = { 0.15f, 0.1f, 0.15f };
+        mFireSmoke.spawnRate             = 8.f;
+        mFireSmoke.lifetime              = 2.2f;
+        mFireSmoke.size0                 = 0.2f;
+        mFireSmoke.size1                 = 0.7f;
+        mFireSmoke.color0                = { 0.1f, 0.1f, 0.09f, 0.3f };
+        mFireSmoke.color1                = { 0.05f, 0.05f, 0.05f, 0.f };
+        mFireSmoke.blend                 = fra::BillboardBlend::Alpha;
+        mFireSmoke.maxParticles          = 48;
+        mFireSmoke.gravity               = { 0.f, 0.1f, 0.f };
+        mFireSmoke.drag                  = 0.5f;
         mFireSmoke.angularVelocity       = 0.4f;
         mFireSmoke.angularVelocityJitter = 0.6f;
-        mFireSmoke.turbulenceStrength = 0.35f;
-        mFireSmoke.turbulenceScale    = 1.2f;
+        mFireSmoke.turbulenceStrength    = 0.35f;
+        mFireSmoke.turbulenceScale       = 1.2f;
 
         mLightService->AddLight(fra::MakePointLight(
-            firePos + glm::vec3(0.f, 0.5f, 0.f),
-            glm::vec3(1.f, 0.4f, 0.1f), 5.f, 6.f));
+            firePos + glm::vec3(0.f, 0.5f, 0.f), glm::vec3(1.f, 0.4f, 0.1f),
+            5.f, 6.f));
 
         // ── [2] Magic Portal ──────────────────────────────────────────────
         mPortal.origin                = { 0.f, 1.2f, 0.f };
@@ -144,24 +144,23 @@ class MainApp final : public fra::AbstractApplication
         mPortal.turbulenceScale       = 3.f;
 
         mLightService->AddLight(fra::MakePointLight(
-            glm::vec3(0.f, 1.2f, 0.f),
-            glm::vec3(0.3f, 0.6f, 1.f), 4.f, 5.f));
+            glm::vec3(0.f, 1.2f, 0.f), glm::vec3(0.3f, 0.6f, 1.f), 4.f, 5.f));
 
         // ── [3] Fountain ──────────────────────────────────────────────────
-        mFountain.origin         = { 3.5f, 0.05f, 0.f };
-        mFountain.velocity       = { 0.f, 4.5f, 0.f };
-        mFountain.spawnRate      = 40.f;
-        mFountain.lifetime       = 1.2f;
-        mFountain.size0          = 0.06f;
-        mFountain.size1          = 0.04f;
-        mFountain.color0         = { 0.5f, 0.8f, 1.f, 0.9f };
-        mFountain.color1         = { 0.2f, 0.5f, 0.8f, 0.f };
-        mFountain.blend          = fra::BillboardBlend::Alpha;
-        mFountain.maxParticles   = 128;
-        mFountain.shape          = fra::EmitterShape::Cone;
-        mFountain.shapeRadius    = 0.18f;
-        mFountain.gravity        = { 0.f, -9.8f, 0.f };
-        mFountain.drag           = 0.05f;
+        mFountain.origin       = { 3.5f, 0.05f, 0.f };
+        mFountain.velocity     = { 0.f, 4.5f, 0.f };
+        mFountain.spawnRate    = 40.f;
+        mFountain.lifetime     = 1.2f;
+        mFountain.size0        = 0.06f;
+        mFountain.size1        = 0.04f;
+        mFountain.color0       = { 0.5f, 0.8f, 1.f, 0.9f };
+        mFountain.color1       = { 0.2f, 0.5f, 0.8f, 0.f };
+        mFountain.blend        = fra::BillboardBlend::Alpha;
+        mFountain.maxParticles = 128;
+        mFountain.shape        = fra::EmitterShape::Cone;
+        mFountain.shapeRadius  = 0.18f;
+        mFountain.gravity      = { 0.f, -9.8f, 0.f };
+        mFountain.drag         = 0.05f;
 
         // ── [4] Sparkle Ring (flipbook) ───────────────────────────────────
         mSparkle.origin                = { 0.f, 0.1f, -3.5f };
@@ -224,9 +223,9 @@ class MainApp final : public fra::AbstractApplication
         mSparks.gravity        = { 0.f, -14.f, 0.f };
         mSparks.drag           = 0.12f;
 
-        mLightService->AddLight(fra::MakePointLight(
-            mSparks.origin + glm::vec3(0.f, 0.4f, 0.f),
-            glm::vec3(1.f, 0.6f, 0.2f), 2.f, 4.f));
+        mLightService->AddLight(
+            fra::MakePointLight(mSparks.origin + glm::vec3(0.f, 0.4f, 0.f),
+                                glm::vec3(1.f, 0.6f, 0.2f), 2.f, 4.f));
 
         // ── [8] Bullet traces ─────────────────────────────────────────────
         for (auto& b : mBullets)
@@ -244,7 +243,7 @@ class MainApp final : public fra::AbstractApplication
         mRain.resize(kRainCount);
         {
             std::uniform_real_distribution<float> dXZ { -7.f, 7.f };
-            std::uniform_real_distribution<float> dH  { 0.f, kRainTop };
+            std::uniform_real_distribution<float> dH { 0.f, kRainTop };
             for (auto& d : mRain)
             {
                 d.pos = { dXZ(mRainRng), dH(mRainRng), dXZ(mRainRng) };
@@ -284,10 +283,9 @@ class MainApp final : public fra::AbstractApplication
 
         const glm::vec3 forward  = mCam.Forward();
         const glm::vec3 worldUp  = glm::vec3(0.f, 1.f, 0.f);
-        const glm::vec3 camRight =
-            glm::normalize(glm::cross(forward, worldUp));
-        const glm::vec3 camUp  = glm::cross(camRight, forward);
-        const glm::vec3 camPos = mCam.cameraPos;
+        const glm::vec3 camRight = glm::normalize(glm::cross(forward, worldUp));
+        const glm::vec3 camUp    = glm::cross(camRight, forward);
+        const glm::vec3 camPos   = mCam.cameraPos;
 
         // [1] Campfire
         mFireFlames.Tick(dt, bb, camPos);
@@ -306,10 +304,9 @@ class MainApp final : public fra::AbstractApplication
         mBurstEmitter.Tick(dt, bb, camPos);
 
         // [6] Ribbon — follows a sine-wave path in XZ plane
-        mRibbon.origin = glm::vec3(
-            3.5f * std::sin(mTime * 0.8f),
-            1.5f + 0.6f * std::sin(mTime * 2.1f),
-            -3.5f + 3.5f * std::cos(mTime * 0.6f));
+        mRibbon.origin = glm::vec3(3.5f * std::sin(mTime * 0.8f),
+                                   1.5f + 0.6f * std::sin(mTime * 2.1f),
+                                   -3.5f + 3.5f * std::cos(mTime * 0.6f));
         mRibbon.Tick(dt, bb, camRight, camUp);
 
         // [7] Sparks
@@ -324,10 +321,9 @@ class MainApp final : public fra::AbstractApplication
             {
                 if (!b.active)
                 {
-                    b.active    = true;
-                    b.timeAlive = 0.f;
-                    const float side =
-                        (mBulletShot % 2 == 0) ? -1.f : 1.f;
+                    b.active         = true;
+                    b.timeAlive      = 0.f;
+                    const float side = (mBulletShot % 2 == 0) ? -1.f : 1.f;
                     const float yOff =
                         0.8f + 0.5f * static_cast<float>(mBulletShot % 3);
                     b.pos = {
@@ -357,8 +353,8 @@ class MainApp final : public fra::AbstractApplication
         // [9] Rain
         {
             std::uniform_real_distribution<float> dXZ { -7.f, 7.f };
-            constexpr float kSpeed = 9.f;
-            const glm::vec3 rainVel { 0.f, -kSpeed, 0.f };
+            constexpr float                       kSpeed = 9.f;
+            const glm::vec3                       rainVel { 0.f, -kSpeed, 0.f };
             for (auto& d : mRain)
             {
                 d.pos.y -= kSpeed * dt;
@@ -371,16 +367,15 @@ class MainApp final : public fra::AbstractApplication
                     d.t     = 0.f;
                 }
                 fra::Billboard b;
-                b.worldPos             = d.pos;
-                b.size                 = { 0.004f, 0.08f };
-                b.color = { 0.65f, 0.75f, 1.f, 0.45f * (1.f - d.t) };
-                b.align  = fra::BillboardAlign::Screen;
+                b.worldPos = d.pos;
+                b.size     = { 0.004f, 0.08f };
+                b.color    = { 0.65f, 0.75f, 1.f, 0.45f * (1.f - d.t) };
+                b.align    = fra::BillboardAlign::Screen;
                 b.flags |= fra::BillboardFlags::VelocityStretch;
-                b.velocity = rainVel;
+                b.velocity             = rainVel;
                 b.velocityStretchScale = 0.18f;
-                b.blend = fra::BillboardBlend::Alpha;
-                fra::SetFlag(b.flags, fra::BillboardFlags::DepthTest,
-                             false);
+                b.blend                = fra::BillboardBlend::Alpha;
+                fra::SetFlag(b.flags, fra::BillboardFlags::DepthTest, false);
                 bb.Quad(b);
             }
         }
@@ -426,13 +421,13 @@ class MainApp final : public fra::AbstractApplication
         bool               active    = false;
         fra::RibbonEmitter ribbon;
     };
-    static constexpr int   kMaxBullets     = 3;
-    static constexpr float kBulletInterval = 1.4f;
-    static constexpr float kBulletSpeed    = 16.f;
-    static constexpr float kBulletRange    = 8.f;
+    static constexpr int            kMaxBullets     = 3;
+    static constexpr float          kBulletInterval = 1.4f;
+    static constexpr float          kBulletSpeed    = 16.f;
+    static constexpr float          kBulletRange    = 8.f;
     std::array<Bullet, kMaxBullets> mBullets;
-    float         mBulletTimer = kBulletInterval * 0.6f;
-    std::uint32_t mBulletShot  = 0;
+    float                           mBulletTimer = kBulletInterval * 0.6f;
+    std::uint32_t                   mBulletShot  = 0;
     // [9] Rain
     struct RainDrop
     {
@@ -441,8 +436,8 @@ class MainApp final : public fra::AbstractApplication
     };
     static constexpr int   kRainCount = 320;
     static constexpr float kRainTop   = 8.f;
-    std::vector<RainDrop> mRain;
-    std::mt19937          mRainRng { 0xBEEFu };
+    std::vector<RainDrop>  mRain;
+    std::mt19937           mRainRng { 0xBEEFu };
 
     float mTime = 0.f;
 

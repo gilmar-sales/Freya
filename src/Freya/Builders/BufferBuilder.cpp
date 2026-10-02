@@ -120,7 +120,7 @@ namespace FREYA_NAMESPACE
             (void) useConcurrent;
         }
 
-        VkBuffer          rawBuffer {};
+        VkBuffer             rawBuffer {};
         MemoryAllocation     allocation {};
         BufferAllocationInfo allocInfo {};
         try

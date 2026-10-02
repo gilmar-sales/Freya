@@ -27,8 +27,7 @@ namespace FREYA_NAMESPACE
         return *this;
     }
 
-    FreyaOptionsBuilder& FreyaOptionsBuilder::SetWindowFlags(
-        WindowFlags flags)
+    FreyaOptionsBuilder& FreyaOptionsBuilder::SetWindowFlags(WindowFlags flags)
     {
         mFreyaOptions->windowFlags = flags;
         return *this;
@@ -274,13 +273,11 @@ namespace FREYA_NAMESPACE
     FreyaOptionsBuilder& FreyaOptionsBuilder::SetQuantizeGpuAnimJoints(
         bool enabled)
     {
-        SetFlag(mFreyaOptions->animFlags, AnimFlags::QuantizeJoints,
-                enabled);
+        SetFlag(mFreyaOptions->animFlags, AnimFlags::QuantizeJoints, enabled);
         return *this;
     }
 
-    FreyaOptionsBuilder& FreyaOptionsBuilder::SetRenderFlags(
-        RenderFlags flags)
+    FreyaOptionsBuilder& FreyaOptionsBuilder::SetRenderFlags(RenderFlags flags)
     {
         mFreyaOptions->renderFlags = flags;
         return *this;

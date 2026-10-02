@@ -276,8 +276,9 @@ namespace FREYA_NAMESPACE
             mFreyaOptions->taaDepthRejectThreshold,
             mFreyaOptions->taaSharpen,
             static_cast<float>(mFreyaOptions->taaQualityLevel),
-            HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ) ? 1.0f
-                                                                       : 0.0f,
+            HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ)
+                ? 1.0f
+                : 0.0f,
             0.0f,
             0.0f,
         };

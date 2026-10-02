@@ -128,6 +128,11 @@ namespace FREYA_NAMESPACE
                 .setOffset(offsetof(Vertex, position)),
             vk::VertexInputAttributeDescription()
                 .setBinding(0)
+                .setLocation(4)
+                .setFormat(vk::Format::eR32G32Sfloat)
+                .setOffset(offsetof(Vertex, texCoord)),
+            vk::VertexInputAttributeDescription()
+                .setBinding(0)
                 .setLocation(14)
                 .setFormat(vk::Format::eR32G32B32A32Uint)
                 .setOffset(offsetof(Vertex, joints)),

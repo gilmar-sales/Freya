@@ -21,9 +21,9 @@ namespace FreyaExamples
         };
 
         constexpr std::array<std::string_view, 12> kDebugViews = {
-            "Lit",          "Albedo",      "Normal",   "Depth",
-            "Roughness",    "Metalness",   "Material AO", "Material ID",
-            "Velocity",     "SSAO Blurred", "SSAO Raw",  "Shadows"
+            "Lit",       "Albedo",       "Normal",      "Depth",
+            "Roughness", "Metalness",    "Material AO", "Material ID",
+            "Velocity",  "SSAO Blurred", "SSAO Raw",    "Shadows"
         };
 
         // Window content metrics (logical px; the overlay UI runs at the
@@ -58,9 +58,9 @@ namespace FreyaExamples
         bool QualityCombo(fra::UiContext& ui, std::string_view id, int* value)
         {
             ui.Label(id, 14.f);
-            return ui.ComboBox(
-                id, std::span<const std::string_view>(kQualityItems), value,
-                { kContentW, 30.f });
+            return ui.ComboBox(id,
+                               std::span<const std::string_view>(kQualityItems),
+                               value, { kContentW, 30.f });
         }
     } // namespace
 
@@ -77,7 +77,7 @@ namespace FreyaExamples
         if (mInitialized)
             return true;
 
-        mEvents = services->GetService<fra::EventManager>();
+        mEvents       = services->GetService<fra::EventManager>();
         auto textures = services->GetService<fra::TexturePool>();
         if (!mEvents || !textures)
         {
@@ -96,8 +96,7 @@ namespace FreyaExamples
 
         mEvents->Subscribe<fra::KeyReleasedEvent>(
             [this, alive = mAlive](const fra::KeyReleasedEvent& event) {
-                if (*alive && mInitialized &&
-                    event.key == fra::KeyCode::F1)
+                if (*alive && mInitialized && event.key == fra::KeyCode::F1)
                     mEnabled = !mEnabled;
             });
 
@@ -166,9 +165,9 @@ namespace FreyaExamples
             return;
 
         const auto  now = std::chrono::steady_clock::now();
-        const float dt  = std::clamp(
-            std::chrono::duration<float>(now - mLastDraw).count(), 1e-4f,
-            0.25f);
+        const float dt =
+            std::clamp(std::chrono::duration<float>(now - mLastDraw).count(),
+                       1e-4f, 0.25f);
         mLastDraw = now;
 
         // The renderer scales the whole shared UiDraw queue with its own
@@ -185,8 +184,7 @@ namespace FreyaExamples
         ui.Begin(dt, fb);
 
         // Tall enough to show the first sections without scrolling.
-        const float winH = std::clamp(
-            ui.LogicalSize().y - 24.f, 320.f, 900.f);
+        const float winH = std::clamp(ui.LogicalSize().y - 24.f, 320.f, 900.f);
 
         fra::UiWindowOpts winOpts {};
         winOpts.defaultPos  = { 12.f, 12.f };
@@ -207,8 +205,7 @@ namespace FreyaExamples
             {
                 StatRow(ui, "t_cpu", "CPU frame",
                         Format("%.2f ms (%.1f FPS)", cpuFrameMs,
-                               cpuFrameMs > 1e-3f ? 1000.f / cpuFrameMs
-                                                  : 0.f));
+                               cpuFrameMs > 1e-3f ? 1000.f / cpuFrameMs : 0.f));
                 StatRow(ui, "t_upd", "CPU update",
                         Format("%.2f ms", cpuUpdateMs));
                 StatRow(ui, "t_res", "Render",
@@ -224,8 +221,7 @@ namespace FreyaExamples
                     contentH += 24.f + 12.f;
                     for (std::uint32_t i = 0; i < gpu.stageCount; ++i)
                     {
-                        StatRow(ui, Format("t_stage%u", i),
-                                gpu.stages[i].name,
+                        StatRow(ui, Format("t_stage%u", i), gpu.stages[i].name,
                                 Format("%.2f ms", gpu.stages[i].gpuMs));
                         contentH += 24.f;
                     }
@@ -258,8 +254,7 @@ namespace FreyaExamples
 
                 int taa = static_cast<int>(renderer.GetTaaQuality());
                 if (QualityCombo(ui, "TAA", &taa))
-                    renderer.SetTaaQuality(
-                        static_cast<fra::TaaQuality>(taa));
+                    renderer.SetTaaQuality(static_cast<fra::TaaQuality>(taa));
 
                 int bloom = static_cast<int>(renderer.GetBloomQuality());
                 if (QualityCombo(ui, "Bloom", &bloom))
@@ -284,17 +279,17 @@ namespace FreyaExamples
                 contentH += kHeaderH;
                 if (ui.CollapsingHeader("dbg_lights", "Lights", true))
                 {
-                    auto typeToggle = [&](const char*     label,
-                                          fra::LightType type) {
-                        bool on = HasFlag(lights->GetLightTypeFlags(type),
-                                          fra::LightFlags::Enabled);
-                        if (ui.Checkbox(label, &on))
-                        {
-                            auto flags = lights->GetLightTypeFlags(type);
-                            SetFlag(flags, fra::LightFlags::Enabled, on);
-                            lights->SetLightTypeFlags(type, flags);
-                        }
-                    };
+                    auto typeToggle =
+                        [&](const char* label, fra::LightType type) {
+                            bool on = HasFlag(lights->GetLightTypeFlags(type),
+                                              fra::LightFlags::Enabled);
+                            if (ui.Checkbox(label, &on))
+                            {
+                                auto flags = lights->GetLightTypeFlags(type);
+                                SetFlag(flags, fra::LightFlags::Enabled, on);
+                                lights->SetLightTypeFlags(type, flags);
+                            }
+                        };
                     typeToggle("Directional", fra::LightType::Directional);
                     typeToggle("Point", fra::LightType::Point);
                     typeToggle("Spot", fra::LightType::Spot);
@@ -326,8 +321,8 @@ namespace FreyaExamples
                     renderer.SetDebugDrawEnabled(dbgDraw);
 
                 const glm::vec2 sliderSize { kContentW, 24.f };
-                ui.SliderFloat("SSAO radius", &options.ssaoRadius, 0.05f,
-                               2.0f, sliderSize);
+                ui.SliderFloat("SSAO radius", &options.ssaoRadius, 0.05f, 2.0f,
+                               sliderSize);
                 renderer.SetSsaoRadius(options.ssaoRadius);
                 ui.SliderFloat("SSAO bias", &options.ssaoBias, 0.0f, 0.1f,
                                sliderSize);

@@ -101,9 +101,8 @@ namespace FREYA_NAMESPACE
         auto imageAvailableSemaphores =
             std::vector<vk::Semaphore>(mFreyaOptions->frameCount);
 
-        auto renderFinishedSemaphores =
-            std::vector<vk::Semaphore>(
-                SwapChainSync::PresentationSemaphoreCount(frames.size()));
+        auto renderFinishedSemaphores = std::vector<vk::Semaphore>(
+            SwapChainSync::PresentationSemaphoreCount(frames.size()));
 
         auto inFlightFences = std::vector<vk::Fence>(mFreyaOptions->frameCount);
 
@@ -120,8 +119,8 @@ namespace FREYA_NAMESPACE
             inFlightFences[i] = mDevice->Get().createFence(fenceInfo);
 
             mLogger->Assert(imageAvailableSemaphores[i] && inFlightFences[i],
-                "\tFailed to create synchronization objects "
-                "for a frame");
+                            "\tFailed to create synchronization objects "
+                            "for a frame");
         }
 
         for (auto& semaphore : renderFinishedSemaphores)

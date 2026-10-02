@@ -647,8 +647,7 @@ namespace FREYA_NAMESPACE
                     [&](const glm::mat4& lightVP) {
                         indirect->SetCullView(cameraPos, vkExtent);
                         indirect->DispatchCull(lightVP, CullMode::Shadow,
-                                                 reverseZ,
-                                                 kTechniqueFilterAll);
+                                               reverseZ, kTechniqueFilterAll);
                     },
                     [&]() {
                         indirect->ExecuteDraws(
@@ -660,14 +659,13 @@ namespace FREYA_NAMESPACE
             const std::uint32_t usedMask = indirect->UsedTechniqueMask();
 
             indirect->SetCullView(cameraPos, vkExtent);
-            indirect->DispatchCull(viewProj, CullMode::Camera, reverseZ,
-                                   kTechniqueFilterAll);
+            indirect->DispatchCull(
+                viewProj, CullMode::Camera, reverseZ, kTechniqueFilterAll);
             for (std::uint32_t t = 0; t < kMaxMaterialTechniques; ++t)
             {
                 if ((usedMask & (1u << t)) == 0)
                     continue;
-                indirect->DispatchCull(viewProj, CullMode::Camera, reverseZ,
-                                       t);
+                indirect->DispatchCull(viewProj, CullMode::Camera, reverseZ, t);
             }
 
             deferred->Begin(sc, cmdPool);
@@ -677,7 +675,7 @@ namespace FREYA_NAMESPACE
             if (currentSubpass == DefDepthPrePass)
             {
                 indirect->ExecuteDraws(
-                    false, deferred->GetVertexPipelineLayout(),
+                    true, deferred->GetVertexPipelineLayout(),
                     kTechniqueFilterAll);
                 deferred->NextSubpass(cmdPool);
 
@@ -696,28 +694,26 @@ namespace FREYA_NAMESPACE
             }
             deferred->End(cmdPool);
 
-            indirect->BuildHiZ(deferred->GetDepthImage(frameIndex),
-                               reverseZ);
+            indirect->BuildHiZ(deferred->GetDepthImage(frameIndex), reverseZ);
 
             if (ssao)
             {
-                ssao->Dispatch(
-                    cmdPool, deferred->GetDepthImage(frameIndex),
-                    deferred->GetNormalImage(frameIndex), projection.view,
-                    projection.unjitteredProjection, reverseZ,
-                    options->ssaoRadius, options->ssaoBias, options->ssaoPower,
-                    options->ssaoIntensity);
+                ssao->Dispatch(cmdPool, deferred->GetDepthImage(frameIndex),
+                               deferred->GetNormalImage(frameIndex),
+                               projection.view, projection.unjitteredProjection,
+                               reverseZ, options->ssaoRadius, options->ssaoBias,
+                               options->ssaoPower, options->ssaoIntensity);
             }
 
-            if (shadowMask && HasFlag(options->renderFlags,
-                                        RenderFlags::Shadows) &&
+            if (shadowMask &&
+                HasFlag(options->renderFlags, RenderFlags::Shadows) &&
                 HasFlag(options->renderFlags, RenderFlags::ShadowMask))
             {
                 shadowMask->Dispatch(
                     cmdPool, deferred->GetDepthImage(frameIndex),
                     deferred->GetNormalImage(frameIndex), shadow, *lights,
-                    projection.view, projection.unjitteredProjection,
-                    reverseZ, frameIndex);
+                    projection.view, projection.unjitteredProjection, reverseZ,
+                    frameIndex);
             }
 
             auto ssaoImage = ssao ? ssao->GetOutputImage() : ssaoFallback;

@@ -53,8 +53,7 @@ namespace FREYA_NAMESPACE
         mQuads.push_back(billboard);
     }
 
-    void BillboardDraw::pushConnectedUnlocked(
-        const ConnectedBillboard& quad)
+    void BillboardDraw::pushConnectedUnlocked(const ConnectedBillboard& quad)
     {
         if (mConnected.size() >= mMaxQuads)
             return;
@@ -107,9 +106,9 @@ namespace FREYA_NAMESPACE
     } // namespace
 
     void BillboardDraw::Strip(const std::span<const StripPoint> points,
-                              const StripStyle& style,
-                              const glm::vec3&  camRight,
-                              const glm::vec3&  camUp)
+                              const StripStyle&                 style,
+                              const glm::vec3&                  camRight,
+                              const glm::vec3&                  camUp)
     {
         const std::size_t count = points.size();
         if (count < 2)
@@ -168,10 +167,8 @@ namespace FREYA_NAMESPACE
         std::vector<float>     scales(count, 1.0f);
         for (std::size_t i = 0; i < count; ++i)
         {
-            const glm::vec2 n0 =
-                segNormals[i > 0 ? i - 1 : 0];
-            const glm::vec2 n1 =
-                segNormals[i + 1 < count ? i : count - 2];
+            const glm::vec2 n0  = segNormals[i > 0 ? i - 1 : 0];
+            const glm::vec2 n1  = segNormals[i + 1 < count ? i : count - 2];
             const glm::vec2 sum = n0 + n1;
             if (glm::dot(sum, sum) < 1e-8f)
             {
@@ -180,13 +177,11 @@ namespace FREYA_NAMESPACE
                 scales[i] = 1.0f;
                 continue;
             }
-            const glm::vec2 miter = sum * (1.0f / glm::length(sum));
-            const float cosHalf = glm::dot(miter, n1);
-            miters[i] = miter;
-            scales[i] =
-                cosHalf > 1e-4f
-                    ? std::min(1.0f / cosHalf, miterLimit)
-                    : miterLimit;
+            const glm::vec2 miter   = sum * (1.0f / glm::length(sum));
+            const float     cosHalf = glm::dot(miter, n1);
+            miters[i]               = miter;
+            scales[i] = cosHalf > 1e-4f ? std::min(1.0f / cosHalf, miterLimit)
+                                        : miterLimit;
         }
 
         std::vector<ConnectedBillboard> batch;
@@ -198,32 +193,29 @@ namespace FREYA_NAMESPACE
             if (glm::distance(p0.pos, p1.pos) < 1e-9f)
                 continue;
 
-            const float half0 =
-                std::max(p0.width, 0.0f) * 0.5f * scales[i];
-            const float half1 =
-                std::max(p1.width, 0.0f) * 0.5f * scales[i + 1];
+            const float half0 = std::max(p0.width, 0.0f) * 0.5f * scales[i];
+            const float half1 = std::max(p1.width, 0.0f) * 0.5f * scales[i + 1];
             const glm::vec3 side0 =
                 (camRight * miters[i].x + camUp * miters[i].y) * half0;
             const glm::vec3 side1 =
-                (camRight * miters[i + 1].x + camUp * miters[i + 1].y) *
-                half1;
+                (camRight * miters[i + 1].x + camUp * miters[i + 1].y) * half1;
 
             ConnectedBillboard q {};
-            q.c0            = p0.pos + side0;
-            q.c1            = p0.pos - side0;
-            q.c2            = p1.pos + side1;
-            q.c3            = p1.pos - side1;
-            q.color0        = p0.color;
-            q.color1        = p1.color;
+            q.c0     = p0.pos + side0;
+            q.c1     = p0.pos - side0;
+            q.c2     = p1.pos + side1;
+            q.c3     = p1.pos - side1;
+            q.color0 = p0.color;
+            q.color1 = p1.color;
             const bool transpose =
                 HasFlag(style.flags, BillboardFlags::TransposeUv);
-            q.uvRect = transpose ? glm::vec4(0.f, p0.u, 1.f, p1.u)
-                                 : glm::vec4(p0.u, 0.f, p1.u, 1.f);
-            q.textureIndex  = style.textureIndex;
-            q.blend         = style.blend;
-            q.layer         = style.layer;
-            q.flags         = style.flags;
-            q.clipMax       = 1.f;
+            q.uvRect       = transpose ? glm::vec4(0.f, p0.u, 1.f, p1.u)
+                                       : glm::vec4(p0.u, 0.f, p1.u, 1.f);
+            q.textureIndex = style.textureIndex;
+            q.blend        = style.blend;
+            q.layer        = style.layer;
+            q.flags        = style.flags;
+            q.clipMax      = 1.f;
             batch.push_back(q);
         }
 
@@ -241,11 +233,11 @@ namespace FREYA_NAMESPACE
     {
         const float fill = std::clamp(fill01, 0.f, 1.f);
         Billboard   plate {};
-        plate.worldPos     = headPos;
-        plate.size         = { width, height };
-        plate.align        = align;
-        plate.blend        = BillboardBlend::Alpha;
-        plate.layer        = BillboardLayer::Ui;
+        plate.worldPos = headPos;
+        plate.size     = { width, height };
+        plate.align    = align;
+        plate.blend    = BillboardBlend::Alpha;
+        plate.layer    = BillboardLayer::Ui;
         SetFlag(plate.flags, BillboardFlags::DepthTest, true);
         plate.textureIndex = 0;
 

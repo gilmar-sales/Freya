@@ -72,12 +72,12 @@ namespace FREYA_NAMESPACE
      */
     struct SceneInstance
     {
-        glm::mat4           model       = glm::mat4(1.0f);
-        std::uint32_t       meshId      = 0;
-        std::uint32_t       materialId  = 0;
-        std::uint32_t       entityId    = 0;
-        SceneInstanceFlags  flags       = SceneInstanceFlags::CastShadows;
-        std::uint32_t       techniqueId = 0;
+        glm::mat4          model       = glm::mat4(1.0f);
+        std::uint32_t      meshId      = 0;
+        std::uint32_t      materialId  = 0;
+        std::uint32_t      entityId    = 0;
+        SceneInstanceFlags flags       = SceneInstanceFlags::CastShadows;
+        std::uint32_t      techniqueId = 0;
         /// Rigid = `kNoSkin`; skinned = palette offset (was _pad0).
         std::uint32_t boneOffset = kNoSkin;
         std::uint32_t _pad1      = 0;

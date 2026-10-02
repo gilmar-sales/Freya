@@ -148,10 +148,10 @@ namespace FREYA_NAMESPACE
         void UploadBoneMask(std::span<const float> weights);
         void UploadRestJoints(std::span<const GpuFloatJoint> joints);
         void UploadRestJoints(std::span<const GpuQuantJoint> joints);
-        void UploadRestJoints(
-            std::uint32_t skeletonSlot, std::span<const GpuFloatJoint> joints);
-        void UploadRestJoints(
-            std::uint32_t skeletonSlot, std::span<const GpuQuantJoint> joints);
+        void UploadRestJoints(std::uint32_t                  skeletonSlot,
+                              std::span<const GpuFloatJoint> joints);
+        void UploadRestJoints(std::uint32_t                  skeletonSlot,
+                              std::span<const GpuQuantJoint> joints);
         void BeginInstanceUploads();
         void ReserveInstanceUploads(std::uint32_t count);
         void UploadInstanceUploads(std::span<const GpuAnimInstance> instances);

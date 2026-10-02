@@ -107,10 +107,10 @@ namespace FREYA_NAMESPACE
                                .SetSize(MinVertexBufferSize)
                                .SetUsage(BufferUsage::Vertex)
                                .Build();
-            indexBuffer = BufferBuilder(device)
-                              .SetSize(MinIndexBufferSize)
-                              .SetUsage(BufferUsage::Index)
-                              .Build();
+            indexBuffer  = BufferBuilder(device)
+                               .SetSize(MinIndexBufferSize)
+                               .SetUsage(BufferUsage::Index)
+                               .Build();
         }
 
         skr::Arc<Buffer> createStagingBuffer(std::uint32_t size)
@@ -363,7 +363,7 @@ namespace FREYA_NAMESPACE
                                            : aiVector3D(1, 0, 0);
                 const auto  aTextCoord =
                     mesh->HasTextureCoords(0) ? mesh->mTextureCoords[0][i]
-                                               : aiVector3D(0, 0, 0);
+                                              : aiVector3D(0, 0, 0);
 
                 aiColor3D aColor(1.0, 1.0, 1.0);
                 if (mesh->HasVertexColors(0))
@@ -665,8 +665,7 @@ namespace FREYA_NAMESPACE
 
             int twoSided = 0;
             if (mat->Get(AI_MATKEY_TWOSIDED, twoSided) == AI_SUCCESS)
-                SetFlag(info.flags, MaterialFlags::DoubleSided,
-                        twoSided != 0);
+                SetFlag(info.flags, MaterialFlags::DoubleSided, twoSided != 0);
 
             int shading = 0;
             if (mat->Get(AI_MATKEY_SHADING_MODEL, shading) == AI_SUCCESS)
@@ -721,7 +720,7 @@ namespace FREYA_NAMESPACE
                     const auto    matIndex = mesh->mMaterialIndex;
                     const auto    material =
                         matIndex < materials.size() ? materials[matIndex]
-                                                       : MaterialHandle {};
+                                                    : MaterialHandle {};
                     fn(mesh, material);
                 }
                 for (unsigned i = 0; i < node->mNumChildren; ++i)
@@ -927,7 +926,7 @@ namespace FREYA_NAMESPACE
                                            : aiVector3D(1, 0, 0);
                 const auto  aTextCoord =
                     mesh->HasTextureCoords(0) ? mesh->mTextureCoords[0][i]
-                                               : aiVector3D(0, 0, 0);
+                                              : aiVector3D(0, 0, 0);
 
                 aiColor3D aColor(1.0, 1.0, 1.0);
                 if (mesh->HasVertexColors(0))
@@ -1018,10 +1017,10 @@ namespace FREYA_NAMESPACE
             const std::unordered_map<std::string, std::uint32_t>& nameToIndex)
         {
             AnimationClip clip;
-            clip.name           = aiName(anim->mName);
-            const float tps     = anim->mTicksPerSecond > 0.0
-                                      ? static_cast<float>(anim->mTicksPerSecond)
-                                      : 25.f;
+            clip.name       = aiName(anim->mName);
+            const float tps = anim->mTicksPerSecond > 0.0
+                                  ? static_cast<float>(anim->mTicksPerSecond)
+                                  : 25.f;
             clip.ticksPerSecond = tps;
             clip.duration =
                 static_cast<float>(anim->mDuration) / std::max(tps, 1e-6f);

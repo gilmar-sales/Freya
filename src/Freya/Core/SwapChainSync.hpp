@@ -10,14 +10,14 @@ namespace FREYA_NAMESPACE
      */
     struct SwapChainSync
     {
-        [[nodiscard]] static constexpr std::size_t
-        PresentationSemaphoreCount(std::size_t imageCount)
+        [[nodiscard]] static constexpr std::size_t PresentationSemaphoreCount(
+            std::size_t imageCount)
         {
             return imageCount;
         }
 
-        [[nodiscard]] static constexpr std::size_t
-        PresentationSemaphoreIndex(std::size_t imageIndex)
+        [[nodiscard]] static constexpr std::size_t PresentationSemaphoreIndex(
+            std::size_t imageIndex)
         {
             return imageIndex;
         }

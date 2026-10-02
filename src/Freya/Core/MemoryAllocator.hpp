@@ -19,7 +19,8 @@ namespace FREYA_NAMESPACE
         Readback ///< GPU-to-CPU, persistently mapped (pick/cull readback)
     };
 
-    /** Opaque allocation token; its representation is private to MemoryAllocator. */
+    /** Opaque allocation token; its representation is private to
+     * MemoryAllocator. */
     class MemoryAllocation
     {
         friend class MemoryAllocator;
@@ -37,7 +38,7 @@ namespace FREYA_NAMESPACE
 
     struct BufferAllocationInfo
     {
-        void* mappedData = nullptr;
+        void* mappedData   = nullptr;
         bool  hostCoherent = true;
     };
 
@@ -54,7 +55,7 @@ namespace FREYA_NAMESPACE
      */
     struct ImageAllocation
     {
-        VkImage       image      = {};
+        VkImage          image = {};
         MemoryAllocation allocation {};
     };
 
@@ -95,11 +96,11 @@ namespace FREYA_NAMESPACE
         void DestroyBuffer(VkBuffer buffer, MemoryAllocation allocation);
         void DestroyImage(VkImage image, MemoryAllocation allocation);
 
-        void Flush(MemoryAllocation allocation,
-                   VkDeviceSize  offset,
-                   VkDeviceSize  size);
+        void                Flush(MemoryAllocation allocation,
+                                  VkDeviceSize     offset,
+                                  VkDeviceSize     size);
         [[nodiscard]] void* Map(MemoryAllocation allocation);
-        void Unmap(MemoryAllocation allocation);
+        void                Unmap(MemoryAllocation allocation);
 
       private:
         struct Impl;

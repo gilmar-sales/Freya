@@ -154,14 +154,12 @@ namespace FREYA_NAMESPACE
                 .setLineWidth(1.0f)
                 .setDepthBiasEnable(true)
                 .setDepthBiasConstantFactor(
-                    HasFlag(mFreyaOptions->renderFlags,
-                            RenderFlags::ReverseZ)
+                    HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ)
                         ? -2.25f
                         : 2.25f)
                 .setDepthBiasClamp(0.0f)
                 .setDepthBiasSlopeFactor(
-                    HasFlag(mFreyaOptions->renderFlags,
-                            RenderFlags::ReverseZ)
+                    HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ)
                         ? -2.75f
                         : 2.75f);
 
@@ -175,8 +173,7 @@ namespace FREYA_NAMESPACE
                 .setDepthTestEnable(true)
                 .setDepthWriteEnable(true)
                 .setDepthCompareOp(
-                    HasFlag(mFreyaOptions->renderFlags,
-                            RenderFlags::ReverseZ)
+                    HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ)
                         ? vk::CompareOp::eGreater
                         : vk::CompareOp::eLess)
                 .setDepthBoundsTestEnable(false)
@@ -413,8 +410,7 @@ namespace FREYA_NAMESPACE
                 // Reverse-Z clear/far is 0; white (1) makes out-of-bounds PCF
                 // fail Greater and look like grain at cascade UV edges.
                 .setBorderColor(
-                    HasFlag(mFreyaOptions->renderFlags,
-                            RenderFlags::ReverseZ)
+                    HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ)
                         ? vk::BorderColor::eFloatOpaqueBlack
                         : vk::BorderColor::eFloatOpaqueWhite)
                 .setAnisotropyEnable(false)
@@ -422,8 +418,7 @@ namespace FREYA_NAMESPACE
                 .setUnnormalizedCoordinates(false)
                 .setCompareEnable(true)
                 .setCompareOp(
-                    HasFlag(mFreyaOptions->renderFlags,
-                            RenderFlags::ReverseZ)
+                    HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ)
                         ? vk::CompareOp::eGreater
                         : vk::CompareOp::eLess)
                 .setMinLod(0.0f)

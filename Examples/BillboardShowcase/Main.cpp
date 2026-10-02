@@ -13,7 +13,8 @@
 #include <string>
 #include <vector>
 
-// ── Billboard Showcase ────────────────────────────────────────────────────────
+// ── Billboard Showcase
+// ────────────────────────────────────────────────────────
 //
 // 8 billboard types arranged in a single visible row, plus a player/enemy
 // nameplate panel and MU Online-style animated damage numbers.
@@ -89,14 +90,12 @@ class MainApp final : public fra::AbstractApplication
         }
 
         mLightService->AddLight(fra::MakeDirectionalLight(
-            glm::vec3(-0.3f, -1.f, -0.4f),
-            glm::vec3(1.f, 0.95f, 0.85f), 0.8f));
+            glm::vec3(-0.3f, -1.f, -0.4f), glm::vec3(1.f, 0.95f, 0.85f), 0.8f));
 
         // Orbit angles for VelocityStretch sparks
         mOrbitAngles.resize(8);
         for (int i = 0; i < 8; ++i)
-            mOrbitAngles[i] =
-                i * (2.f * std::numbers::pi_v<float> / 8.f);
+            mOrbitAngles[i] = i * (2.f * std::numbers::pi_v<float> / 8.f);
 
         // Font for SDF nameplates / damage numbers
         mFont = fra::FontAtlas::Create(
@@ -146,11 +145,9 @@ class MainApp final : public fra::AbstractApplication
                 bb.Quad(b);
             }
             if (mFont.Valid())
-                bb.Text(base + glm::vec3(0.f, -1.0f, 0.f),
-                        "Screen", mFont, 0.18f,
-                        { 0.6f, 0.8f, 1.f, 1.f }, 1.5f,
-                        { 0.f, 0.f, 0.f, 1.f },
-                        fra::BillboardAlign::Screen,
+                bb.Text(base + glm::vec3(0.f, -1.0f, 0.f), "Screen", mFont,
+                        0.18f, { 0.6f, 0.8f, 1.f, 1.f }, 1.5f,
+                        { 0.f, 0.f, 0.f, 1.f }, fra::BillboardAlign::Screen,
                         fra::BillboardLayer::Vfx);
         }
 
@@ -168,12 +165,9 @@ class MainApp final : public fra::AbstractApplication
                 bb.Quad(b);
             }
             if (mFont.Valid())
-                bb.Text(base + glm::vec3(0.f, -1.0f, 0.f),
-                        "Cyl", mFont, 0.18f,
-                        { 0.5f, 1.f, 0.6f, 1.f }, 1.5f,
-                        { 0.f, 0.f, 0.f, 1.f },
-                        fra::BillboardAlign::Screen,
-                        fra::BillboardLayer::Vfx);
+                bb.Text(base + glm::vec3(0.f, -1.0f, 0.f), "Cyl", mFont, 0.18f,
+                        { 0.5f, 1.f, 0.6f, 1.f }, 1.5f, { 0.f, 0.f, 0.f, 1.f },
+                        fra::BillboardAlign::Screen, fra::BillboardLayer::Vfx);
         }
 
         // [3] Spherical
@@ -190,12 +184,9 @@ class MainApp final : public fra::AbstractApplication
                 bb.Quad(b);
             }
             if (mFont.Valid())
-                bb.Text(base + glm::vec3(0.f, -1.0f, 0.f),
-                        "Sph", mFont, 0.18f,
-                        { 1.f, 0.5f, 0.9f, 1.f }, 1.5f,
-                        { 0.f, 0.f, 0.f, 1.f },
-                        fra::BillboardAlign::Screen,
-                        fra::BillboardLayer::Vfx);
+                bb.Text(base + glm::vec3(0.f, -1.0f, 0.f), "Sph", mFont, 0.18f,
+                        { 1.f, 0.5f, 0.9f, 1.f }, 1.5f, { 0.f, 0.f, 0.f, 1.f },
+                        fra::BillboardAlign::Screen, fra::BillboardLayer::Vfx);
         }
 
         // [4] FixedAxis — axisUp = (0, 1, 0) tilted with Z offset so
@@ -214,11 +205,9 @@ class MainApp final : public fra::AbstractApplication
                 bb.Quad(b);
             }
             if (mFont.Valid())
-                bb.Text(base + glm::vec3(0.f, -1.0f, 0.f),
-                        "Fixed", mFont, 0.18f,
-                        { 0.3f, 0.9f, 1.f, 1.f }, 1.5f,
-                        { 0.f, 0.f, 0.f, 1.f },
-                        fra::BillboardAlign::Screen,
+                bb.Text(base + glm::vec3(0.f, -1.0f, 0.f), "Fixed", mFont,
+                        0.18f, { 0.3f, 0.9f, 1.f, 1.f }, 1.5f,
+                        { 0.f, 0.f, 0.f, 1.f }, fra::BillboardAlign::Screen,
                         fra::BillboardLayer::Vfx);
         }
 
@@ -227,7 +216,7 @@ class MainApp final : public fra::AbstractApplication
             const glm::vec3 base { 0.5f, 0.01f, 6.f };
             for (int r = 0; r < 3; ++r)
             {
-                const float radius = 0.3f + r * 0.22f;
+                const float    radius = 0.3f + r * 0.22f;
                 fra::Billboard b;
                 b.worldPos = base;
                 b.size     = { radius, radius };
@@ -238,11 +227,9 @@ class MainApp final : public fra::AbstractApplication
                 bb.Quad(b);
             }
             if (mFont.Valid())
-                bb.Text(base + glm::vec3(0.f, 1.8f, 0.f),
-                        "Planar", mFont, 0.18f,
-                        { 1.f, 0.9f, 0.3f, 1.f }, 1.5f,
-                        { 0.f, 0.f, 0.f, 1.f },
-                        fra::BillboardAlign::Screen,
+                bb.Text(base + glm::vec3(0.f, 1.8f, 0.f), "Planar", mFont,
+                        0.18f, { 1.f, 0.9f, 0.3f, 1.f }, 1.5f,
+                        { 0.f, 0.f, 0.f, 1.f }, fra::BillboardAlign::Screen,
                         fra::BillboardLayer::Vfx);
         }
 
@@ -256,21 +243,18 @@ class MainApp final : public fra::AbstractApplication
             for (const auto& wp : waypoints)
             {
                 fra::Billboard b;
-                b.worldPos        = wp;
-                b.size            = { 0.04f, 0.04f };
-                b.color           = { 1.f, 0.3f, 0.3f, 0.98f };
-                b.align  = fra::BillboardAlign::Screen;
+                b.worldPos = wp;
+                b.size     = { 0.04f, 0.04f };
+                b.color    = { 1.f, 0.3f, 0.3f, 0.98f };
+                b.align    = fra::BillboardAlign::Screen;
                 b.flags |= fra::BillboardFlags::ScreenSize;
-                b.blend  = fra::BillboardBlend::Additive;
+                b.blend = fra::BillboardBlend::Additive;
                 bb.Quad(b);
             }
             if (mFont.Valid())
-                bb.Text({ 1.5f, 0.8f, 6.f },
-                        "ScrSz", mFont, 0.18f,
-                        { 1.f, 0.4f, 0.4f, 1.f }, 1.5f,
-                        { 0.f, 0.f, 0.f, 1.f },
-                        fra::BillboardAlign::Screen,
-                        fra::BillboardLayer::Vfx);
+                bb.Text({ 1.5f, 0.8f, 6.f }, "ScrSz", mFont, 0.18f,
+                        { 1.f, 0.4f, 0.4f, 1.f }, 1.5f, { 0.f, 0.f, 0.f, 1.f },
+                        fra::BillboardAlign::Screen, fra::BillboardLayer::Vfx);
         }
 
         // [7] VelocityStretch — orbiting sparks
@@ -280,7 +264,7 @@ class MainApp final : public fra::AbstractApplication
             const glm::vec3 center { 2.5f, 1.5f, 6.f };
             for (int i = 0; i < 8; ++i)
             {
-                const float a   = mOrbitAngles[i];
+                const float     a = mOrbitAngles[i];
                 const glm::vec3 pos {
                     center.x + kOrbitR * std::cos(a),
                     center.y,
@@ -294,25 +278,21 @@ class MainApp final : public fra::AbstractApplication
                 fra::Billboard b;
                 b.worldPos = pos;
                 b.size     = { 0.055f, 0.1f };
-                b.color    = {
-                    1.f, 0.5f + 0.5f * std::abs(std::sin(a)),
-                    0.1f, 0.95f
-                };
-                b.align  = fra::BillboardAlign::Screen;
+                b.color    = { 1.f, 0.5f + 0.5f * std::abs(std::sin(a)), 0.1f,
+                               0.95f };
+                b.align    = fra::BillboardAlign::Screen;
                 b.flags |= fra::BillboardFlags::VelocityStretch;
-                b.velocity = vel;
+                b.velocity             = vel;
                 b.velocityStretchScale = 0.5f;
-                b.blend = fra::BillboardBlend::Additive;
+                b.blend                = fra::BillboardBlend::Additive;
                 bb.Quad(b);
 
                 mOrbitAngles[i] += kSpeed * dt;
             }
             if (mFont.Valid())
-                bb.Text(center + glm::vec3(0.f, -1.0f, 0.f),
-                        "VelStr", mFont, 0.18f,
-                        { 1.f, 0.75f, 0.2f, 1.f }, 1.5f,
-                        { 0.f, 0.f, 0.f, 1.f },
-                        fra::BillboardAlign::Screen,
+                bb.Text(center + glm::vec3(0.f, -1.0f, 0.f), "VelStr", mFont,
+                        0.18f, { 1.f, 0.75f, 0.2f, 1.f }, 1.5f,
+                        { 0.f, 0.f, 0.f, 1.f }, fra::BillboardAlign::Screen,
                         fra::BillboardLayer::Vfx);
         }
 
@@ -323,33 +303,30 @@ class MainApp final : public fra::AbstractApplication
             const glm::vec3 base { 3.5f, 0.f, 6.f };
             for (int i = 0; i < 6; ++i)
             {
-                const float a = i * (2.f * std::numbers::pi_v<float> / 6.f) +
-                                mTime * 0.4f;
+                const float a =
+                    i * (2.f * std::numbers::pi_v<float> / 6.f) + mTime * 0.4f;
                 const float bob =
                     0.1f + 0.3f * std::abs(std::sin(mTime * 0.7f + i));
                 fra::Billboard b;
-                b.worldPos      = base + glm::vec3(
-                    0.35f * std::cos(a), bob, 0.35f * std::sin(a));
-                b.size          = { 0.55f, 0.55f };
-                b.color         = { 0.55f, 0.25f, 1.f, 0.88f };
-                b.align         = fra::BillboardAlign::Screen;
+                b.worldPos = base + glm::vec3(0.35f * std::cos(a), bob,
+                                              0.35f * std::sin(a));
+                b.size     = { 0.55f, 0.55f };
+                b.color    = { 0.55f, 0.25f, 1.f, 0.88f };
+                b.align    = fra::BillboardAlign::Screen;
                 b.flags |= fra::BillboardFlags::Soft;
                 b.softFadeRange = 0.005f;
                 b.blend         = fra::BillboardBlend::Alpha;
                 bb.Quad(b);
             }
             if (mFont.Valid())
-                bb.Text(base + glm::vec3(0.f, 1.8f, 0.f),
-                        "Soft", mFont, 0.18f,
-                        { 0.7f, 0.4f, 1.f, 1.f }, 1.5f,
-                        { 0.f, 0.f, 0.f, 1.f },
-                        fra::BillboardAlign::Screen,
-                        fra::BillboardLayer::Vfx);
+                bb.Text(base + glm::vec3(0.f, 1.8f, 0.f), "Soft", mFont, 0.18f,
+                        { 0.7f, 0.4f, 1.f, 1.f }, 1.5f, { 0.f, 0.f, 0.f, 1.f },
+                        fra::BillboardAlign::Screen, fra::BillboardLayer::Vfx);
         }
 
         // ── [9 / 10] Characters + nameplates ──────────────────────────────
         const glm::vec3 playerPos { -2.f, 0.f, 0.f };
-        const glm::vec3 enemyPos  {  2.f, 0.f, 0.f };
+        const glm::vec3 enemyPos { 2.f, 0.f, 0.f };
 
         // Player sprite — Dark Knight (blue)
         {
@@ -395,51 +372,35 @@ class MainApp final : public fra::AbstractApplication
 
         // HP bars (Ui layer — rendered post-bloom)
         const float playerHp = 0.62f + 0.15f * std::sin(mTime * 0.65f);
-        bb.HealthBar(
-            playerPos + glm::vec3(0.f, 2.1f, 0.f),
-            0.84f, 0.075f, playerHp,
-            { 0.15f, 0.f, 0.f, 0.88f },
-            { 0.12f, 0.78f, 0.12f, 0.95f });
-        bb.HealthBar(
-            enemyPos + glm::vec3(0.f, 2.38f, 0.f),
-            0.92f, 0.075f, mEnemyHp,
-            { 0.15f, 0.f, 0.f, 0.88f },
-            { 0.78f, 0.1f, 0.1f, 0.95f });
+        bb.HealthBar(playerPos + glm::vec3(0.f, 2.1f, 0.f), 0.84f, 0.075f,
+                     playerHp, { 0.15f, 0.f, 0.f, 0.88f },
+                     { 0.12f, 0.78f, 0.12f, 0.95f });
+        bb.HealthBar(enemyPos + glm::vec3(0.f, 2.38f, 0.f), 0.92f, 0.075f,
+                     mEnemyHp, { 0.15f, 0.f, 0.f, 0.88f },
+                     { 0.78f, 0.1f, 0.1f, 0.95f });
 
         if (mFont.Valid())
         {
             // Player nameplate (Vfx layer = world-space, depth-tested)
-            bb.Text(
-                playerPos + glm::vec3(0.f, 2.46f, 0.f),
-                "DarkKnight", mFont, 0.21f,
-                { 0.65f, 0.82f, 1.f, 1.f }, 2.5f,
-                { 0.f, 0.f, 0.f, 1.f },
-                fra::BillboardAlign::Screen,
-                fra::BillboardLayer::Vfx);
-            bb.Text(
-                playerPos + glm::vec3(0.f, 2.22f, 0.f),
-                "[LV 399]", mFont, 0.13f,
-                { 0.78f, 0.78f, 0.78f, 0.88f }, 1.5f,
-                { 0.f, 0.f, 0.f, 1.f },
-                fra::BillboardAlign::Screen,
-                fra::BillboardLayer::Vfx);
+            bb.Text(playerPos + glm::vec3(0.f, 2.46f, 0.f), "DarkKnight", mFont,
+                    0.21f, { 0.65f, 0.82f, 1.f, 1.f }, 2.5f,
+                    { 0.f, 0.f, 0.f, 1.f }, fra::BillboardAlign::Screen,
+                    fra::BillboardLayer::Vfx);
+            bb.Text(playerPos + glm::vec3(0.f, 2.22f, 0.f), "[LV 399]", mFont,
+                    0.13f, { 0.78f, 0.78f, 0.78f, 0.88f }, 1.5f,
+                    { 0.f, 0.f, 0.f, 1.f }, fra::BillboardAlign::Screen,
+                    fra::BillboardLayer::Vfx);
 
             // Enemy nameplate (boss name pulses)
             const float bossA = 0.7f + 0.3f * std::sin(mTime * 2.f);
-            bb.Text(
-                enemyPos + glm::vec3(0.f, 2.8f, 0.f),
-                "Balgass", mFont, 0.26f,
-                { 1.f, 0.28f, 0.28f, bossA }, 2.5f,
-                { 0.f, 0.f, 0.f, 1.f },
-                fra::BillboardAlign::Screen,
-                fra::BillboardLayer::Vfx);
-            bb.Text(
-                enemyPos + glm::vec3(0.f, 2.48f, 0.f),
-                "[ BOSS ]", mFont, 0.13f,
-                { 0.95f, 0.62f, 0.1f, 0.9f }, 1.5f,
-                { 0.f, 0.f, 0.f, 1.f },
-                fra::BillboardAlign::Screen,
-                fra::BillboardLayer::Vfx);
+            bb.Text(enemyPos + glm::vec3(0.f, 2.8f, 0.f), "Balgass", mFont,
+                    0.26f, { 1.f, 0.28f, 0.28f, bossA }, 2.5f,
+                    { 0.f, 0.f, 0.f, 1.f }, fra::BillboardAlign::Screen,
+                    fra::BillboardLayer::Vfx);
+            bb.Text(enemyPos + glm::vec3(0.f, 2.48f, 0.f), "[ BOSS ]", mFont,
+                    0.13f, { 0.95f, 0.62f, 0.1f, 0.9f }, 1.5f,
+                    { 0.f, 0.f, 0.f, 1.f }, fra::BillboardAlign::Screen,
+                    fra::BillboardLayer::Vfx);
         }
 
         // ── [11] Damage numbers ───────────────────────────────────────────
@@ -482,14 +443,12 @@ class MainApp final : public fra::AbstractApplication
                 d.pos += d.vel * dt;
                 d.vel.y = std::max(d.vel.y - 1.2f * dt, 0.08f);
 
-                const float pop = (d.age < 0.12f)
-                                      ? 1.5f - 0.5f * (d.age / 0.12f)
-                                      : 1.f;
+                const float pop =
+                    (d.age < 0.12f) ? 1.5f - 0.5f * (d.age / 0.12f) : 1.f;
                 const float fadeStart = d.maxAge * 0.55f;
                 const float alpha =
                     (d.age > fadeStart)
-                        ? 1.f - (d.age - fadeStart) /
-                                    (d.maxAge - fadeStart)
+                        ? 1.f - (d.age - fadeStart) / (d.maxAge - fadeStart)
                         : 1.f;
 
                 glm::vec4 c  = d.color;
@@ -497,9 +456,8 @@ class MainApp final : public fra::AbstractApplication
                 c.a *= alpha;
                 oc.a *= alpha;
 
-                bb.Text(d.pos, d.text, mFont,
-                        d.heightM * pop, c, d.outlineW, oc,
-                        fra::BillboardAlign::Screen,
+                bb.Text(d.pos, d.text, mFont, d.heightM * pop, c, d.outlineW,
+                        oc, fra::BillboardAlign::Screen,
                         fra::BillboardLayer::Vfx);
             }
         }
@@ -515,8 +473,8 @@ class MainApp final : public fra::AbstractApplication
     {
         glm::vec3   pos {};
         glm::vec3   vel {};
-        float       age       = 0.f;
-        float       maxAge    = 1.25f;
+        float       age    = 0.f;
+        float       maxAge = 1.25f;
         std::string text;
         glm::vec4   color { 1.f };
         glm::vec4   outlineColor { 0.f, 0.f, 0.f, 1.f };
@@ -529,7 +487,11 @@ class MainApp final : public fra::AbstractApplication
     {
         DamageNumber* slot = nullptr;
         for (auto& d : mDamageNumbers)
-            if (!d.active) { slot = &d; break; }
+            if (!d.active)
+            {
+                slot = &d;
+                break;
+            }
         if (!slot)
             return;
 
@@ -539,40 +501,43 @@ class MainApp final : public fra::AbstractApplication
         d.maxAge = 1.25f;
 
         const float xOff = (mDist01(mDmgRng) - 0.5f) * 0.55f;
-        d.pos = basePos + glm::vec3(xOff, 0.f, 0.f);
-        d.vel = { xOff * 0.5f, 1.6f, 0.f };
+        d.pos            = basePos + glm::vec3(xOff, 0.f, 0.f);
+        d.vel            = { xOff * 0.5f, 1.6f, 0.f };
 
         switch (type)
         {
             case DmgType::Normal:
-                d.text = "-" + std::to_string(
-                    200 + static_cast<int>(mDist01(mDmgRng) * 600.f));
+                d.text =
+                    "-" + std::to_string(
+                              200 + static_cast<int>(mDist01(mDmgRng) * 600.f));
                 d.color        = { 1.f, 1.f, 1.f, 1.f };
                 d.outlineColor = { 0.f, 0.f, 0.f, 1.f };
                 d.heightM      = 0.18f;
                 d.outlineW     = 2.0f;
-                mEnemyHp = std::max(0.f, mEnemyHp - 0.06f);
+                mEnemyHp       = std::max(0.f, mEnemyHp - 0.06f);
                 break;
 
             case DmgType::Critical:
-                d.text = "!! " + std::to_string(
-                    900 + static_cast<int>(mDist01(mDmgRng) * 1300.f));
+                d.text         = "!! " +
+                                 std::to_string(
+                                     900 + static_cast<int>(mDist01(mDmgRng) * 1300.f));
                 d.color        = { 1.f, 0.85f, 0.1f, 1.f };
                 d.outlineColor = { 0.45f, 0.1f, 0.f, 1.f };
                 d.heightM      = 0.28f;
                 d.outlineW     = 3.0f;
                 d.maxAge       = 1.5f;
-                mEnemyHp = std::max(0.f, mEnemyHp - 0.14f);
+                mEnemyHp       = std::max(0.f, mEnemyHp - 0.14f);
                 break;
 
             case DmgType::Skill:
-                d.text = "-" + std::to_string(
-                    450 + static_cast<int>(mDist01(mDmgRng) * 800.f));
+                d.text =
+                    "-" + std::to_string(
+                              450 + static_cast<int>(mDist01(mDmgRng) * 800.f));
                 d.color        = { 1.f, 0.45f, 0.12f, 1.f };
                 d.outlineColor = { 0.2f, 0.f, 0.f, 1.f };
                 d.heightM      = 0.22f;
                 d.outlineW     = 2.5f;
-                mEnemyHp = std::max(0.f, mEnemyHp - 0.10f);
+                mEnemyHp       = std::max(0.f, mEnemyHp - 0.10f);
                 break;
 
             case DmgType::Miss:
@@ -584,8 +549,9 @@ class MainApp final : public fra::AbstractApplication
                 break;
 
             case DmgType::Heal:
-                d.text = "+" + std::to_string(
-                    100 + static_cast<int>(mDist01(mDmgRng) * 350.f));
+                d.text =
+                    "+" + std::to_string(
+                              100 + static_cast<int>(mDist01(mDmgRng) * 350.f));
                 d.color        = { 0.25f, 1.f, 0.42f, 1.f };
                 d.outlineColor = { 0.f, 0.18f, 0.f, 1.f };
                 d.heightM      = 0.18f;
@@ -597,7 +563,8 @@ class MainApp final : public fra::AbstractApplication
             mEnemyHp = 1.f;
     }
 
-    // ── Services ──────────────────────────────────────────────────────────────
+    // ── Services
+    // ──────────────────────────────────────────────────────────────
     fra::Ref<fra::MeshPool>     mMeshPool;
     fra::Ref<fra::TexturePool>  mTexturePool;
     fra::Ref<fra::MaterialPool> mMaterialPool;
@@ -615,10 +582,10 @@ class MainApp final : public fra::AbstractApplication
     float          mDmgTimer = 0.7f;
     std::uint32_t  mHitSeq   = 0;
 
-    static constexpr int                        kMaxDmg = 24;
-    std::array<DamageNumber, kMaxDmg>           mDamageNumbers {};
-    std::mt19937                                mDmgRng { 0xC0DEu };
-    std::uniform_real_distribution<float>       mDist01 { 0.f, 1.f };
+    static constexpr int                  kMaxDmg = 24;
+    std::array<DamageNumber, kMaxDmg>     mDamageNumbers {};
+    std::mt19937                          mDmgRng { 0xC0DEu };
+    std::uniform_real_distribution<float> mDist01 { 0.f, 1.f };
 
     float mTime = 0.f;
 

@@ -327,8 +327,7 @@ class MainApp final : public fra::AbstractApplication
         auto key = fra::MakeDirectionalLight(glm::vec3(-0.35f, -1.0f, -0.25f),
                                              glm::vec3(1.0f, 0.97f, 0.92f),
                                              1.2f);
-        fra::SetFlag(key.flags, fra::LightFlags::CastShadows,
-                     true);
+        fra::SetFlag(key.flags, fra::LightFlags::CastShadows, true);
         mLightService->AddLight(key);
 
         mCam.cameraPos = { 0.f, 28.f, 55.f };
@@ -804,10 +803,9 @@ class MainApp final : public fra::AbstractApplication
 
     void printFeatureStatus() const
     {
-        const auto& o = *mFreyaOptions;
-        const bool  lod =
-            fra::HasFlag(o.animFlags, fra::AnimFlags::Lod);
-        const bool quant =
+        const auto& o   = *mFreyaOptions;
+        const bool  lod = fra::HasFlag(o.animFlags, fra::AnimFlags::Lod);
+        const bool  quant =
             fra::HasFlag(o.animFlags, fra::AnimFlags::QuantizeJoints);
         std::cout << "Features  shadow=" << onOff(mEnableShadows)
                   << " debug=" << onOff(mRenderer->IsDebugDrawEnabled())
@@ -818,8 +816,7 @@ class MainApp final : public fra::AbstractApplication
                   << " root=" << onOff(mEnableRootMotion)
                   << " events=" << onOff(mEnableEvents)
                   << " animQ=" << FreyaExamples::QualityName(mAnimationQuality)
-                   << " lod=" << onOff(lod) << " quant=" << onOff(quant)
-                   << '\n'
+                  << " lod=" << onOff(lod) << " quant=" << onOff(quant) << '\n'
                   << "  lodHz=" << o.animLodHz[0] << '/' << o.animLodHz[1]
                   << '/' << o.animLodHz[2] << '/' << o.animLodHz[3]
                   << " exitDist=" << o.animLodExitDist[0] << '/'
@@ -1042,7 +1039,7 @@ class MainApp final : public fra::AbstractApplication
             .GpuAnimation()
             .UploadBoneMask(fra::PackBoneMask(mUpperMask, jc));
         if (fra::HasFlag(mFreyaOptions->animFlags,
-                          fra::AnimFlags::QuantizeJoints))
+                         fra::AnimFlags::QuantizeJoints))
             fra::Advanced(*mRenderer)
                 .GpuAnimation()
                 .UploadRestJoints(fra::PackRestJointsQuant(mRestPose, jc));
@@ -1196,10 +1193,9 @@ class MainApp final : public fra::AbstractApplication
 
     void toggleQuantizeGpuAnim()
     {
-        fra::SetFlag(
-            mFreyaOptions->animFlags, fra::AnimFlags::QuantizeJoints,
-            !fra::HasFlag(mFreyaOptions->animFlags,
-                          fra::AnimFlags::QuantizeJoints));
+        fra::SetFlag(mFreyaOptions->animFlags, fra::AnimFlags::QuantizeJoints,
+                     !fra::HasFlag(mFreyaOptions->animFlags,
+                                   fra::AnimFlags::QuantizeJoints));
         mStreamedUpperSlot  = 0xffffffffu;
         const bool wasCrowd = mGpuAnimMode == GpuAnimMode::Crowd;
         const bool wasFox0  = mGpuAnimMode == GpuAnimMode::Fox0;

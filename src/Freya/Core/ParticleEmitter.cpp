@@ -204,7 +204,7 @@ namespace FREYA_NAMESPACE
             b.blend        = blend;
             b.layer        = BillboardLayer::Vfx;
             SetFlag(b.flags, BillboardFlags::DepthTest, true);
-            b.rotation     = p.rotation;
+            b.rotation = p.rotation;
 
             if (useAtlas)
             {

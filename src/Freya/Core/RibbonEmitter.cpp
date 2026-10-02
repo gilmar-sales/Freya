@@ -12,10 +12,10 @@ namespace FREYA_NAMESPACE
         mLastPos = glm::vec3(std::numeric_limits<float>::max());
     }
 
-    void RibbonEmitter::Tick(const float       dt,
-                             BillboardDraw&    draw,
-                             const glm::vec3&  cameraRight,
-                             const glm::vec3&  cameraUp)
+    void RibbonEmitter::Tick(const float      dt,
+                             BillboardDraw&   draw,
+                             const glm::vec3& cameraRight,
+                             const glm::vec3& cameraUp)
     {
         if (dt <= 0.f)
             return;
@@ -23,14 +23,14 @@ namespace FREYA_NAMESPACE
         // Age and remove expired points.
         for (auto& p : mPoints)
             p.age += dt;
-        std::erase_if(mPoints, [](const Point& p) { return p.age >= p.lifetime; });
+        std::erase_if(mPoints,
+                      [](const Point& p) { return p.age >= p.lifetime; });
 
         // Record a new point if origin moved far enough.
-        const glm::vec3 delta   = origin - mLastPos;
-        const float     distSq  = glm::dot(delta, delta);
+        const glm::vec3 delta     = origin - mLastPos;
+        const float     distSq    = glm::dot(delta, delta);
         const float     minDistSq = minDistance * minDistance;
-        const bool      firstPoint =
-            mLastPos.x == std::numeric_limits<float>::max();
+        const bool firstPoint = mLastPos.x == std::numeric_limits<float>::max();
 
         if (firstPoint || distSq >= minDistSq)
         {

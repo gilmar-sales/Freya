@@ -18,15 +18,15 @@ namespace FREYA_NAMESPACE
      */
     struct BillboardGpuInstance
     {
-        glm::vec3     worldPos { 0.f };
-        float         clipMax = 1.f;
-        glm::vec2     size { 1.f };
-        std::uint32_t textureIndex = 0;
-        BillboardFlags flags       = BillboardFlags::None;
-        glm::vec4     color { 1.f };
-        glm::vec4     uvRect { 0.f, 0.f, 1.f, 1.f };
-        glm::vec2     localOffset { 0.f };
-        float         outlineWidth = 0.f;
+        glm::vec3      worldPos { 0.f };
+        float          clipMax = 1.f;
+        glm::vec2      size { 1.f };
+        std::uint32_t  textureIndex = 0;
+        BillboardFlags flags        = BillboardFlags::None;
+        glm::vec4      color { 1.f };
+        glm::vec4      uvRect { 0.f, 0.f, 1.f, 1.f };
+        glm::vec2      localOffset { 0.f };
+        float          outlineWidth = 0.f;
         float     rotation = 0.f; ///< Screen-space rotation radians (ex _pad)
         glm::vec4 outlineColor { 0.f, 0.f, 0.f, 1.f };
         /// FixedAxis/Planar: (axisUp, 0).  VelocityStretch: (vel, scale).
@@ -45,9 +45,8 @@ namespace FREYA_NAMESPACE
         g.textureIndex = b.textureIndex;
 
         // Bits 0-2: alignment type.
-        g.flags = FromBits<BillboardFlags>(
-            static_cast<std::uint32_t>(b.align) &
-            ToBits(BillboardFlags::AlignMask));
+        g.flags = FromBits<BillboardFlags>(static_cast<std::uint32_t>(b.align) &
+                                           ToBits(BillboardFlags::AlignMask));
 
         if (HasFlag(b.flags, BillboardFlags::Sdf))
         {
@@ -105,16 +104,16 @@ namespace FREYA_NAMESPACE
         glm::vec4      uvRect { 0.f, 0.f, 1.f, 1.f };
         std::uint32_t  textureIndex = 0;
         BillboardFlags flags        = BillboardFlags::None;
-        float         clipMax      = 1.f;
-        float         pad          = 0.f;
+        float          clipMax      = 1.f;
+        float          pad          = 0.f;
     };
 
     static_assert(sizeof(ConnectedBillboardGpuInstance) == 128,
                   "ConnectedBillboardGpuInstance must match GLSL "
                   "std430");
 
-    [[nodiscard]] inline ConnectedBillboardGpuInstance
-    ToConnectedBillboardGpu(const ConnectedBillboard& b)
+    [[nodiscard]] inline ConnectedBillboardGpuInstance ToConnectedBillboardGpu(
+        const ConnectedBillboard& b)
     {
         ConnectedBillboardGpuInstance g {};
         g.c0           = glm::vec4(b.c0, 0.f);

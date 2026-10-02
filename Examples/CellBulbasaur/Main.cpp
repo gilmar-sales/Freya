@@ -253,11 +253,11 @@ class MainApp final : public fra::AbstractApplication
 
         mRenderer->RebuildSwapChain();
 
-        const auto revZ = fra::HasFlag(mFreyaOptions->renderFlags,
-                                       fra::RenderFlags::ReverseZ)
-                              ? 1.0f
-                              : 0.0f;
-        auto       insertPost = [&](skr::Arc<fra::PostProcess> effect) {
+        const auto revZ =
+            fra::HasFlag(mFreyaOptions->renderFlags, fra::RenderFlags::ReverseZ)
+                ? 1.0f
+                : 0.0f;
+        auto insertPost = [&](skr::Arc<fra::PostProcess> effect) {
             if (effect)
                 fra::Advanced(*mRenderer)
                     .InsertFrameStage("BillboardVfx", effect->MakeStage());
@@ -418,10 +418,10 @@ class MainApp final : public fra::AbstractApplication
             [&](fra::MaterialHandle& eye, fra::MaterialHandle& bodyB,
                 fra::MaterialHandle& bodyA, std::uint32_t techniqueId) {
                 eye   = mMaterialPool->Create({
-                      .albedo          = eyeAlbedo,
-                      .roughnessFactor = 1.0f,
-                      .metalnessFactor = 0.0f,
-                      .techniqueId     = techniqueId,
+                    .albedo          = eyeAlbedo,
+                    .roughnessFactor = 1.0f,
+                    .metalnessFactor = 0.0f,
+                    .techniqueId     = techniqueId,
                 });
                 bodyB = mMaterialPool->Create({
                     .albedo          = bodyBAlbedo,
@@ -615,8 +615,8 @@ class MainApp final : public fra::AbstractApplication
             mLeechRoots[k].growT      = 0.0f;
         }
 
-        // After RebuildSwapChain / InsertFrameStage so the overlay binds the final
-        // UI render pass.
+        // After RebuildSwapChain / InsertFrameStage so the overlay binds the
+        // final UI render pass.
         if (mPlatform)
             mOverlay.Init(*mRenderer, *mWindow, GetMainServiceProvider());
         mOverlay.SetCullDumpExampleName("CellBulbasaur");
@@ -785,8 +785,8 @@ class MainApp final : public fra::AbstractApplication
         {
             const float flicker = 0.75f + 0.25f * std::sin(mHpPulse * 11.0f) +
                                   0.12f * std::sin(mHpPulse * 23.0f);
-            auto lit      = mFireLight;
-            lit.intensity = 6.0f * flicker;
+            auto        lit     = mFireLight;
+            lit.intensity       = 6.0f * flicker;
             mLightService->UpdateLight(mFireLightHandle, lit);
         }
 
@@ -851,12 +851,11 @@ class MainApp final : public fra::AbstractApplication
                 inst.entityId  = nextEntity++;
                 inst.techniqueId =
                     cellShaded
-                              ? mCellTechnique
-                              : fra::MaterialTechniqueRegistry::kDefaultTechnique;
-                inst.flags = fra::SceneInstanceFlags::CastShadows |
-                             (joints > 0
-                                  ? fra::SceneInstanceFlags::Skinned
-                                  : fra::SceneInstanceFlags::None);
+                        ? mCellTechnique
+                        : fra::MaterialTechniqueRegistry::kDefaultTechnique;
+                inst.flags      = fra::SceneInstanceFlags::CastShadows |
+                                  (joints > 0 ? fra::SceneInstanceFlags::Skinned
+                                              : fra::SceneInstanceFlags::None);
                 inst.boneOffset = joints > 0 ? 0u : fra::kNoSkin;
                 inst.boneCount  = joints;
                 inst.mobility   = fra::Mobility::Dynamic;

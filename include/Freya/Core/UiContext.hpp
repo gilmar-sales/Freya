@@ -59,19 +59,19 @@ namespace FREYA_NAMESPACE
          */
         [[nodiscard]] float ScaleForExtent(glm::uvec2 fbExtent) const
         {
-            const float sx = fbExtent.x > 0
-                                 ? static_cast<float>(fbExtent.x) / mRefSize.x
-                                 : 1.f;
-            const float sy = fbExtent.y > 0
-                                 ? static_cast<float>(fbExtent.y) / mRefSize.y
-                                 : 1.f;
+            const float sx =
+                fbExtent.x > 0 ? static_cast<float>(fbExtent.x) / mRefSize.x
+                               : 1.f;
+            const float sy =
+                fbExtent.y > 0 ? static_cast<float>(fbExtent.y) / mRefSize.y
+                               : 1.f;
             return sx < sy ? sx : sy;
         }
 
         /// True once Begin() has run at least once (the context drives
         /// its own scale); false for apps that never use game UI.
         [[nodiscard]] bool HasBegun() const { return mHasBegun; }
-        void SetSafeArea(UiRect insets) { mSafeArea = insets; }
+        void               SetSafeArea(UiRect insets) { mSafeArea = insets; }
 
         [[nodiscard]] float     Scale() const { return mScale; }
         [[nodiscard]] glm::vec2 LogicalSize() const { return mLogicalSize; }
@@ -377,9 +377,9 @@ namespace FREYA_NAMESPACE
         glm::vec2  mRefSize { 1920.f, 1080.f };
         glm::vec2  mLogicalSize { 1920.f, 1080.f };
         glm::uvec2 mFbExtent { 1, 1 };
-        float      mScale = 1.f;
+        float      mScale    = 1.f;
         bool       mHasBegun = false;
-        float      mDt    = 0.f;
+        float      mDt       = 0.f;
         UiRect     mSafeArea {};
 
         float mMouseX        = 0.f;

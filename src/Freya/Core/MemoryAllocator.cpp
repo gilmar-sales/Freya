@@ -1,6 +1,6 @@
 #define VMA_IMPLEMENTATION
-#include <vk_mem_alloc.h>
 #include "Freya/Core/MemoryAllocator.hpp"
+#include <vk_mem_alloc.h>
 
 #include <cassert>
 
@@ -26,7 +26,8 @@ namespace FREYA_NAMESPACE
         if (memoryPriorityExt)
             createInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
 
-        const VkResult result = vmaCreateAllocator(&createInfo, &mImpl->allocator);
+        const VkResult result =
+            vmaCreateAllocator(&createInfo, &mImpl->allocator);
         assert(result == VK_SUCCESS && "vmaCreateAllocator failed.");
         if (result != VK_SUCCESS || mImpl->allocator == VK_NULL_HANDLE)
             throw vk::SystemError(vk::Result::eErrorOutOfDeviceMemory,
@@ -71,9 +72,9 @@ namespace FREYA_NAMESPACE
         }
 
         BufferAllocation out {};
-        const VkResult   result =
-            vmaCreateBuffer(mImpl->allocator, &createInfo, &allocInfo, &out.buffer,
-                            reinterpret_cast<VmaAllocation*>(&out.allocation.mHandle), nullptr);
+        const VkResult   result = vmaCreateBuffer(
+            mImpl->allocator, &createInfo, &allocInfo, &out.buffer,
+            reinterpret_cast<VmaAllocation*>(&out.allocation.mHandle), nullptr);
         assert(result == VK_SUCCESS && "vmaCreateBuffer failed.");
         if (result != VK_SUCCESS)
             throw vk::SystemError(vk::Result::eErrorOutOfDeviceMemory,
@@ -84,9 +85,11 @@ namespace FREYA_NAMESPACE
                              &vmaInfo);
         out.info.mappedData = vmaInfo.pMappedData;
         VkMemoryPropertyFlags properties {};
-        vmaGetAllocationMemoryProperties(mImpl->allocator,
+        vmaGetAllocationMemoryProperties(
+            mImpl->allocator,
             static_cast<VmaAllocation>(out.allocation.mHandle), &properties);
-        out.info.hostCoherent = (properties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
+        out.info.hostCoherent =
+            (properties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
         return out;
     }
 
@@ -99,9 +102,9 @@ namespace FREYA_NAMESPACE
         allocInfo.priority      = priority;
 
         ImageAllocation out {};
-        const VkResult  result =
-            vmaCreateImage(mImpl->allocator, &createInfo, &allocInfo, &out.image,
-                           reinterpret_cast<VmaAllocation*>(&out.allocation.mHandle), nullptr);
+        const VkResult  result = vmaCreateImage(
+            mImpl->allocator, &createInfo, &allocInfo, &out.image,
+            reinterpret_cast<VmaAllocation*>(&out.allocation.mHandle), nullptr);
         assert(result == VK_SUCCESS && "vmaCreateImage failed.");
         if (result != VK_SUCCESS)
             throw vk::SystemError(vk::Result::eErrorOutOfDeviceMemory,
@@ -109,25 +112,30 @@ namespace FREYA_NAMESPACE
         return out;
     }
 
-    void MemoryAllocator::DestroyBuffer(VkBuffer      buffer,
+    void MemoryAllocator::DestroyBuffer(VkBuffer         buffer,
                                         MemoryAllocation allocation)
     {
         if (buffer == VK_NULL_HANDLE)
             return;
-        vmaDestroyBuffer(mImpl->allocator, buffer, static_cast<VmaAllocation>(allocation.mHandle));
+        vmaDestroyBuffer(mImpl->allocator, buffer,
+                         static_cast<VmaAllocation>(allocation.mHandle));
     }
 
-    void MemoryAllocator::DestroyImage(VkImage image, MemoryAllocation allocation)
+    void MemoryAllocator::DestroyImage(VkImage          image,
+                                       MemoryAllocation allocation)
     {
         if (image == VK_NULL_HANDLE)
             return;
-        vmaDestroyImage(mImpl->allocator, image, static_cast<VmaAllocation>(allocation.mHandle));
+        vmaDestroyImage(mImpl->allocator, image,
+                        static_cast<VmaAllocation>(allocation.mHandle));
     }
 
-    void MemoryAllocator::Flush(MemoryAllocation allocation, VkDeviceSize offset,
-                                VkDeviceSize size)
+    void MemoryAllocator::Flush(MemoryAllocation allocation,
+                                VkDeviceSize offset, VkDeviceSize size)
     {
-        vmaFlushAllocation(mImpl->allocator, static_cast<VmaAllocation>(allocation.mHandle), offset, size);
+        vmaFlushAllocation(mImpl->allocator,
+                           static_cast<VmaAllocation>(allocation.mHandle),
+                           offset, size);
     }
 
     void* MemoryAllocator::Map(MemoryAllocation allocation)

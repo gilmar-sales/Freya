@@ -50,7 +50,7 @@ namespace FREYA_NAMESPACE
         struct ArrayImage
         {
             vk::Image                  image;
-            MemoryAllocation              memory {};
+            MemoryAllocation           memory {};
             vk::ImageView              arrayView;
             std::vector<vk::ImageView> layerViews;
         };

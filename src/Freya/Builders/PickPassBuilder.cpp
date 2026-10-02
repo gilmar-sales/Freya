@@ -183,8 +183,7 @@ namespace FREYA_NAMESPACE
                 .setDepthTestEnable(true)
                 .setDepthWriteEnable(true)
                 .setDepthCompareOp(
-                    HasFlag(mFreyaOptions->renderFlags,
-                            RenderFlags::ReverseZ)
+                    HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ)
                         ? vk::CompareOp::eGreater
                         : vk::CompareOp::eLess)
                 .setDepthBoundsTestEnable(false)

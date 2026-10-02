@@ -976,11 +976,12 @@ namespace FREYA_NAMESPACE
         // Diffuse IBL is evaluated from SH9 in the lighting shader; fit it
         // to the (cached or freshly baked) irradiance map.
         auto sh = ProjectIrradianceSh(irradiance, kIrrW, kIrrH);
-        mIrradianceSh = BufferBuilder(mDevice)
-                            .SetUsage(BufferUsage::Uniform)
-                            .SetSize(sizeof(IrradianceSh))
-                            .SetData(&sh)
-                            .Build();
+        mIrradianceSh =
+            BufferBuilder(mDevice)
+                .SetUsage(BufferUsage::Uniform)
+                .SetSize(sizeof(IrradianceSh))
+                .SetData(&sh)
+                .Build();
 
         std::vector<float> lut;
         const auto         brdfPath = CacheFilePath(BrdfCacheFileName());

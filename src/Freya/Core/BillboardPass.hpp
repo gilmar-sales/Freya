@@ -56,13 +56,12 @@ namespace FREYA_NAMESPACE
             std::vector<skr::Arc<Buffer>>         instanceBuffers,
             std::vector<skr::Arc<Buffer>>         connectedBuffers,
             Pipelines hdrPipelines, Pipelines ldrPipelines,
-            Pipelines                    offscreenLdrPipelines,
-            Pipelines                    hdrConnectedPipelines,
+            Pipelines offscreenLdrPipelines, Pipelines hdrConnectedPipelines,
             Pipelines                    ldrConnectedPipelines,
             Pipelines                    offscreenLdrConnectedPipelines,
-            std::vector<vk::Framebuffer> ldrFramebuffers,
-            vk::Extent2D extent, std::uint32_t maxQuads,
-            std::uint32_t maxConnectedQuads, DepthInputResources depthInput);
+            std::vector<vk::Framebuffer> ldrFramebuffers, vk::Extent2D extent,
+            std::uint32_t maxQuads, std::uint32_t maxConnectedQuads,
+            DepthInputResources depthInput);
 
         ~BillboardPass();
 

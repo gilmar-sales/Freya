@@ -38,14 +38,14 @@ namespace FREYA_NAMESPACE
 
     enum class BillboardFlags : std::uint32_t
     {
-        None            = 0,
-        AlignMask       = 7u,
-        DepthTest       = 256u,
-        Sdf             = 8u,
+        None      = 0,
+        AlignMask = 7u,
+        DepthTest = 256u,
+        Sdf       = 8u,
         /// Depth-based soft fade via subpass input attachment.
-        Soft            = 16u,
+        Soft = 16u,
         /// Constant screen size; Billboard::size is in NDC half-extents.
-        ScreenSize      = 32u,
+        ScreenSize = 32u,
         /// Stretch along velocity; Billboard::velocity / velocityStretchScale.
         VelocityStretch = 64u,
         TransposeUv     = 128u
@@ -72,8 +72,8 @@ namespace FREYA_NAMESPACE
         glm::vec2      localOffset { 0.f };
         float          outlineWidth = 0.f; ///< SDF units, 0 = no outline
         glm::vec4      outlineColor { 0.f, 0.f, 0.f, 1.f };
-        float     rotation      = 0.f; ///< Screen-space rotation in radians
-        float     softFadeRange = 0.002f; ///< NDC depth range for soft fade
+        float          rotation = 0.f;    ///< Screen-space rotation in radians
+        float softFadeRange     = 0.002f; ///< NDC depth range for soft fade
         /// Custom up axis for FixedAxis / surface normal for Planar.
         glm::vec3 axisUp { 0.f, 1.f, 0.f };
         glm::vec3 velocity { 0.f };
@@ -149,9 +149,8 @@ namespace FREYA_NAMESPACE
     class BillboardDraw
     {
       public:
-        static constexpr std::uint32_t kDefaultMaxQuads = 1u << 16;
-        static constexpr std::uint32_t kDefaultMaxConnectedQuads =
-            1u << 14;
+        static constexpr std::uint32_t kDefaultMaxQuads          = 1u << 16;
+        static constexpr std::uint32_t kDefaultMaxConnectedQuads = 1u << 14;
 
         explicit BillboardDraw(std::uint32_t maxQuads = kDefaultMaxQuads);
 
@@ -203,8 +202,7 @@ namespace FREYA_NAMESPACE
          * Needs at least 2 points; zero-length runs are skipped. No-op
          * when fewer than one segment survives.
          */
-        void Strip(std::span<const StripPoint> points,
-                   const StripStyle&           style,
+        void Strip(std::span<const StripPoint> points, const StripStyle& style,
                    const glm::vec3& camRight, const glm::vec3& camUp);
 
         /**

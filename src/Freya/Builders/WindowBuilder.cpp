@@ -17,8 +17,7 @@ namespace FREYA_NAMESPACE
             .title       = mFreyaOptions->title,
             .width       = mFreyaOptions->width,
             .height      = mFreyaOptions->height,
-            .windowFlags = mFreyaOptions->windowFlags &
-                WindowFlags::Fullscreen,
+            .windowFlags = mFreyaOptions->windowFlags & WindowFlags::Fullscreen,
         };
 
         auto* nativeWindow = static_cast<SDL_Window*>(

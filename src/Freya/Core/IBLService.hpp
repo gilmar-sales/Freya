@@ -37,12 +37,9 @@ namespace FREYA_NAMESPACE
         skr::Arc<Image> GetIrradianceMap() const { return mIrradiance; }
         skr::Arc<Image> GetBrdfLut() const { return mBrdfLut; }
         /// std140 `vec4[9]` order-2 SH of the irradiance map (diffuse IBL).
-        skr::Arc<Buffer> GetIrradianceShBuffer() const
-        {
-            return mIrradianceSh;
-        }
-        skr::Arc<Image> GetLtcMatrixMap() const { return mLtcMatrix; }
-        skr::Arc<Image> GetLtcAmplMap() const { return mLtcAmpl; }
+        skr::Arc<Buffer> GetIrradianceShBuffer() const { return mIrradianceSh; }
+        skr::Arc<Image>  GetLtcMatrixMap() const { return mLtcMatrix; }
+        skr::Arc<Image>  GetLtcAmplMap() const { return mLtcAmpl; }
 
         vk::Sampler GetEnvironmentSampler() const
         {
@@ -96,12 +93,12 @@ namespace FREYA_NAMESPACE
         skr::Arc<skr::Logger<IBLService>> mLogger;
         float                             mIntensity = 1.0f;
 
-        skr::Arc<Image> mEnvironment;
-        skr::Arc<Image> mIrradiance;
+        skr::Arc<Image>  mEnvironment;
+        skr::Arc<Image>  mIrradiance;
         skr::Arc<Buffer> mIrradianceSh;
-        skr::Arc<Image> mBrdfLut;
-        skr::Arc<Image> mLtcMatrix;
-        skr::Arc<Image> mLtcAmpl;
+        skr::Arc<Image>  mBrdfLut;
+        skr::Arc<Image>  mLtcMatrix;
+        skr::Arc<Image>  mLtcAmpl;
 
         vk::Sampler mEnvironmentSampler = nullptr;
         vk::Sampler mIrradianceSampler  = nullptr;

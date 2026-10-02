@@ -11,9 +11,9 @@ namespace FreyaExamples
     /**
      * @brief Shared freecam for Freya examples (RMB look, WASD move).
      *
-     * WASD always moves (unless requireLookToMove and RMB is up). the overlay should
-     * only gate mouse look via blockMouse — not keyboard — so the debug panel
-     * does not steal freecam movement.
+     * WASD always moves (unless requireLookToMove and RMB is up). the overlay
+     * should only gate mouse look via blockMouse — not keyboard — so the debug
+     * panel does not steal freecam movement.
      */
     struct FlyCam
     {

@@ -149,8 +149,9 @@ namespace FREYA_NAMESPACE
         auto currentSubpass = (*ctx.deferred)->GetCurrentSubpass();
         if (currentSubpass == DefDepthPrePass)
         {
+            // Materials are bound: depth.frag alpha-tests Mask materials.
             if (ctx.ExecuteDraws)
-                ctx.ExecuteDraws(false, kTechniqueFilterAll);
+                ctx.ExecuteDraws(true, kTechniqueFilterAll);
             (*ctx.deferred)->NextSubpass(ctx.commandPool);
 
             bool drew = false;

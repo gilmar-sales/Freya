@@ -36,9 +36,9 @@ namespace FreyaExamples
          * (`GetMainServiceProvider()`), used to resolve EventManager and
          * TexturePool.
          */
-        bool Init(fra::Renderer&                              renderer,
-                  fra::Window&                                window,
-                  const skr::Arc<skr::ServiceProvider>&       services);
+        bool Init(fra::Renderer&                        renderer,
+                  fra::Window&                          window,
+                  const skr::Arc<skr::ServiceProvider>& services);
 
         void Shutdown();
 
@@ -90,9 +90,9 @@ namespace FreyaExamples
         void applyPendingSwapchainChanges();
         void pollCullFrameDump(fra::Renderer& renderer);
 
-        bool            mInitialized = false;
-        bool            mEnabled     = true;
-        fra::Renderer*  mRenderer    = nullptr;
+        bool                        mInitialized = false;
+        bool                        mEnabled     = true;
+        fra::Renderer*              mRenderer    = nullptr;
         skr::Arc<fra::EventManager> mEvents;
 
         fra::UiContext mUi;

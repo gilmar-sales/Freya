@@ -22,8 +22,9 @@ namespace FREYA_NAMESPACE
         ClipU      = 4u,
         /** Radial wipe: `clipMax` = remaining fraction (1=full, 0=none). */
         ClipRadial = 8u,
-        /** Hard scissor: discard fragments outside `clipRect` (xywh logical). */
-        ClipRect   = 16u
+        /** Hard scissor: discard fragments outside `clipRect` (xywh logical).
+         */
+        ClipRect = 16u
     };
 
     /**

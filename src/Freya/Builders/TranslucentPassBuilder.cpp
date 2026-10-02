@@ -535,8 +535,7 @@ namespace FREYA_NAMESPACE
                 .setDepthTestEnable(true)
                 .setDepthWriteEnable(false)
                 .setDepthCompareOp(
-                    HasFlag(mFreyaOptions->renderFlags,
-                            RenderFlags::ReverseZ)
+                    HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ)
                         ? vk::CompareOp::eGreaterOrEqual
                         : vk::CompareOp::eLessOrEqual);
 

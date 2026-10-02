@@ -2,8 +2,8 @@
 
 #include "Freya/Core/Flags.hpp"
 #include "Freya/Core/Limits.hpp"
-#include "Freya/FreyaOptions.hpp"
 #include "Freya/Core/SpinLock.hpp"
+#include "Freya/FreyaOptions.hpp"
 
 #include <Skirnir/Skirnir.hpp>
 
@@ -63,17 +63,17 @@ namespace FREYA_NAMESPACE
      */
     struct Light
     {
-        glm::vec3 position    = glm::vec3(0.0f);
-        LightType type        = LightType::Point;
-        glm::vec3 color       = glm::vec3(1.0f);
-        float     radius      = 10.0f;
-        glm::vec3 direction   = glm::vec3(0.0f, -1.0f, 0.0f);
-        float     innerCutoff = 0.9f;
-        float     outerCutoff = 0.8f;
-        float     intensity   = 1.0f;
-        glm::vec3 tangent     = glm::vec3(1.0f, 0.0f, 0.0f);
-        float     halfHeight  = 0.0f;
-        LightFlags flags      = LightFlags::CastShadows | LightFlags::Enabled;
+        glm::vec3  position    = glm::vec3(0.0f);
+        LightType  type        = LightType::Point;
+        glm::vec3  color       = glm::vec3(1.0f);
+        float      radius      = 10.0f;
+        glm::vec3  direction   = glm::vec3(0.0f, -1.0f, 0.0f);
+        float      innerCutoff = 0.9f;
+        float      outerCutoff = 0.8f;
+        float      intensity   = 1.0f;
+        glm::vec3  tangent     = glm::vec3(1.0f, 0.0f, 0.0f);
+        float      halfHeight  = 0.0f;
+        LightFlags flags       = LightFlags::CastShadows | LightFlags::Enabled;
     };
 
     /**
@@ -163,11 +163,11 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] std::uint32_t GetMaxLights() const;
         [[nodiscard]] bool          HasLights() const;
 
-        void               SetIblIntensity(float intensity);
-        float              GetIblIntensity() const;
-        void               SetExposure(float exposure);
-        float              GetExposure() const;
-        void               SetRenderFlags(RenderFlags flags);
+        void                      SetIblIntensity(float intensity);
+        float                     GetIblIntensity() const;
+        void                      SetExposure(float exposure);
+        float                     GetExposure() const;
+        void                      SetRenderFlags(RenderFlags flags);
         [[nodiscard]] RenderFlags GetRenderFlags() const;
 
         /**
@@ -175,7 +175,7 @@ namespace FREYA_NAMESPACE
          * gather time. Host Light records are unchanged (apps can still
          * UpdateLight while muted).
          */
-        void               SetLightTypeFlags(LightType type, LightFlags flags);
+        void SetLightTypeFlags(LightType type, LightFlags flags);
         [[nodiscard]] LightFlags GetLightTypeFlags(LightType type) const;
 
         /**
@@ -183,7 +183,7 @@ namespace FREYA_NAMESPACE
          * stay in the pool (handles remain valid); GPU pack zeros intensity
          * and ShadowPass skips them. No-op for null / dead handles.
          */
-        void               SetLightFlags(LightHandle handle, LightFlags flags);
+        void SetLightFlags(LightHandle handle, LightFlags flags);
         [[nodiscard]] LightFlags GetLightFlags(LightHandle handle) const;
 
       private:

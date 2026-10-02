@@ -7,12 +7,11 @@
 TEST(WindowConfigContext, FreyaOptionsCopySeedsIndependentContext)
 {
     fra::FreyaOptionsTemplate defaults;
-    defaults.options             = skr::MakeArc<fra::FreyaOptions>();
-    defaults.options->title      = "Main";
-    defaults.options->width      = 1920;
-    defaults.options->height     = 1080;
-    fra::SetFlag(defaults.options->windowFlags, fra::WindowFlags::VSync,
-                 true);
+    defaults.options         = skr::MakeArc<fra::FreyaOptions>();
+    defaults.options->title  = "Main";
+    defaults.options->width  = 1920;
+    defaults.options->height = 1080;
+    fra::SetFlag(defaults.options->windowFlags, fra::WindowFlags::VSync, true);
     defaults.options->frameCount = 3;
 
     fra::WindowConfigContext mainCtx;
@@ -36,13 +35,13 @@ TEST(WindowConfigContext, FreyaOptionsCopySeedsIndependentContext)
     EXPECT_EQ(secondaryCtx.options->width, 1280u);
     EXPECT_EQ(secondaryCtx.options->height, 720u);
     EXPECT_FALSE(fra::HasFlag(secondaryCtx.options->windowFlags,
-                               fra::WindowFlags::VSync));
+                              fra::WindowFlags::VSync));
 
     // Template / main options remain unchanged by the secondary clone.
     EXPECT_EQ(defaults.options->title, "Main");
     EXPECT_EQ(defaults.options->width, 1920u);
-    EXPECT_TRUE(fra::HasFlag(defaults.options->windowFlags,
-                              fra::WindowFlags::VSync));
+    EXPECT_TRUE(
+        fra::HasFlag(defaults.options->windowFlags, fra::WindowFlags::VSync));
     EXPECT_EQ(defaults.options->frameCount, 3u);
 
     // Shared template mutation is visible through the main context seed.
