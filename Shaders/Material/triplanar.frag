@@ -37,12 +37,16 @@ vec3 TriplanarWeights(vec3 n) {
 }
 
 vec4 TriplanarSample(uint texIndex, vec3 worldPos, vec3 weights) {
+    if (texIndex == kBindlessWhiteTexture)
+        return vec4(1.0);
+
     vec4 x = texture(uTextures[nonuniformEXT(texIndex)],
                      worldPos.zy * kTriScale);
     vec4 y = texture(uTextures[nonuniformEXT(texIndex)],
                      worldPos.xz * kTriScale);
     vec4 z = texture(uTextures[nonuniformEXT(texIndex)],
                      worldPos.xy * kTriScale);
+
     return x * weights.x + y * weights.y + z * weights.z;
 }
 

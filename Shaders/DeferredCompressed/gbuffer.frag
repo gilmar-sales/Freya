@@ -31,15 +31,13 @@ void main() {
     if (mat.alphaMode == 2u)
         discard;
 
-    vec4 albedoSample =
-        texture(uTextures[nonuniformEXT(mat.albedoIndex)], inTexCoord);
+    vec4 albedoSample = SampleBindless(mat.albedoIndex, inTexCoord);
     float alpha = albedoSample.a * mat.albedoFactor.a;
     if ((mat.alphaMode == 1u || mat.alphaCutoff > 0.0) &&
         alpha < mat.alphaCutoff)
         discard;
 
-    vec3 sampled =
-        texture(uTextures[nonuniformEXT(mat.normalIndex)], inTexCoord).rgb;
+    vec3 sampled = SampleBindless(mat.normalIndex, inTexCoord).rgb;
     vec3 worldNormal;
     if (all(greaterThan(sampled, vec3(0.99)))) {
         worldNormal = normalize(inTBN[2]);

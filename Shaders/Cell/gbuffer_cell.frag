@@ -31,8 +31,7 @@ void main() {
     if (mat.alphaMode == 2u)
         discard;
 
-    vec4 albedoSample =
-        texture(uTextures[nonuniformEXT(mat.albedoIndex)], inTexCoord);
+    vec4 albedoSample = SampleBindless(mat.albedoIndex, inTexCoord);
     float alpha = albedoSample.a * mat.albedoFactor.a;
     if ((mat.alphaMode == 1u || mat.alphaCutoff > 0.0) &&
         alpha < mat.alphaCutoff)
