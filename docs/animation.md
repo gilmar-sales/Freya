@@ -320,7 +320,8 @@ inverseBind / rest; each `GpuAnimInstance` carries `skeletonSlot`. One
 Dispatch processes mixed fox + humanoid (etc.) in the same EachAsync cohort.
 Far-tier crowds (BAT/VAT) remain a separate follow-up.
 
-After toggling `quantizeGpuAnimJoints`, call
+After toggling `AnimFlags::QuantizeJoints` (via
+`SetQuantizeGpuAnimJoints()`), call
 `fra::Advanced(renderer).GpuAnimation().RebuildPass()` and re-upload
 skeleton / clips / mask / rest / rig.
 
@@ -334,7 +335,7 @@ additive slots; `skeletonSlot` (atlas index); `modelWorld`; look
 `ikWeight`). Disabled joint index: `0xffffffffu`.
 
 Joint storage: `GpuFloatJoint` (48 B) or `GpuQuantJoint` (16 B,
-smallest-three quat + half floats) via `quantizeGpuAnimJoints`.
+smallest-three quat + half floats) via `AnimFlags::QuantizeJoints`.
 
 ### Skeleton atlas
 
@@ -381,11 +382,11 @@ into `Advance`.
 
 | Field | Role |
 |-------|------|
-| `enableAnimLod` | Master switch (default true) |
+| `animFlags` (`AnimFlags::Lod`) | Master switch (default set) |
 | `animLodHz[4]` | Near → Far Hz |
 | `animLodExitDist[3]` / `animLodEnterDist[3]` | Hysteresis bands |
 | `animBakeHz` | Dense bake rate |
-| `quantizeGpuAnimJoints` | 16 B joint storage |
+| `animFlags` (`AnimFlags::QuantizeJoints`) | 16 B joint storage |
 
 `FreyaOptionsBuilder::SetAnimationQuality(AnimationQuality)` applies
 presets (`ApplyAnimationQuality`):

@@ -27,7 +27,7 @@ namespace FREYA_NAMESPACE
             if (opts.rounding > 0.f)
             {
                 q.rounding = opts.rounding;
-                q.flags |= kUiFlagSdfRounded;
+                q.flags |= UiFlags::SdfRounded;
             }
             push(q);
         }
@@ -171,7 +171,7 @@ namespace FREYA_NAMESPACE
                     if (opts.rounding > 0.f)
                     {
                         q.rounding = opts.rounding;
-                        q.flags |= kUiFlagSdfRounded;
+                        q.flags |= UiFlags::SdfRounded;
                     }
                     push(q);
                 }
@@ -232,7 +232,7 @@ namespace FREYA_NAMESPACE
             for (std::size_t i = 1; i < mClips.size(); ++i)
                 clip = clip.Intersect(mClips[i]);
             q.clipRect = { clip.x, clip.y, clip.w, clip.h };
-            q.flags |= kUiFlagClipRect;
+            q.flags |= UiFlags::ClipRect;
         }
         auto& dst = mOverlayDepth > 0 ? mOverlayQuads : mQuads;
         dst.push_back(q);
@@ -297,7 +297,7 @@ namespace FREYA_NAMESPACE
             q.rounding     = rounding;
             q.borderWidth  = borderWidth;
             q.outlineColor = borderColor;
-            q.flags |= kUiFlagSdfRounded;
+            q.flags |= UiFlags::SdfRounded;
         }
 
         SpinLockGuard lock(mLock);
@@ -373,7 +373,7 @@ namespace FREYA_NAMESPACE
         if (rounding > 0.f)
         {
             plate.rounding = rounding;
-            plate.flags |= kUiFlagSdfRounded;
+            plate.flags |= UiFlags::SdfRounded;
         }
 
         SpinLockGuard lock(mLock);
@@ -383,7 +383,7 @@ namespace FREYA_NAMESPACE
 
         plate.color   = fg;
         plate.clipMax = fill;
-        plate.flags |= kUiFlagClipU;
+        plate.flags |= UiFlags::ClipU;
         pushUnlocked(plate);
     }
 
@@ -397,12 +397,12 @@ namespace FREYA_NAMESPACE
             return;
 
         UiQuad q = MakeBase(rect, color, 0);
-        q.flags |= kUiFlagClipRadial;
+        q.flags |= UiFlags::ClipRadial;
         q.clipMax = rem;
         if (rounding > 0.f)
         {
             q.rounding = rounding;
-            q.flags |= kUiFlagSdfRounded;
+            q.flags |= UiFlags::SdfRounded;
         }
 
         SpinLockGuard lock(mLock);

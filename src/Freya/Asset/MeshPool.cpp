@@ -583,13 +583,13 @@ namespace FREYA_NAMESPACE
                                         normalizeSlashes(roughPath.C_Str());
             if (packedTex)
             {
-                info.packedMetallicRoughness = true;
-                info.roughness               = packedTex;
+                SetFlag(info.flags, MaterialFlags::PackedMR, true);
+                info.roughness = packedTex;
             }
             else if (samePacked || (metalTex && !roughTex))
             {
-                info.packedMetallicRoughness = true;
-                info.roughness               = metalTex ? metalTex : roughTex;
+                SetFlag(info.flags, MaterialFlags::PackedMR, true);
+                info.roughness = metalTex ? metalTex : roughTex;
             }
             else
             {
@@ -599,7 +599,7 @@ namespace FREYA_NAMESPACE
 
             if (info.occlusion && info.roughness &&
                 *info.occlusion == *info.roughness)
-                info.packedMetallicRoughness = true;
+                SetFlag(info.flags, MaterialFlags::PackedMR, true);
 
             if (!info.albedo)
             {
@@ -665,11 +665,13 @@ namespace FREYA_NAMESPACE
 
             int twoSided = 0;
             if (mat->Get(AI_MATKEY_TWOSIDED, twoSided) == AI_SUCCESS)
-                info.doubleSided = twoSided != 0;
+                SetFlag(info.flags, MaterialFlags::DoubleSided,
+                        twoSided != 0);
 
             int shading = 0;
             if (mat->Get(AI_MATKEY_SHADING_MODEL, shading) == AI_SUCCESS)
-                info.unlit = shading == aiShadingMode_Unlit;
+                SetFlag(info.flags, MaterialFlags::Unlit,
+                        shading == aiShadingMode_Unlit);
 
             float clearcoat = 0.f;
             if (mat->Get(AI_MATKEY_CLEARCOAT_FACTOR, clearcoat) == AI_SUCCESS)

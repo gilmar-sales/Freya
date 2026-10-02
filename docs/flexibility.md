@@ -194,7 +194,10 @@ auto cell = serviceProvider->GetService<fra::PostProcessBuilder>()
                 .Build();
 
 CellPushConstants params {};
-params.reverseZ = options->ReverseZ ? 1.0f : 0.0f;
+params.reverseZ = fra::HasFlag(options->renderFlags,
+                                 fra::RenderFlags::ReverseZ)
+                      ? 1.0f
+                      : 0.0f;
 cell->SetPushConstants(params);
 cell->BindMaterial(bodyMaterial); // albedo.a material ID; omit = all pixels
 fra::Advanced(*mRenderer).InsertFrameStage("Bloom", cell->MakeStage());

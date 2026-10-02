@@ -96,8 +96,8 @@ namespace FREYA_NAMESPACE
             b.align         = align;
             b.blend         = BillboardBlend::Alpha;
             b.layer         = layer;
-            b.depthTest     = true;
-            b.sdf           = true;
+            SetFlag(b.flags, BillboardFlags::DepthTest, true);
+            b.flags |= BillboardFlags::Sdf;
             b.clipMax       = 1.f;
             const float pad = std::max(font.Padding(), 1.f);
             b.outlineWidth =

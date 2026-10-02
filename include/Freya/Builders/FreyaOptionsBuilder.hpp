@@ -47,18 +47,25 @@ namespace FREYA_NAMESPACE
         FreyaOptionsBuilder& SetHeight(std::uint32_t height);
 
         /**
-         * @brief Sets vertical synchronization.
-         * @param vSync true to enable vsync
+         * @brief Sets window presentation flags (VSync / Fullscreen).
+         * @param flags WindowFlags bitmask
          * @return Reference to this for chaining
          */
-        FreyaOptionsBuilder& SetVSync(bool vSync);
+        FreyaOptionsBuilder& SetWindowFlags(WindowFlags flags);
+
+        /**
+         * @brief Sets vertical synchronization.
+         * @param enabled true to enable vsync
+         * @return Reference to this for chaining
+         */
+        FreyaOptionsBuilder& SetVSync(bool enabled);
 
         /**
          * @brief Sets fullscreen mode.
-         * @param fullscreen true for fullscreen
+         * @param enabled true for fullscreen
          * @return Reference to this for chaining
          */
-        FreyaOptionsBuilder& SetFullscreen(bool fullscreen);
+        FreyaOptionsBuilder& SetFullscreen(bool enabled);
 
         /**
          * @brief Sets MSAA sample count.
@@ -167,11 +174,15 @@ namespace FREYA_NAMESPACE
          */
         FreyaOptionsBuilder& SetAnimationQuality(AnimationQuality quality);
 
+        FreyaOptionsBuilder& SetAnimFlags(AnimFlags flags);
+
         FreyaOptionsBuilder& SetAnimLodEnabled(bool enabled);
 
         FreyaOptionsBuilder& SetAnimBakeHz(float hz);
 
         FreyaOptionsBuilder& SetQuantizeGpuAnimJoints(bool enabled);
+
+        FreyaOptionsBuilder& SetRenderFlags(RenderFlags flags);
 
         FreyaOptionsBuilder& SetSsaoResolutionDivisor(std::uint32_t divisor);
 

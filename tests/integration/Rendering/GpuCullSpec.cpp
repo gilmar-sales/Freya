@@ -138,7 +138,7 @@ namespace
             u.entityId = inst.entityId;
             u.techniqueId = inst.techniqueId;
             u.flags       = inst.flags;
-            if (inst.flags & fra::kSceneInstanceFlagSkinned)
+            if (fra::HasFlag(inst.flags, fra::SceneInstanceFlags::Skinned))
             {
                 // Non-kNoSkin so CullFrustum skips Hi-Z (matches live dump).
                 u.boneOffset = 0;
@@ -147,8 +147,8 @@ namespace
             uploads.push_back(u);
         }
 
-        if (snap.pushConstants.hizEnabled != 0 && snap.hiz.present &&
-            !snap.hiz.pixels.empty())
+        if (snap.pushConstants.hizEnabled != fra::CullFlags::None &&
+            snap.hiz.present && !snap.hiz.pixels.empty())
         {
             if (!indirect.UploadHiZFromDump(snap.hiz))
             {

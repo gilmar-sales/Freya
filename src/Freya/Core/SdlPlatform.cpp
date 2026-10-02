@@ -38,12 +38,13 @@ namespace FREYA_NAMESPACE
         auto windowFlags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE |
                            SDL_WINDOW_HIGH_PIXEL_DENSITY;
 
-        options.title      = desc.title;
-        options.width      = desc.width;
-        options.height     = desc.height;
-        options.fullscreen = desc.fullscreen;
+        options.title  = desc.title;
+        options.width  = desc.width;
+        options.height = desc.height;
+        SetFlag(options.windowFlags, WindowFlags::Fullscreen,
+                HasFlag(desc.windowFlags, WindowFlags::Fullscreen));
 
-        if (desc.fullscreen)
+        if (HasFlag(desc.windowFlags, WindowFlags::Fullscreen))
         {
             windowFlags |= SDL_WINDOW_FULLSCREEN;
         }
@@ -86,7 +87,8 @@ namespace FREYA_NAMESPACE
         options.height = static_cast<std::uint32_t>(height);
 
         mLogger->LogTrace("Created native window {}x{} vsync={}", options.width,
-                          options.height, options.vSync);
+                          options.height,
+                          HasFlag(options.windowFlags, WindowFlags::VSync));
 
         return window;
     }

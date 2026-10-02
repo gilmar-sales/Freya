@@ -15,7 +15,8 @@ namespace FREYA_NAMESPACE
 {
     skr::Arc<GpuAnimPass> GpuAnimPassBuilder::Build()
     {
-        const bool quantize   = mFreyaOptions->quantizeGpuAnimJoints;
+        const bool quantize =
+            HasFlag(mFreyaOptions->animFlags, AnimFlags::QuantizeJoints);
         const auto shaderPath = mFreyaOptions->shaderRoot +
                                 (quantize ? "/Anim/skin_bake_quant.comp.spv"
                                           : "/Anim/skin_bake.comp.spv");

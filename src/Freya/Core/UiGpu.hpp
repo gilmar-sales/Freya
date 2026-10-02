@@ -22,7 +22,7 @@ namespace FREYA_NAMESPACE
         glm::vec4     uvRect { 0.f, 0.f, 1.f, 1.f };
         glm::vec4     color { 1.f };
         std::uint32_t textureIndex = 0;
-        std::uint32_t flags        = 0;
+        UiFlags       flags        = UiFlags::None;
         float         rounding     = 0.f;
         float         borderWidth  = 0.f;
         float         clipMax      = 1.f;

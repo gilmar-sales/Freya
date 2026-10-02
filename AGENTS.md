@@ -134,7 +134,8 @@ ctest --test-dir build --output-on-failure
 - Open extra windows with `CreateWindow`; close with `Window::Close()`.
   Override `UpdateSecondaryWindow` and use `GetRenderer(*window)` to draw
   (IndustrialPipeLamp: F10).
-- FreyaOptions: title, dimensions, vSync, fullscreen, sampleCount, frameCount,
-  clearColor, drawDistance, maxLights, ReverseZ, shaderRoot,
-  enableSsao/enableTaa/enableBloom.
+- FreyaOptions: title, dimensions, windowFlags (VSync/Fullscreen),
+  sampleCount, frameCount, clearColor, drawDistance, maxLights, renderFlags
+  (Shadows/Ssao/Taa/Bloom/ShadowMask/ReverseZ), animFlags (Lod/
+  QuantizeJoints), shaderRoot.
 - Application types: `#include <Freya/Freya.hpp>`.

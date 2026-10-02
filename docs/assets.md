@@ -201,7 +201,7 @@ commands.
 std::vector<fra::SceneInstanceUpload> instances;
 instances.push_back({ .transform = trs, .mesh = mesh, .material = mat,
                       .entityId = id, .techniqueId = 0,
-                      .flags = fra::kSceneInstanceFlagCastShadows });
+                      .flags = fra::SceneInstanceFlags::CastShadows });
 auto adv = fra::Advanced(*renderer);
 adv.BeginSceneInstances();
 adv.ReserveSceneInstances(static_cast<std::uint32_t>(instances.size()));

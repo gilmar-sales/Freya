@@ -15,9 +15,9 @@ namespace FREYA_NAMESPACE
     struct NativeWindowDesc
     {
         std::string   title;
-        std::uint32_t width      = 800;
-        std::uint32_t height     = 600;
-        bool          fullscreen = false;
+        std::uint32_t width       = 800;
+        std::uint32_t height      = 600;
+        WindowFlags   windowFlags = WindowFlags::None;
     };
 
     /**

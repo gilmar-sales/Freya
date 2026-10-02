@@ -203,7 +203,7 @@ namespace FREYA_NAMESPACE
             b.align        = BillboardAlign::Screen;
             b.blend        = blend;
             b.layer        = BillboardLayer::Vfx;
-            b.depthTest    = true;
+            SetFlag(b.flags, BillboardFlags::DepthTest, true);
             b.rotation     = p.rotation;
 
             if (useAtlas)

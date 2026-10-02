@@ -182,9 +182,11 @@ namespace FREYA_NAMESPACE
             vk::PipelineDepthStencilStateCreateInfo()
                 .setDepthTestEnable(true)
                 .setDepthWriteEnable(true)
-                .setDepthCompareOp(mFreyaOptions->ReverseZ
-                                       ? vk::CompareOp::eGreater
-                                       : vk::CompareOp::eLess)
+                .setDepthCompareOp(
+                    HasFlag(mFreyaOptions->renderFlags,
+                            RenderFlags::ReverseZ)
+                        ? vk::CompareOp::eGreater
+                        : vk::CompareOp::eLess)
                 .setDepthBoundsTestEnable(false)
                 .setStencilTestEnable(false);
 

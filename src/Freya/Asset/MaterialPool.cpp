@@ -151,7 +151,8 @@ namespace FREYA_NAMESPACE
             resolveIndex(info.metalness, kBindlessBlackTexture);
         gpu.occlusionIndex =
             resolveIndex(info.occlusion, kBindlessWhiteTexture);
-        if (info.packedMetallicRoughness && !info.occlusion && info.roughness)
+        if (HasFlag(info.flags, MaterialFlags::PackedMR) && !info.occlusion &&
+            info.roughness)
             gpu.occlusionIndex = gpu.roughnessIndex;
 
         gpu.albedoFactor       = info.albedoFactor;
@@ -165,15 +166,7 @@ namespace FREYA_NAMESPACE
         gpu.transmission       = info.transmission;
         gpu.ior                = info.ior > 1e-3f ? info.ior : 1.5f;
 
-        gpu.flags = 0;
-        if (info.packedMetallicRoughness)
-            gpu.flags |= kMaterialFlagPackedMR;
-        if (info.unlit)
-            gpu.flags |= kMaterialFlagUnlit;
-        if (info.doubleSided)
-            gpu.flags |= kMaterialFlagDoubleSided;
-        if (info.receiveShadows)
-            gpu.flags |= kMaterialFlagReceiveShadow;
+        gpu.flags = info.flags;
 
         materialsRes->WriteMaterial(material.id, gpu);
     }

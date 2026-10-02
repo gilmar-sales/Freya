@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Freya/Config.hpp"
+#include "Freya/Core/Flags.hpp"
 
 #include <cstdint>
 #include <string>
@@ -119,6 +120,40 @@ namespace FREYA_NAMESPACE
     };
 
     /**
+     * @brief Window presentation flags (PascalCase bitmask).
+     */
+    enum class WindowFlags : std::uint32_t
+    {
+        None       = 0,
+        VSync      = 1u,
+        Fullscreen = 2u
+    };
+
+    /**
+     * @brief Render pipeline feature flags (PascalCase bitmask).
+     */
+    enum class RenderFlags : std::uint32_t
+    {
+        None       = 0,
+        Shadows    = 1u,
+        Ssao       = 2u,
+        Taa        = 4u,
+        Bloom      = 8u,
+        ShadowMask = 16u,
+        ReverseZ   = 32u
+    };
+
+    /**
+     * @brief GPU animation feature flags (PascalCase bitmask).
+     */
+    enum class AnimFlags : std::uint32_t
+    {
+        None            = 0,
+        Lod             = 1u,
+        QuantizeJoints  = 2u
+    };
+
+    /**
      * @brief Pixel extent used by FreyaOptions helpers (Vulkan-free).
      */
     struct Extent2D
@@ -144,8 +179,7 @@ namespace FREYA_NAMESPACE
         std::string   title        = "Freya Window";
         std::uint32_t width        = 800;
         std::uint32_t height       = 600;
-        bool          vSync        = true;
-        bool          fullscreen   = true;
+        WindowFlags   windowFlags  = WindowFlags::VSync | WindowFlags::Fullscreen;
         std::uint32_t sampleCount  = 1;
         std::uint32_t frameCount   = 3;
         glm::vec4     clearColor   = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -180,7 +214,10 @@ namespace FREYA_NAMESPACE
         /// Off by default: lighting samples cascades directly (same PCF as
         /// spot/point). The mask looked softer and could lag with camera
         /// motion.
-        bool          enableShadowMask            = false;
+        RenderFlags   renderFlags               = RenderFlags::Shadows |
+                                                  RenderFlags::Ssao |
+                                                  RenderFlags::Taa |
+                                                  RenderFlags::Bloom;
         std::uint32_t shadowMaskResolutionDivisor = 2;
         /// Kept for API compat; directional CSM may skip redraw when the
         /// camera/sun are stable, but only while reusing the committed VPs
@@ -194,16 +231,10 @@ namespace FREYA_NAMESPACE
         std::uint32_t shadowSpotResolutionDivisor = 2;
         /// When >1, rebuild a stable point cube every N frames.
         std::uint32_t shadowPointUpdatePeriod = 2;
-        bool          ReverseZ                = false;
         /// Depth buffer precision.
         DepthPrecision depthPrecision = DepthPrecision::Standard;
 
         std::string shaderRoot = "./Resources/Shaders";
-
-        bool enableShadows = true;
-        bool enableSsao    = true;
-        bool enableTaa     = true;
-        bool enableBloom   = true;
 
         /// Screen-space diameter (px) at which cull keeps LOD0. Lower =
         /// switch to coarser LODs sooner.
@@ -242,8 +273,9 @@ namespace FREYA_NAMESPACE
         float         bloomExtractScale      = 1.0f;
         float         bloomStrength          = 0.8f;
 
-        /// When false, every skinned actor evaluates / skins each frame.
-        bool enableAnimLod = true;
+        /// When AnimFlags::Lod is unset, every skinned actor evaluates / skins
+        /// each frame.
+        AnimFlags animFlags = AnimFlags::Lod | AnimFlags::QuantizeJoints;
         /// Target pose updates/sec for tiers 0..3 (Near→Far). Capped by FPS.
         float animLodHz[4] = { 60.f, 30.f, 15.f, 8.f };
         /// Leave tier i toward i+1 when distance exceeds (metres).
@@ -252,11 +284,6 @@ namespace FREYA_NAMESPACE
         float animLodEnterDist[3] = { 17.f, 32.f, 48.f };
         /// Clip bake rate used by apps that call BakeClip with this knob.
         float animBakeHz = 30.f;
-        /// When true, GPU clip/rest joints use 16 B quantized storage
-        /// (`skin_bake_quant`); otherwise full float TRS (`skin_bake`).
-        /// Toggle requires rebuilding GpuAnimPass (see
-        /// RendererAdvanced::GpuAnimation().RebuildPass()).
-        bool quantizeGpuAnimJoints = true;
     };
 
     void ApplyShadowQuality(FreyaOptions& options, ShadowQuality quality);

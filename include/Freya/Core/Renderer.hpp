@@ -89,8 +89,10 @@ namespace FREYA_NAMESPACE
         void                       SetBloomQuality(BloomQuality quality);
         [[nodiscard]] BloomQuality GetBloomQuality() const;
 
-        [[nodiscard]] bool GetVSync() const;
-        void               SetVSync(bool vSync);
+        [[nodiscard]] WindowFlags GetVSyncFlags() const;
+        [[nodiscard]] bool        GetVSync() const;
+        void                    SetVSync(bool enabled);
+        void                    SetWindowFlags(WindowFlags flags);
 
         void                        SetSamples(std::uint32_t samples);
         [[nodiscard]] std::uint32_t GetSamples() const;
@@ -138,6 +140,8 @@ namespace FREYA_NAMESPACE
 
         void SetAmbient(const glm::vec3& color, float intensity);
 
+        void                     SetDebugDrawFlags(DebugDrawFlags flags);
+        [[nodiscard]] DebugDrawFlags GetDebugDrawFlags() const;
         void                     SetDebugDrawEnabled(bool enabled);
         [[nodiscard]] bool       IsDebugDrawEnabled() const;
         [[nodiscard]] DebugDraw& GetDebugDraw();

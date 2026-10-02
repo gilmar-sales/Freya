@@ -132,11 +132,28 @@ namespace FREYA_NAMESPACE
     {
         if (!mImpl->window)
             return false;
-        return SDL_GetWindowFlags(mImpl->window) & SDL_WINDOW_FULLSCREEN;
+        return HasFlag(mImpl->freyaOptions->windowFlags,
+                       WindowFlags::Fullscreen);
+    }
+
+    WindowFlags Window::GetWindowFlags() const
+    {
+        return mImpl->freyaOptions->windowFlags;
     }
 
     void Window::SetFullscreen(const bool fullscreen)
     {
+        SetFlag(mImpl->freyaOptions->windowFlags, WindowFlags::Fullscreen,
+                fullscreen);
+        if (!mImpl->window)
+            return;
+        SDL_SetWindowFullscreen(mImpl->window, fullscreen);
+    }
+
+    void Window::SetWindowFlags(WindowFlags flags)
+    {
+        const bool fullscreen = HasFlag(flags, WindowFlags::Fullscreen);
+        mImpl->freyaOptions->windowFlags = flags;
         if (!mImpl->window)
             return;
         SDL_SetWindowFullscreen(mImpl->window, fullscreen);

@@ -70,7 +70,7 @@ namespace FREYA_NAMESPACE
         style.textureIndex = textureIndex;
         style.blend        = blend;
         style.layer        = layer;
-        style.depthTest    = depthTest;
+        SetFlag(style.flags, BillboardFlags::DepthTest, depthTest);
         style.miterLimit   = miterLimit;
         draw.Strip(points, style, camRight, camUp);
     }

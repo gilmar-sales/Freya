@@ -215,13 +215,14 @@ namespace FREYA_NAMESPACE
             q.c3            = p1.pos - side1;
             q.color0        = p0.color;
             q.color1        = p1.color;
-            q.uvRect        = style.transposeUv
-                                  ? glm::vec4(0.f, p0.u, 1.f, p1.u)
-                                  : glm::vec4(p0.u, 0.f, p1.u, 1.f);
+            const bool transpose =
+                HasFlag(style.flags, BillboardFlags::TransposeUv);
+            q.uvRect = transpose ? glm::vec4(0.f, p0.u, 1.f, p1.u)
+                                 : glm::vec4(p0.u, 0.f, p1.u, 1.f);
             q.textureIndex  = style.textureIndex;
             q.blend         = style.blend;
             q.layer         = style.layer;
-            q.depthTest     = style.depthTest;
+            q.flags         = style.flags;
             q.clipMax       = 1.f;
             batch.push_back(q);
         }
@@ -245,7 +246,7 @@ namespace FREYA_NAMESPACE
         plate.align        = align;
         plate.blend        = BillboardBlend::Alpha;
         plate.layer        = BillboardLayer::Ui;
-        plate.depthTest    = true;
+        SetFlag(plate.flags, BillboardFlags::DepthTest, true);
         plate.textureIndex = 0;
 
         SpinLockGuard lock(mLock);

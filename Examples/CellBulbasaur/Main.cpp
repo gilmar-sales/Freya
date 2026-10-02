@@ -253,7 +253,10 @@ class MainApp final : public fra::AbstractApplication
 
         mRenderer->RebuildSwapChain();
 
-        const auto revZ       = mFreyaOptions->ReverseZ ? 1.0f : 0.0f;
+        const auto revZ = fra::HasFlag(mFreyaOptions->renderFlags,
+                                       fra::RenderFlags::ReverseZ)
+                              ? 1.0f
+                              : 0.0f;
         auto       insertPost = [&](skr::Arc<fra::PostProcess> effect) {
             if (effect)
                 fra::Advanced(*mRenderer)
@@ -828,7 +831,7 @@ class MainApp final : public fra::AbstractApplication
             ground.mesh     = mGroundMesh;
             ground.material = mGroundMaterial;
             ground.entityId = nextEntity++;
-            ground.flags    = fra::kSceneInstanceFlagCastShadows;
+            ground.flags    = fra::SceneInstanceFlags::CastShadows;
             ground.mobility = fra::Mobility::Static;
             const auto id   = mScene.Add(ground);
             ensureIsEye(id, false);
@@ -850,8 +853,10 @@ class MainApp final : public fra::AbstractApplication
                     cellShaded
                               ? mCellTechnique
                               : fra::MaterialTechniqueRegistry::kDefaultTechnique;
-                inst.flags = fra::kSceneInstanceFlagCastShadows |
-                             (joints > 0 ? fra::kSceneInstanceFlagSkinned : 0u);
+                inst.flags = fra::SceneInstanceFlags::CastShadows |
+                             (joints > 0
+                                  ? fra::SceneInstanceFlags::Skinned
+                                  : fra::SceneInstanceFlags::None);
                 inst.boneOffset = joints > 0 ? 0u : fra::kNoSkin;
                 inst.boneCount  = joints;
                 inst.mobility   = fra::Mobility::Dynamic;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Freya/Asset/InstanceTransform.hpp"
+#include "Freya/Asset/AssetFlags.hpp"
 #include "Freya/Config.hpp"
 #include "Freya/Core/Limits.hpp"
 
@@ -12,21 +12,12 @@
 
 namespace FREYA_NAMESPACE
 {
-    constexpr std::uint32_t kMaxBindlessTextures          = 1024;
-    constexpr std::uint32_t kMaxMeshInfos                 = 4096;
-    constexpr std::uint32_t kMaxLodsPerMesh               = 4;
-    constexpr std::uint32_t kSceneInstanceFlagCastShadows = 1u;
-    constexpr std::uint32_t kSceneInstanceFlagTranslucent = 2u;
-    constexpr std::uint32_t kSceneInstanceFlagSkinned     = 4u;
+    constexpr std::uint32_t kMaxBindlessTextures = 1024;
+    constexpr std::uint32_t kMaxMeshInfos        = 4096;
+    constexpr std::uint32_t kMaxLodsPerMesh      = 4;
 
-    /// Cull / draw all techniques (depth, shadow, translucent).
     constexpr std::uint32_t kTechniqueFilterAll    = 0xFFFFFFFFu;
     constexpr std::uint32_t kMaxMaterialTechniques = 8;
-
-    constexpr std::uint32_t kMaterialFlagPackedMR      = 1u;
-    constexpr std::uint32_t kMaterialFlagUnlit         = 2u;
-    constexpr std::uint32_t kMaterialFlagDoubleSided   = 4u;
-    constexpr std::uint32_t kMaterialFlagReceiveShadow = 8u;
 
     constexpr std::uint32_t kBindlessWhiteTexture = 0;
     constexpr std::uint32_t kBindlessBlackTexture = 1;
@@ -81,12 +72,12 @@ namespace FREYA_NAMESPACE
      */
     struct SceneInstance
     {
-        glm::mat4     model       = glm::mat4(1.0f);
-        std::uint32_t meshId      = 0;
-        std::uint32_t materialId  = 0;
-        std::uint32_t entityId    = 0;
-        std::uint32_t flags       = kSceneInstanceFlagCastShadows;
-        std::uint32_t techniqueId = 0;
+        glm::mat4           model       = glm::mat4(1.0f);
+        std::uint32_t       meshId      = 0;
+        std::uint32_t       materialId  = 0;
+        std::uint32_t       entityId    = 0;
+        SceneInstanceFlags  flags       = SceneInstanceFlags::CastShadows;
+        std::uint32_t       techniqueId = 0;
         /// Rigid = `kNoSkin`; skinned = palette offset (was _pad0).
         std::uint32_t boneOffset = kNoSkin;
         std::uint32_t _pad1      = 0;
@@ -116,7 +107,7 @@ namespace FREYA_NAMESPACE
         float alphaCutoff = 0.0f;
         std::uint32_t occlusionIndex =
             kBindlessWhiteTexture; ///< AO (.r) or packed ORM .r
-        std::uint32_t flags = kMaterialFlagReceiveShadow; ///< kMaterialFlag*
+        MaterialFlags flags = MaterialFlags::ReceiveShadow; ///< MaterialFlags
         float         transmission = 0.f;  ///< 0–1; OIT refraction when >0
         float         ior          = 1.5f; ///< index of refraction
     };
@@ -133,8 +124,8 @@ namespace FREYA_NAMESPACE
         glm::vec2     screenSize    = glm::vec2(1.0f);
         std::uint32_t instanceCount = 0;
         std::uint32_t cullMode      = 0;
-        std::uint32_t reverseZ      = 0;
-        std::uint32_t hizEnabled    = 0;
+        CullFlags     reverseZ      = CullFlags::None;
+        CullFlags     hizEnabled    = CullFlags::None;
         float         lodPixelRef   = 128.0f; ///< ~pixels of diameter for LOD0
         float         lodStep       = 1.75f;  ///< diameter shrink per LOD
         /// `kTechniqueFilterAll` or a concrete technique id.

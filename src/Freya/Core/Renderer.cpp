@@ -102,7 +102,7 @@ namespace FREYA_NAMESPACE
         mMeshPool(serviceProvider->GetService<MeshPool>()),
         mIndirectDraw(serviceProvider->GetService<IndirectDrawSystem>())
     {
-        if (!freyaOptions->enableShadows)
+        if (!HasFlag(freyaOptions->renderFlags, RenderFlags::Shadows))
             mShadowQuality = ShadowQuality::Off;
         else if (freyaOptions->shadowMapResolution >= 4096 ||
                  freyaOptions->shadowCascadeBlend >= 0.09f)
@@ -116,15 +116,18 @@ namespace FREYA_NAMESPACE
         else
             mShadowQuality = ShadowQuality::High;
 
-        if (!freyaOptions->enableSsao)
+        if (!HasFlag(freyaOptions->renderFlags, RenderFlags::Ssao))
             mSsaoQuality = SsaoQuality::Off;
-        if (!freyaOptions->enableTaa)
+        if (!HasFlag(freyaOptions->renderFlags, RenderFlags::Taa))
             mTaaQuality = TaaQuality::Off;
-        if (!freyaOptions->enableBloom)
+        if (!HasFlag(freyaOptions->renderFlags, RenderFlags::Bloom))
             mBloomQuality = BloomQuality::Off;
 
         if (mLightService)
-            mLightService->SetShadowsEnabled(freyaOptions->enableShadows);
+            mLightService->SetRenderFlags(
+                HasFlag(freyaOptions->renderFlags, RenderFlags::Shadows)
+                    ? RenderFlags::Shadows
+                    : RenderFlags::None);
 
         ClearProjections();
 
@@ -160,7 +163,8 @@ namespace FREYA_NAMESPACE
                 .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
                 .setAddressModeW(vk::SamplerAddressMode::eClampToEdge));
 
-        if (!mFreyaOptions->enableSsao || !mFreyaOptions->enableShadowMask)
+        if (!HasFlag(mFreyaOptions->renderFlags, RenderFlags::Ssao) ||
+            !HasFlag(mFreyaOptions->renderFlags, RenderFlags::ShadowMask))
             mSsaoFallbackImage = createSsaoFallbackImage();
 
         registerDefaultFrameStages();
@@ -342,7 +346,8 @@ namespace FREYA_NAMESPACE
         for (auto& stage : mFrameStages)
             stage->Rebuild(ctx, *mServiceProvider);
 
-        if (!mFreyaOptions->enableSsao || !mFreyaOptions->enableShadowMask)
+        if (!HasFlag(mFreyaOptions->renderFlags, RenderFlags::Ssao) ||
+            !HasFlag(mFreyaOptions->renderFlags, RenderFlags::ShadowMask))
         {
             if (!mSsaoFallbackImage)
                 mSsaoFallbackImage = createSsaoFallbackImage();
@@ -510,7 +515,8 @@ namespace FREYA_NAMESPACE
                 return;
             mIndirectDraw->BuildHiZ(mDeferredPass->GetDepthImage(
                                         mSwapChain->GetCurrentFrameIndex()),
-                                            mFreyaOptions->ReverseZ);
+                                    HasFlag(mFreyaOptions->renderFlags,
+                                            RenderFlags::ReverseZ));
         };
         ctx.blitBloomToFullRes = [this]() {
             blitBloomToFullRes(mCommandPool,
@@ -660,7 +666,10 @@ namespace FREYA_NAMESPACE
         mShadowQuality = quality;
 
         if (mLightService)
-            mLightService->SetShadowsEnabled(mFreyaOptions->enableShadows);
+            mLightService->SetRenderFlags(
+                HasFlag(mFreyaOptions->renderFlags, RenderFlags::Shadows)
+                    ? RenderFlags::Shadows
+                    : RenderFlags::None);
 
         if (quality == ShadowQuality::Off)
             return;
@@ -690,12 +699,15 @@ namespace FREYA_NAMESPACE
         if (mSsaoQuality == quality)
             return;
 
-        const bool wasEnabled      = mFreyaOptions->enableSsao;
+        const bool wasEnabled =
+            HasFlag(mFreyaOptions->renderFlags, RenderFlags::Ssao);
         const auto previousDivisor = mFreyaOptions->ssaoResolutionDivisor;
         ApplySsaoQuality(*mFreyaOptions, quality);
         mSsaoQuality = quality;
 
-        const bool enabledChanged = wasEnabled != mFreyaOptions->enableSsao;
+        const bool isEnabled =
+            HasFlag(mFreyaOptions->renderFlags, RenderFlags::Ssao);
+        const bool enabledChanged = wasEnabled != isEnabled;
         const bool divisorChanged =
             previousDivisor != mFreyaOptions->ssaoResolutionDivisor;
         if (!enabledChanged && !divisorChanged)
@@ -735,11 +747,13 @@ namespace FREYA_NAMESPACE
         if (mTaaQuality == quality)
             return;
 
-        const bool wasEnabled = mFreyaOptions->enableTaa;
+        const bool wasEnabled =
+            HasFlag(mFreyaOptions->renderFlags, RenderFlags::Taa);
         ApplyTaaQuality(*mFreyaOptions, quality);
         mTaaQuality = quality;
 
-        if (wasEnabled != mFreyaOptions->enableTaa)
+        if (wasEnabled !=
+            HasFlag(mFreyaOptions->renderFlags, RenderFlags::Taa))
         {
             mDevice->Get().waitIdle();
             rebuildSceneResources();
@@ -755,12 +769,15 @@ namespace FREYA_NAMESPACE
         if (mBloomQuality == quality)
             return;
 
-        const bool wasEnabled      = mFreyaOptions->enableBloom;
+        const bool wasEnabled =
+            HasFlag(mFreyaOptions->renderFlags, RenderFlags::Bloom);
         const auto previousDivisor = mFreyaOptions->bloomResolutionDivisor;
         ApplyBloomQuality(*mFreyaOptions, quality);
         mBloomQuality = quality;
 
-        const bool enabledChanged = wasEnabled != mFreyaOptions->enableBloom;
+        const bool isEnabled =
+            HasFlag(mFreyaOptions->renderFlags, RenderFlags::Bloom);
+        const bool enabledChanged = wasEnabled != isEnabled;
         const bool divisorChanged =
             previousDivisor != mFreyaOptions->bloomResolutionDivisor;
         if (!enabledChanged && !divisorChanged)
@@ -958,9 +975,17 @@ namespace FREYA_NAMESPACE
 
     void Renderer::Impl::SetVSync(const bool vSync)
     {
-        if (mFreyaOptions->vSync == vSync)
+        if (HasFlag(mFreyaOptions->windowFlags, WindowFlags::VSync) == vSync)
             return;
-        mFreyaOptions->vSync = vSync;
+        SetFlag(mFreyaOptions->windowFlags, WindowFlags::VSync, vSync);
+        RebuildSwapChain();
+    }
+
+    void Renderer::Impl::SetWindowFlags(WindowFlags flags)
+    {
+        if (mFreyaOptions->windowFlags == flags)
+            return;
+        mFreyaOptions->windowFlags = flags;
         RebuildSwapChain();
     }
 
@@ -983,9 +1008,12 @@ namespace FREYA_NAMESPACE
                                              const float near,
                                              const float far) const
     {
-        auto projection = mFreyaOptions->ReverseZ
-                              ? glm::perspective(fovRadians, aspect, far, near)
-                              : glm::perspective(fovRadians, aspect, near, far);
+        const bool reverseZ =
+            HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ);
+        auto projection =
+            reverseZ
+                ? glm::perspective(fovRadians, aspect, far, near)
+                : glm::perspective(fovRadians, aspect, near, far);
         projection[1][1] *= -1.f;
 
         return projection;
@@ -1049,7 +1077,7 @@ namespace FREYA_NAMESPACE
         auto upload                 = unjittered;
         upload.prevViewProjection   = mPrevViewProjection;
         upload.unjitteredProjection = unjittered.projection;
-        if (mFreyaOptions->enableTaa && mTaaPass)
+        if (HasFlag(mFreyaOptions->renderFlags, RenderFlags::Taa) && mTaaPass)
             ApplyHaltonJitter(upload.projection, mTaaFrameIndex,
                               getRenderExtent(),
                               mFreyaOptions->taaHaltonPeriod);
@@ -1060,7 +1088,7 @@ namespace FREYA_NAMESPACE
     {
         mPrevViewProjection =
             mCurrentProjection.projection * mCurrentProjection.view;
-        if (mFreyaOptions->enableTaa)
+        if (HasFlag(mFreyaOptions->renderFlags, RenderFlags::Taa))
             ++mTaaFrameIndex;
     }
 
@@ -1663,26 +1691,24 @@ namespace FREYA_NAMESPACE
         buffer->Bind(mCommandPool);
     }
 
-    void Renderer::Impl::Draw(const std::uint32_t meshId,
-                              const std::uint32_t materialId,
-                              const std::uint32_t entityId,
-                              const bool          castShadows)
+    void Renderer::Impl::Draw(const std::uint32_t      meshId,
+                              const std::uint32_t      materialId,
+                              const std::uint32_t      entityId,
+                              const SceneInstanceFlags flags)
     {
-        mDrawCommands.push_back(
-            { meshId, materialId, 1, 0, entityId, castShadows });
+        mDrawCommands.push_back({ meshId, materialId, 1, 0, entityId, flags });
     }
 
-    void Renderer::Impl::DrawInstanced(const std::uint32_t meshId,
-                                       const std::uint32_t materialId,
-                                       const size_t        instanceCount,
-                                       const size_t        firstInstance,
-                                       const bool          castShadows,
-                                       const std::uint32_t entityId)
+    void Renderer::Impl::DrawInstanced(const std::uint32_t      meshId,
+                                       const std::uint32_t      materialId,
+                                       const size_t             instanceCount,
+                                       const size_t             firstInstance,
+                                       const SceneInstanceFlags flags,
+                                       const std::uint32_t      entityId)
     {
         mDrawCommands.push_back(
             { meshId, materialId, static_cast<std::uint32_t>(instanceCount),
-              static_cast<std::uint32_t>(firstInstance), entityId,
-              castShadows });
+              static_cast<std::uint32_t>(firstInstance), entityId, flags });
     }
 
     void Renderer::Impl::ClearDrawCommands()
@@ -1708,8 +1734,7 @@ namespace FREYA_NAMESPACE
                 upload.material    = MaterialHandle { cmd.materialId };
                 upload.entityId    = cmd.entityId;
                 upload.techniqueId = 0;
-                upload.flags =
-                    MakeSceneInstanceFlags(cmd.castShadows, false, false);
+                upload.flags       = MakeSceneInstanceFlags(cmd.flags);
                 if (instanceIndex < mLegacyModels.size())
                     upload.transform = SceneTransform::FromMatrix(
                         mLegacyModels[instanceIndex]);
@@ -1738,7 +1763,9 @@ namespace FREYA_NAMESPACE
         mIndirectDraw->SetMeshLodCull(mFreyaOptions->meshLodPixelRef,
                                       mFreyaOptions->meshLodStep);
         mIndirectDraw->DispatchCull(
-            viewProj, mode, mFreyaOptions->ReverseZ, techniqueFilter);
+            viewProj, mode,
+            HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ),
+            techniqueFilter);
     }
 
     void Renderer::Impl::ExecuteDrawCommands(
@@ -2022,7 +2049,8 @@ namespace FREYA_NAMESPACE
             mCullDumpPending.hiz.mipCount = hizMips;
             mCullDumpPending.hiz.file     = "hiz.r32f";
             mCullDumpPending.hiz.enabled =
-                mCullDumpPending.pushConstants.hizEnabled != 0;
+                mCullDumpPending.pushConstants.hizEnabled !=
+                CullFlags::None;
             mCullDumpRequested        = false;
             mCullDumpAwaitingReadback = true;
             mCullDumpFrameIndex       = mSwapChain->GetCurrentFrameIndex();

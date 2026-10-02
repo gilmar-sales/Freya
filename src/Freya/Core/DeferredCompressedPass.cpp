@@ -115,7 +115,10 @@ namespace FREYA_NAMESPACE
         const std::array<vk::ClearValue, 6> clearValues {
             vk::ClearValue().setDepthStencil(
                 vk::ClearDepthStencilValue().setDepth(
-                    mFreyaOptions->ReverseZ ? 0.0f : 1.0f)),
+                    HasFlag(mFreyaOptions->renderFlags,
+                            RenderFlags::ReverseZ)
+                        ? 0.0f
+                        : 1.0f)),
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // albedo
             vk::ClearValue().setColor(
                 { 0.5f, 0.5f, 0.5f, 1.0f / 3.0f }), // normal + receiveShadow

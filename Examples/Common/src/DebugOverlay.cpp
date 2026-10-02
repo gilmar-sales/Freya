@@ -472,9 +472,14 @@ namespace FreyaExamples
             ImGui::CollapsingHeader("Lights", ImGuiTreeNodeFlags_DefaultOpen))
         {
             auto typeToggle = [lights](const char* label, fra::LightType type) {
-                bool on = lights->IsLightTypeEnabled(type);
+                bool on = HasFlag(lights->GetLightTypeFlags(type),
+                                  fra::LightFlags::Enabled);
                 if (ImGui::Checkbox(label, &on))
-                    lights->SetLightTypeEnabled(type, on);
+                {
+                    auto flags = lights->GetLightTypeFlags(type);
+                    SetFlag(flags, fra::LightFlags::Enabled, on);
+                    lights->SetLightTypeFlags(type, flags);
+                }
             };
             typeToggle("Directional", fra::LightType::Directional);
             typeToggle("Point", fra::LightType::Point);

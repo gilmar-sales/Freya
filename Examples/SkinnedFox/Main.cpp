@@ -327,7 +327,8 @@ class MainApp final : public fra::AbstractApplication
         auto key = fra::MakeDirectionalLight(glm::vec3(-0.35f, -1.0f, -0.25f),
                                              glm::vec3(1.0f, 0.97f, 0.92f),
                                              1.2f);
-        key.castShadows = true;
+        fra::SetFlag(key.flags, fra::LightFlags::CastShadows,
+                     true);
         mLightService->AddLight(key);
 
         mCam.cameraPos = { 0.f, 28.f, 55.f };
@@ -663,7 +664,8 @@ class MainApp final : public fra::AbstractApplication
             const double paletteMiB =
                 (gpuInstAvg * static_cast<double>(jointCount) * 64.0 * 2.0) /
                 (1024.0 * 1024.0);
-            const bool quant = mFreyaOptions->quantizeGpuAnimJoints;
+            const bool quant = fra::HasFlag(
+                mFreyaOptions->animFlags, fra::AnimFlags::QuantizeJoints);
             std::cout << "anim_prof mode=" << gpuAnimModeName(mGpuAnimMode)
                       << " q=" << FreyaExamples::QualityName(mAnimationQuality)
                       << " quant=" << (quant ? 1 : 0) << " fps=" << fps
@@ -790,7 +792,10 @@ class MainApp final : public fra::AbstractApplication
             << "Loco Blend2D (Strafe×Speed) bake @" << mFreyaOptions->animBakeHz
             << "Hz; Q/E strafe; LOD wall-clock Hz (F11)\n"
             << "GPU bake "
-            << (mFreyaOptions->quantizeGpuAnimJoints ? "quantized" : "float")
+            << (fra::HasFlag(mFreyaOptions->animFlags,
+                             fra::AnimFlags::QuantizeJoints)
+                    ? "quantized"
+                    : "float")
             << "; anim_prof line every 1s (CPU split + GPU "
                "carry/bake timestamps)\n"
             << "ImGui: Freya Debug panel (timing / quality / SSAO views / "
@@ -800,6 +805,10 @@ class MainApp final : public fra::AbstractApplication
     void printFeatureStatus() const
     {
         const auto& o = *mFreyaOptions;
+        const bool  lod =
+            fra::HasFlag(o.animFlags, fra::AnimFlags::Lod);
+        const bool quant =
+            fra::HasFlag(o.animFlags, fra::AnimFlags::QuantizeJoints);
         std::cout << "Features  shadow=" << onOff(mEnableShadows)
                   << " debug=" << onOff(mRenderer->IsDebugDrawEnabled())
                   << " graph=" << onOff(mEnableAnimGraph)
@@ -809,8 +818,8 @@ class MainApp final : public fra::AbstractApplication
                   << " root=" << onOff(mEnableRootMotion)
                   << " events=" << onOff(mEnableEvents)
                   << " animQ=" << FreyaExamples::QualityName(mAnimationQuality)
-                  << " lod=" << onOff(o.enableAnimLod)
-                  << " quant=" << onOff(o.quantizeGpuAnimJoints) << '\n'
+                   << " lod=" << onOff(lod) << " quant=" << onOff(quant)
+                   << '\n'
                   << "  lodHz=" << o.animLodHz[0] << '/' << o.animLodHz[1]
                   << '/' << o.animLodHz[2] << '/' << o.animLodHz[3]
                   << " exitDist=" << o.animLodExitDist[0] << '/'
@@ -1032,7 +1041,8 @@ class MainApp final : public fra::AbstractApplication
         fra::Advanced(*mRenderer)
             .GpuAnimation()
             .UploadBoneMask(fra::PackBoneMask(mUpperMask, jc));
-        if (mFreyaOptions->quantizeGpuAnimJoints)
+        if (fra::HasFlag(mFreyaOptions->animFlags,
+                          fra::AnimFlags::QuantizeJoints))
             fra::Advanced(*mRenderer)
                 .GpuAnimation()
                 .UploadRestJoints(fra::PackRestJointsQuant(mRestPose, jc));
@@ -1042,8 +1052,10 @@ class MainApp final : public fra::AbstractApplication
                 .UploadRestJoints(fra::PackRestJointsFloat(mRestPose, jc));
         std::cout
             << "GPU anim bake+mask+rest uploaded ("
-            << (mFreyaOptions->quantizeGpuAnimJoints ? "quantized 16B"
-                                                     : "float 48B")
+            << (fra::HasFlag(mFreyaOptions->animFlags,
+                             fra::AnimFlags::QuantizeJoints)
+                    ? "quantized 16B"
+                    : "float 48B")
             << ") pinned=3 resident="
             << fra::Advanced(*mRenderer).GpuAnimation().GetResidentClipCount()
             << " slabJoints="
@@ -1184,8 +1196,10 @@ class MainApp final : public fra::AbstractApplication
 
     void toggleQuantizeGpuAnim()
     {
-        mFreyaOptions->quantizeGpuAnimJoints =
-            !mFreyaOptions->quantizeGpuAnimJoints;
+        fra::SetFlag(
+            mFreyaOptions->animFlags, fra::AnimFlags::QuantizeJoints,
+            !fra::HasFlag(mFreyaOptions->animFlags,
+                          fra::AnimFlags::QuantizeJoints));
         mStreamedUpperSlot  = 0xffffffffu;
         const bool wasCrowd = mGpuAnimMode == GpuAnimMode::Crowd;
         const bool wasFox0  = mGpuAnimMode == GpuAnimMode::Fox0;
@@ -1209,7 +1223,10 @@ class MainApp final : public fra::AbstractApplication
         if (wasFox0)
             mGpuAnimGoldenOnce = true;
         std::cout << "QuantizeGpuAnimJoints "
-                  << (mFreyaOptions->quantizeGpuAnimJoints ? "ON" : "OFF")
+                  << (fra::HasFlag(mFreyaOptions->animFlags,
+                                   fra::AnimFlags::QuantizeJoints)
+                          ? "ON"
+                          : "OFF")
                   << " (pass rebuilt)\n";
         printFeatureStatus();
     }
@@ -1476,9 +1493,9 @@ class MainApp final : public fra::AbstractApplication
                 inst.material   = part.material;
                 inst.entityId   = entity++;
                 inst.flags      = mEnableShadows
-                                      ? fra::kSceneInstanceFlagCastShadows |
-                                            fra::kSceneInstanceFlagSkinned
-                                      : fra::kSceneInstanceFlagSkinned;
+                                      ? fra::SceneInstanceFlags::CastShadows |
+                                            fra::SceneInstanceFlags::Skinned
+                                      : fra::SceneInstanceFlags::Skinned;
                 inst.boneOffset = fox.boneOffset;
                 inst.boneCount  = jointCount;
                 inst.mobility   = fra::Mobility::Dynamic;
@@ -1492,7 +1509,7 @@ class MainApp final : public fra::AbstractApplication
             ground.mesh     = mGroundMesh;
             ground.material = mGroundMaterial;
             ground.entityId = 100000u;
-            ground.flags    = 0;
+            ground.flags    = fra::SceneInstanceFlags::None;
             ground.mobility = fra::Mobility::Static;
             mScene.Add(ground);
         }
@@ -1525,9 +1542,9 @@ class MainApp final : public fra::AbstractApplication
                 inst->boneOffset = fox.boneOffset;
                 inst->boneCount  = jointCount;
                 inst->flags      = mEnableShadows
-                                       ? fra::kSceneInstanceFlagCastShadows |
-                                             fra::kSceneInstanceFlagSkinned
-                                       : fra::kSceneInstanceFlagSkinned;
+                                       ? fra::SceneInstanceFlags::CastShadows |
+                                             fra::SceneInstanceFlags::Skinned
+                                       : fra::SceneInstanceFlags::Skinned;
             }
         }
         // Ground is Mobility::Static — leave transform alone after rebuild.

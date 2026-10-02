@@ -41,16 +41,15 @@ namespace FREYA_NAMESPACE
       public:
         struct Instance
         {
-            MeshHandle     mesh;
-            MaterialHandle material;
-            SceneTransform transform {};
-            std::uint32_t  entityId    = 0;
-            std::uint32_t  techniqueId = 0;
-            /// `kSceneInstanceFlag*` (CastShadows / Translucent / Skinned).
-            std::uint32_t flags      = kSceneInstanceFlagCastShadows;
-            std::uint32_t boneOffset = kNoSkin;
-            std::uint32_t boneCount  = 0;
-            Mobility      mobility   = Mobility::Dynamic;
+            MeshHandle         mesh;
+            MaterialHandle     material;
+            SceneTransform     transform {};
+            std::uint32_t      entityId    = 0;
+            std::uint32_t      techniqueId = 0;
+            SceneInstanceFlags flags       = SceneInstanceFlags::CastShadows;
+            std::uint32_t      boneOffset  = kNoSkin;
+            std::uint32_t      boneCount   = 0;
+            Mobility           mobility    = Mobility::Dynamic;
         };
 
         using InstanceId = std::uint32_t;

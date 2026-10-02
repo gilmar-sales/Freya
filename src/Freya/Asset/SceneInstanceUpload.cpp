@@ -2,16 +2,8 @@
 
 namespace FREYA_NAMESPACE
 {
-    std::uint32_t MakeSceneInstanceFlags(bool castShadows, bool translucent,
-                                         bool skinned)
+    SceneInstanceFlags MakeSceneInstanceFlags(SceneInstanceFlags flags)
     {
-        std::uint32_t flags = 0;
-        if (castShadows)
-            flags |= kSceneInstanceFlagCastShadows;
-        if (translucent)
-            flags |= kSceneInstanceFlagTranslucent;
-        if (skinned)
-            flags |= kSceneInstanceFlagSkinned;
         return flags;
     }
 } // namespace FREYA_NAMESPACE

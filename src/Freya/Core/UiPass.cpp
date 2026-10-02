@@ -179,7 +179,7 @@ namespace FREYA_NAMESPACE
         for (std::uint32_t i = 0; i < count; ++i)
         {
             const auto& q       = quads[i];
-            const bool  clipped = (q.flags & kUiFlagClipRect) != 0;
+            const bool  clipped = HasFlag(q.flags, UiFlags::ClipRect);
             UiRect      clip {};
             if (clipped)
             {

@@ -381,8 +381,8 @@ class MainApp final : public fra::AbstractApplication
             inst.mesh       = part.mesh;
             inst.material   = part.material;
             inst.entityId   = entity++;
-            inst.flags      = fra::kSceneInstanceFlagCastShadows |
-                              fra::kSceneInstanceFlagSkinned;
+            inst.flags      = fra::SceneInstanceFlags::CastShadows |
+                              fra::SceneInstanceFlags::Skinned;
             inst.boneOffset = 0;
             inst.boneCount  = jointCount;
             inst.mobility   = fra::Mobility::Dynamic;

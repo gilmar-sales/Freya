@@ -22,7 +22,7 @@ namespace FREYA_NAMESPACE
         float         clipMax = 1.f;
         glm::vec2     size { 1.f };
         std::uint32_t textureIndex = 0;
-        std::uint32_t flags        = 0;
+        BillboardFlags flags       = BillboardFlags::None;
         glm::vec4     color { 1.f };
         glm::vec4     uvRect { 0.f, 0.f, 1.f, 1.f };
         glm::vec2     localOffset { 0.f };
@@ -45,17 +45,18 @@ namespace FREYA_NAMESPACE
         g.textureIndex = b.textureIndex;
 
         // Bits 0-2: alignment type.
-        g.flags =
-            static_cast<std::uint32_t>(b.align) & kBillboardAlignMask;
+        g.flags = FromBits<BillboardFlags>(
+            static_cast<std::uint32_t>(b.align) &
+            ToBits(BillboardFlags::AlignMask));
 
-        if (b.sdf)
+        if (HasFlag(b.flags, BillboardFlags::Sdf))
         {
-            g.flags |= kBillboardFlagSdf;
+            g.flags |= BillboardFlags::Sdf;
             g.outlineWidth = b.outlineWidth;
         }
-        else if (b.softParticle)
+        else if (HasFlag(b.flags, BillboardFlags::Soft))
         {
-            g.flags |= kBillboardFlagSoft;
+            g.flags |= BillboardFlags::Soft;
             g.outlineWidth = b.softFadeRange;
         }
         else
@@ -63,14 +64,14 @@ namespace FREYA_NAMESPACE
             g.outlineWidth = b.outlineWidth;
         }
 
-        if (b.screenSpaceSize)
-            g.flags |= kBillboardFlagScreenSize;
+        if (HasFlag(b.flags, BillboardFlags::ScreenSize))
+            g.flags |= BillboardFlags::ScreenSize;
 
         // aux: velocity-stretch takes priority; otherwise axis for
         // FixedAxis/Planar.
-        if (b.velocityStretch)
+        if (HasFlag(b.flags, BillboardFlags::VelocityStretch))
         {
-            g.flags |= kBillboardFlagVelocityStretch;
+            g.flags |= BillboardFlags::VelocityStretch;
             g.aux = glm::vec4(b.velocity, b.velocityStretchScale);
         }
         else if (b.align == BillboardAlign::FixedAxis ||
@@ -95,15 +96,15 @@ namespace FREYA_NAMESPACE
      */
     struct ConnectedBillboardGpuInstance
     {
-        glm::vec4     c0 { 0.f };
-        glm::vec4     c1 { 0.f };
-        glm::vec4     c2 { 0.f };
-        glm::vec4     c3 { 0.f };
-        glm::vec4     color0 { 1.f };
-        glm::vec4     color1 { 1.f };
-        glm::vec4     uvRect { 0.f, 0.f, 1.f, 1.f };
-        std::uint32_t textureIndex = 0;
-        std::uint32_t flags        = 0;
+        glm::vec4      c0 { 0.f };
+        glm::vec4      c1 { 0.f };
+        glm::vec4      c2 { 0.f };
+        glm::vec4      c3 { 0.f };
+        glm::vec4      color0 { 1.f };
+        glm::vec4      color1 { 1.f };
+        glm::vec4      uvRect { 0.f, 0.f, 1.f, 1.f };
+        std::uint32_t  textureIndex = 0;
+        BillboardFlags flags        = BillboardFlags::None;
         float         clipMax      = 1.f;
         float         pad          = 0.f;
     };

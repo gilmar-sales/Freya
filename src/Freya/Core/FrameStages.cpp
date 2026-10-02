@@ -73,7 +73,7 @@ namespace FREYA_NAMESPACE
     void ShadowFrameStage::Execute(StageContext& stageCtx)
     {
         auto& ctx = AsRenderFrameContext(stageCtx);
-        if (!ctx.options->enableShadows)
+        if (!HasFlag(ctx.options->renderFlags, RenderFlags::Shadows))
             return;
 
         if (!ctx.shadow || !*ctx.shadow || !ctx.lights || !*ctx.lights)
@@ -196,7 +196,7 @@ namespace FREYA_NAMESPACE
         if (!ctx.ssaoPass)
             return;
         ctx.ssaoPass->reset();
-        if (ctx.options->enableSsao)
+        if (HasFlag(ctx.options->renderFlags, RenderFlags::Ssao))
         {
             *ctx.ssaoPass = sp.GetService<SsaoPassBuilder>()->Build(
                 ctx.swapChain, ctx.VkExtent());
@@ -219,7 +219,7 @@ namespace FREYA_NAMESPACE
                        (*ctx.deferred)->GetNormalImage(ctx.frameIndex),
                        ctx.projection->view,
                        ctx.projection->unjitteredProjection,
-                       ctx.options->ReverseZ,
+                       HasFlag(ctx.options->renderFlags, RenderFlags::ReverseZ),
                        ctx.options->ssaoRadius,
                        ctx.options->ssaoBias,
                        ctx.options->ssaoPower,
@@ -233,7 +233,8 @@ namespace FREYA_NAMESPACE
         if (!ctx.shadowMaskPass)
             return;
         ctx.shadowMaskPass->reset();
-        if (ctx.options->enableShadows && ctx.options->enableShadowMask)
+        if (HasFlag(ctx.options->renderFlags, RenderFlags::Shadows) &&
+            HasFlag(ctx.options->renderFlags, RenderFlags::ShadowMask))
         {
             *ctx.shadowMaskPass = sp.GetService<ShadowMaskPassBuilder>()->Build(
                 ctx.swapChain,
@@ -255,7 +256,8 @@ namespace FREYA_NAMESPACE
             !*ctx.deferred || !ctx.shadow || !*ctx.shadow || !ctx.lights ||
             !*ctx.lights || !ctx.projection)
             return;
-        if (!ctx.options->enableShadows || !ctx.options->enableShadowMask)
+        if (!HasFlag(ctx.options->renderFlags, RenderFlags::Shadows) ||
+            !HasFlag(ctx.options->renderFlags, RenderFlags::ShadowMask))
             return;
 
         (*ctx.shadowMaskPass)
@@ -266,7 +268,7 @@ namespace FREYA_NAMESPACE
                        **ctx.lights,
                        ctx.projection->view,
                        ctx.projection->unjitteredProjection,
-                       ctx.options->ReverseZ,
+                       HasFlag(ctx.options->renderFlags, RenderFlags::ReverseZ),
                        ctx.frameIndex);
     }
 
@@ -295,8 +297,8 @@ namespace FREYA_NAMESPACE
             return;
 
         skr::Arc<Image> shadowMaskImage;
-        if (ctx.options->enableShadowMask && ctx.shadowMaskPass &&
-            *ctx.shadowMaskPass)
+        if (HasFlag(ctx.options->renderFlags, RenderFlags::ShadowMask) &&
+            ctx.shadowMaskPass && *ctx.shadowMaskPass)
         {
             shadowMaskImage = (*ctx.shadowMaskPass)->GetOutputImage();
         }
@@ -331,7 +333,7 @@ namespace FREYA_NAMESPACE
         if (!ctx.taa)
             return;
         ctx.taa->reset();
-        if (!ctx.options->enableTaa)
+        if (!HasFlag(ctx.options->renderFlags, RenderFlags::Taa))
             return;
         *ctx.taa = sp.GetService<TaaPassBuilder>()->Build(ctx.swapChain,
                                                           ctx.VkExtent());
@@ -490,7 +492,7 @@ namespace FREYA_NAMESPACE
         if (!ctx.bloom)
             return;
         ctx.bloom->reset();
-        if (!ctx.options->enableBloom)
+        if (!HasFlag(ctx.options->renderFlags, RenderFlags::Bloom))
             return;
 
         skr::Arc<Image> bloomSource;

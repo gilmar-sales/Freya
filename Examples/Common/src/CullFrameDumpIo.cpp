@@ -138,8 +138,8 @@ namespace FreyaExamples
                 { "screenSize", Vec2ToJson(pc.screenSize) },
                 { "instanceCount", pc.instanceCount },
                 { "cullMode", pc.cullMode },
-                { "reverseZ", pc.reverseZ },
-                { "hizEnabled", pc.hizEnabled },
+                { "reverseZ", static_cast<std::uint32_t>(pc.reverseZ) },
+                { "hizEnabled", static_cast<std::uint32_t>(pc.hizEnabled) },
                 { "lodPixelRef", pc.lodPixelRef },
                 { "lodStep", pc.lodStep },
                 { "techniqueFilter", pc.techniqueFilter },
@@ -171,12 +171,12 @@ namespace FreyaExamples
             j["instances"] = nlohmann::json::array();
             for (const auto& inst : snap.instances)
             {
-                j["instances"].push_back({
+                    j["instances"].push_back({
                     { "model", Mat4ToJson(inst.model) },
                     { "meshId", inst.meshId },
                     { "materialId", inst.materialId },
                     { "entityId", inst.entityId },
-                    { "flags", inst.flags },
+                    { "flags", ToBits(inst.flags) },
                     { "techniqueId", inst.techniqueId },
                 });
             }
@@ -241,8 +241,10 @@ namespace FreyaExamples
             pc.screenSize    = Vec2FromJson(pcj.at("screenSize"));
             pc.instanceCount = pcj.value("instanceCount", 0u);
             pc.cullMode      = pcj.value("cullMode", 0u);
-            pc.reverseZ      = pcj.value("reverseZ", 0u);
-            pc.hizEnabled    = pcj.value("hizEnabled", 0u);
+            pc.reverseZ = static_cast<fra::CullFlags>(
+                pcj.value("reverseZ", 0u));
+            pc.hizEnabled = static_cast<fra::CullFlags>(
+                pcj.value("hizEnabled", 0u));
             pc.lodPixelRef   = pcj.value("lodPixelRef", 256.f);
             pc.lodStep       = pcj.value("lodStep", 2.f);
             pc.techniqueFilter =
@@ -275,7 +277,8 @@ namespace FreyaExamples
                 s.meshId      = inst.value("meshId", 0u);
                 s.materialId  = inst.value("materialId", 0u);
                 s.entityId    = inst.value("entityId", 0u);
-                s.flags       = inst.value("flags", 0u);
+                s.flags       = fra::FromBits<fra::SceneInstanceFlags>(
+                    inst.value("flags", 0u));
                 s.techniqueId = inst.value("techniqueId", 0u);
                 out.instances.push_back(s);
             }

@@ -134,7 +134,8 @@ namespace FREYA_NAMESPACE
         const auto clearColor =
             vk::ClearColorValue().setUint32({ kPickMissId, 0u, 0u, 0u });
         const auto clearDepth = vk::ClearDepthStencilValue().setDepth(
-            mFreyaOptions->ReverseZ ? 0.0f : 1.0f);
+            HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ) ? 0.0f
+                                                                       : 1.0f);
 
         const std::array clearValues = {
             vk::ClearValue().setColor(clearColor),

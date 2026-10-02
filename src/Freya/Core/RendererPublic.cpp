@@ -137,12 +137,23 @@ namespace FREYA_NAMESPACE
 
     bool Renderer::GetVSync() const
     {
-        return mImpl->mFreyaOptions->vSync;
+        return HasFlag(mImpl->mFreyaOptions->windowFlags,
+                       WindowFlags::VSync);
+    }
+
+    WindowFlags Renderer::GetVSyncFlags() const
+    {
+        return mImpl->mFreyaOptions->windowFlags;
     }
 
     void Renderer::SetVSync(const bool vSync)
     {
         mImpl->SetVSync(vSync);
+    }
+
+    void Renderer::SetWindowFlags(WindowFlags flags)
+    {
+        mImpl->SetWindowFlags(flags);
     }
 
     void Renderer::SetSamples(const std::uint32_t samples)
@@ -349,25 +360,24 @@ namespace FREYA_NAMESPACE
         mRenderer.EndSceneInstances();
     }
 
-    void RendererAdvanced::Draw(const std::uint32_t meshId,
-                                const std::uint32_t materialId,
-                                const std::uint32_t entityId,
-                                const bool          castShadows)
+    void RendererAdvanced::Draw(const std::uint32_t      meshId,
+                                const std::uint32_t      materialId,
+                                const std::uint32_t      entityId,
+                                const SceneInstanceFlags flags)
     {
-        mRenderer.ImplPtr()->Draw(meshId, materialId, entityId, castShadows);
+        mRenderer.ImplPtr()->Draw(meshId, materialId, entityId, flags);
     }
 
     void RendererAdvanced::DrawInstanced(
-        const std::uint32_t meshId,
-        const std::uint32_t materialId,
-        const size_t        instanceCount,
-        const size_t        firstInstance,
-        const bool          castShadows,
-        const std::uint32_t entityId)
+        const std::uint32_t      meshId,
+        const std::uint32_t      materialId,
+        const size_t             instanceCount,
+        const size_t             firstInstance,
+        const SceneInstanceFlags flags,
+        const std::uint32_t      entityId)
     {
         mRenderer.ImplPtr()->DrawInstanced(
-            meshId, materialId, instanceCount, firstInstance, castShadows,
-            entityId);
+            meshId, materialId, instanceCount, firstInstance, flags, entityId);
     }
 
     void RendererAdvanced::SetInstanceModels(const glm::mat4*  models,

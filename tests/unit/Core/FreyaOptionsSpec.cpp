@@ -20,16 +20,16 @@ TEST(FreyaOptions, ScaledExtentNeverReturnsZeroAxis)
 TEST(FreyaOptions, ApplyShadowQualityOffDisablesShadows)
 {
     fra::FreyaOptions o;
-    o.enableShadows = true;
+    fra::SetFlag(o.renderFlags, fra::RenderFlags::Shadows, true);
     fra::ApplyShadowQuality(o, fra::ShadowQuality::Off);
-    EXPECT_FALSE(o.enableShadows);
+    EXPECT_FALSE(fra::HasFlag(o.renderFlags, fra::RenderFlags::Shadows));
 }
 
 TEST(FreyaOptions, ApplyShadowQualityHighSetsCascadeAndMapSize)
 {
     fra::FreyaOptions o;
     fra::ApplyShadowQuality(o, fra::ShadowQuality::High);
-    EXPECT_TRUE(o.enableShadows);
+    EXPECT_TRUE(fra::HasFlag(o.renderFlags, fra::RenderFlags::Shadows));
     EXPECT_EQ(o.shadowMapResolution, 2048u);
     EXPECT_EQ(o.shadowCascadeCount, 4u);
     EXPECT_EQ(o.shadowSampleCount, 16u);
@@ -39,7 +39,7 @@ TEST(FreyaOptions, ApplyShadowQualityHighSetsCascadeAndMapSize)
     EXPECT_EQ(o.shadowSpotResolutionDivisor, 1u);
     EXPECT_EQ(o.shadowMaskResolutionDivisor, 1u);
     EXPECT_EQ(o.shadowCascadeUpdatePeriod, 2u);
-    EXPECT_FALSE(o.enableShadowMask);
+    EXPECT_FALSE(fra::HasFlag(o.renderFlags, fra::RenderFlags::ShadowMask));
     EXPECT_EQ(fra::ResolveShadowSideResolution(o.shadowMapResolution,
                                                o.shadowPointResolution,
                                                o.shadowPointResolutionDivisor),
@@ -50,7 +50,7 @@ TEST(FreyaOptions, ApplyShadowQualityUltraExceedsHigh)
 {
     fra::FreyaOptions o;
     fra::ApplyShadowQuality(o, fra::ShadowQuality::Ultra);
-    EXPECT_TRUE(o.enableShadows);
+    EXPECT_TRUE(fra::HasFlag(o.renderFlags, fra::RenderFlags::Shadows));
     EXPECT_EQ(o.shadowMapResolution, 4096u);
     EXPECT_EQ(o.shadowCascadeCount, 4u);
     EXPECT_EQ(o.shadowSampleCount, 16u);
@@ -61,7 +61,7 @@ TEST(FreyaOptions, ApplyShadowQualityUltraExceedsHigh)
     EXPECT_EQ(o.shadowMaskResolutionDivisor, 1u);
     EXPECT_EQ(o.shadowCascadeUpdatePeriod, 1u);
     EXPECT_EQ(o.shadowPointUpdatePeriod, 1u);
-    EXPECT_FALSE(o.enableShadowMask);
+    EXPECT_FALSE(fra::HasFlag(o.renderFlags, fra::RenderFlags::ShadowMask));
     EXPECT_EQ(fra::ResolveShadowSideResolution(o.shadowMapResolution,
                                                o.shadowPointResolution,
                                                o.shadowPointResolutionDivisor),
@@ -82,6 +82,6 @@ TEST(FreyaOptions, AnimLodTickFiresAtRequestedRate)
 TEST(FreyaOptions, AnimLodHzIgnoresTiersWhenLodDisabled)
 {
     fra::FreyaOptions o;
-    o.enableAnimLod = false;
+    fra::SetFlag(o.animFlags, fra::AnimFlags::Lod, false);
     EXPECT_GE(fra::AnimLodHz(o, 3), 1e5f);
 }

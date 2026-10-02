@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Asset/AssetFlags.hpp"
 #include "Freya/Config.hpp"
 #include "Freya/Core/Limits.hpp"
 
@@ -18,12 +19,12 @@ namespace FREYA_NAMESPACE
      */
     struct InstanceTransform
     {
-        glm::mat4     model      = glm::mat4(1.0f);
-        glm::mat4     prevModel  = glm::mat4(1.0f);
-        std::uint32_t materialId = 0;
-        std::uint32_t entityId   = 0;
-        std::uint32_t flags      = 0;
-        std::uint32_t boneOffset = kNoSkin;
+        glm::mat4          model      = glm::mat4(1.0f);
+        glm::mat4          prevModel  = glm::mat4(1.0f);
+        std::uint32_t      materialId = 0;
+        std::uint32_t      entityId   = 0;
+        SceneInstanceFlags flags      = SceneInstanceFlags::None;
+        std::uint32_t      boneOffset = kNoSkin;
     };
 
 } // namespace FREYA_NAMESPACE

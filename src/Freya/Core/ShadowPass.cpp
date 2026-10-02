@@ -441,16 +441,19 @@ namespace FREYA_NAMESPACE
             std::clamp(mFreyaOptions->shadowBias * 1000.0f, 1.25f, 4.0f),
             0.0f,
             // Soft scale magnitude; sign encodes Reverse-Z for shaders.
-            mFreyaOptions->ReverseZ ? softScale : -softScale);
+            HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ)
+                ? softScale
+                : -softScale);
         const float cascadeBlend =
             std::clamp(mFreyaOptions->shadowCascadeBlend, 0.0f, 0.5f);
         const bool useMask =
-            mFreyaOptions->enableShadows && mFreyaOptions->enableShadowMask;
-        mShadowData.reverseZ =
-            glm::vec4(mFreyaOptions->ReverseZ ? 1.0f : 0.0f,
-                      static_cast<float>(std::max(mResolution, 1u)),
-                      cascadeBlend,
-                      useMask ? 1.0f : 0.0f);
+            HasFlag(mFreyaOptions->renderFlags, RenderFlags::Shadows) &&
+            HasFlag(mFreyaOptions->renderFlags, RenderFlags::ShadowMask);
+        mShadowData.reverseZ = glm::vec4(
+            HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ) ? 1.0f
+                                                                       : 0.0f,
+            static_cast<float>(std::max(mResolution, 1u)), cascadeBlend,
+            useMask ? 1.0f : 0.0f);
         mShadowData.pcss = glm::vec4(
             std::max(0.0f, mFreyaOptions->shadowLightSize),
             std::max(1.0f, mFreyaOptions->shadowMaxSoftness),
@@ -464,8 +467,11 @@ namespace FREYA_NAMESPACE
             const auto  handle = LightHandle { i };
             const auto* light  = lights.GetLight(handle);
             if (light != nullptr && light->type == LightType::Directional &&
-                lights.IsLightTypeEnabled(LightType::Directional) &&
-                lights.IsLightEnabled(handle) && light->castShadows)
+                HasFlag(lights.GetLightTypeFlags(LightType::Directional),
+                        LightFlags::Enabled) &&
+                HasFlag(lights.GetLightFlags(handle),
+                        LightFlags::Enabled) &&
+                HasFlag(light->flags, LightFlags::CastShadows))
             {
                 sun = light;
                 break;
@@ -558,8 +564,11 @@ namespace FREYA_NAMESPACE
             const auto  handle = LightHandle { i };
             const auto* light  = lights.GetLight(handle);
             if (light == nullptr || light->type != LightType::Spot ||
-                !lights.IsLightTypeEnabled(LightType::Spot) ||
-                !lights.IsLightEnabled(handle) || !light->castShadows ||
+                !HasFlag(lights.GetLightTypeFlags(LightType::Spot),
+                         LightFlags::Enabled) ||
+                !HasFlag(lights.GetLightFlags(handle),
+                         LightFlags::Enabled) ||
+                !HasFlag(light->flags, LightFlags::CastShadows) ||
                 light->intensity <= 1e-4f || light->radius <= 1e-4f)
                 continue;
 
@@ -578,8 +587,11 @@ namespace FREYA_NAMESPACE
             const auto  handle = LightHandle { i };
             const auto* light  = lights.GetLight(handle);
             if (light == nullptr || light->type != LightType::Point ||
-                !lights.IsLightTypeEnabled(LightType::Point) ||
-                !lights.IsLightEnabled(handle) || !light->castShadows ||
+                !HasFlag(lights.GetLightTypeFlags(LightType::Point),
+                         LightFlags::Enabled) ||
+                !HasFlag(lights.GetLightFlags(handle),
+                         LightFlags::Enabled) ||
+                !HasFlag(light->flags, LightFlags::CastShadows) ||
                 light->intensity <= 1e-4f || light->radius <= 1e-4f)
                 continue;
 
@@ -686,8 +698,9 @@ namespace FREYA_NAMESPACE
             const auto lightView = stabilizedLightView(
                 center, lightDir, up, halfExtent, resolution);
             const auto bounds = stableSphereOrthoBounds(halfExtent, pullBack);
-            const auto lightProj =
-                lightOrthoFromBounds(bounds, mFreyaOptions->ReverseZ);
+            const auto lightProj = lightOrthoFromBounds(
+                bounds,
+                HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ));
 
             mShadowData.cascadeViewProj[i] = lightProj * lightView;
             mShadowData.cascadeSplits[i]   = splitFar;
@@ -723,8 +736,9 @@ namespace FREYA_NAMESPACE
             const auto lightView = stabilizedLightView(
                 center, lightDir, up, halfExtent, resolution);
             const auto bounds = stableSphereOrthoBounds(halfExtent, pullBack);
-            mCascadeCullViewProj =
-                lightOrthoFromBounds(bounds, mFreyaOptions->ReverseZ) *
+            mCascadeCullViewProj = lightOrthoFromBounds(
+                bounds,
+                HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ)) *
                 lightView;
         }
     }
@@ -747,7 +761,7 @@ namespace FREYA_NAMESPACE
         constexpr auto near = 0.01f;
         const auto     far  = std::max(light.radius, near + 0.01f);
 
-        auto proj = mFreyaOptions->ReverseZ
+        auto proj = HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ)
                         ? glm::perspective(fov, 1.0f, far, near)
                         : glm::perspective(fov, 1.0f, near, far);
         proj[1][1] *= -1.0f;
@@ -776,7 +790,7 @@ namespace FREYA_NAMESPACE
         constexpr auto near       = 0.05f;
         const auto     farClamped = std::max(far, near + 0.01f);
 
-        auto proj = mFreyaOptions->ReverseZ
+        auto proj = HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ)
                         ? glm::perspective(glm::half_pi<float>(), 1.0f,
                                            farClamped, near)
                         : glm::perspective(glm::half_pi<float>(), 1.0f, near,
@@ -792,9 +806,10 @@ namespace FREYA_NAMESPACE
         // of the sphere but keeps a single DispatchCull per point slot.
         const float r    = std::max(far, 0.05f);
         const auto  view = glm::translate(glm::mat4(1.0f), -position);
-        const auto  proj = mFreyaOptions->ReverseZ
-                               ? glm::ortho(-r, r, -r, r, r, -r)
-                               : glm::ortho(-r, r, -r, r, -r, r);
+        const bool  reverseZ =
+            HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ);
+        const auto  proj = reverseZ ? glm::ortho(-r, r, -r, r, r, -r)
+                                   : glm::ortho(-r, r, -r, r, -r, r);
         return proj * view;
     }
 
@@ -870,7 +885,9 @@ namespace FREYA_NAMESPACE
 
         const auto clearValue = vk::ClearValue().setDepthStencil(
             vk::ClearDepthStencilValue().setDepth(
-                mFreyaOptions->ReverseZ ? 0.0f : 1.0f));
+                HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ)
+                    ? 0.0f
+                    : 1.0f));
 
         if (mHasDirectionalShadow && prepareCull)
             prepareCull(mCascadeCullViewProj);
@@ -936,7 +953,9 @@ namespace FREYA_NAMESPACE
 
         const auto clearValue = vk::ClearValue().setDepthStencil(
             vk::ClearDepthStencilValue().setDepth(
-                mFreyaOptions->ReverseZ ? 0.0f : 1.0f));
+                HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ)
+                    ? 0.0f
+                    : 1.0f));
 
         for (std::uint32_t i = 0; i < mSpotFramebuffers.size(); ++i)
         {
@@ -1019,7 +1038,9 @@ namespace FREYA_NAMESPACE
 
         const auto clearValue = vk::ClearValue().setDepthStencil(
             vk::ClearDepthStencilValue().setDepth(
-                mFreyaOptions->ReverseZ ? 0.0f : 1.0f));
+                HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ)
+                    ? 0.0f
+                    : 1.0f));
 
         const auto pointSlotCount =
             static_cast<std::uint32_t>(mPointFramebuffers.size());

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Core/Flags.hpp"
 #include "Freya/Core/IFrameStage.hpp"
 #include "Freya/FreyaOptions.hpp"
 
@@ -16,6 +17,12 @@
 namespace FREYA_NAMESPACE
 {
     class PostProcessBuilder;
+
+    enum class PostProcessFlags : std::uint32_t
+    {
+        None    = 0,
+        Enabled = 1u
+    };
 
     enum class PostProcessInput
     {
@@ -50,7 +57,9 @@ namespace FREYA_NAMESPACE
 
         [[nodiscard]] const char* Name() const;
         void                      SetEnabled(bool enabled);
+        void                      SetFlags(PostProcessFlags flags);
         [[nodiscard]] bool        Enabled() const;
+        [[nodiscard]] PostProcessFlags Flags() const;
 
         void BindMaterial(std::uint32_t materialId);
         void UnbindMaterial(std::uint32_t materialId);

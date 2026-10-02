@@ -157,7 +157,8 @@ class MainApp final : public fra::AbstractApplication
             auto key = fra::MakeDirectionalLight(glm::vec3(-0.4f, -1.0f, -0.3f),
                                                  glm::vec3(1.0f, 0.96f, 0.9f),
                                                  0.35f);
-            key.castShadows    = false;
+            fra::SetFlag(key.flags,
+                           fra::LightFlags::CastShadows, false);
             mDirectionalHandle = mLightService->AddLight(key);
         }
 
@@ -175,7 +176,8 @@ class MainApp final : public fra::AbstractApplication
                 glm::vec3(1.0f, 0.45f, 0.3f),
                 48.0f,
                 8.0f);
-            point.castShadows = false;
+            fra::SetFlag(point.flags,
+                         fra::LightFlags::CastShadows, false);
             warm.handle       = mLightService->AddLight(point);
             mWarmPointHandle  = warm.handle;
             mAnimatedLights.push_back(warm);
@@ -192,7 +194,8 @@ class MainApp final : public fra::AbstractApplication
                 glm::vec3(0.3f, 0.5f, 1.0f),
                 48.0f,
                 8.0f);
-            point.castShadows = false;
+            fra::SetFlag(point.flags,
+                         fra::LightFlags::CastShadows, false);
             cool.handle       = mLightService->AddLight(point);
             mCoolPointHandle  = cool.handle;
             mAnimatedLights.push_back(cool);
@@ -228,7 +231,8 @@ class MainApp final : public fra::AbstractApplication
                 glm::radians(14.0f),
                 glm::radians(24.0f),
                 7.0f);
-            spot.castShadows = false;
+            fra::SetFlag(spot.flags, fra::LightFlags::CastShadows,
+                         false);
             spotAnim.handle  = mLightService->AddLight(spot);
             mSpotHandles.push_back(spotAnim.handle);
             mAnimatedLights.push_back(spotAnim);
@@ -256,7 +260,8 @@ class MainApp final : public fra::AbstractApplication
                 glm::radians(28.0f),
                 glm::radians(48.0f),
                 22.0f);
-            spot.castShadows = false;
+            fra::SetFlag(spot.flags, fra::LightFlags::CastShadows,
+                         false);
             mBulbSpotHandles.push_back(mLightService->AddLight(spot));
         }
         updateBulbSpots();
@@ -436,17 +441,19 @@ class MainApp final : public fra::AbstractApplication
                 inst.mesh     = part.mesh;
                 inst.material = isBulb ? mBulbMaterial : mSofaMaterial;
                 inst.entityId = i + 1;
-                inst.flags = !isBulb ? fra::kSceneInstanceFlagCastShadows : 0u;
+                inst.flags    = isBulb ? fra::SceneInstanceFlags::Translucent
+                                       : fra::SceneInstanceFlags::CastShadows;
                 inst.mobility = fra::Mobility::Dynamic;
                 scene.Add(inst);
             }
         }
+
         fra::Scene::Instance ground {};
         ground.transform = fra::SceneTransform::FromMatrix(mModelMatrix[2]);
         ground.mesh      = mGroundMesh;
         ground.material  = mGroundMaterial;
         ground.entityId  = 0;
-        ground.flags     = 0;
+        ground.flags     = fra::SceneInstanceFlags::None;
         ground.mobility  = fra::Mobility::Static;
         scene.Add(ground);
     }
@@ -517,7 +524,9 @@ class MainApp final : public fra::AbstractApplication
 
     void setLightCastShadows(fra::LightHandle handle, bool enabled)
     {
-        mLightService->SetLightCastShadows(handle, enabled);
+        auto flags = mLightService->GetLightFlags(handle);
+        fra::SetFlag(flags, fra::LightFlags::CastShadows, enabled);
+        mLightService->SetLightFlags(handle, flags);
     }
 
     void setShadowCasterMode(int mode)
@@ -574,7 +583,10 @@ class MainApp final : public fra::AbstractApplication
             const auto peak = std::max(
                 { light->color.r, light->color.g, light->color.b, 0.2f });
             glm::vec4 color(light->color / peak,
-                            light->castShadows ? 1.0f : 0.4f);
+                            fra::HasFlag(light->flags,
+                                         fra::LightFlags::CastShadows)
+                                ? 1.0f
+                                : 0.4f);
 
             switch (light->type)
             {

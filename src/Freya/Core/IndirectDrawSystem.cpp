@@ -695,7 +695,7 @@ namespace FREYA_NAMESPACE
 
             auto flags = src.flags;
             if (src.boneOffset != kNoSkin)
-                flags |= kSceneInstanceFlagSkinned;
+                flags |= SceneInstanceFlags::Skinned;
 
             mUsedTechniqueMask |= (1u << techniqueId);
 
@@ -766,11 +766,11 @@ namespace FREYA_NAMESPACE
                                      static_cast<float>(mScreenSize.height));
         pc.instanceCount = mInstanceCount;
         pc.cullMode      = static_cast<std::uint32_t>(mode);
-        pc.reverseZ      = reverseZ ? 1u : 0u;
+        pc.reverseZ = reverseZ ? CullFlags::ReverseZ : CullFlags::None;
         pc.hizEnabled = (mHiZSafeForFrame && mode == CullMode::Camera && mHiZ &&
                          mHiZ->IsReady())
-                            ? 1u
-                            : 0u;
+                            ? CullFlags::HizEnabled
+                            : CullFlags::None;
         pc.lodPixelRef     = mLodPixelRef;
         pc.lodStep         = mLodStep;
         pc.techniqueFilter = techniqueFilter;
@@ -1085,7 +1085,8 @@ namespace FREYA_NAMESPACE
         }
         out.hiz.present = mHiZ && mHiZ->IsValid();
         out.hiz.ready   = mHiZ && mHiZ->IsReady();
-        out.hiz.enabled = mLastCullPushConstants.hizEnabled != 0;
+        out.hiz.enabled = mLastCullPushConstants.hizEnabled !=
+                          CullFlags::None;
         if (mHiZ && mHiZ->IsValid())
         {
             const auto extent = mHiZ->GetExtent();
@@ -1267,7 +1268,8 @@ namespace FREYA_NAMESPACE
         const auto extent = mHiZ->GetExtent();
         out.present       = true;
         out.ready         = mHiZ->IsReady();
-        out.enabled       = mLastCullPushConstants.hizEnabled != 0;
+        out.enabled       = mLastCullPushConstants.hizEnabled !=
+                            CullFlags::None;
         out.width         = extent.width;
         out.height        = extent.height;
         out.mipCount      = mHiZ->GetMipLevels();

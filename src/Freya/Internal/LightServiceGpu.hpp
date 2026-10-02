@@ -22,9 +22,12 @@ namespace FREYA_NAMESPACE
         std::uint32_t    mLightCount {};
         float            mIblIntensity   = 0.7f;
         float            mExposure       = 0.7f;
-        bool             mShadowsEnabled = true;
+        RenderFlags      mRenderFlags    = RenderFlags::Shadows;
         /// Indexed by LightType (Point/Directional/Spot/Area).
-        bool mTypeEnabled[4] = { true, true, true, true };
+        LightFlags mTypeFlags[4] = { LightFlags::Enabled,
+                                     LightFlags::Enabled,
+                                     LightFlags::Enabled,
+                                     LightFlags::Enabled };
 
         std::vector<Light>        mLights;
         std::vector<std::uint8_t> mAlive;

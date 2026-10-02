@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Asset/GpuScene.hpp"
 #include "Freya/Config.hpp"
 #include "Freya/Scene/AssetHandle.hpp"
 
@@ -35,12 +36,8 @@ namespace FREYA_NAMESPACE
      * @param emissive         Emissive texture ID (optional)
      * @param metalness        Metalness map texture ID (optional)
      * @param occlusion        AO map texture ID (optional, sampled as .r)
-     * @param packedMetallicRoughness When true, `roughness` is a glTF
-     *                         packed map (G=rough, B=metal; R=AO if no
-     *                         occlusion texture)
-     * @param unlit            Skip deferred lighting (emissive only)
-     * @param doubleSided      Light back-faces (G-buffer flips N)
-     * @param receiveShadows   Receive CSM/spot/point shadows
+     * @param flags            MaterialFlags (PackedMR, Unlit, DoubleSided,
+     *                         ReceiveShadow)
      * @param albedoFactor     Multiplies sampled albedo (default white);
      *                         .a multiplies albedo alpha for Mask/Blend
      * @param roughnessFactor  Multiplies sampled roughness (default 1)
@@ -82,10 +79,7 @@ namespace FREYA_NAMESPACE
         float         clearcoatRoughness      = 0.03f;
         float         transmission            = 0.f;
         float         ior                     = 1.5f;
-        bool          packedMetallicRoughness = false;
-        bool          unlit                   = false;
-        bool          doubleSided             = false;
-        bool          receiveShadows          = true;
+        MaterialFlags flags                   = MaterialFlags::ReceiveShadow;
         std::uint32_t techniqueId             = 0;
     };
 

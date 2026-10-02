@@ -341,8 +341,10 @@ namespace FREYA_NAMESPACE
                               .setLogicOpEnable(false)
                               .setAttachments(blendAttachment);
 
-        const auto compare = mFreyaOptions->ReverseZ ? vk::CompareOp::eGreater
-                                                     : vk::CompareOp::eLess;
+        const bool reverseZ =
+            HasFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ);
+        const auto compare = reverseZ ? vk::CompareOp::eGreater
+                                      : vk::CompareOp::eLess;
         auto       depthStencil =
             vk::PipelineDepthStencilStateCreateInfo()
                 .setDepthTestEnable(depthTest)

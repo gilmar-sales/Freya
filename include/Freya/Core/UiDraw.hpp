@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Freya/Asset/TexturePool.hpp"
+#include "Freya/Core/Flags.hpp"
 #include "Freya/Core/SpinLock.hpp"
 #include "Freya/Core/UiTypes.hpp"
 
@@ -13,13 +14,17 @@
 
 namespace FREYA_NAMESPACE
 {
-    constexpr std::uint32_t kUiFlagSdfGlyph   = 1u;
-    constexpr std::uint32_t kUiFlagSdfRounded = 2u;
-    constexpr std::uint32_t kUiFlagClipU      = 4u;
-    /** Radial wipe: `clipMax` = remaining fraction (1=full, 0=none). */
-    constexpr std::uint32_t kUiFlagClipRadial = 8u;
-    /** Hard scissor: discard fragments outside `clipRect` (xywh logical). */
-    constexpr std::uint32_t kUiFlagClipRect = 16u;
+    enum class UiFlags : std::uint32_t
+    {
+        None       = 0,
+        SdfGlyph   = 1u,
+        SdfRounded = 2u,
+        ClipU      = 4u,
+        /** Radial wipe: `clipMax` = remaining fraction (1=full, 0=none). */
+        ClipRadial = 8u,
+        /** Hard scissor: discard fragments outside `clipRect` (xywh logical). */
+        ClipRect   = 16u
+    };
 
     /**
      * @brief One screen-space UI quad.
@@ -36,14 +41,14 @@ namespace FREYA_NAMESPACE
         glm::vec4     uvRect { 0.f, 0.f, 1.f, 1.f };
         glm::vec4     color { 1.f };
         std::uint32_t textureIndex = 0;
-        std::uint32_t flags        = 0;
+        UiFlags       flags        = UiFlags::None;
         float         rounding     = 0.f;
         float         borderWidth  = 0.f;
         float         clipMax      = 1.f;
         float         outlineWidth = 0.f; ///< SDF units, 0 = no outline
         glm::vec4     outlineColor { 0.f, 0.f, 0.f, 1.f };
         float         z = 0.f;
-        glm::vec4     clipRect { 0.f }; ///< xywh logical px, kUiFlagClipRect
+        glm::vec4     clipRect { 0.f }; ///< xywh logical px, UiFlags::ClipRect
     };
 
     /**
@@ -72,7 +77,7 @@ namespace FREYA_NAMESPACE
          * @brief Intersect subsequent quads with @p rect (container clip).
          *
          * Quads emitted while any clip is active carry the intersection in
-         * `clipRect` (+ kUiFlagClipRect) for GPU scissoring; overlay quads
+         * `clipRect` (+ UiFlags::ClipRect) for GPU scissoring; overlay quads
          * (tooltips, popups, dropdowns, toasts) bypass clipping. Workers
          * emitting Rect/Image concurrently should do so outside container
          * building, otherwise their quads inherit the active clip.

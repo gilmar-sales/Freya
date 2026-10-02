@@ -48,10 +48,10 @@ TEST(UiDraw, ClipStackIntersectResetAndOverlayBypass)
     std::vector<fra::UiQuad> snap;
     draw.Snapshot(snap);
     ASSERT_EQ(snap.size(), 2u);
-    EXPECT_NE(snap[0].flags & fra::kUiFlagClipRect, 0u);
+    EXPECT_TRUE(fra::HasFlag(snap[0].flags, fra::UiFlags::ClipRect));
     EXPECT_NEAR(snap[0].clipRect.x, 50.f, 1e-5f);
     EXPECT_NEAR(snap[0].clipRect.z, 50.f, 1e-5f);
-    EXPECT_EQ(snap[1].flags & fra::kUiFlagClipRect, 0u);
+    EXPECT_FALSE(fra::HasFlag(snap[1].flags, fra::UiFlags::ClipRect));
 }
 
 TEST(UiDraw, RectContainsExpandIntersect)
@@ -82,7 +82,7 @@ TEST(UiDraw, ProgressBarEmitsTwoQuads)
     draw.Snapshot(snap);
     EXPECT_EQ(snap.size(), 2u);
     EXPECT_NEAR(snap[1].clipMax, 0.5f, 1e-5f);
-    EXPECT_NE(snap[1].flags & fra::kUiFlagClipU, 0u);
+    EXPECT_TRUE(fra::HasFlag(snap[1].flags, fra::UiFlags::ClipU));
 }
 
 TEST(UiDraw, CooldownRadialEmitsClipRadialQuad)
@@ -92,7 +92,7 @@ TEST(UiDraw, CooldownRadialEmitsClipRadialQuad)
     std::vector<fra::UiQuad> snap;
     draw.Snapshot(snap);
     EXPECT_EQ(snap.size(), 1u);
-    EXPECT_NE(snap[0].flags & fra::kUiFlagClipRadial, 0u);
+    EXPECT_TRUE(fra::HasFlag(snap[0].flags, fra::UiFlags::ClipRadial));
     EXPECT_NEAR(snap[0].clipMax, 0.75f, 1e-5f);
 
     draw.Clear();

@@ -147,8 +147,7 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `title` | `std::string` | `"Freya Window"` | Window title |
 | `width` | `std::uint32_t` | `800` | Window width |
 | `height` | `std::uint32_t` | `600` | Window height |
-| `vSync` | `bool` | `true` | Vertical synchronization |
-| `fullscreen` | `bool` | `true` | Fullscreen mode |
+| `windowFlags` | `WindowFlags` | `VSync \| Fullscreen` | Presentation flags (`SetVSync()` / `SetFullscreen()` / `SetWindowFlags()`) |
 | `sampleCount` | `std::uint32_t` | `1` | Retained for compatibility (scene path is single-sample) |
 | `frameCount` | `std::uint32_t` | `3` | Number of frames in flight |
 | `clearColor` | `glm::vec4` | `{0,0,0,0}` | Clear color |
@@ -159,7 +158,7 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `environmentMapPath` | `std::string` | `./Resources/Environments/studio_small_09_4k.hdr` | Radiance `.hdr` (empty = procedural sky) |
 | `ambientColor` | `glm::vec3` | `{1,1,1}` | Flat ambient tint |
 | `ambientIntensity` | `float` | `0.03f` | Flat ambient fill |
-| `enableShadows` | `bool` | `true` | Master shadow-map switch |
+| `renderFlags` | `RenderFlags` | `Shadows \| Ssao \| Taa \| Bloom` | Pipeline features (`SetEnableShadows/Ssao/Taa/Bloom()` / `WithReverseZ()`) |
 | `shadowCascadeCount` | `std::uint32_t` | `4` | Directional CSM cascade count (1–4) |
 | `shadowMapResolution` | `std::uint32_t` | `2048` | Shadow map resolution (square) |
 | `shadowBias` | `float` | `0.002f` | Depth bias when sampling shadows |
@@ -171,7 +170,6 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `shadowSampleCount` | `std::uint32_t` | `16` | Soft-shadow Poisson taps (1–16) |
 | `shadowCascadeBlend` | `float` | `0.0f` | Cascade overlap fraction (0 = off) |
 | `shadowCascadeDistance` | `float` | `80.0f` | Max view-space CSM range (meters) |
-| `enableShadowMask` | `bool` | `false` | Half-res CSM mask before lighting |
 | `shadowMaskResolutionDivisor` | `std::uint32_t` | `2` | Mask res = full / N |
 | `shadowCascadeUpdatePeriod` | `std::uint32_t` | `2` | Redraw CSM every N frames (1 = always) |
 | `shadowPointResolution` | `std::uint32_t` | `0` | Point cube face size (0 = cascade / divisor) |
@@ -179,12 +177,8 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `shadowSpotResolution` | `std::uint32_t` | `0` | Spot map size (0 = cascade / divisor) |
 | `shadowSpotResolutionDivisor` | `std::uint32_t` | `2` | Spot res divisor when absolute is 0 |
 | `shadowPointUpdatePeriod` | `std::uint32_t` | `2` | Rebuild point cubes every N frames |
-| `ReverseZ` | `bool` | `false` | Opt in via `WithReverseZ()` |
 | `depthPrecision` | `DepthPrecision` | `Standard` | D24 default; `Low` for D16, `High` for D32F via `SetDepthPrecision()` / `SetHighPrecisionDepth()` |
 | `shaderRoot` | `std::string` | `./Resources/Shaders` | SPIR-V directory root |
-| `enableSsao` | `bool` | `true` | Run SSAO compute pass |
-| `enableTaa` | `bool` | `true` | Run TAA resolve + jitter |
-| `enableBloom` | `bool` | `true` | Run bloom extract/blur |
 | `ssaoResolutionDivisor` | `std::uint32_t` | `2` | SSAO res = full / N (1,2,4) |
 | `ssaoRadius` | `float` | `0.5f` | Hemisphere radius (view-space meters) |
 | `ssaoBias` | `float` | `0.025f` | View-Z acne bias |
@@ -204,12 +198,11 @@ freya.WithOptions([](fra::FreyaOptionsBuilder& freyaOptions) {
 | `bloomStrength` | `float` | `0.8f` | Bloom mix in composite |
 | `meshLodPixelRef` | `float` | `128.0f` | Screen diameter (px) keeping LOD0 |
 | `meshLodStep` | `float` | `1.75f` | Diameter shrink per LOD step (> 1) |
-| `enableAnimLod` | `bool` | `true` | Distance-based animation rate LOD |
+| `animFlags` | `AnimFlags` | `Lod \| QuantizeJoints` | Animation features (`SetAnimLodEnabled()` / `SetQuantizeGpuAnimJoints()`) |
 | `animLodHz` | `float[4]` | `{60,30,15,8}` | Pose updates/sec per tier (Near→Far) |
 | `animLodExitDist` | `float[3]` | `{20,38,55}` | Leave-tier distances (meters) |
 | `animLodEnterDist` | `float[3]` | `{17,32,48}` | Enter-tier distances (hysteresis) |
 | `animBakeHz` | `float` | `30.0f` | Clip bake rate for `BakeClip` callers |
-| `quantizeGpuAnimJoints` | `bool` | `true` | 16 B quantized GPU joint storage |
 
 Use `SetShadowQuality` / `SetSsaoQuality` / `SetTaaQuality` /
 `SetBloomQuality` / `SetAnimationQuality` (`Low`–`Ultra`, plus `Off` to

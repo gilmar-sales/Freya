@@ -52,12 +52,12 @@ namespace FREYA_NAMESPACE
 
     struct DrawCommand
     {
-        std::uint32_t meshId;
-        std::uint32_t materialId;
-        std::uint32_t instanceCount;
-        std::uint32_t firstInstance;
-        std::uint32_t entityId    = kPickMissId;
-        bool          castShadows = true;
+        std::uint32_t      meshId;
+        std::uint32_t      materialId;
+        std::uint32_t      instanceCount;
+        std::uint32_t      firstInstance;
+        std::uint32_t      entityId = kPickMissId;
+        SceneInstanceFlags flags    = SceneInstanceFlags::CastShadows;
     };
 
     class Renderer::Impl
@@ -108,6 +108,7 @@ namespace FREYA_NAMESPACE
         void SetTaaQuality(TaaQuality quality);
         void SetBloomQuality(BloomQuality quality);
         void SetVSync(bool vSync);
+        void SetWindowFlags(WindowFlags flags);
         void SetSamples(std::uint32_t samples);
         void SetDrawDistance(float drawDistance);
 
@@ -132,17 +133,18 @@ namespace FREYA_NAMESPACE
         void EndSceneInstances();
         void CommitSceneFrame();
 
-        void Draw(std::uint32_t meshId,
-                  std::uint32_t materialId,
-                  std::uint32_t entityId    = kPickMissId,
-                  bool          castShadows = true);
+        void Draw(std::uint32_t      meshId,
+                  std::uint32_t      materialId,
+                  std::uint32_t      entityId = kPickMissId,
+                  SceneInstanceFlags flags = SceneInstanceFlags::CastShadows);
 
-        void DrawInstanced(std::uint32_t meshId,
-                           std::uint32_t materialId,
-                           size_t        instanceCount,
-                           size_t        firstInstance = 0,
-                           bool          castShadows   = true,
-                           std::uint32_t entityId      = kPickMissId);
+        void DrawInstanced(
+            std::uint32_t      meshId,
+            std::uint32_t      materialId,
+            size_t             instanceCount,
+            size_t             firstInstance = 0,
+            SceneInstanceFlags flags         = SceneInstanceFlags::CastShadows,
+            std::uint32_t      entityId      = kPickMissId);
 
         void SetInstanceModels(const glm::mat4* models, std::size_t count);
         void UploadBoneMatrices(std::span<const glm::mat4> bones);

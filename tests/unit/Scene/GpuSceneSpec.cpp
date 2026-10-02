@@ -21,13 +21,15 @@ TEST(GpuScene, RecordsKeepGlslStd430Sizes)
 
 TEST(GpuScene, MaterialAndInstanceFlagsAreDistinctBits)
 {
-    EXPECT_EQ(fra::kMaterialFlagPackedMR & fra::kMaterialFlagUnlit, 0u);
     EXPECT_EQ(
-        fra::kSceneInstanceFlagCastShadows & fra::kSceneInstanceFlagTranslucent,
+        fra::ToBits(fra::MaterialFlags::PackedMR & fra::MaterialFlags::Unlit),
         0u);
-    EXPECT_EQ(
-        fra::kSceneInstanceFlagTranslucent & fra::kSceneInstanceFlagSkinned,
-        0u);
+    EXPECT_EQ(fra::ToBits(fra::SceneInstanceFlags::CastShadows &
+                          fra::SceneInstanceFlags::Translucent),
+              0u);
+    EXPECT_EQ(fra::ToBits(fra::SceneInstanceFlags::Translucent &
+                          fra::SceneInstanceFlags::Skinned),
+              0u);
 }
 
 TEST(GpuScene, SceneTransformPackedLayout)

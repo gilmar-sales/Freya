@@ -67,7 +67,8 @@ class MainApp final : public fra::AbstractApplication
             auto key =
                 fra::MakeDirectionalLight(glm::vec3(-0.35f, -1.0f, -0.25f),
                                           glm::vec3(1.0f, 0.97f, 0.92f), 0.15f);
-            key.castShadows = false;
+            fra::SetFlag(key.flags,
+                           fra::LightFlags::CastShadows, false);
             mLightService->AddLight(key);
         }
 
@@ -123,7 +124,7 @@ class MainApp final : public fra::AbstractApplication
                 inst.material  = material;
                 inst.transform = fra::SceneTransform::FromMatrix(model);
                 inst.entityId  = nextEntity++;
-                inst.flags     = 0;
+                inst.flags     = fra::SceneInstanceFlags::None;
                 inst.mobility  = mobility;
                 mScene.Add(inst);
             };

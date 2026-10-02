@@ -5,7 +5,7 @@
 // referenced by UiDraw::Text so UI unit tests stay device-free.
 //
 // Create() returns a fake-valid atlas with synthetic monospace glyphs so
-// tests can count emitted kUiFlagSdfGlyph quads per rendered string
+// tests can count emitted UiFlags::SdfGlyph quads per rendered string
 // (regression coverage for widget display text, e.g. ComboBox rows).
 
 namespace FREYA_NAMESPACE

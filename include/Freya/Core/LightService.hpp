@@ -1,6 +1,8 @@
 #pragma once
 
+#include "Freya/Core/Flags.hpp"
 #include "Freya/Core/Limits.hpp"
+#include "Freya/FreyaOptions.hpp"
 #include "Freya/Core/SpinLock.hpp"
 
 #include <Skirnir/Skirnir.hpp>
@@ -45,6 +47,16 @@ namespace FREYA_NAMESPACE
     };
 
     /**
+     * @brief Per-light feature flags (PascalCase bitmask).
+     */
+    enum class LightFlags : std::uint32_t
+    {
+        None        = 0,
+        CastShadows = 1u,
+        Enabled     = 2u
+    };
+
+    /**
      * @brief Light source data for the lighting system (host API).
      *
      * GPU UBO packing converts @c type to float; apps use LightType.
@@ -61,9 +73,7 @@ namespace FREYA_NAMESPACE
         float     intensity   = 1.0f;
         glm::vec3 tangent     = glm::vec3(1.0f, 0.0f, 0.0f);
         float     halfHeight  = 0.0f;
-        bool      castShadows = true;
-        /// When false, GPU pack mutes intensity and shadows skip the light.
-        bool enabled = true;
+        LightFlags flags      = LightFlags::CastShadows | LightFlags::Enabled;
     };
 
     /**
@@ -131,7 +141,6 @@ namespace FREYA_NAMESPACE
         void SetLightIntensity(LightHandle handle, float intensity);
         void SetLightDirection(LightHandle handle, const glm::vec3& direction);
         void SetLightRadius(LightHandle handle, float radius);
-        void SetLightCastShadows(LightHandle handle, bool castShadows);
 
         void ClearLights();
 
@@ -158,24 +167,24 @@ namespace FREYA_NAMESPACE
         float              GetIblIntensity() const;
         void               SetExposure(float exposure);
         float              GetExposure() const;
-        void               SetShadowsEnabled(bool enabled);
-        [[nodiscard]] bool GetShadowsEnabled() const;
+        void               SetRenderFlags(RenderFlags flags);
+        [[nodiscard]] RenderFlags GetRenderFlags() const;
 
         /**
          * @brief Mute/unmute all lights of @p type at GPU pack / shadow
          * gather time. Host Light records are unchanged (apps can still
          * UpdateLight while muted).
          */
-        void               SetLightTypeEnabled(LightType type, bool enabled);
-        [[nodiscard]] bool IsLightTypeEnabled(LightType type) const;
+        void               SetLightTypeFlags(LightType type, LightFlags flags);
+        [[nodiscard]] LightFlags GetLightTypeFlags(LightType type) const;
 
         /**
          * @brief Enable/disable a single light by handle. Disabled lights
          * stay in the pool (handles remain valid); GPU pack zeros intensity
          * and ShadowPass skips them. No-op for null / dead handles.
          */
-        void               SetLightEnabled(LightHandle handle, bool enabled);
-        [[nodiscard]] bool IsLightEnabled(LightHandle handle) const;
+        void               SetLightFlags(LightHandle handle, LightFlags flags);
+        [[nodiscard]] LightFlags GetLightFlags(LightHandle handle) const;
 
       private:
         friend struct LightServiceGpu;

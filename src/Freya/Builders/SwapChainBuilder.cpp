@@ -159,7 +159,7 @@ namespace FREYA_NAMESPACE
         }
 
         const auto presentModesByPriotiry =
-            mFreyaOptions->vSync
+            HasFlag(mFreyaOptions->windowFlags, WindowFlags::VSync)
                 ? std::vector { vk::PresentModeKHR::eFifo,
                                 vk::PresentModeKHR::eMailbox,
                                 vk::PresentModeKHR::eImmediate,

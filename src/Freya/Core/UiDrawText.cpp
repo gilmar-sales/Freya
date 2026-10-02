@@ -189,7 +189,7 @@ namespace FREYA_NAMESPACE
             q.uvRect       = g.uvRect;
             q.color        = color;
             q.textureIndex = font.HeapIndex();
-            q.flags        = kUiFlagSdfGlyph;
+            q.flags        = UiFlags::SdfGlyph;
             q.clipMax      = 1.f;
             q.outlineWidth = outlineSdf;
             q.outlineColor = outlineColor;

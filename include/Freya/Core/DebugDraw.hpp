@@ -2,6 +2,7 @@
 
 #include "Freya/Asset/Pose.hpp"
 #include "Freya/Asset/Skeleton.hpp"
+#include "Freya/Core/Flags.hpp"
 
 #include <cstdint>
 #include <span>
@@ -11,6 +12,12 @@
 
 namespace FREYA_NAMESPACE
 {
+    enum class DebugDrawFlags : std::uint32_t
+    {
+        None    = 0,
+        Enabled = 1u
+    };
+
     struct DebugDrawVertex
     {
         glm::vec3 position;

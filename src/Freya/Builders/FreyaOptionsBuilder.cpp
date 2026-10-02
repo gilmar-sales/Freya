@@ -27,15 +27,23 @@ namespace FREYA_NAMESPACE
         return *this;
     }
 
+    FreyaOptionsBuilder& FreyaOptionsBuilder::SetWindowFlags(
+        WindowFlags flags)
+    {
+        mFreyaOptions->windowFlags = flags;
+        return *this;
+    }
+
     FreyaOptionsBuilder& FreyaOptionsBuilder::SetVSync(bool vSync)
     {
-        mFreyaOptions->vSync = vSync;
+        SetFlag(mFreyaOptions->windowFlags, WindowFlags::VSync, vSync);
         return *this;
     }
 
     FreyaOptionsBuilder& FreyaOptionsBuilder::SetFullscreen(bool fullscreen)
     {
-        mFreyaOptions->fullscreen = fullscreen;
+        SetFlag(mFreyaOptions->windowFlags, WindowFlags::Fullscreen,
+                fullscreen);
         return *this;
     }
 
@@ -245,9 +253,15 @@ namespace FREYA_NAMESPACE
         return *this;
     }
 
+    FreyaOptionsBuilder& FreyaOptionsBuilder::SetAnimFlags(AnimFlags flags)
+    {
+        mFreyaOptions->animFlags = flags;
+        return *this;
+    }
+
     FreyaOptionsBuilder& FreyaOptionsBuilder::SetAnimLodEnabled(bool enabled)
     {
-        mFreyaOptions->enableAnimLod = enabled;
+        SetFlag(mFreyaOptions->animFlags, AnimFlags::Lod, enabled);
         return *this;
     }
 
@@ -260,7 +274,15 @@ namespace FREYA_NAMESPACE
     FreyaOptionsBuilder& FreyaOptionsBuilder::SetQuantizeGpuAnimJoints(
         bool enabled)
     {
-        mFreyaOptions->quantizeGpuAnimJoints = enabled;
+        SetFlag(mFreyaOptions->animFlags, AnimFlags::QuantizeJoints,
+                enabled);
+        return *this;
+    }
+
+    FreyaOptionsBuilder& FreyaOptionsBuilder::SetRenderFlags(
+        RenderFlags flags)
+    {
+        mFreyaOptions->renderFlags = flags;
         return *this;
     }
 
@@ -367,7 +389,7 @@ namespace FREYA_NAMESPACE
 
     FreyaOptionsBuilder& FreyaOptionsBuilder::WithReverseZ(bool value)
     {
-        mFreyaOptions->ReverseZ = value;
+        SetFlag(mFreyaOptions->renderFlags, RenderFlags::ReverseZ, value);
 
         return *this;
     }
@@ -398,25 +420,25 @@ namespace FREYA_NAMESPACE
 
     FreyaOptionsBuilder& FreyaOptionsBuilder::SetEnableShadows(bool enable)
     {
-        mFreyaOptions->enableShadows = enable;
+        SetFlag(mFreyaOptions->renderFlags, RenderFlags::Shadows, enable);
         return *this;
     }
 
     FreyaOptionsBuilder& FreyaOptionsBuilder::SetEnableSsao(bool enable)
     {
-        mFreyaOptions->enableSsao = enable;
+        SetFlag(mFreyaOptions->renderFlags, RenderFlags::Ssao, enable);
         return *this;
     }
 
     FreyaOptionsBuilder& FreyaOptionsBuilder::SetEnableTaa(bool enable)
     {
-        mFreyaOptions->enableTaa = enable;
+        SetFlag(mFreyaOptions->renderFlags, RenderFlags::Taa, enable);
         return *this;
     }
 
     FreyaOptionsBuilder& FreyaOptionsBuilder::SetEnableBloom(bool enable)
     {
-        mFreyaOptions->enableBloom = enable;
+        SetFlag(mFreyaOptions->renderFlags, RenderFlags::Bloom, enable);
         return *this;
     }
 

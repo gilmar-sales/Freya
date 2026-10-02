@@ -45,7 +45,9 @@ namespace FREYA_NAMESPACE
         [[nodiscard]] void* NativeWindow() const;
 
         [[nodiscard]] bool IsFullscreen() const;
-        void               SetFullscreen(bool fullscreen);
+        [[nodiscard]] WindowFlags GetWindowFlags() const;
+        void               SetFullscreen(bool enabled);
+        void               SetWindowFlags(WindowFlags flags);
 
         [[nodiscard]] bool IsMouseGrab() const;
         void               SetMouseGrab(bool grab) const;

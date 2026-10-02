@@ -48,10 +48,10 @@ TEST(Lights, UploadDefaultsToNullHandle)
 TEST(Lights, DefaultsToEnabled)
 {
     const fra::Light light {};
-    EXPECT_TRUE(light.enabled);
-    EXPECT_TRUE(light.castShadows);
+    EXPECT_TRUE(fra::HasFlag(light.flags, fra::LightFlags::Enabled));
+    EXPECT_TRUE(fra::HasFlag(light.flags, fra::LightFlags::CastShadows));
 
     auto muted = fra::MakePointLight({ 0.f, 1.f, 0.f }, { 1.f, 1.f, 1.f }, 5.f);
-    muted.enabled = false;
-    EXPECT_FALSE(muted.enabled);
+    fra::SetFlag(muted.flags, fra::LightFlags::Enabled, false);
+    EXPECT_FALSE(fra::HasFlag(muted.flags, fra::LightFlags::Enabled));
 }

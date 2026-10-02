@@ -14,10 +14,11 @@ namespace FREYA_NAMESPACE
         mLogger->LogTrace("Building 'fra::Window':");
 
         NativeWindowDesc desc {
-            .title      = mFreyaOptions->title,
-            .width      = mFreyaOptions->width,
-            .height     = mFreyaOptions->height,
-            .fullscreen = mFreyaOptions->fullscreen,
+            .title       = mFreyaOptions->title,
+            .width       = mFreyaOptions->width,
+            .height      = mFreyaOptions->height,
+            .windowFlags = mFreyaOptions->windowFlags &
+                WindowFlags::Fullscreen,
         };
 
         auto* nativeWindow = static_cast<SDL_Window*>(
@@ -25,7 +26,9 @@ namespace FREYA_NAMESPACE
 
         mLogger->LogTrace("\tSize:{}x{}", mFreyaOptions->width,
                           mFreyaOptions->height);
-        mLogger->LogTrace("\tVSync: {}", mFreyaOptions->vSync);
+        mLogger->LogTrace(
+            "\tVSync: {}",
+            HasFlag(mFreyaOptions->windowFlags, WindowFlags::VSync));
         mLogger->LogTrace(
             "\tFullscreen: {}",
             (bool) (SDL_GetWindowFlags(nativeWindow) & SDL_WINDOW_FULLSCREEN));

@@ -3,6 +3,7 @@
 #include "Freya/Asset/BakedAnimation.hpp"
 #include "Freya/Asset/Pose.hpp"
 #include "Freya/Asset/Skeleton.hpp"
+#include "Freya/Core/Flags.hpp"
 
 #include <cstdint>
 #include <span>
@@ -68,13 +69,14 @@ namespace FREYA_NAMESPACE
         std::uint32_t jointsBase = 0; ///< index into joints[]
     };
 
-    namespace GpuAnimFlags
+    enum class GpuAnimFlags : std::uint32_t
     {
-        constexpr std::uint32_t Loop          = 1u;
-        constexpr std::uint32_t MaskedOverlay = 2u; ///< upper slot active
-        constexpr std::uint32_t Additive      = 4u; ///< additive slot active
-        constexpr std::uint32_t CancelRootXZ  = 8u;
-    } // namespace GpuAnimFlags
+        None          = 0,
+        Loop          = 1u,
+        MaskedOverlay = 2u, ///< upper slot active
+        Additive      = 4u, ///< additive slot active
+        CancelRootXZ  = 8u
+    };
 
     /**
      * @brief Per-actor GPU anim job (std430).
@@ -93,7 +95,7 @@ namespace FREYA_NAMESPACE
         float         timeA      = 0.f;
         float         timeB      = 0.f;
         float         timeC      = 0.f;
-        std::uint32_t flags      = GpuAnimFlags::Loop;
+        GpuAnimFlags  flags      = GpuAnimFlags::Loop;
         /// Third loco sample (Blend2D). Unused when `wC == 0`.
         std::uint32_t clipC = 0;
         float         wA    = 1.f;

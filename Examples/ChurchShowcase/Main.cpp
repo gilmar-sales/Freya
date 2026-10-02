@@ -280,7 +280,8 @@ class MainApp final : public fra::AbstractApplication
                 .alphaMode       = fra::AlphaMode::Blend,
                 .transmission    = 0.88f,
                 .ior             = 1.52f,
-                .doubleSided     = true,
+                .flags           = fra::MaterialFlags::DoubleSided |
+                         fra::MaterialFlags::ReceiveShadow,
             });
         }
     }
@@ -290,16 +291,15 @@ class MainApp final : public fra::AbstractApplication
         fra::MeshHandle     mesh,
         fra::MaterialHandle mat,
         const glm::mat4&    xf,
-        bool                castShadows = true,
-        fra::Mobility       mob = fra::Mobility::Static)
+        fra::SceneInstanceFlags flags =
+            fra::SceneInstanceFlags::CastShadows,
+        fra::Mobility mob = fra::Mobility::Static)
     {
         fra::Scene::Instance inst {};
         inst.mesh      = mesh;
         inst.material  = mat;
         inst.transform = fra::SceneTransform::FromMatrix(xf);
-        inst.flags     = castShadows
-                             ? fra::kSceneInstanceFlagCastShadows
-                             : 0u;
+        inst.flags     = flags;
         inst.mobility  = mob;
         mScene.Add(inst);
     }
@@ -413,7 +413,7 @@ class MainApp final : public fra::AbstractApplication
                           {6.f, 6.f, z0}, {6.f, 3.f, z0},
                           {-1.f, 0.f, 0.f}),
                 mGlassMat[i], glm::mat4(1.f),
-                /*castShadows=*/false);
+                fra::SceneInstanceFlags::None);
         }
     }
 
@@ -450,8 +450,9 @@ class MainApp final : public fra::AbstractApplication
                 glm::normalize(glm::vec3(-1.f, -1.f, 0.12f)),
                 glm::vec3(1.f, 0.93f, 0.78f),
                 1.8f);
-            sun.castShadows = true;
-            mSunHandle      = mLightService->AddLight(sun);
+            fra::SetFlag(sun.flags,
+                           fra::LightFlags::CastShadows, true);
+            mSunHandle = mLightService->AddLight(sun);
         }
 
         // Candles — warm orange point lights, one per pillar row
@@ -461,7 +462,8 @@ class MainApp final : public fra::AbstractApplication
                 glm::vec3(0.f, 1.8f, cz),
                 glm::vec3(1.f, 0.55f, 0.15f),
                 9.f, 3.5f);
-            candle.castShadows = true;
+            fra::SetFlag(candle.flags,
+                           fra::LightFlags::CastShadows, true);
             mCandleHandles.push_back(
                 mLightService->AddLight(candle));
         }
@@ -476,7 +478,8 @@ class MainApp final : public fra::AbstractApplication
                 glm::radians(18.f),
                 glm::radians(30.f),
                 5.5f);
-            spot.castShadows = true;
+            fra::SetFlag(spot.flags,
+                           fra::LightFlags::CastShadows, true);
             mAltarSpotHandle = mLightService->AddLight(spot);
         }
 
@@ -486,7 +489,8 @@ class MainApp final : public fra::AbstractApplication
                 glm::vec3(0.f, -1.f, 0.f),
                 glm::vec3(0.50f, 0.60f, 0.80f),
                 0.07f);
-            fill.castShadows = false;
+            fra::SetFlag(fill.flags,
+                           fra::LightFlags::CastShadows, false);
             mLightService->AddLight(fill);
         }
     }
@@ -495,10 +499,15 @@ class MainApp final : public fra::AbstractApplication
     void setShadowMode(int mode)
     {
         mShadowMode = mode;
-        mLightService->SetLightCastShadows(
-            mSunHandle, mode == 1 || mode == 3);
-        mLightService->SetLightCastShadows(
-            mAltarSpotHandle, mode == 2 || mode == 3);
+        auto sunFlags = mLightService->GetLightFlags(mSunHandle);
+        fra::SetFlag(sunFlags, fra::LightFlags::CastShadows,
+                     mode == 1 || mode == 3);
+        mLightService->SetLightFlags(mSunHandle, sunFlags);
+        auto altarFlags =
+            mLightService->GetLightFlags(mAltarSpotHandle);
+        fra::SetFlag(altarFlags, fra::LightFlags::CastShadows,
+                     mode == 2 || mode == 3);
+        mLightService->SetLightFlags(mAltarSpotHandle, altarFlags);
 
         const char* label =
             mode == 1 ? "sun only"
@@ -526,7 +535,10 @@ class MainApp final : public fra::AbstractApplication
                 {l->color.r, l->color.g, l->color.b, 0.2f});
             const glm::vec4 col {
                 l->color / pk,
-                l->castShadows ? 1.f : 0.45f};
+                fra::HasFlag(l->flags,
+                             fra::LightFlags::CastShadows)
+                    ? 1.f
+                    : 0.45f};
 
             if (l->type == fra::LightType::Directional)
             {

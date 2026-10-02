@@ -123,7 +123,7 @@ Containers clip their content with GPU scissors, no shader changes:
 `BeginWindow` / `BeginDrawer` / `BeginModal` reset the clip to their own
 rect (the modal dim covers the full screen); `BeginPanel`,
 `BeginScrollView` (`BeginList`), `BeginSwitcher` and `BeginWizard`
-intersect. Quads carry `clipRect` + `kUiFlagClipRect`; `UiPass` batches
+intersect. Quads carry `clipRect` + `UiFlags::ClipRect`; `UiPass` batches
 consecutive same-clip runs with one `draw` + `setScissor` each, skipping
 empty intersections. Overlay content (tooltips, popups, combo dropdowns,
 toasts, drag previews) bypasses clipping, and `Hit()` ignores clipped-away

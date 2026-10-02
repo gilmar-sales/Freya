@@ -66,10 +66,12 @@ namespace FREYA_NAMESPACE
         void PackLights(const std::vector<Light>&        lights,
                         const std::vector<std::uint8_t>& alive,
                         const std::uint32_t              maxPacked,
-                        const bool                       shadowsEnabled,
-                        const bool                       typeEnabled[4],
+                        const RenderFlags                renderFlags,
+                        const LightFlags                 typeFlags[4],
                         LightUniformBuffer&              data)
         {
+            const bool shadowsEnabled =
+                HasFlag(renderFlags, RenderFlags::Shadows);
             std::uint32_t packed = 0;
             for (std::uint32_t n = 0; n < lights.size() && packed < maxPacked;
                  ++n)
@@ -78,9 +80,12 @@ namespace FREYA_NAMESPACE
                     continue;
                 const auto typeIndex =
                     static_cast<std::uint32_t>(lights[n].type);
-                const bool  typeOn = typeIndex < 4u && typeEnabled[typeIndex];
-                const bool  on     = typeOn && lights[n].enabled;
-                const float intensity       = on ? lights[n].intensity : 0.0f;
+                const bool typeOn =
+                    typeIndex < 4u &&
+                    HasFlag(typeFlags[typeIndex], LightFlags::Enabled);
+                const bool  on = typeOn &&
+                                HasFlag(lights[n].flags, LightFlags::Enabled);
+                const float intensity = on ? lights[n].intensity : 0.0f;
                 data.lightPositions[packed] = glm::vec4(
                     lights[n].position, static_cast<float>(lights[n].type));
                 data.lightColorsAndRadius[packed] =
@@ -89,8 +94,10 @@ namespace FREYA_NAMESPACE
                     glm::vec4(lights[n].direction, lights[n].innerCutoff);
                 data.lightOuterCutoffAndIntensity[packed] = glm::vec4(
                     lights[n].outerCutoff, intensity, lights[n].halfHeight,
-                    (on && shadowsEnabled && lights[n].castShadows) ? 1.0f
-                                                                    : 0.0f);
+                    (on && shadowsEnabled &&
+                     HasFlag(lights[n].flags, LightFlags::CastShadows))
+                        ? 1.0f
+                        : 0.0f);
                 data.lightAreaTangents[packed] =
                     glm::vec4(lights[n].tangent, 0.0f);
                 ++packed;
@@ -225,13 +232,6 @@ namespace FREYA_NAMESPACE
         mutateLight(handle, [&](Light& light) { light.radius = radius; });
     }
 
-    void LightService::SetLightCastShadows(const LightHandle handle,
-                                           const bool        castShadows)
-    {
-        mutateLight(handle,
-                    [&](Light& light) { light.castShadows = castShadows; });
-    }
-
     void LightService::UpdateLight(const LightHandle handle, const Light& light)
     {
         if (!handle)
@@ -336,8 +336,8 @@ namespace FREYA_NAMESPACE
         data.exposure      = i.mExposure;
         data.viewPosition  = glm::vec4(viewPosition, 1.0f);
         data.cameraForward = glm::vec4(cameraForward, 0.0f);
-        PackLights(i.mLights, i.mAlive, i.mMaxLights, i.mShadowsEnabled,
-                   i.mTypeEnabled, data);
+        PackLights(i.mLights, i.mAlive, i.mMaxLights, i.mRenderFlags,
+                   i.mTypeFlags, data);
 
         const auto offset = frameIndex * sizeof(LightUniformBuffer);
         i.mBuffer->Copy(&data, sizeof(LightUniformBuffer), offset);
@@ -384,53 +384,53 @@ namespace FREYA_NAMESPACE
         return mImpl->mExposure;
     }
 
-    void LightService::SetShadowsEnabled(const bool enabled)
+    void LightService::SetRenderFlags(const RenderFlags flags)
     {
         SpinLockGuard lock(mImpl->mLock);
-        mImpl->mShadowsEnabled = enabled;
+        mImpl->mRenderFlags = flags;
     }
 
-    bool LightService::GetShadowsEnabled() const
+    RenderFlags LightService::GetRenderFlags() const
     {
         SpinLockGuard lock(mImpl->mLock);
-        return mImpl->mShadowsEnabled;
+        return mImpl->mRenderFlags;
     }
 
-    void LightService::SetLightTypeEnabled(const LightType type,
-                                           const bool      enabled)
+    void LightService::SetLightTypeFlags(const LightType  type,
+                                         const LightFlags flags)
     {
         const auto index = static_cast<std::uint32_t>(type);
         if (index >= 4u)
             return;
         SpinLockGuard lock(mImpl->mLock);
-        mImpl->mTypeEnabled[index] = enabled;
+        mImpl->mTypeFlags[index] = flags;
     }
 
-    bool LightService::IsLightTypeEnabled(const LightType type) const
+    LightFlags LightService::GetLightTypeFlags(const LightType type) const
     {
         const auto index = static_cast<std::uint32_t>(type);
         if (index >= 4u)
-            return false;
+            return LightFlags::None;
         SpinLockGuard lock(mImpl->mLock);
-        return mImpl->mTypeEnabled[index];
+        return mImpl->mTypeFlags[index];
     }
 
-    void LightService::SetLightEnabled(const LightHandle handle,
-                                       const bool        enabled)
+    void LightService::SetLightFlags(const LightHandle handle,
+                                     const LightFlags  flags)
     {
-        mutateLight(handle, [&](Light& light) { light.enabled = enabled; });
+        mutateLight(handle, [&](Light& light) { light.flags = flags; });
     }
 
-    bool LightService::IsLightEnabled(const LightHandle handle) const
+    LightFlags LightService::GetLightFlags(const LightHandle handle) const
     {
         if (!handle)
-            return false;
+            return LightFlags::None;
         SpinLockGuard       lock(mImpl->mLock);
         auto&               i     = *mImpl;
         const std::uint32_t index = handle.Index();
         if (index >= i.mAlive.size() || !i.mAlive[index])
-            return false;
-        return i.mLights[index].enabled;
+            return LightFlags::None;
+        return i.mLights[index].flags;
     }
 
     void LightService::Impl::createDescriptorResources()

@@ -174,7 +174,7 @@ class MainApp final : public fra::AbstractApplication
         instance.entityId = id;
         instance.mobility = fra::Mobility::Static;
         if (translucent)
-            instance.flags |= fra::kSceneInstanceFlagTranslucent;
+            instance.flags |= fra::SceneInstanceFlags::Translucent;
         mScene.Add(instance);
     }
 

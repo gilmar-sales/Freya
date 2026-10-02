@@ -22,18 +22,17 @@ namespace FREYA_NAMESPACE
      */
     struct SceneInstanceUpload
     {
-        SceneTransform transform {};
-        MeshHandle     mesh {};
-        MaterialHandle material {};
-        std::uint32_t  entityId    = 0;
-        std::uint32_t  techniqueId = 0;
-        /// `kSceneInstanceFlag*` (CastShadows / Translucent / Skinned).
-        std::uint32_t flags      = kSceneInstanceFlagCastShadows;
-        std::uint32_t boneOffset = kNoSkin;
-        std::uint32_t boneCount  = 0;
+        SceneTransform     transform {};
+        MeshHandle         mesh {};
+        MaterialHandle     material {};
+        std::uint32_t      entityId    = 0;
+        std::uint32_t      techniqueId = 0;
+        SceneInstanceFlags flags       = SceneInstanceFlags::CastShadows;
+        std::uint32_t      boneOffset  = kNoSkin;
+        std::uint32_t      boneCount   = 0;
     };
 
-    [[nodiscard]] std::uint32_t MakeSceneInstanceFlags(
-        bool castShadows, bool translucent = false, bool skinned = false);
+    [[nodiscard]] SceneInstanceFlags MakeSceneInstanceFlags(
+        SceneInstanceFlags flags);
 
 } // namespace FREYA_NAMESPACE

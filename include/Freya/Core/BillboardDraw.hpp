@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Freya/Core/Flags.hpp"
 #include "Freya/Core/SpinLock.hpp"
 
 #include <cstdint>
@@ -35,15 +36,20 @@ namespace FREYA_NAMESPACE
         Ui  = 1,
     };
 
-    /// Bits 0-2 of the GPU flags field encode BillboardAlign.
-    constexpr std::uint32_t kBillboardAlignMask = 7u;
-    constexpr std::uint32_t kBillboardFlagSdf   = 8u;
-    /// Depth-based soft fade via subpass input attachment.
-    constexpr std::uint32_t kBillboardFlagSoft            = 16u;
-    /// Constant screen size; Billboard::size is in NDC half-extents.
-    constexpr std::uint32_t kBillboardFlagScreenSize      = 32u;
-    /// Stretch along velocity; Billboard::velocity / velocityStretchScale.
-    constexpr std::uint32_t kBillboardFlagVelocityStretch = 64u;
+    enum class BillboardFlags : std::uint32_t
+    {
+        None            = 0,
+        AlignMask       = 7u,
+        DepthTest       = 256u,
+        Sdf             = 8u,
+        /// Depth-based soft fade via subpass input attachment.
+        Soft            = 16u,
+        /// Constant screen size; Billboard::size is in NDC half-extents.
+        ScreenSize      = 32u,
+        /// Stretch along velocity; Billboard::velocity / velocityStretchScale.
+        VelocityStretch = 64u,
+        TransposeUv     = 128u
+    };
 
     /**
      * @brief One camera-facing quad in world space.
@@ -61,19 +67,15 @@ namespace FREYA_NAMESPACE
         BillboardAlign align        = BillboardAlign::Screen;
         BillboardBlend blend        = BillboardBlend::Alpha;
         BillboardLayer layer        = BillboardLayer::Vfx;
-        bool           depthTest    = true;
-        bool           sdf          = false;
+        BillboardFlags flags        = BillboardFlags::DepthTest;
         float          clipMax      = 1.f;
         glm::vec2      localOffset { 0.f };
         float          outlineWidth = 0.f; ///< SDF units, 0 = no outline
         glm::vec4      outlineColor { 0.f, 0.f, 0.f, 1.f };
-        float     rotation     = 0.f; ///< Screen-space rotation in radians
-        bool      softParticle = false; ///< Depth-based fade (subpass input)
+        float     rotation      = 0.f; ///< Screen-space rotation in radians
         float     softFadeRange = 0.002f; ///< NDC depth range for soft fade
-        bool      screenSpaceSize = false; ///< Constant NDC size vs. world size
         /// Custom up axis for FixedAxis / surface normal for Planar.
         glm::vec3 axisUp { 0.f, 1.f, 0.f };
-        bool      velocityStretch      = false;
         glm::vec3 velocity { 0.f };
         float     velocityStretchScale = 1.f;
     };
@@ -103,7 +105,7 @@ namespace FREYA_NAMESPACE
         std::uint32_t  textureIndex = 0;
         BillboardBlend blend        = BillboardBlend::Alpha;
         BillboardLayer layer        = BillboardLayer::Vfx;
-        bool           depthTest    = true;
+        BillboardFlags flags        = BillboardFlags::DepthTest;
         float          clipMax      = 1.f;
     };
 
@@ -134,9 +136,8 @@ namespace FREYA_NAMESPACE
         std::uint32_t  textureIndex = 0;
         BillboardBlend blend        = BillboardBlend::Alpha;
         BillboardLayer layer        = BillboardLayer::Vfx;
-        bool           depthTest    = true;
+        BillboardFlags flags        = BillboardFlags::DepthTest;
         float          miterLimit   = 2.5f;
-        bool           transposeUv  = false;
     };
 
     /**

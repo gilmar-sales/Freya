@@ -150,7 +150,7 @@ See [Flexibility](flexibility.md).
 | `Present()` | Submit the command buffer and present |
 | `EndFrame()` | `EndScene()` + `Present()` |
 | `RebuildSwapChain()` | Recreate swap chain (e.g., on resize) |
-| `SetVSync(bool)` | Enable/disable vertical sync |
+| `SetVSync(bool)` / `SetWindowFlags(WindowFlags)` | Enable/disable vertical sync / set presentation flags |
 | `SetSamples(uint32_t)` | Set MSAA sample count |
 | `SetDrawDistance(float)` | Set render distance |
 | `Begin/Reserve/Upload/EndSceneInstances` | Cumulative TRS upload (prefer `Scene::Upload`) |
@@ -421,7 +421,7 @@ Configure via `FreyaOptionsBuilder`: `SetShadowQuality` presets
 `SetMaxSpotShadows`, `SetMaxPointShadows`, `SetShadowSampleCount`,
 `SetShadowPointResolutionDivisor`, `SetShadowSpotResolutionDivisor`,
 `SetShadowPointUpdatePeriod`). `Off` skips shadow maps entirely
-(`enableShadows = false`); lighting then ignores `castShadows`.
+(`RenderFlags::Shadows` cleared); lighting then ignores `castShadows`.
 
 Spot/point map size defaults to cascade resolution / 2. Point cubes
 rebuild every `shadowPointUpdatePeriod` frames when the light is stable.
@@ -439,7 +439,7 @@ texels and world bias until contact shadows vanish.
 a 2-frame update period). High/Ultra use the same atlas resolution for
 cascade, spot, and point maps; Low/Medium keep half-res locals for cost.
 
-`enableShadowMask` defaults to `false` in every preset (including the
+`RenderFlags::ShadowMask` defaults to unset in every preset (including the
 no-preset defaults) — the directional shadow mask stage only runs when
 explicitly enabled.
 

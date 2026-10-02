@@ -70,7 +70,7 @@ namespace FREYA_NAMESPACE
         StripStyle style {};
         style.textureIndex = textureIndex;
         style.blend        = blend;
-        style.transposeUv  = true;
+        style.flags |= BillboardFlags::TransposeUv;
         draw.Strip(strip, style, cameraRight, cameraUp);
     }
 

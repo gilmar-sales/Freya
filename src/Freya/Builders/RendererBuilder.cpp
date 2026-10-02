@@ -49,7 +49,7 @@ namespace FREYA_NAMESPACE
                 ->Build(mSwapChain);
 
         skr::Arc<BloomPass> bloomPass;
-        if (mFreyaOptions->enableBloom)
+        if (HasFlag(mFreyaOptions->renderFlags, RenderFlags::Bloom))
         {
             bloomPass = mServiceProvider->GetService<BloomPassBuilder>()->Build(
                 mSwapChain,
@@ -57,14 +57,14 @@ namespace FREYA_NAMESPACE
         }
 
         skr::Arc<TaaPass> taaPass;
-        if (mFreyaOptions->enableTaa)
+        if (HasFlag(mFreyaOptions->renderFlags, RenderFlags::Taa))
         {
             taaPass = mServiceProvider->GetService<TaaPassBuilder>()->Build(
                 mSwapChain);
         }
 
         skr::Arc<SsaoPass> ssaoPass;
-        if (mFreyaOptions->enableSsao)
+        if (HasFlag(mFreyaOptions->renderFlags, RenderFlags::Ssao))
         {
             ssaoPass = mServiceProvider->GetService<SsaoPassBuilder>()->Build(
                 mSwapChain);

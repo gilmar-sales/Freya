@@ -534,9 +534,11 @@ namespace FREYA_NAMESPACE
             vk::PipelineDepthStencilStateCreateInfo()
                 .setDepthTestEnable(true)
                 .setDepthWriteEnable(false)
-                .setDepthCompareOp(mFreyaOptions->ReverseZ
-                                       ? vk::CompareOp::eGreaterOrEqual
-                                       : vk::CompareOp::eLessOrEqual);
+                .setDepthCompareOp(
+                    HasFlag(mFreyaOptions->renderFlags,
+                            RenderFlags::ReverseZ)
+                        ? vk::CompareOp::eGreaterOrEqual
+                        : vk::CompareOp::eLessOrEqual);
 
         auto dynamicStates = std::array { vk::DynamicState::eViewport,
                                           vk::DynamicState::eScissor };

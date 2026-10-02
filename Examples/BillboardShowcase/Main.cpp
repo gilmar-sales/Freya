@@ -83,7 +83,7 @@ class MainApp final : public fra::AbstractApplication
             g.mesh      = mGroundMesh;
             g.material  = mGroundMat;
             g.entityId  = 1;
-            g.flags     = fra::kSceneInstanceFlagCastShadows;
+            g.flags     = fra::SceneInstanceFlags::CastShadows;
             g.mobility  = fra::Mobility::Static;
             mScene.Add(g);
         }
@@ -259,9 +259,9 @@ class MainApp final : public fra::AbstractApplication
                 b.worldPos        = wp;
                 b.size            = { 0.04f, 0.04f };
                 b.color           = { 1.f, 0.3f, 0.3f, 0.98f };
-                b.align           = fra::BillboardAlign::Screen;
-                b.screenSpaceSize = true;
-                b.blend           = fra::BillboardBlend::Additive;
+                b.align  = fra::BillboardAlign::Screen;
+                b.flags |= fra::BillboardFlags::ScreenSize;
+                b.blend  = fra::BillboardBlend::Additive;
                 bb.Quad(b);
             }
             if (mFont.Valid())
@@ -298,11 +298,11 @@ class MainApp final : public fra::AbstractApplication
                     1.f, 0.5f + 0.5f * std::abs(std::sin(a)),
                     0.1f, 0.95f
                 };
-                b.align                = fra::BillboardAlign::Screen;
-                b.velocityStretch      = true;
-                b.velocity             = vel;
+                b.align  = fra::BillboardAlign::Screen;
+                b.flags |= fra::BillboardFlags::VelocityStretch;
+                b.velocity = vel;
                 b.velocityStretchScale = 0.5f;
-                b.blend                = fra::BillboardBlend::Additive;
+                b.blend = fra::BillboardBlend::Additive;
                 bb.Quad(b);
 
                 mOrbitAngles[i] += kSpeed * dt;
@@ -333,7 +333,7 @@ class MainApp final : public fra::AbstractApplication
                 b.size          = { 0.55f, 0.55f };
                 b.color         = { 0.55f, 0.25f, 1.f, 0.88f };
                 b.align         = fra::BillboardAlign::Screen;
-                b.softParticle  = true;
+                b.flags |= fra::BillboardFlags::Soft;
                 b.softFadeRange = 0.005f;
                 b.blend         = fra::BillboardBlend::Alpha;
                 bb.Quad(b);

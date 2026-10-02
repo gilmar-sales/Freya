@@ -76,7 +76,7 @@ class MainApp final : public fra::AbstractApplication
             g.mesh      = mGroundMesh;
             g.material  = mGroundMat;
             g.entityId  = 1;
-            g.flags     = fra::kSceneInstanceFlagCastShadows;
+            g.flags     = fra::SceneInstanceFlags::CastShadows;
             g.mobility  = fra::Mobility::Static;
             mScene.Add(g);
         }
@@ -374,12 +374,13 @@ class MainApp final : public fra::AbstractApplication
                 b.worldPos             = d.pos;
                 b.size                 = { 0.004f, 0.08f };
                 b.color = { 0.65f, 0.75f, 1.f, 0.45f * (1.f - d.t) };
-                b.align                = fra::BillboardAlign::Screen;
-                b.velocityStretch      = true;
-                b.velocity             = rainVel;
+                b.align  = fra::BillboardAlign::Screen;
+                b.flags |= fra::BillboardFlags::VelocityStretch;
+                b.velocity = rainVel;
                 b.velocityStretchScale = 0.18f;
-                b.blend                = fra::BillboardBlend::Alpha;
-                b.depthTest            = false;
+                b.blend = fra::BillboardBlend::Alpha;
+                fra::SetFlag(b.flags, fra::BillboardFlags::DepthTest,
+                             false);
                 bb.Quad(b);
             }
         }

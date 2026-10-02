@@ -30,11 +30,11 @@ namespace FREYA_NAMESPACE
     {
         if (quality == ShadowQuality::Off)
         {
-            options.enableShadows = false;
+            SetFlag(options.renderFlags, RenderFlags::Shadows, false);
             return;
         }
 
-        options.enableShadows = true;
+        SetFlag(options.renderFlags, RenderFlags::Shadows, true);
         switch (quality)
         {
             case ShadowQuality::Low:
@@ -52,7 +52,7 @@ namespace FREYA_NAMESPACE
                 options.shadowPointUpdatePeriod      = 2;
                 options.shadowCascadeUpdatePeriod    = 2;
                 options.shadowMaskResolutionDivisor  = 2;
-                options.enableShadowMask             = false;
+                SetFlag(options.renderFlags, RenderFlags::ShadowMask, false);
                 break;
             case ShadowQuality::Medium:
                 options.shadowMapResolution          = 1024;
@@ -69,7 +69,7 @@ namespace FREYA_NAMESPACE
                 options.shadowPointUpdatePeriod      = 2;
                 options.shadowCascadeUpdatePeriod    = 2;
                 options.shadowMaskResolutionDivisor  = 2;
-                options.enableShadowMask             = false;
+                SetFlag(options.renderFlags, RenderFlags::ShadowMask, false);
                 break;
             case ShadowQuality::High:
                 options.shadowMapResolution          = 2048;
@@ -86,7 +86,7 @@ namespace FREYA_NAMESPACE
                 options.shadowPointUpdatePeriod      = 2;
                 options.shadowCascadeUpdatePeriod    = 2;
                 options.shadowMaskResolutionDivisor  = 1;
-                options.enableShadowMask             = false;
+                SetFlag(options.renderFlags, RenderFlags::ShadowMask, false);
                 break;
             case ShadowQuality::Ultra:
                 options.shadowMapResolution          = 4096;
@@ -103,7 +103,7 @@ namespace FREYA_NAMESPACE
                 options.shadowPointUpdatePeriod      = 1;
                 options.shadowCascadeUpdatePeriod    = 1;
                 options.shadowMaskResolutionDivisor  = 1;
-                options.enableShadowMask             = false;
+                SetFlag(options.renderFlags, RenderFlags::ShadowMask, false);
                 break;
             case ShadowQuality::Off:
                 break;
@@ -114,11 +114,11 @@ namespace FREYA_NAMESPACE
     {
         if (quality == SsaoQuality::Off)
         {
-            options.enableSsao = false;
+            SetFlag(options.renderFlags, RenderFlags::Ssao, false);
             return;
         }
 
-        options.enableSsao = true;
+        SetFlag(options.renderFlags, RenderFlags::Ssao, true);
         switch (quality)
         {
             case SsaoQuality::Low:
@@ -159,11 +159,11 @@ namespace FREYA_NAMESPACE
     {
         if (quality == TaaQuality::Off)
         {
-            options.enableTaa = false;
+            SetFlag(options.renderFlags, RenderFlags::Taa, false);
             return;
         }
 
-        options.enableTaa = true;
+        SetFlag(options.renderFlags, RenderFlags::Taa, true);
         switch (quality)
         {
             case TaaQuality::Low:
@@ -211,11 +211,11 @@ namespace FREYA_NAMESPACE
     {
         if (quality == BloomQuality::Off)
         {
-            options.enableBloom = false;
+            SetFlag(options.renderFlags, RenderFlags::Bloom, false);
             return;
         }
 
-        options.enableBloom = true;
+        SetFlag(options.renderFlags, RenderFlags::Bloom, true);
         switch (quality)
         {
             case BloomQuality::Low:
@@ -270,25 +270,25 @@ namespace FREYA_NAMESPACE
         {
             case AnimationQuality::Off:
             case AnimationQuality::Ultra:
-                options.enableAnimLod = false;
+                SetFlag(options.animFlags, AnimFlags::Lod, false);
                 setHz(1000.f, 1000.f, 1000.f, 1000.f);
                 setBands(1e6f, 1e6f, 1e6f, 1e6f, 1e6f, 1e6f);
                 options.animBakeHz = 30.f;
                 break;
             case AnimationQuality::Low:
-                options.enableAnimLod = true;
+                SetFlag(options.animFlags, AnimFlags::Lod, true);
                 setHz(30.f, 15.f, 8.f, 4.f);
                 setBands(8.f, 6.f, 18.f, 14.f, 32.f, 26.f);
                 options.animBakeHz = 20.f;
                 break;
             case AnimationQuality::Medium:
-                options.enableAnimLod = true;
+                SetFlag(options.animFlags, AnimFlags::Lod, true);
                 setHz(45.f, 22.f, 12.f, 6.f);
                 setBands(12.f, 10.f, 24.f, 20.f, 42.f, 36.f);
                 options.animBakeHz = 30.f;
                 break;
             case AnimationQuality::High:
-                options.enableAnimLod = true;
+                SetFlag(options.animFlags, AnimFlags::Lod, true);
                 setHz(60.f, 30.f, 15.f, 8.f);
                 setBands(20.f, 17.f, 38.f, 32.f, 55.f, 48.f);
                 options.animBakeHz = 30.f;
@@ -299,7 +299,7 @@ namespace FREYA_NAMESPACE
     [[nodiscard]] float AnimLodHz(const FreyaOptions& o,
                                   const std::uint8_t  tier)
     {
-        if (!o.enableAnimLod)
+        if (!HasFlag(o.animFlags, AnimFlags::Lod))
             return 1e6f;
         const auto i = std::min<std::uint8_t>(tier, 3u);
         return std::max(1.f, o.animLodHz[i]);
@@ -307,7 +307,7 @@ namespace FREYA_NAMESPACE
 
     [[nodiscard]] float AnimLodMinHz(const FreyaOptions& o)
     {
-        if (!o.enableAnimLod)
+        if (!HasFlag(o.animFlags, AnimFlags::Lod))
             return 1e6f;
         return std::min(std::min(std::max(1.f, o.animLodHz[0]),
                                  std::max(1.f, o.animLodHz[1])),
@@ -342,7 +342,7 @@ namespace FREYA_NAMESPACE
     void UpdateAnimLodTier(const FreyaOptions& o, std::uint8_t& tier,
                            float dist)
     {
-        if (!o.enableAnimLod)
+        if (!HasFlag(o.animFlags, AnimFlags::Lod))
         {
             tier = 0;
             return;

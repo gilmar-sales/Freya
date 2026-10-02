@@ -348,7 +348,7 @@ namespace FREYA_NAMESPACE
 
             const vk::Extent2D vkExtent { extent.x, extent.y };
 
-            if (options->enableSsao)
+            if (HasFlag(options->renderFlags, RenderFlags::Ssao))
             {
                 if (!ssao)
                     ssao =
@@ -358,7 +358,8 @@ namespace FREYA_NAMESPACE
             else
                 ssao.reset();
 
-            if (options->enableShadows && options->enableShadowMask)
+            if (HasFlag(options->renderFlags, RenderFlags::Shadows) &&
+                HasFlag(options->renderFlags, RenderFlags::ShadowMask))
             {
                 if (!shadowMask)
                     shadowMask =
@@ -368,7 +369,7 @@ namespace FREYA_NAMESPACE
             else
                 shadowMask.reset();
 
-            if (options->enableTaa)
+            if (HasFlag(options->renderFlags, RenderFlags::Taa))
             {
                 if (!taa)
                 {
@@ -383,7 +384,7 @@ namespace FREYA_NAMESPACE
             else
                 taa.reset();
 
-            if (options->enableBloom)
+            if (HasFlag(options->renderFlags, RenderFlags::Bloom))
             {
                 if (!bloom)
                 {
@@ -449,10 +450,11 @@ namespace FREYA_NAMESPACE
             projection.view       = glm::lookAt(eye, orbit.target, up);
             projection.projection = MakePreviewProjection(
                 glm::radians(orbit.fovDegrees), aspect, orbit.nearPlane,
-                orbit.farPlane, options->ReverseZ);
+                orbit.farPlane,
+                HasFlag(options->renderFlags, RenderFlags::ReverseZ));
             projection.unjitteredProjection = projection.projection;
             projection.prevViewProjection   = prevViewProjection;
-            if (options->enableTaa && taa)
+            if (HasFlag(options->renderFlags, RenderFlags::Taa) && taa)
             {
                 ApplyHaltonJitter(projection.projection, taaFrameIndex,
                                   vk::Extent2D { extent.x, extent.y },
@@ -626,6 +628,8 @@ namespace FREYA_NAMESPACE
                 projection.unjitteredProjection * projection.view;
             const glm::vec3 cameraPos =
                 glm::vec3(glm::inverse(projection.view)[3]);
+            const bool reverseZ =
+                HasFlag(options->renderFlags, RenderFlags::ReverseZ);
 
             deferred->UpdateProjection(projection, frameIndex);
             lights->Update(frameIndex, cameraPos,
@@ -633,7 +637,7 @@ namespace FREYA_NAMESPACE
 
             uploadScene(frameIndex);
 
-            if (options->enableShadows)
+            if (HasFlag(options->renderFlags, RenderFlags::Shadows))
             {
                 shadow->Update(*lights, projection.view,
                                projection.unjitteredProjection, cameraPos,
@@ -642,9 +646,9 @@ namespace FREYA_NAMESPACE
                     cmdPool,
                     [&](const glm::mat4& lightVP) {
                         indirect->SetCullView(cameraPos, vkExtent);
-                        indirect->DispatchCull(
-                            lightVP, CullMode::Shadow, options->ReverseZ,
-                            kTechniqueFilterAll);
+                        indirect->DispatchCull(lightVP, CullMode::Shadow,
+                                                 reverseZ,
+                                                 kTechniqueFilterAll);
                     },
                     [&]() {
                         indirect->ExecuteDraws(
@@ -656,14 +660,14 @@ namespace FREYA_NAMESPACE
             const std::uint32_t usedMask = indirect->UsedTechniqueMask();
 
             indirect->SetCullView(cameraPos, vkExtent);
-            indirect->DispatchCull(viewProj, CullMode::Camera,
-                                   options->ReverseZ, kTechniqueFilterAll);
+            indirect->DispatchCull(viewProj, CullMode::Camera, reverseZ,
+                                   kTechniqueFilterAll);
             for (std::uint32_t t = 0; t < kMaxMaterialTechniques; ++t)
             {
                 if ((usedMask & (1u << t)) == 0)
                     continue;
-                indirect->DispatchCull(
-                    viewProj, CullMode::Camera, options->ReverseZ, t);
+                indirect->DispatchCull(viewProj, CullMode::Camera, reverseZ,
+                                       t);
             }
 
             deferred->Begin(sc, cmdPool);
@@ -693,26 +697,27 @@ namespace FREYA_NAMESPACE
             deferred->End(cmdPool);
 
             indirect->BuildHiZ(deferred->GetDepthImage(frameIndex),
-                               options->ReverseZ);
+                               reverseZ);
 
             if (ssao)
             {
                 ssao->Dispatch(
                     cmdPool, deferred->GetDepthImage(frameIndex),
                     deferred->GetNormalImage(frameIndex), projection.view,
-                    projection.unjitteredProjection, options->ReverseZ,
+                    projection.unjitteredProjection, reverseZ,
                     options->ssaoRadius, options->ssaoBias, options->ssaoPower,
                     options->ssaoIntensity);
             }
 
-            if (shadowMask && options->enableShadows &&
-                options->enableShadowMask)
+            if (shadowMask && HasFlag(options->renderFlags,
+                                        RenderFlags::Shadows) &&
+                HasFlag(options->renderFlags, RenderFlags::ShadowMask))
             {
                 shadowMask->Dispatch(
                     cmdPool, deferred->GetDepthImage(frameIndex),
                     deferred->GetNormalImage(frameIndex), shadow, *lights,
                     projection.view, projection.unjitteredProjection,
-                    options->ReverseZ, frameIndex);
+                    reverseZ, frameIndex);
             }
 
             auto ssaoImage = ssao ? ssao->GetOutputImage() : ssaoFallback;
@@ -788,7 +793,7 @@ namespace FREYA_NAMESPACE
             composite->End(cmdPool);
 
             prevViewProjection = projection.projection * projection.view;
-            if (options->enableTaa && taa)
+            if (HasFlag(options->renderFlags, RenderFlags::Taa) && taa)
                 ++taaFrameIndex;
         }
     };

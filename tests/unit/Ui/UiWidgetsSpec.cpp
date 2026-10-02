@@ -615,7 +615,7 @@ TEST(UiBaseWidgets, ComboBoxDropdownShowsItemText)
 {
     // Regression: dropdown rows rendered the internal "id##index" label
     // (GameUiShowcase showed "input_class##0") instead of the item text.
-    // The font stub emits one kUiFlagSdfGlyph quad per character, so the
+    // The font stub emits one UiFlags::SdfGlyph quad per character, so the
     // glyph count pins the rendered strings: box "A" (1) + chevron (1) +
     // rows "A" (1) + "BB" (2) + "CCCC" (4) = 9. Pre-fix rows were
     // "cb##0/1/2" (5 chars each) for a total of 17.
@@ -649,7 +649,7 @@ TEST(UiBaseWidgets, ComboBoxDropdownShowsItemText)
     int glyphs = 0;
     for (const auto& q : snap)
     {
-        if ((q.flags & fra::kUiFlagSdfGlyph) != 0)
+        if (fra::HasFlag(q.flags, fra::UiFlags::SdfGlyph))
             ++glyphs;
     }
     EXPECT_EQ(glyphs, 9);
@@ -678,7 +678,7 @@ TEST(UiBaseWidgets, SliderIntDrawsSingleLabel)
     int glyphs = 0;
     for (const auto& q : snap)
     {
-        if ((q.flags & fra::kUiFlagSdfGlyph) != 0)
+        if (fra::HasFlag(q.flags, fra::UiFlags::SdfGlyph))
             ++glyphs;
     }
     // "Brightness" is 10 glyphs; pre-fix it was drawn twice (20).
@@ -706,7 +706,7 @@ TEST(UiBaseWidgets, SpinBoxHidesInnerLabel)
     int glyphs = 0;
     for (const auto& q : snap)
     {
-        if ((q.flags & fra::kUiFlagSdfGlyph) != 0)
+        if (fra::HasFlag(q.flags, fra::UiFlags::SdfGlyph))
             ++glyphs;
     }
     // Pre-fix: "party" (5) + "-" + "+" = 7.
@@ -734,7 +734,7 @@ TEST(UiBaseWidgets, ColorEditShowsChannelNames)
     int glyphs = 0;
     for (const auto& q : snap)
     {
-        if ((q.flags & fra::kUiFlagSdfGlyph) != 0)
+        if (fra::HasFlag(q.flags, fra::UiFlags::SdfGlyph))
             ++glyphs;
     }
     // Pre-fix: "tint##c0/1/2" (8 chars each) = 24.
@@ -767,7 +767,7 @@ TEST(UiBaseWidgets, WindowClipsOverflowContent)
     int unflagged = 0;
     for (const auto& q : snap)
     {
-        if ((q.flags & fra::kUiFlagClipRect) != 0)
+        if (fra::HasFlag(q.flags, fra::UiFlags::ClipRect))
         {
             ++flagged;
             EXPECT_NEAR(q.clipRect.x, content.x, 1e-3f);
@@ -819,7 +819,7 @@ TEST(UiBaseWidgets, ScrolledOutContentNotHittable)
     bool found = false;
     for (const auto& q : snap)
     {
-        if ((q.flags & fra::kUiFlagClipRect) != 0)
+        if (fra::HasFlag(q.flags, fra::UiFlags::ClipRect))
         {
             found = true;
             EXPECT_NEAR(q.clipRect.x, 0.f, 1e-3f);
@@ -873,7 +873,7 @@ TEST(UiBaseWidgets, OverlayBypassesWindowClip)
     {
         const bool inTip =
             q.rect.x >= tipBtn.x - 1.f && q.rect.x < tipBtn.x + tipBtn.w;
-        if ((q.flags & fra::kUiFlagClipRect) != 0)
+        if (fra::HasFlag(q.flags, fra::UiFlags::ClipRect))
         {
             flaggedSlot = true;
             if (inTip)
@@ -955,7 +955,7 @@ TEST(UiBaseWidgets, LabelFillsParentWidth)
     int glyphs = 0;
     for (const auto& q : snap)
     {
-        if ((q.flags & fra::kUiFlagSdfGlyph) != 0)
+        if (fra::HasFlag(q.flags, fra::UiFlags::SdfGlyph))
             ++glyphs;
     }
     EXPECT_EQ(glyphs, 10);
@@ -991,7 +991,7 @@ TEST(UiBaseWidgets, WrappedTextReservesMeasuredHeight)
     int glyphs = 0;
     for (const auto& q : snap)
     {
-        if ((q.flags & fra::kUiFlagSdfGlyph) != 0)
+        if (fra::HasFlag(q.flags, fra::UiFlags::SdfGlyph))
             ++glyphs;
     }
     EXPECT_EQ(glyphs, 40);

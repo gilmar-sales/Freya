@@ -340,7 +340,9 @@ namespace FREYA_NAMESPACE
             if (q.layer != layer)
                 continue;
             const int bi = (q.blend == BillboardBlend::Additive ? 2 : 0) +
-                           (q.depthTest ? 0 : 1);
+                           (HasFlag(q.flags, BillboardFlags::DepthTest)
+                                   ? 0
+                                   : 1);
             batches[bi].gpu.push_back(ToBillboardGpu(q));
             ++total;
         }
@@ -405,7 +407,9 @@ namespace FREYA_NAMESPACE
             if (q.layer != layer)
                 continue;
             const int bi = (q.blend == BillboardBlend::Additive ? 2 : 0) +
-                           (q.depthTest ? 0 : 1);
+                           (HasFlag(q.flags, BillboardFlags::DepthTest)
+                                   ? 0
+                                   : 1);
             connectedBatches[bi].gpu.push_back(ToConnectedBillboardGpu(q));
             ++connectedTotal;
         }
