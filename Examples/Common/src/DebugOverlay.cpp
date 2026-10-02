@@ -189,6 +189,12 @@ namespace FreyaExamples
             std::fprintf(stderr, "DebugOverlay: Vulkan ImGui init failed\n");
             return false;
         }
+        if (!ImGui_ImplVulkan_CreateFontsTexture())
+        {
+            std::fprintf(stderr,
+                         "DebugOverlay: failed to recreate ImGui fonts\n");
+            return false;
+        }
         mBoundRenderPass = handles.renderPass;
         mBoundImageCount = initInfo.ImageCount;
         return true;
