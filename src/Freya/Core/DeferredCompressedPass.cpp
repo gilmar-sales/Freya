@@ -122,7 +122,7 @@ namespace FREYA_NAMESPACE
             vk::ClearValue().setColor(
                 { 0.5f, 0.5f, 0.5f, 1.0f / 3.0f }), // normal + receiveShadow
             vk::ClearValue().setColor(
-                { 0.5f, 0.0f, 1.0f, 0.0f }), // rough, metal, AO, free
+                { 0.0f, 0.0f, 0.0f, 0.0f }), // pbr: loadOp DontCare, unused
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // scene HDR
             vk::ClearValue().setColor({ 0.0f, 0.0f, 0.0f, 0.0f }), // velocity
         };

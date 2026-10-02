@@ -5,7 +5,7 @@
 // (gbuffer*.frag, triplanar, unlit_emissive) and consumers (lighting, SSAO,
 // shadow mask, outline, cell) must go through these helpers.
 //
-// Layout (14 B/px with velocity; depth separate):
+// Layout (18 B/px with velocity; depth separate):
 //   RT0 RGBA8_SRGB       albedo.rgb (HW sRGB) | A = material ID
 //   RT1 A2B10G10R10      R,G = octahedral normal (10+10)
 //                        B   = roughness (8) << 2 | variant (2)

@@ -1,6 +1,7 @@
 #include "Freya/Builders/ImageBuilder.hpp"
 
 #include "Freya/Builders/BufferBuilder.hpp"
+#include "Freya/Internal/RenderFormats.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -494,24 +495,19 @@ namespace FREYA_NAMESPACE
                 mFormat = mSurface->QuerySurfaceFormat().format;
                 break;
             case ImageUsage::GBufferAlbedo:
-                // Hardware sRGB conversion for RGB; material ID in A is
-                // unaffected by the sRGB format.
-                mFormat = vk::Format::eR8G8B8A8Srgb;
+                mFormat = RenderFormats::GBufferAlbedo;
                 break;
             case ImageUsage::GBufferNormal:
-                // Octahedral normal (RG) + roughness|variant (B) + flags (A);
-                // see Shaders/Include/gbuffer.inc.
-                mFormat = vk::Format::eA2B10G10R10UnormPack32;
+                mFormat = RenderFormats::GBufferNormal;
                 break;
             case ImageUsage::GBufferPbr:
-                // R metalness, G AO (or clearcoat|coat roughness nibbles)
-                mFormat = vk::Format::eR8G8Unorm;
+                mFormat = RenderFormats::GBufferPbr;
                 break;
             case ImageUsage::GBufferSceneColor:
-                mFormat = vk::Format::eR16G16B16A16Sfloat;
+                mFormat = RenderFormats::GBufferSceneColor;
                 break;
             case ImageUsage::GBufferVelocity:
-                mFormat = vk::Format::eR16G16Sfloat;
+                mFormat = RenderFormats::GBufferVelocity;
                 break;
             case ImageUsage::TaaHistory:
                 mFormat = vk::Format::eR16G16B16A16Sfloat;

@@ -5,6 +5,7 @@
 #include "Freya/Core/BillboardDraw.hpp"
 #include "Freya/Core/BillboardGpu.hpp"
 #include "Freya/Core/ShaderModule.hpp"
+#include "Freya/Internal/RenderFormats.hpp"
 
 #include <array>
 #include <glm/glm.hpp>
@@ -38,7 +39,7 @@ namespace FREYA_NAMESPACE
     {
         auto attachments = std::array {
             vk::AttachmentDescription()
-                .setFormat(vk::Format::eR16G16B16A16Sfloat)
+                .setFormat(RenderFormats::HdrScene)
                 .setSamples(vk::SampleCountFlagBits::e1)
                 .setLoadOp(vk::AttachmentLoadOp::eLoad)
                 .setStoreOp(vk::AttachmentStoreOp::eStore)

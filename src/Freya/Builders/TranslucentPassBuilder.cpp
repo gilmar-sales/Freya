@@ -1,6 +1,7 @@
 #include "Freya/Builders/TranslucentPassBuilder.hpp"
 
 #include "Freya/Internal/LightServiceGpu.hpp"
+#include "Freya/Internal/RenderFormats.hpp"
 #include "Freya/Internal/VertexInput.hpp"
 
 #include "Freya/Asset/Vertex.hpp"
@@ -75,10 +76,12 @@ namespace FREYA_NAMESPACE
         std::vector<skr::Arc<Image>> sceneWithTranslucency(frameCount);
         for (std::uint32_t i = 0; i < frameCount; ++i)
         {
-            oitAccum[i]  = createImage(ImageUsage::GBufferSceneColor);
-            oitReveal[i] = createImage(ImageUsage::Color, vk::Format::eR8Unorm);
-            sceneWithTranslucency[i] =
-                createImage(ImageUsage::GBufferSceneColor);
+            oitAccum[i] = createImage(ImageUsage::GBufferSceneColor,
+                                      RenderFormats::HdrScene);
+            oitReveal[i] =
+                createImage(ImageUsage::Color, RenderFormats::OitReveal);
+            sceneWithTranslucency[i] = createImage(
+                ImageUsage::GBufferSceneColor, RenderFormats::HdrScene);
         }
 
         auto sampler = mDevice->Get().createSampler(
@@ -92,7 +95,7 @@ namespace FREYA_NAMESPACE
 
         auto accumAttachments = std::array {
             vk::AttachmentDescription()
-                .setFormat(vk::Format::eR16G16B16A16Sfloat)
+                .setFormat(RenderFormats::HdrScene)
                 .setSamples(vk::SampleCountFlagBits::e1)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStoreOp(vk::AttachmentStoreOp::eStore)
@@ -101,7 +104,7 @@ namespace FREYA_NAMESPACE
                 .setInitialLayout(vk::ImageLayout::eUndefined)
                 .setFinalLayout(vk::ImageLayout::eShaderReadOnlyOptimal),
             vk::AttachmentDescription()
-                .setFormat(vk::Format::eR8Unorm)
+                .setFormat(RenderFormats::OitReveal)
                 .setSamples(vk::SampleCountFlagBits::e1)
                 .setLoadOp(vk::AttachmentLoadOp::eClear)
                 .setStoreOp(vk::AttachmentStoreOp::eStore)
@@ -172,7 +175,7 @@ namespace FREYA_NAMESPACE
 
         auto resolveAttachment =
             vk::AttachmentDescription()
-                .setFormat(vk::Format::eR16G16B16A16Sfloat)
+                .setFormat(RenderFormats::HdrScene)
                 .setSamples(vk::SampleCountFlagBits::e1)
                 .setLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStoreOp(vk::AttachmentStoreOp::eStore)
@@ -483,8 +486,8 @@ namespace FREYA_NAMESPACE
         auto vertexBinding = GetVertexBindingDescription();
         auto vertexAttrs   = GetVertexAttributesDescription();
         auto vertexInput   = vk::PipelineVertexInputStateCreateInfo()
-                                 .setVertexBindingDescriptions(vertexBinding)
-                                 .setVertexAttributeDescriptions(vertexAttrs);
+                               .setVertexBindingDescriptions(vertexBinding)
+                               .setVertexAttributeDescriptions(vertexAttrs);
 
         auto inputAssembly =
             vk::PipelineInputAssemblyStateCreateInfo().setTopology(

@@ -1,6 +1,7 @@
 #include "DeferredCompressedPassBuilder.hpp"
 
 #include "Freya/Asset/LightingTechniqueRegistry.hpp"
+#include "Freya/Internal/RenderFormats.hpp"
 #include "Freya/Internal/LightServiceGpu.hpp"
 #include "Freya/Internal/VertexInput.hpp"
 
@@ -33,22 +34,15 @@ namespace FREYA_NAMESPACE
                 .setStageFlags(vk::ShaderStageFlagBits::eFragment);
         }
 
-        vk::DescriptorSetLayoutBinding inputAttBinding(std::uint32_t binding)
-        {
-            return vk::DescriptorSetLayoutBinding()
-                .setBinding(binding)
-                .setDescriptorType(vk::DescriptorType::eInputAttachment)
-                .setDescriptorCount(1)
-                .setStageFlags(vk::ShaderStageFlagBits::eFragment);
-        }
-
-        vk::AttachmentDescription colorAttachment(vk::Format      format,
-                                                  vk::ImageLayout finalLayout)
+        vk::AttachmentDescription colorAttachment(
+            vk::Format         format,
+            vk::ImageLayout    finalLayout,
+            vk::AttachmentLoadOp loadOp = vk::AttachmentLoadOp::eClear)
         {
             return vk::AttachmentDescription()
                 .setFormat(format)
                 .setSamples(vk::SampleCountFlagBits::e1)
-                .setLoadOp(vk::AttachmentLoadOp::eClear)
+                .setLoadOp(loadOp)
                 .setStoreOp(vk::AttachmentStoreOp::eStore)
                 .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
@@ -760,15 +754,19 @@ namespace FREYA_NAMESPACE
                 .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                 .setInitialLayout(vk::ImageLayout::eUndefined)
                 .setFinalLayout(vk::ImageLayout::eDepthStencilReadOnlyOptimal),
-            colorAttachment(vk::Format::eR8G8B8A8Srgb,
+            colorAttachment(RenderFormats::GBufferAlbedo,
                             vk::ImageLayout::eShaderReadOnlyOptimal),
-            colorAttachment(vk::Format::eA2B10G10R10UnormPack32,
+            colorAttachment(RenderFormats::GBufferNormal,
                             vk::ImageLayout::eShaderReadOnlyOptimal),
-            colorAttachment(vk::Format::eR8G8Unorm,
-                            vk::ImageLayout::eShaderReadOnlyOptimal),
-            colorAttachment(vk::Format::eR16G16B16A16Sfloat,
+            // RT2 is only read by lighting after its sky test, so it needs
+            // no clear. RT0/RT1 stay cleared: SSAO blur, cel and outline
+            // sample neighbouring (possibly sky) texels of them.
+            colorAttachment(RenderFormats::GBufferPbr,
+                            vk::ImageLayout::eShaderReadOnlyOptimal,
+                            vk::AttachmentLoadOp::eDontCare),
+            colorAttachment(RenderFormats::GBufferSceneColor,
                             vk::ImageLayout::eColorAttachmentOptimal),
-            colorAttachment(vk::Format::eR16G16Sfloat,
+            colorAttachment(RenderFormats::GBufferVelocity,
                             vk::ImageLayout::eShaderReadOnlyOptimal),
         };
 
@@ -854,7 +852,7 @@ namespace FREYA_NAMESPACE
     {
         auto sceneColorAttachment =
             vk::AttachmentDescription()
-                .setFormat(vk::Format::eR16G16B16A16Sfloat)
+                .setFormat(RenderFormats::GBufferSceneColor)
                 .setSamples(vk::SampleCountFlagBits::e1)
                 .setLoadOp(vk::AttachmentLoadOp::eLoad)
                 .setStoreOp(vk::AttachmentStoreOp::eStore)
