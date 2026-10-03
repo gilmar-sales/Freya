@@ -1,8 +1,8 @@
 #include "DeferredCompressedPassBuilder.hpp"
 
 #include "Freya/Asset/LightingTechniqueRegistry.hpp"
-#include "Freya/Internal/RenderFormats.hpp"
 #include "Freya/Internal/LightServiceGpu.hpp"
+#include "Freya/Internal/RenderFormats.hpp"
 #include "Freya/Internal/VertexInput.hpp"
 
 #include "Freya/Asset/Vertex.hpp"
@@ -35,8 +35,8 @@ namespace FREYA_NAMESPACE
         }
 
         vk::AttachmentDescription colorAttachment(
-            vk::Format         format,
-            vk::ImageLayout    finalLayout,
+            vk::Format           format,
+            vk::ImageLayout      finalLayout,
             vk::AttachmentLoadOp loadOp = vk::AttachmentLoadOp::eClear)
         {
             return vk::AttachmentDescription()
@@ -146,6 +146,14 @@ namespace FREYA_NAMESPACE
         auto dynamicState =
             vk::PipelineDynamicStateCreateInfo().setDynamicStates(
                 dynamicStates);
+
+        auto geometryDynamicStates =
+            std::vector { vk::DynamicState::eViewport,
+                          vk::DynamicState::eScissor,
+                          vk::DynamicState::eCullMode };
+        auto geometryDynamicState =
+            vk::PipelineDynamicStateCreateInfo().setDynamicStates(
+                geometryDynamicStates);
 
         auto multisampling =
             vk::PipelineMultisampleStateCreateInfo()
@@ -526,10 +534,10 @@ namespace FREYA_NAMESPACE
                     .setOffset(mShadowPass->GetUniformBufferOffset(frameIndex))
                     .setRange(sizeof(ShadowUniformBuffer));
 
-            auto spotInfo  = vk::DescriptorImageInfo()
-                                 .setSampler(mShadowPass->GetCompareSampler())
-                                 .setImageView(mShadowPass->GetSpotView())
-                                 .setImageLayout(shadowMapLayout);
+            auto spotInfo = vk::DescriptorImageInfo()
+                                .setSampler(mShadowPass->GetCompareSampler())
+                                .setImageView(mShadowPass->GetSpotView())
+                                .setImageLayout(shadowMapLayout);
             auto pointInfo = vk::DescriptorImageInfo()
                                  .setSampler(mShadowPass->GetCompareSampler())
                                  .setImageView(mShadowPass->GetPointView())
@@ -600,7 +608,7 @@ namespace FREYA_NAMESPACE
                 .setPRasterizationState(&rasterizer)
                 .setPDepthStencilState(&depthPrepassDepthStencil)
                 .setPMultisampleState(&multisampling)
-                .setPDynamicState(&dynamicState)
+                .setPDynamicState(&geometryDynamicState)
                 .setLayout(vertexPipelineLayout)
                 .setRenderPass(renderPass)
                 .setSubpass(DefDepthPrePass);
@@ -624,7 +632,7 @@ namespace FREYA_NAMESPACE
                 .setPDepthStencilState(&gbufferDepthStencil)
                 .setPMultisampleState(&multisampling)
                 .setPColorBlendState(&gbufferBlendState)
-                .setPDynamicState(&dynamicState)
+                .setPDynamicState(&geometryDynamicState)
                 .setLayout(vertexPipelineLayout)
                 .setRenderPass(renderPass)
                 .setSubpass(DefGBufferPass);

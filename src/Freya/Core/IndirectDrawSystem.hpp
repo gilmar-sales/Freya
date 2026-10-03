@@ -84,9 +84,18 @@ namespace FREYA_NAMESPACE
 
         void DispatchCullExact(const CullPushConstants& pc);
 
+        /**
+         * @brief Record the indirect draws of one list (two draw calls: the
+         * single-sided and the double-sided range).
+         *
+         * With DrawCulling::BackfaceByMaterial the caller's pipeline must
+         * enable VK_DYNAMIC_STATE_CULL_MODE; the cull mode is left at
+         * eNone afterwards.
+         */
         void ExecuteDraws(bool               bindMaterials,
                           vk::PipelineLayout pipelineLayout,
-                          std::uint32_t techniqueFilter = kTechniqueFilterAll);
+                          std::uint32_t techniqueFilter = kTechniqueFilterAll,
+                          DrawCulling   culling = DrawCulling::AsBound);
 
         void CaptureCullInputs(CullFrameSnapshot& out) const;
 
@@ -224,6 +233,8 @@ namespace FREYA_NAMESPACE
         bool                             mStagingOpen = false;
 
         std::uint32_t mInstanceCount     = 0;
+        /// Instances [0, n) are single-sided, [n, mInstanceCount) double.
+        std::uint32_t mSingleSidedCount  = 0;
         std::uint32_t mMeshInfoCapacity  = 0;
         std::uint32_t mMeshLodCapacity   = 0;
         bool          mMeshInfoDirty     = true;

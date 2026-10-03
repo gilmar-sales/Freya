@@ -173,6 +173,9 @@ namespace FREYA_NAMESPACE
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                                    mPipelines[subpass]);
 
+        if (subpass != DefLightingPass)
+            commandBuffer.setCullMode(vk::CullModeFlagBits::eNone);
+
         // Lighting uses a single pass label from BeginLighting().
         if (subpass != DefLightingPass)
         {
@@ -250,6 +253,7 @@ namespace FREYA_NAMESPACE
         }
 
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
+        commandBuffer.setCullMode(vk::CullModeFlagBits::eNone);
         mCurrentSubpass = DefGBufferPass;
 
         BindGeometryDescriptors(commandPool, frameIndex);

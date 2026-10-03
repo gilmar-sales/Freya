@@ -51,6 +51,17 @@ namespace FREYA_NAMESPACE
 
         void WriteMaterial(std::uint32_t materialId, const MaterialGPU& gpu);
 
+        /**
+         * @brief CPU mirror of MaterialFlags::DoubleSided, for ordering scene
+         * instances (single-sided first). Unknown materials count as
+         * double-sided, which only costs the back-face cull.
+         */
+        [[nodiscard]] bool IsDoubleSided(std::uint32_t materialId) const
+        {
+            return materialId >= mDoubleSided.size() ||
+                   mDoubleSided[materialId] != 0;
+        }
+
         [[nodiscard]] vk::ImageView GetFallbackImageView() const
         {
             return mFallbackImageView;
@@ -74,6 +85,7 @@ namespace FREYA_NAMESPACE
         vk::DescriptorSet       mBindlessSet;
         skr::Arc<Buffer>        mMaterialsBuffer;
         std::uint32_t           mMaterialCapacity = MAX_MATERIAL_SETS;
+        std::vector<std::uint8_t> mDoubleSided; ///< per material, see above
 
         vk::Image        mFallbackImage;
         MemoryAllocation mFallbackImageMemory = {};

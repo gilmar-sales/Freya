@@ -89,5 +89,10 @@ namespace FREYA_NAMESPACE
         mMaterialsBuffer->Copy(&gpu,
                                sizeof(MaterialGPU),
                                materialId * sizeof(MaterialGPU));
+
+        if (mDoubleSided.size() <= materialId)
+            mDoubleSided.resize(materialId + 1u, 1u);
+        mDoubleSided[materialId] =
+            HasFlag(gpu.flags, MaterialFlags::DoubleSided) ? 1u : 0u;
     }
 } // namespace FREYA_NAMESPACE

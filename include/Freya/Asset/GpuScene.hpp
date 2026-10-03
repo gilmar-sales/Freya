@@ -30,6 +30,22 @@ namespace FREYA_NAMESPACE
     };
 
     /**
+     * @brief How a draw-list execution treats back faces.
+     *
+     * Every draw list is split into a single-sided and a double-sided range
+     * (instances are ordered so double-sided ones come last).
+     */
+    enum class DrawCulling : std::uint32_t
+    {
+        /// Draw both ranges under whatever cull state the bound pipeline has.
+        AsBound = 0,
+        /// Cull back faces of single-sided ranges, none for double-sided.
+        /// Requires a pipeline with dynamic cull mode (see
+        /// DeferredCompressedPass).
+        BackfaceByMaterial = 1,
+    };
+
+    /**
      * @brief Per-LOD draw range (std430). Shared vertices via vertexOffset.
      */
     struct MeshLodInfo
@@ -130,9 +146,12 @@ namespace FREYA_NAMESPACE
         float         lodStep       = 1.75f;  ///< diameter shrink per LOD
         /// `kTechniqueFilterAll` or a concrete technique id.
         std::uint32_t techniqueFilter = kTechniqueFilterAll;
-        std::uint32_t _padTech        = 0;
-        std::uint32_t maxDraws        = 0;
-        float         hizDepthBias    = 1e-4f;
+        /// Instances [0, singleSidedCount) are single-sided, the rest are
+        /// double-sided (see DrawCulling). Splits each draw list in two
+        /// ranges: [0, singleSidedCount) and [singleSidedCount, capacity).
+        std::uint32_t singleSidedCount = 0;
+        std::uint32_t maxDraws         = 0;
+        float         hizDepthBias     = 1e-4f;
     };
 
     static_assert(sizeof(CullPushConstants) == 128, "CullPushConstants size");

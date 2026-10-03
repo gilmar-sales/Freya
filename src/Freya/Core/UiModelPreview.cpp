@@ -676,7 +676,7 @@ namespace FREYA_NAMESPACE
             {
                 indirect->ExecuteDraws(
                     true, deferred->GetVertexPipelineLayout(),
-                    kTechniqueFilterAll);
+                    kTechniqueFilterAll, DrawCulling::BackfaceByMaterial);
                 deferred->NextSubpass(cmdPool);
 
                 bool drew = false;
@@ -686,7 +686,8 @@ namespace FREYA_NAMESPACE
                         continue;
                     deferred->BindGBufferTechnique(t, cmdPool, frameIndex);
                     indirect->ExecuteDraws(
-                        true, deferred->GetVertexPipelineLayout(), t);
+                        true, deferred->GetVertexPipelineLayout(), t,
+                        DrawCulling::BackfaceByMaterial);
                     drew = true;
                 }
                 if (!drew)

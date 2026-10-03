@@ -15,12 +15,15 @@ namespace FREYA_NAMESPACE
 
         struct UploadSortKey
         {
+            bool          doubleSided = false;
             std::uint32_t entityId    = 0;
             std::uint32_t uploadIndex = 0;
         };
 
         bool UploadSortKeyLess(const UploadSortKey& a, const UploadSortKey& b)
         {
+            if (a.doubleSided != b.doubleSided)
+                return !a.doubleSided;
             if (a.entityId != b.entityId)
                 return a.entityId < b.entityId;
             return a.uploadIndex < b.uploadIndex;
@@ -230,9 +233,10 @@ namespace FREYA_NAMESPACE
                     .SetUsage(BufferUsage::Indirect)
                     .SetSize(sizeof(vk::DrawIndexedIndirectCommand) * capacity)
                     .Build();
+            // [0] single-sided range count, [1] double-sided range count.
             list.drawCount = BufferBuilder(mDevice)
                                  .SetUsage(BufferUsage::Indirect)
-                                 .SetSize(sizeof(std::uint32_t))
+                                 .SetSize(sizeof(std::uint32_t) * 2)
                                  .Build();
             return list;
         };
@@ -353,7 +357,7 @@ namespace FREYA_NAMESPACE
                 vk::DescriptorBufferInfo()
                     .setBuffer(list.drawCount->Get())
                     .setOffset(0)
-                    .setRange(sizeof(std::uint32_t));
+                    .setRange(sizeof(std::uint32_t) * 2);
 
             const auto writes = std::array {
                 vk::WriteDescriptorSet()
@@ -505,10 +509,10 @@ namespace FREYA_NAMESPACE
         if (lodCount > mMeshLodCapacity || !mMeshLodBuffer)
         {
             mDevice->Get().waitIdle();
-            mMeshLodBuffer   = BufferBuilder(mDevice)
-                                   .SetUsage(BufferUsage::Storage)
-                                   .SetSize(sizeof(MeshLodInfo) * lodCount)
-                                   .Build();
+            mMeshLodBuffer = BufferBuilder(mDevice)
+                                 .SetUsage(BufferUsage::Storage)
+                                 .SetSize(sizeof(MeshLodInfo) * lodCount)
+                                 .Build();
             mMeshLodCapacity = lodCount;
             rebind           = true;
         }
@@ -575,7 +579,7 @@ namespace FREYA_NAMESPACE
         if (!list.drawCount)
             return;
         mCommandPool->GetCommandBuffer().fillBuffer(
-            list.drawCount->Get(), 0, sizeof(std::uint32_t), 0);
+            list.drawCount->Get(), 0, sizeof(std::uint32_t) * 2, 0);
     }
 
     void IndirectDrawSystem::CommitSceneFrame(const std::uint32_t frameIndex)
@@ -651,16 +655,27 @@ namespace FREYA_NAMESPACE
 
         if (count == 0)
         {
-            mInstanceCount = 0;
+            mInstanceCount    = 0;
+            mSingleSidedCount = 0;
             mSceneInstances.clear();
             mSceneTransforms.clear();
             return;
         }
 
+        // A mirrored transform (odd number of negative scales) flips the
+        // winding, so its "front" faces would be culled: treat it as
+        // double-sided.
+        const auto isDoubleSided = [&](const SceneInstanceUpload& up) {
+            const auto& s = up.transform.scale;
+            return (s.x * s.y * s.z) < 0.0f ||
+                   mMaterials->IsDoubleSided(up.material.Id());
+        };
+
         std::vector<UploadSortKey> sortKeys(count);
         for (std::uint32_t i = 0; i < count; ++i)
         {
             sortKeys[i] = UploadSortKey {
+                .doubleSided = isDoubleSided(mStaging[i]),
                 .entityId    = mStaging[i].entityId,
                 .uploadIndex = i,
             };
@@ -681,7 +696,10 @@ namespace FREYA_NAMESPACE
                              UploadSortKeyLess);
         }
 
-        mInstanceCount = count;
+        mInstanceCount    = count;
+        mSingleSidedCount = static_cast<std::uint32_t>(std::count_if(
+            sortKeys.begin(), sortKeys.end(),
+            [](const UploadSortKey& k) { return !k.doubleSided; }));
         mSceneInstances.resize(mInstanceCount);
         mSceneTransforms.resize(mInstanceCount);
         // InstanceTransform is filled on GPU by ExpandTransforms.
@@ -771,11 +789,12 @@ namespace FREYA_NAMESPACE
                          mHiZ->IsReady())
                             ? CullFlags::HizEnabled
                             : CullFlags::None;
-        pc.lodPixelRef     = mLodPixelRef;
-        pc.lodStep         = mLodStep;
-        pc.techniqueFilter = techniqueFilter;
-        pc.maxDraws        = currentFrame().capacity;
-        pc.hizDepthBias    = 1e-4f;
+        pc.lodPixelRef      = mLodPixelRef;
+        pc.lodStep          = mLodStep;
+        pc.techniqueFilter  = techniqueFilter;
+        pc.singleSidedCount = mSingleSidedCount;
+        pc.maxDraws         = currentFrame().capacity;
+        pc.hizDepthBias     = 1e-4f;
 
         if (mode == CullMode::Camera && techniqueFilter == kTechniqueFilterAll)
             mLastCullPushConstants = pc;
@@ -793,6 +812,9 @@ namespace FREYA_NAMESPACE
             local.instanceCount = mInstanceCount;
         if (local.maxDraws == 0)
             local.maxDraws = currentFrame().capacity;
+        // The ranges follow the instance order of the scene uploaded to this
+        // system, whatever the recorded dump says.
+        local.singleSidedCount = mSingleSidedCount;
 
         mLastCullPushConstants = local;
         mCameraPos =
@@ -1075,12 +1097,12 @@ namespace FREYA_NAMESPACE
                                          : glm::mat4(1.0f);
             out.instances[i].model = M;
             out.sources[i]         = InstanceTransform {
-                .model      = M,
-                .prevModel  = M,
-                .materialId = mSceneInstances[i].materialId,
-                .entityId   = mSceneInstances[i].entityId,
-                .flags      = mSceneInstances[i].flags,
-                .boneOffset = mSceneInstances[i].boneOffset,
+                        .model      = M,
+                        .prevModel  = M,
+                        .materialId = mSceneInstances[i].materialId,
+                        .entityId   = mSceneInstances[i].entityId,
+                        .flags      = mSceneInstances[i].flags,
+                        .boneOffset = mSceneInstances[i].boneOffset,
             };
         }
         out.hiz.present = mHiZ && mHiZ->IsValid();
@@ -1119,7 +1141,7 @@ namespace FREYA_NAMESPACE
             return false;
         }
 
-        const auto countBytes = sizeof(std::uint32_t);
+        const auto countBytes = sizeof(std::uint32_t) * 2;
         const auto maxDraws   = frame.capacity;
         const auto compactBytes =
             sizeof(InstanceTransform) * static_cast<std::size_t>(maxDraws);
@@ -1186,20 +1208,27 @@ namespace FREYA_NAMESPACE
         mDevice->GetGraphicsQueue().waitIdle();
         mCommandPool->FreeCommandBuffer(cb);
 
-        std::memcpy(&outDrawCount, countStaging->GetMapped(), countBytes);
-        outDrawCount = std::min(outDrawCount, maxDraws);
+        // Two ranges: single-sided in slots [0, nSingle), double-sided in
+        // [nSingle, maxDraws).
+        std::array<std::uint32_t, 2> counts {};
+        std::memcpy(counts.data(), countStaging->GetMapped(), countBytes);
+        const auto singleSize = std::min(mSingleSidedCount, maxDraws);
+        counts[0]             = std::min(counts[0], singleSize);
+        counts[1]             = std::min(counts[1], maxDraws - singleSize);
+        outDrawCount          = counts[0] + counts[1];
 
         const auto* compact =
             static_cast<const InstanceTransform*>(compactStaging->GetMapped());
         outSurvivors.resize(outDrawCount);
         for (std::uint32_t i = 0; i < outDrawCount; ++i)
         {
-            outSurvivors[i].entityId = compact[i].entityId;
-            outSurvivors[i].slot     = i;
+            const auto slot = i < counts[0] ? i : singleSize + (i - counts[0]);
+            outSurvivors[i].entityId = compact[slot].entityId;
+            outSurvivors[i].slot     = slot;
             outSurvivors[i].meshId   = 0;
             for (const auto& inst : mSceneInstances)
             {
-                if (inst.entityId == compact[i].entityId)
+                if (inst.entityId == compact[slot].entityId)
                 {
                     outSurvivors[i].meshId = inst.meshId;
                     break;
@@ -1295,7 +1324,7 @@ namespace FREYA_NAMESPACE
 
     void IndirectDrawSystem::ExecuteDraws(
         const bool bindMaterials, const vk::PipelineLayout pipelineLayout,
-        const std::uint32_t techniqueFilter)
+        const std::uint32_t techniqueFilter, const DrawCulling culling)
     {
         if (mInstanceCount == 0)
             return;
@@ -1314,9 +1343,34 @@ namespace FREYA_NAMESPACE
                 &mMaterials->GetBindlessSet(), 0, nullptr);
         }
 
-        cb.drawIndexedIndirectCount(
-            list.indirect->Get(), 0, list.drawCount->Get(), 0, frame.capacity,
-            sizeof(vk::DrawIndexedIndirectCommand));
+        constexpr auto kStride = sizeof(vk::DrawIndexedIndirectCommand);
+        const auto     singleSidedCount =
+            std::min(mSingleSidedCount, mInstanceCount);
+        const auto doubleSidedCount = mInstanceCount - singleSidedCount;
+        const bool perMaterialCull = culling == DrawCulling::BackfaceByMaterial;
+
+        if (singleSidedCount > 0)
+        {
+            if (perMaterialCull)
+                cb.setCullMode(vk::CullModeFlagBits::eBack);
+            cb.drawIndexedIndirectCount(
+                list.indirect->Get(), 0, list.drawCount->Get(), 0,
+                singleSidedCount, kStride);
+        }
+
+        if (doubleSidedCount > 0)
+        {
+            if (perMaterialCull)
+                cb.setCullMode(vk::CullModeFlagBits::eNone);
+            cb.drawIndexedIndirectCount(
+                list.indirect->Get(), singleSidedCount * kStride,
+                list.drawCount->Get(), sizeof(std::uint32_t), doubleSidedCount,
+                kStride);
+        }
+
+        // Leave the safe default for anything drawn afterwards.
+        if (perMaterialCull)
+            cb.setCullMode(vk::CullModeFlagBits::eNone);
     }
 
 } // namespace FREYA_NAMESPACE

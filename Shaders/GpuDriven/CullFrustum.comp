@@ -62,7 +62,7 @@ layout(push_constant) uniform CullPC {
     float lodPixelRef;
     float lodStep;
     uint techniqueFilter;
-    uint _padTech;
+    uint singleSidedCount;
     uint maxDraws;
     float hizDepthBias; // NDC-space bias; tune to your near/far + Hi-Z precision
 } cull;
@@ -92,7 +92,7 @@ layout(std430, binding = 5) readonly buffer MeshLodBuffer {
 };
 
 layout(std430, binding = 6) buffer DrawCountBuffer {
-    uint drawCount;
+    uint drawCount[2]; // [0] single-sided range, [1] double-sided range
 };
 
 layout(binding = 7) uniform sampler2D hizPyramid;
@@ -405,9 +405,16 @@ void main()
     if (range.indexCount == 0u)
         return;
 
-    uint slot = atomicAdd(drawCount, 1u);
-    if (slot >= cull.maxDraws)
+    // Each side writes its own slot range, so a draw call per range can use
+    // its own cull state while sharing the indirect/compact buffers.
+    const bool doubleSided = id >= cull.singleSidedCount;
+    const uint rangeBase   = doubleSided ? cull.singleSidedCount : 0u;
+    const uint rangeSize   = doubleSided ? cull.maxDraws - cull.singleSidedCount
+                                         : cull.singleSidedCount;
+    const uint local = atomicAdd(drawCount[doubleSided ? 1 : 0], 1u);
+    if (local >= rangeSize)
         return;
+    const uint slot = rangeBase + local;
     draws[slot].indexCount    = range.indexCount;
     draws[slot].instanceCount = 1u;
     draws[slot].firstIndex    = range.firstIndex;
