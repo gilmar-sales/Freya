@@ -35,7 +35,8 @@ layout (location = 0) out vec3 outPosition;
 layout (location = 1) out vec2 outTexCoord;
 layout (location = 2) out mat3 outTBN;
 layout (location = 5) out vec3 outColor;
-layout (location = 6) out vec2 outVelocity;
+layout (location = 6) out vec3 outCurrClip; // unjittered clip xyw
+layout (location = 8) out vec3 outPrevClip; // previous-frame clip xyw
 layout (location = 7) flat out uint outMaterialId;
 
 const uint kNoSkin = 0xFFFFFFFFu;
@@ -86,11 +87,12 @@ void main() {
     // Motion in UV space from UNJITTERED projections only. Including the
     // Halton jitter here would contaminate velocity and cause shimmer.
     // Rasterization still uses pub.proj (jittered) via gl_Position above.
+    // Clip xyw go to the fragment shader, which divides per pixel (see
+    // Include/velocity.inc); a per-vertex divide breaks across the near plane.
     vec4 currClip = pub.unjitteredProjection * pub.view * worldPos;
     vec4 prevClip = pub.prevViewProjection * prevWorldPos;
-    vec2 currNdc = currClip.xy / max(currClip.w, 1e-5);
-    vec2 prevNdc = prevClip.xy / max(prevClip.w, 1e-5);
-    outVelocity = (currNdc - prevNdc) * 0.5;
+    outCurrClip = currClip.xyw;
+    outPrevClip = prevClip.xyw;
 
     vec3 T = normalize(vec3(inModel * vec4(localT, 0.0)));
     vec3 N = normalize(vec3(inModel * vec4(localN, 0.0)));

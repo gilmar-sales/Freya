@@ -8,7 +8,8 @@ layout (location = 0) in vec3 inPosition;
 layout (location = 1) in vec2 inTexCoord;
 layout (location = 2) in mat3 inTBN;
 layout (location = 5) in vec3 inColor;
-layout (location = 6) in vec2 inVelocity;
+layout (location = 6) in vec3 inCurrClip;
+layout (location = 8) in vec3 inPrevClip;
 layout (location = 7) flat in uint inMaterialId;
 
 layout (location = 0) out vec4 outAlbedo;
@@ -22,6 +23,7 @@ layout (set = 1, binding = 0) uniform sampler2D uTextures[];
 #include "Include/material_gpu.inc"
 #include "Include/pbr_sample.inc"
 #include "Include/gbuffer.inc"
+#include "Include/velocity.inc"
 
 layout (std430, set = 1, binding = 1) readonly buffer MaterialBuffer {
     MaterialGPU materials[];
@@ -105,5 +107,5 @@ void main() {
 
     outSceneColor =
         vec4(SampleEmissive(mat, inTexCoord) * kEmissiveIntensity, 0.0);
-    outVelocity = inVelocity;
+    outVelocity = VelocityFromClip(inCurrClip, inPrevClip);
 }
