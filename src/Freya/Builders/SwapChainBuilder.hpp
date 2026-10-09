@@ -47,7 +47,7 @@ namespace FREYA_NAMESPACE
             return *this;
         }
 
-        skr::Arc<SwapChain> Build();
+        skr::Arc<SwapChain> Build(vk::SwapchainKHR previous = {});
 
       protected:
         vk::PresentModeKHR choosePresentMode();

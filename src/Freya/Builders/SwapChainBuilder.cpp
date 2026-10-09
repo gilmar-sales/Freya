@@ -9,7 +9,7 @@
 
 namespace FREYA_NAMESPACE
 {
-    skr::Arc<SwapChain> SwapChainBuilder::Build()
+    skr::Arc<SwapChain> SwapChainBuilder::Build(vk::SwapchainKHR previous)
     {
         mLogger->LogTrace("Building 'fra::SwapChain':");
 
@@ -30,6 +30,7 @@ namespace FREYA_NAMESPACE
         auto createInfo =
             vk::SwapchainCreateInfoKHR()
                 .setSurface(mSurface->Get())
+                .setOldSwapchain(previous)
                 .setImageFormat(surfaceFormat.format)
                 .setImageColorSpace(surfaceFormat.colorSpace)
                 .setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)

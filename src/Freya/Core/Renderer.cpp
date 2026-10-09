@@ -279,8 +279,9 @@ namespace FREYA_NAMESPACE
     {
         mDevice->WaitIdle();
 
-        mSwapChain.reset();
-        mSwapChain = mServiceProvider->GetService<SwapChainBuilder>()->Build();
+        const auto previous = mSwapChain;
+        mSwapChain = mServiceProvider->GetService<SwapChainBuilder>()->Build(
+            previous ? previous->Get() : vk::SwapchainKHR {});
 
         createFrameTimestampPool();
 
