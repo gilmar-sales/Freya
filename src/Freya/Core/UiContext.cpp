@@ -69,7 +69,7 @@ namespace FREYA_NAMESPACE
         mHasBegun      = true;
         mScale         = ScaleForExtent(fbExtent);
         mLogicalSize   = glm::vec2 { static_cast<float>(fbExtent.x) / mScale,
-                                     static_cast<float>(fbExtent.y) / mScale };
+                                   static_cast<float>(fbExtent.y) / mScale };
         mMouseLogicalX = mMouseX / mScale;
         mMouseLogicalY = mMouseY / mScale;
 
@@ -1039,7 +1039,7 @@ namespace FREYA_NAMESPACE
             mWantMouse = true;
         const bool clicked = !disabled && hovered &&
                              mMouseClicked[static_cast<int>(MouseButton::Left)];
-        mLastClicked       = clicked;
+        mLastClicked = clicked;
         if (clicked)
             TrackClick(id, r);
         if (mDraw)
@@ -1638,7 +1638,7 @@ namespace FREYA_NAMESPACE
             mWantMouse = true;
         const bool clicked = !disabled && hovered &&
                              mMouseClicked[static_cast<int>(MouseButton::Left)];
-        mLastClicked       = clicked;
+        mLastClicked = clicked;
         if (clicked)
             TrackClick(id, r);
         if (mDraw)
@@ -1807,13 +1807,18 @@ namespace FREYA_NAMESPACE
             ++mOverlayDepth;
             if (mDraw)
                 mDraw->BeginOverlay();
-            const float  itemH = 28.f;
-            const UiRect list { r.x, r.y + r.h + 2.f, r.w,
-                                itemH * static_cast<float>(items.size()) };
+            const float itemH   = 28.f;
+            const float padding = 4.f;
+            const float count   = static_cast<float>(items.size());
+            const float listH =
+                count * itemH + (count - 1.f) * mStyle.Var(UiVar::ItemSpacing) +
+                2.f * padding;
+            const UiRect list { r.x, r.y + r.h + 2.f, r.w, listH };
             if (mDraw)
                 mDraw->Rect(list, mStyle.Color(UiCol::PanelBg), 4.f, 1.f,
                             mStyle.Color(UiCol::Border));
-            PushParent({ list.x + 4, list.y + 4, list.w - 8, list.h - 8 });
+            PushParent({ list.x + padding, list.y + padding,
+                         list.w - 2.f * padding, list.h - 2.f * padding });
             for (std::size_t i = 0; i < items.size(); ++i)
             {
                 // Unique per-combo identity, but the row displays the item
@@ -2156,14 +2161,14 @@ namespace FREYA_NAMESPACE
         UiRect    win { st.winPos.x, st.winPos.y, st.winSize.x, st.winSize.y };
         UiRect    bar { win.x, win.y, win.w, kWinTitleH };
         UiRect    grip { win.x + win.w - kWinGrip, win.y + win.h - kWinGrip,
-                         kWinGrip, kWinGrip };
+                      kWinGrip, kWinGrip };
 
         // Close / collapse buttons (right side of title bar).
         const float bb = 22.f;
         UiRect      closeR { bar.x + bar.w - bb - 4.f, bar.y + 4.f, bb, bb };
         UiRect      collR { closeR.x - (opts.closable ? bb + 4.f : 0.f) -
-                                (opts.collapsible ? bb + 4.f : 0.f) + 4.f,
-                            bar.y + 4.f, bb, bb };
+                           (opts.collapsible ? bb + 4.f : 0.f) + 4.f,
+                       bar.y + 4.f, bb, bb };
         if (!opts.collapsible)
             collR = {};
         if (!opts.closable)
@@ -2532,14 +2537,14 @@ namespace FREYA_NAMESPACE
             if (mDraw)
             {
                 mDraw->Rect(b,
-                            ApplyDisabled(
+                                 ApplyDisabled(
                                 enabled ? mStyle.Color(UiCol::Button)
                                         : mStyle.Color(UiCol::ButtonDisabled)),
-                            4.f, 1.f, mStyle.Color(UiCol::Border));
+                                 4.f, 1.f, mStyle.Color(UiCol::Border));
                 if (mStyle.font)
                     mDraw->Text({ b.x + 12.f, b.y + 6.f, 20.f, 20.f }, glyph,
-                                *mStyle.font, 16.f,
-                                ApplyDisabled(mStyle.Color(UiCol::Text)));
+                                     *mStyle.font, 16.f,
+                                     ApplyDisabled(mStyle.Color(UiCol::Text)));
             }
             return clicked;
         };

@@ -178,6 +178,59 @@ TEST(UiBaseWidgets, ComboBoxSelectsItem)
     ui.UnbindEvents(events);
 }
 
+TEST(UiBaseWidgets, ComboBoxDropdownBackgroundCoversAllRows)
+{
+    constexpr std::array<std::string_view, 8> items { "A", "B", "C", "D",
+                                                      "E", "F", "G", "H" };
+    for (const int count : { 1, 3, 8 })
+    {
+        for (const float spacing : { 0.f, 8.f, 16.f })
+        {
+            SCOPED_TRACE(count);
+            SCOPED_TRACE(spacing);
+            fra::UiDraw       draw;
+            fra::UiContext    ui(&draw);
+            fra::EventManager events;
+            ui.BindEvents(events);
+            ui.Style().Var(fra::UiVar::ItemSpacing) = spacing;
+            const auto rows = std::span(items).first(count);
+            int        sel  = count - 1;
+
+            ui.Begin(0.016f, { 1920, 1080 });
+            EXPECT_FALSE(ui.ComboBox("cb", rows, &sel, { 220.f, 32.f }));
+            const auto box = ui.LastItemRect();
+            ui.End();
+
+            MoveMouse(events, box.Center().x, box.Center().y);
+            ClickLeft(events);
+            draw.Clear();
+            ui.Begin(0.016f, { 1920, 1080 });
+            EXPECT_FALSE(ui.ComboBox("cb", rows, &sel, { 220.f, 32.f }));
+            const auto lastRow = ui.LastItemRect();
+            ui.End();
+
+            std::vector<fra::UiQuad> snap;
+            draw.Snapshot(snap);
+            // No font: closed box, dropdown background, selected last row.
+            ASSERT_EQ(snap.size(), 3u);
+            const auto& background = snap[1].rect;
+            EXPECT_FLOAT_EQ(background.x, box.x);
+            EXPECT_FLOAT_EQ(background.y, box.y + box.h + 2.f);
+            EXPECT_FLOAT_EQ(background.z, box.w);
+            EXPECT_FLOAT_EQ(background.w,
+                            count * 28.f + (count - 1) * spacing + 8.f);
+            EXPECT_FLOAT_EQ(
+                lastRow.y, background.y + 4.f + (count - 1) * (28.f + spacing));
+            EXPECT_FLOAT_EQ(background.y + background.w,
+                            lastRow.y + lastRow.h + 4.f);
+            EXPECT_FLOAT_EQ(snap[2].rect.y + snap[2].rect.w,
+                            lastRow.y + lastRow.h);
+
+            ui.UnbindEvents(events);
+        }
+    }
+}
+
 TEST(UiBaseWidgets, ColorEditDragRedChannel)
 {
     fra::UiDraw       draw;

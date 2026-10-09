@@ -17,6 +17,7 @@ endif ()
 
 add_executable(FreyaGpuTests
         Rendering/GpuCullSpec.cpp
+        Rendering/SwapChainResizeSpec.cpp
         ${PROJECT_SOURCE_DIR}/Examples/Common/src/CullFrameDumpIo.cpp)
 
 target_compile_features(FreyaGpuTests PRIVATE cxx_std_26)
