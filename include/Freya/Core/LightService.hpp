@@ -147,8 +147,12 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Per-frame cumulative light updates (thread-safe Upload).
          *
-         * Begin → optional Reserve → Upload(span)* from any threads → End.
-         * End applies to the host pool; GPU pack remains in Update().
+         * Begin → optional Reserve → Upload(span)* from any threads →
+         * End.
+
+         * * Join workers before End; Begin/Reserve/End are coordinator-only.
+
+         * * End applies to the host pool; GPU pack remains in Update().
          */
         void BeginLightUploads();
         void ReserveLightUploads(std::uint32_t count);

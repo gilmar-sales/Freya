@@ -7,6 +7,8 @@
 #include "Freya/Core/CommandPool.hpp"
 #include "Freya/Core/Device.hpp"
 #include "Freya/Core/SpinLock.hpp"
+#include "Freya/Internal/FrameUploadLayout.hpp"
+#include "Freya/Internal/UploadStaging.hpp"
 
 #include <array>
 #include <atomic>
@@ -148,10 +150,10 @@ namespace FREYA_NAMESPACE
         void UploadBoneMask(std::span<const float> weights);
         void UploadRestJoints(std::span<const GpuFloatJoint> joints);
         void UploadRestJoints(std::span<const GpuQuantJoint> joints);
-        void UploadRestJoints(std::uint32_t                  skeletonSlot,
-                              std::span<const GpuFloatJoint> joints);
-        void UploadRestJoints(std::uint32_t                  skeletonSlot,
-                              std::span<const GpuQuantJoint> joints);
+        void UploadRestJoints(
+            std::uint32_t skeletonSlot, std::span<const GpuFloatJoint> joints);
+        void UploadRestJoints(
+            std::uint32_t skeletonSlot, std::span<const GpuQuantJoint> joints);
         void BeginInstanceUploads();
         void ReserveInstanceUploads(std::uint32_t count);
         void UploadInstanceUploads(std::span<const GpuAnimInstance> instances);
@@ -216,18 +218,19 @@ namespace FREYA_NAMESPACE
         vk::DescriptorPool            mAnimPool;
         vk::DescriptorSet             mAnimSet;
 
-        skr::Arc<Buffer> mParentsBuffer;
-        skr::Arc<Buffer> mInvBindBuffer;
-        skr::Arc<Buffer> mSkeletonHeaderBuffer;
-        skr::Arc<Buffer> mClipHeaderBuffer;
-        skr::Arc<Buffer> mJointsBuffer;
-        skr::Arc<Buffer> mInstanceBuffer;
-        skr::Arc<Buffer> mBoneMaskBuffer;
-        skr::Arc<Buffer> mRestJointsBuffer;
-        skr::Arc<Buffer> mLocalScratchBuffer;
-        skr::Arc<Buffer> mGlobalScratchBuffer;
-        skr::Arc<Buffer> mReadbackBuffer;
-        skr::Arc<Buffer> mExtractRingBuffer;
+        skr::Arc<Buffer>  mParentsBuffer;
+        skr::Arc<Buffer>  mInvBindBuffer;
+        skr::Arc<Buffer>  mSkeletonHeaderBuffer;
+        skr::Arc<Buffer>  mClipHeaderBuffer;
+        skr::Arc<Buffer>  mJointsBuffer;
+        skr::Arc<Buffer>  mInstanceBuffer;
+        FrameUploadLayout mInstanceLayout;
+        skr::Arc<Buffer>  mBoneMaskBuffer;
+        skr::Arc<Buffer>  mRestJointsBuffer;
+        skr::Arc<Buffer>  mLocalScratchBuffer;
+        skr::Arc<Buffer>  mGlobalScratchBuffer;
+        skr::Arc<Buffer>  mReadbackBuffer;
+        skr::Arc<Buffer>  mExtractRingBuffer;
 
         bool          mEnabled          = false;
         bool          mCopyPrevBones    = true;
@@ -244,10 +247,9 @@ namespace FREYA_NAMESPACE
         float         mLookMaxYawRad    = 1.2f;
         float         mLookMaxPitchRad  = 0.8f;
 
-        std::vector<GpuAnimInstance> mInstanceStaging;
-        std::atomic<std::uint32_t>   mInstanceStagingCount { 0 };
-        SpinLock                     mInstanceStagingLock;
-        bool                         mInstanceStagingOpen = false;
+        UploadStaging<GpuAnimInstance>   mInstanceUploads;
+        std::span<const GpuAnimInstance> mInstanceStaging;
+        bool                             mInstanceStagingOpen = false;
 
         struct ClipSlotMeta
         {

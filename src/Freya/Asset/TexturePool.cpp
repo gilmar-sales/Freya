@@ -60,7 +60,7 @@ namespace FREYA_NAMESPACE
         if (!mImpl || !mImpl->device)
             return;
 
-        mImpl->device->Get().waitIdle();
+        mImpl->device->WaitIdle();
         for (const auto& texture : mImpl->textures.getDense())
         {
             if (texture.external)
@@ -316,7 +316,7 @@ namespace FREYA_NAMESPACE
             return;
         }
 
-        i.device->Get().waitIdle();
+        i.device->WaitIdle();
 
         imageToFree.reset();
 

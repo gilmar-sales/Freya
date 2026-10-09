@@ -57,7 +57,10 @@ namespace FREYA_NAMESPACE
          * Upload).
          *
          * Begin → optional Reserve → Upload* from any threads → End.
-         * UploadInstances wraps Begin/Upload/End for single-thread callers.
+ *
+         * Join workers before End; Begin/Reserve/End are coordinator-only.
+
+         * * UploadInstances wraps Begin/Upload/End for single-thread callers.
          */
 
         void BeginGpuAnimInstanceUploads();
@@ -147,11 +150,11 @@ namespace FREYA_NAMESPACE
         void UploadRestJoints(std::span<const GpuQuantJoint> joints);
 
         /** @brief Rest joints for a specific skeleton atlas slot. */
-        void UploadRestJoints(std::uint32_t                  skeletonSlot,
-                              std::span<const GpuFloatJoint> joints);
+        void UploadRestJoints(
+            std::uint32_t skeletonSlot, std::span<const GpuFloatJoint> joints);
 
-        void UploadRestJoints(std::uint32_t                  skeletonSlot,
-                              std::span<const GpuQuantJoint> joints);
+        void UploadRestJoints(
+            std::uint32_t skeletonSlot, std::span<const GpuQuantJoint> joints);
 
         void SetRigIndices(
 

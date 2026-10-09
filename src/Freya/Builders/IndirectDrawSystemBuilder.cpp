@@ -371,8 +371,7 @@ namespace FREYA_NAMESPACE
             const auto submit =
                 vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(
                     &cmd);
-            mDevice->GetGraphicsQueue().submit(submit);
-            mDevice->GetGraphicsQueue().waitIdle();
+            mDevice->SubmitAndWait(mDevice->GetGraphicsQueue(), submit);
             mCommandPool->FreeCommandBuffer(cmd);
         }
 

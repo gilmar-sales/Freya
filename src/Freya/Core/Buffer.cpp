@@ -12,7 +12,7 @@ namespace FREYA_NAMESPACE
      */
     Buffer::~Buffer()
     {
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         mMapped = nullptr;
         mDevice->GetAllocator()->DestroyBuffer(
             static_cast<VkBuffer>(mBuffer), mAllocation);

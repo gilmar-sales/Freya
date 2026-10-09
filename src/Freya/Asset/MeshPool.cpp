@@ -1168,7 +1168,7 @@ namespace FREYA_NAMESPACE
         {
             try
             {
-                mImpl->device->Get().waitIdle();
+                mImpl->device->WaitIdle();
             }
             catch (...)
             {

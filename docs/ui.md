@@ -52,6 +52,8 @@ Generic static textures still use `CreateTextureFromFile` /
 Orbit (`UiModelPreviewOrbit`): drag button, sensitivity, yaw/pitch
 clamps, distance, optional `autoRotate`. `FeedMouse*` / `SetOrbit` are
 UI-thread; `Record` is render-thread only.
+`Orbit()` returns a synchronized copy: edit it and call `SetOrbit(copy)`.
+It no longer exposes a mutable reference to render-thread state.
 
 **Cost:** each preview owns a mini deferred/shadow/composite stack
 (plus SSAO / shadow-mask / TAA / Bloom when those FreyaOptions flags are
@@ -64,10 +66,15 @@ on). Prefer one paper-doll; N stacks scale linearly.
 | `UiDraw::Image` (live or snapshot handle) | SpinLock; workers OK between `BeginFrame` and `EndScene` |
 | `TexturePool::RegisterExternal` / `Unregister` / snapshot create | Same pool lock as `CreateTextureFromMemory`; do not race `Destroy` on the same id |
 | `UiModelPreview::Record` | Frame stage / render thread only |
-| Orbit / `FeedMouse*` / `SetOrbit` | Main (UI) thread; yaw/pitch read atomically in `Record` |
+| Orbit / `FeedMouse*` / `SetOrbit` | UI thread; entire configuration and drag state synchronized; `Record` uses one snapshot |
 | `UiContext::ModelPreview` | Main-thread only |
 | `CaptureSnapshot` | Main/render thread after ≥1 `Record`; GPU copy finishes before the handle is used (or use next frame) |
-| `AddModelPreview` / `RemoveModelPreview` | Mutate outside `Execute` (e.g. startup / shutdown) |
+| `AddModelPreview` / `RemoveModelPreview` | Removal waits for active `Record`; remove before destroying; never mutate registration from a `Record` callback |
+
+Resize/destruction stays on the render coordinator between submitted frames:
+`waitIdle` does not retire references in an unsubmitted command buffer.
+`SetActive(false)` only disables future recording; resources stay allocated
+until resize/destruction, so a UI hide cannot invalidate an in-progress frame.
 
 ## Thread-safety (widgets)
 

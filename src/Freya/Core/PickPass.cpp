@@ -35,7 +35,7 @@ namespace FREYA_NAMESPACE
 
     PickPass::~PickPass()
     {
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         destroyFramebufferResources();
 
         if (mPipeline)
@@ -107,7 +107,7 @@ namespace FREYA_NAMESPACE
             return;
         }
 
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         destroyFramebufferResources();
 
         mExtent     = extent;

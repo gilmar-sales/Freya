@@ -79,15 +79,36 @@ namespace FREYA_NAMESPACE
 #endif
     }
 
+    vk::Result Device::Submit(vk::Queue             queue,
+                              const vk::SubmitInfo& submitInfo,
+                              vk::Fence             fence) const
+    {
+        return mQueueHostAccess.WithLock([&] {
+            return queue.submit(1, &submitInfo, fence);
+        });
+    }
+
+    vk::Result Device::Present(const vk::PresentInfoKHR& presentInfo) const
+    {
+        return mQueueHostAccess.WithLock([&] {
+            return mPresentQueue.presentKHR(&presentInfo);
+        });
+    }
+
+    void Device::WaitIdle() const
+    {
+        mQueueHostAccess.WithLock([&] { mDevice.waitIdle(); });
+    }
+
     void Device::SubmitAndWait(vk::Queue queue, vk::SubmitInfo submitInfo) const
     {
         vk::Fence fence = mDevice.createFence({});
         try
         {
-            queue.submit(submitInfo, fence);
+            if (Submit(queue, submitInfo, fence) != vk::Result::eSuccess)
+                throw std::runtime_error("Device::SubmitAndWait submit failed");
             const auto result =
                 mDevice.waitForFences(1, &fence, VK_TRUE, UINT64_MAX);
-            mDevice.destroyFence(fence);
             if (result != vk::Result::eSuccess)
                 throw std::runtime_error("Device::SubmitAndWait fence wait "
                                          "failed.");
@@ -97,5 +118,6 @@ namespace FREYA_NAMESPACE
             mDevice.destroyFence(fence);
             throw;
         }
+        mDevice.destroyFence(fence);
     }
 } // namespace FREYA_NAMESPACE

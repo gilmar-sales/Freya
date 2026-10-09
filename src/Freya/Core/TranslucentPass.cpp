@@ -72,7 +72,7 @@ namespace FREYA_NAMESPACE
 
     TranslucentPass::~TranslucentPass()
     {
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         auto& vkDevice = mDevice->Get();
 
         for (auto fb : mAccumulateFramebuffers)

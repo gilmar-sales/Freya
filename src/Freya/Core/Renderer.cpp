@@ -62,9 +62,9 @@ namespace FREYA_NAMESPACE
             const auto  period = std::max(1u, haltonPeriod);
             const auto  sample = (frameIndex % period) + 1;
             const float jx     = (Halton(sample, 2) - 0.5f) * 2.0f /
-                             static_cast<float>(extent.width);
-            const float jy = -(Halton(sample, 3) - 0.5f) * 2.0f /
-                             static_cast<float>(extent.height);
+                                 static_cast<float>(extent.width);
+            const float jy     = -(Halton(sample, 3) - 0.5f) * 2.0f /
+                                 static_cast<float>(extent.height);
             projection[2][0] += jx;
             projection[2][1] += jy;
         }
@@ -254,7 +254,7 @@ namespace FREYA_NAMESPACE
 
     Renderer::Impl::~Impl()
     {
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
 
         destroyFrameTimestampPool();
 
@@ -277,7 +277,7 @@ namespace FREYA_NAMESPACE
 
     void Renderer::Impl::RebuildSwapChain()
     {
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
 
         mSwapChain.reset();
         mSwapChain = mServiceProvider->GetService<SwapChainBuilder>()->Build();
@@ -538,21 +538,13 @@ namespace FREYA_NAMESPACE
             const glm::mat4 viewProj = mCurrentProjection.unjitteredProjection *
                                        mCurrentProjection.view;
             mDebugDrawPass->Draw(mSwapChain, mCommandPool,
-                                   mDebugDraw.Vertices(), viewProj);
+                                 mDebugDraw.Vertices(), viewProj);
         };
         ctx.recordModelPreviews = [this]() {
-            std::vector<UiModelPreview*> copy;
-            {
-                std::lock_guard lock(mModelPreviewMutex);
-                copy = mModelPreviews;
-            }
-            for (UiModelPreview* preview : copy)
-            {
-                if (!preview)
-                    continue;
+            mModelPreviews.ForEach([&](UiModelPreview* preview) {
                 preview->Record(mCommandPool, mSwapChain,
                                 mSwapChain->GetCurrentFrameIndex());
-            }
+            });
         };
         return ctx;
     }
@@ -591,7 +583,7 @@ namespace FREYA_NAMESPACE
         if (it == mFrameStages.end())
             return false;
 
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
 
         auto ctx = makeFrameContext();
         stage->Rebuild(ctx, *mServiceProvider);
@@ -614,7 +606,7 @@ namespace FREYA_NAMESPACE
 
         // Replacing a stage destroys the old one's GPU resources; wait for the
         // GPU before the old stage is torn down and the new one is rebuilt.
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
 
         *it      = std::move(stage);
         auto ctx = makeFrameContext();
@@ -674,7 +666,7 @@ namespace FREYA_NAMESPACE
         if (quality == ShadowQuality::Off)
             return;
 
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
 
         if (mShadowPass)
         {
@@ -713,7 +705,7 @@ namespace FREYA_NAMESPACE
         if (!enabledChanged && !divisorChanged)
             return;
 
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         rebuildSceneResources();
     }
 
@@ -754,7 +746,7 @@ namespace FREYA_NAMESPACE
 
         if (wasEnabled != HasFlag(mFreyaOptions->renderFlags, RenderFlags::Taa))
         {
-            mDevice->Get().waitIdle();
+            mDevice->WaitIdle();
             rebuildSceneResources();
             return;
         }
@@ -782,20 +774,20 @@ namespace FREYA_NAMESPACE
         if (!enabledChanged && !divisorChanged)
             return;
 
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         rebuildSceneResources();
     }
 
     void Renderer::Impl::SetOutputTarget(const skr::Arc<RenderTarget>& target)
     {
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         mOutputTarget = target;
         rebuildSceneResources();
     }
 
     void Renderer::Impl::ClearOutputTarget()
     {
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         mOutputTarget.reset();
         mViewportTarget.reset();
         rebuildSceneResources();
@@ -1034,14 +1026,14 @@ namespace FREYA_NAMESPACE
         const auto far  = mFreyaOptions->drawDistance;
 
         auto projectionUniformBuffer = ProjectionUniformBuffer {
-            .view         = glm::lookAt(cameraPosition,
-                                        cameraPosition + cameraForward,
-                                        cameraUp),
-            .projection   = MakeProjection(glm::radians(45.0f),
-                                           static_cast<float>(extent.width) /
-                                               static_cast<float>(extent.height),
-                                           near,
-                                           far),
+            .view       = glm::lookAt(cameraPosition,
+                                      cameraPosition + cameraForward,
+                                      cameraUp),
+            .projection = MakeProjection(glm::radians(45.0f),
+                                         static_cast<float>(extent.width) /
+                                             static_cast<float>(extent.height),
+                                         near,
+                                         far),
             .ambientLight = glm::vec4(mFreyaOptions->ambientColor,
                                       mFreyaOptions->ambientIntensity)
         };
@@ -1164,21 +1156,14 @@ namespace FREYA_NAMESPACE
     {
         if (!preview)
             return;
-        std::lock_guard lock(mModelPreviewMutex);
-        if (std::find(mModelPreviews.begin(), mModelPreviews.end(), preview) !=
-            mModelPreviews.end())
-            return;
-        mModelPreviews.push_back(preview);
+        mModelPreviews.Add(preview);
     }
 
     void Renderer::Impl::RemoveModelPreview(UiModelPreview* preview)
     {
         if (!preview)
             return;
-        std::lock_guard lock(mModelPreviewMutex);
-        mModelPreviews.erase(
-            std::remove(mModelPreviews.begin(), mModelPreviews.end(), preview),
-            mModelPreviews.end());
+        mModelPreviews.Remove(preview);
     }
 
     void Renderer::Impl::blitBloomToFullRes(
@@ -1339,7 +1324,6 @@ namespace FREYA_NAMESPACE
     void Renderer::Impl::UploadSceneInstances(
         const std::span<const SceneInstanceUpload> uploads)
     {
-        mUsedUploadApi = true;
         if (mIndirectDraw)
             mIndirectDraw->UploadSceneInstances(uploads);
     }
@@ -1430,7 +1414,7 @@ namespace FREYA_NAMESPACE
         if (!mDevice || !mServiceProvider)
             return;
         const bool wasEnabled = mGpuAnimPass && mGpuAnimPass->IsEnabled();
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         mGpuAnimPass.reset();
         mGpuAnimPass =
             mServiceProvider->GetService<GpuAnimPassBuilder>()->Build();
@@ -1804,7 +1788,7 @@ namespace FREYA_NAMESPACE
             return false;
         }
 
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         outEntityId           = mPickPass->ReadPixel();
         mPickAwaitingReadback = false;
         return true;

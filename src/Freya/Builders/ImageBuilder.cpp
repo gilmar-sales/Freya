@@ -415,8 +415,7 @@ namespace FREYA_NAMESPACE
                 vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(
                     &commandBuffer);
 
-            mDevice->GetTransferQueue().submit(submitInfo);
-            mDevice->GetTransferQueue().waitIdle();
+            mDevice->SubmitAndWait(mDevice->GetTransferQueue(), submitInfo);
 
             commandPool->FreeCommandBuffer(commandBuffer);
         }
@@ -595,8 +594,7 @@ namespace FREYA_NAMESPACE
             vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(
                 &commandBuffer);
 
-        mDevice->GetTransferQueue().submit(submitInfo);
-        mDevice->GetTransferQueue().waitIdle();
+        mDevice->SubmitAndWait(mDevice->GetTransferQueue(), submitInfo);
 
         commandPool->FreeCommandBuffer(commandBuffer);
     }

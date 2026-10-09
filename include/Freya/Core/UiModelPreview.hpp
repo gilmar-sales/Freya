@@ -22,7 +22,8 @@ namespace FREYA_NAMESPACE
      * @brief Orbit / auto-rotate controls for UiModelPreview.
      *
      * Yaw/pitch used by Record may be updated from the UI thread via
-     * FeedMouse* / SetOrbit; Record reads them atomically.
+     * FeedMouse* / SetOrbit; Record uses a synchronized configuration
+     * snapshot.
      */
     struct UiModelPreviewOrbit
     {
@@ -77,13 +78,14 @@ namespace FREYA_NAMESPACE
         UiModelPreview(const UiModelPreview&)            = delete;
         UiModelPreview& operator=(const UiModelPreview&) = delete;
 
+        // Coordinator-only, between frames (no unsubmitted Record commands).
         void Resize(glm::uvec2 extent);
 
         [[nodiscard]] TextureHandle Texture() const;
         [[nodiscard]] glm::uvec2    Extent() const;
 
-        UiModelPreviewOrbit&                     Orbit();
-        [[nodiscard]] const UiModelPreviewOrbit& Orbit() const;
+        // Snapshot by value: modify a copy, then publish with SetOrbit.
+        [[nodiscard]] UiModelPreviewOrbit Orbit() const;
         void SetOrbit(const UiModelPreviewOrbit& orbit);
 
         Scene&                     PreviewScene();

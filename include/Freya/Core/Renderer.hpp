@@ -108,7 +108,10 @@ namespace FREYA_NAMESPACE
          * @brief Per-frame cumulative bone uploads (thread-safe Upload).
          *
          * Begin → optional Reserve → UploadBoneMatrixUploads* → End.
-         * Prefer this from ECS parallel packing; UploadBoneMatrices wraps
+ *
+         * Join workers before End; Begin/Reserve/End are coordinator-only.
+
+         * * Prefer this from ECS parallel packing; UploadBoneMatrices wraps
          * Begin/Upload/End for single-thread callers.
          */
         void BeginBoneMatrixUploads();
@@ -153,7 +156,13 @@ namespace FREYA_NAMESPACE
 
         /**
          * @brief Register a preview for ModelPreviewFrameStage (non-owning).
-         * Mutate only outside of EndScene Execute (e.g. begin of frame).
+         * Remove waits for active Record calls; remove before destruction.
+
+         * * Destroy on the coordinator between submitted frames, not while a
+
+         * * frame command buffer referencing the preview is being built.
+
+         * * Do not mutate registration from a Record callback.
          */
         void AddModelPreview(UiModelPreview* preview);
         void RemoveModelPreview(UiModelPreview* preview);
@@ -170,9 +179,13 @@ namespace FREYA_NAMESPACE
         /**
          * @brief Per-frame cumulative scene upload (thread-safe Upload).
          *
-         * Begin → optional Reserve → Upload(span)* from any threads → End.
-         * Prefer Scene::Upload for retained lists; use this trio from ECS
-         * parallel chunk packing.
+         * Begin → optional Reserve → Upload(span)* from any threads →
+         * End.
+
+         * * Join all workers before End; Begin/Reserve/End are
+         * coordinator-only.
+         * Prefer Scene::Upload for retained lists;
+         * use this trio from ECS parallel chunk packing.
          */
         void BeginSceneInstances();
         void ReserveSceneInstances(std::uint32_t count);

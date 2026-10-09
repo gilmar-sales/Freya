@@ -40,7 +40,7 @@ namespace FREYA_NAMESPACE
 
     BloomPass::~BloomPass()
     {
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         auto& vkDevice = mDevice->Get();
 
         for (auto& fb : mFramebuffers)

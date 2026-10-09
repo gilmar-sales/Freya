@@ -31,7 +31,7 @@ namespace FREYA_NAMESPACE
 
     MaterialDescriptorResources::~MaterialDescriptorResources()
     {
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         auto& vkDevice = mDevice->Get();
 
         vkDevice.destroySampler(mFallbackSampler);

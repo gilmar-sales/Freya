@@ -7,7 +7,7 @@ namespace FREYA_NAMESPACE
 
     SwapChain::~SwapChain()
     {
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         for (const auto& frame : mFrames)
         {
             mDevice->Get().destroyImageView(frame.imageView);
@@ -87,9 +87,8 @@ namespace FREYA_NAMESPACE
 
         if (const auto imageFence = mImagesInFlight[mCurrentImageIndex])
         {
-            if (mDevice->Get()
-                    .waitForFences(1, &imageFence, true, UINT64_MAX) !=
-                vk::Result::eSuccess)
+            if (mDevice->Get().waitForFences(
+                    1, &imageFence, true, UINT64_MAX) != vk::Result::eSuccess)
                 throw std::runtime_error("failed to wait for image fence!");
         }
         return mFrames[mCurrentImageIndex];
@@ -121,10 +120,9 @@ namespace FREYA_NAMESPACE
             .setWaitDstStageMask(waitStages)
             .setSignalSemaphores(signalSemaphores);
 
-        const auto submitResult = mDevice->GetGraphicsQueue().submit(
-            1,
-            &submitInfo,
-            mInFlightFences[mCurrentFrameIndex]);
+        const auto submitResult =
+            mDevice->Submit(mDevice->GetGraphicsQueue(), submitInfo,
+                            mInFlightFences[mCurrentFrameIndex]);
 
         if (submitResult != vk::Result::eSuccess)
             throw std::runtime_error("failed to submit draw command buffer!");
@@ -138,7 +136,7 @@ namespace FREYA_NAMESPACE
             .setSwapchains(swapChains)
             .setImageIndices(imageIndices);
 
-        const auto result = mDevice->GetPresentQueue().presentKHR(presentInfo);
+        const auto result = mDevice->Present(presentInfo);
 
         // Tag the image with this slot's fence so a later frame acquiring
         // the same image waits for this presentation to finish.

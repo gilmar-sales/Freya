@@ -239,7 +239,7 @@ namespace FREYA_NAMESPACE
         if (!mDevice)
             return;
 
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         auto& vkDevice = mDevice->Get();
 
         for (auto& fb : mSpotFramebuffers)

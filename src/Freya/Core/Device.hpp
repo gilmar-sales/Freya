@@ -2,6 +2,7 @@
 
 #include "DebugLabels.hpp"
 #include "Freya/Core/MemoryAllocator.hpp"
+#include "Freya/Internal/SynchronizedState.hpp"
 #include "PhysicalDevice.hpp"
 
 #include <array>
@@ -74,7 +75,7 @@ namespace FREYA_NAMESPACE
 
         ~Device()
         {
-            mDevice.waitIdle();
+            WaitIdle();
             // VMA must die while VkDevice is still valid.
             mAllocator.reset();
             mDevice.destroy();
@@ -154,6 +155,13 @@ namespace FREYA_NAMESPACE
 
         void SubmitAndWait(vk::Queue queue, vk::SubmitInfo submitInfo) const;
 
+        // All framework queue operations share one host gate, including
+        // aliases of the same VkQueue. Native handles require external sync.
+        vk::Result Submit(vk::Queue queue, const vk::SubmitInfo& submitInfo,
+                          vk::Fence fence = {}) const;
+        vk::Result Present(const vk::PresentInfoKHR& presentInfo) const;
+        void       WaitIdle() const;
+
         /**
          * @brief VMA sub-allocator owning all device memory.
          * Null until DeviceBuilder attaches it right after
@@ -175,6 +183,7 @@ namespace FREYA_NAMESPACE
         vk::Queue                 mGraphicsQueue;
         vk::Queue                 mPresentQueue;
         vk::Queue                 mTransferQueue;
+        HostSynchronization       mQueueHostAccess;
 
         PFN_vkCmdBeginDebugUtilsLabelEXT mCmdBeginDebugLabel = nullptr;
         PFN_vkCmdEndDebugUtilsLabelEXT   mCmdEndDebugLabel   = nullptr;

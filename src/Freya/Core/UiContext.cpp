@@ -592,7 +592,7 @@ namespace FREYA_NAMESPACE
         if (orbitTarget)
         {
             orbitTarget->SetFrameDelta(mDt);
-            auto& orbit = orbitTarget->Orbit();
+            const auto orbit = orbitTarget->Orbit();
             if (orbit.enabled)
             {
                 const int btn = static_cast<int>(orbit.dragButton);

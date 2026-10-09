@@ -28,7 +28,7 @@ namespace FREYA_NAMESPACE
 
     ShadowMaskPass::~ShadowMaskPass()
     {
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         auto& dev = mDevice->Get();
         if (mPipeline)
             dev.destroyPipeline(mPipeline);
@@ -61,7 +61,7 @@ namespace FREYA_NAMESPACE
             mBoundCascadeView == cascadeView && mBoundFrame == frameIndex)
             return;
 
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
 
         constexpr auto shadowMapLayout =
             vk::ImageLayout::eShaderReadOnlyOptimal;

@@ -119,8 +119,13 @@ renderer->BeginSceneInstances();
 renderer->ReserveSceneInstances(expectedCount);
 // any threads:
 renderer->UploadSceneInstances(chunkSpan); // cumulative, thread-safe
+// coordinator: join/wait for every worker before finalizing
 renderer->EndSceneInstances();
 ```
+
+`Begin`/`Reserve`/`End` run on the coordinator. `End` is not a worker join;
+late uploads are a contract violation. The same join requirement applies to
+light and bone upload windows.
 
 ## Frame path
 ### Frame stages

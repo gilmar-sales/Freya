@@ -2,6 +2,7 @@ add_library(FreyaExamplesCommon STATIC
     src/FlyCam.cpp
     src/GroundMesh.cpp
     src/DebugOverlay.cpp
+    src/GpuTimingCapture.cpp
     src/CullFrameDumpIo.cpp
     src/CullAabbDebugDraw.cpp
 )

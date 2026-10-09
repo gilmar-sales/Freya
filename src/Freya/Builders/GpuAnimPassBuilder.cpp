@@ -56,6 +56,12 @@ namespace FREYA_NAMESPACE
         const auto frameCount =
             std::max(1u, mBoneResources ? mBoneResources->GetFrameCount()
                                         : mFreyaOptions->frameCount);
+        const FrameUploadLayout instanceLayout(
+            frameCount, instBytes,
+            mDevice->GetPhysicalDevice()
+                ->Get()
+                .getProperties()
+                .limits.minStorageBufferOffsetAlignment);
         const auto extractRingBytes = static_cast<std::uint32_t>(
             frameCount * GpuAnimPass::kMaxExtractJoints * sizeof(glm::mat4));
 
@@ -86,7 +92,7 @@ namespace FREYA_NAMESPACE
         auto instanceBuf =
             BufferBuilder(mDevice)
                 .SetUsage(BufferUsage::Storage)
-                .SetSize(instBytes)
+                .SetSize(instanceLayout.Size())
                 .Build();
         auto maskBuf = BufferBuilder(mDevice)
                            .SetUsage(BufferUsage::Storage)
@@ -140,7 +146,7 @@ namespace FREYA_NAMESPACE
                 .setStageFlags(vk::ShaderStageFlagBits::eCompute),
             vk::DescriptorSetLayoutBinding()
                 .setBinding(4)
-                .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                .setDescriptorType(vk::DescriptorType::eStorageBufferDynamic)
                 .setDescriptorCount(1)
                 .setStageFlags(vk::ShaderStageFlagBits::eCompute),
             vk::DescriptorSetLayoutBinding()
@@ -175,7 +181,10 @@ namespace FREYA_NAMESPACE
         const auto poolSizes = std::array {
             vk::DescriptorPoolSize()
                 .setType(vk::DescriptorType::eStorageBuffer)
-                .setDescriptorCount(10),
+                .setDescriptorCount(9),
+            vk::DescriptorPoolSize()
+                .setType(vk::DescriptorType::eStorageBufferDynamic)
+                .setDescriptorCount(1),
         };
         auto animPool = mDevice->Get().createDescriptorPool(
             vk::DescriptorPoolCreateInfo().setMaxSets(1).setPoolSizes(
@@ -197,7 +206,9 @@ namespace FREYA_NAMESPACE
                 vk::WriteDescriptorSet()
                     .setDstSet(animSet)
                     .setDstBinding(binding)
-                    .setDescriptorType(vk::DescriptorType::eStorageBuffer)
+                    .setDescriptorType(
+                        binding == 4 ? vk::DescriptorType::eStorageBufferDynamic
+                                     : vk::DescriptorType::eStorageBuffer)
                     .setDescriptorCount(1)
                     .setBufferInfo(info);
             mDevice->Get().updateDescriptorSets(write, {});

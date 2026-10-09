@@ -49,7 +49,7 @@ namespace FREYA_NAMESPACE
 
     HiZPyramid::~HiZPyramid()
     {
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         destroyMipViews();
         auto& dev = mDevice->Get();
         if (mCopyPipeline)
@@ -89,7 +89,7 @@ namespace FREYA_NAMESPACE
             return;
 
         // Old mip views/image may be in use by an in-flight frame.
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         destroyMipViews();
         mReady       = false;
         mImageLayout = vk::ImageLayout::eUndefined;
@@ -450,7 +450,7 @@ namespace FREYA_NAMESPACE
         if (!staging || !staging->GetMapped())
             return false;
 
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
 
         auto cb = commandPool->CreateCommandBuffer();
         cb.begin(vk::CommandBufferBeginInfo().setFlags(
@@ -531,8 +531,7 @@ namespace FREYA_NAMESPACE
         cb.end();
         const auto submitInfo =
             vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(&cb);
-        mDevice->GetGraphicsQueue().submit(submitInfo);
-        mDevice->GetGraphicsQueue().waitIdle();
+        mDevice->SubmitAndWait(mDevice->GetGraphicsQueue(), submitInfo);
         commandPool->FreeCommandBuffer(cb);
 
         mImageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
@@ -570,7 +569,7 @@ namespace FREYA_NAMESPACE
         if (!staging)
             return false;
 
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
 
         auto cb = commandPool->CreateCommandBuffer();
         cb.begin(vk::CommandBufferBeginInfo().setFlags(
@@ -646,8 +645,7 @@ namespace FREYA_NAMESPACE
         cb.end();
         const auto submitInfo =
             vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(&cb);
-        mDevice->GetGraphicsQueue().submit(submitInfo);
-        mDevice->GetGraphicsQueue().waitIdle();
+        mDevice->SubmitAndWait(mDevice->GetGraphicsQueue(), submitInfo);
         commandPool->FreeCommandBuffer(cb);
 
         mImageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;

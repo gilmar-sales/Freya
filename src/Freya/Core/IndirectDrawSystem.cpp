@@ -75,7 +75,7 @@ namespace FREYA_NAMESPACE
 
     IndirectDrawSystem::~IndirectDrawSystem()
     {
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         auto& vkDevice = mDevice->Get();
         vkDevice.destroyPipeline(mCullPipeline);
         vkDevice.destroyPipelineLayout(mCullPipelineLayout);
@@ -497,7 +497,7 @@ namespace FREYA_NAMESPACE
         bool rebind = false;
         if (meshCount > mMeshInfoCapacity || !mMeshInfoBuffer)
         {
-            mDevice->Get().waitIdle();
+            mDevice->WaitIdle();
             mMeshInfoBuffer =
                 BufferBuilder(mDevice)
                     .SetUsage(BufferUsage::Storage)
@@ -508,11 +508,11 @@ namespace FREYA_NAMESPACE
         }
         if (lodCount > mMeshLodCapacity || !mMeshLodBuffer)
         {
-            mDevice->Get().waitIdle();
-            mMeshLodBuffer = BufferBuilder(mDevice)
-                                 .SetUsage(BufferUsage::Storage)
-                                 .SetSize(sizeof(MeshLodInfo) * lodCount)
-                                 .Build();
+            mDevice->WaitIdle();
+            mMeshLodBuffer   = BufferBuilder(mDevice)
+                                   .SetUsage(BufferUsage::Storage)
+                                   .SetSize(sizeof(MeshLodInfo) * lodCount)
+                                   .Build();
             mMeshLodCapacity = lodCount;
             rebind           = true;
         }
@@ -607,16 +607,12 @@ namespace FREYA_NAMESPACE
     void IndirectDrawSystem::BeginSceneInstances()
     {
         mStagingOpen = true;
-        mStagingCount.store(0, std::memory_order_relaxed);
+        mStagingUploads.Begin();
     }
 
     void IndirectDrawSystem::ReserveSceneInstances(const std::uint32_t count)
     {
-        {
-            SpinLockGuard lock(mStagingLock);
-            if (mStaging.size() < count)
-                mStaging.resize(count);
-        }
+        mStagingUploads.Reserve(count);
 
         // Grow GPU FiF slots up-front so End never hits Buffer::~ waitIdle.
         for (std::uint32_t f = 0; f < mFrameCount; ++f)
@@ -629,28 +625,13 @@ namespace FREYA_NAMESPACE
     void IndirectDrawSystem::UploadSceneInstances(
         const std::span<const SceneInstanceUpload> uploads)
     {
-        const auto n = static_cast<std::uint32_t>(uploads.size());
-        if (n == 0)
-            return;
-
-        const auto base = mStagingCount.fetch_add(n, std::memory_order_relaxed);
-
-        SpinLockGuard lock(mStagingLock);
-        if (base + n > mStaging.size())
-        {
-            const auto grown = std::max(
-                base + n,
-                std::max<std::uint32_t>(
-                    1u, static_cast<std::uint32_t>(mStaging.size()) * 2u));
-            mStaging.resize(grown);
-        }
-        std::copy(uploads.begin(), uploads.end(),
-                  mStaging.begin() + static_cast<std::ptrdiff_t>(base));
+        mStagingUploads.Upload(uploads);
     }
 
     void IndirectDrawSystem::finalizeStagingToHost()
     {
-        const auto count   = mStagingCount.load(std::memory_order_relaxed);
+        const auto staging = mStagingUploads.End();
+        const auto count   = static_cast<std::uint32_t>(staging.size());
         mUsedTechniqueMask = 0;
 
         if (count == 0)
@@ -675,8 +656,8 @@ namespace FREYA_NAMESPACE
         for (std::uint32_t i = 0; i < count; ++i)
         {
             sortKeys[i] = UploadSortKey {
-                .doubleSided = isDoubleSided(mStaging[i]),
-                .entityId    = mStaging[i].entityId,
+                .doubleSided = isDoubleSided(staging[i]),
+                .entityId    = staging[i].entityId,
                 .uploadIndex = i,
             };
         }
@@ -706,7 +687,7 @@ namespace FREYA_NAMESPACE
 
         for (std::uint32_t dst = 0; dst < mInstanceCount; ++dst)
         {
-            const auto&   src         = mStaging[sortKeys[dst].uploadIndex];
+            const auto&   src         = staging[sortKeys[dst].uploadIndex];
             std::uint32_t techniqueId = src.techniqueId;
             if (techniqueId >= kMaxMaterialTechniques)
                 techniqueId = 0;
@@ -1097,12 +1078,12 @@ namespace FREYA_NAMESPACE
                                          : glm::mat4(1.0f);
             out.instances[i].model = M;
             out.sources[i]         = InstanceTransform {
-                        .model      = M,
-                        .prevModel  = M,
-                        .materialId = mSceneInstances[i].materialId,
-                        .entityId   = mSceneInstances[i].entityId,
-                        .flags      = mSceneInstances[i].flags,
-                        .boneOffset = mSceneInstances[i].boneOffset,
+                .model      = M,
+                .prevModel  = M,
+                .materialId = mSceneInstances[i].materialId,
+                .entityId   = mSceneInstances[i].entityId,
+                .flags      = mSceneInstances[i].flags,
+                .boneOffset = mSceneInstances[i].boneOffset,
             };
         }
         out.hiz.present = mHiZ && mHiZ->IsValid();
@@ -1163,7 +1144,7 @@ namespace FREYA_NAMESPACE
             return false;
         }
 
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
 
         auto cb = mCommandPool->CreateCommandBuffer();
         cb.begin(vk::CommandBufferBeginInfo().setFlags(
@@ -1204,8 +1185,7 @@ namespace FREYA_NAMESPACE
 
         const auto submitInfo =
             vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(&cb);
-        mDevice->GetGraphicsQueue().submit(submitInfo);
-        mDevice->GetGraphicsQueue().waitIdle();
+        mDevice->SubmitAndWait(mDevice->GetGraphicsQueue(), submitInfo);
         mCommandPool->FreeCommandBuffer(cb);
 
         // Two ranges: single-sided in slots [0, nSingle), double-sided in

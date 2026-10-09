@@ -3,11 +3,15 @@
 #include <FreyaExamples/DebugOverlay.hpp>
 #include <FreyaExamples/ExampleLogging.hpp>
 #include <FreyaExamples/FlyCam.hpp>
+#include <FreyaExamples/GpuTimingCapture.hpp>
 #include <FreyaExamples/GroundMesh.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdlib>
 #include <iostream>
+#include <string>
 #include <vector>
 
 // ── Light Stress Showcase ────────────────────────────────────────────────────
@@ -17,6 +21,12 @@
 // the low-poly blocks make the per-pixel lighting cost easy to see.
 //
 // Controls: RMB + WASD fly | Space toggles light animation
+//
+// Baseline capture (headless, prints per-stage GPU ms and exits):
+//   FREYA_BENCH_FRAMES=600 FREYA_BENCH_OUT=bench.csv ./LightStressShowcase
+// Scene knobs: FREYA_STRESS_GRID=1..8 (grid x grid point lights, default 8)
+//              FREYA_STRESS_SHADOWS=1 (enable the shadow pass)
+// See GpuTimingCapture.hpp for the FREYA_BENCH_* variables.
 
 namespace
 {
@@ -76,6 +86,22 @@ namespace
                                             base + 2, base + 3 });
         }
         return pool.CreateMesh(vertices, indices);
+    }
+
+    int StressGrid()
+    {
+        const char* value = std::getenv("FREYA_STRESS_GRID");
+        return value != nullptr
+                   ? std::clamp(
+                         static_cast<int>(std::strtol(value, nullptr, 10)), 1,
+                         8)
+                   : 8;
+    }
+
+    bool StressShadows()
+    {
+        const char* value = std::getenv("FREYA_STRESS_SHADOWS");
+        return value != nullptr && *value == '1';
     }
 } // namespace
 
@@ -140,34 +166,46 @@ class MainApp final : public fra::AbstractApplication
         mLightService->AddLight(fra::MakeDirectionalLight(
             { -0.3f, -1.f, -0.2f }, { 0.28f, 0.31f, 0.38f }, 0.25f));
 
-        constexpr int   kGrid    = 8;
+        const int       kGrid    = StressGrid();
         constexpr float kSpacing = 4.5f;
+        const float     kHalf    = static_cast<float>(kGrid - 1) * 0.5f;
+        const float     kSpan    = static_cast<float>(std::max(kGrid - 1, 1));
         mLightHandles.reserve(kGrid * kGrid);
         mBasePositions.reserve(kGrid * kGrid);
         for (int z = 0; z < kGrid; ++z)
             for (int x = 0; x < kGrid; ++x)
             {
-                const glm::vec3 position { (x - 3.5f) * kSpacing, 3.0f,
-                                           (z - 3.5f) * kSpacing };
+                const glm::vec3 position { (x - kHalf) * kSpacing, 3.0f,
+                                           (z - kHalf) * kSpacing };
                 const glm::vec3 color {
-                    0.35f + 0.65f * static_cast<float>(x) / 7.f,
-                    0.25f + 0.70f * static_cast<float>(z) / 7.f,
-                    1.0f - 0.55f * static_cast<float>(x + z) / 14.f,
+                    0.35f + 0.65f * static_cast<float>(x) / kSpan,
+                    0.25f + 0.70f * static_cast<float>(z) / kSpan,
+                    1.0f - 0.55f * static_cast<float>(x + z) / (2.f * kSpan),
                 };
                 mLightHandles.push_back(mLightService->AddLight(
                     fra::MakePointLight(position, color, 5.f, 7.f)));
                 mBasePositions.push_back(position);
             }
 
+        if (mCapture.Active())
+            mAnimateLights = false;
+
         mFreyaOptions->title = "LightStressShowcase";
         std::cout << "LightStressShowcase\n"
-                     "  64 animated point lights\n"
+                     "  animated point lights (FREYA_STRESS_GRID)\n"
                      "  SPACE toggles light animation\n"
                      "  RMB + WASD to navigate\n";
     }
 
     void Update() override
     {
+        if (mCapture.Tick(*mRenderer,
+                          "lights=" + std::to_string(mLightHandles.size()) +
+                              " shadows=" + (StressShadows() ? "on" : "off")))
+        {
+            mWindow->Close();
+            return;
+        }
         mOverlay.MarkUpdateStart();
         mOverlay.BeginFrame();
         const float dt = mWindow->GetDeltaTime();
@@ -211,17 +249,18 @@ class MainApp final : public fra::AbstractApplication
         mScene.Add(instance);
     }
 
-    fra::Ref<fra::MeshPool>       mMeshPool;
-    fra::Ref<fra::MaterialPool>   mMaterialPool;
-    fra::Ref<fra::LightService>   mLightService;
-    fra::Ref<fra::FreyaOptions>   mFreyaOptions;
-    fra::Scene                    mScene;
-    FreyaExamples::FlyCam         mCam;
-    FreyaExamples::DebugOverlay   mOverlay;
-    std::vector<fra::LightHandle> mLightHandles;
-    std::vector<glm::vec3>        mBasePositions;
-    float                         mTime          = 0.f;
-    bool                          mAnimateLights = true;
+    fra::Ref<fra::MeshPool>         mMeshPool;
+    fra::Ref<fra::MaterialPool>     mMaterialPool;
+    fra::Ref<fra::LightService>     mLightService;
+    fra::Ref<fra::FreyaOptions>     mFreyaOptions;
+    fra::Scene                      mScene;
+    FreyaExamples::FlyCam           mCam;
+    FreyaExamples::DebugOverlay     mOverlay;
+    FreyaExamples::GpuTimingCapture mCapture;
+    std::vector<fra::LightHandle>   mLightHandles;
+    std::vector<glm::vec3>          mBasePositions;
+    float                           mTime          = 0.f;
+    bool                            mAnimateLights = true;
 };
 
 int main(int, const char**)
@@ -234,7 +273,7 @@ int main(int, const char**)
                 .SetVSync(false)
                 .SetSampleCount(1)
                 .SetMaxLights(64)
-                .SetEnableShadows(false)
+                .SetEnableShadows(StressShadows())
                 .SetEnableBloom(false)
                 .SetIblIntensity(0.04f)
                 .SetEnvironmentMapPath(

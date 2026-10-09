@@ -26,7 +26,7 @@ namespace FREYA_NAMESPACE
 
     CompositePass::~CompositePass()
     {
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         auto& vkDevice = mDevice->Get();
 
         for (auto& fb : mFramebuffers)

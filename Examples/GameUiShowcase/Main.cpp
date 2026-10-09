@@ -344,7 +344,7 @@ class MainApp final : public fra::AbstractApplication
         mDollPreview  = std::make_unique<fra::UiModelPreview>(
             windowSp, *mTexturePool, glm::uvec2 { 512, 512 });
 
-        auto& orbit       = mDollPreview->Orbit();
+        auto orbit        = mDollPreview->Orbit();
         orbit.enabled     = true;
         orbit.dragButton  = fra::MouseButton::Left;
         orbit.sensitivity = 0.35f;

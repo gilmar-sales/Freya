@@ -36,8 +36,14 @@ namespace FREYA_NAMESPACE
         mParentsBuffer(parentsBuffer), mInvBindBuffer(invBindBuffer),
         mSkeletonHeaderBuffer(skeletonHeaderBuffer),
         mClipHeaderBuffer(clipHeaderBuffer), mJointsBuffer(jointsBuffer),
-        mInstanceBuffer(instanceBuffer), mBoneMaskBuffer(boneMaskBuffer),
-        mRestJointsBuffer(restJointsBuffer),
+        mInstanceBuffer(instanceBuffer),
+        mInstanceLayout(std::max(1u, frameCount),
+                        GpuAnimPass::kMaxInstances * sizeof(GpuAnimInstance),
+                        device->GetPhysicalDevice()
+                            ->Get()
+                            .getProperties()
+                            .limits.minStorageBufferOffsetAlignment),
+        mBoneMaskBuffer(boneMaskBuffer), mRestJointsBuffer(restJointsBuffer),
         mLocalScratchBuffer(localScratchBuffer),
         mGlobalScratchBuffer(globalScratchBuffer),
         mReadbackBuffer(readbackBuffer), mExtractRingBuffer(extractRingBuffer),
@@ -108,7 +114,7 @@ namespace FREYA_NAMESPACE
         if (!mDevice)
             return;
 
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         if (mTimestampPool)
         {
             mDevice->Get().destroyQueryPool(mTimestampPool);
@@ -233,6 +239,7 @@ namespace FREYA_NAMESPACE
         const SpinLockGuard guard(mSkeletonCacheLock);
         if (mSkeletonSlots[0].resident)
         {
+            mDevice->WaitIdle();
             mSkeletonSlots[0].rootJoint = rootJoint;
             WriteSkeletonHeaderUnlocked(0, mSkeletonSlots[0].joints, rootJoint);
         }
@@ -280,6 +287,8 @@ namespace FREYA_NAMESPACE
     {
         if (slot >= GpuAnimPass::kMaxSkeletons)
             return;
+        // Closed CPU staging does not retire reads in earlier GPU frames.
+        mDevice->WaitIdle();
         mSkeletonSlots[slot] = {};
         WriteSkeletonHeaderUnlocked(slot, 0, 0xffffffffu);
         if (slot == 0)
@@ -297,6 +306,8 @@ namespace FREYA_NAMESPACE
         const auto jc = std::min(skeleton.jointCount, GpuAnimPass::kMaxJoints);
         if (jc == 0)
             return false;
+        if (mSkeletonSlots[slot].resident)
+            mDevice->WaitIdle();
 
         const auto skelBase = slot * GpuAnimPass::kMaxJoints;
         const auto resolvedRoot =
@@ -487,6 +498,7 @@ namespace FREYA_NAMESPACE
 
     void GpuAnimPass::Impl::ResetClipCacheUnlocked()
     {
+        mDevice->WaitIdle();
         mClipSlots.fill({});
         mClipTouchClock = 1;
         if (!mClipHeaderBuffer)
@@ -552,6 +564,7 @@ namespace FREYA_NAMESPACE
     {
         if (slot >= GpuAnimPass::kMaxClips)
             return;
+        mDevice->WaitIdle();
         mClipSlots[slot] = {};
         if (!mClipHeaderBuffer)
             return;
@@ -584,6 +597,8 @@ namespace FREYA_NAMESPACE
         const auto need = clip.frameCount * clip.jointCount;
         if (need > slab || need != clip.joints.size())
             return false;
+        if (mClipSlots[slot].resident)
+            mDevice->WaitIdle();
 
         const auto jointsBase = slot * slab;
         const auto header     = MakeGpuClipHeader(clip, jointsBase);
@@ -764,6 +779,7 @@ namespace FREYA_NAMESPACE
     {
         if (!mBoneMaskBuffer || weights.empty())
             return;
+        mDevice->WaitIdle();
         const auto n = std::min(static_cast<std::uint32_t>(weights.size()),
                                 GpuAnimPass::kMaxMaskFloats);
         mBoneMaskBuffer->Copy(weights.data(),
@@ -790,6 +806,7 @@ namespace FREYA_NAMESPACE
         if (mQuantizedJoints || !mRestJointsBuffer || joints.empty() ||
             skeletonSlot >= GpuAnimPass::kMaxSkeletons)
             return;
+        mDevice->WaitIdle();
         const auto n = std::min(
             static_cast<std::uint32_t>(joints.size()), GpuAnimPass::kMaxJoints);
         const auto skelBase = skeletonSlot * GpuAnimPass::kMaxJoints;
@@ -807,6 +824,7 @@ namespace FREYA_NAMESPACE
         if (!mQuantizedJoints || !mRestJointsBuffer || joints.empty() ||
             skeletonSlot >= GpuAnimPass::kMaxSkeletons)
             return;
+        mDevice->WaitIdle();
         const auto n = std::min(
             static_cast<std::uint32_t>(joints.size()), GpuAnimPass::kMaxJoints);
         const auto skelBase = skeletonSlot * GpuAnimPass::kMaxJoints;
@@ -819,55 +837,29 @@ namespace FREYA_NAMESPACE
     void GpuAnimPass::Impl::BeginInstanceUploads()
     {
         mInstanceStagingOpen = true;
-        mInstanceStagingCount.store(0, std::memory_order_relaxed);
+        mInstanceUploads.Begin();
     }
 
     void GpuAnimPass::Impl::ReserveInstanceUploads(const std::uint32_t count)
     {
-        SpinLockGuard lock(mInstanceStagingLock);
-        if (mInstanceStaging.size() < count)
-            mInstanceStaging.resize(count);
+        mInstanceUploads.Reserve(count);
     }
 
     void GpuAnimPass::Impl::UploadInstanceUploads(
         const std::span<const GpuAnimInstance> instances)
     {
-        const auto n = static_cast<std::uint32_t>(instances.size());
-        if (n == 0)
-            return;
-
-        const auto base =
-            mInstanceStagingCount.fetch_add(n, std::memory_order_relaxed);
-
-        SpinLockGuard lock(mInstanceStagingLock);
-        if (base + n > mInstanceStaging.size())
-        {
-            const auto grown = std::max(
-                base + n,
-                std::max<std::uint32_t>(
-                    1u,
-                    static_cast<std::uint32_t>(mInstanceStaging.size()) * 2u));
-            mInstanceStaging.resize(grown);
-        }
-        std::copy(instances.begin(), instances.end(),
-                  mInstanceStaging.begin() + static_cast<std::ptrdiff_t>(base));
+        mInstanceUploads.Upload(instances);
     }
 
     void GpuAnimPass::Impl::EndInstanceUploads()
     {
         mInstanceStagingOpen = false;
 
-        const auto count =
-            mInstanceStagingCount.load(std::memory_order_relaxed);
-        mInstanceCount = std::min(
-            count, static_cast<std::uint32_t>(mInstanceStaging.size()));
-        mInstanceCount = std::min(mInstanceCount, GpuAnimPass::kMaxInstances);
+        mInstanceStaging = mInstanceUploads.End();
+        mInstanceCount   = static_cast<std::uint32_t>(mInstanceStaging.size());
+        mInstanceCount   = std::min(mInstanceCount, GpuAnimPass::kMaxInstances);
         if (mInstanceCount == 0)
             return;
-
-        mInstanceBuffer->Copy(mInstanceStaging.data(),
-                              static_cast<std::uint32_t>(
-                                  mInstanceCount * sizeof(GpuAnimInstance)));
 
         // Sticky GPU-owned palette spans for FiF carry (sparse LOD). CPU
         // UploadBoneMatrices unmarks its own span so mixed mode is safe.
@@ -952,7 +944,7 @@ namespace FREYA_NAMESPACE
             !mDevice)
             return;
 
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
 
         auto cb = commandPool->CreateCommandBuffer();
         cb.begin(vk::CommandBufferBeginInfo().setFlags(
@@ -963,19 +955,35 @@ namespace FREYA_NAMESPACE
 
         const auto submitInfo =
             vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(&cb);
-        mDevice->GetGraphicsQueue().submit(submitInfo);
-        mDevice->GetGraphicsQueue().waitIdle();
+        mDevice->SubmitAndWait(mDevice->GetGraphicsQueue(), submitInfo);
         commandPool->FreeCommandBuffer(cb);
     }
 
     void GpuAnimPass::Impl::recordCompute(const vk::CommandBuffer commandBuffer,
                                           const std::uint32_t frameIndex) const
     {
+        // Frame graph callers have waited for this flight slot's fence;
+        // DispatchImmediate waits for the entire device before this copy.
+        const auto instanceOffset = mInstanceLayout.Offset(frameIndex);
+        mInstanceBuffer->Copy(mInstanceStaging.data(),
+                              mInstanceCount * sizeof(GpuAnimInstance),
+                              instanceOffset);
+        // Scratch is shared across dispatches. Submission order alone does
+        // not prevent overlapping compute writes from adjacent frames.
+        commandBuffer.pipelineBarrier(
+            vk::PipelineStageFlagBits::eComputeShader,
+            vk::PipelineStageFlagBits::eComputeShader, {},
+            vk::MemoryBarrier()
+                .setSrcAccessMask(vk::AccessFlagBits::eShaderWrite)
+                .setDstAccessMask(vk::AccessFlagBits::eShaderRead |
+                                  vk::AccessFlagBits::eShaderWrite),
+            {}, {});
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, mPipeline);
         const auto boneSet = mBoneResources->GetSet(frameIndex);
         const auto sets    = std::array { boneSet, mAnimSet };
         commandBuffer.bindDescriptorSets(
-            vk::PipelineBindPoint::eCompute, mPipelineLayout, 0, sets, {});
+            vk::PipelineBindPoint::eCompute, mPipelineLayout, 0, sets,
+            instanceOffset);
 
         PushConstants pc {};
         pc.instanceCount = mInstanceCount;
@@ -1103,7 +1111,7 @@ namespace FREYA_NAMESPACE
             mBoneResources->BonesByteOffset(frameIndex) +
             static_cast<vk::DeviceSize>(boneOffset) * sizeof(glm::mat4);
 
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
 
         auto cb = commandPool->CreateCommandBuffer();
         cb.begin(vk::CommandBufferBeginInfo().setFlags(
@@ -1129,8 +1137,7 @@ namespace FREYA_NAMESPACE
 
         const auto submitInfo =
             vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(&cb);
-        mDevice->GetGraphicsQueue().submit(submitInfo);
-        mDevice->GetGraphicsQueue().waitIdle();
+        mDevice->SubmitAndWait(mDevice->GetGraphicsQueue(), submitInfo);
         commandPool->FreeCommandBuffer(cb);
 
         const void* mapped = mReadbackBuffer->GetMapped();

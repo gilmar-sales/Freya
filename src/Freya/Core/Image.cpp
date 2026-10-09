@@ -7,7 +7,7 @@ namespace FREYA_NAMESPACE
      */
     Image::~Image()
     {
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         mDevice->Get().destroyImageView(mImageView);
         mDevice->GetAllocator()->DestroyImage(
             static_cast<VkImage>(mImage), mAllocation);

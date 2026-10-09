@@ -6,10 +6,9 @@
 
 namespace FREYA_NAMESPACE
 {
-    UiModelPreviewOrbit& UiModelPreview::Orbit()
+    UiModelPreviewOrbit UiModelPreview::Orbit() const
     {
-        static UiModelPreviewOrbit sOrbit;
-        return sOrbit;
+        return {};
     }
 
     void UiModelPreview::FeedMouseMove(float, float)

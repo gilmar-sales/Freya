@@ -42,7 +42,7 @@ namespace FREYA_NAMESPACE
         if (!mImpl || !mImpl->mDevice)
             return;
 
-        mImpl->mDevice->Get().waitIdle();
+        mImpl->mDevice->WaitIdle();
 
         auto& vkDevice = mImpl->mDevice->Get();
 

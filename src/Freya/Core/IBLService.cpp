@@ -419,7 +419,7 @@ namespace FREYA_NAMESPACE
 
     IBLService::~IBLService()
     {
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         auto& vkDevice = mDevice->Get();
         if (mEnvironmentSampler)
         {

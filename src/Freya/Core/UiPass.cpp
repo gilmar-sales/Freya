@@ -51,7 +51,7 @@ namespace FREYA_NAMESPACE
     {
         if (!mDevice)
             return;
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         const auto& d = mDevice->Get();
         destroyFramebuffers();
         if (mSwapchainPipeline)
@@ -84,7 +84,7 @@ namespace FREYA_NAMESPACE
 
     void UiPass::UpdateSwapchain(const skr::Arc<SwapChain>& swapChain)
     {
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         destroyFramebuffers();
         if (!swapChain || !mSwapchainRenderPass)
             return;
@@ -109,7 +109,7 @@ namespace FREYA_NAMESPACE
     void UiPass::UpdateOffscreen(const skr::Arc<Image>& color,
                                  const vk::Extent2D     extent)
     {
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         destroyFramebuffers();
         if (!color || !mOffscreenRenderPass || extent.width == 0 ||
             extent.height == 0)

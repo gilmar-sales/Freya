@@ -297,6 +297,7 @@ if (clipSlot == 0xffffffffu || skelSlot == 0xffffffffu) {
 inst.clipA = clipSlot;
 inst.skeletonSlot = skelSlot;
 gpu.UploadGpuAnimInstanceUploads(chunkSpan);
+// coordinator: join/wait for every worker before finalizing
 gpu.EndGpuAnimInstanceUploads();
 // Dispatch runs in the frame graph
 ```
@@ -306,6 +307,13 @@ gpu.EndGpuAnimInstanceUploads();
 `ResetClipCache` / `UploadClipSlot` / `UploadSkeleton` (plus internal
 `UploadBakes` / `EvictClipSlot`) are rejected while instance staging is
 open; Ensure (clip/skeleton) may fill free slots.
+
+Instances use aligned storage regions per flight slot; only the slot whose
+fence has completed is overwritten. Replacing/resetting resident atlas data
+waits for the device to become idle. This conservative retirement can stall
+streaming; preloading and pinning avoids those waits on the hot path.
+Run destructive atlas mutations on the coordinator between submitted frames,
+never after recording a dispatch into an unsubmitted command buffer.
 
 **Mixed CPU + GPU (same frame):** upload CPU skins first, then
 `UploadInstances` / `EndGpuAnimInstanceUploads` for GPU actors, with

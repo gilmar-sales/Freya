@@ -37,6 +37,7 @@
 #include "Freya/Core/UiModelPreview.hpp"
 #include "Freya/Core/UiPass.hpp"
 #include "Freya/Events/EventManager.hpp"
+#include "Freya/Internal/SynchronizedState.hpp"
 
 #include <memory>
 #include <mutex>
@@ -250,10 +251,10 @@ namespace FREYA_NAMESPACE
         void UploadGpuAnimBoneMask(std::span<const float> weights);
         void UploadGpuAnimRestJoints(std::span<const GpuFloatJoint> joints);
         void UploadGpuAnimRestJoints(std::span<const GpuQuantJoint> joints);
-        void UploadGpuAnimRestJoints(std::uint32_t skeletonSlot,
-                                     std::span<const GpuFloatJoint> joints);
-        void UploadGpuAnimRestJoints(std::uint32_t skeletonSlot,
-                                     std::span<const GpuQuantJoint> joints);
+        void UploadGpuAnimRestJoints(
+            std::uint32_t skeletonSlot, std::span<const GpuFloatJoint> joints);
+        void UploadGpuAnimRestJoints(
+            std::uint32_t skeletonSlot, std::span<const GpuQuantJoint> joints);
         void SetGpuAnimRigIndices(std::uint32_t lookJoint, std::uint32_t ikRoot,
                                   std::uint32_t ikMid, std::uint32_t ikTip,
                                   std::uint32_t rootJoint,
@@ -369,8 +370,7 @@ namespace FREYA_NAMESPACE
 
         std::vector<FrameStagePtr> mFrameStages;
 
-        std::mutex                   mModelPreviewMutex;
-        std::vector<UiModelPreview*> mModelPreviews;
+        SynchronizedRegistry<UiModelPreview*> mModelPreviews;
 
         vk::QueryPool              mFrameTimestampPool     = nullptr;
         float                      mFrameTimestampPeriodNs = 0.f;

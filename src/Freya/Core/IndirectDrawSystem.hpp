@@ -14,6 +14,7 @@
 #include "Freya/Core/Image.hpp"
 
 #include "Freya/Core/SpinLock.hpp"
+#include "Freya/Internal/UploadStaging.hpp"
 
 #include <array>
 #include <atomic>
@@ -95,7 +96,7 @@ namespace FREYA_NAMESPACE
         void ExecuteDraws(bool               bindMaterials,
                           vk::PipelineLayout pipelineLayout,
                           std::uint32_t techniqueFilter = kTechniqueFilterAll,
-                          DrawCulling   culling = DrawCulling::AsBound);
+                          DrawCulling   culling         = DrawCulling::AsBound);
 
         void CaptureCullInputs(CullFrameSnapshot& out) const;
 
@@ -227,12 +228,10 @@ namespace FREYA_NAMESPACE
         std::vector<SceneInstance>  mSceneInstances;
         std::vector<SceneTransform> mSceneTransforms;
 
-        std::vector<SceneInstanceUpload> mStaging;
-        std::atomic<std::uint32_t>       mStagingCount { 0 };
-        SpinLock                         mStagingLock;
-        bool                             mStagingOpen = false;
+        UploadStaging<SceneInstanceUpload> mStagingUploads;
+        bool                               mStagingOpen = false;
 
-        std::uint32_t mInstanceCount     = 0;
+        std::uint32_t mInstanceCount = 0;
         /// Instances [0, n) are single-sided, [n, mInstanceCount) double.
         std::uint32_t mSingleSidedCount  = 0;
         std::uint32_t mMeshInfoCapacity  = 0;

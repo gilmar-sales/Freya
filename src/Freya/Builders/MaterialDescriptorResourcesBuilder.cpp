@@ -130,8 +130,7 @@ namespace FREYA_NAMESPACE
             const auto submitInfo =
                 vk::SubmitInfo().setCommandBufferCount(1).setPCommandBuffers(
                     &commandBuffer);
-            mDevice->GetGraphicsQueue().submit(submitInfo);
-            mDevice->GetGraphicsQueue().waitIdle();
+            mDevice->SubmitAndWait(mDevice->GetGraphicsQueue(), submitInfo);
             mDevice->Get().destroyCommandPool(commandPool);
 
             const auto imageView = mDevice->Get().createImageView(

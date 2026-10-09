@@ -1,4 +1,5 @@
 #include "Freya/Core/UiModelPreview.hpp"
+#include "Freya/Internal/SynchronizedState.hpp"
 
 #include "Freya/Asset/BoneMatrixResources.hpp"
 #include "Freya/Asset/GpuScene.hpp"
@@ -145,16 +146,22 @@ namespace FREYA_NAMESPACE
         std::vector<skr::Arc<Image>>     bloomResults;
         vk::Sampler                      bloomSampler {};
 
-        Scene               scene;
+        struct OrbitState
+        {
+            UiModelPreviewOrbit orbit;
+            bool                dragging = false;
+        };
+        SynchronizedState<OrbitState> orbitState;
+        std::mutex                    renderMutex;
+        Scene                         scene;
+        // Render-only snapshot, protected by renderMutex. UI mutations only
+        // touch orbitState; deferred/shadow stages share this frame's copy.
         UiModelPreviewOrbit orbit {};
         TextureHandle       liveTexture {};
         glm::uvec2          extent { 512, 512 };
 
-        std::atomic<float> yawDeg { 30.f };
-        std::atomic<float> pitchDeg { -10.f };
         std::atomic<float> frameDt { 0.f };
         std::atomic<bool>  active { true };
-        bool               dragging = false;
 
         ProjectionUniformBuffer projection {};
         glm::mat4               prevViewProjection { 1.f };
@@ -258,7 +265,7 @@ namespace FREYA_NAMESPACE
         {
             extent = { std::max(1u, newExtent.x), std::max(1u, newExtent.y) };
             if (device)
-                device->Get().waitIdle();
+                device->WaitIdle();
 
             unregisterLive();
             destroyPasses();
@@ -297,7 +304,7 @@ namespace FREYA_NAMESPACE
             }
 
             if (device)
-                device->Get().waitIdle();
+                device->WaitIdle();
             destroyPasses();
             swapChain = sc;
 
@@ -415,26 +422,21 @@ namespace FREYA_NAMESPACE
             }
         }
 
-        void updateOrbit(const float dt)
+        UiModelPreviewOrbit updateOrbit(const float dt)
         {
-            if (orbit.autoRotate && !dragging && orbit.enabled)
-            {
-                const float yaw = yawDeg.load(std::memory_order_relaxed) +
-                                  orbit.autoSpeed * dt;
-                yawDeg.store(yaw, std::memory_order_relaxed);
-                orbit.yawDeg = yaw;
-            }
-            orbit.yawDeg   = yawDeg.load(std::memory_order_relaxed);
-            orbit.pitchDeg = pitchDeg.load(std::memory_order_relaxed);
+            return orbitState.WithLock([&](OrbitState& state) {
+                auto& orbit = state.orbit;
+                if (orbit.autoRotate && !state.dragging && orbit.enabled)
+                    orbit.yawDeg += orbit.autoSpeed * dt;
+                return orbit;
+            });
         }
 
-        void applyCamera()
+        void applyCamera(const UiModelPreviewOrbit& orbit)
         {
-            const float yawRad =
-                glm::radians(yawDeg.load(std::memory_order_relaxed));
-            const float pitchRad =
-                glm::radians(pitchDeg.load(std::memory_order_relaxed));
-            const float dist = std::max(0.05f, orbit.distance);
+            const float yawRad   = glm::radians(orbit.yawDeg);
+            const float pitchRad = glm::radians(orbit.pitchDeg);
+            const float dist     = std::max(0.05f, orbit.distance);
 
             const glm::vec3 offset {
                 dist * std::cos(pitchRad) * std::sin(yawRad),
@@ -807,21 +809,20 @@ namespace FREYA_NAMESPACE
         mImpl->physicalDevice  = serviceProvider->GetService<PhysicalDevice>();
         mImpl->options         = serviceProvider->GetService<FreyaOptions>();
         mImpl->commandPool     = serviceProvider->GetService<CommandPool>();
-        mImpl->yawDeg.store(mImpl->orbit.yawDeg, std::memory_order_relaxed);
-        mImpl->pitchDeg.store(mImpl->orbit.pitchDeg, std::memory_order_relaxed);
         mImpl->rebuildTarget(extent);
     }
 
     UiModelPreview::~UiModelPreview()
     {
         if (mImpl && mImpl->device)
-            mImpl->device->Get().waitIdle();
+            mImpl->device->WaitIdle();
         if (mImpl)
             mImpl->destroyGpu();
     }
 
     void UiModelPreview::Resize(const glm::uvec2 extent)
     {
+        std::lock_guard lock(mImpl->renderMutex);
         if (extent.x == mImpl->extent.x && extent.y == mImpl->extent.y)
             return;
         const auto sc = mImpl->swapChain;
@@ -832,30 +833,27 @@ namespace FREYA_NAMESPACE
 
     TextureHandle UiModelPreview::Texture() const
     {
+        std::lock_guard lock(mImpl->renderMutex);
         return mImpl->liveTexture;
     }
 
     glm::uvec2 UiModelPreview::Extent() const
     {
+        std::lock_guard lock(mImpl->renderMutex);
         return mImpl->extent;
     }
 
-    UiModelPreviewOrbit& UiModelPreview::Orbit()
+    UiModelPreviewOrbit UiModelPreview::Orbit() const
     {
-        return mImpl->orbit;
-    }
-
-    const UiModelPreviewOrbit& UiModelPreview::Orbit() const
-    {
-        return mImpl->orbit;
+        return mImpl->orbitState.Snapshot().orbit;
     }
 
     void UiModelPreview::SetOrbit(const UiModelPreviewOrbit& orbit)
     {
-        mImpl->orbit = orbit;
-        mImpl->yawDeg.store(orbit.yawDeg, std::memory_order_relaxed);
-        mImpl->pitchDeg.store(orbit.ClampPitch(orbit.pitchDeg),
-                              std::memory_order_relaxed);
+        mImpl->orbitState.WithLock([&](Impl::OrbitState& state) {
+            state.orbit          = orbit;
+            state.orbit.pitchDeg = orbit.ClampPitch(orbit.pitchDeg);
+        });
     }
 
     Scene& UiModelPreview::PreviewScene()
@@ -880,28 +878,23 @@ namespace FREYA_NAMESPACE
 
     void UiModelPreview::FeedMouseMove(const float deltaX, const float deltaY)
     {
-        if (!mImpl->orbit.enabled || !mImpl->dragging)
-            return;
-        const float sens = mImpl->orbit.sensitivity;
-        float       yaw =
-            mImpl->yawDeg.load(std::memory_order_relaxed) + deltaX * sens;
-        float pitch =
-            mImpl->pitchDeg.load(std::memory_order_relaxed) - deltaY * sens;
-        pitch = mImpl->orbit.ClampPitch(pitch);
-        mImpl->yawDeg.store(yaw, std::memory_order_relaxed);
-        mImpl->pitchDeg.store(pitch, std::memory_order_relaxed);
-        mImpl->orbit.yawDeg   = yaw;
-        mImpl->orbit.pitchDeg = pitch;
+        mImpl->orbitState.WithLock([&](Impl::OrbitState& state) {
+            auto& orbit = state.orbit;
+            if (!orbit.enabled || !state.dragging)
+                return;
+            orbit.yawDeg += deltaX * orbit.sensitivity;
+            orbit.pitchDeg =
+                orbit.ClampPitch(orbit.pitchDeg - deltaY * orbit.sensitivity);
+        });
     }
 
     void UiModelPreview::FeedMouseButton(const MouseButton button,
                                          const bool        down)
     {
-        if (!mImpl->orbit.enabled)
-            return;
-        if (button != mImpl->orbit.dragButton)
-            return;
-        mImpl->dragging = down;
+        mImpl->orbitState.WithLock([&](Impl::OrbitState& state) {
+            if (state.orbit.enabled && button == state.orbit.dragButton)
+                state.dragging = down;
+        });
     }
 
     void UiModelPreview::SetFrameDelta(const float dt)
@@ -911,17 +904,10 @@ namespace FREYA_NAMESPACE
 
     void UiModelPreview::SetActive(const bool active)
     {
-        const bool was =
-            mImpl->active.exchange(active, std::memory_order_relaxed);
-        if (was && !active)
-        {
-            // Drop the mini deferred/shadow stack while hidden so maximize
-            // does not compete for VRAM with a second full GPU path.
-            if (mImpl->device)
-                mImpl->device->Get().waitIdle();
-            mImpl->destroyPasses();
-            mImpl->swapChain.reset();
-        }
+        // UI may hide a preview after Record but before frame submission.
+        // waitIdle cannot retire resources in an unsubmitted command buffer;
+        // keep the stack alive until resize/destruction on the coordinator.
+        mImpl->active.store(active, std::memory_order_relaxed);
     }
 
     bool UiModelPreview::IsActive() const
@@ -933,6 +919,7 @@ namespace FREYA_NAMESPACE
                                 const skr::Arc<SwapChain>&   swapChain,
                                 const std::uint32_t          frameIndex)
     {
+        std::lock_guard lock(mImpl->renderMutex);
         if (!mImpl->renderTarget)
             return;
         if (!mImpl->active.load(std::memory_order_relaxed))
@@ -940,14 +927,15 @@ namespace FREYA_NAMESPACE
 
         const float dt =
             mImpl->frameDt.exchange(0.f, std::memory_order_relaxed);
-        mImpl->updateOrbit(dt);
-        mImpl->applyCamera();
+        mImpl->orbit = mImpl->updateOrbit(dt);
+        mImpl->applyCamera(mImpl->orbit);
         mImpl->recordDeferred(commandPool, swapChain, frameIndex);
     }
 
     TextureHandle UiModelPreview::CaptureSnapshot(TexturePool&     pool,
                                                   const glm::uvec2 size)
     {
+        std::lock_guard lock(mImpl->renderMutex);
         if (!mImpl->renderTarget || !mImpl->device || !mImpl->commandPool)
             return {};
 
@@ -961,7 +949,7 @@ namespace FREYA_NAMESPACE
         const auto dstW = size.x > 0 ? size.x : srcW;
         const auto dstH = size.y > 0 ? size.y : srcH;
 
-        mImpl->device->Get().waitIdle();
+        mImpl->device->WaitIdle();
 
         const std::uint64_t byteSize =
             static_cast<std::uint64_t>(srcW) * srcH * 4u;

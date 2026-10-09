@@ -39,7 +39,7 @@ namespace FREYA_NAMESPACE
 
     SsaoPass::~SsaoPass()
     {
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
         auto& vkDevice = mDevice->Get();
 
         vkDevice.destroyPipeline(mSsaoPipeline);
@@ -101,7 +101,7 @@ namespace FREYA_NAMESPACE
             mBoundNormalView == normalView)
             return;
 
-        mDevice->Get().waitIdle();
+        mDevice->WaitIdle();
 
         const auto imageInfos = std::array {
             // 0 depth, 1 normal, 2 noise, 3 ssao raw storage
